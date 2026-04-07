@@ -12,3 +12,6 @@ export type DateFilter = "today" | "week" | "month" | "all";
 
 /** View mode for the webview. */
 export type View = "list" | "detail";
+
+/** Top-level tab in the webview. */
+export type Tab = "sessions" | "skills" | "commands" | "hooks" | "mcp" | "agents";

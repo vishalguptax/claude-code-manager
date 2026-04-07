@@ -76,6 +76,14 @@ export const ICONS: Record<string, string> = {
   /** LinkedIn logo -- used in footer */
   "linkedin":
     `<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/>`,
+
+  /** Search magnifying glass -- used for search icon */
+  "search":
+    `<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`,
+
+  /** File text -- used for skill file icon */
+  "file-text":
+    `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>`,
 };
 
 /**

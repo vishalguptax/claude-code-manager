@@ -23,7 +23,18 @@ import {
 } from "./commands";
 import { getWebviewHtml } from "../../extension/html";
 import { getWorkspace } from "../../extension/workspace";
+import { parseSkills } from "../skills/parser";
+import { parseCommands } from "../commands/parser";
+import { parseHooks } from "../hooks/parser";
+import { parseMcpServers } from "../mcp/parser";
+import { parseAgents } from "../agents/parser";
 import type { WebviewMessage, Session } from "./types";
+import type { Skill } from "../skills/types";
+import type { Command } from "../commands/types";
+import type { Hook } from "../hooks/types";
+import type { McpServer } from "../mcp/types";
+import type { Agent } from "../agents/types";
+import * as path from "path";
 
 /**
  * Provides the webview content for the Claude Code Manager sidebar panel.
@@ -32,6 +43,11 @@ import type { WebviewMessage, Session } from "./types";
 export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private sessions: Session[] = [];
+  private skills: Skill[] = [];
+  private commands: Command[] = [];
+  private hooks: Hook[] = [];
+  private mcpServers: McpServer[] = [];
+  private agents: Agent[] = [];
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -152,6 +168,128 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       case "openUrl":
         vscode.env.openExternal(vscode.Uri.parse(msg.url));
         break;
+
+      // ── Skills messages ──
+
+      case "getSkills": {
+        const workspace = getWorkspace();
+        this.skills = parseSkills(workspace || undefined);
+        wv.postMessage({ type: "skills", data: this.skills });
+        break;
+      }
+
+      case "getSkillDetail": {
+        const skill = this.skills.find((s) => s.id === (msg as { type: string; skillId: string }).skillId);
+        if (skill) {
+          wv.postMessage({ type: "skillDetail", data: skill });
+        }
+        break;
+      }
+
+      case "openSkillFile": {
+        const skillPath = (msg as { type: string; skillPath: string }).skillPath;
+        const skillFile = path.join(skillPath, "SKILL.md");
+        try {
+          const doc = await vscode.workspace.openTextDocument(skillFile);
+          await vscode.window.showTextDocument(doc);
+        } catch {
+          vscode.window.showErrorMessage(`Could not open ${skillFile}`);
+        }
+        break;
+      }
+
+      // ── Commands messages ──
+
+      case "getCommands": {
+        const workspace = getWorkspace();
+        this.commands = parseCommands(workspace || undefined);
+        wv.postMessage({ type: "commands", data: this.commands });
+        break;
+      }
+
+      case "openCommandFile": {
+        const cmdPath = (msg as { type: string; path: string }).path;
+        try {
+          const doc = await vscode.workspace.openTextDocument(cmdPath);
+          await vscode.window.showTextDocument(doc);
+        } catch {
+          vscode.window.showErrorMessage(`Could not open ${cmdPath}`);
+        }
+        break;
+      }
+
+      // ── Hooks messages ──
+
+      case "getHooks": {
+        this.hooks = parseHooks();
+        wv.postMessage({ type: "hooks", data: this.hooks });
+        break;
+      }
+
+      // ── MCP messages ──
+
+      case "getMcpServers": {
+        const workspace = getWorkspace();
+        this.mcpServers = parseMcpServers(workspace || undefined);
+        wv.postMessage({ type: "mcpServers", data: this.mcpServers });
+        break;
+      }
+
+      case "openMcpConfig": {
+        const scope = (msg as { type: string; scope: string }).scope;
+        let configPath: string;
+        if (scope === "project") {
+          const workspace = getWorkspace();
+          if (!workspace) {
+            vscode.window.showErrorMessage("No workspace folder open");
+            break;
+          }
+          configPath = path.join(workspace, ".mcp.json");
+        } else {
+          const os = await import("os");
+          configPath = path.join(os.homedir(), ".claude", "mcp.json");
+        }
+        try {
+          const doc = await vscode.workspace.openTextDocument(configPath);
+          await vscode.window.showTextDocument(doc);
+        } catch {
+          vscode.window.showErrorMessage(`Could not open ${configPath}`);
+        }
+        break;
+      }
+
+      // ── Agents messages ──
+
+      case "getAgents": {
+        const workspace = getWorkspace();
+        this.agents = parseAgents(workspace || undefined);
+        wv.postMessage({ type: "agents", data: this.agents });
+        break;
+      }
+
+      case "openAgentFile": {
+        const agentPath = (msg as { type: string; path: string }).path;
+        try {
+          const doc = await vscode.workspace.openTextDocument(agentPath);
+          await vscode.window.showTextDocument(doc);
+        } catch {
+          vscode.window.showErrorMessage(`Could not open ${agentPath}`);
+        }
+        break;
+      }
+
+      // ── Generic file open ──
+
+      case "openFile": {
+        const filePath = (msg as { type: string; path: string }).path;
+        try {
+          const doc = await vscode.workspace.openTextDocument(filePath);
+          await vscode.window.showTextDocument(doc);
+        } catch {
+          vscode.window.showErrorMessage(`Could not open ${filePath}`);
+        }
+        break;
+      }
     }
   }
 }

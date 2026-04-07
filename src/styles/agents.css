@@ -1,0 +1,186 @@
+/* ============================================================================
+   Claude Code Manager — Agents Styles
+   Agent list items, detail view, model badges, prompt display
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Agents — Empty State
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.agent-empty {
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.agent-empty-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 12px;
+}
+
+.agent-empty-desc {
+  font-size: var(--fs-base);
+  color: var(--fg-dim);
+  line-height: 1.6;
+  text-align: left;
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+.agent-empty-desc code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Agents — List
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.agent-list-count {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  padding: 4px 14px 2px;
+}
+
+.agent-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.agent-item:last-child         { border-bottom: none; }
+.agent-item:hover              { background: var(--bg-hover); }
+.agent-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
+
+.agent-item-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.agent-item-name {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.agent-item.active .agent-item-name { color: var(--bg-active-fg); }
+
+.agent-item-desc {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 4px;
+}
+.agent-item.active .agent-item-desc { color: var(--bg-active-fg); opacity: 0.65; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Agents — Model Badge
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.agent-model-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  height: 18px;
+}
+
+.agent-model-sonnet {
+  background: rgba(56, 139, 253, 0.15);
+  color: #58a6ff;
+}
+
+.agent-model-opus {
+  background: rgba(163, 113, 247, 0.15);
+  color: #a371f7;
+}
+
+.agent-model-haiku {
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Agents — Detail View
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.agent-detail-head {
+  padding: 6px 14px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-detail-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.agent-detail-desc {
+  font-size: var(--fs-base);
+  color: var(--fg-dim);
+  padding: 0 14px 10px;
+  line-height: 1.5;
+}
+
+.agent-detail-actions {
+  display: flex;
+  gap: 5px;
+  padding: 0 14px 10px;
+}
+
+.agent-detail-path {
+  padding: 0 14px 10px;
+  word-break: break-all;
+}
+
+.agent-detail-content {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.agent-detail-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+
+.agent-detail-pre {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 0;
+}

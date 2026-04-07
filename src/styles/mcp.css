@@ -1,0 +1,247 @@
+/* ============================================================================
+   Claude Code Manager — MCP Servers Styles
+   Server list items, detail view, type badges, env var display
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Empty State
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-empty {
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.mcp-empty-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 12px;
+}
+
+.mcp-empty-desc {
+  font-size: var(--fs-base);
+  color: var(--fg-dim);
+  line-height: 1.6;
+  text-align: left;
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+.mcp-empty-desc code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — List
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-list-count {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  padding: 4px 14px 2px;
+}
+
+.mcp-group-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-muted);
+  padding: 14px 14px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mcp-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.mcp-item:last-child         { border-bottom: none; }
+.mcp-item:hover              { background: var(--bg-hover); }
+.mcp-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
+
+.mcp-item-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mcp-item-name {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.mcp-item.active .mcp-item-name { color: var(--bg-active-fg); }
+
+.mcp-item-detail {
+  font-size: var(--fs-sm);
+  font-family: var(--mono);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 4px;
+}
+.mcp-item.active .mcp-item-detail { color: var(--bg-active-fg); opacity: 0.65; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Type Badge
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-type-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  height: 18px;
+}
+
+.mcp-type-stdio {
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+}
+
+.mcp-type-http {
+  background: rgba(56, 139, 253, 0.15);
+  color: #58a6ff;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Scope Badge
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  height: 18px;
+}
+
+.mcp-scope-project {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.mcp-scope-global {
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Detail View
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-detail-head {
+  padding: 6px 14px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mcp-detail-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.mcp-detail-actions {
+  display: flex;
+  gap: 5px;
+  padding: 0 14px 10px;
+}
+
+.mcp-detail-section {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.mcp-detail-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+
+.mcp-detail-kv {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+}
+
+.mcp-detail-k {
+  color: var(--fg-dim);
+  min-width: 70px;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.mcp-detail-v {
+  color: var(--fg);
+  word-break: break-all;
+}
+
+.mcp-detail-v.mono {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Environment Variables
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-env-row {
+  display: flex;
+  gap: 10px;
+  padding: 4px 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.mcp-env-key {
+  font-family: var(--mono);
+  color: var(--fg);
+  font-weight: 500;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.mcp-env-value {
+  font-family: var(--mono);
+  color: var(--fg-dim);
+  word-break: break-all;
+}

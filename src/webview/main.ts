@@ -1,10 +1,11 @@
 /**
- * Webview entry point -- initialization, message listener, and mounting.
+ * Webview entry point -- initialization, message listener, tab system, and mounting.
  *
  * This file is the single entry point bundled by esbuild. It acquires the
- * VS Code API once, initializes the api module, sends the "ready" signal,
+ * VS Code API once, initializes the api modules, sends the "ready" signal,
  * and dispatches all incoming messages to the appropriate state updates
- * and view re-renders.
+ * and view re-renders. Provides a tab bar to switch between Sessions, Skills,
+ * Commands, Hooks, MCP, and Agents tabs.
  */
 
 import { initApi, sendReady } from "../features/sessions/webview/api";
@@ -22,20 +23,175 @@ import {
 } from "../features/sessions/webview/state";
 import { mountShell, updateList, updateFilter, showList } from "../features/sessions/webview/views/listView";
 import { showDetail } from "../features/sessions/webview/views/detailView";
-import type { VSCodeAPI } from "./types";
+import { initSkillsApi, sendGetSkills } from "../features/skills/webview/api";
+import {
+  setAllSkills,
+  setSelectedSkill,
+  isSkillsShellMounted,
+} from "../features/skills/webview/state";
+import { mountSkillsShell, updateSkillsList } from "../features/skills/webview/views/listView";
+import { showSkillDetail } from "../features/skills/webview/views/detailView";
+import { initCommandsTab, mount as mountCommands, unmount as unmountCommands } from "../features/commands/webview/tab";
+import { initHooksTab, mount as mountHooks, unmount as unmountHooks } from "../features/hooks/webview/tab";
+import { initMcpTab, mount as mountMcp, unmount as unmountMcp } from "../features/mcp/webview/tab";
+import { initAgentsTab, mount as mountAgents, unmount as unmountAgents } from "../features/agents/webview/tab";
+import type { VSCodeAPI, Tab } from "./types";
 import type { Session, SessionDetail, Stats, SessionGroup } from "../features/sessions/types";
+import type { Skill } from "../features/skills/types";
+
+// ── Tab state ──
+
+let activeTab: Tab = "sessions";
+let tabShellMounted = false;
+
+/** All tabs in display order. */
+const ALL_TABS: Tab[] = ["sessions", "skills", "commands", "hooks", "mcp", "agents"];
+
+/** Display labels for each tab. */
+const TAB_LABELS: Record<Tab, string> = {
+  sessions: "Sessions",
+  skills: "Skills",
+  commands: "Commands",
+  hooks: "Hooks",
+  mcp: "MCP",
+  agents: "Agents",
+};
 
 // ── Bootstrap ──
 
 declare function acquireVsCodeApi(): VSCodeAPI;
 const vscode = acquireVsCodeApi();
 initApi(vscode);
+initSkillsApi(vscode);
+initCommandsTab(vscode);
+initHooksTab(vscode);
+initMcpTab(vscode);
+initAgentsTab(vscode);
+
+/**
+ * Mount the top-level tab bar and content containers inside the existing #root div.
+ * The sessions feature will mount into #sessionsContent and each other feature
+ * into its own container. We override getElementById to redirect "root" lookups to
+ * the sessions container so existing session code works unchanged.
+ */
+function mountTabShell(): void {
+  const root = document.getElementById("root");
+  if (!root) return;
+
+  const tabButtons = ALL_TABS.map(
+    (tab) => `<button class="tab-btn ${tab === "sessions" ? "active" : ""}" data-tab="${tab}">${TAB_LABELS[tab]}</button>`,
+  ).join("");
+
+  const contentDivs = ALL_TABS.map(
+    (tab) => `<div id="${tab}Content" class="tab-content ${tab !== "sessions" ? "hidden" : ""}"></div>`,
+  ).join("");
+
+  root.innerHTML = `
+    <div id="tabBar" class="tab-bar">${tabButtons}</div>
+    ${contentDivs}`;
+
+  // Alias skillsRoot -> skillsContent for backward compat with skills feature
+  const skillsContent = document.getElementById("skillsContent");
+  if (skillsContent) {
+    skillsContent.id = "skillsRoot";
+  }
+
+  // Bind tab buttons
+  document.querySelectorAll("[data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = (btn as HTMLElement).dataset.tab as Tab;
+      switchTab(tab);
+    });
+  });
+
+  tabShellMounted = true;
+}
+
+/**
+ * Get the sessions content container element.
+ * Used to redirect session feature mounts to the correct container.
+ */
+function getSessionsContainer(): HTMLElement | null {
+  return document.getElementById("sessionsContent");
+}
+
+/** Track which tab-based features have been mounted at least once. */
+const mountedTabs = new Set<Tab>();
+
+/** Mount/unmount lifecycle for tab-based features (commands, hooks, mcp, agents). */
+const tabLifecycle: Record<string, { mount: (container: HTMLElement) => void; unmount: () => void }> = {
+  commands: { mount: mountCommands, unmount: unmountCommands },
+  hooks: { mount: mountHooks, unmount: unmountHooks },
+  mcp: { mount: mountMcp, unmount: unmountMcp },
+  agents: { mount: mountAgents, unmount: unmountAgents },
+};
+
+/**
+ * Switch the active tab and show/hide the corresponding content containers.
+ * Lazy-loads tab content on first activation.
+ *
+ * @param tab - The tab to activate
+ */
+function switchTab(tab: Tab): void {
+  if (tab === activeTab) return;
+
+  // Unmount the previous tab-based feature if it has lifecycle
+  if (tabLifecycle[activeTab]) {
+    tabLifecycle[activeTab].unmount();
+  }
+
+  activeTab = tab;
+
+  // Update tab button styling
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", (btn as HTMLElement).dataset.tab === tab);
+  });
+
+  // Show/hide content containers
+  for (const t of ALL_TABS) {
+    const contentId = t === "skills" ? "skillsRoot" : `${t}Content`;
+    const el = document.getElementById(contentId);
+    if (el) {
+      el.classList.toggle("hidden", t !== tab);
+    }
+  }
+
+  // Handle tab-specific initialization
+  if (tab === "skills") {
+    if (!isSkillsShellMounted()) {
+      sendGetSkills();
+    }
+  } else if (tabLifecycle[tab]) {
+    const container = document.getElementById(`${tab}Content`);
+    if (container) {
+      tabLifecycle[tab].mount(container);
+      mountedTabs.add(tab);
+    }
+  }
+}
+
+// Mount the tab shell first, then redirect #root for session feature compatibility
+mountTabShell();
+
+// Patch getElementById so that the sessions feature's lookups for "root"
+// are redirected to #sessionsContent. This avoids modifying session code.
+const _origGetById = document.getElementById.bind(document);
+document.getElementById = function (id: string): HTMLElement | null {
+  if (id === "root") {
+    return _origGetById("sessionsContent");
+  }
+  return _origGetById(id);
+};
+
+// Then send the ready signal to load sessions
 sendReady();
 
 // ── Message handler ──
 
 window.addEventListener("message", (event: MessageEvent) => {
   const msg = event.data as Record<string, unknown>;
+
+  // ── Sessions messages ──
 
   if (msg.type === "workspacePath") {
     setWorkspacePath(msg.data as string);
@@ -60,6 +216,16 @@ window.addEventListener("message", (event: MessageEvent) => {
     if (getView() === "detail" && getDetail()) showDetail();
   } else if (msg.type === "navigateList") {
     showList();
+
+  // ── Skills messages ──
+
+  } else if (msg.type === "skills") {
+    setAllSkills(msg.data as Skill[]);
+    if (!isSkillsShellMounted()) mountSkillsShell();
+    updateSkillsList();
+  } else if (msg.type === "skillDetail") {
+    setSelectedSkill(msg.data as Skill);
+    showSkillDetail();
   } else if (msg.type === "sessionDetail") {
     setDetail(msg.data as SessionDetail);
     setLoading(false);

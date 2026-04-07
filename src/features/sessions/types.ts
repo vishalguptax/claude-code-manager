@@ -142,4 +142,15 @@ export type WebviewMessage =
   | { type: "confirmDelete"; sessionId: string; callback?: string }
   | { type: "copyCommand"; sessionId: string }
   | { type: "copyMarkdown"; sessionId: string }
-  | { type: "openUrl"; url: string };
+  | { type: "openUrl"; url: string }
+  | { type: "getSkills" }
+  | { type: "getSkillDetail"; skillId: string }
+  | { type: "openSkillFile"; skillPath: string }
+  | { type: "getCommands" }
+  | { type: "openCommandFile"; path: string }
+  | { type: "getHooks" }
+  | { type: "getMcpServers" }
+  | { type: "openMcpConfig"; scope: string }
+  | { type: "getAgents" }
+  | { type: "openAgentFile"; path: string }
+  | { type: "openFile"; path: string };

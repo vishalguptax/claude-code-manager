@@ -1,0 +1,261 @@
+/* ============================================================================
+   Claude Code Manager — Commands & Hooks Feature Styles
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Commands — Empty State
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.cmd-empty,
+.hook-empty {
+  text-align: center;
+  padding: 32px 20px;
+}
+
+.cmd-empty-title,
+.hook-empty-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 12px;
+}
+
+.cmd-empty-desc,
+.hook-empty-desc {
+  font-size: var(--fs-base);
+  color: var(--fg-dim);
+  line-height: 1.6;
+  text-align: left;
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+.cmd-empty-desc code,
+.hook-empty-desc code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Commands — List
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.cmd-list-count,
+.hook-list-count {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  padding: 4px 14px 2px;
+}
+
+.cmd-group-label,
+.hook-group-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-muted);
+  padding: 14px 14px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cmd-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.cmd-item:last-child         { border-bottom: none; }
+.cmd-item:hover              { background: var(--bg-hover); }
+.cmd-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
+
+.cmd-item-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cmd-item-name {
+  font-size: var(--fs-md);
+  font-family: var(--mono);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+.cmd-item.active .cmd-item-name { color: var(--bg-active-fg); }
+
+.cmd-item-preview {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 4px;
+}
+.cmd-item.active .cmd-item-preview { color: var(--bg-active-fg); opacity: 0.65; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Commands — Scope Badge
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.cmd-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  height: 18px;
+}
+
+.cmd-scope-global {
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+}
+
+.cmd-scope-project {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Commands — Detail View
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.cmd-detail-head {
+  padding: 6px 14px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cmd-detail-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  font-family: var(--mono);
+  color: var(--fg);
+}
+
+.cmd-detail-actions {
+  display: flex;
+  gap: 5px;
+  padding: 0 14px 10px;
+}
+
+.cmd-detail-path {
+  padding: 0 14px 10px;
+  word-break: break-all;
+}
+
+.cmd-detail-content {
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.cmd-detail-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--fg-muted);
+  margin-bottom: 8px;
+}
+
+.cmd-detail-pre {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 0;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Hooks — List Items
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.hook-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.hook-item:last-child        { border-bottom: none; }
+
+.hook-item-row1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.hook-matcher {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-sm);
+  font-family: var(--mono);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  height: 18px;
+}
+
+.hook-matcher-all {
+  color: var(--fg-muted);
+}
+
+.hook-item-command {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  line-height: 1.5;
+}
+
+.hook-item-command code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  background: var(--input-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Hooks — Example Code Block (empty state)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.hook-example {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  margin-top: 8px;
+  white-space: pre;
+  overflow-x: auto;
+  text-align: left;
+  line-height: 1.5;
+}

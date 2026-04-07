@@ -56,7 +56,7 @@
   "scripts": {
     "build:extension": "esbuild src/extension/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
     "build:webview": "esbuild src/webview/main.ts --bundle --outfile=dist/webview/main.js --format=iife --platform=browser",
-    "copy:css": "node -e \"const fs=require('fs');const out=['src/styles/base.css','src/styles/components.css','src/styles/sessions.css'].map(f=>fs.readFileSync(f,'utf-8')).join('\\n');fs.mkdirSync('dist/webview',{recursive:true});fs.writeFileSync('dist/webview/styles.css',out)\"",
+    "copy:css": "node -e \"const fs=require('fs');const out=['src/styles/base.css','src/styles/components.css','src/styles/sessions.css','src/styles/skills.css','src/styles/features.css','src/styles/mcp.css','src/styles/agents.css'].map(f=>fs.readFileSync(f,'utf-8')).join('\\n');fs.mkdirSync('dist/webview',{recursive:true});fs.writeFileSync('dist/webview/styles.css',out)\"",
     "build": "npm run build:extension && npm run build:webview && npm run copy:css",
     "watch:extension": "npm run build:extension -- --watch",
     "watch:webview": "npm run build:webview -- --watch",

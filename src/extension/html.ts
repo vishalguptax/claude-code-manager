@@ -85,7 +85,7 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       background: var(--vscode-scrollbarSlider-background);
       border-radius: 3px;
     }
-    #root { height: 100vh; }
+    #root { height: 100vh; display: flex; flex-direction: column; }
   </style>
 </head>
 <body>

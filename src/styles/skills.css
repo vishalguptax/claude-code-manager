@@ -1,0 +1,97 @@
+/* ============================================================================
+   Claude Session Manager — Skills Styles
+   Skills list items, detail view, scope badges, content display
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Tab Bar
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--fg-dim);
+  font-size: var(--fs-md);
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+}
+.tab-btn:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+.tab-btn.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Tab Content Containers
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.tab-content .panel {
+  height: 100%;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Scope Badge
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.skill-scope-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  height: 18px;
+  flex-shrink: 0;
+}
+.scope-project {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.scope-global {
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Skill Content (SKILL.md body)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.skill-content {
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--mono);
+  padding: 8px 0;
+}
