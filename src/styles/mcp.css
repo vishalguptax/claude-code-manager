@@ -10,14 +10,14 @@
 
 .mcp-empty {
   text-align: center;
-  padding: 32px 20px;
+  padding: var(--space-2xl) var(--space-2xl);
 }
 
 .mcp-empty-title {
   font-size: var(--fs-lg);
   font-weight: 600;
   color: var(--fg);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-xl);
 }
 
 .mcp-empty-desc {

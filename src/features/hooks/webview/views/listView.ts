@@ -1,9 +1,17 @@
 /**
- * Hooks list view — renders the hook list grouped by event type.
+ * Hooks list view — renders the hook list with search, grouped by event type.
  */
 
+import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
-import { getAllHooks, getHooksByEvent } from "../state";
+import { sendGetHooks } from "../api";
+import {
+  getAllHooks,
+  getFilteredHooks,
+  getFilteredHooksByEvent,
+  getSearchQuery,
+  setSearchQuery,
+} from "../state";
 import { renderHookItem } from "../components/hookItem";
 
 /** Map event names to user-friendly display labels. */
@@ -15,18 +23,85 @@ const EVENT_LABELS: Record<string, string> = {
   SubagentStop: "Subagent Stop",
 };
 
+let _searchTimer: ReturnType<typeof setTimeout>;
+
 /**
  * Render the hooks list into the given container.
- * Groups hooks by event type with descriptive headers.
+ * Includes a search bar, refresh button, and hooks grouped by event type.
  * Shows an empty state when no hooks are configured.
  *
  * @param container - The DOM element to render into
  */
 export function renderHooksList(container: HTMLElement): void {
   const hooks = getAllHooks();
+  const searchQuery = getSearchQuery();
 
-  if (hooks.length === 0) {
-    container.innerHTML = `
+  let shell = `
+    <div class="actions-bar">
+      <button class="action-btn icon-only" id="hookRefresh" title="Refresh hooks">${icon("refresh-cw")}</button>
+    </div>
+    <div class="feature-search">
+      <input id="hookSearch" type="text" placeholder="Search hooks..." value="${esc(searchQuery)}" />
+      <div class="search-actions">
+        <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="hookSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
+      </div>
+    </div>
+    <div id="hookListInner"></div>`;
+
+  container.innerHTML = shell;
+
+  // Bind search
+  const searchInput = container.querySelector("#hookSearch") as HTMLInputElement | null;
+  const clearBtn = container.querySelector("#hookSearchClear");
+
+  searchInput?.addEventListener("input", () => {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(() => {
+      const q = searchInput.value.toLowerCase();
+      setSearchQuery(q);
+      clearBtn?.classList.toggle("is-hidden", !q);
+      updateHooksListInner(container);
+    }, 150);
+  });
+
+  searchInput?.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      searchInput.value = "";
+      setSearchQuery("");
+      clearBtn?.classList.add("is-hidden");
+      updateHooksListInner(container);
+      searchInput.focus();
+    }
+  });
+
+  clearBtn?.addEventListener("click", () => {
+    if (searchInput) searchInput.value = "";
+    setSearchQuery("");
+    clearBtn?.classList.add("is-hidden");
+    updateHooksListInner(container);
+    searchInput?.focus();
+  });
+
+  // Bind refresh
+  container.querySelector("#hookRefresh")?.addEventListener("click", () => sendGetHooks());
+
+  // Render inner list
+  updateHooksListInner(container);
+}
+
+/**
+ * Update just the inner hook list items without rebuilding the full shell.
+ * @param container - The parent DOM element containing #hookListInner
+ */
+function updateHooksListInner(container: HTMLElement): void {
+  const inner = container.querySelector("#hookListInner");
+  if (!inner) return;
+
+  const allHooks = getAllHooks();
+  const searchQuery = getSearchQuery();
+
+  if (allHooks.length === 0) {
+    inner.innerHTML = `
       <div class="hook-empty">
         <div class="hook-empty-title">No hooks configured</div>
         <div class="hook-empty-desc">
@@ -47,9 +122,16 @@ export function renderHooksList(container: HTMLElement): void {
     return;
   }
 
-  const groups = getHooksByEvent();
+  const filtered = getFilteredHooks();
 
-  let h = `<div class="hook-list-count">${hooks.length} hook${hooks.length !== 1 ? "s" : ""}</div>`;
+  if (filtered.length === 0) {
+    inner.innerHTML = `<div class="empty">No matching hooks</div>`;
+    return;
+  }
+
+  const groups = getFilteredHooksByEvent();
+
+  let h = `<div class="hook-list-count">${filtered.length} hook${filtered.length !== 1 ? "s" : ""}</div>`;
 
   for (const [event, eventHooks] of groups) {
     const label = EVENT_LABELS[event] ?? event;
@@ -59,5 +141,5 @@ export function renderHooksList(container: HTMLElement): void {
     }
   }
 
-  container.innerHTML = h;
+  inner.innerHTML = h;
 }

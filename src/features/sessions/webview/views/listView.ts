@@ -32,7 +32,6 @@ import { renderSearchBar, bindSearchBar } from "../components/searchBar";
 import { renderDropdown, bindDropdown, updateDropdown } from "../components/dropdown";
 import { renderDateChips, bindDateChips } from "../components/dateChips";
 import { renderSessionItem, bindSessionItems } from "../components/sessionItem";
-import { renderFooter, bindFooter } from "../components/footer";
 
 /**
  * Build the initial shell HTML for the list view and wire up all
@@ -55,7 +54,6 @@ export function mountShell(): void {
       ${renderDropdown()}
       ${renderDateChips()}
       <div id="sessionList" class="list"></div>
-      ${renderFooter()}
     </div>
     <div class="panel hidden" id="detailView"></div>`;
 
@@ -73,8 +71,6 @@ export function mountShell(): void {
     if (recent.length) sendResumeMultiple(recent.map((s) => s.id), recent.map((s) => s.projectPath));
   });
   document.getElementById("actRefresh")?.addEventListener("click", () => sendRefresh());
-
-  bindFooter();
 
   setShellMounted(true);
 }

@@ -5,58 +5,6 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Tab Bar
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.tab-bar {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.tab-btn {
-  flex: 1;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--fg-dim);
-  font-size: var(--fs-md);
-  font-family: inherit;
-  cursor: pointer;
-  transition: color 0.1s, border-color 0.1s;
-}
-.tab-btn:hover {
-  color: var(--fg);
-  background: var(--bg-hover);
-}
-.tab-btn.active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
-  font-weight: 600;
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Tab Content Containers
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.tab-content {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-.tab-content .panel {
-  height: 100%;
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
    Scope Badge
    ────────────────────────────────────────────────────────────────────────────── */
 
@@ -93,5 +41,5 @@
   white-space: pre-wrap;
   word-break: break-word;
   font-family: var(--mono);
-  padding: 8px 0;
+  padding: var(--space-md) 0;
 }

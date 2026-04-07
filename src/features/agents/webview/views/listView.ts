@@ -1,30 +1,133 @@
 /**
- * Agents list view — renders the agent list with model badges,
+ * Agents list view — renders the agent list with search and model filter,
  * with click-to-select navigation to the detail view.
  */
 
+import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
+import { sendGetAgents } from "../api";
 import {
   getAllAgents,
+  getFilteredAgents,
+  getAgentsByModel,
+  getSearchQuery,
+  getFilterModel,
   getSelectedAgent,
   setSelectedAgent,
+  setSearchQuery,
+  setFilterModel,
 } from "../state";
 import { renderAgentItem, bindAgentItems } from "../components/agentItem";
 import { showAgentDetail } from "./detailView";
 import type { Agent } from "../../types";
 
+let _searchTimer: ReturnType<typeof setTimeout>;
+
 /**
  * Render the agents list into the given container.
+ * Includes a search bar, model filter buttons, refresh button, and agent items.
  * Shows an empty state when no agents are found.
  *
  * @param container - The DOM element to render into
  */
 export function renderAgentsList(container: HTMLElement): void {
   const agents = getAllAgents();
-  const selected = getSelectedAgent();
+  const searchQuery = getSearchQuery();
+  const model = getFilterModel();
 
-  if (agents.length === 0) {
-    container.innerHTML = `
+  const sonnetCount = getAgentsByModel("sonnet").length;
+  const opusCount = getAgentsByModel("opus").length;
+  const haikuCount = getAgentsByModel("haiku").length;
+
+  let shell = `
+    <div class="actions-bar">
+      <button class="action-btn icon-only" id="agentRefresh" title="Refresh agents">${icon("refresh-cw")}</button>
+    </div>
+    <div class="feature-search">
+      <input id="agentSearch" type="text" placeholder="Search agents..." value="${esc(searchQuery)}" />
+      <div class="search-actions">
+        <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="agentSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
+      </div>
+    </div>`;
+
+  if (agents.length > 0) {
+    shell += `
+    <div class="scope-filter" id="agentModelFilter">
+      <button class="scope-btn ${model === "all" ? "active" : ""}" data-scope="all">All (${agents.length})</button>
+      <button class="scope-btn ${model === "sonnet" ? "active" : ""}" data-scope="sonnet">Sonnet (${sonnetCount})</button>
+      <button class="scope-btn ${model === "opus" ? "active" : ""}" data-scope="opus">Opus (${opusCount})</button>
+      <button class="scope-btn ${model === "haiku" ? "active" : ""}" data-scope="haiku">Haiku (${haikuCount})</button>
+    </div>`;
+  }
+
+  shell += `<div id="agentListInner"></div>`;
+  container.innerHTML = shell;
+
+  // Bind search
+  const searchInput = container.querySelector("#agentSearch") as HTMLInputElement | null;
+  const clearBtn = container.querySelector("#agentSearchClear");
+
+  searchInput?.addEventListener("input", () => {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(() => {
+      const q = searchInput.value.toLowerCase();
+      setSearchQuery(q);
+      clearBtn?.classList.toggle("is-hidden", !q);
+      updateAgentsListInner(container);
+    }, 150);
+  });
+
+  searchInput?.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      searchInput.value = "";
+      setSearchQuery("");
+      clearBtn?.classList.add("is-hidden");
+      updateAgentsListInner(container);
+      searchInput.focus();
+    }
+  });
+
+  clearBtn?.addEventListener("click", () => {
+    if (searchInput) searchInput.value = "";
+    setSearchQuery("");
+    clearBtn?.classList.add("is-hidden");
+    updateAgentsListInner(container);
+    searchInput?.focus();
+  });
+
+  // Bind model filter
+  container.querySelector("#agentModelFilter")?.querySelectorAll(".scope-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const value = (btn as HTMLElement).dataset.scope as "all" | "sonnet" | "opus" | "haiku";
+      if (value) {
+        setFilterModel(value);
+        renderAgentsList(container);
+      }
+    });
+  });
+
+  // Bind refresh
+  container.querySelector("#agentRefresh")?.addEventListener("click", () => sendGetAgents());
+
+  // Render inner list
+  updateAgentsListInner(container);
+}
+
+/**
+ * Update just the inner agent list items without rebuilding the full shell.
+ * @param container - The parent DOM element containing #agentListInner
+ */
+function updateAgentsListInner(container: HTMLElement): void {
+  const inner = container.querySelector("#agentListInner");
+  if (!inner) return;
+
+  const allAgents = getAllAgents();
+  const filtered = getFilteredAgents();
+  const selected = getSelectedAgent();
+  const searchQuery = getSearchQuery();
+
+  if (allAgents.length === 0) {
+    inner.innerHTML = `
       <div class="agent-empty">
         <div class="agent-empty-title">No agents found</div>
         <div class="agent-empty-desc">
@@ -36,15 +139,20 @@ export function renderAgentsList(container: HTMLElement): void {
     return;
   }
 
-  let h = `<div class="agent-list-count">${agents.length} agent${agents.length !== 1 ? "s" : ""}</div>`;
+  if (filtered.length === 0) {
+    inner.innerHTML = `<div class="empty">${searchQuery ? "No matching agents" : "No agents found"}</div>`;
+    return;
+  }
 
-  for (const agent of agents) {
+  let h = `<div class="agent-list-count">${filtered.length} agent${filtered.length !== 1 ? "s" : ""}</div>`;
+
+  for (const agent of filtered) {
     h += renderAgentItem(agent, selected?.path === agent.path);
   }
 
-  container.innerHTML = h;
+  inner.innerHTML = h;
 
-  bindAgentItems(container, agents, (agent: Agent) => {
+  bindAgentItems(inner as HTMLElement, filtered, (agent: Agent) => {
     setSelectedAgent(agent);
     showAgentDetail(container);
   });

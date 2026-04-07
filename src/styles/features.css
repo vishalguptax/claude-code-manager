@@ -10,7 +10,7 @@
 .cmd-empty,
 .hook-empty {
   text-align: center;
-  padding: 32px 20px;
+  padding: var(--space-2xl) var(--space-2xl);
 }
 
 .cmd-empty-title,
@@ -18,7 +18,7 @@
   font-size: var(--fs-lg);
   font-weight: 600;
   color: var(--fg);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-xl);
 }
 
 .cmd-empty-desc,
@@ -50,7 +50,7 @@
 .hook-list-count {
   font-size: var(--fs-sm);
   color: var(--fg-muted);
-  padding: 4px 14px 2px;
+  padding: var(--space-xs) var(--space-2xl) 2px;
 }
 
 .cmd-group-label,
@@ -60,14 +60,14 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-muted);
-  padding: 14px 14px 6px;
+  padding: var(--space-2xl) var(--space-2xl) var(--space-sm);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
 }
 
 .cmd-item {
-  padding: 10px 14px;
+  padding: var(--space-lg) var(--space-2xl);
   cursor: pointer;
   border-bottom: 1px solid var(--border);
 }
@@ -79,7 +79,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-md);
 }
 
 .cmd-item-name {
@@ -100,7 +100,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 4px;
+  margin-top: var(--space-xs);
 }
 .cmd-item.active .cmd-item-preview { color: var(--bg-active-fg); opacity: 0.65; }
 
@@ -138,10 +138,10 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .cmd-detail-head {
-  padding: 6px 14px 10px;
+  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-lg);
 }
 
 .cmd-detail-title {
@@ -154,16 +154,16 @@
 .cmd-detail-actions {
   display: flex;
   gap: 5px;
-  padding: 0 14px 10px;
+  padding: 0 var(--space-2xl) var(--space-lg);
 }
 
 .cmd-detail-path {
-  padding: 0 14px 10px;
+  padding: 0 var(--space-2xl) var(--space-lg);
   word-break: break-all;
 }
 
 .cmd-detail-content {
-  padding: 10px 14px 12px;
+  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
   border-top: 1px solid var(--border);
 }
 
@@ -173,7 +173,7 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--fg-muted);
-  margin-bottom: 8px;
+  margin-bottom: var(--space-md);
 }
 
 .cmd-detail-pre {
@@ -183,7 +183,7 @@
   background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px;
+  padding: var(--space-xl);
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.6;
@@ -197,16 +197,17 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .hook-item {
-  padding: 10px 14px;
+  padding: var(--space-lg) var(--space-2xl);
   border-bottom: 1px solid var(--border);
 }
 .hook-item:last-child        { border-bottom: none; }
+.hook-item:hover             { background: var(--bg-hover); }
 
 .hook-item-row1 {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xs);
 }
 
 .hook-matcher {
@@ -252,8 +253,8 @@
   background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 10px;
-  margin-top: 8px;
+  padding: var(--space-lg);
+  margin-top: var(--space-md);
   white-space: pre;
   overflow-x: auto;
   text-align: left;

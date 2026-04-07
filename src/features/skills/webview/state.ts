@@ -11,6 +11,7 @@ import type { Skill } from "../types";
 let allSkills: Skill[] = [];
 let selectedSkill: Skill | null = null;
 let searchQuery = "";
+let filterScope: "all" | "project" | "global" = "all";
 let skillsShellMounted = false;
 
 // ── Getters ──
@@ -57,14 +58,33 @@ export function setSkillsShellMounted(v: boolean): void {
   skillsShellMounted = v;
 }
 
+/** Return the current scope filter value. */
+export function getFilterScope(): "all" | "project" | "global" {
+  return filterScope;
+}
+
+/** Set the scope filter value. */
+export function setFilterScope(scope: "all" | "project" | "global"): void {
+  filterScope = scope;
+}
+
+/** Return skills filtered by a specific scope. */
+export function getSkillsByScope(scope: "global" | "project"): Skill[] {
+  return allSkills.filter((s) => s.scope === scope);
+}
+
 // ── Derived data ──
 
 /**
- * Return skills filtered by the current search query.
+ * Return skills filtered by the current search query and scope filter.
  * Results are grouped with project skills before global skills.
  */
 export function getFilteredSkills(): Skill[] {
   let list = allSkills;
+
+  if (filterScope !== "all") {
+    list = list.filter((s) => s.scope === filterScope);
+  }
 
   if (searchQuery) {
     list = list.filter(

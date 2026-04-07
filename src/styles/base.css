@@ -55,7 +55,7 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .loading { text-align: center; padding: 24px; font-size: var(--fs-base); color: var(--fg-muted); }
-.empty   { text-align: center; padding: 28px 14px; font-size: var(--fs-base); color: var(--fg-muted); }
+.empty   { text-align: center; padding: 28px var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

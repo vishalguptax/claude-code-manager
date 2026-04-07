@@ -53,6 +53,12 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --menu-bg: var(--vscode-menu-background, var(--input-bg));
       --menu-border: var(--vscode-menu-border, var(--border));
       --menu-fg: var(--vscode-menu-foreground, var(--fg));
+      --color-blue: #58a6ff;
+      --color-blue-bg: rgba(88,166,255,0.15);
+      --color-purple: #a371f7;
+      --color-purple-bg: rgba(163,113,247,0.15);
+      --color-green-badge: #3fb950;
+      --color-green-badge-bg: rgba(63,185,80,0.15);
       --fs-xs: 10px;
       --fs-sm: 11px;
       --fs-base: 12px;

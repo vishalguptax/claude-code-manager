@@ -10,6 +10,7 @@ import type { Hook, HookEvent } from "../types";
 
 let allHooks: Hook[] = [];
 let loading = false;
+let searchQuery = "";
 
 // ── Getters ──
 
@@ -34,6 +35,11 @@ export function isLoading(): boolean {
   return loading;
 }
 
+/** Return the current search query (lowercase). */
+export function getSearchQuery(): string {
+  return searchQuery;
+}
+
 // ── Setters ──
 
 /** Replace the full hook list with newly received data. */
@@ -44,4 +50,40 @@ export function setHooks(hooks: Hook[]): void {
 /** Set the loading flag. */
 export function setLoading(v: boolean): void {
   loading = v;
+}
+
+/** Set the search query string. */
+export function setSearchQuery(q: string): void {
+  searchQuery = q;
+}
+
+// ── Derived data ──
+
+/**
+ * Return hooks filtered by the current search query.
+ * Matches against event type, matcher, and command.
+ */
+export function getFilteredHooks(): Hook[] {
+  if (!searchQuery) return allHooks;
+
+  return allHooks.filter(
+    (h) =>
+      h.event.toLowerCase().includes(searchQuery) ||
+      h.matcher.toLowerCase().includes(searchQuery) ||
+      h.command.toLowerCase().includes(searchQuery),
+  );
+}
+
+/**
+ * Return filtered hooks grouped by event type.
+ */
+export function getFilteredHooksByEvent(): Map<HookEvent, Hook[]> {
+  const filtered = getFilteredHooks();
+  const groups = new Map<HookEvent, Hook[]>();
+  for (const hook of filtered) {
+    const list = groups.get(hook.event) ?? [];
+    list.push(hook);
+    groups.set(hook.event, list);
+  }
+  return groups;
 }
