@@ -1,22 +1,40 @@
 {
   "name": "claude-code-manager",
   "displayName": "Claude Code Manager",
-  "description": "Browse, search, and manage your Claude Code terminal sessions",
+  "description": "All-in-one manager for Claude Code — browse sessions, skills, commands, hooks, MCP servers, and agents from your sidebar",
   "version": "0.1.0",
-  "publisher": "vishal",
+  "publisher": "vishalguptax",
+  "author": {
+    "name": "Vishal Gupta",
+    "url": "https://github.com/vishalguptax"
+  },
   "license": "MIT",
+  "icon": "media/marketplace-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vishalguptax/claude-code-manager"
+  },
+  "homepage": "https://github.com/vishalguptax/claude-code-manager#readme",
+  "bugs": {
+    "url": "https://github.com/vishalguptax/claude-code-manager/issues"
+  },
   "engines": {
     "vscode": "^1.110.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Visualization"
   ],
   "keywords": [
     "claude",
     "claude-code",
+    "anthropic",
     "session",
-    "history",
-    "terminal"
+    "terminal",
+    "ai",
+    "mcp",
+    "skills",
+    "agents"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -71,6 +89,7 @@
     "@types/vscode": "^1.110.0",
     "esbuild": "^0.27.4",
     "happy-dom": "^20.8.9",
+    "sharp": "^0.34.5",
     "typescript": "^6.0.2",
     "vitest": "^4.1.3"
   }

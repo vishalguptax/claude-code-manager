@@ -1,0 +1,21 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="128" height="128" rx="16" fill="#1E1E2E"/>
+
+  <!-- Stacked terminal cards -->
+  <rect x="36" y="24" width="64" height="48" rx="6" stroke="#7C7CFF" stroke-width="2.5" opacity="0.25"/>
+  <rect x="28" y="32" width="64" height="48" rx="6" stroke="#7C7CFF" stroke-width="2.5" fill="#1E1E2E"/>
+
+  <!-- Terminal prompt -->
+  <polyline points="38,64 48,54 38,44" stroke="#7C7CFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="54" y1="64" x2="74" y2="64" stroke="#7C7CFF" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Claude spark -->
+  <circle cx="100" cy="100" r="10" fill="#7C7CFF"/>
+
+  <!-- Tab indicators at bottom -->
+  <rect x="24" y="92" width="12" height="3" rx="1.5" fill="#7C7CFF" opacity="0.8"/>
+  <rect x="40" y="92" width="12" height="3" rx="1.5" fill="#7C7CFF" opacity="0.4"/>
+  <rect x="56" y="92" width="12" height="3" rx="1.5" fill="#7C7CFF" opacity="0.4"/>
+  <rect x="72" y="92" width="12" height="3" rx="1.5" fill="#7C7CFF" opacity="0.4"/>
+</svg>
