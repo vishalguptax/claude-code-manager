@@ -56,16 +56,21 @@
   "scripts": {
     "build:extension": "esbuild src/extension/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
     "build:webview": "esbuild src/webview/main.ts --bundle --outfile=dist/webview/main.js --format=iife --platform=browser",
-    "copy:css": "node -e \"require('fs').cpSync('src/webview/styles.css','dist/webview/styles.css')\"",
+    "copy:css": "node -e \"const fs=require('fs');const out=['src/styles/base.css','src/styles/components.css','src/styles/sessions.css'].map(f=>fs.readFileSync(f,'utf-8')).join('\\n');fs.mkdirSync('dist/webview',{recursive:true});fs.writeFileSync('dist/webview/styles.css',out)\"",
     "build": "npm run build:extension && npm run build:webview && npm run copy:css",
     "watch:extension": "npm run build:extension -- --watch",
     "watch:webview": "npm run build:webview -- --watch",
     "package": "npx vsce package --no-dependencies",
-    "publish": "npx vsce publish --no-dependencies"
+    "publish": "npx vsce publish --no-dependencies",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@types/vscode": "^1.110.0",
     "esbuild": "^0.27.4",
-    "typescript": "^6.0.2"
+    "happy-dom": "^20.8.9",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.3"
   }
 }

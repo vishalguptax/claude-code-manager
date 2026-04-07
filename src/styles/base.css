@@ -1,0 +1,69 @@
+/* ============================================================================
+   Claude Session Manager — Base Styles
+   ============================================================================
+
+   CSS Variables Reference (defined by VS Code theme via inline <style>):
+   --fs-xs, --fs-sm, --fs-base, --fs-md, --fs-lg, --fs-xl   Font sizes
+   --mono                                                     Monospace font
+   --fg, --fg-dim, --fg-muted                                Text colors
+   --bg-hover, --bg-active, --bg-active-fg                   Backgrounds
+   --border, --shadow                                        Borders/shadows
+   --input-bg, --input-fg, --input-border                    Form inputs
+   --accent, --link                                          Accent colors
+   --btn-bg, --btn-fg, --btn-hover                           Button colors
+   --badge-bg, --badge-fg                                    Badge colors
+   --dropdown-bg, --dropdown-border                          Dropdown colors
+   --overlay-hover                                           Overlay hover
+   --menu-bg, --menu-fg, --menu-border                       Context menu
+   --green, --green-bg                                       Success/resume
+   --red, --red-bg                                           Danger/delete
+   --radius, --radius-sm, --radius-md, --radius-lg           Border radii
+   --space-xs, --space-md, --space-lg, --space-2xl           Spacing
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Reusable Utility Classes
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.text-xs   { font-size: var(--fs-xs); }
+.text-sm   { font-size: var(--fs-sm); }
+.text-base { font-size: var(--fs-base); }
+.text-md   { font-size: var(--fs-md); }
+.text-muted { color: var(--fg-muted); }
+.text-dim  { color: var(--fg-dim); }
+.mono      { font-family: var(--mono); font-size: var(--fs-sm); }
+.label     { font-size: var(--fs-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); }
+.icon      { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+.hidden    { display: none !important; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Layout (Panel)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.panel {
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Misc (Loading, Empty)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.loading { text-align: center; padding: 24px; font-size: var(--fs-base); color: var(--fg-muted); }
+.empty   { text-align: center; padding: 28px 14px; font-size: var(--fs-base); color: var(--fg-muted); }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Focus & Accessibility
+   ────────────────────────────────────────────────────────────────────────────── */
+
+*:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

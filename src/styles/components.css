@@ -1,0 +1,285 @@
+/* ============================================================================
+   Claude Session Manager — Component Styles
+   Buttons, tags, search, dropdown, date chips, context menu
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Quick Actions Bar
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.actions-bar {
+  display: flex;
+  gap: 4px;
+  padding: 10px 12px 4px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--bg-hover);
+  border: none;
+  border-radius: var(--radius);
+  font-size: var(--fs-base);
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.action-btn:hover         { color: var(--fg); background: var(--input-bg); }
+.action-btn.icon-only     { padding: 5px 7px; margin-left: auto; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Search
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.search-row {
+  display: flex;
+  align-items: center;
+  margin: 8px 12px 0;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  height: 32px;
+}
+.search-row:focus-within  { border-color: var(--accent); }
+
+#search {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--input-fg);
+  font-size: var(--fs-md);
+  padding: 0 10px;
+  height: 100%;
+  outline: none;
+  font-family: inherit;
+}
+#search::placeholder                  { color: var(--fg-muted); }
+#search::-webkit-search-cancel-button { display: none; }
+
+.search-actions {
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+}
+
+.search-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+.search-btn:hover         { background: var(--bg-hover); color: var(--fg); }
+.search-btn.is-hidden     { visibility: hidden; pointer-events: none; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Dropdown
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.filter-row {
+  padding: 6px 12px 0;
+  position: relative;
+}
+
+.dropdown { position: relative; }
+
+.dropdown-btn {
+  width: 100%;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  color: var(--input-fg);
+  font-size: var(--fs-md);
+  padding: 0 10px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.dropdown-btn:hover       { border-color: var(--fg-muted); }
+.dropdown-btn svg         { color: var(--fg-muted); flex-shrink: 0; }
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: var(--dropdown-bg);
+  border: 1px solid var(--dropdown-border);
+  border-radius: var(--radius);
+  z-index: 100;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px var(--shadow);
+  padding: 4px 0;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  font-size: var(--fs-md);
+  color: var(--fg);
+  cursor: pointer;
+}
+.dropdown-item:hover                    { background: var(--overlay-hover); }
+.dropdown-item.active                   { background: var(--bg-active); color: var(--bg-active-fg); }
+.dropdown-item.active:hover             { background: var(--bg-active); opacity: 0.85; }
+.dropdown-item.active .dropdown-count   { color: var(--bg-active-fg); opacity: 0.7; }
+
+.dropdown-count {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dropdown-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 10px;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Date Chips
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.date-chips {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px;
+}
+
+.chip {
+  flex: 1;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--fg-dim);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  cursor: pointer;
+}
+.chip:hover  { color: var(--fg); background: var(--bg-hover); }
+.chip.active {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  border-color: var(--btn-bg);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Tags
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-family: var(--mono);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: 18px;
+}
+.tag.folder {
+  font-family: inherit;
+  background: var(--bg-hover);
+  color: var(--fg-dim);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Buttons
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--radius);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  background: var(--bg-hover);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn:hover                   { color: var(--fg); }
+.btn.primary                 { background: var(--btn-bg); color: var(--btn-fg); }
+.btn.primary:hover           { background: var(--btn-hover); }
+.btn.green                   { color: var(--green); }
+.btn.green:hover             { background: var(--green-bg); }
+.btn.del                     { color: var(--red); }
+.btn.del:hover               { background: var(--red-bg); color: var(--red); }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Context Menu
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.ctx-menu {
+  position: fixed;
+  background: var(--menu-bg);
+  border: 1px solid var(--menu-border);
+  border-radius: var(--radius-md);
+  padding: 4px 0;
+  min-width: 180px;
+  z-index: 1000;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-size: var(--fs-base);
+  color: var(--menu-fg);
+  cursor: pointer;
+}
+.ctx-item:hover              { background: var(--overlay-hover); }
+.ctx-item.del                { color: var(--red); }
+.ctx-item.del:hover          { background: var(--red-bg); color: var(--red); }
+
+.ctx-icon {
+  display: flex;
+  align-items: center;
+  color: var(--fg-dim);
+  flex-shrink: 0;
+}
+.ctx-item.del .ctx-icon      { color: var(--red); }
+
+.ctx-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 2px 10px;
+}

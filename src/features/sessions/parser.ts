@@ -1,3 +1,7 @@
+/**
+ * Session parsing — reads Claude CLI data files and builds session objects.
+ * Pure Node.js file I/O, no VS Code dependency.
+ */
 import * as fs from "fs";
 import * as path from "path";
 import {
@@ -5,8 +9,8 @@ import {
   PROJECTS_DIR,
   SESSIONS_DIR,
   SESSION_META_READ_BYTES,
-} from "./config";
-import {
+} from "../../core/config";
+import type {
   HistoryEntry,
   Session,
   SessionDetail,

@@ -3,7 +3,7 @@
  * Centralizes all message passing so callers never construct raw objects.
  */
 
-import type { VSCodeAPI } from "./types";
+import type { VSCodeAPI } from "../../../webview/types";
 
 let _vscode: VSCodeAPI;
 

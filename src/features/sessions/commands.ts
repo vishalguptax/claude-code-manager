@@ -1,9 +1,14 @@
+/**
+ * Session commands — VS Code interactions for session management.
+ */
 import * as vscode from "vscode";
-import { Session, SessionDetail } from "./types";
-import { parseSessionDetail } from "./sessionParser";
-import { loadState, deleteSession as deleteSessionState } from "./state";
-import { getCurrentBranch } from "./git";
-import { normPath, getWorkspace, createTerminal } from "./utils";
+import type { Session, SessionDetail } from "./types";
+import { parseSessionDetail } from "./parser";
+import { deleteSession as deleteSessionState } from "./state";
+import { getCurrentBranch } from "../../extension/git";
+import { createTerminal } from "../../extension/terminal";
+import { getWorkspace } from "../../extension/workspace";
+import { normPath } from "../../core/utils";
 
 /**
  * Open a project folder in a new VS Code window.

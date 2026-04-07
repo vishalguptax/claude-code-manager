@@ -1,11 +1,12 @@
 /**
- * Centralized state store for the webview.
+ * Centralized state store for the sessions webview.
  * All mutable state lives here. Other modules read via getters and
  * mutate via explicit setter functions so changes are easy to trace.
  */
 
-import type { Session, SessionDetail, Stats, DateFilter, View } from "./types";
-import { dayStart } from "./utils";
+import type { Session, SessionDetail, Stats } from "../types";
+import type { DateFilter, View } from "../../../webview/types";
+import { dayStart } from "../../../webview/utils";
 
 // ── Raw state ──
 

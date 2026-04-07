@@ -1,9 +1,9 @@
 /**
- * Context menu — right-click menu for session list items.
+ * Context menu component -- right-click menu for session list items.
  * Provides pin, fork, copy, and delete actions.
  */
 
-import { icon } from "../icons";
+import { icon } from "../../../../webview/icons";
 import {
   sendPinSession,
   sendUnpinSession,

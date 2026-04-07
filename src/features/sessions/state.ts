@@ -1,6 +1,10 @@
+/**
+ * Session state persistence — pin/delete operations on disk.
+ * Pure Node.js file I/O, no VS Code dependency.
+ */
 import * as fs from "fs";
-import { STATE_FILE } from "./config";
-import { UserState } from "./types";
+import { STATE_FILE } from "../../core/config";
+import type { UserState } from "../../core/types";
 
 /**
  * Load the persisted user state (pinned/deleted session IDs) from disk.

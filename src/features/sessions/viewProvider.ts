@@ -1,3 +1,7 @@
+/**
+ * Provides the webview content for the Claude Code Manager sidebar panel.
+ * Handles all message passing between the webview UI and the extension host.
+ */
 import * as vscode from "vscode";
 import {
   parseSessions,
@@ -7,7 +11,7 @@ import {
   getUniqueProjects,
   searchSessions,
   filterSessions,
-} from "./sessionParser";
+} from "./parser";
 import { loadState, pinSession, unpinSession, deleteSession } from "./state";
 import {
   openProject,
@@ -17,9 +21,9 @@ import {
   confirmDeleteSession,
   resumeSession,
 } from "./commands";
-import { getWebviewHtml } from "./html";
-import { getWorkspace } from "./utils";
-import { WebviewMessage, Session } from "./types";
+import { getWebviewHtml } from "../../extension/html";
+import { getWorkspace } from "../../extension/workspace";
+import type { WebviewMessage, Session } from "./types";
 
 /**
  * Provides the webview content for the Claude Code Manager sidebar panel.

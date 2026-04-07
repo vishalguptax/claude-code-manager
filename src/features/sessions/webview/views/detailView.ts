@@ -1,10 +1,10 @@
 /**
- * Detail view — renders the full session detail panel with metadata,
+ * Detail view -- renders the full session detail panel with metadata,
  * action buttons, info section, and prompt history.
  */
 
-import { icon } from "../icons";
-import { esc, fmtTime, flash } from "../utils";
+import { icon } from "../../../../webview/icons";
+import { esc, fmtTime, flash } from "../../../../webview/utils";
 import {
   sendResumeSession,
   sendOpenProject,

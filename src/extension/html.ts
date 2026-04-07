@@ -1,5 +1,8 @@
+/**
+ * Webview HTML generation — requires VS Code API.
+ */
 import * as vscode from "vscode";
-import { getNonce } from "./utils";
+import { getNonce } from "../core/utils";
 
 /**
  * Generate the full HTML document for the webview panel.

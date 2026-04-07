@@ -1,5 +1,8 @@
+/**
+ * Extension entry point — registers the webview view provider and the open command.
+ */
 import * as vscode from "vscode";
-import { ClaudeSessionViewProvider } from "./viewProvider";
+import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
 
 /**
  * Activate the Claude Code Manager extension.

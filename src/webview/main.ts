@@ -1,5 +1,5 @@
 /**
- * Webview entry point — initialization, message listener, and mounting.
+ * Webview entry point -- initialization, message listener, and mounting.
  *
  * This file is the single entry point bundled by esbuild. It acquires the
  * VS Code API once, initializes the api module, sends the "ready" signal,
@@ -7,7 +7,7 @@
  * and view re-renders.
  */
 
-import { initApi, sendReady } from "./api";
+import { initApi, sendReady } from "../features/sessions/webview/api";
 import {
   setWorkspacePath,
   setSessions,
@@ -19,10 +19,11 @@ import {
   getView,
   getDetail,
   isShellMounted,
-} from "./state";
-import { mountShell, updateList, updateFilter, showList } from "./views/listView";
-import { showDetail } from "./views/detailView";
-import type { VSCodeAPI, Session, SessionDetail, Stats } from "./types";
+} from "../features/sessions/webview/state";
+import { mountShell, updateList, updateFilter, showList } from "../features/sessions/webview/views/listView";
+import { showDetail } from "../features/sessions/webview/views/detailView";
+import type { VSCodeAPI } from "./types";
+import type { Session, SessionDetail, Stats, SessionGroup } from "../features/sessions/types";
 
 // ── Bootstrap ──
 
@@ -32,10 +33,6 @@ initApi(vscode);
 sendReady();
 
 // ── Message handler ──
-
-interface SessionGroup {
-  sessions: Session[];
-}
 
 window.addEventListener("message", (event: MessageEvent) => {
   const msg = event.data as Record<string, unknown>;

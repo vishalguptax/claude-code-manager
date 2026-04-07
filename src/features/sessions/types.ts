@@ -1,3 +1,8 @@
+/**
+ * Type definitions for the sessions feature.
+ * Covers session data, grouping, statistics, JSONL entries, and message protocol.
+ */
+
 // ── Session Data ──
 
 /** A parsed Claude Code session with metadata and prompt history. */
@@ -105,16 +110,6 @@ export interface SessionEntry {
   gitBranch?: string;
   /** Claude CLI version */
   version?: string;
-}
-
-// ── Extension State ──
-
-/** Persisted user state for pinned and soft-deleted sessions. */
-export interface UserState {
-  /** Session IDs pinned to the top of the list */
-  pinned: string[];
-  /** Session IDs hidden from the list */
-  deleted: string[];
 }
 
 // ── Extension <-> Webview Messages ──

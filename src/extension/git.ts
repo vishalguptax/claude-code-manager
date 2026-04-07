@@ -1,3 +1,6 @@
+/**
+ * Git integration — requires VS Code API.
+ */
 import * as vscode from "vscode";
 
 /** Minimal interface for the VS Code built-in Git extension API. */
