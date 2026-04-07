@@ -41,7 +41,9 @@
       "Bash(cp src/extension/sessionParser.ts src/features/sessions/parser.ts)",
       "Bash(cp src/extension/state.ts src/features/sessions/state.ts)",
       "Bash(cp src/extension/commands.ts src/features/sessions/commands.ts)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(npx tsc:*)",
+      "Bash(rm:*)"
     ]
   }
 }

@@ -123,7 +123,7 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
         "Resume Anyway",
       );
 
-      if (!choice || choice === "Cancel") {
+      if (!choice) {
         return;
       }
 
