@@ -102,8 +102,11 @@ export function mountSkillsShell(): void {
       const value = (btn as HTMLElement).dataset.scope as "all" | "project" | "global";
       if (value) {
         setFilterScope(value);
-        // Re-mount to update scope button counts and active state
-        mountSkillsShell();
+        // Update active state on buttons
+        document.getElementById("skillsScopeFilter")?.querySelectorAll(".scope-btn").forEach((b) => {
+          b.classList.toggle("active", (b as HTMLElement).dataset.scope === value);
+        });
+        updateSkillsList();
       }
     });
   });
@@ -111,7 +114,6 @@ export function mountSkillsShell(): void {
   document.getElementById("skillsRefresh")?.addEventListener("click", () => sendGetSkills());
 
   setSkillsShellMounted(true);
-  updateSkillsList();
 }
 
 /**

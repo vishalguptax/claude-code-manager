@@ -157,6 +157,39 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
+   Scope Filter
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.scope-filter {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+}
+
+.scope-btn {
+  flex: 1;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: none;
+  color: var(--fg-dim);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.scope-btn:hover  { color: var(--fg); background: var(--bg-hover); }
+.scope-btn.active {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  border-color: var(--btn-bg);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
    Date Chips
    ────────────────────────────────────────────────────────────────────────────── */
 

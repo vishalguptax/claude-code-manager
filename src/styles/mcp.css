@@ -46,7 +46,7 @@
 .mcp-list-count {
   font-size: var(--fs-sm);
   color: var(--fg-muted);
-  padding: 4px 14px 2px;
+  padding: var(--space-xs) var(--space-2xl) 2px;
 }
 
 .mcp-group-label {
@@ -55,14 +55,14 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-muted);
-  padding: 14px 14px 6px;
+  padding: var(--space-2xl) var(--space-2xl) var(--space-sm);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
 }
 
 .mcp-item {
-  padding: 10px 14px;
+  padding: var(--space-lg) var(--space-2xl);
   cursor: pointer;
   border-bottom: 1px solid var(--border);
 }
@@ -74,7 +74,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-md);
 }
 
 .mcp-item-name {
@@ -96,7 +96,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 4px;
+  margin-top: var(--space-xs);
 }
 .mcp-item.active .mcp-item-detail { color: var(--bg-active-fg); opacity: 0.65; }
 
@@ -124,8 +124,8 @@
 }
 
 .mcp-type-http {
-  background: rgba(56, 139, 253, 0.15);
-  color: #58a6ff;
+  background: var(--color-blue-bg);
+  color: var(--color-blue);
 }
 
 
@@ -162,10 +162,10 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .mcp-detail-head {
-  padding: 6px 14px 10px;
+  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-lg);
 }
 
 .mcp-detail-title {
@@ -177,11 +177,11 @@
 .mcp-detail-actions {
   display: flex;
   gap: 5px;
-  padding: 0 14px 10px;
+  padding: 0 var(--space-2xl) var(--space-lg);
 }
 
 .mcp-detail-section {
-  padding: 10px 14px 12px;
+  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
   border-top: 1px solid var(--border);
 }
 
@@ -191,13 +191,13 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--fg-muted);
-  margin-bottom: 8px;
+  margin-bottom: var(--space-md);
 }
 
 .mcp-detail-kv {
   display: flex;
-  gap: 10px;
-  padding: 4px 0;
+  gap: var(--space-lg);
+  padding: var(--space-xs) 0;
   font-size: var(--fs-base);
   line-height: 1.5;
 }
@@ -226,8 +226,8 @@
 
 .mcp-env-row {
   display: flex;
-  gap: 10px;
-  padding: 4px 0;
+  gap: var(--space-lg);
+  padding: var(--space-xs) 0;
   font-size: var(--fs-sm);
   line-height: 1.5;
 }
