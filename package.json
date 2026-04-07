@@ -1,0 +1,71 @@
+{
+  "name": "claude-code-manager",
+  "displayName": "Claude Code Manager",
+  "description": "Browse, search, and manage your Claude Code terminal sessions",
+  "version": "0.1.0",
+  "publisher": "vishal",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.110.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "claude",
+    "claude-code",
+    "session",
+    "history",
+    "terminal"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "claudeCodeManager",
+          "title": "Claude Code Manager",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "claudeCodeManager": [
+        {
+          "type": "webview",
+          "id": "claudeCodeManager.view",
+          "name": "Claude Code Manager"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "claudeManager.open",
+        "title": "Claude: Open Code Manager"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "claudeManager.open",
+        "key": "ctrl+alt+c",
+        "mac": "cmd+alt+c"
+      }
+    ]
+  },
+  "scripts": {
+    "build:extension": "esbuild src/extension/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "build:webview": "esbuild src/webview/main.ts --bundle --outfile=dist/webview/main.js --format=iife --platform=browser",
+    "copy:css": "node -e \"require('fs').cpSync('src/webview/styles.css','dist/webview/styles.css')\"",
+    "build": "npm run build:extension && npm run build:webview && npm run copy:css",
+    "watch:extension": "npm run build:extension -- --watch",
+    "watch:webview": "npm run build:webview -- --watch",
+    "package": "npx vsce package --no-dependencies",
+    "publish": "npx vsce publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.110.0",
+    "esbuild": "^0.27.4",
+    "typescript": "^6.0.2"
+  }
+}
