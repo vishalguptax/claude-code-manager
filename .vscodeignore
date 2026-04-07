@@ -1,4 +1,5 @@
 .vscode/**
+.claude/**
 src/**
 node_modules/**
 .gitignore
@@ -6,3 +7,4 @@ tsconfig.json
 scripts/**
 PLAN.md
 *.map
+*.vsix

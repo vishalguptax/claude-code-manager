@@ -1,74 +1,135 @@
+// ── Session Data ──
+
+/** A parsed Claude Code session with metadata and prompt history. */
 export interface Session {
+  /** Unique session identifier */
   id: string;
-  name: string;           // user-set name (via claude -n) or empty
+  /** User-set name (via `claude -n`) or empty string */
+  name: string;
+  /** Project folder name (last segment of projectPath) */
   project: string;
+  /** Absolute path to the project directory */
   projectPath: string;
+  /** Git branch the session was started on */
   branch: string;
-  entrypoint: string;     // "cli" | "vscode" | ""
+  /** How the session was launched: "cli", "vscode", or "" */
+  entrypoint: string;
+  /** Timestamp (ms) of the first recorded prompt */
   startTime: number;
+  /** Timestamp (ms) of the most recent prompt */
   endTime: number;
+  /** Number of user prompts in the session */
   messageCount: number;
-  summary: string;        // first prompt, truncated
+  /** First prompt, truncated to 100 chars */
+  summary: string;
+  /** All user prompts in chronological order */
   prompts: string[];
 }
 
+/** A session with its full message transcript loaded. */
 export interface SessionDetail extends Session {
+  /** Full conversation messages (user + assistant) */
   messages: Message[];
 }
 
+/** A single message in a session transcript. */
 export interface Message {
+  /** Who sent the message */
   role: "user" | "assistant";
+  /** Plain text content */
   content: string;
+  /** ISO timestamp string from the JSONL entry */
   timestamp: string;
 }
 
+// ── Grouping & Statistics ──
+
+/** A group of sessions under a date label (e.g. "Today", "This Week"). */
 export interface SessionGroup {
+  /** Display label for the group */
   label: string;
+  /** Sessions belonging to this group, sorted by endTime descending */
   sessions: Session[];
 }
 
+/** Aggregate statistics across a set of sessions. */
 export interface Stats {
+  /** Total number of sessions */
   totalSessions: number;
+  /** Number of distinct projects */
   totalProjects: number;
+  /** Sessions active in the last 7 days */
   thisWeek: number;
+  /** Sum of all messageCount values */
   totalMessages: number;
 }
 
-// history.jsonl entry
+// ── JSONL File Entries ──
+
+/** A single line from ~/.claude/history.jsonl. */
 export interface HistoryEntry {
+  /** The prompt text shown in history */
   display: string;
+  /** Pasted file contents, if any */
   pastedContents?: Record<string, unknown>;
+  /** Timestamp in milliseconds */
   timestamp: number;
+  /** Absolute project path */
   project: string;
+  /** Session identifier */
   sessionId: string;
 }
 
-// per-session .jsonl entry
+/** A single line from a per-session .jsonl file in ~/.claude/projects/. */
 export interface SessionEntry {
+  /** Parent message UUID for threading */
   parentUuid?: string | null;
+  /** Whether this entry is from a sidechain (forked conversation) */
   isSidechain?: boolean;
+  /** Entry type (e.g. "file-history-snapshot") */
   type?: string;
+  /** The message payload */
   message?: {
     role: string;
     content: string | Array<{ type: string; text?: string; thinking?: string }>;
   };
+  /** Unique message identifier */
   uuid?: string;
+  /** ISO timestamp string */
   timestamp?: string;
+  /** Session identifier */
   sessionId?: string;
+  /** Working directory at time of message */
   cwd?: string;
+  /** Git branch at time of message */
   gitBranch?: string;
+  /** Claude CLI version */
   version?: string;
 }
 
-// Messages between extension <-> webview
+// ── Extension State ──
+
+/** Persisted user state for pinned and soft-deleted sessions. */
+export interface UserState {
+  /** Session IDs pinned to the top of the list */
+  pinned: string[];
+  /** Session IDs hidden from the list */
+  deleted: string[];
+}
+
+// ── Extension <-> Webview Messages ──
+
+/** Messages sent from the extension host to the webview. */
 export type ExtensionMessage =
   | { type: "sessions"; data: SessionGroup[]; stats: Stats }
   | { type: "sessionDetail"; data: SessionDetail }
   | { type: "projects"; data: string[] }
   | { type: "workspacePath"; data: string }
   | { type: "userState"; pinned: string[]; deleted: string[] }
+  | { type: "navigateList" }
   | { type: "error"; message: string };
 
+/** Messages sent from the webview to the extension host. */
 export type WebviewMessage =
   | { type: "ready" }
   | { type: "refresh" }
