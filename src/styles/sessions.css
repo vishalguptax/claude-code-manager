@@ -265,18 +265,13 @@
 .app-footer {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-md);
+  justify-content: space-between;
   padding: var(--space-lg) var(--space-2xl);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   color: var(--fg-muted);
-  border-top: 1px solid var(--border);
   margin-top: auto;
-  flex-wrap: wrap;
 }
-.app-footer strong           { color: var(--fg-dim); font-weight: 600; }
-.footer-name                 { color: var(--fg-dim); font-weight: 600; }
-.footer-credit               { color: var(--fg-muted); }
+.footer-name                 { color: var(--fg-dim); font-weight: 600; font-size: var(--fs-sm); }
 
 .footer-links {
   display: flex;
@@ -294,4 +289,5 @@
   transition: color 0.1s;
   font-family: inherit;
 }
+.footer-link .icon           { width: 14px; height: 14px; }
 .footer-link:hover           { color: var(--fg); background: var(--bg-hover); }
