@@ -338,9 +338,8 @@
 .tab-bar::-webkit-scrollbar { display: none; }
 
 .tab-btn {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding: 0 var(--space-md);
+  flex: 0 0 auto;
+  padding: 0 var(--space-lg);
   height: 34px;
   display: flex;
   align-items: center;
@@ -354,8 +353,6 @@
   cursor: pointer;
   transition: color 0.1s, border-color 0.1s;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .tab-btn:hover {
   color: var(--fg);
