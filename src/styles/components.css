@@ -471,8 +471,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
+  background: transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--fg-dim);
   cursor: pointer;
@@ -482,7 +482,7 @@
 .search-side-btn:hover {
   color: var(--fg);
   background: var(--bg-hover);
-  border-color: var(--accent);
+  border-color: var(--fg-muted);
 }
 
 
