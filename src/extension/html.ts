@@ -40,6 +40,9 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --btn-bg: var(--vscode-button-background);
       --btn-fg: var(--vscode-button-foreground);
       --btn-hover: var(--vscode-button-hoverBackground);
+      --btn-sec-bg: var(--vscode-button-secondaryBackground, var(--vscode-list-hoverBackground, rgba(255,255,255,0.08)));
+      --btn-sec-fg: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+      --btn-sec-hover: var(--vscode-button-secondaryHoverBackground, rgba(255,255,255,0.12));
       --link: var(--vscode-textLink-foreground);
       --green: #2ea043;
       --green-bg: rgba(46,160,67,0.15);

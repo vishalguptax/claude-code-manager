@@ -468,18 +468,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--btn-sec-bg);
+  border: none;
   border-radius: var(--radius);
-  color: var(--fg-dim);
+  color: var(--btn-sec-fg);
   cursor: pointer;
   flex-shrink: 0;
   font-family: inherit;
 }
 .search-side-btn:hover {
-  color: var(--fg);
-  background: var(--bg-hover);
-  border-color: var(--fg-muted);
+  background: var(--btn-sec-hover);
 }
 
 
