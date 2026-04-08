@@ -435,6 +435,7 @@
   gap: var(--space-md);
   margin: var(--space-md) var(--space-xl);
   flex-shrink: 0;
+  background: transparent;
 }
 
 .feature-search {
@@ -468,16 +469,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--btn-sec-bg);
-  border: none;
+  background: var(--bg-hover);
+  border: 1px solid var(--input-border);
   border-radius: var(--radius);
-  color: var(--btn-sec-fg);
+  color: var(--fg-dim);
   cursor: pointer;
   flex-shrink: 0;
   font-family: inherit;
 }
 .search-side-btn:hover {
-  background: var(--btn-sec-hover);
+  color: var(--fg);
+  background: var(--btn-bg);
 }
 
 
