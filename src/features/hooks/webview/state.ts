@@ -4,13 +4,17 @@
  * and mutate via explicit setter functions so changes are easy to trace.
  */
 
-import type { Hook, HookEvent } from "../types";
+import type { Hook, HookEvent, HookScope } from "../types";
+
+/** Active scope filter for hooks. */
+export type HookScopeFilter = "all" | HookScope;
 
 // ── Raw state ──
 
 let allHooks: Hook[] = [];
 let loading = false;
 let searchQuery = "";
+let filterScope: HookScopeFilter = "all";
 
 // ── Getters ──
 
@@ -40,6 +44,16 @@ export function getSearchQuery(): string {
   return searchQuery;
 }
 
+/** Return the current scope filter. */
+export function getFilterScope(): HookScopeFilter {
+  return filterScope;
+}
+
+/** Return hooks filtered to a specific scope (no search applied). */
+export function getHooksByScope(scope: HookScope): Hook[] {
+  return allHooks.filter((h) => h.scope === scope);
+}
+
 // ── Setters ──
 
 /** Replace the full hook list with newly received data. */
@@ -57,16 +71,24 @@ export function setSearchQuery(q: string): void {
   searchQuery = q;
 }
 
+/** Set the active scope filter. */
+export function setFilterScope(s: HookScopeFilter): void {
+  filterScope = s;
+}
+
 // ── Derived data ──
 
 /**
- * Return hooks filtered by the current search query.
+ * Return hooks filtered by the current search query and scope filter.
  * Matches against event type, matcher, and command.
  */
 export function getFilteredHooks(): Hook[] {
-  if (!searchQuery) return allHooks;
-
-  return allHooks.filter(
+  let list = allHooks;
+  if (filterScope !== "all") {
+    list = list.filter((h) => h.scope === filterScope);
+  }
+  if (!searchQuery) return list;
+  return list.filter(
     (h) =>
       h.event.toLowerCase().includes(searchQuery) ||
       h.matcher.toLowerCase().includes(searchQuery) ||

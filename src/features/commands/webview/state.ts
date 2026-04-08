@@ -12,7 +12,7 @@ let allCommands: Command[] = [];
 let selectedCommand: Command | null = null;
 let loading = false;
 let searchQuery = "";
-let filterScope: "all" | "project" | "global" = "all";
+let filterScope: "all" | "project" | "global" | "builtin" = "all";
 
 // ── Getters ──
 
@@ -22,7 +22,7 @@ export function getAllCommands(): Command[] {
 }
 
 /** Return commands filtered by scope. */
-export function getCommandsByScope(scope: "global" | "project"): Command[] {
+export function getCommandsByScope(scope: "global" | "project" | "builtin"): Command[] {
   return allCommands.filter((c) => c.scope === scope);
 }
 
@@ -42,7 +42,7 @@ export function getSearchQuery(): string {
 }
 
 /** Return the current scope filter value. */
-export function getFilterScope(): "all" | "project" | "global" {
+export function getFilterScope(): "all" | "project" | "global" | "builtin" {
   return filterScope;
 }
 
@@ -69,15 +69,22 @@ export function setSearchQuery(q: string): void {
 }
 
 /** Set the scope filter value. */
-export function setFilterScope(scope: "all" | "project" | "global"): void {
+export function setFilterScope(scope: "all" | "project" | "global" | "builtin"): void {
   filterScope = scope;
 }
 
 // ── Derived data ──
 
+/** Sort priority for command scopes. Built-ins come first, then project, then global. */
+const SCOPE_ORDER: Record<"builtin" | "project" | "global", number> = {
+  builtin: 0,
+  project: 1,
+  global: 2,
+};
+
 /**
  * Return commands filtered by the current search query and scope filter.
- * Project commands are sorted before global commands.
+ * Built-in commands are listed first, followed by project, then global.
  */
 export function getFilteredCommands(): Command[] {
   let list = allCommands;
@@ -90,13 +97,14 @@ export function getFilteredCommands(): Command[] {
     list = list.filter(
       (c) =>
         c.name.toLowerCase().includes(searchQuery) ||
-        c.content.toLowerCase().includes(searchQuery),
+        c.content.toLowerCase().includes(searchQuery) ||
+        (c.description ?? "").toLowerCase().includes(searchQuery),
     );
   }
 
-  list.sort((a, b) => {
+  list = [...list].sort((a, b) => {
     if (a.scope !== b.scope) {
-      return a.scope === "project" ? -1 : 1;
+      return SCOPE_ORDER[a.scope] - SCOPE_ORDER[b.scope];
     }
     return a.name.localeCompare(b.name);
   });

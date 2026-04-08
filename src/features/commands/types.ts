@@ -3,19 +3,24 @@
  * Covers command data and extension-webview message protocol.
  */
 
-/** The scope of a slash command: user-level or project-level. */
-export type CommandScope = "global" | "project";
+/** The scope of a slash command: user-level, project-level, or built-in to Claude Code. */
+export type CommandScope = "global" | "project" | "builtin";
 
 /** A parsed Claude Code slash command. */
 export interface Command {
-  /** Command name derived from the filename (e.g. "review" from review.md). */
+  /** Command name derived from the filename (e.g. "review" from review.md) or the built-in command name. */
   name: string;
-  /** Whether the command is global (~/.claude/commands/) or project-level (.claude/commands/). */
+  /**
+   * Whether the command is global (~/.claude/commands/), project-level
+   * (.claude/commands/), or "builtin" (shipped with Claude Code itself).
+   */
   scope: CommandScope;
-  /** Raw markdown content of the command file. */
+  /** Raw markdown content of the command file (empty string for built-ins). */
   content: string;
-  /** Absolute path to the .md file on disk. */
+  /** Absolute path to the .md file on disk (empty string for built-ins). */
   path: string;
+  /** Optional human-readable description (used for built-in commands). */
+  description?: string;
 }
 
 // ── Extension <-> Webview Messages ──

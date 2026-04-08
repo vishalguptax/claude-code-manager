@@ -11,7 +11,11 @@ import {
   getFilteredHooksByEvent,
   getSearchQuery,
   setSearchQuery,
+  getFilterScope,
+  setFilterScope,
+  getHooksByScope,
 } from "../state";
+import type { HookScopeFilter } from "../state";
 import { renderHookItem } from "../components/hookItem";
 
 /** Map event names to user-friendly display labels. */
@@ -33,20 +37,35 @@ let _searchTimer: ReturnType<typeof setTimeout>;
  * @param container - The DOM element to render into
  */
 export function renderHooksList(container: HTMLElement): void {
-  const hooks = getAllHooks();
   const searchQuery = getSearchQuery();
+  const allHooks = getAllHooks();
+  const scope = getFilterScope();
 
-  let shell = `
-    <div class="actions-bar">
-      <button class="action-btn icon-only" id="hookRefresh" title="Refresh hooks">${icon("refresh-cw")}</button>
-    </div>
+  let scopeFilterHtml = "";
+  if (allHooks.length > 0) {
+    const globalCount = getHooksByScope("global").length;
+    const projectCount = getHooksByScope("project").length;
+    const localCount = getHooksByScope("local").length;
+    scopeFilterHtml = `
+      <div class="scope-filter" id="hookScopeFilter">
+        <button class="scope-btn ${scope === "all" ? "active" : ""}" data-scope="all">All (${allHooks.length})</button>
+        <button class="scope-btn ${scope === "global" ? "active" : ""}" data-scope="global">Global (${globalCount})</button>
+        <button class="scope-btn ${scope === "project" ? "active" : ""}" data-scope="project">Project (${projectCount})</button>
+        <button class="scope-btn ${scope === "local" ? "active" : ""}" data-scope="local">Local (${localCount})</button>
+      </div>`;
+  }
+
+  const shell = `<div class="panel">
     <div class="feature-search">
       <input id="hookSearch" type="text" placeholder="Search hooks..." value="${esc(searchQuery)}" />
       <div class="search-actions">
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="hookSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
+        <button class="search-btn" id="hookRefresh" title="Refresh hooks">${icon("refresh-cw", 14)}</button>
       </div>
     </div>
-    <div id="hookListInner"></div>`;
+    ${scopeFilterHtml}
+    <div id="hookListInner" class="list"></div>
+  </div>`;
 
   container.innerHTML = shell;
 
@@ -84,6 +103,15 @@ export function renderHooksList(container: HTMLElement): void {
 
   // Bind refresh
   container.querySelector("#hookRefresh")?.addEventListener("click", () => sendGetHooks());
+
+  // Bind scope filter
+  container.querySelectorAll("#hookScopeFilter .scope-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const newScope = (btn as HTMLElement).dataset.scope as HookScopeFilter;
+      setFilterScope(newScope);
+      renderHooksList(container);
+    });
+  });
 
   // Render inner list
   updateHooksListInner(container);

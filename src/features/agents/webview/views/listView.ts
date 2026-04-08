@@ -39,14 +39,12 @@ export function renderAgentsList(container: HTMLElement): void {
   const opusCount = getAgentsByModel("opus").length;
   const haikuCount = getAgentsByModel("haiku").length;
 
-  let shell = `
-    <div class="actions-bar">
-      <button class="action-btn icon-only" id="agentRefresh" title="Refresh agents">${icon("refresh-cw")}</button>
-    </div>
+  let shell = `<div class="panel">
     <div class="feature-search">
       <input id="agentSearch" type="text" placeholder="Search agents..." value="${esc(searchQuery)}" />
       <div class="search-actions">
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="agentSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
+        <button class="search-btn" id="agentRefresh" title="Refresh agents">${icon("refresh-cw", 14)}</button>
       </div>
     </div>`;
 
@@ -60,7 +58,7 @@ export function renderAgentsList(container: HTMLElement): void {
     </div>`;
   }
 
-  shell += `<div id="agentListInner"></div>`;
+  shell += `<div id="agentListInner" class="list"></div></div>`;
   container.innerHTML = shell;
 
   // Bind search

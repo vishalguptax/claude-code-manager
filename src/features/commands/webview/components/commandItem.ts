@@ -7,15 +7,19 @@ import type { Command } from "../../types";
 
 /**
  * Render a single command list item as an HTML string.
+ * Built-in commands show their `description`; custom commands show a
+ * preview of the markdown content.
  *
  * @param cmd - The command to render
  * @param isActive - Whether this command is currently selected
  * @returns HTML string for the command item
  */
 export function renderCommandItem(cmd: Command, isActive: boolean): string {
-  const preview = cmd.content.length > 80
-    ? cmd.content.slice(0, 80).replace(/\n/g, " ") + "..."
-    : cmd.content.replace(/\n/g, " ");
+  const previewSource = cmd.scope === "builtin" ? cmd.description ?? "" : cmd.content;
+  const preview =
+    previewSource.length > 80
+      ? previewSource.slice(0, 80).replace(/\n/g, " ") + "..."
+      : previewSource.replace(/\n/g, " ");
 
   return `
     <div class="cmd-item ${isActive ? "active" : ""}" data-cmd-name="${esc(cmd.name)}" data-cmd-scope="${cmd.scope}">

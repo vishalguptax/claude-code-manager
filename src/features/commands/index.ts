@@ -1,5 +1,6 @@
 /**
- * Commands feature barrel — exports the parser and all command types.
+ * Commands feature barrel — exports the parser, the built-in commands
+ * catalog, and all command types.
  */
-export { parseCommands } from "./parser";
+export { parseCommands, getBuiltInCommands } from "./parser";
 export type { Command, CommandScope, CommandsExtensionMessage, CommandsWebviewMessage } from "./types";

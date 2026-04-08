@@ -132,6 +132,11 @@
   color: var(--green);
 }
 
+.cmd-scope-builtin {
+  background: var(--color-blue-bg);
+  color: var(--color-blue);
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Commands — Detail View
@@ -190,6 +195,22 @@
   overflow-x: auto;
   margin: 0;
 }
+
+.cmd-detail-desc {
+  font-size: var(--fs-md);
+  color: var(--fg);
+  line-height: 1.5;
+}
+
+.cmd-detail-link {
+  display: inline-block;
+  font-size: var(--fs-md);
+  color: var(--link);
+  text-decoration: none;
+  word-break: break-all;
+  cursor: pointer;
+}
+.cmd-detail-link:hover { text-decoration: underline; }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

@@ -25,30 +25,31 @@ let _searchTimer: ReturnType<typeof setTimeout>;
 
 /**
  * Render the commands list into the given container.
- * Includes a search bar, scope filter buttons, and command items
- * grouped by scope (project first, then global).
- * Shows an empty state when no commands are found.
+ *
+ * Wraps everything in a `.panel` so the inner `.list` can scroll.
+ * Includes a search bar (with inline refresh button), scope filter buttons
+ * for All / Built-in / Project / Global, and command items grouped by scope
+ * (built-in first, then project, then global). Shows an empty state when
+ * no commands are found.
  *
  * @param container - The DOM element to render into
  */
 export function renderCommandsList(container: HTMLElement): void {
   const allCommands = getAllCommands();
-  const selected = getSelectedCommand();
   const searchQuery = getSearchQuery();
   const scope = getFilterScope();
 
   // Build shell with search, scope filter, refresh, and list container
   const projectCount = getCommandsByScope("project").length;
   const globalCount = getCommandsByScope("global").length;
+  const builtinCount = getCommandsByScope("builtin").length;
 
-  let shell = `
-    <div class="actions-bar">
-      <button class="action-btn icon-only" id="cmdRefresh" title="Refresh commands">${icon("refresh-cw")}</button>
-    </div>
+  let shell = `<div class="panel">
     <div class="feature-search">
       <input id="cmdSearch" type="text" placeholder="Search commands..." value="${esc(searchQuery)}" />
       <div class="search-actions">
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="cmdSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
+        <button class="search-btn" id="cmdRefresh" title="Refresh commands">${icon("refresh-cw", 14)}</button>
       </div>
     </div>`;
 
@@ -56,12 +57,13 @@ export function renderCommandsList(container: HTMLElement): void {
     shell += `
     <div class="scope-filter" id="cmdScopeFilter">
       <button class="scope-btn ${scope === "all" ? "active" : ""}" data-scope="all">All (${allCommands.length})</button>
+      <button class="scope-btn ${scope === "builtin" ? "active" : ""}" data-scope="builtin">Built-in (${builtinCount})</button>
       <button class="scope-btn ${scope === "project" ? "active" : ""}" data-scope="project">Project (${projectCount})</button>
       <button class="scope-btn ${scope === "global" ? "active" : ""}" data-scope="global">Global (${globalCount})</button>
     </div>`;
   }
 
-  shell += `<div id="cmdListInner"></div>`;
+  shell += `<div id="cmdListInner" class="list"></div></div>`;
   container.innerHTML = shell;
 
   // Bind search
@@ -99,7 +101,7 @@ export function renderCommandsList(container: HTMLElement): void {
   // Bind scope filter
   container.querySelector("#cmdScopeFilter")?.querySelectorAll(".scope-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const value = (btn as HTMLElement).dataset.scope as "all" | "project" | "global";
+      const value = (btn as HTMLElement).dataset.scope as "all" | "project" | "global" | "builtin";
       if (value) {
         setFilterScope(value);
         renderCommandsList(container);
@@ -145,10 +147,12 @@ function updateCommandsListInner(container: HTMLElement): void {
     return;
   }
 
-  // Group by scope
+  // Group by scope (built-ins first, then project, then global)
   const groups = new Map<string, Command[]>();
+  const labelFor = (scope: Command["scope"]): string =>
+    scope === "builtin" ? "Built-in" : scope === "project" ? "Project Commands" : "Global Commands";
   for (const cmd of filtered) {
-    const label = cmd.scope === "project" ? "Project Commands" : "Global Commands";
+    const label = labelFor(cmd.scope);
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label)!.push(cmd);
   }

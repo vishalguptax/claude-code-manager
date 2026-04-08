@@ -66,7 +66,7 @@ export function showMcpDetail(container: HTMLElement): void {
       ${server.args && server.args.length > 0 ? `<div class="mcp-detail-kv"><span class="mcp-detail-k">Args</span><span class="mcp-detail-v mono">${esc(server.args.join(" "))}</span></div>` : ""}`;
   }
 
-  container.innerHTML = `
+  container.innerHTML = `<div class="panel">
     <button class="back-btn" id="mcpGoBack">${icon("arrow-left")} Back</button>
 
     <div class="mcp-detail-head">
@@ -84,7 +84,8 @@ export function showMcpDetail(container: HTMLElement): void {
       ${connectionHtml}
     </div>
 
-    ${envHtml}`;
+    ${envHtml}
+  </div>`;
 
   container.querySelector("#mcpGoBack")?.addEventListener("click", () => {
     showMcpList(container);

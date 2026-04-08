@@ -221,7 +221,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       // ── Hooks messages ──
 
       case "getHooks": {
-        this.hooks = parseHooks();
+        this.hooks = parseHooks(getWorkspace());
         wv.postMessage({ type: "hooks", data: this.hooks });
         break;
       }

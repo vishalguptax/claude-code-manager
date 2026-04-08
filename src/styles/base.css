@@ -43,10 +43,11 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .panel {
-  height: 100vh;
-  overflow-y: auto;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 

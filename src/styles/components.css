@@ -13,6 +13,7 @@
   gap: var(--space-xs);
   padding: var(--space-lg) var(--space-xl) var(--space-xs);
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .action-btn {
@@ -45,6 +46,7 @@
   border: 1px solid var(--input-border);
   border-radius: var(--radius);
   height: 32px;
+  flex-shrink: 0;
 }
 .search-row:focus-within  { border-color: var(--accent); }
 
@@ -91,6 +93,7 @@
 .filter-row {
   padding: var(--space-sm) var(--space-xl) 0;
   position: relative;
+  flex-shrink: 0;
 }
 
 .dropdown { position: relative; }
@@ -164,6 +167,7 @@
   display: flex;
   gap: 4px;
   padding: 8px 12px 0;
+  flex-shrink: 0;
 }
 
 .scope-btn {
@@ -197,6 +201,7 @@
   display: flex;
   gap: var(--space-xs);
   padding: var(--space-md) var(--space-xl);
+  flex-shrink: 0;
 }
 
 .chip {
@@ -333,8 +338,9 @@
 .tab-bar::-webkit-scrollbar { display: none; }
 
 .tab-btn {
-  flex: 0 0 auto;
-  padding: 0 var(--space-xl);
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 var(--space-md);
   height: 34px;
   display: flex;
   align-items: center;
@@ -343,10 +349,13 @@
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--fg-dim);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   font-family: inherit;
   cursor: pointer;
   transition: color 0.1s, border-color 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tab-btn:hover {
   color: var(--fg);
@@ -363,15 +372,19 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 .tab-content {
   flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 .tab-content .panel {
   height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 
@@ -427,6 +440,7 @@
   border: 1px solid var(--input-border);
   border-radius: var(--radius);
   height: 32px;
+  flex-shrink: 0;
 }
 .feature-search:focus-within { border-color: var(--accent); }
 .feature-search input {
@@ -455,3 +469,5 @@
 }
 .scope-badge.project { background: var(--color-green-badge-bg); color: var(--color-green-badge); }
 .scope-badge.global { background: var(--badge-bg); color: var(--badge-fg); }
+.scope-badge.local { background: var(--color-purple-bg); color: var(--color-purple); }
+.scope-badge.builtin { background: var(--color-blue-bg); color: var(--color-blue); }

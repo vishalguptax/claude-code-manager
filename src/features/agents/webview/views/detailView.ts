@@ -30,7 +30,7 @@ export function showAgentDetail(container: HTMLElement): void {
     body = fmMatch[1];
   }
 
-  container.innerHTML = `
+  container.innerHTML = `<div class="panel">
     <button class="back-btn" id="agentGoBack">${icon("arrow-left")} Back</button>
 
     <div class="agent-detail-head">
@@ -52,7 +52,8 @@ export function showAgentDetail(container: HTMLElement): void {
     <div class="agent-detail-content">
       <div class="agent-detail-label">System Prompt</div>
       <pre class="agent-detail-pre">${esc(body.trim())}</pre>
-    </div>` : ""}`;
+    </div>` : ""}
+  </div>`;
 
   container.querySelector("#agentGoBack")?.addEventListener("click", () => {
     showAgentList(container);

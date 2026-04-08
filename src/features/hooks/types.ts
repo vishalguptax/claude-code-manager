@@ -15,6 +15,9 @@ export type HookEvent =
   | "SubagentStop"
   | string;
 
+/** Where the hook is defined. */
+export type HookScope = "global" | "project" | "local";
+
 /** A single hook entry from the Claude Code settings. */
 export interface Hook {
   /** The event type this hook triggers on (e.g. "PreToolUse"). */
@@ -23,6 +26,8 @@ export interface Hook {
   matcher: string;
   /** Shell command to execute when the hook fires. */
   command: string;
+  /** Source of this hook: global (~/.claude), project (.claude/settings.json), or local (.claude/settings.local.json) */
+  scope: HookScope;
 }
 
 // ── Extension <-> Webview Messages ──

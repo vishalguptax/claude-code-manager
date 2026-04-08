@@ -17,10 +17,13 @@ export function renderHookItem(hook: Hook): string {
     ? hook.command.slice(0, 60) + "..."
     : hook.command;
 
+  const scopeLabel = hook.scope === "global" ? "Global" : hook.scope === "project" ? "Project" : "Local";
+
   return `
     <div class="hook-item">
       <div class="hook-item-row1">
         ${hook.matcher ? `<span class="hook-matcher" title="Matcher: ${esc(hook.matcher)}">${esc(hook.matcher)}</span>` : `<span class="hook-matcher hook-matcher-all">*</span>`}
+        <span class="scope-badge ${hook.scope}">${scopeLabel}</span>
       </div>
       <div class="hook-item-command">
         <code>${esc(commandPreview)}</code>

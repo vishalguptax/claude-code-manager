@@ -39,14 +39,12 @@ export function renderMcpList(container: HTMLElement): void {
   const projectCount = getServersByScope("project").length;
   const globalCount = getServersByScope("global").length;
 
-  let shell = `
-    <div class="actions-bar">
-      <button class="action-btn icon-only" id="mcpRefresh" title="Refresh MCP servers">${icon("refresh-cw")}</button>
-    </div>
+  let shell = `<div class="panel">
     <div class="feature-search">
       <input id="mcpSearch" type="text" placeholder="Search servers..." value="${esc(searchQuery)}" />
       <div class="search-actions">
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="mcpSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
+        <button class="search-btn" id="mcpRefresh" title="Refresh MCP servers">${icon("refresh-cw", 14)}</button>
       </div>
     </div>`;
 
@@ -59,7 +57,7 @@ export function renderMcpList(container: HTMLElement): void {
     </div>`;
   }
 
-  shell += `<div id="mcpListInner"></div>`;
+  shell += `<div id="mcpListInner" class="list"></div></div>`;
   container.innerHTML = shell;
 
   // Bind search
