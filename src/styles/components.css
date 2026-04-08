@@ -38,18 +38,6 @@
    Search
    ────────────────────────────────────────────────────────────────────────────── */
 
-.search-row {
-  display: flex;
-  align-items: center;
-  margin: var(--space-md) var(--space-xl) 0;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  height: 32px;
-  flex-shrink: 0;
-}
-.search-row:focus-within  { border-color: var(--accent); }
-
 #search {
   flex: 1;
   background: none;
@@ -63,12 +51,6 @@
 }
 #search::placeholder                  { color: var(--fg-muted); }
 #search::-webkit-search-cancel-button { display: none; }
-
-.search-actions {
-  display: flex;
-  align-items: center;
-  padding-right: var(--space-xs);
-}
 
 .search-btn {
   width: 24px;

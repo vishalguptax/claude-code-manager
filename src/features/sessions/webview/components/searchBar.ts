@@ -17,8 +17,8 @@ let searchTimer: ReturnType<typeof setTimeout>;
 export function renderSearchBar(): string {
   return `
     <div class="search-row">
-      <input id="search" type="text" placeholder="Search sessions..." />
-      <div class="search-actions">
+      <div class="feature-search">
+        <input id="search" type="text" placeholder="Search sessions..." />
         <button class="search-btn is-hidden" id="searchClear" title="Clear (Esc)">${icon("x")}</button>
       </div>
     </div>`;
