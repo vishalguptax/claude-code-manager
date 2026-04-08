@@ -30,8 +30,9 @@
   position: relative;
 }
 .item:last-child             { border-bottom: none; }
-.item:hover                  { background: var(--bg-hover); padding-right: 48px; }
-.item:hover .item-time       { display: none; }
+.item:hover                  { background: var(--bg-hover); }
+.session-item:hover          { padding-right: 48px; }
+.session-item:hover .item-time { display: none; }
 .item.active                 { background: var(--bg-active); color: var(--bg-active-fg); }
 
 .item-row1 {
@@ -72,7 +73,7 @@
   padding: 0;
   margin: 0;
 }
-.item:hover .item-resume     { display: block; }
+.session-item:hover .item-resume { display: block; }
 .item-resume:hover           { background: var(--green-bg); }
 
 .item-time {

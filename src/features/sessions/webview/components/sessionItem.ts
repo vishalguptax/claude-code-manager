@@ -23,7 +23,7 @@ export function renderSessionItem(s: Session, isActive: boolean, isPinned: boole
   const showSubPrompt = s.name && firstPrompt;
 
   return `
-    <div class="item ${isActive ? "active" : ""}" data-id="${s.id}">
+    <div class="item session-item ${isActive ? "active" : ""}" data-id="${s.id}">
       <div class="item-row1">
         <span class="item-name" title="${esc(fullName)}">${esc(name)}</span>
         <span class="item-time">${time}</span>
@@ -55,7 +55,7 @@ export function bindSessionItems(
     onResume: (id: string) => void;
   },
 ): void {
-  container.querySelectorAll(".item").forEach((el) => {
+  container.querySelectorAll(".session-item").forEach((el) => {
     el.addEventListener("click", (e: Event) => {
       if ((e.target as HTMLElement).closest(".item-resume")) return;
       const id = (el as HTMLElement).dataset.id;
