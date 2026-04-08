@@ -17,7 +17,7 @@ export function renderDateChips(): string {
   const filterDate = getFilterDate();
   return `
     <div class="date-chips">
-      <button class="chip ${filterDate === "today" ? "active" : ""}" data-date="today">Today</button>
+      <button class="chip ${filterDate === "recent" ? "active" : ""}" data-date="recent" title="20 most recent sessions">Recent</button>
       <button class="chip ${filterDate === "week" ? "active" : ""}" data-date="week">Week</button>
       <button class="chip ${filterDate === "month" ? "active" : ""}" data-date="month">Month</button>
       <button class="chip ${filterDate === "all" ? "active" : ""}" data-date="all">All</button>

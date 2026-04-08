@@ -19,7 +19,7 @@ let detail: SessionDetail | null = null;
 let searchQuery = "";
 let loading = false;
 let filterProject = "current";
-let filterDate: DateFilter = "today";
+let filterDate: DateFilter = "recent";
 let visibleCount = 30;
 let workspacePath = "";
 let currentProjectName = "";
@@ -140,14 +140,12 @@ export function getFiltered(): Session[] {
     list = list.filter((s) => s.project === filterProject);
   }
 
-  if (filterDate !== "all") {
+  if (filterDate === "week" || filterDate === "month") {
     const now = Date.now();
-    const cutoff =
-      filterDate === "today" ? dayStart() :
-      filterDate === "week" ? now - 7 * 86400000 :
-      now - 30 * 86400000;
+    const cutoff = filterDate === "week" ? now - 7 * 86400000 : now - 30 * 86400000;
     list = list.filter((s) => s.endTime >= cutoff || pinnedIds.has(s.id));
   }
+  // "recent" and "all" don't filter by date — "recent" is enforced by slicing later
 
   if (searchQuery) {
     list = list.filter((s) =>
@@ -163,6 +161,14 @@ export function getFiltered(): Session[] {
     if (ap !== bp) return bp - ap;
     return b.endTime - a.endTime;
   });
+
+  // "Recent" shows top 20 most recent sessions (regardless of date).
+  // Pinned sessions stay visible because they sort first.
+  if (filterDate === "recent") {
+    const pinned = list.filter((s) => pinnedIds.has(s.id));
+    const unpinned = list.filter((s) => !pinnedIds.has(s.id)).slice(0, 20);
+    return [...pinned, ...unpinned];
+  }
 
   return list;
 }

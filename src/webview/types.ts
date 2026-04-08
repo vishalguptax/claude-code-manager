@@ -8,7 +8,7 @@ export interface VSCodeAPI {
 }
 
 /** Date filter options for the session list. */
-export type DateFilter = "today" | "week" | "month" | "all";
+export type DateFilter = "recent" | "week" | "month" | "all";
 
 /** View mode for the webview. */
 export type View = "list" | "detail";

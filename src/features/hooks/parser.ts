@@ -44,12 +44,29 @@ function readHooksFromFile(filePath: string, scope: HookScope): Hook[] {
   const hooks: Hook[] = [];
   const hooksMap = hooksObj as Record<string, unknown>;
 
+  // Hooks can be in two formats:
+  // Format A (flat):  { "PreToolUse": [{ matcher, command }] }
+  // Format B (nested): { "Stop": [{ matcher, hooks: [{ type, command }] }] }
   for (const [event, entries] of Object.entries(hooksMap)) {
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
       if (!entry || typeof entry !== "object") continue;
       const rec = entry as Record<string, unknown>;
       const matcher = typeof rec.matcher === "string" ? rec.matcher : "";
+
+      // Format B: nested hooks array
+      if (Array.isArray(rec.hooks)) {
+        for (const sub of rec.hooks) {
+          if (!sub || typeof sub !== "object") continue;
+          const subRec = sub as Record<string, unknown>;
+          const command = typeof subRec.command === "string" ? subRec.command : "";
+          if (!command) continue;
+          hooks.push({ event, matcher, command, scope });
+        }
+        continue;
+      }
+
+      // Format A: flat command field
       const command = typeof rec.command === "string" ? rec.command : "";
       if (!command) continue;
       hooks.push({ event, matcher, command, scope });
