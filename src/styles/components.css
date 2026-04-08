@@ -435,7 +435,6 @@
   gap: var(--space-md);
   margin: var(--space-md) var(--space-xl);
   flex-shrink: 0;
-  background: transparent;
 }
 
 .feature-search {
