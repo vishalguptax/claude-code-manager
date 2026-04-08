@@ -8,8 +8,6 @@
    Session List Items
    ────────────────────────────────────────────────────────────────────────────── */
 
-.list { flex: 1; }
-
 .list-count {
   font-size: var(--fs-sm);
   color: var(--fg-muted);

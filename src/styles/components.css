@@ -432,19 +432,28 @@
    Feature Search (shared)
    ────────────────────────────────────────────────────────────────────────────── */
 
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin: var(--space-md) var(--space-xl);
+  flex-shrink: 0;
+}
+
 .feature-search {
   display: flex;
   align-items: center;
-  margin: var(--space-md) var(--space-xl);
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--radius);
   height: 32px;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
 }
 .feature-search:focus-within { border-color: var(--accent); }
 .feature-search input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   color: var(--input-fg);
@@ -455,6 +464,26 @@
   font-family: inherit;
 }
 .feature-search input::placeholder { color: var(--fg-muted); }
+
+.search-side-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  color: var(--fg-dim);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+.search-side-btn:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

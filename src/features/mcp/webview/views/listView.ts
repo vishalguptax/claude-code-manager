@@ -40,12 +40,12 @@ export function renderMcpList(container: HTMLElement): void {
   const globalCount = getServersByScope("global").length;
 
   let shell = `<div class="panel">
-    <div class="feature-search">
-      <input id="mcpSearch" type="text" placeholder="Search servers..." value="${esc(searchQuery)}" />
-      <div class="search-actions">
+    <div class="search-row">
+      <div class="feature-search">
+        <input id="mcpSearch" type="text" placeholder="Search servers..." value="${esc(searchQuery)}" />
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="mcpSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
-        <button class="search-btn" id="mcpRefresh" title="Refresh MCP servers">${icon("refresh-cw", 14)}</button>
       </div>
+      <button class="search-side-btn" id="mcpRefresh" title="Refresh MCP servers">${icon("refresh-cw", 14)}</button>
     </div>`;
 
   if (servers.length > 0) {

@@ -40,12 +40,12 @@ export function renderAgentsList(container: HTMLElement): void {
   const haikuCount = getAgentsByModel("haiku").length;
 
   let shell = `<div class="panel">
-    <div class="feature-search">
-      <input id="agentSearch" type="text" placeholder="Search agents..." value="${esc(searchQuery)}" />
-      <div class="search-actions">
+    <div class="search-row">
+      <div class="feature-search">
+        <input id="agentSearch" type="text" placeholder="Search agents..." value="${esc(searchQuery)}" />
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="agentSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
-        <button class="search-btn" id="agentRefresh" title="Refresh agents">${icon("refresh-cw", 14)}</button>
       </div>
+      <button class="search-side-btn" id="agentRefresh" title="Refresh agents">${icon("refresh-cw", 14)}</button>
     </div>`;
 
   if (agents.length > 0) {

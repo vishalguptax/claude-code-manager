@@ -45,12 +45,12 @@ export function renderCommandsList(container: HTMLElement): void {
   const builtinCount = getCommandsByScope("builtin").length;
 
   let shell = `<div class="panel">
-    <div class="feature-search">
-      <input id="cmdSearch" type="text" placeholder="Search commands..." value="${esc(searchQuery)}" />
-      <div class="search-actions">
+    <div class="search-row">
+      <div class="feature-search">
+        <input id="cmdSearch" type="text" placeholder="Search commands..." value="${esc(searchQuery)}" />
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="cmdSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
-        <button class="search-btn" id="cmdRefresh" title="Refresh commands">${icon("refresh-cw", 14)}</button>
       </div>
+      <button class="search-side-btn" id="cmdRefresh" title="Refresh commands">${icon("refresh-cw", 14)}</button>
     </div>`;
 
   if (allCommands.length > 0) {

@@ -50,12 +50,12 @@ export function mountSkillsShell(): void {
 
   root.innerHTML = `
     <div class="panel" id="skillsListView">
-      <div class="feature-search">
-        <input id="skillsSearch" type="text" placeholder="Search skills..." value="${esc(searchQuery)}" />
-        <div class="search-actions">
+      <div class="search-row">
+        <div class="feature-search">
+          <input id="skillsSearch" type="text" placeholder="Search skills..." value="${esc(searchQuery)}" />
           <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="skillsClear" title="Clear (Esc)">${icon("x", 14)}</button>
-          <button class="search-btn" id="skillsRefresh" title="Refresh skills list">${icon("refresh-cw", 14)}</button>
         </div>
+        <button class="search-side-btn" id="skillsRefresh" title="Refresh skills list">${icon("refresh-cw", 14)}</button>
       </div>
       ${scopeFilterHtml}
       <div id="skillsList" class="list"></div>
