@@ -1,21 +1,41 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="128" height="128" rx="16" fill="#1E1E2E"/>
+  <!-- Gradient background — deep navy to dark purple, Claude's brand vibe -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1A1A2E"/>
+      <stop offset="1" stop-color="#16213E"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF8B5A"/>
+      <stop offset="1" stop-color="#E07B39"/>
+    </linearGradient>
+  </defs>
 
-  <!-- Stacked terminal cards -->
-  <rect x="36" y="24" width="64" height="48" rx="6" stroke="#7C7CFF" stroke-width="2.5" opacity="0.25"/>
-  <rect x="28" y="32" width="64" height="48" rx="6" stroke="#7C7CFF" stroke-width="2.5" fill="#1E1E2E"/>
+  <!-- Rounded background -->
+  <rect width="128" height="128" rx="22" fill="url(#bg)"/>
 
-  <!-- Terminal prompt -->
-  <polyline points="38,64 48,54 38,44" stroke="#7C7CFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <line x1="54" y1="64" x2="74" y2="64" stroke="#7C7CFF" stroke-width="3" stroke-linecap="round"/>
+  <!-- Subtle inner glow at the center -->
+  <circle cx="64" cy="64" r="50" fill="url(#accent)" opacity="0.08"/>
 
-  <!-- Claude spark -->
-  <circle cx="100" cy="100" r="10" fill="#7C7CFF"/>
+  <!-- Stacked terminal cards (back card faded, front card bright) -->
+  <rect x="38" y="22" width="60" height="44" rx="6" stroke="#FF8B5A" stroke-width="2" opacity="0.3"/>
+  <rect x="30" y="30" width="60" height="44" rx="6" fill="#1A1A2E" stroke="url(#accent)" stroke-width="2.5"/>
 
-  <!-- Tab indicators at bottom -->
-  <rect x="24" y="92" width="12" height="3" rx="1.5" fill="#7C7CFF" opacity="0.8"/>
-  <rect x="40" y="92" width="12" height="3" rx="1.5" fill="#7C7CFF" opacity="0.4"/>
-  <rect x="56" y="92" width="12" height="3" rx="1.5" fill="#7C7CFF" opacity="0.4"/>
-  <rect x="72" y="92" width="12" height="3" rx="1.5" fill="#7C7CFF" opacity="0.4"/>
+  <!-- Terminal prompt chevron -->
+  <polyline points="40,60 50,52 40,44" stroke="url(#accent)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Cursor line -->
+  <line x1="56" y1="60" x2="76" y2="60" stroke="url(#accent)" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Claude spark (signature glowing dot) -->
+  <circle cx="100" cy="100" r="11" fill="url(#accent)"/>
+  <circle cx="100" cy="100" r="14" fill="none" stroke="#FF8B5A" stroke-width="1.5" opacity="0.4"/>
+
+  <!-- Tab indicators (representing 6 features) -->
+  <rect x="22" y="92" width="10" height="3" rx="1.5" fill="url(#accent)"/>
+  <rect x="36" y="92" width="10" height="3" rx="1.5" fill="#FF8B5A" opacity="0.45"/>
+  <rect x="50" y="92" width="10" height="3" rx="1.5" fill="#FF8B5A" opacity="0.45"/>
+  <rect x="64" y="92" width="10" height="3" rx="1.5" fill="#FF8B5A" opacity="0.45"/>
+  <rect x="78" y="92" width="10" height="3" rx="1.5" fill="#FF8B5A" opacity="0.45"/>
+  <rect x="92" y="92" width="10" height="3" rx="1.5" fill="#FF8B5A" opacity="0.45"/>
 </svg>
