@@ -1,22 +1,24 @@
-<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">
   <defs>
     <linearGradient id="accent" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FF8B5A"/>
+      <stop offset="0" stop-color="#FF9966"/>
       <stop offset="1" stop-color="#E07B39"/>
     </linearGradient>
   </defs>
 
-  <!-- Stacked terminal cards (back card faded, front card bright) -->
-  <rect x="28" y="14" width="84" height="62" rx="8" stroke="url(#accent)" stroke-width="3" opacity="0.3"/>
-  <rect x="16" y="26" width="84" height="62" rx="8" stroke="url(#accent)" stroke-width="3.5" fill="none"/>
+  <!-- Back card (faded stacked session) -->
+  <rect x="29" y="15" width="84" height="62" rx="9" stroke="url(#accent)" stroke-width="3" opacity="0.32"/>
+
+  <!-- Front card (active session) -->
+  <rect x="17" y="27" width="84" height="62" rx="9" stroke="url(#accent)" stroke-width="4" fill="none"/>
 
   <!-- Terminal prompt chevron -->
-  <polyline points="32,68 48,55 32,42" stroke="url(#accent)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="33,69 49,57 33,45" stroke="url(#accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 
   <!-- Cursor line -->
-  <line x1="56" y1="68" x2="86" y2="68" stroke="url(#accent)" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="57" y1="69" x2="87" y2="69" stroke="url(#accent)" stroke-width="5" stroke-linecap="round"/>
 
-  <!-- Claude spark (signature glowing dot) -->
-  <circle cx="106" cy="106" r="14" fill="url(#accent)"/>
-  <circle cx="106" cy="106" r="18" fill="none" stroke="#FF8B5A" stroke-width="2" opacity="0.4"/>
+  <!-- Claude spark with glow ring -->
+  <circle cx="106" cy="106" r="15" fill="url(#accent)"/>
+  <circle cx="106" cy="106" r="20" fill="none" stroke="#FF9966" stroke-width="2.5" opacity="0.45"/>
 </svg>
