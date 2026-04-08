@@ -174,6 +174,37 @@ export function getFiltered(): Session[] {
 }
 
 /**
+ * Return the "last working session group" — sessions that were active
+ * around the same time, representing the user's last set of open terminals.
+ *
+ * Algorithm: find the most recent session, then include all other sessions
+ * whose endTime is within 30 minutes of it. Scoped to the current project
+ * if a workspace is open, otherwise across all projects.
+ *
+ * @returns Sessions from the last cluster, sorted oldest-to-newest so they
+ *   open in the order the user originally started them.
+ */
+export function getLastSessionGroup(): Session[] {
+  const WINDOW_MS = 30 * 60 * 1000;
+
+  let candidates = allSessions.filter((s) => !deletedIds.has(s.id));
+  if (currentProjectName) {
+    candidates = candidates.filter((s) => s.project === currentProjectName);
+  }
+
+  if (candidates.length === 0) return [];
+
+  // Find the most recent endTime
+  const anchor = Math.max(...candidates.map((s) => s.endTime));
+  const cutoff = anchor - WINDOW_MS;
+
+  // Return all sessions within the window, oldest first
+  return candidates
+    .filter((s) => s.endTime >= cutoff)
+    .sort((a, b) => a.endTime - b.endTime);
+}
+
+/**
  * Return a list of all project names, sorted with the current project
  * first, then by most recent activity.
  */

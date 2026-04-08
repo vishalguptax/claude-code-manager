@@ -16,6 +16,7 @@ import {
   getAllSessions,
   getPinnedIds,
   getFiltered,
+  getLastSessionGroup,
   getSearchQuery,
   getSelectedId,
   getVisibleCount,
@@ -45,9 +46,9 @@ export function mountShell(): void {
   root.innerHTML = `
     <div class="panel" id="listView">
       <div class="actions-bar">
-        <button class="action-btn" id="actNew" title="Start a new Claude session">${icon("plus")} New Session</button>
-        <button class="action-btn" id="actLast" title="Resume the most recent session">${icon("play")} Resume Last</button>
-        <button class="action-btn" id="actAll" title="Open recent sessions in separate terminals">${icon("split-square-horizontal")} Resume All</button>
+        <button class="action-btn" id="actNew" title="Start a new Claude Code session in a fresh terminal">${icon("plus")} New</button>
+        <button class="action-btn" id="actLast" title="Continue your most recent session">${icon("play")} Continue</button>
+        <button class="action-btn" id="actAll" title="Reopen all terminals from your last working session">${icon("split-square-horizontal")} Restore Workspace</button>
         <button class="action-btn icon-only" id="actRefresh" title="Refresh session list">${icon("refresh-cw")}</button>
       </div>
       ${renderSearchBar()}
@@ -67,8 +68,10 @@ export function mountShell(): void {
     if (first) sendResumeSession(first.id, first.entrypoint, first.projectPath);
   });
   document.getElementById("actAll")?.addEventListener("click", () => {
-    const recent = getFiltered().slice(0, 3);
-    if (recent.length) sendResumeMultiple(recent.map((s) => s.id), recent.map((s) => s.projectPath));
+    const lastGroup = getLastSessionGroup();
+    if (lastGroup.length) {
+      sendResumeMultiple(lastGroup.map((s) => s.id), lastGroup.map((s) => s.projectPath));
+    }
   });
   document.getElementById("actRefresh")?.addEventListener("click", () => sendRefresh());
 
