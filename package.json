@@ -2,7 +2,7 @@
   "name": "claude-code-manager",
   "displayName": "Claude Code Manager",
   "description": "All-in-one manager for Claude Code — browse sessions, skills, commands, hooks, MCP servers, and agents from your sidebar",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "vishalguptax",
   "author": {
     "name": "Vishal Gupta",

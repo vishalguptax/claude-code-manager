@@ -66,7 +66,7 @@ ext install vishalguptax.claude-code-manager
 ### One-command install (from GitHub)
 
 ```bash
-curl -Lo /tmp/ccm.vsix https://github.com/vishalguptax/claude-code-manager/releases/latest/download/claude-code-manager-0.1.0.vsix && code --install-extension /tmp/ccm.vsix && rm /tmp/ccm.vsix
+curl -Lo /tmp/ccm.vsix https://github.com/vishalguptax/claude-code-manager/releases/latest/download/claude-code-manager-1.0.0.vsix && code --install-extension /tmp/ccm.vsix && rm /tmp/ccm.vsix
 ```
 
 ### From VSIX (manual)
