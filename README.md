@@ -182,6 +182,6 @@ Found a bug? [Open an issue](https://github.com/vishalguptax/claude-code-manager
 [BSL 1.1](LICENSE) © [Vishal Gupta](https://github.com/vishalguptax)
 
 Use freely. Contribute freely. Cannot fork as a competing extension.
-Converts to **MIT** on April 9, 2029.
+Converts to **MIT** on April 9, 2030.
 
 </div>
