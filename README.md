@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="media/marketplace-icon.png" alt="Claude Code Manager" width="120">
+
 # Claude Code Manager
 
 **The missing sidebar for Claude Code.**
