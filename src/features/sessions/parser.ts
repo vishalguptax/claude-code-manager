@@ -483,19 +483,27 @@ export function getUniqueProjects(sessions: Session[]): string[] {
 }
 
 /**
- * Filter sessions by a text query, matching against project, branch, summary, and name.
- * The search is case-insensitive. Avoids scanning all prompts for performance —
- * matches against the pre-computed summary and name instead.
+ * Filter sessions by a text query. Case-insensitive.
+ *
+ * Checks name, project, branch, and summary first (cheap). Falls back to
+ * scanning individual prompts only if the fast fields don't match — this
+ * keeps the common case fast while still finding deep matches.
  */
 export function searchSessions(sessions: Session[], query: string): Session[] {
   const lower = query.toLowerCase();
-  return sessions.filter(
-    (s) =>
+  return sessions.filter((s) => {
+    // Fast path — check short fields first
+    if (
       s.name.toLowerCase().includes(lower) ||
       s.project.toLowerCase().includes(lower) ||
       s.branch.toLowerCase().includes(lower) ||
-      s.summary.toLowerCase().includes(lower),
-  );
+      s.summary.toLowerCase().includes(lower)
+    ) {
+      return true;
+    }
+    // Slow path — scan prompts (skips if fast path matched)
+    return s.prompts.some((p) => p.toLowerCase().includes(lower));
+  });
 }
 
 /**

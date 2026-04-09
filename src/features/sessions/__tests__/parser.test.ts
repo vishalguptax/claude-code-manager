@@ -327,6 +327,16 @@ describe("searchSessions", () => {
     ];
     expect(searchSessions(s, "caching")).toHaveLength(1);
   });
+
+  it("matches across prompts array", () => {
+    const s = [
+      {
+        ...makeSession("x", now, "proj"),
+        prompts: ["first prompt", "second prompt about caching"],
+      },
+    ];
+    expect(searchSessions(s, "caching")).toHaveLength(1);
+  });
 });
 
 describe("filterSessions", () => {
