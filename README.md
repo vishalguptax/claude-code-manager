@@ -23,10 +23,38 @@ A VS Code extension that gives you a sidebar panel to browse and manage everythi
 
 ## Quick Install
 
+### Option A — From the editor
+
 1. **[Download claude-code-manager-1.0.0.vsix](https://github.com/vishalguptax/claude-code-manager/releases/download/1.0.0/claude-code-manager-1.0.0.vsix)**
 2. Open your editor → press `Ctrl+Shift+P` → type **Install from VSIX** → hit Enter
 3. Select the downloaded `claude-code-manager-1.0.0.vsix` file
 4. Click **Reload** when prompted
+
+### Option B — From the terminal
+
+Open a terminal and run the command for your OS:
+
+**macOS / Linux:**
+
+```bash
+cd ~/Downloads && code --install-extension claude-code-manager-1.0.0.vsix
+```
+
+**Windows (PowerShell):**
+
+```powershell
+cd $HOME\Downloads; code --install-extension claude-code-manager-1.0.0.vsix
+```
+
+> Using a different editor? Replace `code` with your CLI:
+> | Editor | CLI command |
+> | :-- | :-- |
+> | VS Code | `code` |
+> | Cursor | `cursor` |
+> | Windsurf | `windsurf` |
+> | VSCodium | `codium` |
+
+After running, reload your editor window to activate the extension.
 
 ---
 
