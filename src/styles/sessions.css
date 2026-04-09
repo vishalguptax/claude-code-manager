@@ -31,8 +31,7 @@
 }
 .item:last-child             { border-bottom: none; }
 .item:hover                  { background: var(--bg-hover); }
-.session-item                 { padding-right: 48px; }
-.session-item:hover .item-time { display: none; }
+.session-item:hover .item-time { visibility: hidden; }
 .item.active                 { background: var(--bg-active); color: var(--bg-active-fg); }
 
 .item-row1 {

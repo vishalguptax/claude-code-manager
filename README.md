@@ -2,9 +2,6 @@
 
 > All-in-one sidebar manager for [Claude Code](https://claude.ai/code) — browse **sessions**, **skills**, **commands**, **hooks**, **MCP servers**, and **agents** without leaving your editor.
 
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vishalguptax.claude-code-manager?label=Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/vishalguptax.claude-code-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager)
-[![Rating](https://img.shields.io/visual-studio-marketplace/r/vishalguptax.claude-code-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager&ssr=false#review-details)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-orange.svg)](LICENSE)
 
 Everything from your `~/.claude/` directory, organized into clean, searchable tabs right in the activity bar. Resume any past session in one click, jump between projects, and manage your Claude Code configuration visually.
