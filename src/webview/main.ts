@@ -208,6 +208,9 @@ sendReady();
 
 window.addEventListener("message", (event: MessageEvent) => {
   const msg = event.data as Record<string, unknown>;
+  if (!msg || typeof msg.type !== "string") return;
+
+  try {
 
   // ── Sessions messages ──
 
@@ -255,5 +258,11 @@ window.addEventListener("message", (event: MessageEvent) => {
     setDetail(msg.data as SessionDetail);
     setLoading(false);
     showDetail();
+  } else if (msg.type === "error") {
+    console.error("[claude-manager]", msg.message);
+  }
+
+  } catch (err: unknown) {
+    console.error("[claude-manager] Webview message handler error:", err);
   }
 });

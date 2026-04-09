@@ -48,38 +48,50 @@ export function renderSessionItem(s: Session, isActive: boolean, isPinned: boole
  * @param pinnedIds - Set of currently pinned session IDs
  * @param callbacks - Event handler callbacks
  */
+/**
+ * Bind click, context-menu, and resume handlers on session items using
+ * event delegation. A single listener per event type on the container
+ * handles all items, avoiding O(n) listener creation on each render.
+ *
+ * Call this once during mount — delegation survives innerHTML updates.
+ * Uses getPinnedIds getter so the context menu always reads fresh state.
+ */
 export function bindSessionItems(
   container: HTMLElement,
-  pinnedIds: Set<string>,
+  getPinnedIds: () => Set<string>,
   callbacks: {
     onSelect: (id: string) => void;
     onContextMenu: (e: MouseEvent, id: string, isPinned: boolean) => void;
     onResume: (id: string) => void;
   },
 ): void {
-  container.querySelectorAll(".session-item").forEach((el) => {
-    el.addEventListener("click", (e: Event) => {
-      if ((e.target as HTMLElement).closest(".item-resume")) return;
-      const id = (el as HTMLElement).dataset.id;
-      if (!id) return;
-      callbacks.onSelect(id);
-    });
+  container.addEventListener("click", (e: Event) => {
+    const target = e.target as HTMLElement;
 
-    el.addEventListener("contextmenu", (e: Event) => {
-      e.preventDefault();
-      const id = (el as HTMLElement).dataset.id;
-      if (!id) return;
-      const isPinned = pinnedIds.has(id);
-      callbacks.onContextMenu(e as MouseEvent, id, isPinned);
-    });
+    // "Show more" button
+    if (target.id === "showMore" || target.closest("#showMore")) return;
+
+    // Resume button
+    const resumeBtn = target.closest("[data-resume]") as HTMLElement | null;
+    if (resumeBtn) {
+      e.stopPropagation();
+      const id = resumeBtn.dataset.resume;
+      if (id) callbacks.onResume(id);
+      return;
+    }
+
+    // Session item click
+    const item = target.closest(".session-item") as HTMLElement | null;
+    if (item?.dataset.id) {
+      callbacks.onSelect(item.dataset.id);
+    }
   });
 
-  container.querySelectorAll("[data-resume]").forEach((btn) =>
-    btn.addEventListener("click", (e: Event) => {
-      e.stopPropagation();
-      const id = (btn as HTMLElement).dataset.resume;
-      if (!id) return;
-      callbacks.onResume(id);
-    })
-  );
+  container.addEventListener("contextmenu", (e: Event) => {
+    const item = (e.target as HTMLElement).closest(".session-item") as HTMLElement | null;
+    if (!item?.dataset.id) return;
+    e.preventDefault();
+    const id = item.dataset.id;
+    callbacks.onContextMenu(e as MouseEvent, id, getPinnedIds().has(id));
+  });
 }

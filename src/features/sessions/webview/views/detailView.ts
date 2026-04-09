@@ -95,11 +95,17 @@ export function showDetail(): void {
         <div class="d-kv"><span class="d-k">Branch</span><span class="d-v">${branch || "\u2014"}</span></div>
       </div>
 
-      ${d.prompts.length ? `
+      ${d.prompts.length ? (() => {
+        const MAX_PROMPTS = 50;
+        const shown = d.prompts.slice(0, MAX_PROMPTS);
+        const hasMore = d.prompts.length > MAX_PROMPTS;
+        return `
       <div class="d-section">
         <div class="d-label">Prompts (${d.prompts.length})</div>
-        ${d.prompts.map((p, i) => `<div class="d-prompt"><span class="d-pn">${i + 1}</span>${esc(p)}</div>`).join("")}
-      </div>` : ""}
+        ${shown.map((p, i) => `<div class="d-prompt"><span class="d-pn">${i + 1}</span>${esc(p)}</div>`).join("")}
+        ${hasMore ? `<div class="d-prompt" style="color:var(--fg-muted);justify-content:center">...and ${d.prompts.length - MAX_PROMPTS} more</div>` : ""}
+      </div>`;
+      })() : ""}
     </div>`;
 
   dv.querySelector("#goBack")?.addEventListener("click", showList);

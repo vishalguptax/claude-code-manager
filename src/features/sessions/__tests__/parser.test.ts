@@ -318,11 +318,11 @@ describe("searchSessions", () => {
     expect(searchSessions(sessions, "nonexistent")).toEqual([]);
   });
 
-  it("matches across prompts array", () => {
+  it("matches on session name", () => {
     const s = [
       {
         ...makeSession("x", now, "proj"),
-        prompts: ["first prompt", "second prompt about caching"],
+        name: "caching-refactor",
       },
     ];
     expect(searchSessions(s, "caching")).toHaveLength(1);

@@ -75,6 +75,35 @@ export function mountShell(): void {
   });
   document.getElementById("actRefresh")?.addEventListener("click", () => sendRefresh());
 
+  // Event delegation on session list — bind once, survives innerHTML updates
+  const sessionList = document.getElementById("sessionList");
+  if (sessionList) {
+    bindSessionItems(sessionList, getPinnedIds, {
+      onSelect: (id: string) => {
+        setSelectedId(id);
+        setLoading(true);
+        showDetail();
+        sendGetSessionDetail(id);
+      },
+      onContextMenu: (e: MouseEvent, id: string, isPinned: boolean) => {
+        showContextMenu(e, id, isPinned);
+      },
+      onResume: (id: string) => {
+        const s = getAllSessions().find((x) => x.id === id);
+        if (s) sendResumeSession(id, s.entrypoint, s.projectPath);
+      },
+    });
+
+    // "Show more" also via delegation (button is re-created on each render)
+    sessionList.addEventListener("click", (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (target.id === "showMore" || target.closest("#showMore")) {
+        incrementVisibleCount(30);
+        updateList();
+      }
+    });
+  }
+
   setShellMounted(true);
 }
 
@@ -132,27 +161,6 @@ export function updateList(): void {
     h += `<div class="show-more-row"><button class="show-more-btn" id="showMore">Show more (${totalCount - visibleCount} remaining)</button></div>`;
   }
   container.innerHTML = h;
-
-  document.getElementById("showMore")?.addEventListener("click", () => {
-    incrementVisibleCount(30);
-    updateList();
-  });
-
-  bindSessionItems(container, pinnedIds, {
-    onSelect: (id: string) => {
-      setSelectedId(id);
-      setLoading(true);
-      showDetail();
-      sendGetSessionDetail(id);
-    },
-    onContextMenu: (e: MouseEvent, id: string, isPinned: boolean) => {
-      showContextMenu(e, id, isPinned);
-    },
-    onResume: (id: string) => {
-      const s = getAllSessions().find((x) => x.id === id);
-      if (s) sendResumeSession(id, s.entrypoint, s.projectPath);
-    },
-  });
 }
 
 /**

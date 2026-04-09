@@ -40,31 +40,35 @@ export function renderSkillItem(skill: Skill, isActive: boolean): string {
  * @param container - The DOM element containing skill items
  * @param callbacks - Event handler callbacks
  */
+/**
+ * Bind click handlers on skill items using event delegation.
+ */
 export function bindSkillItems(
   container: HTMLElement,
   callbacks: {
     onSelect: (id: string) => void;
   },
 ): void {
-  container.querySelectorAll(".skill-item").forEach((el) => {
-    el.addEventListener("click", (e: Event) => {
-      if ((e.target as HTMLElement).closest(".item-copy-btn")) return;
-      const id = (el as HTMLElement).dataset.skillId;
-      if (!id) return;
-      callbacks.onSelect(id);
-    });
-  });
+  container.addEventListener("click", (e: Event) => {
+    const target = e.target as HTMLElement;
 
-  container.querySelectorAll(".item-copy-btn").forEach((btn) => {
-    btn.addEventListener("click", (e: Event) => {
+    // Copy button
+    const copyBtn = target.closest(".item-copy-btn") as HTMLElement | null;
+    if (copyBtn) {
       e.stopPropagation();
-      const name = (btn as HTMLElement).dataset.copyName;
+      const name = copyBtn.dataset.copyName;
       if (name) {
         navigator.clipboard?.writeText(name);
-        const el = btn as HTMLElement;
-        el.classList.add("copied");
-        setTimeout(() => el.classList.remove("copied"), 1000);
+        copyBtn.classList.add("copied");
+        setTimeout(() => copyBtn.classList.remove("copied"), 1000);
       }
-    });
+      return;
+    }
+
+    // Skill item click
+    const item = target.closest(".skill-item") as HTMLElement | null;
+    if (item?.dataset.skillId) {
+      callbacks.onSelect(item.dataset.skillId);
+    }
   });
 }

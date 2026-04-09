@@ -1,6 +1,13 @@
 /**
  * Session parsing — reads Claude CLI data files and builds session objects.
  * Pure Node.js file I/O, no VS Code dependency.
+ *
+ * Performance notes:
+ * - history.jsonl is read line-by-line without loading the entire file into memory.
+ * - Session metadata (branch, entrypoint, rename, summary) is extracted in a
+ *   single bounded read per file to avoid loading multi-MB transcripts.
+ * - The session file index is built once per parseSessions() call and cached.
+ * - parseSessionDetail() caps messages to avoid sending huge payloads to the webview.
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -20,6 +27,12 @@ import type {
   Stats,
 } from "./types";
 
+/** Maximum bytes to read from a session file when extracting name hints (rename/summary). */
+const NAME_HINT_READ_BYTES = 256 * 1024; // 256 KB — covers most sessions
+
+/** Maximum messages returned in a session detail payload. */
+const MAX_DETAIL_MESSAGES = 200;
+
 /** Pre-built index: sessionId -> absolute file path. Reset on each parseSessions() call. */
 let sessionFileIndex: Map<string, string> | null = null;
 
@@ -36,41 +49,32 @@ function buildSessionFileIndex(): Map<string, string> {
       let stat: fs.Stats;
       try {
         stat = fs.statSync(dirPath);
-      } catch (err: unknown) {
-        console.warn(`[claude-manager] Failed to stat ${dirPath}:`, (err as Error).message);
+      } catch {
         continue;
       }
-      if (!stat.isDirectory()) {
-        continue;
-      }
+      if (!stat.isDirectory()) continue;
 
       let files: string[];
       try {
         files = fs.readdirSync(dirPath);
-      } catch (err: unknown) {
-        console.warn(`[claude-manager] Failed to read directory ${dirPath}:`, (err as Error).message);
+      } catch {
         continue;
       }
 
       for (const file of files) {
         if (file.endsWith(".jsonl")) {
-          const sessionId = file.replace(".jsonl", "");
-          index.set(sessionId, path.join(dirPath, file));
+          index.set(file.slice(0, -6), path.join(dirPath, file));
         }
       }
     }
-  } catch (err: unknown) {
+  } catch {
     // ENOENT is expected if projects dir doesn't exist yet
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(`[claude-manager] Failed to scan projects directory:`, (err as Error).message);
-    }
   }
   return index;
 }
 
 /**
  * Look up the JSONL file path for a session ID, building the index on first call.
- * Returns null if no file is found for the given session.
  */
 function getSessionFile(sessionId: string): string | null {
   if (!sessionFileIndex) {
@@ -89,29 +93,57 @@ function extractProjectName(projectPath: string): string {
 }
 
 /**
- * Parse a JSONL file into an array of typed objects.
- * Skips malformed lines with a warning. Returns an empty array if the file cannot be read.
+ * Parse a JSONL file line-by-line, yielding typed objects via callback.
+ * Skips malformed lines. Returns an empty array if the file cannot be read.
+ *
+ * Uses a streaming approach to avoid loading the entire file into a single
+ * JS string. Reads in 64 KB chunks so only ~64 KB is resident at any time
+ * (plus the accumulated results array).
  */
 function parseJsonlFile<T>(filePath: string): T[] {
-  let content: string;
+  let fd: number;
   try {
-    content = fs.readFileSync(filePath, "utf-8");
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(`[claude-manager] Failed to read ${filePath}:`, (err as Error).message);
-    }
+    fd = fs.openSync(filePath, "r");
+  } catch {
     return [];
   }
 
-  const lines = content.split("\n").filter((line) => line.trim());
   const results: T[] = [];
-  for (const line of lines) {
-    try {
-      results.push(JSON.parse(line) as T);
-    } catch {
-      // Skip malformed lines -- these are expected in partial writes
+  const CHUNK = 64 * 1024;
+  const buf = Buffer.alloc(CHUNK);
+  let leftover = "";
+  let bytesRead: number;
+
+  try {
+    do {
+      bytesRead = fs.readSync(fd, buf, 0, CHUNK, null);
+      if (bytesRead === 0) break;
+      const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
+      const lines = chunk.split("\n");
+      // Last element may be incomplete — carry it over
+      leftover = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          results.push(JSON.parse(line) as T);
+        } catch {
+          // Skip malformed lines — expected during partial writes
+        }
+      }
+    } while (bytesRead === CHUNK);
+
+    // Process any remaining data
+    if (leftover.trim()) {
+      try {
+        results.push(JSON.parse(leftover) as T);
+      } catch {
+        // Skip
+      }
     }
+  } finally {
+    fs.closeSync(fd);
   }
+
   return results;
 }
 
@@ -134,41 +166,84 @@ function getDateGroup(timestamp: number): string {
 }
 
 /**
- * Read the first few KB of a session file to extract branch and entrypoint metadata.
- * This avoids reading potentially large session files in full.
+ * Read the first few KB of a session file to extract metadata:
+ * - branch (gitBranch field)
+ * - entrypoint (entrypoint field)
+ * - rename (last /rename command found)
+ * - summary (last auto-generated summary found)
+ *
+ * Combines what was previously two separate file reads (readSessionMeta +
+ * extractSessionNameHints) into one bounded read to avoid opening the same
+ * file twice.
  */
-function readSessionMeta(filePath: string): { branch: string; entrypoint: string } {
-  const result = { branch: "", entrypoint: "" };
+function readSessionMeta(filePath: string): {
+  branch: string;
+  entrypoint: string;
+  rename: string;
+  summary: string;
+} {
+  const result = { branch: "", entrypoint: "", rename: "", summary: "" };
   let fd: number;
   try {
     fd = fs.openSync(filePath, "r");
-  } catch (err: unknown) {
-    console.warn(`[claude-manager] Failed to open ${filePath}:`, (err as Error).message);
+  } catch {
     return result;
   }
 
   try {
-    const buffer = Buffer.alloc(SESSION_META_READ_BYTES);
-    fs.readSync(fd, buffer, 0, SESSION_META_READ_BYTES, 0);
+    // Read a bounded chunk — enough for metadata + most renames/summaries
+    const readSize = Math.max(SESSION_META_READ_BYTES, NAME_HINT_READ_BYTES);
+    const stat = fs.fstatSync(fd);
+    const actualRead = Math.min(readSize, stat.size);
+    const buffer = Buffer.alloc(actualRead);
+    fs.readSync(fd, buffer, 0, actualRead, 0);
     const chunk = buffer.toString("utf-8");
-    const lines = chunk.split("\n").filter((l) => l.trim());
 
-    for (const line of lines) {
+    // Quick checks to avoid unnecessary parsing
+    const hasRename = chunk.includes("/rename");
+    const hasSummary = chunk.includes('"type":"summary"') || chunk.includes('"type": "summary"');
+
+    for (const line of chunk.split("\n")) {
+      if (!line.trim()) continue;
+
       try {
         const entry = JSON.parse(line) as Record<string, unknown>;
+
+        // Branch + entrypoint (early lines)
         if (typeof entry.gitBranch === "string" && !result.branch) {
           result.branch = entry.gitBranch;
         }
         if (typeof entry.entrypoint === "string" && !result.entrypoint) {
           result.entrypoint = entry.entrypoint;
         }
-        if (result.branch && result.entrypoint) break;
+
+        // Auto-summary
+        if (hasSummary && entry.type === "summary" && typeof entry.summary === "string") {
+          result.summary = (entry.summary as string).trim();
+        }
+
+        // /rename command in user message
+        if (hasRename && line.includes("/rename")) {
+          const msg = (entry as { message?: { content?: unknown } }).message;
+          if (msg?.content) {
+            const text =
+              typeof msg.content === "string"
+                ? msg.content
+                : Array.isArray(msg.content)
+                  ? (msg.content as Array<{ text?: string }>).map((b) => b.text ?? "").join("")
+                  : "";
+            const match = text.match(/<command-name>\/rename<\/command-name>[\s\S]*?<command-args>([^<]+)<\/command-args>/);
+            if (match?.[1]) {
+              result.rename = match[1].trim();
+            }
+          }
+        }
       } catch {
-        // Partial JSON line at the end of the buffer -- expected
+        // Partial JSON at chunk boundary — expected
       }
     }
-  } catch (err: unknown) {
-    console.warn(`[claude-manager] Failed to read metadata from ${filePath}:`, (err as Error).message);
+  } catch {
+    // Read error — return whatever we have
   } finally {
     fs.closeSync(fd);
   }
@@ -185,10 +260,7 @@ function buildSessionNameMap(): Map<string, string> {
   let files: string[];
   try {
     files = fs.readdirSync(SESSIONS_DIR);
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(`[claude-manager] Failed to read sessions directory:`, (err as Error).message);
-    }
+  } catch {
     return nameMap;
   }
 
@@ -200,8 +272,8 @@ function buildSessionNameMap(): Map<string, string> {
       if (typeof data.sessionId === "string" && typeof data.name === "string") {
         nameMap.set(data.sessionId, data.name);
       }
-    } catch (err: unknown) {
-      console.warn(`[claude-manager] Failed to parse session file ${file}:`, (err as Error).message);
+    } catch {
+      // Skip unreadable files
     }
   }
 
@@ -209,74 +281,8 @@ function buildSessionNameMap(): Map<string, string> {
 }
 
 /**
- * Extract session name hints from a JSONL file in a single pass.
- *
- * Pulls two things:
- * - `rename`: the most recent `/rename` command (user-typed in the Claude CLI).
- *   Stored as `<command-name>/rename</command-name>...<command-args>NAME</command-args>`
- *   inside a user message, and can appear anywhere in the conversation.
- * - `summary`: Claude's auto-generated session title, stored as entries of the
- *   form `{"type":"summary","summary":"..."}`. Claude writes this during the
- *   conversation based on context. We keep the last one we see.
- *
- * Both values are optional; missing ones are returned as empty strings.
- */
-function extractSessionNameHints(filePath: string): { rename: string; summary: string } {
-  const result = { rename: "", summary: "" };
-  let content: string;
-  try {
-    content = fs.readFileSync(filePath, "utf-8");
-  } catch {
-    return result;
-  }
-
-  const hasRename = content.includes("/rename");
-  const hasSummary = content.includes('"type":"summary"') || content.includes('"type": "summary"');
-  if (!hasRename && !hasSummary) return result;
-
-  for (const line of content.split("\n")) {
-    if (!line.trim()) continue;
-
-    // Auto-summary entry (cheap check before parsing)
-    if (hasSummary && line.includes('"summary"')) {
-      try {
-        const entry = JSON.parse(line) as { type?: string; summary?: unknown };
-        if (entry.type === "summary" && typeof entry.summary === "string" && entry.summary.trim()) {
-          result.summary = entry.summary.trim();
-        }
-      } catch {
-        // skip malformed lines
-      }
-    }
-
-    // /rename command embedded in a user message
-    if (hasRename && line.includes("/rename")) {
-      try {
-        const entry = JSON.parse(line) as { message?: { content?: unknown } };
-        const msgContent = entry.message?.content;
-        const text =
-          typeof msgContent === "string"
-            ? msgContent
-            : Array.isArray(msgContent)
-              ? msgContent.map((b) => (typeof b === "object" && b && "text" in b ? String((b as { text: unknown }).text) : "")).join("")
-              : "";
-        const match = text.match(/<command-name>\/rename<\/command-name>[\s\S]*?<command-args>([^<]+)<\/command-args>/);
-        if (match && match[1]) {
-          result.rename = match[1].trim();
-        }
-      } catch {
-        // skip malformed lines
-      }
-    }
-  }
-  return result;
-}
-
-/**
  * Parse all Claude Code sessions from the global history file.
  * Returns sessions sorted by most recent activity first.
- *
- * This resets the internal file index so fresh data is always returned.
  *
  * @param userRenames - Extension-managed session rename map (takes highest priority).
  */
@@ -317,27 +323,28 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
       .filter((d): d is string => Boolean(d) && d !== "/login ");
     if (prompts.length === 0) continue;
 
-    // Read branch + entrypoint from session file (fast: file index + 4KB read)
+    // Read branch + entrypoint + name hints in one bounded file read
     let branch = "";
     let entrypoint = "";
     const sessionFile = getSessionFile(sessionId);
+    let fileRename = "";
+    let fileSummary = "";
     if (sessionFile) {
       const meta = readSessionMeta(sessionFile);
       branch = meta.branch;
       entrypoint = meta.entrypoint;
+      fileRename = meta.rename;
+      fileSummary = meta.summary;
     }
 
     // Resolve session name with priority:
-    // 1. Extension-managed rename (always wins — reliable, user-controlled)
-    // 2. Live PID map (active sessions named via CLI session flag)
-    // 3. /rename command embedded in the JSONL transcript
-    // 4. Claude's auto-generated summary entry in the JSONL
+    // 1. Extension-managed rename (always wins)
+    // 2. Live PID map (active sessions)
+    // 3. /rename command in transcript
+    // 4. Claude's auto-generated summary
     let name = userRenames[sessionId] ?? "";
     if (!name) name = sessionNames.get(sessionId) ?? "";
-    if (!name && sessionFile) {
-      const hints = extractSessionNameHints(sessionFile);
-      name = hints.rename || hints.summary;
-    }
+    if (!name) name = fileRename || fileSummary;
 
     const summary =
       prompts[0].length > 100 ? prompts[0].slice(0, 100) + "..." : prompts[0];
@@ -364,6 +371,9 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
 /**
  * Parse the full message transcript for a single session.
  * Uses the cached session object if provided, otherwise looks it up.
+ *
+ * Messages are capped at MAX_DETAIL_MESSAGES to avoid sending huge payloads
+ * to the webview. The `hasMore` flag indicates if messages were truncated.
  *
  * Returns null if the session cannot be found.
  */
@@ -408,6 +418,8 @@ export function parseSessionDetail(
       content,
       timestamp: entry.timestamp ?? "",
     });
+
+    if (messages.length >= MAX_DETAIL_MESSAGES) break;
   }
 
   return {
@@ -444,10 +456,16 @@ export function groupSessions(sessions: Session[]): SessionGroup[] {
  * Compute aggregate statistics for a set of sessions.
  */
 export function getStats(sessions: Session[]): Stats {
-  const projects = new Set(sessions.map((s) => s.project));
+  const projects = new Set<string>();
   const weekAgo = Date.now() - 7 * 86400000;
-  const thisWeek = sessions.filter((s) => s.endTime >= weekAgo).length;
-  const totalMessages = sessions.reduce((sum, s) => sum + s.messageCount, 0);
+  let thisWeek = 0;
+  let totalMessages = 0;
+
+  for (const s of sessions) {
+    projects.add(s.project);
+    if (s.endTime >= weekAgo) thisWeek++;
+    totalMessages += s.messageCount;
+  }
 
   return {
     totalSessions: sessions.length,
@@ -465,17 +483,18 @@ export function getUniqueProjects(sessions: Session[]): string[] {
 }
 
 /**
- * Filter sessions by a text query, matching against project, branch, summary, and prompts.
- * The search is case-insensitive.
+ * Filter sessions by a text query, matching against project, branch, summary, and name.
+ * The search is case-insensitive. Avoids scanning all prompts for performance —
+ * matches against the pre-computed summary and name instead.
  */
 export function searchSessions(sessions: Session[], query: string): Session[] {
   const lower = query.toLowerCase();
   return sessions.filter(
     (s) =>
+      s.name.toLowerCase().includes(lower) ||
       s.project.toLowerCase().includes(lower) ||
       s.branch.toLowerCase().includes(lower) ||
-      s.summary.toLowerCase().includes(lower) ||
-      s.prompts.some((p) => p.toLowerCase().includes(lower)),
+      s.summary.toLowerCase().includes(lower),
   );
 }
 

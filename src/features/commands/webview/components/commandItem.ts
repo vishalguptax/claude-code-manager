@@ -40,31 +40,37 @@ export function renderCommandItem(cmd: Command, isActive: boolean): string {
  * @param commands - The full list of commands (used for lookup)
  * @param onSelect - Callback when a command is selected
  */
+/**
+ * Bind click handlers on command items using event delegation.
+ */
 export function bindCommandItems(
   container: HTMLElement,
   commands: import("../../types").Command[],
   onSelect: (cmd: import("../../types").Command) => void,
 ): void {
-  container.querySelectorAll(".cmd-item").forEach((el) => {
-    el.addEventListener("click", (e: Event) => {
-      if ((e.target as HTMLElement).closest(".item-copy-btn")) return;
-      const name = (el as HTMLElement).dataset.cmdName;
-      const scope = (el as HTMLElement).dataset.cmdScope;
-      const cmd = commands.find((c) => c.name === name && c.scope === scope);
-      if (cmd) onSelect(cmd);
-    });
-  });
+  container.addEventListener("click", (e: Event) => {
+    const target = e.target as HTMLElement;
 
-  container.querySelectorAll(".item-copy-btn").forEach((btn) => {
-    btn.addEventListener("click", (e: Event) => {
+    // Copy button
+    const copyBtn = target.closest(".item-copy-btn") as HTMLElement | null;
+    if (copyBtn) {
       e.stopPropagation();
-      const name = (btn as HTMLElement).dataset.copyName;
+      const name = copyBtn.dataset.copyName;
       if (name) {
         navigator.clipboard?.writeText(name);
-        const el = btn as HTMLElement;
-        el.classList.add("copied");
-        setTimeout(() => el.classList.remove("copied"), 1000);
+        copyBtn.classList.add("copied");
+        setTimeout(() => copyBtn.classList.remove("copied"), 1000);
       }
-    });
+      return;
+    }
+
+    // Command item click
+    const item = target.closest(".cmd-item") as HTMLElement | null;
+    if (item) {
+      const cmdName = item.dataset.cmdName;
+      const scope = item.dataset.cmdScope;
+      const cmd = commands.find((c) => c.name === cmdName && c.scope === scope);
+      if (cmd) onSelect(cmd);
+    }
   });
 }

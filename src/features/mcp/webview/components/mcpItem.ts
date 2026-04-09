@@ -42,31 +42,37 @@ export function renderMcpItem(server: McpServer, isActive: boolean): string {
  * @param servers - The full list of servers (used for lookup)
  * @param onSelect - Callback when a server is selected
  */
+/**
+ * Bind click handlers on MCP server items using event delegation.
+ */
 export function bindMcpItems(
   container: HTMLElement,
   servers: McpServer[],
   onSelect: (server: McpServer) => void,
 ): void {
-  container.querySelectorAll(".mcp-item").forEach((el) => {
-    el.addEventListener("click", (e: Event) => {
-      if ((e.target as HTMLElement).closest(".item-copy-btn")) return;
-      const name = (el as HTMLElement).dataset.mcpName;
-      const scope = (el as HTMLElement).dataset.mcpScope;
-      const server = servers.find((s) => s.name === name && s.scope === scope);
-      if (server) onSelect(server);
-    });
-  });
+  container.addEventListener("click", (e: Event) => {
+    const target = e.target as HTMLElement;
 
-  container.querySelectorAll(".item-copy-btn").forEach((btn) => {
-    btn.addEventListener("click", (e: Event) => {
+    // Copy button
+    const copyBtn = target.closest(".item-copy-btn") as HTMLElement | null;
+    if (copyBtn) {
       e.stopPropagation();
-      const name = (btn as HTMLElement).dataset.copyName;
+      const name = copyBtn.dataset.copyName;
       if (name) {
         navigator.clipboard?.writeText(name);
-        const el = btn as HTMLElement;
-        el.classList.add("copied");
-        setTimeout(() => el.classList.remove("copied"), 1000);
+        copyBtn.classList.add("copied");
+        setTimeout(() => copyBtn.classList.remove("copied"), 1000);
       }
-    });
+      return;
+    }
+
+    // MCP item click
+    const item = target.closest(".mcp-item") as HTMLElement | null;
+    if (item) {
+      const name = item.dataset.mcpName;
+      const scope = item.dataset.mcpScope;
+      const server = servers.find((s) => s.name === name && s.scope === scope);
+      if (server) onSelect(server);
+    }
   });
 }

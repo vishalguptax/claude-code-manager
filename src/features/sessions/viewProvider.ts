@@ -69,6 +69,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    try {
     switch (msg.type) {
       case "ready":
         this.sessions = parseSessions(loadState().renames);
@@ -157,14 +158,15 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         const newName = await promptRenameSession(msg.sessionId, this.sessions);
         if (newName !== null) {
           const state = renameSession(msg.sessionId, newName);
-          // Re-parse sessions so list reflects the new name immediately
-          this.sessions = parseSessions(state.renames);
+          // Update cached session in-place instead of re-parsing all from disk
+          const target = this.sessions.find((s) => s.id === msg.sessionId);
+          if (target) target.name = newName.trim();
           wv.postMessage({ type: "sessions", data: groupSessions(this.sessions), stats: getStats(this.sessions) });
           wv.postMessage({ type: "userState", ...state });
-          // Also refresh the detail view if it's showing this session
-          const updated = parseSessionDetail(msg.sessionId, this.sessions.find((s) => s.id === msg.sessionId));
-          if (updated) {
-            wv.postMessage({ type: "sessionDetail", data: updated });
+          // Refresh detail view if showing this session
+          if (target) {
+            const updated = parseSessionDetail(msg.sessionId, target);
+            if (updated) wv.postMessage({ type: "sessionDetail", data: updated });
           }
         }
         break;
@@ -374,6 +376,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         }
         break;
       }
+    }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[claude-manager] Message handler error (${msg.type}):`, message);
+      wv.postMessage({ type: "error", message: `Internal error: ${message}` });
     }
   }
 }

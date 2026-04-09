@@ -149,10 +149,10 @@ export function getFiltered(): Session[] {
 
   if (searchQuery) {
     list = list.filter((s) =>
+      s.name.toLowerCase().includes(searchQuery) ||
       s.project.toLowerCase().includes(searchQuery) ||
       s.branch.toLowerCase().includes(searchQuery) ||
-      s.summary.toLowerCase().includes(searchQuery) ||
-      s.prompts.some((p) => p.toLowerCase().includes(searchQuery)));
+      s.summary.toLowerCase().includes(searchQuery));
   }
 
   list.sort((a, b) => {
