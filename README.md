@@ -66,11 +66,15 @@ ext install vishalguptax.claude-code-manager
 curl -Lo /tmp/ccm.vsix https://github.com/vishalguptax/claude-code-manager/releases/latest/download/claude-code-manager-1.0.0.vsix && code --install-extension /tmp/ccm.vsix && rm /tmp/ccm.vsix
 ```
 
+> Replace `code` with your IDE's CLI: `cursor`, `windsurf`, `codium`, etc.
+
 ### From VSIX (manual)
 
 1. Download the latest `.vsix` from [Releases](https://github.com/vishalguptax/claude-code-manager/releases)
 2. `Ctrl+Shift+P` → **Extensions: Install from VSIX…**
 3. Select the downloaded file
+
+> Works on any VS Code-based IDE — VS Code, Cursor, Windsurf, VSCodium, Codespaces, Gitpod.
 
 ---
 
