@@ -1,168 +1,104 @@
 <div align="center">
 
-<br />
-
-<img src="media/icon.svg" width="64" height="64" alt="Claude Code Manager" />
-
-<br />
-
 # Claude Code Manager
 
-**The missing sidebar for [Claude Code](https://claude.ai/code).**
+**The missing sidebar for Claude Code.**
 
-Browse sessions, skills, commands, hooks, MCP servers, and agents — without leaving your editor.
+Browse sessions, skills, commands, hooks, MCP servers, and agents — all from one panel.
 
-<br />
-
-[![License](https://img.shields.io/badge/license-BSL%201.1-E07B39?style=flat-square)](LICENSE)
-&nbsp;
-[![VS Code](https://img.shields.io/badge/VS%20Code-1.85+-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://code.visualstudio.com/)
-&nbsp;
-[![Cursor](https://img.shields.io/badge/Cursor-compatible-8B5CF6?style=flat-square)](https://cursor.com)
-&nbsp;
-[![Windsurf](https://img.shields.io/badge/Windsurf-compatible-06B6D4?style=flat-square)](https://windsurf.com)
-
-<br />
-
-**[Install](#install)** &nbsp;&middot;&nbsp; **[Features](#features)** &nbsp;&middot;&nbsp; **[Usage](#usage)** &nbsp;&middot;&nbsp; **[Contributing](#contributing)**
-
-<br />
+[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-orange.svg)](LICENSE)
+[![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC.svg)](https://code.visualstudio.com/)
+[![Cursor](https://img.shields.io/badge/Cursor-compatible-8B5CF6.svg)](https://cursor.com)
+[![Windsurf](https://img.shields.io/badge/Windsurf-compatible-06B6D4.svg)](https://windsurf.com)
 
 </div>
 
 ---
 
-Everything in your `~/.claude/` directory — organized into clean, searchable tabs right in the activity bar. Resume any session in one click, manage your config visually, and stay in flow.
+Everything from your `~/.claude/` directory — organized into clean, searchable tabs in the activity bar. Resume any session in one click, manage your config visually, never leave your editor.
 
-<br />
-
-## Install
-
-**One command:**
+## Quick Install
 
 ```bash
-curl -Lo /tmp/ccm.vsix https://github.com/vishalguptax/claude-code-manager/releases/latest/download/claude-code-manager-1.0.0.vsix \
-  && code --install-extension /tmp/ccm.vsix \
-  && rm /tmp/ccm.vsix
+curl -Lo /tmp/ccm.vsix https://github.com/vishalguptax/claude-code-manager/releases/latest/download/claude-code-manager-1.0.0.vsix && code --install-extension /tmp/ccm.vsix && rm /tmp/ccm.vsix
 ```
 
-> **Using Cursor, Windsurf, or VSCodium?** Replace `code` with `cursor`, `windsurf`, or `codium`.
+> Replace `code` with `cursor`, `windsurf`, or `codium` for other IDEs.
 
-**Or manually** — download `.vsix` from [Releases](https://github.com/vishalguptax/claude-code-manager/releases), then `Ctrl+Shift+P` &rarr; **Extensions: Install from VSIX...**
+Or download the `.vsix` from [Releases](https://github.com/vishalguptax/claude-code-manager/releases) and install via `Ctrl+Shift+P` → **Extensions: Install from VSIX…**
 
-<br />
+---
 
-## Features
+## Features at a Glance
 
-<table>
-<tr>
-<td width="140"><strong>Sessions</strong></td>
-<td>Browse, search, filter, pin, rename, resume, fork &mdash; your full session history</td>
-</tr>
-<tr>
-<td><strong>Skills</strong></td>
-<td>Global & project skills with copy, delete, and open-in-Claude actions</td>
-</tr>
-<tr>
-<td><strong>Commands</strong></td>
-<td>52 built-in + your custom slash commands, all copyable</td>
-</tr>
-<tr>
-<td><strong>Hooks</strong></td>
-<td>Every hook across global, project, and local scopes</td>
-</tr>
-<tr>
-<td><strong>MCP Servers</strong></td>
-<td>Enable/disable, delete, inspect config with masked API keys</td>
-</tr>
-<tr>
-<td><strong>Agents</strong></td>
-<td>Project agents with model badges and description previews</td>
-</tr>
-</table>
+| Tab | What it does |
+| :-- | :-- |
+| **Sessions** | Browse, search, filter, pin, rename, resume, fork — your full session history |
+| **Skills** | View global & project skills with copy, delete, and open-in-Claude actions |
+| **Commands** | 52 built-in + your custom slash commands, all copyable |
+| **Hooks** | Every hook across global, project, and local scopes |
+| **MCP Servers** | Enable/disable, delete, inspect config with masked API keys |
+| **Agents** | Project agents with model badges and description previews |
 
-<br />
+---
 
 ### Sessions
 
-Your Claude Code session history &mdash; searchable, filterable, one-click resumable.
+> Your Claude Code session history — searchable, filterable, and one-click resumable.
 
-<table><tr><td>
-
-- **Smart grouping** &mdash; Today / This Week / This Month / Older
+- **Smart grouping** — Today, This Week, This Month, Older
 - **Filter** by project, branch, or date range
-- **Pin** &amp; **rename** sessions (persisted locally, works even when CLI `/rename` doesn't)
-- **Resume** with branch detection &mdash; warns if you're on a different branch
+- **Pin** important sessions to the top
+- **Rename** sessions (persisted locally, works even when CLI `/rename` doesn't)
+- **Resume** with branch detection — warns if you're on a different branch
 - **Fork** sessions for alternate explorations
-- **Restore Workspace** &mdash; reopen every terminal from your last session
-- **Right-click menu** &mdash; pin, rename, fork, copy command, copy as Markdown, delete
+- **Restore Workspace** — reopen every terminal from your last working session
+- **Right-click menu** — pin, rename, fork, copy command, copy as Markdown, delete
 - **Search** across names, projects, branches, and prompts
-
-</td></tr></table>
 
 ### Skills
 
-Browse all installed Claude Code skills at a glance.
-
-<table><tr><td>
+> Browse all installed Claude Code skills.
 
 - Global (`~/.claude/skills/`) and project-level (`.claude/skills/`)
 - Scope badges, tags, and descriptions from SKILL.md frontmatter
 - Copy skill name, open file, delete, or launch a new Claude session
 
-</td></tr></table>
-
 ### Commands
 
-Every slash command at your fingertips.
-
-<table><tr><td>
+> Every slash command at your fingertips.
 
 - **52 built-in** commands from the official Claude Code docs
 - Custom commands from `~/.claude/commands/` and `.claude/commands/`
 - One-click copy for any command
 
-</td></tr></table>
-
 ### Hooks
 
-See what's wired up across all scopes.
+> See what's wired up across all scopes.
 
-<table><tr><td>
-
-- Global, project, and local settings files
+- Global (`~/.claude/settings.json`), project (`.claude/settings.json`), local (`.claude/settings.local.json`)
 - Supports both flat and nested hook formats
 - Event matcher and command shown for each hook
 
-</td></tr></table>
-
 ### MCP Servers
 
-Manage your MCP server configurations visually.
+> Manage your MCP server configurations visually.
 
-<table><tr><td>
-
-- Type badges &mdash; `stdio` / `http`
-- **Enable/Disable toggle** &mdash; writes directly to `.mcp.json`
-- **Delete** servers from config with confirmation
+- Type badges — `stdio` / `http`
+- **Enable/Disable toggle** — writes directly to `.mcp.json`
+- **Delete** servers from config
 - Environment variables with automatic sensitive value masking
-- Works with project and global configs
-
-</td></tr></table>
+- Works with both project (`.mcp.json`) and global (`~/.claude/mcp.json`) configs
 
 ### Agents
 
-Browse your project's custom agents.
-
-<table><tr><td>
+> Browse your project's custom agents.
 
 - Reads from `.claude/agents/`
-- Model badges &mdash; Sonnet, Opus, Haiku
+- Model badges — Sonnet, Opus, Haiku
 - Description previews from YAML frontmatter
 
-</td></tr></table>
-
-<br />
+---
 
 ## Usage
 
@@ -171,44 +107,42 @@ Click the **Claude Code Manager** icon in the activity bar, or:
 | Action | Shortcut |
 | :-- | :-- |
 | Focus the panel | `Ctrl+Alt+C` / `Cmd+Alt+C` |
-| Command palette | `Ctrl+Shift+P` &rarr; **Claude: Open Code Manager** |
+| Command palette | `Ctrl+Shift+P` → **Claude: Open Code Manager** |
 
-<br />
+---
 
-## Under the Hood
+## Performance
 
-Built to handle thousands of sessions without freezing your editor.
+Built to handle large histories without freezing your editor.
 
-| | |
-| :-- | :-- |
-| **Streaming parser** | Reads JSONL in 64KB chunks &mdash; never loads entire files into memory |
-| **Bounded reads** | Single file read per session for all metadata extraction |
-| **Event delegation** | O(1) listeners on containers, not O(n) per item |
-| **Capped payloads** | Detail views limited to prevent oversized transfers |
-| **Fast-path search** | Short fields first, prompt scan only as fallback |
-| **In-place cache** | Pin/rename/delete update memory &mdash; no full re-parse |
+- **Streaming JSONL parser** — reads in 64KB chunks, never loads entire files into memory
+- **Single bounded read** per session file for all metadata extraction
+- **Event delegation** — O(1) event listeners, not O(n)
+- **Capped payloads** — detail views limited to prevent large postMessage transfers
+- **Fast-path search** — checks short fields first, scans prompts only as fallback
+- **In-place cache updates** — rename/pin/delete don't trigger full re-parse
 
-<br />
+---
 
 ## Privacy
 
-> **100% local.** Reads `~/.claude/`, renders in a webview. Zero network requests. Zero telemetry. Your data never leaves your machine.
+**100% local.** Reads files from `~/.claude/`, renders in a webview. No network requests, no telemetry, no tracking. Your data never leaves your machine.
 
-<br />
+---
 
 ## Compatibility
 
+Works on every VS Code-based editor:
+
 <div align="center">
 
-**VS Code** &nbsp;&bull;&nbsp; **Cursor** &nbsp;&bull;&nbsp; **Windsurf** &nbsp;&bull;&nbsp; **VSCodium** &nbsp;&bull;&nbsp; **Codespaces** &nbsp;&bull;&nbsp; **Gitpod**
+**VS Code** · **Cursor** · **Windsurf** · **VSCodium** · **GitHub Codespaces** · **Gitpod**
 
 </div>
 
-<br />
+Requires **VS Code 1.85.0+** and [Claude Code](https://claude.ai/code) installed (needs `~/.claude/` data directory).
 
-Requires **VS Code 1.85.0+** and [Claude Code](https://claude.ai/code) (needs the `~/.claude/` data directory).
-
-<br />
+---
 
 ## Development
 
@@ -216,14 +150,21 @@ Requires **VS Code 1.85.0+** and [Claude Code](https://claude.ai/code) (needs th
 git clone https://github.com/vishalguptax/claude-code-manager.git
 cd claude-code-manager
 npm install
-npm run build        # Build extension + webview
-npm run package      # Create .vsix
-npm test             # 89 unit tests
+npm run build
 ```
 
-Press `F5` to launch the Extension Development Host.
+Press `F5` to launch the Extension Development Host, or package a `.vsix`:
 
-<br />
+```bash
+npm run package
+```
+
+```bash
+npm test              # 89 unit tests
+npm run test:watch    # Watch mode
+```
+
+---
 
 ## Contributing
 
@@ -235,14 +176,11 @@ Found a bug? [Open an issue](https://github.com/vishalguptax/claude-code-manager
 
 <div align="center">
 
-<br />
+## License
 
-**[BSL 1.1](LICENSE)** &copy; [Vishal Gupta](https://github.com/vishalguptax)
+[BSL 1.1](LICENSE) © [Vishal Gupta](https://github.com/vishalguptax)
 
 Use freely. Contribute freely. Cannot fork as a competing extension.
-
 Converts to **MIT** on April 9, 2030.
-
-<br />
 
 </div>
