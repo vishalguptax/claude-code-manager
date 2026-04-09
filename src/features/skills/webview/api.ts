@@ -29,3 +29,8 @@ export function sendGetSkillDetail(skillId: string): void {
 export function sendOpenSkillFile(skillPath: string): void {
   _vscode.postMessage({ type: "openSkillFile", skillPath });
 }
+
+/** Request to delete a skill folder (with extension-side confirmation). */
+export function sendDeleteSkill(skillPath: string): void {
+  _vscode.postMessage({ type: "deleteSkill", skillPath });
+}

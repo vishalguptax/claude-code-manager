@@ -18,7 +18,9 @@ vi.mock("../../../core/config", () => ({
   STATE_FILE,
 }));
 
-import { loadState, saveState, pinSession, unpinSession, deleteSession } from "../state";
+import { loadState, saveState, pinSession, unpinSession, deleteSession, renameSession } from "../state";
+
+const empty = () => ({ pinned: [] as string[], deleted: [] as string[], renames: {} as Record<string, string> });
 
 describe("loadState", () => {
   beforeEach(() => {
@@ -28,7 +30,7 @@ describe("loadState", () => {
 
   it("returns default state when file does not exist", () => {
     const state = loadState();
-    expect(state).toEqual({ pinned: [], deleted: [] });
+    expect(state).toEqual(empty());
   });
 
   it("reads pinned and deleted arrays from file", () => {
@@ -39,12 +41,22 @@ describe("loadState", () => {
     const state = loadState();
     expect(state.pinned).toEqual(["a", "b"]);
     expect(state.deleted).toEqual(["c"]);
+    expect(state.renames).toEqual({});
+  });
+
+  it("reads renames map from file", () => {
+    fs.writeFileSync(
+      STATE_FILE,
+      JSON.stringify({ pinned: [], deleted: [], renames: { "sess-1": "my name" } }),
+    );
+    const state = loadState();
+    expect(state.renames).toEqual({ "sess-1": "my name" });
   });
 
   it("returns default state when file contains invalid JSON", () => {
     fs.writeFileSync(STATE_FILE, "not json {{{");
     const state = loadState();
-    expect(state).toEqual({ pinned: [], deleted: [] });
+    expect(state).toEqual(empty());
   });
 
   it("handles missing pinned/deleted keys gracefully", () => {
@@ -52,12 +64,13 @@ describe("loadState", () => {
     const state = loadState();
     expect(state.pinned).toEqual([]);
     expect(state.deleted).toEqual([]);
+    expect(state.renames).toEqual({});
   });
 
   it("handles null value in file", () => {
     fs.writeFileSync(STATE_FILE, "null");
     const state = loadState();
-    expect(state).toEqual({ pinned: [], deleted: [] });
+    expect(state).toEqual(empty());
   });
 });
 
@@ -68,15 +81,15 @@ describe("saveState", () => {
   });
 
   it("writes state to disk as formatted JSON", () => {
-    saveState({ pinned: ["x"], deleted: ["y"] });
+    saveState({ pinned: ["x"], deleted: ["y"], renames: {} });
     const raw = fs.readFileSync(STATE_FILE, "utf-8");
     const data = JSON.parse(raw);
-    expect(data).toEqual({ pinned: ["x"], deleted: ["y"] });
+    expect(data).toEqual({ pinned: ["x"], deleted: ["y"], renames: {} });
   });
 
   it("overwrites existing state file", () => {
-    saveState({ pinned: ["old"], deleted: [] });
-    saveState({ pinned: ["new"], deleted: ["z"] });
+    saveState({ pinned: ["old"], deleted: [], renames: {} });
+    saveState({ pinned: ["new"], deleted: ["z"], renames: {} });
     const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
     expect(data.pinned).toEqual(["new"]);
   });
@@ -100,7 +113,7 @@ describe("pinSession", () => {
   });
 
   it("preserves existing pinned sessions", () => {
-    saveState({ pinned: ["existing"], deleted: [] });
+    saveState({ pinned: ["existing"], deleted: [], renames: {} });
     const state = pinSession("new-sess");
     expect(state.pinned).toContain("existing");
     expect(state.pinned).toContain("new-sess");
@@ -114,13 +127,13 @@ describe("unpinSession", () => {
   });
 
   it("removes session from pinned list", () => {
-    saveState({ pinned: ["a", "b", "c"], deleted: [] });
+    saveState({ pinned: ["a", "b", "c"], deleted: [], renames: {} });
     const state = unpinSession("b");
     expect(state.pinned).toEqual(["a", "c"]);
   });
 
   it("is a no-op if session was not pinned", () => {
-    saveState({ pinned: ["a"], deleted: [] });
+    saveState({ pinned: ["a"], deleted: [], renames: {} });
     const state = unpinSession("nonexistent");
     expect(state.pinned).toEqual(["a"]);
   });
@@ -138,7 +151,7 @@ describe("deleteSession", () => {
   });
 
   it("removes session from pinned list when deleting", () => {
-    saveState({ pinned: ["sess-del", "other"], deleted: [] });
+    saveState({ pinned: ["sess-del", "other"], deleted: [], renames: {} });
     const state = deleteSession("sess-del");
     expect(state.pinned).not.toContain("sess-del");
     expect(state.pinned).toContain("other");
@@ -149,5 +162,34 @@ describe("deleteSession", () => {
     deleteSession("sess-del");
     const state = deleteSession("sess-del");
     expect(state.deleted.filter((id) => id === "sess-del")).toHaveLength(1);
+  });
+});
+
+describe("renameSession", () => {
+  beforeEach(() => {
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  });
+
+  it("stores the new name in renames map", () => {
+    const state = renameSession("sess-1", "My Custom Name");
+    expect(state.renames["sess-1"]).toBe("My Custom Name");
+  });
+
+  it("trims whitespace from the new name", () => {
+    const state = renameSession("sess-1", "  spaced  ");
+    expect(state.renames["sess-1"]).toBe("spaced");
+  });
+
+  it("clears the rename when given an empty string", () => {
+    renameSession("sess-1", "temp");
+    const state = renameSession("sess-1", "");
+    expect(state.renames["sess-1"]).toBeUndefined();
+  });
+
+  it("persists across loadState calls", () => {
+    renameSession("sess-1", "Persistent");
+    const state = loadState();
+    expect(state.renames["sess-1"]).toBe("Persistent");
   });
 });

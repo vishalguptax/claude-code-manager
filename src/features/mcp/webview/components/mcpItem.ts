@@ -2,6 +2,7 @@
  * MCP server item component — renders a single MCP server row in the list.
  */
 
+import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
 import type { McpServer } from "../../types";
 
@@ -23,9 +24,11 @@ export function renderMcpItem(server: McpServer, isActive: boolean): string {
     : detail;
 
   return `
-    <div class="mcp-item ${isActive ? "active" : ""}" data-mcp-name="${esc(server.name)}" data-mcp-scope="${server.scope}">
+    <div class="mcp-item ${isActive ? "active" : ""} ${server.disabled ? "mcp-disabled" : ""}" data-mcp-name="${esc(server.name)}" data-mcp-scope="${server.scope}">
       <div class="mcp-item-row1">
         <span class="mcp-item-name">${esc(server.name)}</span>
+        <button class="item-copy-btn" data-copy-name="${esc(server.name)}" title="Copy name">${icon("copy", 14)}</button>
+        ${server.disabled ? `<span class="mcp-disabled-badge">disabled</span>` : ""}
         <span class="mcp-type-badge mcp-type-${server.type}">${server.type}</span>
       </div>
       <div class="mcp-item-detail">${esc(detailPreview)}</div>
@@ -45,11 +48,25 @@ export function bindMcpItems(
   onSelect: (server: McpServer) => void,
 ): void {
   container.querySelectorAll(".mcp-item").forEach((el) => {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (e: Event) => {
+      if ((e.target as HTMLElement).closest(".item-copy-btn")) return;
       const name = (el as HTMLElement).dataset.mcpName;
       const scope = (el as HTMLElement).dataset.mcpScope;
       const server = servers.find((s) => s.name === name && s.scope === scope);
       if (server) onSelect(server);
+    });
+  });
+
+  container.querySelectorAll(".item-copy-btn").forEach((btn) => {
+    btn.addEventListener("click", (e: Event) => {
+      e.stopPropagation();
+      const name = (btn as HTMLElement).dataset.copyName;
+      if (name) {
+        navigator.clipboard?.writeText(name);
+        const el = btn as HTMLElement;
+        el.classList.add("copied");
+        setTimeout(() => el.classList.remove("copied"), 1000);
+      }
     });
   });
 }

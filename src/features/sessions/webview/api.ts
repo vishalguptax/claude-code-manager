@@ -60,6 +60,11 @@ export function sendConfirmDelete(sessionId: string, callback?: string): void {
   _vscode.postMessage({ type: "confirmDelete", sessionId, callback });
 }
 
+/** Prompt the user to rename a session. Opens a VS Code input box. */
+export function sendRenameSession(sessionId: string): void {
+  _vscode.postMessage({ type: "renameSession", sessionId });
+}
+
 /** Fork a session (create a new session branching from this one). */
 export function sendForkSession(sessionId: string): void {
   _vscode.postMessage({ type: "forkSession", sessionId });

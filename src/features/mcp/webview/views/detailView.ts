@@ -3,10 +3,11 @@
  * Masks sensitive environment variable values (API keys).
  */
 
-import { esc } from "../../../../webview/utils";
+import { esc, flash } from "../../../../webview/utils";
 import { icon } from "../../../../webview/icons";
 import { getSelectedServer } from "../state";
-import { sendOpenMcpConfig } from "../api";
+import { sendOpenMcpConfig, sendToggleMcpServer, sendDeleteMcpServer } from "../api";
+import { sendNewSession } from "../../../sessions/webview/api";
 import { showMcpList } from "./listView";
 
 /**
@@ -76,7 +77,11 @@ export function showMcpDetail(container: HTMLElement): void {
     </div>
 
     <div class="mcp-detail-actions">
+      <button class="btn green" id="mcpOpenClaude">${icon("play")} Open Claude</button>
+      <button class="btn" id="mcpCopyName">${icon("copy")} Copy Name</button>
+      <button class="btn ${server.disabled ? "" : "del"}" id="mcpToggle">${icon(server.disabled ? "play" : "x")} ${server.disabled ? "Enable" : "Disable"}</button>
       <button class="btn" id="mcpOpenConfig">${icon("external-link")} Open Config</button>
+      <button class="btn del" id="mcpDelete">${icon("trash-2")} Delete</button>
     </div>
 
     <div class="mcp-detail-section">
@@ -93,5 +98,20 @@ export function showMcpDetail(container: HTMLElement): void {
 
   container.querySelector("#mcpOpenConfig")?.addEventListener("click", () => {
     sendOpenMcpConfig(server.scope);
+  });
+
+  container.querySelector("#mcpOpenClaude")?.addEventListener("click", () => sendNewSession());
+
+  container.querySelector("#mcpCopyName")?.addEventListener("click", () => {
+    navigator.clipboard?.writeText(server.name);
+    flash("mcpCopyName", "Copied!");
+  });
+
+  container.querySelector("#mcpToggle")?.addEventListener("click", () => {
+    sendToggleMcpServer(server.name, server.scope, !server.disabled);
+  });
+
+  container.querySelector("#mcpDelete")?.addEventListener("click", () => {
+    sendDeleteMcpServer(server.name, server.scope);
   });
 }

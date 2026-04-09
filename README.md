@@ -1,65 +1,112 @@
 # Claude Code Manager
 
-All-in-one manager for [Claude Code](https://claude.ai/code) — browse sessions, skills, commands, hooks, MCP servers, and agents from your VS Code sidebar.
+> All-in-one sidebar manager for [Claude Code](https://claude.ai/code) — browse **sessions**, **skills**, **commands**, **hooks**, **MCP servers**, and **agents** without leaving your editor.
+
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vishalguptax.claude-code-manager?label=Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/vishalguptax.claude-code-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager)
+[![Rating](https://img.shields.io/visual-studio-marketplace/r/vishalguptax.claude-code-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager&ssr=false#review-details)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+Everything from your `~/.claude/` directory, organized into clean, searchable tabs right in the activity bar. Resume any past session in one click, jump between projects, and manage your Claude Code configuration visually.
+
+---
 
 ## Features
 
 ### Sessions
-Browse and manage all your Claude Code terminal sessions. Search, filter by project and date, pin favorites, resume with one click.
 
-- Session list sorted by last activity
-- Filter by current project, date range (Today/Week/Month/All)
-- Pin, delete, fork sessions
-- Resume in terminal with branch detection
-- Right-click context menu for quick actions
+Browse every Claude Code conversation — searchable, filterable, and resumable.
+
+- Sorted by last activity, grouped by **Today / This Week / This Month / Older**
+- Filter by **project**, **branch**, or **date range**
+- **Recent** view always shows your top 20 latest sessions
+- **Pin** important sessions, **delete** noise
+- **Resume** in a terminal with automatic branch detection and warning if branches differ
+- **Fork** a session (`--fork-session`) for alternate explorations
+- **Restore Workspace** — reopens every session that was active the last time you used Claude Code
+- Honors custom names set via `/rename`
+- Right-click context menu for copy-command, copy-as-Markdown, open-project, and more
 
 ### Skills
-View all installed Claude Code skills — both global (`~/.claude/skills/`) and project-level (`.claude/skills/`).
+
+Lists all installed skills from `~/.claude/skills/` (global) and `.claude/skills/` (project-level), with scope badges, descriptions, and one-click file open.
 
 ### Commands
-Browse custom slash commands from `~/.claude/commands/` and `.claude/commands/`.
+
+Browse **custom slash commands** from `~/.claude/commands/` and `.claude/commands/`, alongside the full catalog of **52 built-in** Claude Code commands sourced from the official docs.
 
 ### Hooks
-View automation hooks configured in Claude Code settings.
+
+View every hook configured across **global**, **project**, and **local** scopes — `~/.claude/settings.json`, `.claude/settings.json`, and `.claude/settings.local.json`. Supports both flat and nested hook formats.
 
 ### MCP Servers
-View MCP server configurations from `.mcp.json` with type badges (stdio/http) and masked API keys.
+
+Inspect MCP server configurations from `.mcp.json` with type badges (`stdio` / `http` / `sse`) and automatically masked API keys.
 
 ### Agents
-Browse project agents from `.claude/agents/` with model badges (Sonnet/Opus/Haiku).
+
+Browse project agents from `.claude/agents/` with model badges (`Sonnet` / `Opus` / `Haiku`) and description previews.
+
+---
 
 ## Installation
 
 ### From VS Code Marketplace
-1. Open VS Code
-2. Go to Extensions (`Ctrl+Shift+X`)
-3. Search "Claude Code Manager"
-4. Click Install
+
+1. Open **Extensions** (`Ctrl+Shift+X` / `Cmd+Shift+X`)
+2. Search for **Claude Code Manager**
+3. Click **Install**
+
+Or install directly:
+
+```
+ext install vishalguptax.claude-code-manager
+```
 
 ### From VSIX
-1. Download the `.vsix` file from [Releases](https://github.com/vishalguptax/claude-code-manager/releases)
-2. `Ctrl+Shift+P` > "Extensions: Install from VSIX"
-3. Select the file
+
+1. Download the latest `.vsix` from [Releases](https://github.com/vishalguptax/claude-code-manager/releases)
+2. `Ctrl+Shift+P` → **Extensions: Install from VSIX…**
+3. Select the downloaded file
+
+---
 
 ## Usage
 
-Click the Claude Code Manager icon in the activity bar (sidebar), or:
-- `Ctrl+Alt+C` / `Cmd+Alt+C` to focus the panel
-- `Ctrl+Shift+P` > "Claude: Open Code Manager"
+Click the **Claude Code Manager** icon in the activity bar, or:
+
+| Action | Shortcut |
+| :-- | :-- |
+| Focus the panel | `Ctrl+Alt+C` / `Cmd+Alt+C` |
+| Open via command palette | `Ctrl+Shift+P` → **Claude: Open Code Manager** |
+
+---
 
 ## Requirements
 
-- [Claude Code](https://claude.ai/code) installed and used at least once (creates `~/.claude/` data)
-- VS Code 1.85.0 or later
+- [**Claude Code**](https://claude.ai/code) installed and used at least once (creates the `~/.claude/` data directory)
+- **VS Code 1.85.0** or later
+
+---
 
 ## Compatibility
 
-Works on all VS Code-based IDEs:
+Works on every VS Code-based editor:
+
 - Visual Studio Code
 - Cursor
 - Windsurf
+- VSCodium
 - GitHub Codespaces
 - Gitpod
+
+---
+
+## Privacy
+
+This extension is **100% local**. It reads files from your `~/.claude/` directory, renders them in a webview, and never makes a network request. No telemetry, no tracking, no data leaves your machine.
+
+---
 
 ## Development
 
@@ -68,15 +115,32 @@ git clone https://github.com/vishalguptax/claude-code-manager.git
 cd claude-code-manager
 npm install
 npm run build
-# Install: Ctrl+Shift+P > "Extensions: Install from VSIX" > select .vsix
+```
+
+Then press `F5` in VS Code to launch an Extension Development Host, or package a `.vsix`:
+
+```bash
+npm run package
 ```
 
 ### Testing
+
 ```bash
-npm test          # Run all tests
-npm run test:watch # Watch mode
+npm test            # Run all unit tests
+npm run test:watch  # Watch mode
+npm run test:coverage
 ```
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome at [github.com/vishalguptax/claude-code-manager](https://github.com/vishalguptax/claude-code-manager).
+
+Found a bug? [Open an issue](https://github.com/vishalguptax/claude-code-manager/issues/new).
+
+---
 
 ## License
 
-MIT - [Vishal Gupta](https://github.com/vishalguptax)
+[MIT](LICENSE) © [Vishal Gupta](https://github.com/vishalguptax)

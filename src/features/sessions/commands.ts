@@ -4,7 +4,7 @@
 import * as vscode from "vscode";
 import type { Session, SessionDetail } from "./types";
 import { parseSessionDetail } from "./parser";
-import { deleteSession as deleteSessionState } from "./state";
+import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
 import { createTerminal } from "../../extension/terminal";
 import { getWorkspace } from "../../extension/workspace";
@@ -25,7 +25,9 @@ export function openProject(projectPath: string): void {
  * Start a new Claude session in a new terminal.
  */
 export function newSession(): void {
-  createTerminal("Claude").sendText("claude");
+  const term = createTerminal("Claude");
+  term.show();
+  term.sendText("claude");
 }
 
 /**
@@ -87,6 +89,37 @@ export async function confirmDeleteSession(
 }
 
 /**
+ * Prompt the user for a new session name via an input box.
+ * Pre-fills with the current name (if any) so editing is fast. Empty submission
+ * clears the rename. Returns `null` if the user cancelled, or the trimmed value
+ * (possibly empty string) if they confirmed.
+ */
+export async function promptRenameSession(
+  sessionId: string,
+  sessions: Session[],
+): Promise<string | null> {
+  const sess = sessions.find((s) => s.id === sessionId);
+  const currentName = loadState().renames[sessionId] ?? sess?.name ?? "";
+  const placeholder = sess?.summary
+    ? sess.summary.slice(0, 60)
+    : `session ${sessionId.slice(0, 8)}`;
+
+  const result = await vscode.window.showInputBox({
+    title: "Rename session",
+    prompt: "Enter a new name (leave blank to clear the custom name)",
+    value: currentName,
+    placeHolder: placeholder,
+    validateInput: (value: string) => {
+      if (value.length > 80) return "Name must be 80 characters or fewer";
+      return null;
+    },
+  });
+
+  if (result === undefined) return null;
+  return result;
+}
+
+/**
  * Resume or fork a Claude session in a terminal.
  *
  * Handles three scenarios:
@@ -98,6 +131,7 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
   const sess = sessions.find((s) => s.id === sessionId);
   const cwd = sess?.projectPath ?? "";
   const sessBranch = sess?.branch ?? "";
+  const termName = buildTerminalName(sess, sessionId);
   const cmd = fork
     ? `claude --resume ${sessionId} --fork-session`
     : `claude --resume ${sessionId}`;
@@ -128,7 +162,8 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
       }
 
       if (choice === "Switch & Resume") {
-        const term = createTerminal(`Claude: ${sessionId.slice(0, 8)}`, cwd);
+        const term = createTerminal(termName, cwd);
+        term.show();
         term.sendText(`git checkout "${sessBranch}" && ${cmd}`);
         return;
       }
@@ -136,5 +171,18 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
     }
   }
 
-  createTerminal(`Claude: ${sessionId.slice(0, 8)}`, cwd).sendText(cmd);
+  const term = createTerminal(termName, cwd);
+  term.show();
+  term.sendText(cmd);
+}
+
+/**
+ * Build a human-friendly terminal name for a session.
+ * Uses the user's rename if set, otherwise a short session-id label.
+ * We deliberately avoid the first prompt — it's almost always too long for a
+ * terminal tab and unhelpful when truncated.
+ */
+function buildTerminalName(sess: Session | undefined, sessionId: string): string {
+  if (sess?.name) return `Claude: ${sess.name}`;
+  return `Claude: ${sessionId.slice(0, 8)}`;
 }

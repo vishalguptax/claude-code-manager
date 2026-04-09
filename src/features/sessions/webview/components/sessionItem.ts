@@ -15,21 +15,23 @@ import type { Session } from "../../types";
  * @returns HTML string for the session item
  */
 export function renderSessionItem(s: Session, isActive: boolean, isPinned: boolean): string {
-  const name = s.name || (s.prompts[0] ? (s.prompts[0].length > 50 ? s.prompts[0].slice(0, 50) + "..." : s.prompts[0]) : "Untitled session");
+  // When the session has a user-set rename, the rename is the title and the
+  // first prompt is shown as a dim subtitle. When there is no rename, the
+  // first prompt itself becomes the title (CSS truncates it on narrow widths).
+  const name = s.name || s.prompts[0] || "Untitled session";
   const branch = s.branch && s.branch !== "HEAD" ? s.branch : "";
   const time = fmtTime(s.endTime);
-  const fullName = s.name || s.prompts[0] || "Untitled session";
-  const firstPrompt = s.prompts[0] ? (s.prompts[0].length > 40 ? s.prompts[0].slice(0, 40) + "..." : s.prompts[0]) : "";
-  const showSubPrompt = s.name && firstPrompt;
+  const firstPrompt = s.prompts[0] ?? "";
+  const showSubPrompt = Boolean(s.name && firstPrompt);
 
   return `
     <div class="item session-item ${isActive ? "active" : ""}" data-id="${s.id}">
       <div class="item-row1">
-        <span class="item-name" title="${esc(fullName)}">${esc(name)}</span>
+        <span class="item-name" title="${esc(name)}">${esc(name)}</span>
         <span class="item-time">${time}</span>
       </div>
       <button class="item-resume" data-resume="${s.id}" title="Resume session">${icon("play")}</button>
-      ${showSubPrompt ? `<div class="item-prompt">${esc(firstPrompt)}</div>` : ""}
+      ${showSubPrompt ? `<div class="item-prompt" title="${esc(firstPrompt)}">${esc(firstPrompt)}</div>` : ""}
       <div class="item-row2">
         ${isPinned ? `<span class="pin-icon">${icon("pin")}</span>` : ""}
         ${s.entrypoint === "vscode" ? `<span class="item-ep">ext</span>` : ""}

@@ -25,3 +25,13 @@ export function sendGetMcpServers(): void {
 export function sendOpenMcpConfig(scope: McpServerScope): void {
   _vscode.postMessage({ type: "openMcpConfig", scope });
 }
+
+/** Toggle the disabled state of an MCP server. */
+export function sendToggleMcpServer(name: string, scope: McpServerScope, disabled: boolean): void {
+  _vscode.postMessage({ type: "toggleMcpServer", name, scope, disabled });
+}
+
+/** Request to delete an MCP server from its config file (with extension-side confirmation). */
+export function sendDeleteMcpServer(name: string, scope: McpServerScope): void {
+  _vscode.postMessage({ type: "deleteMcpServer", name, scope });
+}

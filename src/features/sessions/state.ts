@@ -16,9 +16,17 @@ export function loadState(): UserState {
     const data: unknown = JSON.parse(raw);
     if (typeof data === "object" && data !== null) {
       const obj = data as Record<string, unknown>;
+      const rawRenames = obj.renames;
+      const renames: Record<string, string> = {};
+      if (typeof rawRenames === "object" && rawRenames !== null) {
+        for (const [k, v] of Object.entries(rawRenames)) {
+          if (typeof v === "string") renames[k] = v;
+        }
+      }
       return {
         pinned: Array.isArray(obj.pinned) ? (obj.pinned as string[]) : [],
         deleted: Array.isArray(obj.deleted) ? (obj.deleted as string[]) : [],
+        renames,
       };
     }
   } catch (err: unknown) {
@@ -27,7 +35,7 @@ export function loadState(): UserState {
       console.warn(`[claude-manager] Failed to load state from ${STATE_FILE}:`, err.message);
     }
   }
-  return { pinned: [], deleted: [] };
+  return { pinned: [], deleted: [], renames: {} };
 }
 
 /**
@@ -77,6 +85,22 @@ export function deleteSession(sessionId: string): UserState {
     state.deleted.push(sessionId);
   }
   state.pinned = state.pinned.filter((id) => id !== sessionId);
+  saveState(state);
+  return state;
+}
+
+/**
+ * Set a custom name for a session. An empty name removes the existing rename.
+ * Returns the updated state.
+ */
+export function renameSession(sessionId: string, name: string): UserState {
+  const state = loadState();
+  const trimmed = name.trim();
+  if (trimmed) {
+    state.renames[sessionId] = trimmed;
+  } else {
+    delete state.renames[sessionId];
+  }
   saveState(state);
   return state;
 }

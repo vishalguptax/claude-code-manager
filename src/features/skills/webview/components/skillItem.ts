@@ -2,6 +2,7 @@
  * Skill item component -- renders a single skill row in the list.
  */
 
+import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
 import type { Skill } from "../../types";
 
@@ -22,6 +23,7 @@ export function renderSkillItem(skill: Skill, isActive: boolean): string {
     <div class="item skill-item ${isActive ? "active" : ""}" data-skill-id="${esc(skill.id)}">
       <div class="item-row1">
         <span class="item-name" title="${esc(skill.name)}">${esc(skill.name)}</span>
+        <button class="item-copy-btn" data-copy-name="/${esc(skill.name)}" title="Copy /${esc(skill.name)}">${icon("copy", 14)}</button>
         <span class="skill-scope-badge scope-${skill.scope}">${skill.scope}</span>
       </div>
       ${desc ? `<div class="item-prompt">${esc(desc)}</div>` : ""}
@@ -45,10 +47,24 @@ export function bindSkillItems(
   },
 ): void {
   container.querySelectorAll(".skill-item").forEach((el) => {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (e: Event) => {
+      if ((e.target as HTMLElement).closest(".item-copy-btn")) return;
       const id = (el as HTMLElement).dataset.skillId;
       if (!id) return;
       callbacks.onSelect(id);
+    });
+  });
+
+  container.querySelectorAll(".item-copy-btn").forEach((btn) => {
+    btn.addEventListener("click", (e: Event) => {
+      e.stopPropagation();
+      const name = (btn as HTMLElement).dataset.copyName;
+      if (name) {
+        navigator.clipboard?.writeText(name);
+        const el = btn as HTMLElement;
+        el.classList.add("copied");
+        setTimeout(() => el.classList.remove("copied"), 1000);
+      }
     });
   });
 }

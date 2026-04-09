@@ -10,6 +10,7 @@ import {
   sendForkSession,
   sendCopyCommand,
   sendConfirmDelete,
+  sendRenameSession,
 } from "../api";
 
 /**
@@ -26,6 +27,7 @@ export function showContextMenu(e: MouseEvent, sessionId: string, isPinned: bool
   menu.className = "ctx-menu";
   menu.id = "ctxMenu";
   menu.innerHTML = `
+    <div class="ctx-item" data-action="rename"><span class="ctx-icon">${icon("pencil")}</span>Rename session</div>
     <div class="ctx-item" data-action="pin"><span class="ctx-icon">${icon(isPinned ? "pin-off" : "pin")}</span>${isPinned ? "Unpin" : "Pin to top"}</div>
     <div class="ctx-item" data-action="fork"><span class="ctx-icon">${icon("git-fork")}</span>Fork &amp; Resume</div>
     <div class="ctx-item" data-action="copyCmd"><span class="ctx-icon">${icon("terminal")}</span>Copy resume command</div>
@@ -53,6 +55,9 @@ export function showContextMenu(e: MouseEvent, sessionId: string, isPinned: bool
     item.addEventListener("click", () => {
       const action = (item as HTMLElement).dataset.action;
       switch (action) {
+        case "rename":
+          sendRenameSession(sessionId);
+          break;
         case "pin":
           if (isPinned) {
             sendUnpinSession(sessionId);

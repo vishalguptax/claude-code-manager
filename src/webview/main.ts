@@ -29,9 +29,10 @@ import { initSkillsApi, sendGetSkills } from "../features/skills/webview/api";
 import {
   setAllSkills,
   setSelectedSkill,
+  getSelectedSkill,
   isSkillsShellMounted,
 } from "../features/skills/webview/state";
-import { mountSkillsShell, updateSkillsList } from "../features/skills/webview/views/listView";
+import { mountSkillsShell, updateSkillsList, showSkillsList } from "../features/skills/webview/views/listView";
 import { showSkillDetail } from "../features/skills/webview/views/detailView";
 import { initCommandsTab, mount as mountCommands, unmount as unmountCommands } from "../features/commands/webview/tab";
 import { initHooksTab, mount as mountHooks, unmount as unmountHooks } from "../features/hooks/webview/tab";
@@ -237,8 +238,15 @@ window.addEventListener("message", (event: MessageEvent) => {
   // ── Skills messages ──
 
   } else if (msg.type === "skills") {
-    setAllSkills(msg.data as Skill[]);
+    const skills = msg.data as Skill[];
+    const prevSelected = getSelectedSkill();
+    setAllSkills(skills);
     if (!isSkillsShellMounted()) mountSkillsShell();
+    // If the selected skill was deleted, go back to the list
+    if (prevSelected && !skills.find((s) => s.id === prevSelected.id)) {
+      setSelectedSkill(null);
+      showSkillsList();
+    }
     updateSkillsList();
   } else if (msg.type === "skillDetail") {
     setSelectedSkill(msg.data as Skill);

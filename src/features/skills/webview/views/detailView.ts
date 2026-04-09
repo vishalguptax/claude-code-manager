@@ -4,8 +4,9 @@
  */
 
 import { icon } from "../../../../webview/icons";
-import { esc } from "../../../../webview/utils";
-import { sendOpenSkillFile } from "../api";
+import { esc, flash } from "../../../../webview/utils";
+import { sendOpenSkillFile, sendDeleteSkill } from "../api";
+import { sendNewSession } from "../../../sessions/webview/api";
 import { getSelectedSkill } from "../state";
 import { showSkillsList } from "./listView";
 
@@ -46,7 +47,10 @@ export function showSkillDetail(): void {
     </div>
 
     <div class="d-actions">
+      <button class="btn green" id="btnOpenClaude">${icon("play")} Open Claude</button>
+      <button class="btn" id="btnCopySkillName">${icon("copy")} Copy /${esc(skill.name)}</button>
       <button class="btn" id="btnOpenSkill">${icon("external-link")} Open File</button>
+      <button class="btn del" id="btnDeleteSkill">${icon("trash-2")} Delete</button>
     </div>
 
     <div class="d-section">
@@ -63,7 +67,15 @@ export function showSkillDetail(): void {
     </div>` : ""}`;
 
   dv.querySelector("#skillsGoBack")?.addEventListener("click", showSkillsList);
+  dv.querySelector("#btnOpenClaude")?.addEventListener("click", () => sendNewSession());
+  dv.querySelector("#btnCopySkillName")?.addEventListener("click", () => {
+    navigator.clipboard?.writeText(`/${skill.name}`);
+    flash("btnCopySkillName", "Copied!");
+  });
   dv.querySelector("#btnOpenSkill")?.addEventListener("click", () => {
     sendOpenSkillFile(skill.path);
+  });
+  dv.querySelector("#btnDeleteSkill")?.addEventListener("click", () => {
+    sendDeleteSkill(skill.path);
   });
 }

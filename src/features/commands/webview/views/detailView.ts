@@ -2,7 +2,7 @@
  * Command detail view — shows the full content of a selected slash command.
  */
 
-import { esc } from "../../../../webview/utils";
+import { esc, flash } from "../../../../webview/utils";
 import { icon } from "../../../../webview/icons";
 import { getSelectedCommand } from "../state";
 import { sendOpenCommandFile } from "../api";
@@ -40,6 +40,7 @@ export function showCommandDetail(container: HTMLElement): void {
       </div>
 
       <div class="cmd-detail-actions">
+        <button class="btn" id="cmdCopy">${icon("copy")} Copy /${esc(cmd.name)}</button>
         <button class="btn" id="cmdOpenDocs">${icon("external-link")} View Docs</button>
       </div>
 
@@ -54,7 +55,10 @@ export function showCommandDetail(container: HTMLElement): void {
     container.querySelector("#cmdGoBack")?.addEventListener("click", () => {
       showCommandList(container);
     });
-
+    container.querySelector("#cmdCopy")?.addEventListener("click", () => {
+      navigator.clipboard?.writeText(`/${cmd.name}`);
+      flash("cmdCopy", "Copied!");
+    });
     container.querySelector("#cmdOpenDocs")?.addEventListener("click", () => {
       sendOpenUrl(BUILTIN_DOCS_URL);
     });
@@ -74,6 +78,7 @@ export function showCommandDetail(container: HTMLElement): void {
     </div>
 
     <div class="cmd-detail-actions">
+      <button class="btn" id="cmdCopy">${icon("copy")} Copy /${esc(cmd.name)}</button>
       <button class="btn" id="cmdOpenFile">${icon("external-link")} Open File</button>
     </div>
 
@@ -89,6 +94,11 @@ export function showCommandDetail(container: HTMLElement): void {
 
   container.querySelector("#cmdGoBack")?.addEventListener("click", () => {
     showCommandList(container);
+  });
+
+  container.querySelector("#cmdCopy")?.addEventListener("click", () => {
+    navigator.clipboard?.writeText(`/${cmd.name}`);
+    flash("cmdCopy", "Copied!");
   });
 
   container.querySelector("#cmdOpenFile")?.addEventListener("click", () => {

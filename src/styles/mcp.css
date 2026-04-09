@@ -65,10 +65,29 @@
   padding: var(--space-lg) var(--space-2xl);
   cursor: pointer;
   border-bottom: 1px solid var(--border);
+  position: relative;
 }
 .mcp-item:last-child         { border-bottom: none; }
 .mcp-item:hover              { background: var(--bg-hover); }
 .mcp-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
+.mcp-item.mcp-disabled       { opacity: 0.5; }
+.mcp-item.mcp-disabled:hover { opacity: 0.7; }
+
+.mcp-disabled-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  height: 18px;
+  background: var(--badge-bg);
+  color: var(--fg-muted);
+  opacity: 0.8;
+}
 
 .mcp-item-row1 {
   display: flex;

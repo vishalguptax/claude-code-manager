@@ -178,6 +178,7 @@ function readSessionMeta(filePath: string): { branch: string; entrypoint: string
 
 /**
  * Build a map of sessionId -> user-assigned session name from the sessions directory.
+ * Reads PID-named files in ~/.claude/sessions/ which store active session metadata.
  */
 function buildSessionNameMap(): Map<string, string> {
   const nameMap = new Map<string, string>();
@@ -208,12 +209,78 @@ function buildSessionNameMap(): Map<string, string> {
 }
 
 /**
+ * Extract session name hints from a JSONL file in a single pass.
+ *
+ * Pulls two things:
+ * - `rename`: the most recent `/rename` command (user-typed in the Claude CLI).
+ *   Stored as `<command-name>/rename</command-name>...<command-args>NAME</command-args>`
+ *   inside a user message, and can appear anywhere in the conversation.
+ * - `summary`: Claude's auto-generated session title, stored as entries of the
+ *   form `{"type":"summary","summary":"..."}`. Claude writes this during the
+ *   conversation based on context. We keep the last one we see.
+ *
+ * Both values are optional; missing ones are returned as empty strings.
+ */
+function extractSessionNameHints(filePath: string): { rename: string; summary: string } {
+  const result = { rename: "", summary: "" };
+  let content: string;
+  try {
+    content = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return result;
+  }
+
+  const hasRename = content.includes("/rename");
+  const hasSummary = content.includes('"type":"summary"') || content.includes('"type": "summary"');
+  if (!hasRename && !hasSummary) return result;
+
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+
+    // Auto-summary entry (cheap check before parsing)
+    if (hasSummary && line.includes('"summary"')) {
+      try {
+        const entry = JSON.parse(line) as { type?: string; summary?: unknown };
+        if (entry.type === "summary" && typeof entry.summary === "string" && entry.summary.trim()) {
+          result.summary = entry.summary.trim();
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+
+    // /rename command embedded in a user message
+    if (hasRename && line.includes("/rename")) {
+      try {
+        const entry = JSON.parse(line) as { message?: { content?: unknown } };
+        const msgContent = entry.message?.content;
+        const text =
+          typeof msgContent === "string"
+            ? msgContent
+            : Array.isArray(msgContent)
+              ? msgContent.map((b) => (typeof b === "object" && b && "text" in b ? String((b as { text: unknown }).text) : "")).join("")
+              : "";
+        const match = text.match(/<command-name>\/rename<\/command-name>[\s\S]*?<command-args>([^<]+)<\/command-args>/);
+        if (match && match[1]) {
+          result.rename = match[1].trim();
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+  }
+  return result;
+}
+
+/**
  * Parse all Claude Code sessions from the global history file.
  * Returns sessions sorted by most recent activity first.
  *
  * This resets the internal file index so fresh data is always returned.
+ *
+ * @param userRenames - Extension-managed session rename map (takes highest priority).
  */
-export function parseSessions(): Session[] {
+export function parseSessions(userRenames: Record<string, string> = {}): Session[] {
   // Reset file index for fresh scan
   sessionFileIndex = null;
 
@@ -260,12 +327,24 @@ export function parseSessions(): Session[] {
       entrypoint = meta.entrypoint;
     }
 
+    // Resolve session name with priority:
+    // 1. Extension-managed rename (always wins — reliable, user-controlled)
+    // 2. Live PID map (active sessions named via CLI session flag)
+    // 3. /rename command embedded in the JSONL transcript
+    // 4. Claude's auto-generated summary entry in the JSONL
+    let name = userRenames[sessionId] ?? "";
+    if (!name) name = sessionNames.get(sessionId) ?? "";
+    if (!name && sessionFile) {
+      const hints = extractSessionNameHints(sessionFile);
+      name = hints.rename || hints.summary;
+    }
+
     const summary =
       prompts[0].length > 100 ? prompts[0].slice(0, 100) + "..." : prompts[0];
 
     sessions.push({
       id: sessionId,
-      name: sessionNames.get(sessionId) ?? "",
+      name,
       project: data.project,
       projectPath: data.projectPath,
       branch,

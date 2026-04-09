@@ -2,6 +2,7 @@
  * Command item component — renders a single command row in the list.
  */
 
+import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
 import type { Command } from "../../types";
 
@@ -25,6 +26,7 @@ export function renderCommandItem(cmd: Command, isActive: boolean): string {
     <div class="cmd-item ${isActive ? "active" : ""}" data-cmd-name="${esc(cmd.name)}" data-cmd-scope="${cmd.scope}">
       <div class="cmd-item-row1">
         <span class="cmd-item-name">/${esc(cmd.name)}</span>
+        <button class="item-copy-btn" data-copy-name="/${esc(cmd.name)}" title="Copy /${esc(cmd.name)}">${icon("copy", 14)}</button>
         <span class="cmd-scope-badge cmd-scope-${cmd.scope}">${cmd.scope}</span>
       </div>
       <div class="cmd-item-preview">${esc(preview)}</div>
@@ -44,11 +46,25 @@ export function bindCommandItems(
   onSelect: (cmd: import("../../types").Command) => void,
 ): void {
   container.querySelectorAll(".cmd-item").forEach((el) => {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (e: Event) => {
+      if ((e.target as HTMLElement).closest(".item-copy-btn")) return;
       const name = (el as HTMLElement).dataset.cmdName;
       const scope = (el as HTMLElement).dataset.cmdScope;
       const cmd = commands.find((c) => c.name === name && c.scope === scope);
       if (cmd) onSelect(cmd);
+    });
+  });
+
+  container.querySelectorAll(".item-copy-btn").forEach((btn) => {
+    btn.addEventListener("click", (e: Event) => {
+      e.stopPropagation();
+      const name = (btn as HTMLElement).dataset.copyName;
+      if (name) {
+        navigator.clipboard?.writeText(name);
+        const el = btn as HTMLElement;
+        el.classList.add("copied");
+        setTimeout(() => el.classList.remove("copied"), 1000);
+      }
     });
   });
 }

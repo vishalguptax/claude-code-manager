@@ -120,7 +120,7 @@ export type ExtensionMessage =
   | { type: "sessionDetail"; data: SessionDetail }
   | { type: "projects"; data: string[] }
   | { type: "workspacePath"; data: string }
-  | { type: "userState"; pinned: string[]; deleted: string[] }
+  | { type: "userState"; pinned: string[]; deleted: string[]; renames: Record<string, string> }
   | { type: "navigateList" }
   | { type: "error"; message: string };
 
@@ -139,6 +139,7 @@ export type WebviewMessage =
   | { type: "pinSession"; sessionId: string }
   | { type: "unpinSession"; sessionId: string }
   | { type: "deleteSession"; sessionId: string }
+  | { type: "renameSession"; sessionId: string }
   | { type: "confirmDelete"; sessionId: string; callback?: string }
   | { type: "copyCommand"; sessionId: string }
   | { type: "copyMarkdown"; sessionId: string }
@@ -146,11 +147,14 @@ export type WebviewMessage =
   | { type: "getSkills" }
   | { type: "getSkillDetail"; skillId: string }
   | { type: "openSkillFile"; skillPath: string }
+  | { type: "deleteSkill"; skillPath: string }
   | { type: "getCommands" }
   | { type: "openCommandFile"; path: string }
   | { type: "getHooks" }
   | { type: "getMcpServers" }
   | { type: "openMcpConfig"; scope: string }
+  | { type: "toggleMcpServer"; name: string; scope: string; disabled: boolean }
+  | { type: "deleteMcpServer"; name: string; scope: string }
   | { type: "getAgents" }
   | { type: "openAgentFile"; path: string }
   | { type: "openFile"; path: string };

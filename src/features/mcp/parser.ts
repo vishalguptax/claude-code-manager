@@ -51,6 +51,7 @@ function readMcpServersFromFile(filePath: string, scope: "global" | "project"): 
 
     const rec = entry as Record<string, unknown>;
     const explicitType = typeof rec.type === "string" ? rec.type : undefined;
+    const disabled = rec.disabled === true;
     const command = typeof rec.command === "string" ? rec.command : undefined;
     const url = typeof rec.url === "string" ? rec.url : undefined;
     const args = Array.isArray(rec.args)
@@ -80,6 +81,7 @@ function readMcpServersFromFile(filePath: string, scope: "global" | "project"): 
       url,
       env: env && Object.keys(env).length > 0 ? env : undefined,
       scope,
+      disabled: disabled || undefined,
     });
   }
 
@@ -106,4 +108,99 @@ export function parseMcpServers(workspacePath?: string): McpServer[] {
   servers.push(...readMcpServersFromFile(GLOBAL_MCP_FILE, "global"));
 
   return servers;
+}
+
+/**
+ * Toggle the `disabled` field of an MCP server in its config file.
+ * Reads the JSON, sets `"disabled": true` or removes the key, and writes back.
+ *
+ * @param name - The server name (key in mcpServers)
+ * @param scope - Which config file to modify
+ * @param disabled - Whether to disable (true) or enable (false)
+ * @param workspacePath - Workspace path (needed for project scope)
+ * @returns true if the write succeeded
+ */
+export function toggleMcpServer(
+  name: string,
+  scope: "global" | "project",
+  disabled: boolean,
+  workspacePath?: string,
+): boolean {
+  const filePath = scope === "project" && workspacePath
+    ? path.join(workspacePath, ".mcp.json")
+    : GLOBAL_MCP_FILE;
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return false;
+  }
+
+  let config: Record<string, unknown>;
+  try {
+    config = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return false;
+  }
+
+  const servers = config.mcpServers as Record<string, Record<string, unknown>> | undefined;
+  if (!servers || !servers[name]) return false;
+
+  if (disabled) {
+    servers[name].disabled = true;
+  } else {
+    delete servers[name].disabled;
+  }
+
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + "\n");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Delete an MCP server entry from its config file.
+ *
+ * @param name - The server name (key in mcpServers)
+ * @param scope - Which config file to modify
+ * @param workspacePath - Workspace path (needed for project scope)
+ * @returns true if the write succeeded
+ */
+export function deleteMcpServer(
+  name: string,
+  scope: "global" | "project",
+  workspacePath?: string,
+): boolean {
+  const filePath = scope === "project" && workspacePath
+    ? path.join(workspacePath, ".mcp.json")
+    : GLOBAL_MCP_FILE;
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return false;
+  }
+
+  let config: Record<string, unknown>;
+  try {
+    config = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return false;
+  }
+
+  const servers = config.mcpServers as Record<string, unknown> | undefined;
+  if (!servers || !(name in servers)) return false;
+
+  delete servers[name];
+
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + "\n");
+    return true;
+  } catch {
+    return false;
+  }
 }

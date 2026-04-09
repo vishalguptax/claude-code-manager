@@ -12,6 +12,7 @@ import {
   sendCopyCommand,
   sendPinSession,
   sendUnpinSession,
+  sendRenameSession,
 } from "../api";
 import {
   getDetail,
@@ -57,8 +58,8 @@ export function showDetail(): void {
     <button class="back-btn" id="goBack">${icon("arrow-left")} Back</button>
 
     <div class="d-head">
-      <div class="d-title">${esc(d.name || (d.summary.length > 80 ? d.summary.slice(0, 80) + "..." : d.summary))}</div>
-      ${d.name ? `<div class="d-subtitle">${esc(d.summary.length > 80 ? d.summary.slice(0, 80) + "..." : d.summary)}</div>` : ""}
+      <div class="d-title" title="${esc(d.name || d.summary)}">${esc(d.name || d.summary)}</div>
+      ${d.name && d.summary ? `<div class="d-subtitle" title="${esc(d.summary)}">${esc(d.summary)}</div>` : ""}
       <div class="d-tags">
         ${branch ? `<span class="tag">${esc(branch)}</span>` : ""}
         <span class="tag folder">${esc(d.project)}</span>
@@ -73,29 +74,33 @@ export function showDetail(): void {
     </div>
     <div class="d-actions">
       <button class="btn primary" id="btnOpenProject">${icon("external-link")} Open ${esc(d.project)}</button>
+      <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
       <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
       <button class="btn del" id="btnDelete">${icon("trash-2")} Delete</button>
     </div>` : `
     <div class="d-actions">
       <button class="btn green" id="btnResume">${icon("play")} Resume</button>
+      <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
       <button class="btn" id="btnFork">${icon("git-fork")} Fork</button>
       <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
       <button class="btn" id="btnCopyCmd">${icon("terminal")} Copy Cmd</button>
       <button class="btn del" id="btnDelete">${icon("trash-2")} Delete</button>
     </div>`}
 
-    <div class="d-section">
-      <div class="d-label">Info</div>
-      <div class="d-kv"><span class="d-k">ID</span><span class="d-v mono">${d.id.slice(0, 18)}...</span></div>
-      <div class="d-kv"><span class="d-k">Path</span><span class="d-v mono">${esc(d.project)}</span></div>
-      <div class="d-kv"><span class="d-k">Branch</span><span class="d-v">${branch || "\u2014"}</span></div>
-    </div>
+    <div class="d-scroll">
+      <div class="d-section">
+        <div class="d-label">Info</div>
+        <div class="d-kv"><span class="d-k">ID</span><span class="d-v mono">${d.id.slice(0, 18)}...</span></div>
+        <div class="d-kv"><span class="d-k">Path</span><span class="d-v mono">${esc(d.project)}</span></div>
+        <div class="d-kv"><span class="d-k">Branch</span><span class="d-v">${branch || "\u2014"}</span></div>
+      </div>
 
-    ${d.prompts.length ? `
-    <div class="d-section">
-      <div class="d-label">Prompts (${d.prompts.length})</div>
-      ${d.prompts.map((p, i) => `<div class="d-prompt"><span class="d-pn">${i + 1}</span>${esc(p.length > 150 ? p.slice(0, 150) + "..." : p)}</div>`).join("")}
-    </div>` : ""}`;
+      ${d.prompts.length ? `
+      <div class="d-section">
+        <div class="d-label">Prompts (${d.prompts.length})</div>
+        ${d.prompts.map((p, i) => `<div class="d-prompt"><span class="d-pn">${i + 1}</span>${esc(p)}</div>`).join("")}
+      </div>` : ""}
+    </div>`;
 
   dv.querySelector("#goBack")?.addEventListener("click", showList);
   dv.querySelector("#btnResume")?.addEventListener("click", () =>
@@ -118,6 +123,7 @@ export function showDetail(): void {
       sendPinSession(d.id);
     }
   });
+  dv.querySelector("#btnRename")?.addEventListener("click", () => sendRenameSession(d.id));
   dv.querySelector("#btnDelete")?.addEventListener("click", () => {
     confirmDelete(d.id, () => showList());
   });

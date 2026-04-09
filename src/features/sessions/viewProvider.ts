@@ -12,13 +12,14 @@ import {
   searchSessions,
   filterSessions,
 } from "./parser";
-import { loadState, pinSession, unpinSession, deleteSession } from "./state";
+import { loadState, pinSession, unpinSession, deleteSession, renameSession } from "./state";
 import {
   openProject,
   newSession,
   copyResumeCommand,
   copyMarkdown,
   confirmDeleteSession,
+  promptRenameSession,
   resumeSession,
 } from "./commands";
 import { getWebviewHtml } from "../../extension/html";
@@ -26,7 +27,7 @@ import { getWorkspace } from "../../extension/workspace";
 import { parseSkills } from "../skills/parser";
 import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
-import { parseMcpServers } from "../mcp/parser";
+import { parseMcpServers, toggleMcpServer, deleteMcpServer } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
 import type { WebviewMessage, Session } from "./types";
 import type { Skill } from "../skills/types";
@@ -70,7 +71,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
     switch (msg.type) {
       case "ready":
-        this.sessions = parseSessions();
+        this.sessions = parseSessions(loadState().renames);
         wv.postMessage({ type: "workspacePath", data: getWorkspace() });
         wv.postMessage({ type: "sessions", data: groupSessions(this.sessions), stats: getStats(this.sessions) });
         wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
@@ -102,7 +103,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "refresh":
-        this.sessions = parseSessions();
+        this.sessions = parseSessions(loadState().renames);
         wv.postMessage({ type: "sessions", data: groupSessions(this.sessions), stats: getStats(this.sessions) });
         break;
 
@@ -139,9 +140,31 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       case "confirmDelete": {
         const result = await confirmDeleteSession(msg.sessionId, msg.callback);
         if (result) {
-          wv.postMessage({ type: "userState", pinned: result.pinned, deleted: result.deleted });
+          wv.postMessage({
+            type: "userState",
+            pinned: result.pinned,
+            deleted: result.deleted,
+            renames: loadState().renames,
+          });
           if (result.navigateToList) {
             wv.postMessage({ type: "navigateList" });
+          }
+        }
+        break;
+      }
+
+      case "renameSession": {
+        const newName = await promptRenameSession(msg.sessionId, this.sessions);
+        if (newName !== null) {
+          const state = renameSession(msg.sessionId, newName);
+          // Re-parse sessions so list reflects the new name immediately
+          this.sessions = parseSessions(state.renames);
+          wv.postMessage({ type: "sessions", data: groupSessions(this.sessions), stats: getStats(this.sessions) });
+          wv.postMessage({ type: "userState", ...state });
+          // Also refresh the detail view if it's showing this session
+          const updated = parseSessionDetail(msg.sessionId, this.sessions.find((s) => s.id === msg.sessionId));
+          if (updated) {
+            wv.postMessage({ type: "sessionDetail", data: updated });
           }
         }
         break;
@@ -194,6 +217,30 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
           await vscode.window.showTextDocument(doc);
         } catch {
           vscode.window.showErrorMessage(`Could not open ${skillFile}`);
+        }
+        break;
+      }
+
+      case "deleteSkill": {
+        const skillPath = (msg as { type: string; skillPath: string }).skillPath;
+        const choice = await vscode.window.showWarningMessage(
+          `Delete this skill folder?`,
+          {
+            modal: true,
+            detail: `This will permanently delete:\n${skillPath}`,
+          },
+          "Delete",
+        );
+        if (choice === "Delete") {
+          try {
+            const fsExtra = await import("fs");
+            fsExtra.rmSync(skillPath, { recursive: true, force: true });
+            const workspace = getWorkspace();
+            this.skills = parseSkills(workspace || undefined);
+            wv.postMessage({ type: "skills", data: this.skills });
+          } catch (err) {
+            vscode.window.showErrorMessage(`Failed to delete: ${(err as Error).message}`);
+          }
         }
         break;
       }
@@ -254,6 +301,43 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
           await vscode.window.showTextDocument(doc);
         } catch {
           vscode.window.showErrorMessage(`Could not open ${configPath}`);
+        }
+        break;
+      }
+
+      case "toggleMcpServer": {
+        const { name, scope, disabled } = msg as { type: string; name: string; scope: "global" | "project"; disabled: boolean };
+        const workspace = getWorkspace();
+        const ok = toggleMcpServer(name, scope, disabled, workspace || undefined);
+        if (ok) {
+          // Re-parse and push updated list
+          this.mcpServers = parseMcpServers(workspace || undefined);
+          wv.postMessage({ type: "mcpServers", data: this.mcpServers });
+        } else {
+          vscode.window.showErrorMessage(`Failed to ${disabled ? "disable" : "enable"} ${name}`);
+        }
+        break;
+      }
+
+      case "deleteMcpServer": {
+        const { name: srvName, scope: srvScope } = msg as { type: string; name: string; scope: "global" | "project" };
+        const choice = await vscode.window.showWarningMessage(
+          `Delete MCP server "${srvName}"?`,
+          {
+            modal: true,
+            detail: `This will remove the server entry from your ${srvScope} .mcp.json config.`,
+          },
+          "Delete",
+        );
+        if (choice === "Delete") {
+          const workspace = getWorkspace();
+          const ok = deleteMcpServer(srvName, srvScope, workspace || undefined);
+          if (ok) {
+            this.mcpServers = parseMcpServers(workspace || undefined);
+            wv.postMessage({ type: "mcpServers", data: this.mcpServers });
+          } else {
+            vscode.window.showErrorMessage(`Failed to delete ${srvName}`);
+          }
         }
         break;
       }

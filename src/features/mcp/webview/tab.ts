@@ -6,8 +6,9 @@
 
 import type { VSCodeAPI } from "../../../webview/types";
 import { initMcpApi, sendGetMcpServers } from "./api";
-import { setServers, setSelectedServer, setLoading } from "./state";
+import { setServers, setSelectedServer, getSelectedServer, setLoading } from "./state";
 import { renderMcpList } from "./views/listView";
+import { showMcpDetail } from "./views/detailView";
 import type { McpServer } from "../types";
 
 let _container: HTMLElement | null = null;
@@ -29,9 +30,22 @@ export function mount(container: HTMLElement): void {
     const msg = event.data as Record<string, unknown>;
 
     if (msg.type === "mcpServers") {
-      setServers(msg.data as McpServer[]);
+      const servers = msg.data as McpServer[];
+      setServers(servers);
       setLoading(false);
-      if (_container) renderMcpList(_container);
+      // If detail view is open, refresh the selected server with updated data
+      const selected = getSelectedServer();
+      if (selected && _container) {
+        const updated = servers.find((s) => s.name === selected.name && s.scope === selected.scope);
+        if (updated) {
+          setSelectedServer(updated);
+          showMcpDetail(_container);
+        } else {
+          renderMcpList(_container);
+        }
+      } else if (_container) {
+        renderMcpList(_container);
+      }
     } else if (msg.type === "mcpError") {
       setLoading(false);
       if (_container) {

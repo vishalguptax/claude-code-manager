@@ -3,12 +3,14 @@
  */
 import * as vscode from "vscode";
 import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
+import { setExtensionUri } from "./terminal";
 
 /**
  * Activate the Claude Code Manager extension.
  * Registers the webview view provider and the open command.
  */
 export function activate(context: vscode.ExtensionContext): void {
+  setExtensionUri(context.extensionUri);
   const provider = new ClaudeSessionViewProvider(context.extensionUri);
 
   context.subscriptions.push(

@@ -25,6 +25,8 @@ export interface McpServer {
   env?: Record<string, string>;
   /** Whether this server is global (~/.claude/mcp.json) or project-level (.mcp.json). */
   scope: McpServerScope;
+  /** Whether the server is explicitly disabled in the config. */
+  disabled?: boolean;
 }
 
 // ── Extension <-> Webview Messages ──
@@ -37,4 +39,5 @@ export type McpExtensionMessage =
 /** Messages sent from the webview to the extension host for the MCP feature. */
 export type McpWebviewMessage =
   | { type: "getMcpServers" }
-  | { type: "openMcpConfig"; scope: McpServerScope };
+  | { type: "openMcpConfig"; scope: McpServerScope }
+  | { type: "toggleMcpServer"; name: string; scope: McpServerScope; disabled: boolean };

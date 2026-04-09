@@ -31,7 +31,7 @@
 }
 .item:last-child             { border-bottom: none; }
 .item:hover                  { background: var(--bg-hover); }
-.session-item:hover          { padding-right: 48px; }
+.session-item                 { padding-right: 48px; }
 .session-item:hover .item-time { display: none; }
 .item.active                 { background: var(--bg-active); color: var(--bg-active-fg); }
 
@@ -161,8 +161,17 @@
   cursor: pointer;
   padding: var(--space-lg) var(--space-2xl) var(--space-sm);
   font-family: inherit;
+  flex-shrink: 0;
 }
 .back-btn:hover              { color: var(--fg); }
+
+/* Scrollable body below the sticky back button. Without this the detail
+   page's overflow is hidden (inherited from .panel) and prompts get clipped. */
+.d-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 .d-head    { padding: var(--space-sm) var(--space-2xl) var(--space-lg); }
 .d-title {
@@ -171,12 +180,16 @@
   color: var(--fg);
   line-height: 1.4;
   margin-bottom: var(--space-xs);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .d-subtitle {
   font-size: var(--fs-base);
   color: var(--fg-dim);
   margin-bottom: var(--space-sm);
   line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .d-tags {
   display: flex;
@@ -238,6 +251,9 @@
   color: var(--fg);
   border-bottom: 1px solid var(--border);
   align-items: flex-start;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .d-prompt:last-child         { border-bottom: none; }
 
@@ -269,6 +285,7 @@
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   margin-top: auto;
+  border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
 }
 .footer-name                 { color: var(--fg-dim); font-weight: 600; font-size: var(--fs-sm); }
 
