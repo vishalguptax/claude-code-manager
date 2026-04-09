@@ -1,7 +1,7 @@
 {
   "name": "claude-code-manager",
   "displayName": "Claude Code Manager",
-  "description": "All-in-one manager for Claude Code — browse sessions, skills, commands, hooks, MCP servers, and agents from your sidebar",
+  "description": "Browse and manage Claude Code sessions, MCP servers, skills, commands, hooks, and agents from your VS Code sidebar. Resume sessions, search history, enable/disable MCP, rename sessions — all without leaving your editor.",
   "version": "1.0.0",
   "publisher": "vishalguptax",
   "author": {
@@ -23,18 +23,28 @@
   },
   "categories": [
     "Other",
-    "Visualization"
+    "Visualization",
+    "Machine Learning"
   ],
   "keywords": [
     "claude",
     "claude-code",
     "anthropic",
-    "session",
-    "terminal",
     "ai",
     "mcp",
-    "skills",
-    "agents"
+    "session-manager",
+    "terminal-manager",
+    "ai-assistant",
+    "claude-sessions",
+    "claude-mcp",
+    "model-context-protocol",
+    "ai-tools",
+    "claude-skills",
+    "claude-agents",
+    "cursor",
+    "windsurf",
+    "sidebar",
+    "ai-coding"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
