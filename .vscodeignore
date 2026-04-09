@@ -2,9 +2,9 @@
 .claude/**
 src/**
 node_modules/**
+docs/**
 .gitignore
 tsconfig.json
 scripts/**
-PLAN.md
 *.map
 *.vsix
