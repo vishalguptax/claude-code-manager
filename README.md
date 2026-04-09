@@ -5,7 +5,7 @@
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vishalguptax.claude-code-manager?label=Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/vishalguptax.claude-code-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager)
 [![Rating](https://img.shields.io/visual-studio-marketplace/r/vishalguptax.claude-code-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-code-manager&ssr=false#review-details)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-orange.svg)](LICENSE)
 
 Everything from your `~/.claude/` directory, organized into clean, searchable tabs right in the activity bar. Resume any past session in one click, jump between projects, and manage your Claude Code configuration visually.
 
@@ -149,4 +149,6 @@ Found a bug? [Open an issue](https://github.com/vishalguptax/claude-code-manager
 
 ## License
 
-[MIT](LICENSE) © [Vishal Gupta](https://github.com/vishalguptax)
+[BSL 1.1](LICENSE) © [Vishal Gupta](https://github.com/vishalguptax)
+
+Licensed under the Business Source License 1.1. You can use, modify, and contribute freely. You cannot fork and publish a competing VS Code extension. Converts to MIT on **April 9, 2029**.
