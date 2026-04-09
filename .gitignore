@@ -3,4 +3,4 @@ dist/
 *.vsix
 .vscode-test/
 .claude/
-docs/PLAN.md
+.dev/
