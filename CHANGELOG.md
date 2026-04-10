@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.1.0] - 2026-04-10
+
+### Features
+- **Settings panel** — configurable terminal location, editor position, default filters, restore window duration
+- **Settings gear** in tab bar — opens extension settings directly
+- **Open VSX** — published to Open VSX Registry for VSCodium, Eclipse Theia, Gitpod
+- **GitHub Actions** — automated release workflow on tag push
+
+### UI/UX
+- Normalized spacing across actions bar, search, filters, and date chips
+- Description text truncates on hover to make room for resume button
+- Consistent padding across all session controls
+
+### Docs
+- README redesign with HTML tables, settings section, manual install guide
+- Added Open VSX badge and install instructions
+- BSL 1.1 license with 2030 change date
+
+---
+
 ## [1.0.0] - 2026-04-10
 
 ### Features
