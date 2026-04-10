@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0] - 2026-04-10
+## [1.1.1] - 2026-04-10
 
 ### Features
 - **Settings panel** — configurable terminal location, editor position, default filters, restore window duration
