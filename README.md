@@ -26,9 +26,25 @@
 
 ## Install
 
+### From Marketplace
+
 **VS Code / Cursor / Windsurf** &mdash; open Extensions (`Ctrl+Shift+X`), search `Claude Manager`, click Install.
 
 **VSCodium / Eclipse Theia / Gitpod** &mdash; install from [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager).
+
+### Manual Install
+
+1. Download the `.vsix` file from [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager), [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager), or [GitHub Releases](https://github.com/vishalguptax/claude-code-manager/releases/latest)
+2. Open your editor &rarr; `Ctrl+Shift+P` &rarr; type **Install from VSIX** &rarr; select the downloaded file
+3. Reload when prompted
+
+**Or via terminal:**
+
+```bash
+code --install-extension path/to/claude-manager-x.x.x.vsix
+```
+
+> Replace `code` with `cursor`, `windsurf`, or `codium` depending on your editor.
 
 <br>
 
