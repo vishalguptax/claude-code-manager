@@ -24,7 +24,7 @@ jobs:
 
       - run: npm run build
 
-      - run: npx @vscode/vsce package --no-dependencies -o build/
+      - run: npx @vscode/vsce package --no-dependencies -o dist/
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
@@ -35,5 +35,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: build/*.vsix
+          files: dist/*.vsix
           generate_release_notes: true

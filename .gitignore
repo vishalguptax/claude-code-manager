@@ -1,6 +1,5 @@
 node_modules/
 dist/
-build/
 *.vsix
 .vscode-test/
 .claude/
