@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="media/marketplace-icon.png" alt="Claude Manager — VS Code extension to manage Claude Code sessions, MCP servers, skills, commands, hooks, and agents" width="120">
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/marketplace-icon.png" alt="Claude Manager — VS Code extension to manage Claude Code sessions, MCP servers, skills, commands, hooks, and agents" width="120">
 
 # Claude Manager
 
