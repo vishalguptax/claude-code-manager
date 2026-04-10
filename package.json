@@ -112,7 +112,7 @@
     "release:patch": "npm version patch --no-git-tag-version && npm run release",
     "release:minor": "npm version minor --no-git-tag-version && npm run release",
     "release:major": "npm version major --no-git-tag-version && npm run release",
-    "publish:openvsx": "npx ovsx publish dist/*.vsix",
+    "publish:openvsx": "npx ovsx publish dist/*.vsix -p",
     "test": "vitest run",
     "test:watch": "vitest"
   },
