@@ -1,5 +1,5 @@
 {
-  "name": "claude-code-manager",
+  "name": "claude-manager",
   "displayName": "Claude Code Manager",
   "description": "Browse and manage Claude Code sessions, MCP servers, skills, commands, hooks, and agents from your VS Code sidebar. Resume sessions, search history, enable/disable MCP, rename sessions — all without leaving your editor.",
   "version": "1.0.0",
