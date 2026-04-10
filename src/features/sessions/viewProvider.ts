@@ -202,6 +202,10 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         vscode.env.openExternal(vscode.Uri.parse(msg.url));
         break;
 
+      case "openSettings":
+        vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");
+        break;
+
       // ── Skills messages ──
 
       case "getSkills": {

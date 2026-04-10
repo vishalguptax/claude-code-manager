@@ -94,7 +94,7 @@ function mountTabShell(): void {
   ).join("");
 
   root.innerHTML = `
-    <div id="tabBar" class="tab-bar">${tabButtons}</div>
+    <div id="tabBar" class="tab-bar">${tabButtons}<button class="tab-settings-btn" id="openSettings" title="Settings">${icon("settings", 14)}</button></div>
     <div id="tabContentArea" class="tab-content-area">${contentDivs}</div>
     <div class="app-footer">
       <span class="footer-name">Claude Manager</span>
@@ -124,6 +124,11 @@ function mountTabShell(): void {
       const url = (el as HTMLElement).dataset.url;
       if (url) sendOpenUrl(url);
     });
+  });
+
+  // Settings button
+  document.getElementById("openSettings")?.addEventListener("click", () => {
+    vscode.postMessage({ type: "openSettings" });
   });
 
   tabShellMounted = true;

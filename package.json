@@ -2,7 +2,7 @@
   "name": "claude-manager",
   "displayName": "Claude Manager",
   "description": "Browse and manage Claude Code sessions, MCP servers, skills, commands, hooks, and agents from your VS Code sidebar. Resume sessions, search history, enable/disable MCP, rename sessions — all without leaving your editor.",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "publisher": "vishalguptax",
   "author": {
     "name": "Vishal Gupta",
@@ -107,7 +107,10 @@
         "claudeManager.terminal.location": {
           "type": "string",
           "default": "editor",
-          "enum": ["editor", "panel"],
+          "enum": [
+            "editor",
+            "panel"
+          ],
           "enumDescriptions": [
             "Open terminals in the editor area (beside current editor)",
             "Open terminals in the bottom panel"
@@ -117,7 +120,13 @@
         "claudeManager.terminal.editorPosition": {
           "type": "string",
           "default": "beside",
-          "enum": ["beside", "active", "one", "two", "three"],
+          "enum": [
+            "beside",
+            "active",
+            "one",
+            "two",
+            "three"
+          ],
           "enumDescriptions": [
             "Open beside the current editor",
             "Open in the active editor group",
@@ -130,7 +139,12 @@
         "claudeManager.sessions.defaultFilter": {
           "type": "string",
           "default": "recent",
-          "enum": ["recent", "week", "month", "all"],
+          "enum": [
+            "recent",
+            "week",
+            "month",
+            "all"
+          ],
           "enumDescriptions": [
             "Show top 20 most recent sessions",
             "Show sessions from the past week",
@@ -142,7 +156,10 @@
         "claudeManager.sessions.defaultProject": {
           "type": "string",
           "default": "current",
-          "enum": ["current", "all"],
+          "enum": [
+            "current",
+            "all"
+          ],
           "enumDescriptions": [
             "Show only sessions from the current workspace",
             "Show sessions from all projects"

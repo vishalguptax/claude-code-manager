@@ -11,7 +11,7 @@
 .actions-bar {
   display: flex;
   gap: var(--space-xs);
-  padding: var(--space-lg) var(--space-xl) var(--space-xs);
+  padding: var(--space-md) var(--space-xl) var(--space-xs);
   flex-wrap: wrap;
   flex-shrink: 0;
 }
@@ -73,7 +73,7 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .filter-row {
-  padding: var(--space-sm) var(--space-xl) 0;
+  padding: var(--space-xs) var(--space-xl) 0;
   position: relative;
   flex-shrink: 0;
 }
@@ -148,7 +148,7 @@
 .scope-filter {
   display: flex;
   gap: 4px;
-  padding: 8px 12px 0;
+  padding: var(--space-xs) var(--space-xl) 0;
   flex-shrink: 0;
 }
 
@@ -182,7 +182,7 @@
 .date-chips {
   display: flex;
   gap: var(--space-xs);
-  padding: var(--space-md) var(--space-xl);
+  padding: var(--space-xs) var(--space-xl);
   flex-shrink: 0;
 }
 
@@ -319,6 +319,21 @@
 }
 .tab-bar::-webkit-scrollbar { display: none; }
 
+.tab-settings-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.tab-settings-btn:hover { color: var(--fg); background: var(--bg-hover); }
+
 .tab-btn {
   flex: 0 0 auto;
   padding: 0 var(--space-lg);
@@ -439,7 +454,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  margin: var(--space-md) var(--space-xl);
+  margin: var(--space-xs) var(--space-xl);
   flex-shrink: 0;
 }
 

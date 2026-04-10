@@ -157,4 +157,5 @@ export type WebviewMessage =
   | { type: "deleteMcpServer"; name: string; scope: string }
   | { type: "getAgents" }
   | { type: "openAgentFile"; path: string }
-  | { type: "openFile"; path: string };
+  | { type: "openFile"; path: string }
+  | { type: "openSettings" };
