@@ -109,9 +109,9 @@
     "build": "npm run build:extension && npm run build:webview && npm run copy:css",
     "watch": "npm run build:extension -- --watch & npm run build:webview -- --watch",
     "release": "npm test && npm run build && npx @vscode/vsce package --no-dependencies -o dist/",
-    "publish:patch": "npm version patch --no-git-tag-version && npm run release && npx @vscode/vsce publish --no-dependencies",
-    "publish:minor": "npm version minor --no-git-tag-version && npm run release && npx @vscode/vsce publish --no-dependencies",
-    "publish:major": "npm version major --no-git-tag-version && npm run release && npx @vscode/vsce publish --no-dependencies",
+    "release:patch": "npm version patch --no-git-tag-version && npm run release",
+    "release:minor": "npm version minor --no-git-tag-version && npm run release",
+    "release:major": "npm version major --no-git-tag-version && npm run release",
     "test": "vitest run",
     "test:watch": "vitest"
   },
