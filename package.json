@@ -88,8 +88,9 @@
     "build": "npm run build:extension && npm run build:webview && npm run copy:css",
     "watch:extension": "npm run build:extension -- --watch",
     "watch:webview": "npm run build:webview -- --watch",
-    "package": "npx vsce package --no-dependencies",
-    "publish": "npx vsce publish --no-dependencies",
+    "package": "npx @vscode/vsce package --no-dependencies",
+    "publish": "npx @vscode/vsce publish --no-dependencies",
+    "release": "npm test && npm run build && npm run package",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

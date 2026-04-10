@@ -1,10 +1,13 @@
 .vscode/**
 .claude/**
+.dev/**
+.github/**
 src/**
 node_modules/**
 docs/**
 .gitignore
 tsconfig.json
+vitest.config.ts
 scripts/**
 *.map
 *.vsix
