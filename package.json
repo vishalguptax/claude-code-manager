@@ -100,7 +100,64 @@
         "key": "ctrl+alt+c",
         "mac": "cmd+alt+c"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Claude Manager",
+      "properties": {
+        "claudeManager.terminal.location": {
+          "type": "string",
+          "default": "editor",
+          "enum": ["editor", "panel"],
+          "enumDescriptions": [
+            "Open terminals in the editor area (beside current editor)",
+            "Open terminals in the bottom panel"
+          ],
+          "description": "Where to open Claude terminals when resuming sessions."
+        },
+        "claudeManager.terminal.editorPosition": {
+          "type": "string",
+          "default": "beside",
+          "enum": ["beside", "active", "one", "two", "three"],
+          "enumDescriptions": [
+            "Open beside the current editor",
+            "Open in the active editor group",
+            "Open in the first editor group",
+            "Open in the second editor group",
+            "Open in the third editor group"
+          ],
+          "description": "Which editor group to open the terminal in (only applies when location is 'editor')."
+        },
+        "claudeManager.sessions.defaultFilter": {
+          "type": "string",
+          "default": "recent",
+          "enum": ["recent", "week", "month", "all"],
+          "enumDescriptions": [
+            "Show top 20 most recent sessions",
+            "Show sessions from the past week",
+            "Show sessions from the past month",
+            "Show all sessions"
+          ],
+          "description": "Default date filter when opening the sessions tab."
+        },
+        "claudeManager.sessions.defaultProject": {
+          "type": "string",
+          "default": "current",
+          "enum": ["current", "all"],
+          "enumDescriptions": [
+            "Show only sessions from the current workspace",
+            "Show sessions from all projects"
+          ],
+          "description": "Default project filter when opening the sessions tab."
+        },
+        "claudeManager.sessions.restoreWindowMinutes": {
+          "type": "number",
+          "default": 30,
+          "minimum": 5,
+          "maximum": 120,
+          "description": "Time window (in minutes) for Restore Workspace — sessions active within this window are grouped together."
+        }
+      }
+    }
   },
   "scripts": {
     "build:extension": "esbuild src/extension/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",

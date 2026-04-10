@@ -71,13 +71,21 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
     try {
     switch (msg.type) {
-      case "ready":
+      case "ready": {
         this.sessions = parseSessions(loadState().renames);
+        const sessConfig = vscode.workspace.getConfiguration("claudeManager.sessions");
         wv.postMessage({ type: "workspacePath", data: getWorkspace() });
+        wv.postMessage({
+          type: "settings",
+          defaultFilter: sessConfig.get<string>("defaultFilter", "recent"),
+          defaultProject: sessConfig.get<string>("defaultProject", "current"),
+          restoreWindowMinutes: sessConfig.get<number>("restoreWindowMinutes", 30),
+        });
         wv.postMessage({ type: "sessions", data: groupSessions(this.sessions), stats: getStats(this.sessions) });
         wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
         wv.postMessage({ type: "userState", ...loadState() });
         break;
+      }
 
       case "getSessionDetail": {
         const detail = parseSessionDetail(msg.sessionId, this.sessions.find((s) => s.id === msg.sessionId));

@@ -25,6 +25,7 @@ let workspacePath = "";
 let currentProjectName = "";
 let view: View = "list";
 let shellMounted = false;
+let restoreWindowMinutes = 30;
 
 // ── Getters ──
 
@@ -124,6 +125,9 @@ export function setView(v: View): void { view = v; }
 /** Mark the shell DOM as mounted. */
 export function setShellMounted(v: boolean): void { shellMounted = v; }
 
+/** Set the restore workspace time window from settings. */
+export function setRestoreWindowMinutes(m: number): void { restoreWindowMinutes = m; }
+
 // ── Derived data ──
 
 /**
@@ -185,7 +189,7 @@ export function getFiltered(): Session[] {
  *   open in the order the user originally started them.
  */
 export function getLastSessionGroup(): Session[] {
-  const WINDOW_MS = 30 * 60 * 1000;
+  const WINDOW_MS = restoreWindowMinutes * 60 * 1000;
 
   let candidates = allSessions.filter((s) => !deletedIds.has(s.id));
   if (currentProjectName) {

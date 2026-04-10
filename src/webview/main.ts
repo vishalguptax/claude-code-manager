@@ -19,10 +19,14 @@ import {
   setDeletedIds,
   setLoading,
   setDetail,
+  setFilterDate,
+  setFilterProject,
+  setRestoreWindowMinutes,
   getView,
   getDetail,
   isShellMounted,
 } from "../features/sessions/webview/state";
+import type { DateFilter } from "./types";
 import { mountShell, updateList, updateFilter, showList } from "../features/sessions/webview/views/listView";
 import { showDetail } from "../features/sessions/webview/views/detailView";
 import { initSkillsApi, sendGetSkills } from "../features/skills/webview/api";
@@ -216,6 +220,10 @@ window.addEventListener("message", (event: MessageEvent) => {
 
   if (msg.type === "workspacePath") {
     setWorkspacePath(msg.data as string);
+  } else if (msg.type === "settings") {
+    setFilterDate(msg.defaultFilter as DateFilter);
+    setFilterProject(msg.defaultProject as string);
+    setRestoreWindowMinutes(msg.restoreWindowMinutes as number);
   } else if (msg.type === "sessions") {
     const groups = msg.data as SessionGroup[];
     const flat: Session[] = [];
