@@ -8,9 +8,9 @@
 
 Browse sessions, skills, commands, hooks, MCP servers, and agents — all from one panel.
 
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vishalguptax.claude-manager?label=Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vishalguptax.claude-manager?label=VS%20Code%20Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager)
+[![Open VSX](https://img.shields.io/open-vsx/v/vishalguptax/claude-manager?label=Open%20VSX&color=a60ee5)](https://open-vsx.org/extension/vishalguptax/claude-manager)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/vishalguptax.claude-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager)
-[![Rating](https://img.shields.io/visual-studio-marketplace/r/vishalguptax.claude-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager&ssr=false#review-details)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-orange.svg)](LICENSE)
 
 [Install](#quick-install) · [Features](#features) · [Usage](#usage) · [Compatibility](#compatibility)
@@ -23,17 +23,21 @@ A VS Code extension that gives you a sidebar panel to browse and manage everythi
 
 ## Quick Install
 
-### From Marketplace
+### From VS Code Marketplace
 
 1. Open **Extensions** (`Ctrl+Shift+X` / `Cmd+Shift+X`)
 2. Search **Claude Manager**
 3. Click **Install**
 
-Or run:
+Or run: `ext install vishalguptax.claude-manager`
 
-```
-ext install vishalguptax.claude-manager
-```
+### From Open VSX (VSCodium, Eclipse Theia, Gitpod)
+
+1. Open **Extensions** → Search **Claude Manager** → **Install**
+
+Or run: `ext install vishalguptax.claude-manager`
+
+Or visit: [open-vsx.org/extension/vishalguptax/claude-manager](https://open-vsx.org/extension/vishalguptax/claude-manager)
 
 ### From GitHub Release
 
