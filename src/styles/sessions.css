@@ -108,7 +108,7 @@
   text-overflow: ellipsis;
   margin-top: 2px;
 }
-.session-item .item-prompt   { margin-right: 36px; }
+.session-item:hover .item-prompt { margin-right: 36px; }
 .item.active .item-prompt    { color: var(--bg-active-fg); opacity: 0.65; }
 
 .item-row2 {
