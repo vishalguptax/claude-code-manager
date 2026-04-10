@@ -2,8 +2,11 @@ name: Release
 
 on:
   push:
-    tags:
-      - "*.*.*"
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
 
 jobs:
   release:
@@ -13,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -24,22 +29,41 @@ jobs:
 
       - run: npm run build
 
-      - run: npx @vscode/vsce package --no-dependencies -o dist/
+      # Bump patch version automatically
+      - name: Bump version
+        id: bump
+        run: |
+          npm version patch --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Package
+        run: npx @vscode/vsce package --no-dependencies -o dist/
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "release: v${{ steps.bump.outputs.version }}"
+          git tag "${{ steps.bump.outputs.version }}"
+          git push
+          git push --tags
 
       - name: Publish to VS Code Marketplace
-        if: ${{ secrets.VSCE_PAT != '' }}
+        if: ${{ vars.VSCE_PAT != '' || secrets.VSCE_PAT != '' }}
         run: npx @vscode/vsce publish --no-dependencies
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Publish to Open VSX
-        if: ${{ secrets.OVSX_TOKEN != '' }}
-        run: npx ovsx publish dist/*.vsix
-        env:
-          OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
+        if: ${{ vars.OVSX_TOKEN != '' || secrets.OVSX_TOKEN != '' }}
+        run: npx ovsx publish dist/*.vsix -p ${{ secrets.OVSX_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.bump.outputs.version }}
+          name: v${{ steps.bump.outputs.version }}
           files: dist/*.vsix
           generate_release_notes: true
