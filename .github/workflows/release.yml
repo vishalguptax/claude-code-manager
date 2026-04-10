@@ -25,12 +25,18 @@ jobs:
       - run: npm run build
 
       - run: npx @vscode/vsce package --no-dependencies -o dist/
+
+      - name: Publish to VS Code Marketplace
+        if: ${{ secrets.VSCE_PAT != '' }}
+        run: npx @vscode/vsce publish --no-dependencies
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
-      - run: npx @vscode/vsce publish --no-dependencies
+      - name: Publish to Open VSX
+        if: ${{ secrets.OVSX_TOKEN != '' }}
+        run: npx ovsx publish dist/*.vsix
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

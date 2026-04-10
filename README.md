@@ -146,7 +146,7 @@ Works on every VS Code-based editor:
 
 <div align="center">
 
-**Visual Studio Code** · **Cursor** · **Windsurf** · **VSCodium** · **GitHub Codespaces** · **Gitpod**
+**Visual Studio Code** · **Cursor** · **Windsurf** · **VSCodium** · **Eclipse Theia** · **GitHub Codespaces** · **Gitpod**
 
 </div>
 

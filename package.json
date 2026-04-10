@@ -2,7 +2,7 @@
   "name": "claude-manager",
   "displayName": "Claude Manager",
   "description": "Browse and manage Claude Code sessions, MCP servers, skills, commands, hooks, and agents from your VS Code sidebar. Resume sessions, search history, enable/disable MCP, rename sessions — all without leaving your editor.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "vishalguptax",
   "author": {
     "name": "Vishal Gupta",
@@ -112,6 +112,7 @@
     "release:patch": "npm version patch --no-git-tag-version && npm run release",
     "release:minor": "npm version minor --no-git-tag-version && npm run release",
     "release:major": "npm version major --no-git-tag-version && npm run release",
+    "publish:openvsx": "npx ovsx publish dist/*.vsix",
     "test": "vitest run",
     "test:watch": "vitest"
   },
