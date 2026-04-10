@@ -110,7 +110,9 @@
     "watch": "npm run build:extension -- --watch & npm run build:webview -- --watch",
     "prerelease": "node -e \"require('fs').mkdirSync('build',{recursive:true})\"",
     "release": "npm test && npm run build && npx @vscode/vsce package --no-dependencies -o build/",
-    "publish": "npm run release && npx @vscode/vsce publish --no-dependencies",
+    "publish:patch": "npm version patch --no-git-tag-version && npm run release && npx @vscode/vsce publish --no-dependencies",
+    "publish:minor": "npm version minor --no-git-tag-version && npm run release && npx @vscode/vsce publish --no-dependencies",
+    "publish:major": "npm version major --no-git-tag-version && npm run release && npx @vscode/vsce publish --no-dependencies",
     "test": "vitest run",
     "test:watch": "vitest"
   },
