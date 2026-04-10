@@ -108,7 +108,7 @@
     "copy:css": "node -e \"const fs=require('fs');const out=['src/styles/base.css','src/styles/components.css','src/styles/sessions.css','src/styles/skills.css','src/styles/features.css','src/styles/mcp.css','src/styles/agents.css'].map(f=>fs.readFileSync(f,'utf-8')).join('\\n');fs.mkdirSync('dist/webview',{recursive:true});fs.writeFileSync('dist/webview/styles.css',out)\"",
     "build": "npm run build:extension && npm run build:webview && npm run copy:css",
     "watch": "npm run build:extension -- --watch & npm run build:webview -- --watch",
-    "release": "npm test && npm run build && npx @vscode/vsce package --no-dependencies -o dist/",
+    "release": "npm test && npm run build && node -e \"require('fs').readdirSync('dist').filter(f=>f.endsWith('.vsix')).forEach(f=>require('fs').unlinkSync('dist/'+f))\" && npx @vscode/vsce package --no-dependencies -o dist/",
     "release:patch": "npm version patch --no-git-tag-version && npm run release",
     "release:minor": "npm version minor --no-git-tag-version && npm run release",
     "release:major": "npm version major --no-git-tag-version && npm run release",
