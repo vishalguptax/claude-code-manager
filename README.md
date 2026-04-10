@@ -8,9 +8,8 @@
 
 Browse sessions, skills, commands, hooks, MCP servers, and agents — all from one panel.
 
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vishalguptax.claude-manager?label=VS%20Code%20Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager)
-[![Open VSX](https://img.shields.io/open-vsx/v/vishalguptax/claude-manager?label=Open%20VSX&color=a60ee5)](https://open-vsx.org/extension/vishalguptax/claude-manager)
-[![Installs](https://img.shields.io/visual-studio-marketplace/i/vishalguptax.claude-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager)
+[![Open VSX](https://img.shields.io/badge/Open%20VSX-Registry-a60ee5?logo=eclipse)](https://open-vsx.org/extension/vishalguptax/claude-manager)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-orange.svg)](LICENSE)
 
 [Install](#quick-install) · [Features](#features) · [Usage](#usage) · [Compatibility](#compatibility)
