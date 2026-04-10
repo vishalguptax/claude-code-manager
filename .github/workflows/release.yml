@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run build
+
+      - run: npx @vscode/vsce package --no-dependencies -o build/
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - run: npx @vscode/vsce publish --no-dependencies
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/*.vsix
+          generate_release_notes: true
