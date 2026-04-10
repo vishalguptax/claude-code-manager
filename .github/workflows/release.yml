@@ -29,11 +29,21 @@ jobs:
 
       - run: npm run build
 
-      # Bump patch version automatically
+      # Bump version based on commit message keywords
+      # Use [major] or [minor] in commit message, otherwise defaults to patch
       - name: Bump version
         id: bump
         run: |
-          npm version patch --no-git-tag-version
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if echo "$COMMIT_MSG" | grep -q "\[major\]"; then
+            BUMP="major"
+          elif echo "$COMMIT_MSG" | grep -q "\[minor\]"; then
+            BUMP="minor"
+          else
+            BUMP="patch"
+          fi
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          npm version $BUMP --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
