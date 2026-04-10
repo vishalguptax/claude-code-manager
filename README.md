@@ -1,17 +1,17 @@
 <div align="center">
 
-<img src="media/marketplace-icon.png" alt="Claude Code Manager — VS Code extension to manage Claude Code sessions, MCP servers, skills, commands, hooks, and agents" width="120">
+<img src="media/marketplace-icon.png" alt="Claude Manager — VS Code extension to manage Claude Code sessions, MCP servers, skills, commands, hooks, and agents" width="120">
 
-# Claude Code Manager
+# Claude Manager
 
 **The missing sidebar for [Claude Code](https://claude.ai/code).**
 
 Browse sessions, skills, commands, hooks, MCP servers, and agents — all from one panel.
 
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/vishalguptax.claude-manager?label=Marketplace&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/vishalguptax.claude-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager)
+[![Rating](https://img.shields.io/visual-studio-marketplace/r/vishalguptax.claude-manager?color=007ACC)](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager&ssr=false#review-details)
 [![License: BSL 1.1](https://img.shields.io/badge/License-BSL%201.1-orange.svg)](LICENSE)
-[![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC.svg)](https://code.visualstudio.com/)
-[![Cursor](https://img.shields.io/badge/Cursor-compatible-8B5CF6.svg)](https://cursor.com)
-[![Windsurf](https://img.shields.io/badge/Windsurf-compatible-06B6D4.svg)](https://windsurf.com)
 
 [Install](#quick-install) · [Features](#features) · [Usage](#usage) · [Compatibility](#compatibility)
 
@@ -23,38 +23,32 @@ A VS Code extension that gives you a sidebar panel to browse and manage everythi
 
 ## Quick Install
 
-### Option A — From the editor
+### From Marketplace
 
-1. **[Download claude-code-manager-1.0.0.vsix](https://github.com/vishalguptax/claude-code-manager/releases/download/1.0.0/claude-code-manager-1.0.0.vsix)**
+1. Open **Extensions** (`Ctrl+Shift+X` / `Cmd+Shift+X`)
+2. Search **Claude Manager**
+3. Click **Install**
+
+Or run:
+
+```
+ext install vishalguptax.claude-manager
+```
+
+### From GitHub Release
+
+1. **[Download claude-manager-1.0.0.vsix](https://github.com/vishalguptax/claude-code-manager/releases/download/1.0.0/claude-code-manager-1.0.0.vsix)**
 2. Open your editor → press `Ctrl+Shift+P` → type **Install from VSIX** → hit Enter
-3. Select the downloaded `claude-code-manager-1.0.0.vsix` file
+3. Select the downloaded file
 4. Click **Reload** when prompted
 
-### Option B — From the terminal
-
-Open a terminal and run the command for your OS:
-
-**macOS / Linux:**
+**Or via CLI:**
 
 ```bash
-cd ~/Downloads && code --install-extension claude-code-manager-1.0.0.vsix
+code --install-extension claude-manager-1.0.0.vsix
 ```
 
-**Windows (PowerShell):**
-
-```powershell
-cd $HOME\Downloads; code --install-extension claude-code-manager-1.0.0.vsix
-```
-
-> Using a different editor? Replace `code` with your CLI:
-> | Editor | CLI command |
-> | :-- | :-- |
-> | VS Code | `code` |
-> | Cursor | `cursor` |
-> | Windsurf | `windsurf` |
-> | VSCodium | `codium` |
-
-After running, reload your editor window to activate the extension.
+> Replace `code` with `cursor`, `windsurf`, or `codium` for other IDEs.
 
 ---
 
@@ -131,7 +125,7 @@ After running, reload your editor window to activate the extension.
 
 ## Usage
 
-Click the **Claude Code Manager** icon in the activity bar, or:
+Click the **Claude Manager** icon in the activity bar, or:
 
 | Action | Shortcut |
 | :-- | :-- |

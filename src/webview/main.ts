@@ -93,7 +93,7 @@ function mountTabShell(): void {
     <div id="tabBar" class="tab-bar">${tabButtons}</div>
     <div id="tabContentArea" class="tab-content-area">${contentDivs}</div>
     <div class="app-footer">
-      <span class="footer-name">Claude Code Manager</span>
+      <span class="footer-name">Claude Manager</span>
       <span class="footer-links">
         <button class="footer-link" data-url="https://github.com/vishalguptax/claude-code-manager" title="GitHub">${icon("github")}</button>
         <button class="footer-link" data-url="https://www.linkedin.com/in/vishalgupta26/" title="LinkedIn">${icon("linkedin")}</button>
