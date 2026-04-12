@@ -17,14 +17,20 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-lg) var(--space-2xl);
+  margin: 0;
   cursor: pointer;
   user-select: none;
   background: none;
   border: none;
   width: 100%;
   text-align: left;
+  border-radius: 0;
+  transition: background 0.12s;
 }
-.acct-section-header:hover { background: var(--bg-hover); }
+.acct-section-header:hover .acct-section-title,
+.acct-section-header:hover .acct-section-chevron {
+  color: var(--fg);
+}
 .acct-section-header:focus-visible {
   outline: 1px solid var(--accent);
   outline-offset: -1px;

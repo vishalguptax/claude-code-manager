@@ -41,6 +41,10 @@ export function renderAccount(container: HTMLElement): void {
     return;
   }
 
+  // Preserve scroll position across re-renders (tab switches, toggles, etc.)
+  const existingPanel = container.querySelector<HTMLElement>(".panel");
+  const scrollTop = existingPanel?.scrollTop ?? 0;
+
   container.innerHTML = `
     <div class="panel">
       ${renderProfileSection(data)}
@@ -48,6 +52,12 @@ export function renderAccount(container: HTMLElement): void {
       ${renderSettingsSection(data)}
       ${renderPermissionsSection(data)}
     </div>`;
+
+  // Restore scroll position after DOM replacement
+  const newPanel = container.querySelector<HTMLElement>(".panel");
+  if (newPanel && scrollTop > 0) {
+    newPanel.scrollTop = scrollTop;
+  }
 
   bindHandlers(container, data);
 }
