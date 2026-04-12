@@ -469,13 +469,20 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "launchSlash": {
-        // Run the slash command as a direct CLI argument: `claude /login`.
-        // This is more reliable than starting the REPL and typing the command
-        // after an arbitrary delay.
+        // Slash commands (/login, /logout, /config, etc.) must be typed inside
+        // a running Claude REPL. Passing them as CLI args doesn't work:
+        //   - `claude /login` treats "/login" as an initial user prompt
+        //   - Git Bash on Windows mangles "/login" → "C:/Program Files/Git/login"
+        //
+        // Instead: open a fresh Claude terminal and show a notification
+        // telling the user exactly what to type.
         const command = msg.command;
         const term = createTerminal(`Claude: ${command}`);
         term.show();
-        term.sendText(`claude ${command}`);
+        term.sendText("claude");
+        vscode.window.showInformationMessage(
+          `Claude is starting. Once ready, type ${command} in the terminal.`,
+        );
         break;
       }
 
