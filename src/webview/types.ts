@@ -14,4 +14,4 @@ export type DateFilter = "recent" | "week" | "month" | "all";
 export type View = "list" | "detail";
 
 /** Top-level tab in the webview. */
-export type Tab = "sessions" | "skills" | "commands" | "hooks" | "mcp" | "agents";
+export type Tab = "sessions" | "skills" | "commands" | "hooks" | "mcp" | "agents" | "account";

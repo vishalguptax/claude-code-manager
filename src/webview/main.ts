@@ -42,6 +42,7 @@ import { initCommandsTab, mount as mountCommands, unmount as unmountCommands } f
 import { initHooksTab, mount as mountHooks, unmount as unmountHooks } from "../features/hooks/webview/tab";
 import { initMcpTab, mount as mountMcp, unmount as unmountMcp } from "../features/mcp/webview/tab";
 import { initAgentsTab, mount as mountAgents, unmount as unmountAgents } from "../features/agents/webview/tab";
+import { initAccountTab, mount as mountAccount, unmount as unmountAccount } from "../features/account/webview/tab";
 import type { VSCodeAPI, Tab } from "./types";
 import type { Session, SessionDetail, Stats, SessionGroup } from "../features/sessions/types";
 import type { Skill } from "../features/skills/types";
@@ -52,7 +53,7 @@ let activeTab: Tab = "sessions";
 let tabShellMounted = false;
 
 /** All tabs in display order. */
-const ALL_TABS: Tab[] = ["sessions", "skills", "commands", "hooks", "mcp", "agents"];
+const ALL_TABS: Tab[] = ["sessions", "skills", "commands", "hooks", "mcp", "agents", "account"];
 
 /** Display labels for each tab. */
 const TAB_LABELS: Record<Tab, string> = {
@@ -62,6 +63,18 @@ const TAB_LABELS: Record<Tab, string> = {
   hooks: "Hooks",
   mcp: "MCP",
   agents: "Agents",
+  account: "Account",
+};
+
+/** Lucide icon name for each tab. */
+const TAB_ICONS: Record<Tab, string> = {
+  sessions: "message-square",
+  skills: "sparkles",
+  commands: "terminal-square",
+  hooks: "webhook",
+  mcp: "plug",
+  agents: "bot",
+  account: "circle-user",
 };
 
 // ── Bootstrap ──
@@ -74,6 +87,7 @@ initCommandsTab(vscode);
 initHooksTab(vscode);
 initMcpTab(vscode);
 initAgentsTab(vscode);
+initAccountTab(vscode);
 
 /**
  * Mount the top-level tab bar and content containers inside the existing #root div.
@@ -86,7 +100,7 @@ function mountTabShell(): void {
   if (!root) return;
 
   const tabButtons = ALL_TABS.map(
-    (tab) => `<button class="tab-btn ${tab === "sessions" ? "active" : ""}" data-tab="${tab}">${TAB_LABELS[tab]}</button>`,
+    (tab) => `<button class="tab-btn ${tab === "sessions" ? "active" : ""}" data-tab="${tab}" role="tab" aria-label="${TAB_LABELS[tab]}" title="${TAB_LABELS[tab]}"><span class="tab-icon">${icon(TAB_ICONS[tab], 16)}</span><span class="tab-label">${TAB_LABELS[tab]}</span></button>`,
   ).join("");
 
   const contentDivs = ALL_TABS.map(
@@ -94,7 +108,7 @@ function mountTabShell(): void {
   ).join("");
 
   root.innerHTML = `
-    <div id="tabBar" class="tab-bar">${tabButtons}<button class="tab-settings-btn" id="openSettings" title="Settings">${icon("settings", 14)}</button></div>
+    <div id="tabBar" class="tab-bar" role="tablist">${tabButtons}</div>
     <div id="tabContentArea" class="tab-content-area">${contentDivs}</div>
     <div class="app-footer">
       <span class="footer-name">Claude Manager</span>
@@ -126,11 +140,6 @@ function mountTabShell(): void {
     });
   });
 
-  // Settings button
-  document.getElementById("openSettings")?.addEventListener("click", () => {
-    vscode.postMessage({ type: "openSettings" });
-  });
-
   tabShellMounted = true;
 }
 
@@ -151,6 +160,7 @@ const tabLifecycle: Record<string, { mount: (container: HTMLElement) => void; un
   hooks: { mount: mountHooks, unmount: unmountHooks },
   mcp: { mount: mountMcp, unmount: unmountMcp },
   agents: { mount: mountAgents, unmount: unmountAgents },
+  account: { mount: mountAccount, unmount: unmountAccount },
 };
 
 /**

@@ -29,6 +29,14 @@ import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
 import { parseMcpServers, toggleMcpServer, deleteMcpServer } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
+import {
+  parseAccountData,
+  writeSettingsValue,
+  addPermissionEntry,
+  removePermissionEntry,
+  resolveSettingsPath,
+} from "../account/parser";
+import { createTerminal } from "../../extension/terminal";
 import type { WebviewMessage, Session } from "./types";
 import type { Skill } from "../skills/types";
 import type { Command } from "../commands/types";
@@ -202,10 +210,6 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         vscode.env.openExternal(vscode.Uri.parse(msg.url));
         break;
 
-      case "openSettings":
-        vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");
-        break;
-
       // ── Skills messages ──
 
       case "getSkills": {
@@ -373,6 +377,90 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         } catch {
           vscode.window.showErrorMessage(`Could not open ${agentPath}`);
         }
+        break;
+      }
+
+      // ── Account messages ──
+
+      case "getAccountData": {
+        const workspace = getWorkspace();
+        const data = parseAccountData(workspace || undefined);
+        wv.postMessage({ type: "accountData", data });
+        break;
+      }
+
+      case "openAccountUrl": {
+        vscode.env.openExternal(vscode.Uri.parse(msg.url));
+        break;
+      }
+
+      case "launchSlash": {
+        const command = msg.command;
+        const term = createTerminal(`Claude: ${command}`);
+        term.show();
+        term.sendText("claude");
+        // Give Claude a moment to start, then send the slash command
+        setTimeout(() => term.sendText(command), 800);
+        break;
+      }
+
+      case "setModel": {
+        writeSettingsValue("model", msg.model || undefined);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "setVoiceEnabled": {
+        writeSettingsValue("voiceEnabled", msg.value);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "setCommitAttribution": {
+        writeSettingsValue("attribution.commit", msg.value);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "setPrAttribution": {
+        writeSettingsValue("attribution.pr", msg.value);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "openSettingsFile": {
+        const workspace = getWorkspace();
+        const filePath = resolveSettingsPath(msg.scope, workspace || undefined);
+        if (!filePath) {
+          vscode.window.showErrorMessage(
+            msg.scope === "global" ? "Could not resolve settings path" : "No workspace folder open",
+          );
+          break;
+        }
+        try {
+          const doc = await vscode.workspace.openTextDocument(filePath);
+          await vscode.window.showTextDocument(doc);
+        } catch {
+          vscode.window.showErrorMessage(`Could not open ${filePath}`);
+        }
+        break;
+      }
+
+      case "addPermission": {
+        const workspace = getWorkspace();
+        addPermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "removePermission": {
+        const workspace = getWorkspace();
+        removePermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
         break;
       }
 
