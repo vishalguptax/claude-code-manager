@@ -309,18 +309,28 @@
    Tab Bar (shared)
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* Wrapper keeps the scrollable tab bar on the left and the settings gear
+   pinned to the right. Without this wrapper, margin-left:auto on the gear
+   conflicts with overflow-x:auto on the flex container. */
+.tab-bar-wrap {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
+  flex-shrink: 0;
+  min-height: 34px;
+}
+
 .tab-bar {
   display: flex;
-  border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
   padding: 0;
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 .tab-bar::-webkit-scrollbar { display: none; }
 
 .tab-settings-btn {
-  margin-left: auto;
   flex-shrink: 0;
   width: 34px;
   height: 34px;
@@ -329,6 +339,7 @@
   justify-content: center;
   background: none;
   border: none;
+  border-left: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.08)));
   color: var(--fg-muted);
   cursor: pointer;
 }
