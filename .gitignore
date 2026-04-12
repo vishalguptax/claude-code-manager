@@ -4,3 +4,4 @@ dist/
 .vscode-test/
 .claude/
 .dev/
+scripts/.settings-snapshot.json
