@@ -8,3 +8,5 @@ dist/
 !.claude/skills/release/
 .dev/
 scripts/.settings-snapshot.json
+.binaryos/
+CLAUDE.md
