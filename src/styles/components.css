@@ -319,13 +319,10 @@
   min-height: 34px;
 }
 
-/* Left padding matches VS Code's view-container title indent so the first
-   tab's icon lines up with the "CLAUDE MANAGER" header text above. */
 .tab-bar {
   display: flex;
   flex: 1;
   min-width: 0;
-  padding-left: 16px;
   gap: 2px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
