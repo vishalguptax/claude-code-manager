@@ -74,7 +74,7 @@
       "activitybar": [
         {
           "id": "claudeCodeManager",
-          "title": "Claude Code Manager",
+          "title": "Claude Manager",
           "icon": "media/icon.svg"
         }
       ]
@@ -84,14 +84,14 @@
         {
           "type": "webview",
           "id": "claudeCodeManager.view",
-          "name": "Claude Code Manager"
+          "name": "Claude Manager"
         }
       ]
     },
     "commands": [
       {
         "command": "claudeManager.open",
-        "title": "Claude: Open Code Manager"
+        "title": "Claude Manager: Open"
       }
     ],
     "keybindings": [

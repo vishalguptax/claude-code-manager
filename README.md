@@ -143,7 +143,7 @@ Open Settings (`Ctrl+,`) and search **Claude Manager**.
 | :-- | :-- |
 | Open panel | Click the **Claude Manager** icon in the activity bar |
 | Focus panel | `Ctrl+Alt+C` / `Cmd+Alt+C` |
-| Command palette | `Ctrl+Shift+P` &rarr; **Claude: Open Code Manager** |
+| Command palette | `Ctrl+Shift+P` &rarr; **Claude Manager: Open** |
 
 <br>
 

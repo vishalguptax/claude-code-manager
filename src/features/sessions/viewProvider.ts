@@ -1,5 +1,5 @@
 /**
- * Provides the webview content for the Claude Code Manager sidebar panel.
+ * Provides the webview content for the Claude Manager sidebar panel.
  * Handles all message passing between the webview UI and the extension host.
  */
 import * as vscode from "vscode";
@@ -47,7 +47,7 @@ import * as path from "path";
 import * as os from "os";
 
 /**
- * Provides the webview content for the Claude Code Manager sidebar panel.
+ * Provides the webview content for the Claude Manager sidebar panel.
  * Handles all message passing between the webview UI and the extension host.
  */
 export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {

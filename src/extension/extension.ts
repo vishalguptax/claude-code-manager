@@ -7,7 +7,7 @@ import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
 import { setExtensionUri } from "./terminal";
 
 /**
- * Activate the Claude Code Manager extension.
+ * Activate the Claude Manager extension.
  */
 export function activate(context: vscode.ExtensionContext): void {
   setExtensionUri(context.extensionUri);
@@ -27,13 +27,15 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Status bar item — click to open Claude Manager sidebar
+  // Status bar item — click to open the Claude Manager sidebar.
+  // Note: VS Code status bar items only support built-in codicons ($(name)),
+  // not custom SVG/PNG icons. We use "sparkle" as the closest brand-fit icon.
   const statusBarItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Left,
+    vscode.StatusBarAlignment.Right,
     100,
   );
-  statusBarItem.text = "$(comment-discussion) Claude";
-  statusBarItem.tooltip = "Open Claude Manager";
+  statusBarItem.text = "$(sparkle) Claude Manager";
+  statusBarItem.tooltip = "Open Claude Manager sidebar";
   statusBarItem.command = "claudeManager.open";
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
