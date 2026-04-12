@@ -8,7 +8,6 @@ import { esc } from "../../../webview/utils";
 import {
   sendLaunchSlash,
   sendOpenAccountUrl,
-  sendOpenExtensionSettings,
   sendOpenSettingsFile,
   sendSetCommitAttribution,
   sendSetModel,
@@ -278,11 +277,6 @@ function renderSettingsSection(data: AccountData): string {
       ${renderSectionHeader("settings", "Settings", collapsed)}
       ${collapsed ? "" : `
       <div class="acct-section-body">
-        <div class="acct-notice">
-          ${icon("info", 13)}
-          <span>Changes apply to new Claude sessions. Running terminals keep their current settings until restarted.</span>
-        </div>
-
         <div class="acct-field">
           <label class="acct-label">Model</label>
           <select class="acct-select" id="acct-model">
@@ -319,8 +313,9 @@ function renderSettingsSection(data: AccountData): string {
         <div class="acct-actions">
           <button class="btn" data-scope="global" id="acct-open-settings">${icon("external-link", 14)} Open settings.json</button>
           <button class="btn" data-slash="/config">${icon("terminal", 14)} Open /config</button>
-          <button class="btn" id="acct-open-ext-settings">${icon("settings", 14)} Extension settings</button>
         </div>
+
+        <div class="acct-footnote">Changes apply to new Claude sessions.</div>
       </div>`}
     </section>`;
 }
@@ -338,11 +333,6 @@ function renderPermissionsSection(data: AccountData): string {
       ${renderSectionHeader("permissions", "Permissions", collapsed)}
       ${collapsed ? "" : `
       <div class="acct-section-body">
-        <div class="acct-notice">
-          ${icon("info", 13)}
-          <span>Changes apply to new Claude sessions. Running terminals keep their current permissions until restarted.</span>
-        </div>
-
         <div class="acct-scope-toggle" role="tablist">
           <button class="acct-scope ${scope === "global" ? "active" : ""}" data-scope="global" role="tab">Global</button>
           ${hasProjectScope ? `<button class="acct-scope ${scope === "project" ? "active" : ""}" data-scope="project" role="tab">Project</button>` : ""}
@@ -356,6 +346,8 @@ function renderPermissionsSection(data: AccountData): string {
           <button class="btn" id="acct-add-perm">${icon("plus", 14)} Add tool</button>
           <button class="btn" data-scope="${scope}" id="acct-open-perms">${icon("external-link", 14)} Edit in file</button>
         </div>
+
+        <div class="acct-footnote">Changes apply to new Claude sessions.</div>
       </div>`}
     </section>`;
 }
@@ -468,9 +460,6 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
   // Open settings file buttons
   container.querySelector<HTMLElement>("#acct-open-settings")?.addEventListener("click", () => {
     sendOpenSettingsFile("global");
-  });
-  container.querySelector<HTMLElement>("#acct-open-ext-settings")?.addEventListener("click", () => {
-    sendOpenExtensionSettings();
   });
   container.querySelector<HTMLElement>("#acct-open-perms")?.addEventListener("click", () => {
     sendOpenSettingsFile(getPermissionScope());

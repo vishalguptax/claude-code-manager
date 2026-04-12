@@ -1,5 +1,6 @@
 /**
- * Extension entry point — registers the webview view provider and the open command.
+ * Extension entry point — registers the webview view provider, open command,
+ * and status bar item.
  */
 import * as vscode from "vscode";
 import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
@@ -7,7 +8,6 @@ import { setExtensionUri } from "./terminal";
 
 /**
  * Activate the Claude Code Manager extension.
- * Registers the webview view provider and the open command.
  */
 export function activate(context: vscode.ExtensionContext): void {
   setExtensionUri(context.extensionUri);
@@ -26,6 +26,17 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.commands.executeCommand("claudeCodeManager.view.focus");
     }),
   );
+
+  // Status bar item — click to open Claude Manager sidebar
+  const statusBarItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    100,
+  );
+  statusBarItem.text = "$(comment-discussion) Claude";
+  statusBarItem.tooltip = "Open Claude Manager";
+  statusBarItem.command = "claudeManager.open";
+  statusBarItem.show();
+  context.subscriptions.push(statusBarItem);
 }
 
 /**

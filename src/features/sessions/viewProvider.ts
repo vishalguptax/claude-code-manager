@@ -44,6 +44,7 @@ import type { Hook } from "../hooks/types";
 import type { McpServer } from "../mcp/types";
 import type { Agent } from "../agents/types";
 import * as path from "path";
+import * as os from "os";
 
 /**
  * Provides the webview content for the Claude Code Manager sidebar panel.
@@ -57,6 +58,9 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private hooks: Hook[] = [];
   private mcpServers: McpServer[] = [];
   private agents: Agent[] = [];
+  private watchers: vscode.FileSystemWatcher[] = [];
+  /** Debounce timer for account data re-parse on file changes. */
+  private accountReparseTimer: NodeJS.Timeout | undefined;
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -69,6 +73,71 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     };
     view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
     view.webview.onDidReceiveMessage((msg: WebviewMessage) => this.onMessage(msg));
+
+    // Set up file watchers once per webview lifecycle
+    this.setupWatchers();
+    view.onDidDispose(() => this.disposeWatchers());
+  }
+
+  /**
+   * Watch Claude config/data files and push fresh account data to the webview
+   * whenever they change. Uses VS Code's native FileSystemWatcher for efficiency
+   * (no polling). Debounces re-parse by 200ms so rapid saves coalesce.
+   */
+  private setupWatchers(): void {
+    this.disposeWatchers();
+
+    // Account-relevant files live in ~/.claude/ and ~/.claude.json.
+    // VS Code's createFileSystemWatcher uses native OS file events (no polling).
+    const home = os.homedir();
+    const watchPatterns = [
+      new vscode.RelativePattern(vscode.Uri.file(home), ".claude.json"),
+      new vscode.RelativePattern(
+        vscode.Uri.file(path.join(home, ".claude")),
+        "{settings.json,stats-cache.json,.credentials.json}",
+      ),
+    ];
+
+    // Also watch workspace-scoped settings if a workspace is open
+    const workspace = getWorkspace();
+    if (workspace) {
+      watchPatterns.push(
+        new vscode.RelativePattern(workspace, ".claude/settings.json"),
+        new vscode.RelativePattern(workspace, ".claude/settings.local.json"),
+      );
+    }
+
+    const onChange = (): void => {
+      if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
+      this.accountReparseTimer = setTimeout(() => {
+        const wv = this.view?.webview;
+        if (!wv) return;
+        try {
+          const ws = getWorkspace();
+          wv.postMessage({
+            type: "accountData",
+            data: parseAccountData(ws || undefined),
+          });
+        } catch (err) {
+          console.warn("[claude-manager] account reparse failed:", err);
+        }
+      }, 200);
+    };
+
+    for (const pattern of watchPatterns) {
+      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+      watcher.onDidChange(onChange);
+      watcher.onDidCreate(onChange);
+      watcher.onDidDelete(onChange);
+      this.watchers.push(watcher);
+    }
+  }
+
+  private disposeWatchers(): void {
+    if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
+    this.accountReparseTimer = undefined;
+    for (const w of this.watchers) w.dispose();
+    this.watchers = [];
   }
 
   private async onMessage(msg: WebviewMessage): Promise<void> {
