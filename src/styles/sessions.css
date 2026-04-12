@@ -85,6 +85,7 @@
 
 .pin-icon {
   flex-shrink: 0;
+  margin-left: auto;
   color: var(--fg-muted);
   display: flex;
   align-items: center;

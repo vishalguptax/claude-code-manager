@@ -40,10 +40,10 @@ export function renderSessionItem(s: Session, isActive: boolean, isPinned: boole
       <button class="item-resume" data-resume="${s.id}" title="Resume session">${icon("play")}</button>
       ${showSubPrompt ? `<div class="item-prompt" title="${esc(firstPrompt)}">${esc(firstPrompt)}</div>` : ""}
       <div class="item-row2">
-        ${isPinned ? `<span class="pin-icon">${icon("pin")}</span>` : ""}
         ${s.entrypoint === "vscode" ? `<span class="item-ep">ext</span>` : ""}
         ${branch ? `<span class="tag">${esc(branch)}</span>` : ""}
         <span class="item-proj">${esc(s.project)}</span>
+        ${isPinned ? `<span class="pin-icon" title="Pinned">${icon("pin")}</span>` : ""}
       </div>
     </div>`;
 }
