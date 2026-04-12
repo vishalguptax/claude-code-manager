@@ -310,24 +310,23 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 /* Wrapper keeps the scrollable tab bar on the left and the settings gear
-   pinned to the right. Without this wrapper, margin-left:auto on the gear
-   conflicts with overflow-x:auto on the flex container.
-   Left padding matches VS Code's view-container title indent so the first
-   tab aligns with the "CLAUDE MANAGER" header text above. */
+   pinned to the right. */
 .tab-bar-wrap {
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
   flex-shrink: 0;
   min-height: 34px;
-  padding-left: 14px;
 }
 
+/* Left padding matches VS Code's view-container title indent so the first
+   tab's icon lines up with the "CLAUDE MANAGER" header text above. */
 .tab-bar {
   display: flex;
-  padding: 0;
   flex: 1;
   min-width: 0;
+  padding-left: 16px;
+  gap: 2px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -354,7 +353,8 @@
 
 .tab-btn {
   flex: 0 0 auto;
-  padding: 0 var(--space-sm);
+  padding: 0;
+  width: 32px;
   height: 34px;
   display: flex;
   align-items: center;
@@ -367,9 +367,8 @@
   font-size: var(--fs-base);
   font-family: inherit;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, padding 0.15s;
+  transition: color 0.15s, border-color 0.15s, width 0.15s;
   white-space: nowrap;
-  min-width: 34px;
 }
 .tab-btn:hover {
   color: var(--fg);
@@ -383,7 +382,8 @@
   color: var(--fg);
   border-bottom-color: var(--accent);
   font-weight: 600;
-  padding: 0 var(--space-md);
+  width: auto;
+  padding: 0 10px;
 }
 .tab-icon {
   display: flex;
