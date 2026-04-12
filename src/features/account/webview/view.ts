@@ -8,6 +8,7 @@ import { esc } from "../../../webview/utils";
 import {
   sendLaunchSlash,
   sendOpenAccountUrl,
+  sendOpenExtensionSettings,
   sendOpenSettingsFile,
   sendSetCommitAttribution,
   sendSetModel,
@@ -318,6 +319,7 @@ function renderSettingsSection(data: AccountData): string {
         <div class="acct-actions">
           <button class="btn" data-scope="global" id="acct-open-settings">${icon("external-link", 14)} Open settings.json</button>
           <button class="btn" data-slash="/config">${icon("terminal", 14)} Open /config</button>
+          <button class="btn" id="acct-open-ext-settings">${icon("settings", 14)} Extension settings</button>
         </div>
       </div>`}
     </section>`;
@@ -466,6 +468,9 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
   // Open settings file buttons
   container.querySelector<HTMLElement>("#acct-open-settings")?.addEventListener("click", () => {
     sendOpenSettingsFile("global");
+  });
+  container.querySelector<HTMLElement>("#acct-open-ext-settings")?.addEventListener("click", () => {
+    sendOpenExtensionSettings();
   });
   container.querySelector<HTMLElement>("#acct-open-perms")?.addEventListener("click", () => {
     sendOpenSettingsFile(getPermissionScope());

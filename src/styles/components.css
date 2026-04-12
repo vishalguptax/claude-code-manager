@@ -319,6 +319,25 @@
 }
 .tab-bar::-webkit-scrollbar { display: none; }
 
+.tab-settings-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+.tab-settings-btn:hover  { color: var(--fg); background: var(--bg-hover); }
+.tab-settings-btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
 .tab-btn {
   flex: 0 0 auto;
   padding: 0 var(--space-sm);

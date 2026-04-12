@@ -158,6 +158,7 @@ export type WebviewMessage =
   | { type: "getAgents" }
   | { type: "openAgentFile"; path: string }
   | { type: "openFile"; path: string }
+  | { type: "openExtensionSettings" }
   | { type: "getAccountData" }
   | { type: "openAccountUrl"; url: string }
   | { type: "launchSlash"; command: string }

@@ -380,6 +380,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         break;
       }
 
+      case "openExtensionSettings": {
+        vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");
+        break;
+      }
+
       // ── Account messages ──
 
       case "getAccountData": {

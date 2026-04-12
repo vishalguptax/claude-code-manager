@@ -50,3 +50,7 @@ export function sendAddPermission(scope: PermissionScope, tool: string, list: "a
 export function sendRemovePermission(scope: PermissionScope, tool: string, list: "allow" | "deny"): void {
   _vscode.postMessage({ type: "removePermission", scope, tool, list });
 }
+
+export function sendOpenExtensionSettings(): void {
+  _vscode.postMessage({ type: "openExtensionSettings" });
+}

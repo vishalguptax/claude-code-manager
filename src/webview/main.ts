@@ -108,7 +108,7 @@ function mountTabShell(): void {
   ).join("");
 
   root.innerHTML = `
-    <div id="tabBar" class="tab-bar" role="tablist">${tabButtons}</div>
+    <div id="tabBar" class="tab-bar" role="tablist">${tabButtons}<button class="tab-settings-btn" id="openExtSettings" title="Extension settings" aria-label="Extension settings">${icon("settings", 14)}</button></div>
     <div id="tabContentArea" class="tab-content-area">${contentDivs}</div>
     <div class="app-footer">
       <span class="footer-name">Claude Manager</span>
@@ -138,6 +138,11 @@ function mountTabShell(): void {
       const url = (el as HTMLElement).dataset.url;
       if (url) sendOpenUrl(url);
     });
+  });
+
+  // Extension settings gear — opens VS Code settings filtered to Claude Manager
+  document.getElementById("openExtSettings")?.addEventListener("click", () => {
+    vscode.postMessage({ type: "openExtensionSettings" });
   });
 
   tabShellMounted = true;
