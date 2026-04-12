@@ -4,7 +4,7 @@
  */
 
 import { icon } from "../../../../webview/icons";
-import { esc, dateLabel } from "../../../../webview/utils";
+import { esc, dateLabel, renderEmptyState } from "../../../../webview/utils";
 import {
   sendNewSession,
   sendResumeSession,
@@ -47,7 +47,6 @@ export function mountShell(): void {
     <div class="panel" id="listView">
       <div class="actions-bar">
         <button class="action-btn" id="actNew" title="Start a new Claude Code session in a fresh terminal">${icon("plus")} New</button>
-        <button class="action-btn" id="actLast" title="Continue your most recent session">${icon("play")} Continue</button>
         <button class="action-btn" id="actAll" title="Reopen all terminals from your last working session">${icon("split-square-horizontal")} Restore Workspace</button>
       </div>
       ${renderSearchBar()}
@@ -62,10 +61,6 @@ export function mountShell(): void {
   bindDateChips(updateList);
 
   document.getElementById("actNew")?.addEventListener("click", () => sendNewSession());
-  document.getElementById("actLast")?.addEventListener("click", () => {
-    const first = getFiltered()[0];
-    if (first) sendResumeSession(first.id, first.entrypoint, first.projectPath);
-  });
   document.getElementById("actAll")?.addEventListener("click", () => {
     const lastGroup = getLastSessionGroup();
     if (lastGroup.length) {
@@ -144,7 +139,29 @@ export function updateList(): void {
   }
 
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="empty">${searchQuery ? "No results" : "No sessions"}</div>`;
+    if (searchQuery) {
+      container.innerHTML = renderEmptyState({
+        iconSvg: icon("search-slash", 32),
+        title: "No matching sessions",
+        description: `Try a different keyword or clear the search to see all sessions.`,
+        actionLabel: "Clear search",
+        actionId: "emptyClearSearch",
+      });
+      container.querySelector<HTMLElement>("#emptyClearSearch")?.addEventListener("click", () => {
+        const input = document.getElementById("search") as HTMLInputElement | null;
+        if (input) {
+          input.value = "";
+          input.dispatchEvent(new Event("input"));
+          input.focus();
+        }
+      });
+    } else {
+      container.innerHTML = renderEmptyState({
+        iconSvg: icon("inbox", 32),
+        title: "No sessions yet",
+        description: "Start a new Claude Code session — your history will appear here.",
+      });
+    }
     return;
   }
 

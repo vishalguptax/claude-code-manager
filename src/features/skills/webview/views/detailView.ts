@@ -47,9 +47,12 @@ export function showSkillDetail(): void {
     </div>
 
     <div class="d-actions">
-      <button class="btn green" id="btnOpenClaude">${icon("play")} Open Claude</button>
-      <button class="btn" id="btnCopySkillName">${icon("copy")} Copy /${esc(skill.name)}</button>
-      <button class="btn" id="btnOpenSkill">${icon("external-link")} Open File</button>
+      <button class="btn primary" id="btnOpenClaude">${icon("play")} Open Claude</button>
+      <div class="d-actions-secondary">
+        <button class="btn" id="btnCopySkillName">${icon("copy")} Copy /${esc(skill.name)}</button>
+        <button class="btn" id="btnOpenSkill">${icon("external-link")} Open File</button>
+      </div>
+      <div class="d-actions-divider"></div>
       <button class="btn del" id="btnDeleteSkill">${icon("trash-2")} Delete</button>
     </div>
 

@@ -5,6 +5,8 @@
 /** The VS Code API available in webview context. */
 export interface VSCodeAPI {
   postMessage(msg: unknown): void;
+  getState?: () => unknown;
+  setState?: (state: unknown) => void;
 }
 
 /** Date filter options for the session list. */

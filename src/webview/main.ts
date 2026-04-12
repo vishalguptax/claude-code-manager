@@ -11,6 +11,7 @@
 import { icon } from "./icons";
 import { sendOpenUrl } from "../features/sessions/webview/api";
 import { initApi, sendReady } from "../features/sessions/webview/api";
+import { initPersistence } from "./persistence";
 import {
   setWorkspacePath,
   setSessions,
@@ -82,6 +83,7 @@ const TAB_ICONS: Record<Tab, string> = {
 declare function acquireVsCodeApi(): VSCodeAPI;
 const vscode = acquireVsCodeApi();
 initApi(vscode);
+initPersistence(vscode);
 initSkillsApi(vscode);
 initCommandsTab(vscode);
 initHooksTab(vscode);
@@ -100,7 +102,8 @@ function mountTabShell(): void {
   if (!root) return;
 
   const tabButtons = ALL_TABS.map(
-    (tab) => `<button class="tab-btn ${tab === "sessions" ? "active" : ""}" data-tab="${tab}" role="tab" aria-label="${TAB_LABELS[tab]}" title="${TAB_LABELS[tab]}"><span class="tab-icon">${icon(TAB_ICONS[tab], 16)}</span><span class="tab-label">${TAB_LABELS[tab]}</span></button>`,
+    (tab) =>
+      `<button class="tab-btn ${tab === "sessions" ? "active" : ""}" data-tab="${tab}" role="tab" aria-label="${TAB_LABELS[tab]}" aria-selected="${tab === "sessions" ? "true" : "false"}" tabindex="${tab === "sessions" ? "0" : "-1"}" title="${TAB_LABELS[tab]}"><span class="tab-icon">${icon(TAB_ICONS[tab], 16)}</span><span class="tab-label">${TAB_LABELS[tab]}</span></button>`,
   ).join("");
 
   const contentDivs = ALL_TABS.map(
@@ -127,11 +130,28 @@ function mountTabShell(): void {
     skillsContent.id = "skillsRoot";
   }
 
-  // Bind tab buttons
-  document.querySelectorAll("[data-tab]").forEach((btn) => {
+  // Bind tab buttons + arrow-key navigation
+  const tabButtonEls = Array.from(
+    document.querySelectorAll<HTMLElement>(".tab-btn[data-tab]"),
+  );
+  tabButtonEls.forEach((btn, idx) => {
     btn.addEventListener("click", () => {
-      const tab = (btn as HTMLElement).dataset.tab as Tab;
+      const tab = btn.dataset.tab as Tab;
       switchTab(tab);
+    });
+    btn.addEventListener("keydown", (e: KeyboardEvent) => {
+      let targetIdx = -1;
+      if (e.key === "ArrowRight") targetIdx = (idx + 1) % tabButtonEls.length;
+      else if (e.key === "ArrowLeft") targetIdx = (idx - 1 + tabButtonEls.length) % tabButtonEls.length;
+      else if (e.key === "Home") targetIdx = 0;
+      else if (e.key === "End") targetIdx = tabButtonEls.length - 1;
+      if (targetIdx >= 0) {
+        e.preventDefault();
+        const target = tabButtonEls[targetIdx];
+        target.focus();
+        const tab = target.dataset.tab as Tab;
+        switchTab(tab);
+      }
     });
   });
 
@@ -187,9 +207,12 @@ function switchTab(tab: Tab): void {
 
   activeTab = tab;
 
-  // Update tab button styling
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    btn.classList.toggle("active", (btn as HTMLElement).dataset.tab === tab);
+  // Update tab button styling + a11y attributes
+  document.querySelectorAll<HTMLElement>(".tab-btn").forEach((btn) => {
+    const isActive = btn.dataset.tab === tab;
+    btn.classList.toggle("active", isActive);
+    btn.setAttribute("aria-selected", isActive ? "true" : "false");
+    btn.tabIndex = isActive ? 0 : -1;
   });
 
   // Show/hide content containers

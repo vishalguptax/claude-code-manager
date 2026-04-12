@@ -43,10 +43,10 @@ export function sendOpenSettingsFile(scope: PermissionScope): void {
   _vscode.postMessage({ type: "openSettingsFile", scope });
 }
 
-export function sendAddPermission(scope: PermissionScope, tool: string, list: "allow" | "deny"): void {
-  _vscode.postMessage({ type: "addPermission", scope, tool, list });
-}
-
 export function sendRemovePermission(scope: PermissionScope, tool: string, list: "allow" | "deny"): void {
   _vscode.postMessage({ type: "removePermission", scope, tool, list });
+}
+
+export function sendPromptAddPermission(scope: PermissionScope, list: "allow" | "deny"): void {
+  _vscode.postMessage({ type: "promptAddPermission", scope, list });
 }

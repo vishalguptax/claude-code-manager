@@ -59,3 +59,23 @@ export function flash(id: string, text: string): void {
     b.textContent = orig;
   }, 1200);
 }
+
+/**
+ * Shared empty-state renderer. Creates a styled empty state with optional
+ * icon, title, description, and action button.
+ */
+export function renderEmptyState(opts: {
+  iconSvg?: string;
+  title: string;
+  description?: string;
+  actionLabel?: string;
+  actionId?: string;
+}): string {
+  return `
+    <div class="state-empty">
+      ${opts.iconSvg ? `<div class="state-empty-icon">${opts.iconSvg}</div>` : ""}
+      <div class="state-empty-title">${esc(opts.title)}</div>
+      ${opts.description ? `<div class="state-empty-desc">${esc(opts.description)}</div>` : ""}
+      ${opts.actionLabel && opts.actionId ? `<button class="btn" id="${opts.actionId}">${esc(opts.actionLabel)}</button>` : ""}
+    </div>`;
+}

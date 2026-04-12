@@ -364,7 +364,10 @@
   font-size: var(--fs-base);
   font-family: inherit;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, width 0.15s;
+  transition:
+    color 0.15s ease-out,
+    border-color 0.15s ease-out,
+    width 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
   white-space: nowrap;
 }
 .tab-btn:hover {

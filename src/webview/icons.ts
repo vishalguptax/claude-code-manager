@@ -123,6 +123,14 @@ export const ICONS: Record<string, string> = {
   /** Info circle -- used for inline notices */
   "info":
     `<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`,
+
+  /** Search with slash — empty-state icon */
+  "search-slash":
+    `<path d="m13.5 8.5-5 5"/><path d="M21 21l-4.3-4.3"/><path d="M11 2a9 9 0 1 0 9 9"/><path d="M21 3l-3 3"/>`,
+
+  /** Inbox — empty-state icon for feature lists */
+  "inbox":
+    `<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>`,
 };
 
 /**

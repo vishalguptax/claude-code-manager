@@ -532,6 +532,63 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         break;
       }
 
+      case "promptAddPermission": {
+        const workspace = getWorkspace();
+        const scope = msg.scope;
+        const list = msg.list;
+
+        // Known built-in tool names users can pick from
+        const BUILTIN_TOOLS = [
+          "Bash(*)",
+          "Bash(git:*)",
+          "Bash(git push:*)",
+          "Bash(npm:*)",
+          "Bash(rm:*)",
+          "Read",
+          "Edit",
+          "Write",
+          "Glob",
+          "Grep",
+          "WebSearch",
+          "WebFetch",
+          "NotebookEdit",
+        ];
+
+        // Discover MCP tools from the current mcpServers cache
+        const mcpTools = this.mcpServers.map((s) => `mcp__${s.name}__*`);
+
+        const items = [
+          ...BUILTIN_TOOLS.map((t) => ({ label: t, description: "built-in" })),
+          ...mcpTools.map((t) => ({ label: t, description: "MCP" })),
+          { label: "$(edit) Custom pattern…", description: "Enter your own tool pattern" },
+        ];
+
+        const pick = await vscode.window.showQuickPick(items, {
+          title: `Add ${list === "allow" ? "allowed" : "denied"} tool to ${scope} scope`,
+          placeHolder: "Pick a tool or enter a custom pattern",
+          matchOnDescription: true,
+        });
+        if (!pick) break;
+
+        let tool: string | undefined;
+        if (pick.label.startsWith("$(edit)")) {
+          tool = await vscode.window.showInputBox({
+            title: "Custom tool pattern",
+            prompt: "Examples: Bash(docker:*), Bash(curl:*), mcp__github__*",
+            placeHolder: "Bash(command:*)",
+            validateInput: (v: string) => (v.trim() ? null : "Tool pattern cannot be empty"),
+          });
+        } else {
+          tool = pick.label;
+        }
+
+        if (tool && tool.trim()) {
+          addPermissionEntry(scope, tool.trim(), list, workspace || undefined);
+          wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        }
+        break;
+      }
+
       case "removePermission": {
         const workspace = getWorkspace();
         removePermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);

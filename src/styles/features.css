@@ -221,9 +221,27 @@
 .hook-item {
   padding: var(--space-lg) var(--space-2xl);
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
 }
 .hook-item:last-child        { border-bottom: none; }
 .hook-item:hover             { background: var(--bg-hover); }
+
+.hook-command-block {
+  background: var(--bg-hover);
+  color: var(--fg);
+  padding: var(--space-md);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+  font-family: var(--mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.55;
+  margin: 0;
+}
+.hook-command-block code {
+  background: none;
+  padding: 0;
+}
 
 .hook-item-row1 {
   display: flex;

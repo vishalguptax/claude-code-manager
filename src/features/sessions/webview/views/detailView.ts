@@ -74,16 +74,22 @@ export function showDetail(): void {
     </div>
     <div class="d-actions">
       <button class="btn primary" id="btnOpenProject">${icon("external-link")} Open ${esc(d.project)}</button>
-      <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
-      <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
+      <div class="d-actions-secondary">
+        <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
+        <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
+      </div>
+      <div class="d-actions-divider"></div>
       <button class="btn del" id="btnDelete">${icon("trash-2")} Delete</button>
     </div>` : `
     <div class="d-actions">
-      <button class="btn green" id="btnResume">${icon("play")} Resume</button>
-      <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
-      <button class="btn" id="btnFork">${icon("git-fork")} Fork</button>
-      <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
-      <button class="btn" id="btnCopyCmd">${icon("terminal")} Copy Cmd</button>
+      <button class="btn primary" id="btnResume">${icon("play")} Resume</button>
+      <div class="d-actions-secondary">
+        <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
+        <button class="btn" id="btnFork">${icon("git-fork")} Fork</button>
+        <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
+        <button class="btn" id="btnCopyCmd">${icon("terminal")} Copy Cmd</button>
+      </div>
+      <div class="d-actions-divider"></div>
       <button class="btn del" id="btnDelete">${icon("trash-2")} Delete</button>
     </div>`}
 

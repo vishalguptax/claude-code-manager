@@ -216,9 +216,23 @@
 
 .d-actions {
   display: flex;
-  gap: 5px;
+  align-items: center;
+  gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-xl);
   flex-wrap: wrap;
+}
+.d-actions-secondary {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.d-actions-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
+  margin: 0 var(--space-xs);
+  flex-shrink: 0;
 }
 
 .d-section {

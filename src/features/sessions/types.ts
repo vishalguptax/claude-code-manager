@@ -168,4 +168,5 @@ export type WebviewMessage =
   | { type: "setPrAttribution"; value: string }
   | { type: "openSettingsFile"; scope: "global" | "project" | "local" }
   | { type: "addPermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }
-  | { type: "removePermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" };
+  | { type: "removePermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }
+  | { type: "promptAddPermission"; scope: "global" | "project" | "local"; list: "allow" | "deny" };

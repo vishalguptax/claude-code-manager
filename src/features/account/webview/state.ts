@@ -2,7 +2,10 @@
  * Centralized state store for the account webview.
  */
 
+import { getPersisted, setPersisted } from "../../../webview/persistence";
 import type { AccountData, PermissionScope } from "../types";
+
+const COLLAPSED_KEY = "account.collapsedSections";
 
 // ── Raw state ──
 
@@ -10,7 +13,7 @@ let data: AccountData | null = null;
 let loading = false;
 let timePeriod: "all" | "week" | "month" = "month";
 let permissionScope: PermissionScope = "global";
-let collapsedSections: Set<string> = new Set();
+let collapsedSections: Set<string> = new Set(getPersisted<string[]>(COLLAPSED_KEY) ?? []);
 
 // ── Getters ──
 
@@ -29,4 +32,5 @@ export function setPermissionScope(s: PermissionScope): void { permissionScope =
 export function toggleSection(id: string): void {
   if (collapsedSections.has(id)) collapsedSections.delete(id);
   else collapsedSections.add(id);
+  setPersisted(COLLAPSED_KEY, [...collapsedSections]);
 }

@@ -13,7 +13,7 @@ import {
   sendSetModel,
   sendSetPrAttribution,
   sendSetVoiceEnabled,
-  sendAddPermission,
+  sendPromptAddPermission,
   sendRemovePermission,
 } from "./api";
 import {
@@ -229,40 +229,94 @@ function formatDuration(ms: number): string {
   return `${mins}m`;
 }
 
-/** Render a GitHub-style activity heatmap for the last ~12 weeks. */
+/**
+ * Render a GitHub-style activity heatmap for the last ~12 weeks with
+ * day-of-week labels on the left and month labels across the top.
+ *
+ * Layout (12 weeks × 7 days):
+ *
+ *         Mon Feb Mar Apr
+ *   Mon   ░▒▓░ ... 12 columns
+ *   ...
+ *   Sun   ░▒▓░
+ */
 function renderHeatmap(daily: DailyActivity[]): string {
-  // Build map for O(1) lookup
   const byDate = new Map<string, DailyActivity>();
   for (const d of daily) byDate.set(d.date, d);
 
-  // Last 84 days (12 weeks)
-  const DAYS = 84;
+  const WEEKS = 12;
+  const DAYS = WEEKS * 7;
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Find max for scaling
+  // Align the start date to a Monday so columns == whole weeks
+  // Oldest day = today - (DAYS - 1). Walk back further if needed to land on Monday.
+  const start = new Date(today);
+  start.setDate(start.getDate() - (DAYS - 1));
+  const dayOfWeek = (start.getDay() + 6) % 7; // Mon=0, Sun=6
+  start.setDate(start.getDate() - dayOfWeek);
+
+  // Find max for scaling (only count actual daily entries)
   let max = 0;
-  for (let i = 0; i < DAYS; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    const entry = byDate.get(key);
-    if (entry && entry.messageCount > max) max = entry.messageCount;
+  for (const entry of byDate.values()) {
+    if (entry.messageCount > max) max = entry.messageCount;
   }
 
-  const cells: string[] = [];
-  for (let i = DAYS - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    const entry = byDate.get(key);
-    const count = entry?.messageCount ?? 0;
-    const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / max) * 4));
-    const label = entry ? `${entry.messageCount} messages on ${key}` : `No activity on ${key}`;
-    cells.push(`<div class="acct-heat-cell lvl-${level}" title="${esc(label)}"></div>`);
+  const DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const MS_PER_DAY = 86400000;
+
+  // Build month labels — show the month name above the first column where it appears
+  const monthLabels: Array<{ col: number; label: string }> = [];
+  let lastMonth = -1;
+  for (let w = 0; w < WEEKS; w++) {
+    const weekStart = new Date(start.getTime() + w * 7 * MS_PER_DAY);
+    const m = weekStart.getMonth();
+    if (m !== lastMonth) {
+      monthLabels.push({ col: w, label: MONTH_ABBR[m] });
+      lastMonth = m;
+    }
   }
 
-  return `<div class="acct-heatmap">${cells.join("")}</div>`;
+  // Build cells (column-major order: week by week, day by day within week)
+  const cellsHtml: string[] = [];
+  for (let row = 0; row < 7; row++) {
+    for (let col = 0; col < WEEKS; col++) {
+      const d = new Date(start.getTime() + (col * 7 + row) * MS_PER_DAY);
+      if (d > today) {
+        cellsHtml.push(`<div class="acct-heat-cell empty"></div>`);
+        continue;
+      }
+      const key = d.toISOString().slice(0, 10);
+      const entry = byDate.get(key);
+      const count = entry?.messageCount ?? 0;
+      const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / max) * 4));
+      const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const tooltip = entry
+        ? `${entry.messageCount} messages · ${entry.sessionCount} session${entry.sessionCount === 1 ? "" : "s"} · ${dateLabel}`
+        : `No activity · ${dateLabel}`;
+      cellsHtml.push(
+        `<div class="acct-heat-cell lvl-${level}" title="${esc(tooltip)}" style="grid-column:${col + 2};grid-row:${row + 2}"></div>`,
+      );
+    }
+  }
+
+  // Month labels (only the ones with assigned columns)
+  const monthHtml = monthLabels
+    .map(
+      (m) => `<div class="acct-heat-month" style="grid-column:${m.col + 2};grid-row:1">${esc(m.label)}</div>`,
+    )
+    .join("");
+
+  // Day labels — show Mon/Wed/Fri on the left side
+  const dayHtml = [
+    `<div class="acct-heat-day" style="grid-column:1;grid-row:2">${DAY_ABBR[0]}</div>`,
+    `<div class="acct-heat-day" style="grid-column:1;grid-row:4">${DAY_ABBR[2]}</div>`,
+    `<div class="acct-heat-day" style="grid-column:1;grid-row:6">${DAY_ABBR[4]}</div>`,
+  ].join("");
+
+  return `<div class="acct-heatmap" style="grid-template-columns:auto repeat(${WEEKS}, 1fr);">${monthHtml}${dayHtml}${cellsHtml.join("")}</div>`;
 }
 
 // ── Section: Settings ──
@@ -437,24 +491,36 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
   });
 
   // Settings inputs
+  // Brief "saved" flash animation on a field's nearest label
+  const flashSaved = (inputEl: HTMLElement): void => {
+    const field = inputEl.closest<HTMLElement>(".acct-field");
+    if (!field) return;
+    field.classList.add("acct-field-saved");
+    setTimeout(() => field.classList.remove("acct-field-saved"), 1200);
+  };
+
   const modelSelect = container.querySelector<HTMLSelectElement>("#acct-model");
   modelSelect?.addEventListener("change", () => {
     sendSetModel(modelSelect.value === "default" ? "" : modelSelect.value);
+    flashSaved(modelSelect);
   });
 
   const voiceCheckbox = container.querySelector<HTMLInputElement>("#acct-voice");
   voiceCheckbox?.addEventListener("change", () => {
     sendSetVoiceEnabled(voiceCheckbox.checked);
+    flashSaved(voiceCheckbox);
   });
 
   const commitInput = container.querySelector<HTMLInputElement>("#acct-commit");
   commitInput?.addEventListener("change", () => {
     sendSetCommitAttribution(commitInput.value);
+    flashSaved(commitInput);
   });
 
   const prInput = container.querySelector<HTMLInputElement>("#acct-pr");
   prInput?.addEventListener("change", () => {
     sendSetPrAttribution(prInput.value);
+    flashSaved(prInput);
   });
 
   // Open settings file buttons
@@ -476,12 +542,10 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
     });
   });
 
-  // Add permission (simple prompt)
+  // Add permission — routes to extension host which opens a native VS Code
+  // input box (themed, validated, better than window.prompt).
   container.querySelector<HTMLElement>("#acct-add-perm")?.addEventListener("click", () => {
-    const tool = window.prompt("Enter tool name (e.g. Bash(git push:*) or Read):");
-    if (tool && tool.trim()) {
-      sendAddPermission(getPermissionScope(), tool.trim(), "allow");
-    }
+    sendPromptAddPermission(getPermissionScope(), "allow");
   });
 
   // Remove permission
