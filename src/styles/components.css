@@ -311,13 +311,16 @@
 
 /* Wrapper keeps the scrollable tab bar on the left and the settings gear
    pinned to the right. Without this wrapper, margin-left:auto on the gear
-   conflicts with overflow-x:auto on the flex container. */
+   conflicts with overflow-x:auto on the flex container.
+   Left padding matches VS Code's view-container title indent so the first
+   tab aligns with the "CLAUDE MANAGER" header text above. */
 .tab-bar-wrap {
   display: flex;
   align-items: stretch;
   border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
   flex-shrink: 0;
   min-height: 34px;
+  padding-left: 14px;
 }
 
 .tab-bar {
