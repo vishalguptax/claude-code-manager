@@ -21,7 +21,7 @@
 <br>
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/01-sessions.png" alt="Claude Manager sidebar showing the Sessions tab with pinned and recent sessions" width="420">
+<img src="media/screenshots/01-sessions.png" alt="Claude Manager sidebar showing the Sessions tab with pinned and recent sessions" width="420">
 </div>
 
 <br>
@@ -41,36 +41,36 @@ Once installed, press **`Ctrl+Alt+C`** (`Cmd+Alt+C` on Mac) to open the panel. T
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/02-skills.png" alt="Skills tab" width="360"><br>
+<img src="media/screenshots/02-skills.png" alt="Skills tab" width="360"><br>
 <strong>Skills</strong><br>
 <sub>Global and project skills with scope badges. Copy, open, delete, or launch Claude with a skill.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/03-commands.png" alt="Commands tab" width="360"><br>
+<img src="media/screenshots/03-commands.png" alt="Commands tab" width="360"><br>
 <strong>Commands</strong><br>
 <sub>52 built-in slash commands plus your custom ones from <code>.claude/commands/</code>. One-click copy.</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/04-hooks.png" alt="Hooks tab" width="360"><br>
+<img src="media/screenshots/04-hooks.png" alt="Hooks tab" width="360"><br>
 <strong>Hooks</strong><br>
 <sub>Inspect automation hooks across global, project, and local scopes with full command preview.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/05-mcp.png" alt="MCP servers tab" width="360"><br>
+<img src="media/screenshots/05-mcp.png" alt="MCP servers tab" width="360"><br>
 <strong>MCP Servers</strong><br>
 <sub>Enable/disable, delete, or inspect MCP servers. API keys and secrets masked automatically.</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/06-agents.png" alt="Agents tab" width="360"><br>
+<img src="media/screenshots/06-agents.png" alt="Agents tab" width="360"><br>
 <strong>Agents</strong><br>
 <sub>Browse project agents with Sonnet / Opus / Haiku badges and description previews.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/07-account.png" alt="Account tab" width="360"><br>
+<img src="media/screenshots/07-account.png" alt="Account tab" width="360"><br>
 <strong>Account</strong><br>
 <sub>Profile, activity heatmap, token stats, and permissions — without leaving your editor.</sub>
 </td>
