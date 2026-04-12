@@ -469,12 +469,13 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "launchSlash": {
+        // Run the slash command as a direct CLI argument: `claude /login`.
+        // This is more reliable than starting the REPL and typing the command
+        // after an arbitrary delay.
         const command = msg.command;
         const term = createTerminal(`Claude: ${command}`);
         term.show();
-        term.sendText("claude");
-        // Give Claude a moment to start, then send the slash command
-        setTimeout(() => term.sendText(command), 800);
+        term.sendText(`claude ${command}`);
         break;
       }
 
