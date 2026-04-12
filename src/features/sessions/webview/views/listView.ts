@@ -49,7 +49,6 @@ export function mountShell(): void {
         <button class="action-btn" id="actNew" title="Start a new Claude Code session in a fresh terminal">${icon("plus")} New</button>
         <button class="action-btn" id="actLast" title="Continue your most recent session">${icon("play")} Continue</button>
         <button class="action-btn" id="actAll" title="Reopen all terminals from your last working session">${icon("split-square-horizontal")} Restore Workspace</button>
-        <button class="action-btn icon-only" id="actRefresh" title="Refresh session list">${icon("refresh-cw")}</button>
       </div>
       ${renderSearchBar()}
       ${renderDropdown()}
@@ -73,7 +72,7 @@ export function mountShell(): void {
       sendResumeMultiple(lastGroup.map((s) => s.id), lastGroup.map((s) => s.projectPath));
     }
   });
-  document.getElementById("actRefresh")?.addEventListener("click", () => sendRefresh());
+  document.getElementById("sessionsRefresh")?.addEventListener("click", () => sendRefresh());
 
   // Event delegation on session list — bind once, survives innerHTML updates
   const sessionList = document.getElementById("sessionList");

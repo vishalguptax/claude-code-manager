@@ -73,7 +73,7 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .filter-row {
-  padding: var(--space-xs) var(--space-xl) 0;
+  padding: var(--space-sm) var(--space-xl);
   position: relative;
   flex-shrink: 0;
 }
@@ -182,7 +182,7 @@
 .date-chips {
   display: flex;
   gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-xl);
+  padding: var(--space-sm) var(--space-xl);
   flex-shrink: 0;
 }
 
