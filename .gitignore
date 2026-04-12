@@ -2,6 +2,9 @@ node_modules/
 dist/
 *.vsix
 .vscode-test/
-.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/release/
 .dev/
 scripts/.settings-snapshot.json
