@@ -61,6 +61,8 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private watchers: vscode.FileSystemWatcher[] = [];
   /** Debounce timer for account data re-parse on file changes. */
   private accountReparseTimer: NodeJS.Timeout | undefined;
+  /** Debounce timer for session list re-parse on file changes. */
+  private sessionsReparseTimer: NodeJS.Timeout | undefined;
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -107,7 +109,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       );
     }
 
-    const onChange = (): void => {
+    const onAccountChange = (): void => {
       if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
       this.accountReparseTimer = setTimeout(() => {
         const wv = this.view?.webview;
@@ -126,9 +128,52 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
     for (const pattern of watchPatterns) {
       const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-      watcher.onDidChange(onChange);
-      watcher.onDidCreate(onChange);
-      watcher.onDidDelete(onChange);
+      watcher.onDidChange(onAccountChange);
+      watcher.onDidCreate(onAccountChange);
+      watcher.onDidDelete(onAccountChange);
+      this.watchers.push(watcher);
+    }
+
+    // ── Session data watchers ──
+    // Watch history.jsonl (new sessions) and all session transcripts
+    // (branch changes, message updates). Debounced at 1s since JSONL files
+    // are appended to frequently during live sessions — we don't want to
+    // hammer the parser on every tool call.
+    const sessionWatchPatterns = [
+      new vscode.RelativePattern(
+        vscode.Uri.file(path.join(home, ".claude")),
+        "history.jsonl",
+      ),
+      new vscode.RelativePattern(
+        vscode.Uri.file(path.join(home, ".claude", "projects")),
+        "**/*.jsonl",
+      ),
+    ];
+
+    const onSessionChange = (): void => {
+      if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
+      this.sessionsReparseTimer = setTimeout(() => {
+        const wv = this.view?.webview;
+        if (!wv) return;
+        try {
+          this.sessions = parseSessions(loadState().renames);
+          wv.postMessage({
+            type: "sessions",
+            data: groupSessions(this.sessions),
+            stats: getStats(this.sessions),
+          });
+          wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
+        } catch (err) {
+          console.warn("[claude-manager] sessions reparse failed:", err);
+        }
+      }, 1000);
+    };
+
+    for (const pattern of sessionWatchPatterns) {
+      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+      watcher.onDidChange(onSessionChange);
+      watcher.onDidCreate(onSessionChange);
+      watcher.onDidDelete(onSessionChange);
       this.watchers.push(watcher);
     }
   }
@@ -136,6 +181,8 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private disposeWatchers(): void {
     if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
     this.accountReparseTimer = undefined;
+    if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
+    this.sessionsReparseTimer = undefined;
     for (const w of this.watchers) w.dispose();
     this.watchers = [];
   }
