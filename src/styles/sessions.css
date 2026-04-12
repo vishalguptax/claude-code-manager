@@ -91,6 +91,7 @@
   align-items: center;
   font-size: var(--fs-sm);
 }
+.session-item:hover .pin-icon { visibility: hidden; }
 
 .item-ep {
   font-size: var(--fs-xs);
