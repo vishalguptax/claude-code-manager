@@ -48,6 +48,13 @@ export interface DailyActivity {
   toolCallCount: number;
 }
 
+/** Per-model token breakdown. */
+export interface ModelStats {
+  model: string;
+  tokens: number;
+  messages: number;
+}
+
 /** Aggregated usage statistics. */
 export interface UsageStats {
   /** Daily activity rows (for heatmap) */
@@ -68,6 +75,16 @@ export interface UsageStats {
   longestStreak: number;
   /** Current consecutive-day streak */
   currentStreak: number;
+  /** Total input tokens (input + cache creation + cache read) */
+  totalInputTokens: number;
+  /** Total output tokens */
+  totalOutputTokens: number;
+  /** Grand total tokens across all sessions */
+  totalTokens: number;
+  /** Per-model breakdown sorted by tokens desc */
+  byModel: ModelStats[];
+  /** Favorite model (most tokens used) */
+  favoriteModel: string;
 }
 
 // ── Settings (from settings.json) ──

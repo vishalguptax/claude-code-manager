@@ -9,12 +9,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { CLAUDE_DIR } from "../../core/config";
+import { CLAUDE_DIR, PROJECTS_DIR } from "../../core/config";
 import type {
   AccountData,
   AccountProfile,
   AccountSettings,
   DailyActivity,
+  ModelStats,
   PermissionScope,
   PermissionSet,
   UsageStats,
@@ -102,6 +103,196 @@ function parseProfile(): AccountProfile {
   return empty;
 }
 
+// ── Token aggregation (walks session JSONL files) ──
+
+/** Cache for token walk results. Invalidated when projects dir mtime changes. */
+let tokenCache: {
+  mtime: number;
+  input: number;
+  output: number;
+  total: number;
+  byModel: Map<string, { tokens: number; messages: number }>;
+} | null = null;
+
+/**
+ * Walk all session JSONL files and aggregate token usage per model.
+ * Uses streaming reads (64KB chunks) to handle large files efficiently.
+ * Result is cached based on projects dir mtime.
+ */
+function aggregateTokens(): {
+  input: number;
+  output: number;
+  total: number;
+  byModel: ModelStats[];
+  favoriteModel: string;
+} {
+  let dirMtime = 0;
+  try {
+    dirMtime = fs.statSync(PROJECTS_DIR).mtimeMs;
+  } catch {
+    return { input: 0, output: 0, total: 0, byModel: [], favoriteModel: "" };
+  }
+
+  // Return cached result if projects dir hasn't changed
+  if (tokenCache && tokenCache.mtime === dirMtime) {
+    const cached = tokenCache;
+    const list: ModelStats[] = [];
+    for (const [model, stats] of cached.byModel) {
+      list.push({ model, tokens: stats.tokens, messages: stats.messages });
+    }
+    list.sort((a, b) => b.tokens - a.tokens);
+    return {
+      input: cached.input,
+      output: cached.output,
+      total: cached.total,
+      byModel: list,
+      favoriteModel: list[0]?.model ?? "",
+    };
+  }
+
+  let totalInput = 0;
+  let totalOutput = 0;
+  const byModel = new Map<string, { tokens: number; messages: number }>();
+
+  // Find all session JSONL files
+  const files: string[] = [];
+  try {
+    const projectDirs = fs.readdirSync(PROJECTS_DIR, { withFileTypes: true });
+    for (const dir of projectDirs) {
+      if (!dir.isDirectory()) continue;
+      const dirPath = path.join(PROJECTS_DIR, dir.name);
+      try {
+        for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+          if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+            files.push(path.join(dirPath, entry.name));
+          }
+        }
+      } catch {
+        // skip unreadable dirs
+      }
+    }
+  } catch {
+    return { input: 0, output: 0, total: 0, byModel: [], favoriteModel: "" };
+  }
+
+  // Stream each file line-by-line in 64KB chunks
+  const CHUNK = 64 * 1024;
+  const buf = Buffer.alloc(CHUNK);
+
+  for (const file of files) {
+    let fd: number;
+    try {
+      fd = fs.openSync(file, "r");
+    } catch {
+      continue;
+    }
+
+    try {
+      let leftover = "";
+      let bytesRead: number;
+      do {
+        bytesRead = fs.readSync(fd, buf, 0, CHUNK, null);
+        if (bytesRead === 0) break;
+        const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
+        const lines = chunk.split("\n");
+        leftover = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          // Cheap skip if line doesn't contain usage data
+          if (!line.includes('"usage"')) continue;
+          try {
+            const entry = JSON.parse(line) as {
+              message?: {
+                model?: string;
+                usage?: {
+                  input_tokens?: number;
+                  output_tokens?: number;
+                  cache_creation_input_tokens?: number;
+                  cache_read_input_tokens?: number;
+                };
+              };
+            };
+            const usage = entry.message?.usage;
+            if (!usage) continue;
+            const input =
+              (usage.input_tokens ?? 0) +
+              (usage.cache_creation_input_tokens ?? 0) +
+              (usage.cache_read_input_tokens ?? 0);
+            const output = usage.output_tokens ?? 0;
+            const model = entry.message?.model ?? "unknown";
+            totalInput += input;
+            totalOutput += output;
+            const existing = byModel.get(model) ?? { tokens: 0, messages: 0 };
+            existing.tokens += input + output;
+            existing.messages += 1;
+            byModel.set(model, existing);
+          } catch {
+            // skip malformed lines
+          }
+        }
+      } while (bytesRead === CHUNK);
+      // Process final leftover
+      if (leftover.trim() && leftover.includes('"usage"')) {
+        try {
+          const entry = JSON.parse(leftover) as {
+            message?: {
+              model?: string;
+              usage?: {
+                input_tokens?: number;
+                output_tokens?: number;
+                cache_creation_input_tokens?: number;
+                cache_read_input_tokens?: number;
+              };
+            };
+          };
+          const usage = entry.message?.usage;
+          if (usage) {
+            const input =
+              (usage.input_tokens ?? 0) +
+              (usage.cache_creation_input_tokens ?? 0) +
+              (usage.cache_read_input_tokens ?? 0);
+            const output = usage.output_tokens ?? 0;
+            const model = entry.message?.model ?? "unknown";
+            totalInput += input;
+            totalOutput += output;
+            const existing = byModel.get(model) ?? { tokens: 0, messages: 0 };
+            existing.tokens += input + output;
+            existing.messages += 1;
+            byModel.set(model, existing);
+          }
+        } catch {
+          // skip
+        }
+      }
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
+
+  // Cache the result
+  tokenCache = {
+    mtime: dirMtime,
+    input: totalInput,
+    output: totalOutput,
+    total: totalInput + totalOutput,
+    byModel,
+  };
+
+  const list: ModelStats[] = [];
+  for (const [model, stats] of byModel) {
+    list.push({ model, tokens: stats.tokens, messages: stats.messages });
+  }
+  list.sort((a, b) => b.tokens - a.tokens);
+
+  return {
+    input: totalInput,
+    output: totalOutput,
+    total: totalInput + totalOutput,
+    byModel: list,
+    favoriteModel: list[0]?.model ?? "",
+  };
+}
+
 // ── Usage stats ──
 
 /**
@@ -118,7 +309,20 @@ function parseUsage(): UsageStats {
     mostActiveDay: "",
     longestStreak: 0,
     currentStreak: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalTokens: 0,
+    byModel: [],
+    favoriteModel: "",
   };
+
+  // Aggregate tokens from all session JSONL files (streaming, cached by mtime)
+  const tokenStats = aggregateTokens();
+  result.totalInputTokens = tokenStats.input;
+  result.totalOutputTokens = tokenStats.output;
+  result.totalTokens = tokenStats.total;
+  result.byModel = tokenStats.byModel;
+  result.favoriteModel = tokenStats.favoriteModel;
 
   let daily: DailyActivity[] = [];
   try {

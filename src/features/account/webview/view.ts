@@ -162,19 +162,53 @@ function renderUsageSection(data: AccountData): string {
         ${renderHeatmap(u.daily)}
 
         <div class="acct-stats-grid">
-          <div class="acct-stat"><div class="acct-stat-v">${totals.messages.toLocaleString()}</div><div class="acct-stat-k">messages</div></div>
+          <div class="acct-stat"><div class="acct-stat-v">${formatTokens(u.totalTokens)}</div><div class="acct-stat-k">tokens</div></div>
           <div class="acct-stat"><div class="acct-stat-v">${totals.sessions.toLocaleString()}</div><div class="acct-stat-k">sessions</div></div>
-          <div class="acct-stat"><div class="acct-stat-v">${totals.tools.toLocaleString()}</div><div class="acct-stat-k">tool calls</div></div>
+          <div class="acct-stat"><div class="acct-stat-v">${totals.messages.toLocaleString()}</div><div class="acct-stat-k">messages</div></div>
         </div>
 
         <div class="acct-meta">
+          ${u.favoriteModel ? `<div class="acct-meta-row"><span class="acct-meta-k">Favorite model</span><span class="acct-meta-v">${esc(formatModelName(u.favoriteModel))}</span></div>` : ""}
           <div class="acct-meta-row"><span class="acct-meta-k">Active days</span><span class="acct-meta-v">${u.activeDays} / ${u.totalDays}</span></div>
           ${u.mostActiveDay ? `<div class="acct-meta-row"><span class="acct-meta-k">Most active</span><span class="acct-meta-v">${esc(u.mostActiveDay)}</span></div>` : ""}
           <div class="acct-meta-row"><span class="acct-meta-k">Longest streak</span><span class="acct-meta-v">${u.longestStreak} day${u.longestStreak === 1 ? "" : "s"}</span></div>
           <div class="acct-meta-row"><span class="acct-meta-k">Current streak</span><span class="acct-meta-v">${u.currentStreak} day${u.currentStreak === 1 ? "" : "s"}</span></div>
         </div>
+
+        ${u.byModel.length > 1 ? `
+        <div class="acct-perm-group" style="margin-top:var(--space-lg)">
+          <div class="acct-perm-group-label">By model</div>
+          ${u.byModel.slice(0, 5).map((m) => `
+            <div class="acct-meta-row">
+              <span class="acct-meta-k">${esc(formatModelName(m.model))}</span>
+              <span class="acct-meta-v">${formatTokens(m.tokens)}</span>
+            </div>`).join("")}
+        </div>` : ""}
+
+        <div class="acct-meta-row" style="font-size:var(--fs-xs);color:var(--fg-muted);margin-top:var(--space-md)">
+          <span>Total tokens</span>
+          <span>input ${formatTokens(u.totalInputTokens)} &middot; output ${formatTokens(u.totalOutputTokens)}</span>
+        </div>
       </div>`}
     </section>`;
+}
+
+/** Format token count as 1.2m / 345k / 123. */
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "m";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "k";
+  return n.toString();
+}
+
+/** Shorten model name like "claude-sonnet-4-5-20250929" → "Sonnet 4.5". */
+function formatModelName(model: string): string {
+  const m = model.match(/claude-(opus|sonnet|haiku)-(\d+)-?(\d*)/i);
+  if (m) {
+    const name = m[1].charAt(0).toUpperCase() + m[1].slice(1);
+    const version = m[3] ? `${m[2]}.${m[3]}` : m[2];
+    return `${name} ${version}`;
+  }
+  return model;
 }
 
 /** Render a GitHub-style activity heatmap for the last ~12 weeks. */
