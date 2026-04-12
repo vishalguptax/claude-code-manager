@@ -310,10 +310,11 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 /* Wrapper keeps the scrollable tab bar on the left and the settings gear
-   pinned to the right. */
+   pinned to the right. Top and bottom borders frame the whole tab bar. */
 .tab-bar-wrap {
   display: flex;
   align-items: stretch;
+  border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
   border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
   flex-shrink: 0;
   min-height: 34px;
