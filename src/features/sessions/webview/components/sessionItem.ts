@@ -3,7 +3,7 @@
  */
 
 import { icon } from "../../../../webview/icons";
-import { esc, fmtTime } from "../../../../webview/utils";
+import { esc, fmtRelativeTime } from "../../../../webview/utils";
 import type { Session } from "../../types";
 
 /**
@@ -20,7 +20,14 @@ export function renderSessionItem(s: Session, isActive: boolean, isPinned: boole
   // first prompt itself becomes the title (CSS truncates it on narrow widths).
   const name = s.name || s.prompts[0] || "Untitled session";
   const branch = s.branch && s.branch !== "HEAD" ? s.branch : "";
-  const time = fmtTime(s.endTime);
+  const relTime = fmtRelativeTime(s.endTime);
+  // Full absolute date shown as tooltip on hover
+  const absDate = new Date(s.endTime).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
   const firstPrompt = s.prompts[0] ?? "";
   const showSubPrompt = Boolean(s.name && firstPrompt);
 
@@ -28,7 +35,7 @@ export function renderSessionItem(s: Session, isActive: boolean, isPinned: boole
     <div class="item session-item ${isActive ? "active" : ""}" data-id="${s.id}">
       <div class="item-row1">
         <span class="item-name" title="${esc(name)}">${esc(name)}</span>
-        <span class="item-time">${time}</span>
+        <span class="item-time" title="${esc(absDate)}">${esc(relTime)}</span>
       </div>
       <button class="item-resume" data-resume="${s.id}" title="Resume session">${icon("play")}</button>
       ${showSubPrompt ? `<div class="item-prompt" title="${esc(firstPrompt)}">${esc(firstPrompt)}</div>` : ""}
