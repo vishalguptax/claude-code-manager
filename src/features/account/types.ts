@@ -48,26 +48,35 @@ export interface DailyActivity {
   toolCallCount: number;
 }
 
-/** Per-model token breakdown. */
-export interface ModelStats {
-  model: string;
-  tokens: number;
-  messages: number;
+/** One day's token usage per model. */
+export interface DailyTokens {
+  date: string;
+  /** Sum across all models for this day */
+  total: number;
 }
 
-/** Aggregated usage statistics. */
+/** Per-model cumulative stats from stats-cache.json modelUsage. */
+export interface ModelStats {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  /** input + output (what Claude CLI shows as "total") */
+  totalTokens: number;
+}
+
+/**
+ * Aggregated usage statistics — all computed from ~/.claude/stats-cache.json
+ * which is what Claude Code itself writes and reads. Numbers here match what
+ * Claude's /stats screen shows.
+ */
 export interface UsageStats {
-  /** Daily activity rows (for heatmap) */
+  /** Daily activity rows (for heatmap + aggregates) */
   daily: DailyActivity[];
-  /** Total messages across all time */
-  totalMessages: number;
-  /** Total sessions across all time */
-  totalSessions: number;
-  /** Total tool calls across all time */
-  totalToolCalls: number;
+  /** Per-day token totals (for time period filtering) */
+  dailyTokens: DailyTokens[];
   /** Number of days with any activity */
   activeDays: number;
-  /** Total days tracked */
+  /** Total days in the tracked range (first to last) */
   totalDays: number;
   /** Most active day label */
   mostActiveDay: string;
@@ -75,16 +84,24 @@ export interface UsageStats {
   longestStreak: number;
   /** Current consecutive-day streak */
   currentStreak: number;
-  /** Total input tokens (input + cache creation + cache read) */
-  totalInputTokens: number;
-  /** Total output tokens */
-  totalOutputTokens: number;
-  /** Grand total tokens across all sessions */
-  totalTokens: number;
-  /** Per-model breakdown sorted by tokens desc */
+  /** Per-model breakdown from modelUsage, sorted by totalTokens desc */
   byModel: ModelStats[];
-  /** Favorite model (most tokens used) */
+  /** Favorite model (highest total tokens) */
   favoriteModel: string;
+  /** Grand total input tokens across all models */
+  totalInputTokens: number;
+  /** Grand total output tokens across all models */
+  totalOutputTokens: number;
+  /** Grand total (input + output) across all models — matches CLI */
+  totalTokens: number;
+  /** Total sessions (from stats-cache.totalSessions) */
+  totalSessions: number;
+  /** Total messages (from stats-cache.totalMessages) */
+  totalMessages: number;
+  /** Longest session duration in milliseconds */
+  longestSessionMs: number;
+  /** First session date */
+  firstSessionDate: string;
 }
 
 // ── Settings (from settings.json) ──

@@ -141,15 +141,16 @@ function renderUsageSection(data: AccountData): string {
       </section>`;
   }
 
-  // Filter by time period for numbers
+  // Filter daily buckets by time period
   const now = Date.now();
   const cutoffDays = period === "week" ? 7 : period === "month" ? 30 : Infinity;
-  const filtered =
-    cutoffDays === Infinity
-      ? u.daily
-      : u.daily.filter((d) => (now - new Date(d.date).getTime()) / 86400000 <= cutoffDays);
+  const withinPeriod = (date: string): boolean =>
+    cutoffDays === Infinity || (now - new Date(date).getTime()) / 86400000 <= cutoffDays;
 
-  const totals = filtered.reduce(
+  const filteredActivity = u.daily.filter((d) => withinPeriod(d.date));
+  const filteredTokens = u.dailyTokens.filter((d) => withinPeriod(d.date));
+
+  const totals = filteredActivity.reduce(
     (acc, d) => ({
       messages: acc.messages + d.messageCount,
       sessions: acc.sessions + d.sessionCount,
@@ -157,6 +158,8 @@ function renderUsageSection(data: AccountData): string {
     }),
     { messages: 0, sessions: 0, tools: 0 },
   );
+
+  const tokenTotal = filteredTokens.reduce((sum, d) => sum + d.total, 0);
 
   return `
     <section class="acct-section">
@@ -172,42 +175,37 @@ function renderUsageSection(data: AccountData): string {
         ${renderHeatmap(u.daily)}
 
         <div class="acct-stats-grid">
-          <div class="acct-stat"><div class="acct-stat-v">${formatTokens(u.totalTokens)}</div><div class="acct-stat-k">tokens</div></div>
-          <div class="acct-stat"><div class="acct-stat-v">${totals.sessions.toLocaleString()}</div><div class="acct-stat-k">sessions</div></div>
-          <div class="acct-stat"><div class="acct-stat-v">${totals.messages.toLocaleString()}</div><div class="acct-stat-k">messages</div></div>
+          <div class="acct-stat"><div class="acct-stat-v">${formatNumber(tokenTotal)}</div><div class="acct-stat-k">tokens</div></div>
+          <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.sessions)}</div><div class="acct-stat-k">sessions</div></div>
+          <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.messages)}</div><div class="acct-stat-k">messages</div></div>
         </div>
 
         <div class="acct-meta">
           ${u.favoriteModel ? `<div class="acct-meta-row"><span class="acct-meta-k">Favorite model</span><span class="acct-meta-v">${esc(formatModelName(u.favoriteModel))}</span></div>` : ""}
           <div class="acct-meta-row"><span class="acct-meta-k">Active days</span><span class="acct-meta-v">${u.activeDays} / ${u.totalDays}</span></div>
-          ${u.mostActiveDay ? `<div class="acct-meta-row"><span class="acct-meta-k">Most active</span><span class="acct-meta-v">${esc(u.mostActiveDay)}</span></div>` : ""}
-          <div class="acct-meta-row"><span class="acct-meta-k">Longest streak</span><span class="acct-meta-v">${u.longestStreak} day${u.longestStreak === 1 ? "" : "s"}</span></div>
           <div class="acct-meta-row"><span class="acct-meta-k">Current streak</span><span class="acct-meta-v">${u.currentStreak} day${u.currentStreak === 1 ? "" : "s"}</span></div>
+          <div class="acct-meta-row"><span class="acct-meta-k">Longest streak</span><span class="acct-meta-v">${u.longestStreak} day${u.longestStreak === 1 ? "" : "s"}</span></div>
+          ${u.longestSessionMs > 0 ? `<div class="acct-meta-row"><span class="acct-meta-k">Longest session</span><span class="acct-meta-v">${formatDuration(u.longestSessionMs)}</span></div>` : ""}
         </div>
 
         ${u.byModel.length > 1 ? `
         <div class="acct-perm-group" style="margin-top:var(--space-lg)">
-          <div class="acct-perm-group-label">By model</div>
-          ${u.byModel.slice(0, 5).map((m) => `
+          <div class="acct-perm-group-label">By model (all time)</div>
+          ${u.byModel.map((m) => `
             <div class="acct-meta-row">
               <span class="acct-meta-k">${esc(formatModelName(m.model))}</span>
-              <span class="acct-meta-v">${formatTokens(m.tokens)}</span>
+              <span class="acct-meta-v">${formatNumber(m.totalTokens)}</span>
             </div>`).join("")}
         </div>` : ""}
-
-        <div class="acct-meta-row" style="font-size:var(--fs-xs);color:var(--fg-muted);margin-top:var(--space-md)">
-          <span>Total tokens</span>
-          <span>input ${formatTokens(u.totalInputTokens)} &middot; output ${formatTokens(u.totalOutputTokens)}</span>
-        </div>
       </div>`}
     </section>`;
 }
 
-/** Format token count as 1.2m / 345k / 123. */
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "m";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "k";
-  return n.toString();
+/** Format large numbers as 1.2M / 345.2K / 1234. */
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return n.toLocaleString();
 }
 
 /** Shorten model name like "claude-sonnet-4-5-20250929" → "Sonnet 4.5". */
@@ -219,6 +217,16 @@ function formatModelName(model: string): string {
     return `${name} ${version}`;
   }
   return model;
+}
+
+/** Format ms duration as "11d 23h 57m" or "22h 4m". */
+function formatDuration(ms: number): string {
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  const mins = Math.floor((ms % 3600000) / 60000);
+  if (days > 0) return `${days}d ${hours}h ${mins}m`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }
 
 /** Render a GitHub-style activity heatmap for the last ~12 weeks. */

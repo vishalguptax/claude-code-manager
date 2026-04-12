@@ -5,16 +5,22 @@
  * Security: this parser is the ONLY place that reads .credentials.json. It
  * strips OAuth tokens (accessToken, refreshToken) before returning anything,
  * so tokens never cross the extension/webview boundary.
+ *
+ * Usage stats come exclusively from ~/.claude/stats-cache.json which is what
+ * Claude Code itself writes. We do NOT walk session JSONL files to compute
+ * token counts — Claude's /stats screen uses a formula we can't reproduce
+ * and producing a different number would be misleading.
  */
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { CLAUDE_DIR, PROJECTS_DIR } from "../../core/config";
+import { CLAUDE_DIR } from "../../core/config";
 import type {
   AccountData,
   AccountProfile,
   AccountSettings,
   DailyActivity,
+  DailyTokens,
   ModelStats,
   PermissionScope,
   PermissionSet,
@@ -35,7 +41,7 @@ const PROJECT_SETTINGS_NAME = "settings.json";
  * (subscription). Tokens are read but never returned.
  */
 function parseProfile(): AccountProfile {
-  const empty: AccountProfile = {
+  const profile: AccountProfile = {
     email: "",
     displayName: "",
     organizationName: "",
@@ -57,321 +63,184 @@ function parseProfile(): AccountProfile {
     const data = JSON.parse(raw) as Record<string, unknown>;
     const oauth = data.oauthAccount as Record<string, unknown> | undefined;
     if (oauth) {
-      empty.email = typeof oauth.emailAddress === "string" ? oauth.emailAddress : "";
-      empty.displayName = typeof oauth.displayName === "string" ? oauth.displayName : "";
-      empty.organizationName =
+      profile.email = typeof oauth.emailAddress === "string" ? oauth.emailAddress : "";
+      profile.displayName = typeof oauth.displayName === "string" ? oauth.displayName : "";
+      profile.organizationName =
         typeof oauth.organizationName === "string" ? oauth.organizationName : "";
-      empty.organizationRole =
+      profile.organizationRole =
         typeof oauth.organizationRole === "string" ? oauth.organizationRole : "";
-      empty.accountCreatedAt =
+      profile.accountCreatedAt =
         typeof oauth.accountCreatedAt === "string" ? oauth.accountCreatedAt : "";
-      empty.subscriptionCreatedAt =
+      profile.subscriptionCreatedAt =
         typeof oauth.subscriptionCreatedAt === "string" ? oauth.subscriptionCreatedAt : "";
     }
-    if (typeof data.userID === "string") empty.userID = data.userID;
-    if (typeof data.numStartups === "number") empty.startupCount = data.numStartups;
+    if (typeof data.userID === "string") profile.userID = data.userID;
+    if (typeof data.numStartups === "number") profile.startupCount = data.numStartups;
     if (typeof data.claudeCodeFirstTokenDate === "string") {
-      empty.firstUseDate = data.claudeCodeFirstTokenDate;
+      profile.firstUseDate = data.claudeCodeFirstTokenDate;
     } else if (typeof data.firstStartTime === "string") {
-      empty.firstUseDate = data.firstStartTime;
+      profile.firstUseDate = data.firstStartTime;
     }
   } catch {
     // file may not exist yet
   }
 
-  // .credentials.json — subscription only, tokens are NEVER exposed
+  // .credentials.json — subscription only, tokens NEVER exposed
   try {
     const raw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
     const data = JSON.parse(raw) as Record<string, unknown>;
     const oauth = data.claudeAiOauth as Record<string, unknown> | undefined;
     if (oauth) {
-      empty.signedIn = true;
+      profile.signedIn = true;
       if (typeof oauth.subscriptionType === "string") {
-        empty.subscriptionType = oauth.subscriptionType;
+        profile.subscriptionType = oauth.subscriptionType;
       }
       if (typeof oauth.rateLimitTier === "string") {
-        empty.rateLimitTier = oauth.rateLimitTier;
+        profile.rateLimitTier = oauth.rateLimitTier;
       }
       if (typeof oauth.expiresAt === "number") {
-        empty.tokenExpiresAt = oauth.expiresAt;
+        profile.tokenExpiresAt = oauth.expiresAt;
       }
     }
   } catch {
     // not signed in
   }
 
-  return empty;
+  return profile;
 }
 
-// ── Token aggregation (walks session JSONL files) ──
-
-/** Cache for token walk results. Invalidated when projects dir mtime changes. */
-let tokenCache: {
-  mtime: number;
-  input: number;
-  output: number;
-  total: number;
-  byModel: Map<string, { tokens: number; messages: number }>;
-} | null = null;
+// ── Usage stats (stats-cache.json only) ──
 
 /**
- * Walk all session JSONL files and aggregate token usage per model.
- * Uses streaming reads (64KB chunks) to handle large files efficiently.
- * Result is cached based on projects dir mtime.
- */
-function aggregateTokens(): {
-  input: number;
-  output: number;
-  total: number;
-  byModel: ModelStats[];
-  favoriteModel: string;
-} {
-  let dirMtime = 0;
-  try {
-    dirMtime = fs.statSync(PROJECTS_DIR).mtimeMs;
-  } catch {
-    return { input: 0, output: 0, total: 0, byModel: [], favoriteModel: "" };
-  }
-
-  // Return cached result if projects dir hasn't changed
-  if (tokenCache && tokenCache.mtime === dirMtime) {
-    const cached = tokenCache;
-    const list: ModelStats[] = [];
-    for (const [model, stats] of cached.byModel) {
-      list.push({ model, tokens: stats.tokens, messages: stats.messages });
-    }
-    list.sort((a, b) => b.tokens - a.tokens);
-    return {
-      input: cached.input,
-      output: cached.output,
-      total: cached.total,
-      byModel: list,
-      favoriteModel: list[0]?.model ?? "",
-    };
-  }
-
-  let totalInput = 0;
-  let totalOutput = 0;
-  const byModel = new Map<string, { tokens: number; messages: number }>();
-
-  // Find all session JSONL files
-  const files: string[] = [];
-  try {
-    const projectDirs = fs.readdirSync(PROJECTS_DIR, { withFileTypes: true });
-    for (const dir of projectDirs) {
-      if (!dir.isDirectory()) continue;
-      const dirPath = path.join(PROJECTS_DIR, dir.name);
-      try {
-        for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
-          if (entry.isFile() && entry.name.endsWith(".jsonl")) {
-            files.push(path.join(dirPath, entry.name));
-          }
-        }
-      } catch {
-        // skip unreadable dirs
-      }
-    }
-  } catch {
-    return { input: 0, output: 0, total: 0, byModel: [], favoriteModel: "" };
-  }
-
-  // Stream each file line-by-line in 64KB chunks
-  const CHUNK = 64 * 1024;
-  const buf = Buffer.alloc(CHUNK);
-
-  for (const file of files) {
-    let fd: number;
-    try {
-      fd = fs.openSync(file, "r");
-    } catch {
-      continue;
-    }
-
-    try {
-      let leftover = "";
-      let bytesRead: number;
-      do {
-        bytesRead = fs.readSync(fd, buf, 0, CHUNK, null);
-        if (bytesRead === 0) break;
-        const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
-        const lines = chunk.split("\n");
-        leftover = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          // Cheap skip if line doesn't contain usage data
-          if (!line.includes('"usage"')) continue;
-          try {
-            const entry = JSON.parse(line) as {
-              message?: {
-                model?: string;
-                usage?: {
-                  input_tokens?: number;
-                  output_tokens?: number;
-                  cache_creation_input_tokens?: number;
-                  cache_read_input_tokens?: number;
-                };
-              };
-            };
-            const usage = entry.message?.usage;
-            if (!usage) continue;
-            const input =
-              (usage.input_tokens ?? 0) +
-              (usage.cache_creation_input_tokens ?? 0) +
-              (usage.cache_read_input_tokens ?? 0);
-            const output = usage.output_tokens ?? 0;
-            const model = entry.message?.model ?? "unknown";
-            totalInput += input;
-            totalOutput += output;
-            const existing = byModel.get(model) ?? { tokens: 0, messages: 0 };
-            existing.tokens += input + output;
-            existing.messages += 1;
-            byModel.set(model, existing);
-          } catch {
-            // skip malformed lines
-          }
-        }
-      } while (bytesRead === CHUNK);
-      // Process final leftover
-      if (leftover.trim() && leftover.includes('"usage"')) {
-        try {
-          const entry = JSON.parse(leftover) as {
-            message?: {
-              model?: string;
-              usage?: {
-                input_tokens?: number;
-                output_tokens?: number;
-                cache_creation_input_tokens?: number;
-                cache_read_input_tokens?: number;
-              };
-            };
-          };
-          const usage = entry.message?.usage;
-          if (usage) {
-            const input =
-              (usage.input_tokens ?? 0) +
-              (usage.cache_creation_input_tokens ?? 0) +
-              (usage.cache_read_input_tokens ?? 0);
-            const output = usage.output_tokens ?? 0;
-            const model = entry.message?.model ?? "unknown";
-            totalInput += input;
-            totalOutput += output;
-            const existing = byModel.get(model) ?? { tokens: 0, messages: 0 };
-            existing.tokens += input + output;
-            existing.messages += 1;
-            byModel.set(model, existing);
-          }
-        } catch {
-          // skip
-        }
-      }
-    } finally {
-      fs.closeSync(fd);
-    }
-  }
-
-  // Cache the result
-  tokenCache = {
-    mtime: dirMtime,
-    input: totalInput,
-    output: totalOutput,
-    total: totalInput + totalOutput,
-    byModel,
-  };
-
-  const list: ModelStats[] = [];
-  for (const [model, stats] of byModel) {
-    list.push({ model, tokens: stats.tokens, messages: stats.messages });
-  }
-  list.sort((a, b) => b.tokens - a.tokens);
-
-  return {
-    input: totalInput,
-    output: totalOutput,
-    total: totalInput + totalOutput,
-    byModel: list,
-    favoriteModel: list[0]?.model ?? "",
-  };
-}
-
-// ── Usage stats ──
-
-/**
- * Read daily activity from stats-cache.json and compute aggregate stats.
+ * Read all usage stats from stats-cache.json.
+ *
+ * This cache file is written by Claude Code itself and contains pre-computed
+ * totals (totalSessions, totalMessages, modelUsage, etc.) plus per-day arrays.
+ * All numbers here match what /stats shows in the CLI because we read from
+ * the same source.
  */
 function parseUsage(): UsageStats {
   const result: UsageStats = {
     daily: [],
-    totalMessages: 0,
-    totalSessions: 0,
-    totalToolCalls: 0,
+    dailyTokens: [],
     activeDays: 0,
     totalDays: 0,
     mostActiveDay: "",
     longestStreak: 0,
     currentStreak: 0,
+    byModel: [],
+    favoriteModel: "",
     totalInputTokens: 0,
     totalOutputTokens: 0,
     totalTokens: 0,
-    byModel: [],
-    favoriteModel: "",
+    totalSessions: 0,
+    totalMessages: 0,
+    longestSessionMs: 0,
+    firstSessionDate: "",
   };
 
-  // Aggregate tokens from all session JSONL files (streaming, cached by mtime)
-  const tokenStats = aggregateTokens();
-  result.totalInputTokens = tokenStats.input;
-  result.totalOutputTokens = tokenStats.output;
-  result.totalTokens = tokenStats.total;
-  result.byModel = tokenStats.byModel;
-  result.favoriteModel = tokenStats.favoriteModel;
+  type StatsCache = {
+    dailyActivity?: DailyActivity[];
+    dailyModelTokens?: Array<{ date: string; tokensByModel: Record<string, number> }>;
+    modelUsage?: Record<
+      string,
+      { inputTokens?: number; outputTokens?: number }
+    >;
+    totalSessions?: number;
+    totalMessages?: number;
+    longestSession?: { duration?: number };
+    firstSessionDate?: string;
+  };
 
-  let daily: DailyActivity[] = [];
+  let cache: StatsCache;
   try {
     const raw = fs.readFileSync(STATS_CACHE_FILE, "utf-8");
-    const data = JSON.parse(raw) as { dailyActivity?: DailyActivity[] };
-    if (Array.isArray(data.dailyActivity)) {
-      daily = data.dailyActivity.filter(
-        (d): d is DailyActivity =>
-          typeof d === "object" &&
-          d !== null &&
-          typeof d.date === "string" &&
-          typeof d.messageCount === "number" &&
-          typeof d.sessionCount === "number" &&
-          typeof d.toolCallCount === "number",
-      );
-    }
+    cache = JSON.parse(raw) as StatsCache;
   } catch {
     return result;
   }
 
-  result.daily = daily;
+  // ── Daily activity (heatmap + filtering) ──
+  if (Array.isArray(cache.dailyActivity)) {
+    result.daily = cache.dailyActivity.filter(
+      (d): d is DailyActivity =>
+        typeof d === "object" &&
+        d !== null &&
+        typeof d.date === "string" &&
+        typeof d.messageCount === "number" &&
+        typeof d.sessionCount === "number" &&
+        typeof d.toolCallCount === "number",
+    );
+  }
 
+  // ── Per-day token totals (sum across models in each day's bucket) ──
+  if (Array.isArray(cache.dailyModelTokens)) {
+    const tokenDays: DailyTokens[] = [];
+    for (const entry of cache.dailyModelTokens) {
+      if (!entry || typeof entry.date !== "string" || typeof entry.tokensByModel !== "object") {
+        continue;
+      }
+      let sum = 0;
+      for (const v of Object.values(entry.tokensByModel)) {
+        if (typeof v === "number") sum += v;
+      }
+      tokenDays.push({ date: entry.date, total: sum });
+    }
+    tokenDays.sort((a, b) => a.date.localeCompare(b.date));
+    result.dailyTokens = tokenDays;
+  }
+
+  // ── Per-model breakdown from modelUsage ──
+  if (cache.modelUsage && typeof cache.modelUsage === "object") {
+    const modelList: ModelStats[] = [];
+    for (const [model, usage] of Object.entries(cache.modelUsage)) {
+      if (!usage || typeof usage !== "object") continue;
+      const input = typeof usage.inputTokens === "number" ? usage.inputTokens : 0;
+      const output = typeof usage.outputTokens === "number" ? usage.outputTokens : 0;
+      modelList.push({
+        model,
+        inputTokens: input,
+        outputTokens: output,
+        totalTokens: input + output,
+      });
+      result.totalInputTokens += input;
+      result.totalOutputTokens += output;
+    }
+    modelList.sort((a, b) => b.totalTokens - a.totalTokens);
+    result.byModel = modelList;
+    result.favoriteModel = modelList[0]?.model ?? "";
+    result.totalTokens = result.totalInputTokens + result.totalOutputTokens;
+  }
+
+  // ── Scalar totals ──
+  if (typeof cache.totalSessions === "number") result.totalSessions = cache.totalSessions;
+  if (typeof cache.totalMessages === "number") result.totalMessages = cache.totalMessages;
+  if (cache.longestSession && typeof cache.longestSession.duration === "number") {
+    result.longestSessionMs = cache.longestSession.duration;
+  }
+  if (typeof cache.firstSessionDate === "string") result.firstSessionDate = cache.firstSessionDate;
+
+  // ── Derived: most active day, streaks, day span ──
   let maxDay = "";
   let maxMessages = -1;
-  for (const d of daily) {
-    result.totalMessages += d.messageCount;
-    result.totalSessions += d.sessionCount;
-    result.totalToolCalls += d.toolCallCount;
+  for (const d of result.daily) {
     if (d.messageCount > maxMessages) {
       maxMessages = d.messageCount;
       maxDay = d.date;
     }
   }
-  result.activeDays = daily.length;
+  result.activeDays = result.daily.length;
   result.mostActiveDay = maxDay;
 
-  // Compute total-day span from first to last
-  if (daily.length > 0) {
-    const first = new Date(daily[0].date).getTime();
-    const last = new Date(daily[daily.length - 1].date).getTime();
+  if (result.daily.length > 0) {
+    const first = new Date(result.daily[0].date).getTime();
+    const last = new Date(result.daily[result.daily.length - 1].date).getTime();
     result.totalDays = Math.max(1, Math.round((last - first) / 86400000) + 1);
   }
 
-  // Compute streaks — longest and current
-  const activeDates = new Set(daily.map((d) => d.date));
+  // Longest consecutive-day streak
+  const sorted = [...result.daily].sort((a, b) => a.date.localeCompare(b.date));
   let longest = 0;
-  let current = 0;
-  const sorted = [...daily].sort((a, b) => a.date.localeCompare(b.date));
-
   let run = 0;
   let prev: string | null = null;
   for (const d of sorted) {
@@ -386,17 +255,18 @@ function parseUsage(): UsageStats {
     if (run > longest) longest = run;
     prev = d.date;
   }
+  result.longestStreak = longest;
 
-  // Current streak — count back from today
-  const today = new Date();
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  let cursor = new Date(today);
+  // Current streak
+  const activeDates = new Set(result.daily.map((d) => d.date));
+  const fmt = (d: Date): string => d.toISOString().slice(0, 10);
+  let current = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
   while (activeDates.has(fmt(cursor))) {
     current++;
     cursor.setDate(cursor.getDate() - 1);
   }
-
-  result.longestStreak = longest;
   result.currentStreak = current;
 
   return result;
@@ -405,8 +275,7 @@ function parseUsage(): UsageStats {
 // ── Settings ──
 
 /**
- * Parse settings.json for the handful of keys we support in the UI.
- * Absent keys return sensible defaults.
+ * Parse settings.json for the keys we support in the UI.
  */
 function parseSettings(): AccountSettings {
   const result: AccountSettings = {
@@ -498,7 +367,7 @@ export function parseAccountData(workspacePath?: string): AccountData {
 
 /**
  * Update a single key in settings.json, preserving other keys.
- * Creates the file if it doesn't exist.
+ * Supports nested keys with dot notation (e.g., "attribution.commit").
  */
 export function writeSettingsValue(
   key: string,
@@ -517,7 +386,6 @@ export function writeSettingsValue(
     // create new file
   }
 
-  // Support nested keys like "attribution.commit" or "statusLine.command"
   const parts = key.split(".");
   let target: Record<string, unknown> = data;
   for (let i = 0; i < parts.length - 1; i++) {
