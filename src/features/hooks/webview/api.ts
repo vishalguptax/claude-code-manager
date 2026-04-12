@@ -19,3 +19,8 @@ export function initHooksApi(vscode: VSCodeAPI): void {
 export function sendGetHooks(): void {
   _vscode.postMessage({ type: "getHooks" });
 }
+
+/** Request to open a Claude settings file at the given scope. */
+export function sendOpenHookSettingsFile(scope: "global" | "project" | "local"): void {
+  _vscode.postMessage({ type: "openSettingsFile", scope });
+}

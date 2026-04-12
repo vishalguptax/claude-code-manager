@@ -21,6 +21,7 @@ export function renderSearchBar(): string {
         <input id="search" type="text" placeholder="Search sessions..." />
         <button class="search-btn is-hidden" id="searchClear" title="Clear (Esc)">${icon("x")}</button>
       </div>
+      <button class="search-side-btn" id="sessionsRefresh" title="Refresh sessions">${icon("refresh-cw", 14)}</button>
     </div>`;
 }
 

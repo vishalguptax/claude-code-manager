@@ -165,16 +165,20 @@ function getDateGroup(timestamp: number): string {
   return "Older";
 }
 
+/** Size of the tail window we read to capture the most recent gitBranch. */
+const TAIL_READ_BYTES = 64 * 1024;
+
 /**
- * Read the first few KB of a session file to extract metadata:
- * - branch (gitBranch field)
- * - entrypoint (entrypoint field)
- * - rename (last /rename command found)
- * - summary (last auto-generated summary found)
+ * Read both the head (first ~256KB) and tail (last ~64KB) of a session file
+ * to extract metadata:
+ * - branch (latest gitBranch — reflects current branch even after switches)
+ * - entrypoint (from early lines — never changes)
+ * - rename (most recent /rename command)
+ * - summary (most recent auto-generated summary)
  *
- * Combines what was previously two separate file reads (readSessionMeta +
- * extractSessionNameHints) into one bounded read to avoid opening the same
- * file twice.
+ * We need the tail because long-running sessions may have switched branches
+ * mid-session, and the starting branch is misleading. The head captures
+ * entrypoint and early summaries; the tail captures the latest branch.
  */
 function readSessionMeta(filePath: string): {
   branch: string;
@@ -191,56 +195,25 @@ function readSessionMeta(filePath: string): {
   }
 
   try {
-    // Read a bounded chunk — enough for metadata + most renames/summaries
-    const readSize = Math.max(SESSION_META_READ_BYTES, NAME_HINT_READ_BYTES);
     const stat = fs.fstatSync(fd);
-    const actualRead = Math.min(readSize, stat.size);
-    const buffer = Buffer.alloc(actualRead);
-    fs.readSync(fd, buffer, 0, actualRead, 0);
-    const chunk = buffer.toString("utf-8");
+    const headSize = Math.max(SESSION_META_READ_BYTES, NAME_HINT_READ_BYTES);
+    const headBytes = Math.min(headSize, stat.size);
 
-    // Quick checks to avoid unnecessary parsing
-    const hasRename = chunk.includes("/rename");
-    const hasSummary = chunk.includes('"type":"summary"') || chunk.includes('"type": "summary"');
+    // Read head chunk
+    const headBuf = Buffer.alloc(headBytes);
+    fs.readSync(fd, headBuf, 0, headBytes, 0);
+    const headChunk = headBuf.toString("utf-8");
+    processMetaChunk(headChunk, result, /* isTail */ false);
 
-    for (const line of chunk.split("\n")) {
-      if (!line.trim()) continue;
-
-      try {
-        const entry = JSON.parse(line) as Record<string, unknown>;
-
-        // Branch + entrypoint (early lines)
-        if (typeof entry.gitBranch === "string" && !result.branch) {
-          result.branch = entry.gitBranch;
-        }
-        if (typeof entry.entrypoint === "string" && !result.entrypoint) {
-          result.entrypoint = entry.entrypoint;
-        }
-
-        // Auto-summary
-        if (hasSummary && entry.type === "summary" && typeof entry.summary === "string") {
-          result.summary = (entry.summary as string).trim();
-        }
-
-        // /rename command in user message
-        if (hasRename && line.includes("/rename")) {
-          const msg = (entry as { message?: { content?: unknown } }).message;
-          if (msg?.content) {
-            const text =
-              typeof msg.content === "string"
-                ? msg.content
-                : Array.isArray(msg.content)
-                  ? (msg.content as Array<{ text?: string }>).map((b) => b.text ?? "").join("")
-                  : "";
-            const match = text.match(/<command-name>\/rename<\/command-name>[\s\S]*?<command-args>([^<]+)<\/command-args>/);
-            if (match?.[1]) {
-              result.rename = match[1].trim();
-            }
-          }
-        }
-      } catch {
-        // Partial JSON at chunk boundary — expected
-      }
+    // If the file is bigger than the head read, also read a tail chunk
+    // to capture the latest gitBranch. Avoid overlap with the head.
+    if (stat.size > headBytes) {
+      const tailBytes = Math.min(TAIL_READ_BYTES, stat.size - headBytes);
+      const tailBuf = Buffer.alloc(tailBytes);
+      const tailOffset = stat.size - tailBytes;
+      fs.readSync(fd, tailBuf, 0, tailBytes, tailOffset);
+      const tailChunk = tailBuf.toString("utf-8");
+      processMetaChunk(tailChunk, result, /* isTail */ true);
     }
   } catch {
     // Read error — return whatever we have
@@ -249,6 +222,65 @@ function readSessionMeta(filePath: string): {
   }
 
   return result;
+}
+
+/**
+ * Parse a chunk of JSONL and merge metadata into the running result.
+ * When processing the tail, branch/summary overwrite; entrypoint never does.
+ */
+function processMetaChunk(
+  chunk: string,
+  result: { branch: string; entrypoint: string; rename: string; summary: string },
+  isTail: boolean,
+): void {
+  const hasRename = chunk.includes("/rename");
+  const hasSummary = chunk.includes('"type":"summary"') || chunk.includes('"type": "summary"');
+
+  for (const line of chunk.split("\n")) {
+    if (!line.trim()) continue;
+
+    try {
+      const entry = JSON.parse(line) as Record<string, unknown>;
+
+      // Branch — take the LATEST one seen. When processing the tail, every
+      // branch overwrites the previous. When processing the head, we only
+      // set it if unset (let tail override).
+      if (typeof entry.gitBranch === "string") {
+        if (isTail || !result.branch) {
+          result.branch = entry.gitBranch;
+        }
+      }
+
+      // Entrypoint only exists in early lines — never overwrite
+      if (typeof entry.entrypoint === "string" && !result.entrypoint) {
+        result.entrypoint = entry.entrypoint;
+      }
+
+      // Auto-summary — take the latest one seen
+      if (hasSummary && entry.type === "summary" && typeof entry.summary === "string") {
+        result.summary = (entry.summary as string).trim();
+      }
+
+      // /rename command in user message — take the latest one seen
+      if (hasRename && line.includes("/rename")) {
+        const msg = (entry as { message?: { content?: unknown } }).message;
+        if (msg?.content) {
+          const text =
+            typeof msg.content === "string"
+              ? msg.content
+              : Array.isArray(msg.content)
+                ? (msg.content as Array<{ text?: string }>).map((b) => b.text ?? "").join("")
+                : "";
+          const match = text.match(/<command-name>\/rename<\/command-name>[\s\S]*?<command-args>([^<]+)<\/command-args>/);
+          if (match?.[1]) {
+            result.rename = match[1].trim();
+          }
+        }
+      }
+    } catch {
+      // Partial JSON at chunk boundary — expected (first line of tail is usually partial)
+    }
+  }
 }
 
 /**

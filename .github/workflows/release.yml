@@ -4,9 +4,14 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "**.md"
-      - "docs/**"
+      - "README.md"
       - "LICENSE"
+      - "docs/DEVELOPMENT.md"
+      - "docs/PLAN.md"
+      - ".dev/**"
+    # Note: docs/releases/** and CHANGELOG.md are NOT ignored —
+    # the release skill commits a release notes file which should
+    # trigger the publish workflow.
 
 jobs:
   release:
@@ -70,10 +75,24 @@ jobs:
         if: ${{ vars.OVSX_TOKEN != '' || secrets.OVSX_TOKEN != '' }}
         run: npx ovsx publish dist/*.vsix -p ${{ secrets.OVSX_TOKEN }}
 
+      # Use curated release notes if present (docs/releases/v{version}.md),
+      # otherwise fall back to GitHub's auto-generated notes.
+      - name: Check for release notes file
+        id: notes
+        run: |
+          NOTES_FILE="docs/releases/v${{ steps.bump.outputs.version }}.md"
+          if [ -f "$NOTES_FILE" ]; then
+            echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.bump.outputs.version }}
           name: v${{ steps.bump.outputs.version }}
           files: dist/*.vsix
-          generate_release_notes: true
+          body_path: ${{ steps.notes.outputs.file }}
+          generate_release_notes: ${{ steps.notes.outputs.exists == 'false' }}

@@ -64,6 +64,36 @@
 .loading { text-align: center; padding: 24px; font-size: var(--fs-base); color: var(--fg-muted); }
 .empty   { text-align: center; padding: 28px var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
 
+/* Shared empty state (renderEmptyState) — icon + title + description + action */
+.state-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px var(--space-2xl);
+  gap: var(--space-sm);
+}
+.state-empty-icon {
+  color: var(--fg-muted);
+  opacity: 0.5;
+  margin-bottom: var(--space-sm);
+}
+.state-empty-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--fg);
+}
+.state-empty-desc {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  line-height: 1.5;
+  max-width: 280px;
+}
+.state-empty .btn {
+  margin-top: var(--space-sm);
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Focus & Accessibility

@@ -15,6 +15,7 @@ let allHooks: Hook[] = [];
 let loading = false;
 let searchQuery = "";
 let filterScope: HookScopeFilter = "all";
+let selectedHook: Hook | null = null;
 
 // ── Getters ──
 
@@ -74,6 +75,16 @@ export function setSearchQuery(q: string): void {
 /** Set the active scope filter. */
 export function setFilterScope(s: HookScopeFilter): void {
   filterScope = s;
+}
+
+/** Return the currently selected hook (detail view). */
+export function getSelectedHook(): Hook | null {
+  return selectedHook;
+}
+
+/** Set the selected hook for detail view. */
+export function setSelectedHook(h: Hook | null): void {
+  selectedHook = h;
 }
 
 // ── Derived data ──

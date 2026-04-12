@@ -14,9 +14,11 @@ import {
   getFilterScope,
   setFilterScope,
   getHooksByScope,
+  setSelectedHook,
 } from "../state";
 import type { HookScopeFilter } from "../state";
 import { renderHookItem } from "../components/hookItem";
+import { showHookDetail } from "./detailView";
 
 /** Map event names to user-friendly display labels. */
 const EVENT_LABELS: Record<string, string> = {
@@ -161,13 +163,34 @@ function updateHooksListInner(container: HTMLElement): void {
 
   let h = `<div class="hook-list-count">${filtered.length} hook${filtered.length !== 1 ? "s" : ""}</div>`;
 
+  // Use the filtered array index so click handlers resolve the correct hook
+  let idx = 0;
   for (const [event, eventHooks] of groups) {
     const label = EVENT_LABELS[event] ?? event;
     h += `<div class="hook-group-label">${esc(label)}</div>`;
     for (const hook of eventHooks) {
-      h += renderHookItem(hook);
+      h += renderHookItem(hook, idx++);
     }
   }
 
   inner.innerHTML = h;
+
+  // Bind click handlers — use event delegation for O(1) listener count
+  inner.querySelectorAll<HTMLElement>(".hook-item").forEach((el) => {
+    const handler = (): void => {
+      const i = Number(el.dataset.hookIndex);
+      if (Number.isNaN(i)) return;
+      const hook = filtered[i];
+      if (!hook) return;
+      setSelectedHook(hook);
+      showHookDetail(container);
+    };
+    el.addEventListener("click", handler);
+    el.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handler();
+      }
+    });
+  });
 }

@@ -74,7 +74,7 @@
       "activitybar": [
         {
           "id": "claudeCodeManager",
-          "title": "Claude Code Manager",
+          "title": "Claude Manager",
           "icon": "media/icon.svg"
         }
       ]
@@ -84,14 +84,14 @@
         {
           "type": "webview",
           "id": "claudeCodeManager.view",
-          "name": "Claude Code Manager"
+          "name": "Claude Manager"
         }
       ]
     },
     "commands": [
       {
         "command": "claudeManager.open",
-        "title": "Claude: Open Code Manager"
+        "title": "Claude Manager: Open"
       }
     ],
     "keybindings": [
@@ -179,8 +179,8 @@
   "scripts": {
     "build:extension": "esbuild src/extension/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
     "build:webview": "esbuild src/webview/main.ts --bundle --outfile=dist/webview/main.js --format=iife --platform=browser",
-    "copy:css": "node -e \"const fs=require('fs');const out=['src/styles/base.css','src/styles/components.css','src/styles/sessions.css','src/styles/skills.css','src/styles/features.css','src/styles/mcp.css','src/styles/agents.css'].map(f=>fs.readFileSync(f,'utf-8')).join('\\n');fs.mkdirSync('dist/webview',{recursive:true});fs.writeFileSync('dist/webview/styles.css',out)\"",
-    "build": "npm run build:extension && npm run build:webview && npm run copy:css",
+    "build:css": "node scripts/build-css.js",
+    "build": "npm run build:extension && npm run build:webview && npm run build:css",
     "watch": "npm run build:extension -- --watch & npm run build:webview -- --watch",
     "release": "npm test && npm run build && node -e \"require('fs').readdirSync('dist').filter(f=>f.endsWith('.vsix')).forEach(f=>require('fs').unlinkSync('dist/'+f))\" && npx @vscode/vsce package --no-dependencies -o dist/",
     "release:patch": "npm version patch --no-git-tag-version && npm run release",

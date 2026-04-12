@@ -1,5 +1,5 @@
 /**
- * Provides the webview content for the Claude Code Manager sidebar panel.
+ * Provides the webview content for the Claude Manager sidebar panel.
  * Handles all message passing between the webview UI and the extension host.
  */
 import * as vscode from "vscode";
@@ -29,6 +29,14 @@ import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
 import { parseMcpServers, toggleMcpServer, deleteMcpServer } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
+import {
+  parseAccountData,
+  writeSettingsValue,
+  addPermissionEntry,
+  removePermissionEntry,
+  resolveSettingsPath,
+} from "../account/parser";
+import { createTerminal } from "../../extension/terminal";
 import type { WebviewMessage, Session } from "./types";
 import type { Skill } from "../skills/types";
 import type { Command } from "../commands/types";
@@ -36,9 +44,10 @@ import type { Hook } from "../hooks/types";
 import type { McpServer } from "../mcp/types";
 import type { Agent } from "../agents/types";
 import * as path from "path";
+import * as os from "os";
 
 /**
- * Provides the webview content for the Claude Code Manager sidebar panel.
+ * Provides the webview content for the Claude Manager sidebar panel.
  * Handles all message passing between the webview UI and the extension host.
  */
 export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
@@ -49,6 +58,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private hooks: Hook[] = [];
   private mcpServers: McpServer[] = [];
   private agents: Agent[] = [];
+  private watchers: vscode.FileSystemWatcher[] = [];
+  /** Debounce timer for account data re-parse on file changes. */
+  private accountReparseTimer: NodeJS.Timeout | undefined;
+  /** Debounce timer for session list re-parse on file changes. */
+  private sessionsReparseTimer: NodeJS.Timeout | undefined;
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -61,6 +75,116 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     };
     view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
     view.webview.onDidReceiveMessage((msg: WebviewMessage) => this.onMessage(msg));
+
+    // Set up file watchers once per webview lifecycle
+    this.setupWatchers();
+    view.onDidDispose(() => this.disposeWatchers());
+  }
+
+  /**
+   * Watch Claude config/data files and push fresh account data to the webview
+   * whenever they change. Uses VS Code's native FileSystemWatcher for efficiency
+   * (no polling). Debounces re-parse by 200ms so rapid saves coalesce.
+   */
+  private setupWatchers(): void {
+    this.disposeWatchers();
+
+    // Account-relevant files live in ~/.claude/ and ~/.claude.json.
+    // VS Code's createFileSystemWatcher uses native OS file events (no polling).
+    const home = os.homedir();
+    const watchPatterns = [
+      new vscode.RelativePattern(vscode.Uri.file(home), ".claude.json"),
+      new vscode.RelativePattern(
+        vscode.Uri.file(path.join(home, ".claude")),
+        "{settings.json,stats-cache.json,.credentials.json}",
+      ),
+    ];
+
+    // Also watch workspace-scoped settings if a workspace is open
+    const workspace = getWorkspace();
+    if (workspace) {
+      watchPatterns.push(
+        new vscode.RelativePattern(workspace, ".claude/settings.json"),
+        new vscode.RelativePattern(workspace, ".claude/settings.local.json"),
+      );
+    }
+
+    const onAccountChange = (): void => {
+      if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
+      this.accountReparseTimer = setTimeout(() => {
+        const wv = this.view?.webview;
+        if (!wv) return;
+        try {
+          const ws = getWorkspace();
+          wv.postMessage({
+            type: "accountData",
+            data: parseAccountData(ws || undefined),
+          });
+        } catch (err) {
+          console.warn("[claude-manager] account reparse failed:", err);
+        }
+      }, 200);
+    };
+
+    for (const pattern of watchPatterns) {
+      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+      watcher.onDidChange(onAccountChange);
+      watcher.onDidCreate(onAccountChange);
+      watcher.onDidDelete(onAccountChange);
+      this.watchers.push(watcher);
+    }
+
+    // ── Session data watchers ──
+    // Watch history.jsonl (new sessions) and all session transcripts
+    // (branch changes, message updates). Debounced at 1s since JSONL files
+    // are appended to frequently during live sessions — we don't want to
+    // hammer the parser on every tool call.
+    const sessionWatchPatterns = [
+      new vscode.RelativePattern(
+        vscode.Uri.file(path.join(home, ".claude")),
+        "history.jsonl",
+      ),
+      new vscode.RelativePattern(
+        vscode.Uri.file(path.join(home, ".claude", "projects")),
+        "**/*.jsonl",
+      ),
+    ];
+
+    const onSessionChange = (): void => {
+      if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
+      this.sessionsReparseTimer = setTimeout(() => {
+        const wv = this.view?.webview;
+        if (!wv) return;
+        try {
+          this.sessions = parseSessions(loadState().renames);
+          wv.postMessage({
+            type: "sessions",
+            data: groupSessions(this.sessions),
+            stats: getStats(this.sessions),
+          });
+          wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
+        } catch (err) {
+          console.warn("[claude-manager] sessions reparse failed:", err);
+        }
+      }, 1000);
+    };
+
+    for (const pattern of sessionWatchPatterns) {
+      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+      watcher.onDidChange(onSessionChange);
+      watcher.onDidCreate(onSessionChange);
+      watcher.onDidDelete(onSessionChange);
+      this.watchers.push(watcher);
+    }
+  }
+
+  private disposeWatchers(): void {
+    if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
+    this.accountReparseTimer = undefined;
+    if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
+    this.sessionsReparseTimer = undefined;
+    for (const w of this.watchers) w.dispose();
+    this.watchers = [];
   }
 
   private async onMessage(msg: WebviewMessage): Promise<void> {
@@ -200,10 +324,6 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "openUrl":
         vscode.env.openExternal(vscode.Uri.parse(msg.url));
-        break;
-
-      case "openSettings":
-        vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");
         break;
 
       // ── Skills messages ──
@@ -373,6 +493,163 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         } catch {
           vscode.window.showErrorMessage(`Could not open ${agentPath}`);
         }
+        break;
+      }
+
+      case "openExtensionSettings": {
+        vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");
+        break;
+      }
+
+      // ── Account messages ──
+
+      case "getAccountData": {
+        const workspace = getWorkspace();
+        const data = parseAccountData(workspace || undefined);
+        wv.postMessage({ type: "accountData", data });
+        break;
+      }
+
+      case "openAccountUrl": {
+        vscode.env.openExternal(vscode.Uri.parse(msg.url));
+        break;
+      }
+
+      case "launchSlash": {
+        // Slash commands (/login, /logout, /config, etc.) must be typed inside
+        // a running Claude REPL. There's no CLI arg form that works — passing
+        // them directly either gets swallowed by the shell (Git Bash path
+        // mangling) or treated as an initial prompt by Claude.
+        //
+        // Strategy: open a terminal, run `claude`, wait for Claude to switch
+        // to raw terminal mode (~1800ms — long enough for most machines),
+        // then send the slash command. Shows a notification as a safety net
+        // in case the auto-type misses due to slow startup.
+        const command = msg.command;
+        const term = createTerminal(`Claude: ${command}`);
+        term.show();
+        term.sendText("claude");
+        setTimeout(() => term.sendText(command), 1800);
+        vscode.window.showInformationMessage(
+          `Opening ${command}. If it doesn't auto-enter, type ${command} manually in the Claude terminal.`,
+        );
+        break;
+      }
+
+      case "setModel": {
+        writeSettingsValue("model", msg.model || undefined);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "setVoiceEnabled": {
+        writeSettingsValue("voiceEnabled", msg.value);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "setCommitAttribution": {
+        writeSettingsValue("attribution.commit", msg.value);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "setPrAttribution": {
+        writeSettingsValue("attribution.pr", msg.value);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "openSettingsFile": {
+        const workspace = getWorkspace();
+        const filePath = resolveSettingsPath(msg.scope, workspace || undefined);
+        if (!filePath) {
+          vscode.window.showErrorMessage(
+            msg.scope === "global" ? "Could not resolve settings path" : "No workspace folder open",
+          );
+          break;
+        }
+        try {
+          const doc = await vscode.workspace.openTextDocument(filePath);
+          await vscode.window.showTextDocument(doc);
+        } catch {
+          vscode.window.showErrorMessage(`Could not open ${filePath}`);
+        }
+        break;
+      }
+
+      case "addPermission": {
+        const workspace = getWorkspace();
+        addPermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "promptAddPermission": {
+        const workspace = getWorkspace();
+        const scope = msg.scope;
+        const list = msg.list;
+
+        // Known built-in tool names users can pick from
+        const BUILTIN_TOOLS = [
+          "Bash(*)",
+          "Bash(git:*)",
+          "Bash(git push:*)",
+          "Bash(npm:*)",
+          "Bash(rm:*)",
+          "Read",
+          "Edit",
+          "Write",
+          "Glob",
+          "Grep",
+          "WebSearch",
+          "WebFetch",
+          "NotebookEdit",
+        ];
+
+        // Discover MCP tools from the current mcpServers cache
+        const mcpTools = this.mcpServers.map((s) => `mcp__${s.name}__*`);
+
+        const items = [
+          ...BUILTIN_TOOLS.map((t) => ({ label: t, description: "built-in" })),
+          ...mcpTools.map((t) => ({ label: t, description: "MCP" })),
+          { label: "$(edit) Custom pattern…", description: "Enter your own tool pattern" },
+        ];
+
+        const pick = await vscode.window.showQuickPick(items, {
+          title: `Add ${list === "allow" ? "allowed" : "denied"} tool to ${scope} scope`,
+          placeHolder: "Pick a tool or enter a custom pattern",
+          matchOnDescription: true,
+        });
+        if (!pick) break;
+
+        let tool: string | undefined;
+        if (pick.label.startsWith("$(edit)")) {
+          tool = await vscode.window.showInputBox({
+            title: "Custom tool pattern",
+            prompt: "Examples: Bash(docker:*), Bash(curl:*), mcp__github__*",
+            placeHolder: "Bash(command:*)",
+            validateInput: (v: string) => (v.trim() ? null : "Tool pattern cannot be empty"),
+          });
+        } else {
+          tool = pick.label;
+        }
+
+        if (tool && tool.trim()) {
+          addPermissionEntry(scope, tool.trim(), list, workspace || undefined);
+          wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        }
+        break;
+      }
+
+      case "removePermission": {
+        const workspace = getWorkspace();
+        removePermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
         break;
       }
 

@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { esc, fmtTime, dateLabel, dayStart } from "../utils";
+import { esc, fmtTime, fmtRelativeTime, dateLabel, dayStart } from "../utils";
 
 describe("esc", () => {
   it("escapes HTML special characters", () => {
@@ -52,6 +52,32 @@ describe("fmtTime", () => {
     const result = fmtTime(d.getTime());
     expect(result).toContain("12:00");
     expect(result.toUpperCase()).toContain("PM");
+  });
+});
+
+describe("fmtRelativeTime", () => {
+  const now = Date.now();
+  it("returns 'now' for very recent timestamps", () => {
+    expect(fmtRelativeTime(now - 5_000)).toBe("now");
+    expect(fmtRelativeTime(now - 30_000)).toBe("now");
+  });
+  it("formats minutes", () => {
+    expect(fmtRelativeTime(now - 2 * 60_000)).toBe("2m");
+    expect(fmtRelativeTime(now - 59 * 60_000)).toBe("59m");
+  });
+  it("formats hours", () => {
+    expect(fmtRelativeTime(now - 60 * 60_000)).toBe("1h");
+    expect(fmtRelativeTime(now - 23 * 60 * 60_000)).toBe("23h");
+  });
+  it("formats days", () => {
+    expect(fmtRelativeTime(now - 24 * 60 * 60_000)).toBe("1d");
+    expect(fmtRelativeTime(now - 5 * 24 * 60 * 60_000)).toBe("5d");
+  });
+  it("formats months for older timestamps", () => {
+    expect(fmtRelativeTime(now - 45 * 24 * 60 * 60_000)).toBe("1mo");
+  });
+  it("formats years for very old timestamps", () => {
+    expect(fmtRelativeTime(now - 400 * 24 * 60 * 60_000)).toBe("1y");
   });
 });
 

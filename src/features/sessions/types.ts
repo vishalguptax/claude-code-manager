@@ -158,4 +158,15 @@ export type WebviewMessage =
   | { type: "getAgents" }
   | { type: "openAgentFile"; path: string }
   | { type: "openFile"; path: string }
-  | { type: "openSettings" };
+  | { type: "openExtensionSettings" }
+  | { type: "getAccountData" }
+  | { type: "openAccountUrl"; url: string }
+  | { type: "launchSlash"; command: string }
+  | { type: "setModel"; model: string }
+  | { type: "setVoiceEnabled"; value: boolean }
+  | { type: "setCommitAttribution"; value: string }
+  | { type: "setPrAttribution"; value: string }
+  | { type: "openSettingsFile"; scope: "global" | "project" | "local" }
+  | { type: "addPermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }
+  | { type: "removePermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }
+  | { type: "promptAddPermission"; scope: "global" | "project" | "local"; list: "allow" | "deny" };
