@@ -338,7 +338,6 @@
   justify-content: center;
   background: none;
   border: none;
-  border-left: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.08)));
   color: var(--fg-muted);
   cursor: pointer;
 }
