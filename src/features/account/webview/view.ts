@@ -277,6 +277,11 @@ function renderSettingsSection(data: AccountData): string {
       ${renderSectionHeader("settings", "Settings", collapsed)}
       ${collapsed ? "" : `
       <div class="acct-section-body">
+        <div class="acct-notice">
+          ${icon("info", 13)}
+          <span>Changes apply to new Claude sessions. Running terminals keep their current settings until restarted.</span>
+        </div>
+
         <div class="acct-field">
           <label class="acct-label">Model</label>
           <select class="acct-select" id="acct-model">
@@ -331,6 +336,11 @@ function renderPermissionsSection(data: AccountData): string {
       ${renderSectionHeader("permissions", "Permissions", collapsed)}
       ${collapsed ? "" : `
       <div class="acct-section-body">
+        <div class="acct-notice">
+          ${icon("info", 13)}
+          <span>Changes apply to new Claude sessions. Running terminals keep their current permissions until restarted.</span>
+        </div>
+
         <div class="acct-scope-toggle" role="tablist">
           <button class="acct-scope ${scope === "global" ? "active" : ""}" data-scope="global" role="tab">Global</button>
           ${hasProjectScope ? `<button class="acct-scope ${scope === "project" ? "active" : ""}" data-scope="project" role="tab">Project</button>` : ""}

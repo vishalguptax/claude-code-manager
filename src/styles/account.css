@@ -415,3 +415,26 @@
   font-style: italic;
   padding: 4px 0;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Inline info notice
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.acct-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-lg);
+  background: rgba(88, 166, 255, 0.08);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  line-height: 1.5;
+}
+.acct-notice svg {
+  color: #58a6ff;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
