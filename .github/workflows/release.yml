@@ -18,6 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      # Expose secrets as job-level env so step-level `if:` can check existence.
+      # Missing secrets resolve to empty strings, letting the conditional skip cleanly.
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -65,15 +70,17 @@ jobs:
           git push
           git push --tags
 
+      # Publishes are non-blocking — a missing token or a marketplace hiccup
+      # must not stop the GitHub Release from being created below.
       - name: Publish to VS Code Marketplace
-        if: ${{ vars.VSCE_PAT != '' || secrets.VSCE_PAT != '' }}
+        if: ${{ env.VSCE_PAT != '' }}
+        continue-on-error: true
         run: npx @vscode/vsce publish --no-dependencies
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Publish to Open VSX
-        if: ${{ vars.OVSX_TOKEN != '' || secrets.OVSX_TOKEN != '' }}
-        run: npx ovsx publish dist/*.vsix -p ${{ secrets.OVSX_TOKEN }}
+        if: ${{ env.OVSX_TOKEN != '' }}
+        continue-on-error: true
+        run: npx ovsx publish dist/*.vsix -p "$OVSX_TOKEN"
 
       # Use curated release notes if present (docs/releases/v{version}.md),
       # otherwise fall back to GitHub's auto-generated notes.
@@ -89,6 +96,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
+        if: always() && steps.bump.outputs.version != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.bump.outputs.version }}
