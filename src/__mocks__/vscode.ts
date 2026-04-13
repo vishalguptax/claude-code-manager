@@ -16,7 +16,50 @@ export const workspace = {
   }),
 };
 
+export interface MockTerminal {
+  name: string;
+  exitStatus: { code: number | undefined } | undefined;
+  state: { isInteractedWith: boolean };
+  sentText: string[];
+  sendText: (text: string) => void;
+  show: () => void;
+  dispose: () => void;
+  createOptions?: Record<string, unknown>;
+}
+
+interface MockTab {
+  label: string;
+  input: unknown;
+}
+
+interface MockTabGroup {
+  viewColumn: number;
+  tabs: MockTab[];
+}
+
 export const window = {
+  terminals: [] as MockTerminal[],
+  createTerminal: (options: Record<string, unknown>): MockTerminal => {
+    const t: MockTerminal = {
+      name: typeof options.name === "string" ? options.name : "terminal",
+      exitStatus: undefined,
+      state: { isInteractedWith: false },
+      sentText: [],
+      sendText(text: string) {
+        this.sentText.push(text);
+      },
+      show() {},
+      dispose() {
+        this.exitStatus = { code: 0 };
+      },
+      createOptions: options,
+    };
+    window.terminals.push(t);
+    return t;
+  },
+  tabGroups: {
+    all: [] as MockTabGroup[],
+  },
   showInformationMessage: async (..._args: unknown[]) => undefined,
   showWarningMessage: async (..._args: unknown[]) => undefined,
   showErrorMessage: async (..._args: unknown[]) => undefined,
@@ -26,6 +69,8 @@ export const window = {
     dispose: () => {},
   }),
 };
+
+export class TabInputTerminal {}
 
 export const commands = {
   executeCommand: async (..._args: unknown[]) => undefined,
@@ -44,6 +89,8 @@ export const Uri = {
 };
 
 export enum ViewColumn {
+  Active = -1,
+  Beside = -2,
   One = 1,
   Two = 2,
   Three = 3,
