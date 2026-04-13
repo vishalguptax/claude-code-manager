@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.2] - 2026-04-13
+
+Fixes the retired shields.io Marketplace badges that rendered as "RETIRED BADGE" on the extension listing.
+
+See [docs/releases/v1.2.2.md](docs/releases/v1.2.2.md) for full details.
+
 ## [1.2.1] - 2026-04-13
 
 Smarter terminal handling (reuse + tab stacking + Windows path fix), a license switch to Apache 2.0, and a marketplace-facing README overhaul.
