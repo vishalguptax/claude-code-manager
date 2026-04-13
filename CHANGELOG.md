@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.3] - 2026-04-13
+
+Shrinks the packaged extension from 5.6 MB back to ~590 KB by compressing an oversized retina screenshot.
+
+See [docs/releases/v1.2.3.md](docs/releases/v1.2.3.md) for full details.
+
 ## [1.2.2] - 2026-04-13
 
 Fixes the retired shields.io Marketplace badges that rendered as "RETIRED BADGE" on the extension listing.
