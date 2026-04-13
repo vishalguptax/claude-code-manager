@@ -4,11 +4,12 @@
 
 <h1>Claude Manager</h1>
 
-<p><strong>The missing sidebar for <a href="https://claude.ai/code">Claude Code</a></strong></p>
+<p><strong>Every <a href="https://claude.ai/code">Claude Code</a> session, skill, command, hook, MCP server, and agent &mdash; one click away in your VS Code sidebar.</strong></p>
 
 <p>
-<a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager"><img src="https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace"></a>
-<a href="https://open-vsx.org/extension/vishalguptax/claude-manager"><img src="https://img.shields.io/badge/Open%20VSX-Registry-a60ee5?logo=eclipse&logoColor=white" alt="Open VSX"></a>
+<a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager"><img src="https://img.shields.io/visual-studio-marketplace/v/vishalguptax.claude-manager?label=VS%20Code%20Marketplace&color=007ACC&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace"></a>
+<a href="https://open-vsx.org/extension/vishalguptax/claude-manager"><img src="https://img.shields.io/open-vsx/v/vishalguptax/claude-manager?label=Open%20VSX&color=a60ee5&logo=eclipse&logoColor=white" alt="Open VSX"></a>
+<a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager"><img src="https://img.shields.io/visual-studio-marketplace/i/vishalguptax.claude-manager?label=Installs&color=4c1" alt="Installs"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-orange.svg" alt="License"></a>
 </p>
 
@@ -16,27 +17,44 @@
 
 <br>
 
-> Resume any Claude Code session in one click. Browse sessions, skills, commands, hooks, MCP servers, and agents from one panel in your sidebar. 100% local, zero telemetry.
-
-<br>
-
 <div align="center">
-<img src="media/screenshots/01-sessions.png" alt="Claude Manager sidebar showing the Sessions tab with pinned and recent sessions" width="420">
+<img src="media/screenshots/01-sessions.png" alt="Claude Manager sidebar showing pinned and recent Claude Code sessions with git branches" width="420">
 </div>
+
+<p align="center">
+<sub>100% local &bull; Zero telemetry &bull; Zero accounts &bull; Works in VS Code, Cursor, Windsurf, VSCodium, Codespaces, and Gitpod</sub>
+</p>
 
 <br>
 
 ## Install
 
-**VS Code / Cursor / Windsurf** &mdash; open Extensions (`Ctrl+Shift+X`), search `Claude Manager`, click Install.
+**VS Code &bull; Cursor &bull; Windsurf** &mdash; open Extensions (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>), search **Claude Manager**, click Install.
 
-**VSCodium / Theia / Gitpod** &mdash; install from [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager).
+**VSCodium &bull; Theia &bull; Gitpod** &mdash; install from [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager).
 
-Once installed, press **`Ctrl+Alt+C`** (`Cmd+Alt+C` on Mac) to open the panel. That's it.
+Then press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> (<kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> on Mac) to open the panel. That's it.
+
+<br>
+
+## Why it exists
+
+Claude Code is powerful, but the terminal isn't built for browsing. Finding a session you ran last week means scrollback hunting. Editing an MCP server means hand-patching JSON. Keeping track of every custom slash command, hook, and agent is its own job.
+
+Claude Manager turns all of it into a sidebar you can click and search. Same Claude Code underneath &mdash; just one keystroke closer.
 
 <br>
 
 ## What's inside
+
+- **Sessions** &mdash; resume any Claude Code session in one click, with git branch detection
+- **Skills** &mdash; browse global and project skills, copy, open, or launch Claude with one
+- **Commands** &mdash; 52 built-in slash commands plus your custom ones, one-click copy
+- **Hooks** &mdash; inspect automation hooks across global, project, and local scopes
+- **MCP Servers** &mdash; enable, disable, delete, or inspect &mdash; no JSON editing
+- **Agents** &mdash; browse project agents with Sonnet / Opus / Haiku badges
+- **Account** &mdash; profile, activity heatmap, token usage, permissions
+- **Status bar** &mdash; open Claude Manager from anywhere in your editor
 
 <table>
 <tr>
@@ -72,16 +90,17 @@ Once installed, press **`Ctrl+Alt+C`** (`Cmd+Alt+C` on Mac) to open the panel. T
 <td width="50%" valign="top" align="center">
 <img src="media/screenshots/07-account.png" alt="Account tab" width="360"><br>
 <strong>Account</strong><br>
-<sub>Profile, activity heatmap, token stats, and permissions — without leaving your editor.</sub>
+<sub>Profile, activity heatmap, token stats, and permissions &mdash; without leaving your editor.</sub>
 </td>
 </tr>
 </table>
 
 <br>
 
-## Sessions in depth
+## Sessions, in depth
 
 - **Smart grouping** &mdash; Today, This Week, This Month, Older
+- **Relative timestamps** &mdash; `now`, `2m`, `4h`, `3d`, `1mo`, `1y`
 - **Filter** by project, branch, or date range
 - **Pin** favorites &bull; **Rename** sessions &bull; **Fork** for alternate explorations
 - **Resume** with branch detection &mdash; warns if your current branch differs
@@ -93,7 +112,7 @@ Once installed, press **`Ctrl+Alt+C`** (`Cmd+Alt+C` on Mac) to open the panel. T
 
 ## Privacy
 
-**100% local.** Reads from `~/.claude/`, renders in a webview. Zero network requests. Zero telemetry. Your data never leaves your machine.
+**100% local.** Claude Manager reads from `~/.claude/` and renders in a VS Code webview. Zero network requests. Zero telemetry. Zero accounts. Your data never leaves your machine.
 
 <br>
 
@@ -107,15 +126,19 @@ Requires VS Code 1.85+ and [Claude Code](https://claude.ai/code) installed.
 
 ## Configuration
 
-Open Settings (`Ctrl+,`) and search **Claude Manager**. Available options: terminal location, editor position, default session filter, default project filter, restore workspace window. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full reference.
+Open Settings (<kbd>Ctrl</kbd>+<kbd>,</kbd>) and search **Claude Manager**. Available options:
+
+- Terminal location (editor vs. panel) and editor position
+- Default session filter and default project filter
+- Restore Workspace time window
+
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full reference.
 
 <br>
 
 ## Contributing
 
 Found a bug? [Open an issue](https://github.com/vishalguptax/claude-code-manager/issues/new). PRs welcome.
-
-See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 <br>
 
