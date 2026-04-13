@@ -166,4 +166,4 @@ Or upload at https://open-vsx.org after logging in.
 
 # License
 
-[BSL 1.1](../LICENSE) — free to use, modify, and contribute. Cannot fork as a competing extension. Converts to MIT on April 9, 2030.
+[Apache 2.0](../LICENSE) — free to use, modify, and distribute, with an explicit patent grant and defensive termination.
