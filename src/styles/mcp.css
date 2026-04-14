@@ -193,12 +193,6 @@
   color: var(--fg);
 }
 
-.mcp-detail-actions {
-  display: flex;
-  gap: 5px;
-  padding: 0 var(--space-2xl) var(--space-lg);
-}
-
 .mcp-detail-section {
   padding: var(--space-lg) var(--space-2xl) var(--space-xl);
   border-top: 1px solid var(--border);

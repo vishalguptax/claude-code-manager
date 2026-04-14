@@ -78,12 +78,9 @@ export function showMcpDetail(container: HTMLElement): void {
 
     <div class="d-actions">
       <button class="btn primary" id="mcpToggle">${icon(server.disabled ? "play" : "x")} ${server.disabled ? "Enable" : "Disable"}</button>
-      <div class="d-actions-secondary">
-        <button class="btn" id="mcpOpenClaude">${icon("play")} Open Claude</button>
-        <button class="btn" id="mcpCopyName">${icon("copy")} Copy Name</button>
-        <button class="btn" id="mcpOpenConfig">${icon("external-link")} Open Config</button>
-      </div>
-      <div class="d-actions-divider"></div>
+      <button class="btn" id="mcpOpenClaude">${icon("play")} Open Claude</button>
+      <button class="btn" id="mcpCopyName">${icon("copy")} Copy Name</button>
+      <button class="btn" id="mcpOpenConfig">${icon("external-link")} Open Config</button>
       <button class="btn del" id="mcpDelete">${icon("trash-2")} Delete</button>
     </div>
 

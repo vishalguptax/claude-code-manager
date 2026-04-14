@@ -52,9 +52,7 @@ export function showHookDetail(container: HTMLElement): void {
 
     <div class="d-actions">
       <button class="btn primary" id="hookCopy">${icon("copy")} Copy command</button>
-      <div class="d-actions-secondary">
-        <button class="btn" id="hookOpenFile">${icon("external-link")} Open settings file</button>
-      </div>
+      <button class="btn" id="hookOpenFile">${icon("external-link")} Open settings file</button>
     </div>
 
     <div class="d-scroll">

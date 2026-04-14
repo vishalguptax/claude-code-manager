@@ -154,9 +154,13 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .acct-actions {
-  display: flex;
+  /* Grid auto-fit so multi-button rows in account sections stay even
+     when they wrap on narrow panels. Buttons here have wider labels
+     ("Open settings.json", "Open /config") so the min track is larger
+     than the sessions toolbar. */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: var(--space-sm);
-  flex-wrap: wrap;
   margin-top: var(--space-lg);
 }
 

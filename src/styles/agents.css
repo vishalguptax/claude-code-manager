@@ -146,10 +146,12 @@
 }
 
 .agent-detail-actions {
-  display: flex;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+  gap: 6px;
   padding: 0 var(--space-2xl) var(--space-lg);
 }
+.agent-detail-actions > .btn { justify-content: center; }
 
 .agent-detail-path {
   padding: 0 var(--space-2xl) var(--space-lg);

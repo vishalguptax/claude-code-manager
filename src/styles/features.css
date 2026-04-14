@@ -158,10 +158,12 @@
 }
 
 .cmd-detail-actions {
-  display: flex;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px;
   padding: 0 var(--space-2xl) var(--space-lg);
 }
+.cmd-detail-actions > .btn { justify-content: center; }
 
 .cmd-detail-path {
   padding: 0 var(--space-2xl) var(--space-lg);

@@ -9,16 +9,25 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .actions-bar {
-  display: flex;
+  /* Grid instead of flex-wrap so the toolbar buttons distribute evenly
+     when they wrap. The min track size must accommodate the longest
+     label ("Restore Workspace" ≈ 135px) — anything smaller would clip
+     the label inside its column. At widths below 270px the grid drops
+     to a single stacked column, which is cleaner than truncating text. */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   gap: var(--space-xs);
   padding: var(--space-md) var(--space-xl) var(--space-xs);
-  flex-wrap: wrap;
   flex-shrink: 0;
 }
 
 .action-btn {
   display: flex;
   align-items: center;
+  /* Center icon+label so when the grid stretches a button wider than
+     its natural content (orphaned-row case) the contents stay balanced
+     instead of left-aligning into empty space. */
+  justify-content: center;
   gap: 5px;
   padding: 5px var(--space-lg);
   background: var(--bg-hover);

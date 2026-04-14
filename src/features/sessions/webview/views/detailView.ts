@@ -4,7 +4,7 @@
  */
 
 import { icon } from "../../../../webview/icons";
-import { esc, fmtTime, flash } from "../../../../webview/utils";
+import { esc, fmtTime, fmtDuration, flash } from "../../../../webview/utils";
 import {
   sendResumeSession,
   sendOpenProject,
@@ -49,7 +49,7 @@ export function showDetail(): void {
 
   const date = new Date(d.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const time = fmtTime(d.startTime);
-  const dur = Math.round((d.endTime - d.startTime) / 60000);
+  const dur = fmtDuration(d.endTime - d.startTime);
   const branch = d.branch && d.branch !== "HEAD" ? d.branch : "";
   const currentProjectName = getCurrentProjectName();
   const isDiffProject = currentProjectName && d.projectKey !== currentProjectName;
@@ -65,7 +65,7 @@ export function showDetail(): void {
         ${branch ? `<span class="tag">${esc(branch)}</span>` : ""}
         <span class="tag folder">${esc(d.project)}</span>
       </div>
-      <div class="d-meta">${date} at ${time} · ${dur > 0 ? dur + "m" : "<1m"} · ${d.messageCount} msgs</div>
+      <div class="d-meta">${date} at ${time} · ${dur} · ${d.messageCount} msgs</div>
     </div>
 
     ${isDiffProject ? `
@@ -75,24 +75,18 @@ export function showDetail(): void {
     </div>
     <div class="d-actions">
       <button class="btn primary" id="btnOpenProject">${icon("external-link")} Open ${esc(d.project)}</button>
-      <div class="d-actions-secondary">
-        <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
-        <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
-        <button class="btn" id="btnExport" title="Save this session as a portable .jsonl">${icon("download")} Export</button>
-      </div>
-      <div class="d-actions-divider"></div>
+      <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
+      <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
+      <button class="btn" id="btnExport" title="Save this session as a portable .jsonl">${icon("upload")} Export</button>
       <button class="btn del" id="btnDelete">${icon("trash-2")} Delete</button>
     </div>` : `
     <div class="d-actions">
       <button class="btn primary" id="btnResume">${icon("play")} Resume</button>
-      <div class="d-actions-secondary">
-        <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
-        <button class="btn" id="btnFork">${icon("git-fork")} Fork</button>
-        <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
-        <button class="btn" id="btnCopyCmd">${icon("terminal")} Copy Cmd</button>
-        <button class="btn" id="btnExport" title="Save this session as a portable .jsonl">${icon("download")} Export</button>
-      </div>
-      <div class="d-actions-divider"></div>
+      <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
+      <button class="btn" id="btnFork">${icon("git-fork")} Fork</button>
+      <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
+      <button class="btn" id="btnCopyCmd">${icon("terminal")} Copy Cmd</button>
+      <button class="btn" id="btnExport" title="Save this session as a portable .jsonl">${icon("upload")} Export</button>
       <button class="btn del" id="btnDelete">${icon("trash-2")} Delete</button>
     </div>`}
 

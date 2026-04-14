@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { esc, fmtTime, fmtRelativeTime, dateLabel, dayStart } from "../utils";
+import { esc, fmtTime, fmtRelativeTime, fmtDuration, dateLabel, dayStart } from "../utils";
 
 describe("esc", () => {
   it("escapes HTML special characters", () => {
@@ -78,6 +78,38 @@ describe("fmtRelativeTime", () => {
   });
   it("formats years for very old timestamps", () => {
     expect(fmtRelativeTime(now - 400 * 24 * 60 * 60_000)).toBe("1y");
+  });
+});
+
+describe("fmtDuration", () => {
+  it("returns <1m for sub-minute durations", () => {
+    expect(fmtDuration(0)).toBe("<1m");
+    expect(fmtDuration(30_000)).toBe("<1m");
+    expect(fmtDuration(59_999)).toBe("<1m");
+  });
+
+  it("formats whole minutes under one hour", () => {
+    expect(fmtDuration(60_000)).toBe("1m");
+    expect(fmtDuration(30 * 60_000)).toBe("30m");
+    expect(fmtDuration(59 * 60_000)).toBe("59m");
+  });
+
+  it("formats hours and minutes between 1h and 24h", () => {
+    expect(fmtDuration(60 * 60_000)).toBe("1h 0m");
+    expect(fmtDuration(2 * 60 * 60_000 + 25 * 60_000)).toBe("2h 25m");
+    expect(fmtDuration(23 * 60 * 60_000 + 59 * 60_000)).toBe("23h 59m");
+  });
+
+  it("formats days and hours for sessions spanning more than a day", () => {
+    expect(fmtDuration(24 * 60 * 60_000)).toBe("1d 0h");
+    // 19714 minutes — the user-reported case
+    expect(fmtDuration(19714 * 60_000)).toBe("13d 16h");
+    expect(fmtDuration(7 * 24 * 60 * 60_000)).toBe("7d 0h");
+  });
+
+  it("never returns a unit that does not fit (no '0d 5h' or '0h 30m')", () => {
+    expect(fmtDuration(5 * 60 * 60_000)).toBe("5h 0m");
+    expect(fmtDuration(30 * 60_000)).toBe("30m");
   });
 });
 

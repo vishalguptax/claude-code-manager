@@ -52,6 +52,31 @@ export function fmtRelativeTime(ts: number): string {
 }
 
 /**
+ * Format a duration in milliseconds as a compact human-readable string.
+ *
+ * Auto-scales the unit so a 13-day session does not render as "19714m":
+ *   <  1 minute → "<1m"
+ *   <  1 hour   → "30m"
+ *   <  1 day    → "2h 25m"
+ *   >= 1 day    → "13d 16h"
+ *
+ * Days drop the minutes and hours drop the seconds — at those scales the
+ * tail unit is noise. We always show two units max so the string stays
+ * narrow enough to fit in a metadata row.
+ */
+export function fmtDuration(ms: number): string {
+  if (ms < 60000) return "<1m";
+  const totalMins = Math.floor(ms / 60000);
+  if (totalMins < 60) return `${totalMins}m`;
+  const totalHours = Math.floor(totalMins / 60);
+  const minsPart = totalMins % 60;
+  if (totalHours < 24) return `${totalHours}h ${minsPart}m`;
+  const days = Math.floor(totalHours / 24);
+  const hoursPart = totalHours % 24;
+  return `${days}d ${hoursPart}h`;
+}
+
+/**
  * Return a human-readable group label for a given timestamp.
  * Possible values: "Today", "Yesterday", "This Week", or "Month Year".
  */
