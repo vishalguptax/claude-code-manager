@@ -7,6 +7,7 @@ import { icon } from "../../../../webview/icons";
 import { esc, dateLabel, renderEmptyState } from "../../../../webview/utils";
 import {
   sendNewSession,
+  sendContinueLastSession,
   sendResumeSession,
   sendResumeMultiple,
   sendRefresh,
@@ -48,8 +49,9 @@ export function mountShell(): void {
     <div class="panel" id="listView">
       <div class="actions-bar">
         <button class="action-btn" id="actNew" title="Start a new Claude Code session in a fresh terminal">${icon("plus")} New</button>
+        <button class="action-btn" id="actContinue" title="Continue your most recent Claude session in this workspace (claude --continue)">${icon("history")} Continue</button>
         <button class="action-btn" id="actAll" title="Reopen all terminals from your last working session">${icon("split-square-horizontal")} Restore Workspace</button>
-        <button class="action-btn" id="actImport" title="Import a session exported from another machine">${icon("upload")} Import</button>
+        <button class="action-btn" id="actImport" title="Import a session exported from another machine">${icon("download")} Import</button>
       </div>
       ${renderSearchBar()}
       ${renderDropdown()}
@@ -63,6 +65,7 @@ export function mountShell(): void {
   bindDateChips(updateList);
 
   document.getElementById("actNew")?.addEventListener("click", () => sendNewSession());
+  document.getElementById("actContinue")?.addEventListener("click", () => sendContinueLastSession());
   document.getElementById("actAll")?.addEventListener("click", () => {
     const lastGroup = getLastSessionGroup();
     if (lastGroup.length) {

@@ -43,6 +43,22 @@ export function newSession(): void {
 }
 
 /**
+ * Continue the most recent Claude Code session in the current workspace.
+ *
+ * Wraps `claude --continue`, which Claude CLI resolves to the most recently
+ * active session whose stored cwd matches the terminal's cwd. The terminal
+ * is opened at the active workspace folder so the cwd lookup succeeds; if
+ * no workspace is open, Claude is launched at its default working directory
+ * and `--continue` will fall through to "no recent session" inside Claude.
+ */
+export function continueLastSession(): void {
+  const cwd = getWorkspace();
+  const term = createTerminal("Claude: continue", cwd || undefined);
+  term.show();
+  term.sendText("claude --continue");
+}
+
+/**
  * Copy the resume command for a session to the clipboard and show a notification.
  */
 export function copyResumeCommand(sessionId: string): void {

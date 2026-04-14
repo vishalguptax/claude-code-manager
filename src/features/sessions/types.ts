@@ -140,6 +140,7 @@ export type ExtensionMessage =
 export type WebviewMessage =
   | { type: "ready" }
   | { type: "refresh" }
+  | { type: "continueLastSession" }
   | { type: "getSessionDetail"; sessionId: string }
   | { type: "search"; query: string }
   | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }

@@ -30,6 +30,11 @@ export function sendNewSession(): void {
   _vscode.postMessage({ type: "newSession" });
 }
 
+/** Continue the most recent Claude Code session in the current workspace. */
+export function sendContinueLastSession(): void {
+  _vscode.postMessage({ type: "continueLastSession" });
+}
+
 /** Resume a specific session in the terminal. */
 export function sendResumeSession(sessionId: string, entrypoint: string, projectPath: string): void {
   _vscode.postMessage({ type: "resumeSession", sessionId, entrypoint, projectPath });

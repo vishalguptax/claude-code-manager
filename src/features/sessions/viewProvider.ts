@@ -17,6 +17,7 @@ import { loadState, pinSession, unpinSession, deleteSession, renameSession } fro
 import {
   openProject,
   newSession,
+  continueLastSession,
   copyResumeCommand,
   copyMarkdown,
   confirmDeleteSession,
@@ -316,6 +317,10 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         newSession();
         break;
 
+      case "continueLastSession":
+        continueLastSession();
+        break;
+
       case "forkSession":
         await resumeSession(msg.sessionId, true, this.sessions);
         break;
@@ -381,8 +386,17 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case "resumeMultiple":
-        for (const sid of msg.sessionIds) {
-          await resumeSession(sid, false, this.sessions);
+        // Sequential with a short delay between iterations: VS Code
+        // registers a new terminal's tab in tabGroups.all asynchronously,
+        // so calling createTerminal() in a tight loop made the second
+        // and later terminals see an empty tab list and open in fresh
+        // editor groups. The 80ms gap gives VS Code's event loop a tick
+        // to register the previous tab before findExistingTerminalColumn
+        // runs again — the result is all restored terminals stacked as
+        // tabs in a single editor group instead of N split panels.
+        for (let i = 0; i < msg.sessionIds.length; i++) {
+          if (i > 0) await new Promise((r) => setTimeout(r, 80));
+          await resumeSession(msg.sessionIds[i], false, this.sessions);
         }
         break;
 

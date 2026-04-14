@@ -139,6 +139,10 @@ export const ICONS: Record<string, string> = {
   /** Upload arrow — used for the Import Session toolbar button */
   "upload":
     `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>`,
+
+  /** History — clock with a counterclockwise arrow, used for "Continue last session" */
+  "history":
+    `<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>`,
 };
 
 /**
