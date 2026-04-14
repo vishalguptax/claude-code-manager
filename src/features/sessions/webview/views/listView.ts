@@ -11,6 +11,7 @@ import {
   sendResumeMultiple,
   sendRefresh,
   sendGetSessionDetail,
+  sendImportSession,
 } from "../api";
 import {
   getAllSessions,
@@ -48,6 +49,7 @@ export function mountShell(): void {
       <div class="actions-bar">
         <button class="action-btn" id="actNew" title="Start a new Claude Code session in a fresh terminal">${icon("plus")} New</button>
         <button class="action-btn" id="actAll" title="Reopen all terminals from your last working session">${icon("split-square-horizontal")} Restore Workspace</button>
+        <button class="action-btn" id="actImport" title="Import a session exported from another machine">${icon("upload")} Import</button>
       </div>
       ${renderSearchBar()}
       ${renderDropdown()}
@@ -67,6 +69,7 @@ export function mountShell(): void {
       sendResumeMultiple(lastGroup.map((s) => s.id), lastGroup.map((s) => s.projectPath));
     }
   });
+  document.getElementById("actImport")?.addEventListener("click", () => sendImportSession());
   document.getElementById("sessionsRefresh")?.addEventListener("click", () => sendRefresh());
 
   // Event delegation on session list — bind once, survives innerHTML updates

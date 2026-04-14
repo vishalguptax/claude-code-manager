@@ -84,3 +84,16 @@ export function sendOpenProject(projectPath: string): void {
 export function sendOpenUrl(url: string): void {
   _vscode.postMessage({ type: "openUrl", url });
 }
+
+/** Export a session to a portable .jsonl file via Save dialog. */
+export function sendExportSession(sessionId: string): void {
+  _vscode.postMessage({ type: "exportSession", sessionId });
+}
+
+/**
+ * Import a portable session .jsonl. Triggers the file picker, project
+ * picker, validation, copy, and terminal launch flow on the extension side.
+ */
+export function sendImportSession(): void {
+  _vscode.postMessage({ type: "importSession" });
+}

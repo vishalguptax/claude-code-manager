@@ -11,6 +11,7 @@ import {
   sendCopyCommand,
   sendConfirmDelete,
   sendRenameSession,
+  sendExportSession,
 } from "../api";
 
 /**
@@ -32,6 +33,8 @@ export function showContextMenu(e: MouseEvent, sessionId: string, isPinned: bool
     <div class="ctx-item" data-action="fork"><span class="ctx-icon">${icon("git-fork")}</span>Fork &amp; Resume</div>
     <div class="ctx-item" data-action="copyCmd"><span class="ctx-icon">${icon("terminal")}</span>Copy resume command</div>
     <div class="ctx-item" data-action="copyId"><span class="ctx-icon">${icon("copy")}</span>Copy session ID</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" data-action="export"><span class="ctx-icon">${icon("download")}</span>Export session…</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item del" data-action="delete"><span class="ctx-icon">${icon("trash-2")}</span>Delete session</div>
   `;
@@ -73,6 +76,9 @@ export function showContextMenu(e: MouseEvent, sessionId: string, isPinned: bool
           break;
         case "copyId":
           navigator.clipboard?.writeText(sessionId);
+          break;
+        case "export":
+          sendExportSession(sessionId);
           break;
         case "delete":
           confirmDelete(sessionId);
