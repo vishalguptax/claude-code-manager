@@ -231,10 +231,13 @@
   min-width: 0;
 }
 .acct-heat-cell.empty { background: transparent; }
-.acct-heat-cell.lvl-0 { background: var(--bg-hover); opacity: 0.4; }
-.acct-heat-cell.lvl-1 { background: rgba(255,153,102,0.2); }
-.acct-heat-cell.lvl-2 { background: rgba(255,153,102,0.45); }
-.acct-heat-cell.lvl-3 { background: rgba(255,153,102,0.7); }
+/* Single-hue ramp with monotonically increasing intensity. The previous
+   ramp mixed bg-hover@0.4 (lvl-0) with orange@0.2 (lvl-1), which on dark
+   themes made a no-activity day look brighter than a 1-message day. */
+.acct-heat-cell.lvl-0 { background: rgba(255,153,102,0.08); }
+.acct-heat-cell.lvl-1 { background: rgba(255,153,102,0.30); }
+.acct-heat-cell.lvl-2 { background: rgba(255,153,102,0.55); }
+.acct-heat-cell.lvl-3 { background: rgba(255,153,102,0.80); }
 .acct-heat-cell.lvl-4 { background: #FF9966; }
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -256,8 +259,9 @@
 }
 
 .acct-stat-v {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-xl);
   font-weight: 600;
+  line-height: 1.1;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
 }
@@ -303,16 +307,82 @@
   margin-bottom: 4px;
 }
 
-.acct-label-inline {
+/*
+ * Toggle switch — replaces the native checkbox for binary settings that
+ * apply immediately (no Save button). The real <input type="checkbox"> is
+ * kept inside the label so semantics, keyboard nav, and screen readers
+ * still work; the visual track + thumb is rendered by sibling spans.
+ */
+.acct-toggle {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   margin-bottom: 0;
   cursor: pointer;
+  user-select: none;
 }
-.acct-label-inline input[type="checkbox"] {
-  accent-color: var(--accent);
-  cursor: pointer;
+.acct-toggle input[type="checkbox"] {
+  /* Keep the input in the accessibility tree but hide it visually. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.acct-toggle-track {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  /* Compact size — Linear/GitHub-style instead of iOS-style. */
+  width: 24px;
+  height: 14px;
+  background: rgba(127, 127, 127, 0.35);
+  border-radius: 7px;
+  transition: background 150ms ease;
+}
+.acct-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  /* OFF state: dim thumb so it does not steal attention. The state
+     change comes from BOTH track color AND thumb brightness, which
+     makes "on" much more visible than just shifting the track. */
+  background: rgba(255, 255, 255, 0.65);
+  border-radius: 50%;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+  transition: transform 150ms ease, background 150ms ease;
+}
+/* ON state: use the saturated VS Code button background (a true accent
+   color, not the focus-border which can be a thin outline). Falls back
+   to --accent if the theme does not define button-background. The thumb
+   simultaneously snaps to full white for maximum contrast against the
+   colored track. */
+.acct-toggle input:checked ~ .acct-toggle-track {
+  background: var(--vscode-button-background, var(--accent));
+}
+.acct-toggle input:checked ~ .acct-toggle-track .acct-toggle-thumb {
+  transform: translateX(10px);
+  /* Off-white even when on — full #fff blows out against the saturated
+     accent track. 0.88 keeps the thumb readable without screaming. */
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.acct-toggle:hover .acct-toggle-track {
+  filter: brightness(1.15);
+}
+.acct-toggle input:focus-visible ~ .acct-toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.acct-toggle-text {
+  font-size: var(--fs-sm);
+  color: var(--fg);
 }
 
 .acct-input,
@@ -330,6 +400,37 @@
 .acct-select:focus {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
+}
+
+/*
+ * Custom-arrow wrapper for <select>. We strip the native browser dropdown
+ * indicator (which renders inconsistently across themes — sometimes black
+ * on dark backgrounds, sometimes oversized) and replace it with our
+ * existing Lucide chevron, theme-tinted via currentColor.
+ */
+.acct-select-wrap {
+  position: relative;
+}
+.acct-select-wrap .acct-select {
+  /* Hide the native arrow on every engine. */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  /* Reserve room on the right so text never collides with our arrow. */
+  padding-right: 28px;
+}
+/* Older Edge / IE-like rendering puts a clear button — kill it too. */
+.acct-select-wrap .acct-select::-ms-expand {
+  display: none;
+}
+.acct-select-arrow {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-muted);
+  pointer-events: none;
+  display: inline-flex;
 }
 
 .acct-code {
@@ -462,4 +563,16 @@
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   font-style: italic;
+}
+
+/*
+ * Helper text shown directly under an input/select. Used for the model
+ * dropdown to mirror Claude CLI's per-option description without forcing
+ * the dropdown options themselves to be multi-line.
+ */
+.acct-field-hint {
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  line-height: 1.4;
 }

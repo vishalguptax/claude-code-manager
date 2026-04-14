@@ -28,6 +28,19 @@ import {
 } from "./state";
 import type { AccountData, DailyActivity, PermissionScope } from "../types";
 
+/**
+ * Helper-line descriptions for each model option. Default explicitly
+ * names the underlying model (Opus 4.6 + 1M context) so the user knows
+ * the recommended pick isn't a separate model. The other entries stay
+ * version-free so they don't go stale when Claude bumps a model.
+ */
+const MODEL_DESCRIPTIONS: Record<string, string> = {
+  default: "1M context · most capable",
+  sonnet: "Balanced daily driver",
+  haiku: "Fastest, lightest",
+  opus: "Deepest reasoning",
+};
+
 /** Render the entire account tab into the given container. */
 export function renderAccount(container: HTMLElement): void {
   if (isLoading() && !getAccountData()) {
@@ -333,18 +346,23 @@ function renderSettingsSection(data: AccountData): string {
       <div class="acct-section-body">
         <div class="acct-field">
           <label class="acct-label">Model</label>
-          <select class="acct-select" id="acct-model">
-            <option value="default" ${currentModel === "default" ? "selected" : ""}>Default (recommended)</option>
-            <option value="sonnet" ${currentModel === "sonnet" ? "selected" : ""}>Sonnet</option>
-            <option value="opus" ${currentModel === "opus" ? "selected" : ""}>Opus</option>
-            <option value="haiku" ${currentModel === "haiku" ? "selected" : ""}>Haiku</option>
-          </select>
+          <div class="acct-select-wrap">
+            <select class="acct-select" id="acct-model">
+              <option value="default" ${currentModel === "default" ? "selected" : ""}>Default (Opus 4.6)</option>
+              <option value="sonnet" ${currentModel === "sonnet" ? "selected" : ""}>Sonnet</option>
+              <option value="haiku" ${currentModel === "haiku" ? "selected" : ""}>Haiku</option>
+              <option value="opus" ${currentModel === "opus" ? "selected" : ""}>Opus</option>
+            </select>
+            <span class="acct-select-arrow" aria-hidden="true">${icon("chevron-down", 14)}</span>
+          </div>
+          <div class="acct-field-hint" id="acct-model-desc">${esc(MODEL_DESCRIPTIONS[currentModel] ?? "")}</div>
         </div>
 
         <div class="acct-field">
-          <label class="acct-label acct-label-inline">
+          <label class="acct-toggle">
             <input type="checkbox" id="acct-voice" ${s.voiceEnabled ? "checked" : ""}>
-            <span>Voice dictation</span>
+            <span class="acct-toggle-track" aria-hidden="true"><span class="acct-toggle-thumb"></span></span>
+            <span class="acct-toggle-text">Voice dictation</span>
           </label>
         </div>
 
@@ -500,8 +518,10 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
   };
 
   const modelSelect = container.querySelector<HTMLSelectElement>("#acct-model");
+  const modelDesc = container.querySelector<HTMLElement>("#acct-model-desc");
   modelSelect?.addEventListener("change", () => {
     sendSetModel(modelSelect.value === "default" ? "" : modelSelect.value);
+    if (modelDesc) modelDesc.textContent = MODEL_DESCRIPTIONS[modelSelect.value] ?? "";
     flashSaved(modelSelect);
   });
 
