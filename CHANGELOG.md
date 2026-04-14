@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.1] - 2026-04-14
+
+Layout fixes for action button rows across every detail view, a new Continue toolbar button, and a fix for Restore Workspace opening terminals in separate panels.
+
+See [docs/releases/v1.3.1.md](docs/releases/v1.3.1.md) for full details.
+
 ## [1.3.0] - 2026-04-14
 
 Cross-machine session import/export, a deep audit of session-list bugs and edge cases, and a polish pass over the Account tab.
