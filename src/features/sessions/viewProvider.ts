@@ -11,6 +11,7 @@ import {
   getUniqueProjects,
   searchSessions,
   filterSessions,
+  getLastParseWarning,
 } from "./parser";
 import { loadState, pinSession, unpinSession, deleteSession, renameSession } from "./state";
 import {
@@ -21,6 +22,8 @@ import {
   confirmDeleteSession,
   promptRenameSession,
   resumeSession,
+  exportSessionFile,
+  importSessionFile,
 } from "./commands";
 import { getWebviewHtml } from "../../extension/html";
 import { getWorkspace } from "../../extension/workspace";
@@ -45,6 +48,7 @@ import type { McpServer } from "../mcp/types";
 import type { Agent } from "../agents/types";
 import * as path from "path";
 import * as os from "os";
+import * as fs from "fs";
 
 /**
  * Provides the webview content for the Claude Manager sidebar panel.
@@ -59,6 +63,8 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private mcpServers: McpServer[] = [];
   private agents: Agent[] = [];
   private watchers: vscode.FileSystemWatcher[] = [];
+  /** VS Code event subscriptions tied to a single webview lifecycle. */
+  private viewSubscriptions: vscode.Disposable[] = [];
   /** Debounce timer for account data re-parse on file changes. */
   private accountReparseTimer: NodeJS.Timeout | undefined;
   /** Debounce timer for session list re-parse on file changes. */
@@ -78,7 +84,53 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
     // Set up file watchers once per webview lifecycle
     this.setupWatchers();
-    view.onDidDispose(() => this.disposeWatchers());
+
+    // Re-sync workspace path whenever folders change. Without this, switching
+    // workspaces or having the workspace resolve after the initial "ready"
+    // handshake leaves the webview stuck on a stale (or empty) project name.
+    this.viewSubscriptions.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        this.postWorkspacePath();
+      }),
+    );
+
+    view.onDidDispose(() => {
+      // Clear `view` so any pending debounce timers find a null webview and
+      // bail instead of posting to a disposed surface.
+      this.view = undefined;
+      this.disposeWatchers();
+      for (const sub of this.viewSubscriptions) sub.dispose();
+      this.viewSubscriptions = [];
+    });
+  }
+
+  /**
+   * Push the current workspace path to the webview. Idempotent — safe to call
+   * from multiple lifecycle hooks (initial ready, folder change, session
+   * reload). Used as the recovery for the cold-start race where
+   * workspace.workspaceFolders is briefly undefined while VS Code initializes.
+   */
+  private postWorkspacePath(): void {
+    const wv = this.view?.webview;
+    if (!wv) return;
+    wv.postMessage({ type: "workspacePath", data: getWorkspace() });
+  }
+
+  /**
+   * Push the current settings to the webview. Called from the initial ready
+   * handshake and again whenever VS Code settings change so the panel reacts
+   * without needing a reload.
+   */
+  refreshSettings(): void {
+    const wv = this.view?.webview;
+    if (!wv) return;
+    const sessConfig = vscode.workspace.getConfiguration("claudeManager.sessions");
+    wv.postMessage({
+      type: "settings",
+      defaultFilter: sessConfig.get<string>("defaultFilter", "recent"),
+      defaultProject: sessConfig.get<string>("defaultProject", "current"),
+      restoreWindowMinutes: sessConfig.get<number>("restoreWindowMinutes", 30),
+    });
   }
 
   /**
@@ -91,11 +143,24 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
     // Account-relevant files live in ~/.claude/ and ~/.claude.json.
     // VS Code's createFileSystemWatcher uses native OS file events (no polling).
+    //
+    // Resolve symlinks: on Windows (and some Linux configs) FileSystemWatcher
+    // does not bubble events from the symlink target through the link. Users
+    // with dotfile setups often have ~/.claude as a symlink — without this
+    // resolve, sessions never refresh until they manually click reload.
     const home = os.homedir();
+    let claudeDir = path.join(home, ".claude");
+    try {
+      claudeDir = fs.realpathSync(claudeDir);
+    } catch {
+      // Directory doesn't exist yet (brand-new machine) — fall through with
+      // the unresolved path so the watcher attaches when Claude creates it.
+    }
+
     const watchPatterns = [
       new vscode.RelativePattern(vscode.Uri.file(home), ".claude.json"),
       new vscode.RelativePattern(
-        vscode.Uri.file(path.join(home, ".claude")),
+        vscode.Uri.file(claudeDir),
         "{settings.json,stats-cache.json,.credentials.json}",
       ),
     ];
@@ -141,11 +206,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     // hammer the parser on every tool call.
     const sessionWatchPatterns = [
       new vscode.RelativePattern(
-        vscode.Uri.file(path.join(home, ".claude")),
+        vscode.Uri.file(claudeDir),
         "history.jsonl",
       ),
       new vscode.RelativePattern(
-        vscode.Uri.file(path.join(home, ".claude", "projects")),
+        vscode.Uri.file(path.join(claudeDir, "projects")),
         "**/*.jsonl",
       ),
     ];
@@ -157,12 +222,19 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         if (!wv) return;
         try {
           this.sessions = parseSessions(loadState().renames);
+          // Belt-and-suspenders for the cold-start race: re-post workspace
+          // path on every reload so the webview's project filter recovers
+          // even if the initial "ready" handshake fired before VS Code
+          // resolved its workspace folders.
+          this.postWorkspacePath();
           wv.postMessage({
             type: "sessions",
             data: groupSessions(this.sessions),
             stats: getStats(this.sessions),
           });
           wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
+          const warning = getLastParseWarning();
+          if (warning) wv.postMessage({ type: "error", message: warning });
         } catch (err) {
           console.warn("[claude-manager] sessions reparse failed:", err);
         }
@@ -197,17 +269,13 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     switch (msg.type) {
       case "ready": {
         this.sessions = parseSessions(loadState().renames);
-        const sessConfig = vscode.workspace.getConfiguration("claudeManager.sessions");
-        wv.postMessage({ type: "workspacePath", data: getWorkspace() });
-        wv.postMessage({
-          type: "settings",
-          defaultFilter: sessConfig.get<string>("defaultFilter", "recent"),
-          defaultProject: sessConfig.get<string>("defaultProject", "current"),
-          restoreWindowMinutes: sessConfig.get<number>("restoreWindowMinutes", 30),
-        });
+        this.postWorkspacePath();
+        this.refreshSettings();
         wv.postMessage({ type: "sessions", data: groupSessions(this.sessions), stats: getStats(this.sessions) });
         wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
         wv.postMessage({ type: "userState", ...loadState() });
+        const warning = getLastParseWarning();
+        if (warning) wv.postMessage({ type: "error", message: warning });
         break;
       }
 
@@ -320,6 +388,29 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "copyMarkdown":
         copyMarkdown(msg.sessionId, this.sessions);
+        break;
+
+      case "exportSession":
+        await exportSessionFile(msg.sessionId, this.sessions);
+        break;
+
+      case "importSession":
+        await importSessionFile(this.sessions, () => {
+          // Re-parse so the imported session shows up in the list. We
+          // route through the existing reload path instead of duplicating
+          // the message-build logic — this also re-posts workspace path
+          // and surfaces any schema-drift warning.
+          this.sessions = parseSessions(loadState().renames);
+          const wv2 = this.view?.webview;
+          if (!wv2) return;
+          this.postWorkspacePath();
+          wv2.postMessage({
+            type: "sessions",
+            data: groupSessions(this.sessions),
+            stats: getStats(this.sessions),
+          });
+          wv2.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
+        });
         break;
 
       case "openUrl":

@@ -4,6 +4,7 @@
  */
 import * as vscode from "vscode";
 import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
+import { setSessionStorage } from "../features/sessions/commands";
 import { setExtensionUri } from "./terminal";
 
 /**
@@ -11,6 +12,9 @@ import { setExtensionUri } from "./terminal";
  */
 export function activate(context: vscode.ExtensionContext): void {
   setExtensionUri(context.extensionUri);
+  // Wire persistent storage into the sessions commands module so the
+  // export/import dialogs can remember the last folder the user chose.
+  setSessionStorage(context.globalState);
   const provider = new ClaudeSessionViewProvider(context.extensionUri);
 
   context.subscriptions.push(
@@ -24,6 +28,17 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.open", () => {
       vscode.commands.executeCommand("claudeCodeManager.view.focus");
+    }),
+  );
+
+  // Re-push settings to the open webview whenever the user changes a
+  // claudeManager.* setting. Without this they have to close and reopen the
+  // panel for new defaults to take effect.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("claudeManager")) {
+        provider.refreshSettings();
+      }
     }),
   );
 

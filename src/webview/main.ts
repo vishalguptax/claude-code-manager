@@ -12,6 +12,7 @@ import { icon } from "./icons";
 import { sendOpenUrl } from "../features/sessions/webview/api";
 import { initApi, sendReady } from "../features/sessions/webview/api";
 import { initPersistence } from "./persistence";
+import { installUiResetHandlers } from "./uiReset";
 import {
   setWorkspacePath,
   setSessions,
@@ -26,6 +27,9 @@ import {
   getView,
   getDetail,
   isShellMounted,
+  loadPersistedFilters,
+  hasPersistedFilterProject,
+  hasPersistedFilterDate,
 } from "../features/sessions/webview/state";
 import type { DateFilter } from "./types";
 import { mountShell, updateList, updateFilter, showList } from "../features/sessions/webview/views/listView";
@@ -84,6 +88,14 @@ declare function acquireVsCodeApi(): VSCodeAPI;
 const vscode = acquireVsCodeApi();
 initApi(vscode);
 initPersistence(vscode);
+// Restore filter selections from vscode.setState before any state read so
+// the user's most-recent in-app choice survives panel reloads. Must come
+// after initPersistence and before any feature reads state.
+loadPersistedFilters();
+// Install global handlers that reset stale hover/dropdown/menu state when
+// the iframe loses pointer or focus — VS Code webviews don't fire mouseleave
+// when the cursor exits the iframe.
+installUiResetHandlers();
 initSkillsApi(vscode);
 initCommandsTab(vscode);
 initHooksTab(vscode);
@@ -267,8 +279,11 @@ window.addEventListener("message", (event: MessageEvent) => {
   if (msg.type === "workspacePath") {
     setWorkspacePath(msg.data as string);
   } else if (msg.type === "settings") {
-    setFilterDate(msg.defaultFilter as DateFilter);
-    setFilterProject(msg.defaultProject as string);
+    // Persisted in-app selections beat global defaults — only fall back to
+    // settings.json when the user has not made an explicit choice in this
+    // webview yet (or after a fresh install).
+    if (!hasPersistedFilterDate()) setFilterDate(msg.defaultFilter as DateFilter);
+    if (!hasPersistedFilterProject()) setFilterProject(msg.defaultProject as string);
     setRestoreWindowMinutes(msg.restoreWindowMinutes as number);
   } else if (msg.type === "sessions") {
     const groups = msg.data as SessionGroup[];

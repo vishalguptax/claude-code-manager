@@ -60,16 +60,27 @@ export function updateDropdown(onUpdate: () => void): void {
   const allSessions = getAllSessions();
   const deletedIds = getDeletedIds();
   const stats = getStats();
-  const currentCount = currentProjectName
-    ? allSessions.filter((s) => s.project === currentProjectName && !deletedIds.has(s.id)).length
-    : 0;
+
+  // Single O(N) pass: build a project -> count map AND tally the current
+  // project at the same time. Replaces the previous O(P × N) pattern that
+  // called allSessions.filter() once per project — which became visibly
+  // janky on workspaces with many projects.
+  const counts = new Map<string, number>();
+  let currentCount = 0;
+  for (const s of allSessions) {
+    if (deletedIds.has(s.id)) continue;
+    counts.set(s.project, (counts.get(s.project) ?? 0) + 1);
+    if (currentProjectName && s.projectKey === currentProjectName) {
+      currentCount++;
+    }
+  }
 
   if (filterProject === "current") {
     label.textContent = `This Project (${currentCount})`;
   } else if (filterProject === "all") {
     label.textContent = `All Projects (${stats.totalSessions})`;
   } else {
-    label.textContent = `${filterProject} (${allSessions.filter((s) => s.project === filterProject && !deletedIds.has(s.id)).length})`;
+    label.textContent = `${filterProject} (${counts.get(filterProject) ?? 0})`;
   }
 
   let h = "";
@@ -79,7 +90,7 @@ export function updateDropdown(onUpdate: () => void): void {
   h += `<div class="dropdown-item ${filterProject === "all" ? "active" : ""}" data-value="all"><span>All Projects</span><span class="dropdown-count">${stats.totalSessions}</span></div>`;
   if (projects.length > 0) h += `<div class="dropdown-sep"></div>`;
   for (const p of projects) {
-    const count = allSessions.filter((s) => s.project === p && !deletedIds.has(s.id)).length;
+    const count = counts.get(p) ?? 0;
     h += `<div class="dropdown-item ${filterProject === p ? "active" : ""}" data-value="${esc(p)}"><span>${esc(p)}</span><span class="dropdown-count">${count}</span></div>`;
   }
   menu.innerHTML = h;

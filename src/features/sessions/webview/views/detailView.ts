@@ -13,6 +13,7 @@ import {
   sendPinSession,
   sendUnpinSession,
   sendRenameSession,
+  sendExportSession,
 } from "../api";
 import {
   getDetail,
@@ -51,7 +52,7 @@ export function showDetail(): void {
   const dur = Math.round((d.endTime - d.startTime) / 60000);
   const branch = d.branch && d.branch !== "HEAD" ? d.branch : "";
   const currentProjectName = getCurrentProjectName();
-  const isDiffProject = currentProjectName && d.project !== currentProjectName;
+  const isDiffProject = currentProjectName && d.projectKey !== currentProjectName;
   const isPinned = getPinnedIds().has(d.id);
 
   dv.innerHTML = `
@@ -77,6 +78,7 @@ export function showDetail(): void {
       <div class="d-actions-secondary">
         <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
         <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
+        <button class="btn" id="btnExport" title="Save this session as a portable .jsonl">${icon("download")} Export</button>
       </div>
       <div class="d-actions-divider"></div>
       <button class="btn del" id="btnDelete">${icon("trash-2")} Delete</button>
@@ -88,6 +90,7 @@ export function showDetail(): void {
         <button class="btn" id="btnFork">${icon("git-fork")} Fork</button>
         <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
         <button class="btn" id="btnCopyCmd">${icon("terminal")} Copy Cmd</button>
+        <button class="btn" id="btnExport" title="Save this session as a portable .jsonl">${icon("download")} Export</button>
       </div>
       <div class="d-actions-divider"></div>
       <button class="btn del" id="btnDelete">${icon("trash-2")} Delete</button>
@@ -136,6 +139,7 @@ export function showDetail(): void {
     }
   });
   dv.querySelector("#btnRename")?.addEventListener("click", () => sendRenameSession(d.id));
+  dv.querySelector("#btnExport")?.addEventListener("click", () => sendExportSession(d.id));
   dv.querySelector("#btnDelete")?.addEventListener("click", () => {
     confirmDelete(d.id, () => showList());
   });

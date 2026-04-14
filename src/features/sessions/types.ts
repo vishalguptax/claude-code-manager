@@ -29,6 +29,18 @@ export interface Session {
   summary: string;
   /** All user prompts in chronological order */
   prompts: string[];
+  /**
+   * Lowercased project name. Pre-computed at parse time so case-insensitive
+   * project filter matching does not allocate strings on every keystroke.
+   */
+  projectKey: string;
+  /**
+   * Lowercased concatenation of name + project + branch + summary, joined by
+   * "\n". Used as the haystack for search queries so each filter pass runs
+   * one `includes()` per session instead of four `.toLowerCase().includes()`
+   * calls. Built once at parse time.
+   */
+  searchHaystack: string;
 }
 
 /** A session with its full message transcript loaded. */
@@ -143,6 +155,8 @@ export type WebviewMessage =
   | { type: "confirmDelete"; sessionId: string; callback?: string }
   | { type: "copyCommand"; sessionId: string }
   | { type: "copyMarkdown"; sessionId: string }
+  | { type: "exportSession"; sessionId: string }
+  | { type: "importSession" }
   | { type: "openUrl"; url: string }
   | { type: "getSkills" }
   | { type: "getSkillDetail"; skillId: string }

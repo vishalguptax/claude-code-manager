@@ -37,6 +37,27 @@ const MAX_DETAIL_MESSAGES = 200;
 let sessionFileIndex: Map<string, string> | null = null;
 
 /**
+ * Warning from the most recent parseSessions() call, or null if all entries
+ * looked healthy. Used by the extension host to surface schema-drift errors
+ * to the user instead of silently dropping every session.
+ */
+let lastParseWarning: string | null = null;
+
+/** Threshold: only warn if at least this many entries were parsed. */
+const SCHEMA_DRIFT_MIN_ENTRIES = 5;
+/** Threshold: warn if fewer than this fraction of entries have required fields. */
+const SCHEMA_DRIFT_MIN_VALID_RATIO = 0.2;
+
+/**
+ * Return the warning produced by the most recent parseSessions() call.
+ * Null if the last parse looked healthy. Use this to surface a one-time error
+ * banner when the Claude CLI changes its history schema.
+ */
+export function getLastParseWarning(): string | null {
+  return lastParseWarning;
+}
+
+/**
  * Scan the projects directory and build an index mapping session IDs to their JSONL file paths.
  * Returns an empty map if the projects directory does not exist.
  */
@@ -331,8 +352,15 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     { entries: HistoryEntry[]; project: string; projectPath: string }
   >();
 
+  // Track invalid count so we can detect schema drift. Without this, a CLI
+  // upgrade that renames `sessionId` or `display` would silently drop every
+  // session and the user would just see "No sessions yet" with no explanation.
+  let invalidCount = 0;
   for (const entry of entries) {
-    if (!entry.sessionId || !entry.display) continue;
+    if (!entry.sessionId || !entry.display) {
+      invalidCount++;
+      continue;
+    }
 
     const existing = sessionMap.get(entry.sessionId);
     if (existing) {
@@ -344,6 +372,17 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
         projectPath: entry.project || "",
       });
     }
+  }
+
+  if (
+    entries.length >= SCHEMA_DRIFT_MIN_ENTRIES &&
+    (entries.length - invalidCount) / entries.length < SCHEMA_DRIFT_MIN_VALID_RATIO
+  ) {
+    lastParseWarning =
+      `Claude history schema may have changed: ${invalidCount} of ${entries.length} entries are missing required fields. ` +
+      `If you recently updated the Claude CLI, the extension may need an update.`;
+  } else {
+    lastParseWarning = null;
   }
 
   // Build session objects
@@ -381,6 +420,12 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     const summary =
       prompts[0].length > 100 ? prompts[0].slice(0, 100) + "..." : prompts[0];
 
+    // Pre-compute lowercased lookup keys so the webview filter does not
+    // allocate strings on every keystroke. searchHaystack joins fields with
+    // "\n" so that user input cannot accidentally match across boundaries.
+    const projectKey = data.project.toLowerCase();
+    const searchHaystack = `${name}\n${data.project}\n${branch}\n${summary}`.toLowerCase();
+
     sessions.push({
       id: sessionId,
       name,
@@ -393,6 +438,8 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
       messageCount: prompts.length,
       summary,
       prompts,
+      projectKey,
+      searchHaystack,
     });
   }
 
@@ -517,23 +564,17 @@ export function getUniqueProjects(sessions: Session[]): string[] {
 /**
  * Filter sessions by a text query. Case-insensitive.
  *
- * Checks name, project, branch, and summary first (cheap). Falls back to
- * scanning individual prompts only if the fast fields don't match — this
- * keeps the common case fast while still finding deep matches.
+ * Fast path uses the pre-computed `searchHaystack` field — one `includes()`
+ * per session instead of four `.toLowerCase().includes()` calls. Falls back
+ * to scanning individual prompts only if the haystack misses, keeping the
+ * common case allocation-free while still finding deep matches.
  */
 export function searchSessions(sessions: Session[], query: string): Session[] {
   const lower = query.toLowerCase();
   return sessions.filter((s) => {
-    // Fast path — check short fields first
-    if (
-      s.name.toLowerCase().includes(lower) ||
-      s.project.toLowerCase().includes(lower) ||
-      s.branch.toLowerCase().includes(lower) ||
-      s.summary.toLowerCase().includes(lower)
-    ) {
-      return true;
-    }
-    // Slow path — scan prompts (skips if fast path matched)
+    if (s.searchHaystack.includes(lower)) return true;
+    // Slow path — scan prompts. Prompts are not in the haystack because
+    // they can be huge (50KB+) and would bloat every session payload.
     return s.prompts.some((p) => p.toLowerCase().includes(lower));
   });
 }

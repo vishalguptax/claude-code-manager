@@ -7,6 +7,14 @@
 import type { Session, SessionDetail, Stats } from "../types";
 import type { DateFilter, View } from "../../../webview/types";
 import { dayStart } from "../../../webview/utils";
+import { getPersisted, setPersisted } from "../../../webview/persistence";
+
+/**
+ * Persisted-state keys. Namespaced under "sessions." so other features can
+ * coexist in the same vscode.setState bag without colliding.
+ */
+const PERSIST_KEY_FILTER_PROJECT = "sessions.filterProject";
+const PERSIST_KEY_FILTER_DATE = "sessions.filterDate";
 
 // ── Raw state ──
 
@@ -100,11 +108,40 @@ export function setSearchQuery(q: string): void { searchQuery = q; }
 /** Set the loading flag. */
 export function setLoading(v: boolean): void { loading = v; }
 
-/** Set the active project filter. */
-export function setFilterProject(p: string): void { filterProject = p; }
+/** Set the active project filter. Persists across panel reloads. */
+export function setFilterProject(p: string): void {
+  filterProject = p;
+  setPersisted(PERSIST_KEY_FILTER_PROJECT, p);
+}
 
-/** Set the active date filter. */
-export function setFilterDate(d: DateFilter): void { filterDate = d; }
+/** Set the active date filter. Persists across panel reloads. */
+export function setFilterDate(d: DateFilter): void {
+  filterDate = d;
+  setPersisted(PERSIST_KEY_FILTER_DATE, d);
+}
+
+/**
+ * Restore filter state from persisted webview storage. Call once during
+ * bootstrap, after initPersistence(), so the user's last in-app filter
+ * selection wins over the global default from settings.json.
+ */
+export function loadPersistedFilters(): void {
+  const persistedProject = getPersisted<string>(PERSIST_KEY_FILTER_PROJECT);
+  if (persistedProject !== undefined) filterProject = persistedProject;
+
+  const persistedDate = getPersisted<DateFilter>(PERSIST_KEY_FILTER_DATE);
+  if (persistedDate !== undefined) filterDate = persistedDate;
+}
+
+/** Whether filterProject has been restored from persistence. */
+export function hasPersistedFilterProject(): boolean {
+  return getPersisted<string>(PERSIST_KEY_FILTER_PROJECT) !== undefined;
+}
+
+/** Whether filterDate has been restored from persistence. */
+export function hasPersistedFilterDate(): boolean {
+  return getPersisted<DateFilter>(PERSIST_KEY_FILTER_DATE) !== undefined;
+}
 
 /** Set how many list items are visible. */
 export function setVisibleCount(n: number): void { visibleCount = n; }
@@ -112,11 +149,23 @@ export function setVisibleCount(n: number): void { visibleCount = n; }
 /** Increment the visible count by a given amount. */
 export function incrementVisibleCount(n: number): void { visibleCount += n; }
 
-/** Set workspace path and derive the project name from it. */
+/**
+ * Set workspace path and derive the project name from it.
+ *
+ * The derived `currentProjectName` is lowercased so that comparisons against
+ * `Session.project` (which preserves the original casing for display) are
+ * case-insensitive. Required for Windows where the same project can show up
+ * with different casing depending on whether the path came from VS Code's
+ * `fsPath` or Claude CLI's `history.jsonl`.
+ *
+ * Falls back to the "all" filter when no workspace is open so the panel still
+ * shows something useful instead of empty.
+ */
 export function setWorkspacePath(p: string): void {
   workspacePath = p;
-  currentProjectName = p.replace(/\\/g, "/").split("/").filter(Boolean).pop() || "";
-  if (!currentProjectName) filterProject = "all";
+  const tail = p.replace(/\\/g, "/").split("/").filter(Boolean).pop() || "";
+  currentProjectName = tail.toLowerCase();
+  if (!currentProjectName && filterProject === "current") filterProject = "all";
 }
 
 /** Set the current view mode. */
@@ -138,8 +187,14 @@ export function setRestoreWindowMinutes(m: number): void { restoreWindowMinutes 
 export function getFiltered(): Session[] {
   let list = allSessions.filter((s) => !deletedIds.has(s.id));
 
-  if (filterProject === "current" && currentProjectName) {
-    list = list.filter((s) => s.project === currentProjectName);
+  if (filterProject === "current") {
+    // Only narrow when we know the current project. If the workspace path
+    // hasn't resolved yet (cold-start race), fall through and show every
+    // session — better than an empty list that looks like the bug "no
+    // sessions yet" message.
+    if (currentProjectName) {
+      list = list.filter((s) => s.projectKey === currentProjectName);
+    }
   } else if (filterProject !== "all") {
     list = list.filter((s) => s.project === filterProject);
   }
@@ -152,11 +207,10 @@ export function getFiltered(): Session[] {
   // "recent" and "all" don't filter by date — "recent" is enforced by slicing later
 
   if (searchQuery) {
-    list = list.filter((s) =>
-      s.name.toLowerCase().includes(searchQuery) ||
-      s.project.toLowerCase().includes(searchQuery) ||
-      s.branch.toLowerCase().includes(searchQuery) ||
-      s.summary.toLowerCase().includes(searchQuery));
+    // searchQuery is already lowercased in searchBar.ts before being stored,
+    // and searchHaystack is pre-lowercased at parse time. One includes()
+    // per session, zero string allocation per keystroke.
+    list = list.filter((s) => s.searchHaystack.includes(searchQuery));
   }
 
   list.sort((a, b) => {
@@ -193,7 +247,7 @@ export function getLastSessionGroup(): Session[] {
 
   let candidates = allSessions.filter((s) => !deletedIds.has(s.id));
   if (currentProjectName) {
-    candidates = candidates.filter((s) => s.project === currentProjectName);
+    candidates = candidates.filter((s) => s.projectKey === currentProjectName);
   }
 
   if (candidates.length === 0) return [];
@@ -219,9 +273,16 @@ export function getProjects(): string[] {
     const prev = latestActivity.get(s.project) || 0;
     if (s.endTime > prev) latestActivity.set(s.project, s.endTime);
   }
+  // Index project display names to their pre-computed lowercase keys so the
+  // current-project comparison does not allocate during sort.
+  const keyByProject = new Map<string, string>();
+  for (const s of allSessions) {
+    if (!keyByProject.has(s.project)) keyByProject.set(s.project, s.projectKey);
+  }
+
   return [...latestActivity.keys()].sort((a, b) => {
-    if (a === currentProjectName) return -1;
-    if (b === currentProjectName) return 1;
+    if (keyByProject.get(a) === currentProjectName) return -1;
+    if (keyByProject.get(b) === currentProjectName) return 1;
     return (latestActivity.get(b) || 0) - (latestActivity.get(a) || 0);
   });
 }
