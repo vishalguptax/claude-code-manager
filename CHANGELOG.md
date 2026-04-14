@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.0] - 2026-04-14
+
+Cross-machine session import/export, a deep audit of session-list bugs and edge cases, and a polish pass over the Account tab.
+
+See [docs/releases/v1.3.0.md](docs/releases/v1.3.0.md) for full details.
+
 ## [1.2.3] - 2026-04-13
 
 Shrinks the packaged extension from 5.6 MB back to ~590 KB by compressing an oversized retina screenshot.
