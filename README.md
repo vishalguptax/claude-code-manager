@@ -12,6 +12,7 @@
 <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager"><img src="https://vsmarketplacebadges.dev/installs-short/vishalguptax.claude-manager.svg?style=for-the-badge&label=Installs&labelColor=1a1a2e&color=22c55e&logo=visualstudiocode&logoColor=white" alt="Installs"></a>
 <a href="https://github.com/vishalguptax/claude-code-manager/stargazers"><img src="https://img.shields.io/github/stars/vishalguptax/claude-code-manager?style=for-the-badge&label=Stars&labelColor=1a1a2e&color=f59e0b&logo=github&logoColor=white" alt="GitHub Stars"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-f43f5e?style=for-the-badge&labelColor=1a1a2e" alt="License"></a>
+<a href="https://github.com/sponsors/vishalguptax"><img src="https://img.shields.io/badge/Sponsor-♥-ec4899?style=for-the-badge&labelColor=1a1a2e&logo=githubsponsors&logoColor=white" alt="Sponsor"></a>
 </p>
 
 </div>
@@ -48,13 +49,14 @@ Claude Manager turns all of it into a sidebar you can click and search. Same Cla
 
 ## What's inside
 
-- **Sessions** &mdash; resume any Claude Code session in one click, with git branch detection
+- **Sessions** &mdash; resume, continue, or restore any session with git branch detection
+- **Import / Export** &mdash; carry sessions between machines as portable `.jsonl` files
 - **Skills** &mdash; browse global and project skills, copy, open, or launch Claude with one
 - **Commands** &mdash; 52 built-in slash commands plus your custom ones, one-click copy
 - **Hooks** &mdash; inspect automation hooks across global, project, and local scopes
 - **MCP Servers** &mdash; enable, disable, delete, or inspect &mdash; no JSON editing
 - **Agents** &mdash; browse project agents with Sonnet / Opus / Haiku badges
-- **Account** &mdash; profile, activity heatmap, token usage, permissions
+- **Account** &mdash; profile, activity heatmap, token usage, model selector, permissions
 - **Status bar** &mdash; open Claude Manager from anywhere in your editor
 
 <table>
@@ -105,9 +107,11 @@ Claude Manager turns all of it into a sidebar you can click and search. Same Cla
 - **Filter** by project, branch, or date range
 - **Pin** favorites &bull; **Rename** sessions &bull; **Fork** for alternate explorations
 - **Resume** with branch detection &mdash; warns if your current branch differs
-- **Restore Workspace** &mdash; reopen every terminal from your last working session
+- **Continue** &mdash; pick up your most recent session in the current workspace (`claude --continue`)
+- **Restore Workspace** &mdash; reopen every terminal from your last working session, stacked as tabs in one editor group
+- **Import / Export** &mdash; export any session as a portable `.jsonl`, import it on another machine with a project picker and one-click resume
 - **Search** across names, projects, branches, and prompts
-- **Right-click menu** &mdash; pin, rename, fork, copy command, export as Markdown, delete
+- **Right-click menu** &mdash; pin, rename, fork, copy command, export session, delete
 
 <br>
 
@@ -140,6 +144,12 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the full reference.
 ## Contributing
 
 Found a bug? [Open an issue](https://github.com/vishalguptax/claude-code-manager/issues/new). PRs welcome.
+
+<br>
+
+## Support
+
+If Claude Manager saves you time, consider [sponsoring the project](https://github.com/sponsors/vishalguptax). It helps keep development active and the extension free for everyone.
 
 <br>
 
