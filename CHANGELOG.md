@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.2] - 2026-04-15
+
+README updated with v1.3 features and GitHub Sponsors enabled.
+
+See [docs/releases/v1.3.2.md](docs/releases/v1.3.2.md) for full details.
+
 ## [1.3.1] - 2026-04-14
 
 Layout fixes for action button rows across every detail view, a new Continue toolbar button, and a fix for Restore Workspace opening terminals in separate panels.
