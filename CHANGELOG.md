@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.0] - 2026-04-19
+
+Full-text session search, a proper branch-filter dropdown, and an account tab overhaul — the largest sessions pass since import/export.
+
+See [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md) for full details.
+
 ## [1.3.2] - 2026-04-15
 
 README updated with v1.3 features and GitHub Sponsors enabled.
