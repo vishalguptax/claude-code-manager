@@ -13,6 +13,7 @@
  */
 import * as fs from "fs";
 import * as path from "path";
+import { discoverModelsFromCli } from "./models";
 import * as os from "os";
 import { CLAUDE_DIR } from "../../core/config";
 import type {
@@ -28,9 +29,59 @@ import type {
 } from "./types";
 
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
+const CLAUDE_BACKUPS_DIR = path.join(CLAUDE_DIR, "backups");
 const CREDENTIALS_FILE = path.join(CLAUDE_DIR, ".credentials.json");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
 const STATS_CACHE_FILE = path.join(CLAUDE_DIR, "stats-cache.json");
+
+/**
+ * Read and parse .claude.json, falling back to the most recent backup
+ * when the main file is empty or malformed. Claude CLI rotates a copy
+ * of this file to ~/.claude/backups/.claude.json.backup.<epoch-ms>
+ * on every mutation, so when the primary file gets truncated (as
+ * happens occasionally on unexpected shutdowns) the latest backup is
+ * almost always intact and contains the current account info.
+ *
+ * Returns null when neither the main file nor any backup yields valid
+ * JSON — callers treat that as "profile info unavailable" without
+ * surfacing a bare "Unknown" to the user.
+ */
+function readClaudeJson(): Record<string, unknown> | null {
+  const tryParse = (filePath: string): Record<string, unknown> | null => {
+    try {
+      const raw = fs.readFileSync(filePath, "utf-8");
+      if (!raw.trim()) return null;
+      const parsed = JSON.parse(raw) as unknown;
+      if (typeof parsed !== "object" || parsed === null) return null;
+      return parsed as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  };
+
+  const primary = tryParse(CLAUDE_JSON);
+  if (primary) return primary;
+
+  // Primary file is empty / corrupt — walk the backups newest-first.
+  try {
+    const entries = fs.readdirSync(CLAUDE_BACKUPS_DIR);
+    // Filter to `.claude.json.backup.<digits>` (NOT the `.corrupted.*`
+    // entries, which Claude keeps for forensic purposes). Sort newest
+    // first by the embedded epoch timestamp — descending numeric sort.
+    const backups = entries
+      .filter((n) => /^\.claude\.json\.backup\.\d+$/.test(n))
+      .map((n) => ({ name: n, ts: parseInt(n.split(".").pop() ?? "0", 10) }))
+      .sort((a, b) => b.ts - a.ts);
+
+    for (const b of backups) {
+      const data = tryParse(path.join(CLAUDE_BACKUPS_DIR, b.name));
+      if (data) return data;
+    }
+  } catch {
+    // backups dir doesn't exist — give up
+  }
+  return null;
+}
 const LOCAL_SETTINGS_NAME = "settings.local.json";
 const PROJECT_SETTINGS_NAME = "settings.json";
 
@@ -55,12 +106,30 @@ function parseProfile(): AccountProfile {
     userID: "",
     startupCount: 0,
     firstUseDate: "",
+    configCorrupted: false,
   };
 
-  // ~/.claude.json — oauthAccount + startup history
+  // Check primary file directly — separate from the fallback read —
+  // so we know whether we recovered from a backup (config corruption)
+  // vs. read from the healthy primary (no problem).
   try {
     const raw = fs.readFileSync(CLAUDE_JSON, "utf-8");
-    const data = JSON.parse(raw) as Record<string, unknown>;
+    if (!raw.trim()) {
+      profile.configCorrupted = true;
+    } else {
+      try { JSON.parse(raw); } catch { profile.configCorrupted = true; }
+    }
+  } catch {
+    // File doesn't exist — treat as corrupted so user can restore from backup.
+    profile.configCorrupted = true;
+  }
+
+  // ~/.claude.json — oauthAccount + startup history. Falls back to the
+  // most recent backup under ~/.claude/backups/ when the primary file
+  // is empty or corrupt (Claude CLI occasionally leaves this file at
+  // 0 bytes after an unclean shutdown).
+  const data = readClaudeJson();
+  if (data) {
     const oauth = data.oauthAccount as Record<string, unknown> | undefined;
     if (oauth) {
       profile.email = typeof oauth.emailAddress === "string" ? oauth.emailAddress : "";
@@ -81,8 +150,6 @@ function parseProfile(): AccountProfile {
     } else if (typeof data.firstStartTime === "string") {
       profile.firstUseDate = data.firstStartTime;
     }
-  } catch {
-    // file may not exist yet
   }
 
   // .credentials.json — subscription only, tokens NEVER exposed
@@ -353,6 +420,8 @@ function parsePermissions(workspacePath?: string): PermissionSet[] {
 
 /**
  * Parse all account data. Safe to call often — reads small files only.
+ * The `availableModels` field is populated from the CLI bundle cache
+ * (one-time 50ms scan, then instant) so it does not slow down re-parses.
  */
 export function parseAccountData(workspacePath?: string): AccountData {
   return {
@@ -360,6 +429,13 @@ export function parseAccountData(workspacePath?: string): AccountData {
     usage: parseUsage(),
     settings: parseSettings(),
     permissions: parsePermissions(workspacePath),
+    availableModels: discoverModelsFromCli().map((m) => ({
+      alias: m.alias,
+      family: m.family,
+      label: m.label,
+      id: m.id,
+      isLatest: m.isLatest,
+    })),
   };
 }
 
@@ -495,5 +571,40 @@ export function resolveSettingsPath(
   if (!workspacePath) return null;
   if (scope === "project") return path.join(workspacePath, ".claude", PROJECT_SETTINGS_NAME);
   if (scope === "local") return path.join(workspacePath, ".claude", LOCAL_SETTINGS_NAME);
+  return null;
+}
+
+/**
+ * Restore ~/.claude.json from its most recent valid backup. Called when
+ * Claude CLI has left the primary config empty or truncated (a common
+ * symptom of a crashed or disk-full write — see ~/.claude/backups/ for
+ * Claude's own backup history).
+ *
+ * Returns the absolute path of the backup that was used on success, or
+ * null if no valid backup could be located. Never throws.
+ */
+export function restoreClaudeJsonFromBackup(): string | null {
+  try {
+    const entries = fs.readdirSync(CLAUDE_BACKUPS_DIR);
+    const backups = entries
+      .filter((n) => /^\.claude\.json\.backup\.\d+$/.test(n))
+      .map((n) => ({ name: n, ts: parseInt(n.split(".").pop() ?? "0", 10) }))
+      .sort((a, b) => b.ts - a.ts);
+
+    for (const b of backups) {
+      const backupPath = path.join(CLAUDE_BACKUPS_DIR, b.name);
+      try {
+        const raw = fs.readFileSync(backupPath, "utf-8");
+        if (!raw.trim()) continue;
+        JSON.parse(raw); // validate it parses before overwriting
+        fs.writeFileSync(CLAUDE_JSON, raw);
+        return backupPath;
+      } catch {
+        // this backup is also bad — try the next one
+      }
+    }
+  } catch {
+    // backups dir is missing
+  }
   return null;
 }

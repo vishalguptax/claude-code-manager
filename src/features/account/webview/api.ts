@@ -50,3 +50,11 @@ export function sendRemovePermission(scope: PermissionScope, tool: string, list:
 export function sendPromptAddPermission(scope: PermissionScope, list: "allow" | "deny"): void {
   _vscode.postMessage({ type: "promptAddPermission", scope, list });
 }
+
+export function sendPromptCustomModel(): void {
+  _vscode.postMessage({ type: "promptCustomModel" });
+}
+
+export function sendRestoreClaudeConfig(): void {
+  _vscode.postMessage({ type: "restoreClaudeConfig" });
+}

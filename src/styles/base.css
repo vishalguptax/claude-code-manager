@@ -23,6 +23,40 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
+   Control-size tokens — ONE source of truth for heights and padding on
+   buttons, inputs, dropdowns, and segmented controls. Keeping these as
+   CSS variables means every form control stays pixel-aligned, and a
+   future tweak to density propagates everywhere in one change.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /** Default height for interactive form controls (buttons, inputs, dropdowns).
+      32px gives comfortable click targets and enough breathing room for
+      icon + label content without feeling cramped. */
+  --h-control: 32px;
+  /** Compact variant (message toggle, inline pills). */
+  --h-control-sm: 26px;
+  /** Prominent variant (toolbar primary buttons). */
+  --h-control-lg: 36px;
+
+  /** Standard horizontal padding inside controls. */
+  --pad-control-x: 12px;
+
+  /** Unified transition for hover/focus/state changes on controls. */
+  --transition-control: 150ms ease;
+
+  /** Unified focus ring. Used by everything interactive so keyboard
+      navigation is visually consistent across the extension. */
+  --focus-ring: 1px solid var(--accent);
+}
+
+/* Global box-sizing reset so `height` on controls includes the border,
+   meaning bordered inputs and border-less buttons land on the same
+   pixel row without manually subtracting 2px. */
+*, *::before, *::after { box-sizing: border-box; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
    Reusable Utility Classes
    ────────────────────────────────────────────────────────────────────────────── */
 
@@ -99,7 +133,7 @@
    Focus & Accessibility
    ────────────────────────────────────────────────────────────────────────────── */
 
-*:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+*:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

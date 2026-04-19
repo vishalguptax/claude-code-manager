@@ -45,9 +45,9 @@ export function sendResumeMultiple(sessionIds: string[], projectPaths: string[])
   _vscode.postMessage({ type: "resumeMultiple", sessionIds, projectPaths });
 }
 
-/** Request full detail for a session. */
-export function sendGetSessionDetail(sessionId: string): void {
-  _vscode.postMessage({ type: "getSessionDetail", sessionId });
+/** Request a page of messages for a session. Defaults to "last" (most recent). */
+export function sendGetSessionDetail(sessionId: string, mode: "first" | "last" = "last"): void {
+  _vscode.postMessage({ type: "getSessionDetail", sessionId, mode });
 }
 
 /** Pin a session to the top of the list. */
@@ -101,4 +101,12 @@ export function sendExportSession(sessionId: string): void {
  */
 export function sendImportSession(): void {
   _vscode.postMessage({ type: "importSession" });
+}
+
+/**
+ * Search inside session transcripts (full content, not just metadata).
+ * Extension replies asynchronously via a `fullTextResults` message.
+ */
+export function sendSearchFullText(query: string): void {
+  _vscode.postMessage({ type: "searchFullText", query });
 }

@@ -33,6 +33,11 @@ import { showDetail } from "./detailView";
 import { showContextMenu } from "../components/contextMenu";
 import { renderSearchBar, bindSearchBar } from "../components/searchBar";
 import { renderDropdown, bindDropdown, updateDropdown } from "../components/dropdown";
+import {
+  renderBranchDropdown,
+  bindBranchDropdown,
+  updateBranchDropdown,
+} from "../components/branchDropdown";
 import { renderDateChips, bindDateChips } from "../components/dateChips";
 import { renderSessionItem, bindSessionItems } from "../components/sessionItem";
 
@@ -54,7 +59,10 @@ export function mountShell(): void {
         <button class="action-btn" id="actImport" title="Import a session exported from another machine">${icon("download")} Import</button>
       </div>
       ${renderSearchBar()}
-      ${renderDropdown()}
+      <div class="filter-row">
+        ${renderDropdown()}
+        ${renderBranchDropdown()}
+      </div>
       ${renderDateChips()}
       <div id="sessionList" class="list"></div>
     </div>
@@ -62,6 +70,7 @@ export function mountShell(): void {
 
   bindSearchBar(updateList);
   bindDropdown();
+  bindBranchDropdown();
   bindDateChips(updateList);
 
   document.getElementById("actNew")?.addEventListener("click", () => sendNewSession());
@@ -108,11 +117,27 @@ export function mountShell(): void {
 }
 
 /**
- * Rebuild the project dropdown menu to reflect current sessions and counts.
- * Delegates to the dropdown component.
+ * Refresh both dropdowns and the list. Used as the project dropdown's
+ * onUpdate so that picking a different project immediately:
+ *   1. resets `filterBranch` to "all" (see dropdown.ts)
+ *   2. rebuilds the branch menu with the new project's branches
+ *   3. re-renders the session list
+ * Without the branch rebuild, a branch from the old project could linger
+ * in the menu even though it has zero matching sessions.
+ */
+function onProjectFilterChange(): void {
+  updateBranchDropdown(updateList);
+  updateList();
+}
+
+/**
+ * Rebuild both filter dropdown menus to reflect current sessions and
+ * counts. Called after every sessions/userState/workspaceBranch message
+ * so labels and counts track the latest data.
  */
 export function updateFilter(): void {
-  updateDropdown(updateList);
+  updateDropdown(onProjectFilterChange);
+  updateBranchDropdown(updateList);
 }
 
 /**
@@ -191,6 +216,11 @@ export function updateList(): void {
  */
 export function showList(): void {
   setView("list");
+  // Clear the persisted selection when returning to the list so no item
+  // stays highlighted with the "active" background. The click on a list
+  // item sets selectedId; there's no reason to carry that state back —
+  // if the user re-opens the same detail, setSelectedId will refire.
+  setSelectedId(null);
   document.getElementById("detailView")?.classList.add("hidden");
   document.getElementById("listView")?.classList.remove("hidden");
   updateList();

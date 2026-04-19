@@ -43,10 +43,14 @@ export interface Session {
   searchHaystack: string;
 }
 
-/** A session with its full message transcript loaded. */
+/** A session with a page of its message transcript loaded. */
 export interface SessionDetail extends Session {
-  /** Full conversation messages (user + assistant) */
+  /** Conversation messages for the current page (first or last N) */
   messages: Message[];
+  /** Total messages across the entire session (for toggle visibility) */
+  totalMessages?: number;
+  /** Which page is loaded: "first" (earliest) or "last" (most recent) */
+  detailMode?: "first" | "last";
 }
 
 /** A single message in a session transcript. */
@@ -132,16 +136,28 @@ export type ExtensionMessage =
   | { type: "sessionDetail"; data: SessionDetail }
   | { type: "projects"; data: string[] }
   | { type: "workspacePath"; data: string }
+  /**
+   * Current git branch of the workspace, resolved via the VS Code Git
+   * extension. Empty string when no repo is open or the Git extension is
+   * unavailable — the webview hides the "This Branch" filter in that case.
+   */
+  | { type: "workspaceBranch"; data: string }
   | { type: "userState"; pinned: string[]; deleted: string[]; renames: Record<string, string> }
   | { type: "navigateList" }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  /**
+   * Reply to a `searchFullText` request. `query` echoes back the input so the
+   * webview can ignore stale replies for a query the user has since changed.
+   * `ids` are session IDs whose transcript content matched.
+   */
+  | { type: "fullTextResults"; query: string; ids: string[] };
 
 /** Messages sent from the webview to the extension host. */
 export type WebviewMessage =
   | { type: "ready" }
   | { type: "refresh" }
   | { type: "continueLastSession" }
-  | { type: "getSessionDetail"; sessionId: string }
+  | { type: "getSessionDetail"; sessionId: string; mode?: "first" | "last" }
   | { type: "search"; query: string }
   | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
@@ -184,4 +200,13 @@ export type WebviewMessage =
   | { type: "openSettingsFile"; scope: "global" | "project" | "local" }
   | { type: "addPermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }
   | { type: "removePermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }
-  | { type: "promptAddPermission"; scope: "global" | "project" | "local"; list: "allow" | "deny" };
+  | { type: "promptAddPermission"; scope: "global" | "project" | "local"; list: "allow" | "deny" }
+  | { type: "promptCustomModel" }
+  | { type: "restoreClaudeConfig" }
+  /**
+   * Search inside session transcripts (content of every message), not just
+   * metadata. The extension replies with matching IDs via `fullTextResults`.
+   * Metadata search still runs client-side on `searchHaystack`; these two
+   * result sets are unioned in the webview.
+   */
+  | { type: "searchFullText"; query: string };

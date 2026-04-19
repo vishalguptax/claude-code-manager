@@ -30,8 +30,8 @@ import type {
 /** Maximum bytes to read from a session file when extracting name hints (rename/summary). */
 const NAME_HINT_READ_BYTES = 256 * 1024; // 256 KB — covers most sessions
 
-/** Maximum messages returned in a session detail payload. */
-const MAX_DETAIL_MESSAGES = 200;
+/** Maximum messages returned per detail view page (first/last). */
+const DETAIL_PAGE_SIZE = 50;
 
 /** Pre-built index: sessionId -> absolute file path. Reset on each parseSessions() call. */
 let sessionFileIndex: Map<string, string> | null = null;
@@ -448,17 +448,21 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
 }
 
 /**
- * Parse the full message transcript for a single session.
- * Uses the cached session object if provided, otherwise looks it up.
+ * Parse a page of messages from a session transcript.
  *
- * Messages are capped at MAX_DETAIL_MESSAGES to avoid sending huge payloads
- * to the webview. The `hasMore` flag indicates if messages were truncated.
+ * @param mode - "last" returns the most recent N messages (default, so
+ *   continued sessions show the latest conversation). "first" returns the
+ *   earliest N messages (the session's opening). N = DETAIL_PAGE_SIZE (20).
+ *
+ * The caller gets `totalMessages` to decide whether to show a toggle, and
+ * `mode` echoed back so the webview knows which view is active.
  *
  * Returns null if the session cannot be found.
  */
 export function parseSessionDetail(
   sessionId: string,
   cachedSession?: Session,
+  mode: "first" | "last" = "last",
 ): SessionDetail | null {
   const session =
     cachedSession ?? parseSessions().find((s) => s.id === sessionId);
@@ -466,11 +470,11 @@ export function parseSessionDetail(
 
   const sessionFile = getSessionFile(sessionId);
   if (!sessionFile) {
-    return { ...session, messages: [] };
+    return { ...session, messages: [], detailMode: mode, totalMessages: 0 };
   }
 
   const entries = parseJsonlFile<SessionEntry>(sessionFile);
-  const messages: Message[] = [];
+  const allMessages: Message[] = [];
 
   for (const entry of entries) {
     if (!entry.message?.role) continue;
@@ -492,19 +496,24 @@ export function parseSessionDetail(
 
     if (!content.trim()) continue;
 
-    messages.push({
+    allMessages.push({
       role: role as "user" | "assistant",
       content,
       timestamp: entry.timestamp ?? "",
     });
-
-    if (messages.length >= MAX_DETAIL_MESSAGES) break;
   }
+
+  const total = allMessages.length;
+  const page = mode === "first"
+    ? allMessages.slice(0, DETAIL_PAGE_SIZE)
+    : allMessages.slice(-DETAIL_PAGE_SIZE);
 
   return {
     ...session,
-    messages,
-    messageCount: messages.length,
+    messages: page,
+    messageCount: page.length,
+    totalMessages: total,
+    detailMode: mode,
   };
 }
 

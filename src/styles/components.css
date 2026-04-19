@@ -29,7 +29,8 @@
      instead of left-aligning into empty space. */
   justify-content: center;
   gap: 5px;
-  padding: 5px var(--space-lg);
+  height: var(--h-control);
+  padding: 0 var(--pad-control-x);
   background: var(--bg-hover);
   border: none;
   border-radius: var(--radius);
@@ -82,57 +83,35 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .filter-row {
+  display: flex;
+  gap: var(--space-sm);
   padding: var(--space-sm) var(--space-xl);
   position: relative;
   flex-shrink: 0;
 }
-
-.dropdown { position: relative; }
-
-.dropdown-btn {
-  width: 100%;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  color: var(--input-fg);
-  font-size: var(--fs-md);
-  padding: 0 var(--space-lg);
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-.dropdown-btn:hover       { border-color: var(--fg-muted); }
-.dropdown-btn svg         { color: var(--fg-muted); flex-shrink: 0; }
-
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  background: var(--dropdown-bg);
-  border: 1px solid var(--dropdown-border);
-  border-radius: var(--radius);
-  z-index: 100;
-  max-height: 240px;
-  overflow-y: auto;
-  box-shadow: 0 4px 12px var(--shadow);
-  padding: var(--space-xs) 0;
+.filter-row > .vs-select {
+  flex: 1;
+  min-width: 0;
 }
 
+/*
+ * Project filter dropdown — shares the .vs-select trigger + menu shell
+ * with the model dropdown (see "Custom themed dropdown" section below).
+ * These rules are only the project-specific option content (horizontal
+ * row with count badges) and section separator. The trigger / menu
+ * styling lives with .vs-select-* so both dropdowns evolve together.
+ */
 .dropdown-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px var(--space-xl);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
   font-size: var(--fs-md);
   color: var(--fg);
   cursor: pointer;
 }
-.dropdown-item:hover                    { background: var(--overlay-hover); }
+.dropdown-item:hover                    { background: var(--bg-hover); }
 .dropdown-item.active                   { background: var(--bg-active); color: var(--bg-active-fg); }
 .dropdown-item.active:hover             { background: var(--bg-active); opacity: 0.85; }
 .dropdown-item.active .dropdown-count   { color: var(--bg-active-fg); opacity: 0.7; }
@@ -147,6 +126,29 @@
   height: 1px;
   background: var(--border);
   margin: var(--space-xs) var(--space-lg);
+}
+
+/*
+ * "current" badge on the branch dropdown row that matches the workspace
+ * branch. Low-contrast fill so it annotates without competing with the
+ * branch name; inherits foreground on the active row automatically via
+ * the .dropdown-item.active rule above.
+ */
+.dropdown-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(128, 128, 128, 0.18);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  vertical-align: baseline;
+}
+.dropdown-item.active .dropdown-tag {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--bg-active-fg);
 }
 
 
@@ -221,13 +223,21 @@
    Tags
    ────────────────────────────────────────────────────────────────────────────── */
 
+/*
+ * Branch tag — theme-agnostic filled style. VS Code's --badge-background
+ * / --badge-foreground pair has low contrast on several themes (light-
+ * blue on white text especially). Using a semi-transparent gray that
+ * lands as a mid-tone overlay on any background (light or dark) paired
+ * with --fg text — guaranteed readable because --fg is defined to
+ * contrast with the panel bg.
+ */
 .tag {
   display: inline-flex;
   align-items: center;
   font-size: var(--fs-xs);
   font-family: var(--mono);
-  background: var(--badge-bg);
-  color: var(--badge-fg);
+  background: rgba(128, 128, 128, 0.18);
+  color: var(--fg);
   padding: 0 6px;
   border-radius: var(--radius-sm);
   max-width: 120px;
@@ -248,8 +258,8 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .btn {
-  height: 30px;
-  padding: 0 var(--space-xl);
+  height: var(--h-control);
+  padding: 0 var(--pad-control-x);
   border-radius: var(--radius);
   font-size: var(--fs-base);
   cursor: pointer;
@@ -353,7 +363,7 @@
 }
 .tab-settings-btn:hover  { color: var(--fg); background: var(--bg-hover); }
 .tab-settings-btn:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: -1px;
 }
 
@@ -374,9 +384,9 @@
   font-family: inherit;
   cursor: pointer;
   transition:
-    color 0.15s ease-out,
-    border-color 0.15s ease-out,
-    width 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+    color var(--transition-control),
+    border-color var(--transition-control),
+    width 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
   white-space: nowrap;
 }
 .tab-btn:hover {
@@ -384,7 +394,7 @@
   background: var(--bg-hover);
 }
 .tab-btn:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: -1px;
 }
 .tab-btn.active {
@@ -564,3 +574,176 @@
 .scope-badge.global { background: var(--badge-bg); color: var(--badge-fg); }
 .scope-badge.local { background: var(--color-purple-bg); color: var(--color-purple); }
 .scope-badge.builtin { background: var(--color-blue-bg); color: var(--color-blue); }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Segmented control (vs-segmented) — pill-style button group where one
+   option is selected. Shared primitive for the period toggle, permission
+   scope toggle, message-view toggle, etc. Same visual language as VS
+   Code's settings tabs.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.vs-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-hover);
+  border-radius: var(--radius);
+}
+
+.vs-segmented-btn {
+  height: calc(var(--h-control) - 8px);
+  padding: 0 var(--pad-control-x);
+  font-size: var(--fs-sm);
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  transition: background var(--transition-control), color var(--transition-control);
+}
+.vs-segmented-btn:hover:not(.active) { color: var(--fg); }
+.vs-segmented-btn.active {
+  background: var(--bg, var(--input-bg));
+  color: var(--fg);
+  font-weight: 500;
+}
+
+/* Compact variant for inline toggles (smaller font + padding) */
+.vs-segmented.vs-segmented--sm .vs-segmented-btn {
+  height: calc(var(--h-control-sm) - 6px);
+  padding: 0 8px;
+  font-size: var(--fs-xs);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Custom themed dropdown (vs-select) — replacement for native <select>
+   so the open panel respects VS Code theme instead of the OS system picker.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.vs-select {
+  position: relative;
+  width: 100%;
+}
+
+/* Trigger — mirrors native <select> closed state but fully themeable. */
+.vs-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: var(--h-control);
+  padding: 0 var(--pad-control-x);
+  padding-right: 28px;
+  background: var(--input-bg);
+  color: var(--input-fg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  cursor: pointer;
+  text-align: left;
+}
+.vs-select-trigger {
+  transition: border-color var(--transition-control);
+}
+.vs-select-trigger:hover { border-color: var(--accent); }
+.vs-select-trigger:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+.vs-select-value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vs-select-arrow {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fg-muted);
+  display: inline-flex;
+  pointer-events: none;
+}
+.vs-select-trigger[aria-expanded="true"] .vs-select-arrow {
+  transform: translateY(-50%) rotate(180deg);
+}
+/*
+ * Leading icon that sits to the left of the trigger label. Unlike
+ * `.vs-select-arrow` (which is absolutely pinned to the right and
+ * rotates when the menu opens), the leading icon flows as a normal
+ * flex child so the value text truncates beside it without overlap.
+ * Right padding reserved on .vs-select-value keeps the text from
+ * running into the trailing chevron.
+ */
+.vs-select-leading {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  color: var(--fg-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+.vs-select-trigger:has(.vs-select-leading) .vs-select-value {
+  padding-right: 18px;
+}
+
+/* Menu — absolutely positioned below the trigger, themed like Settings. */
+.vs-select-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--dropdown-bg, var(--input-bg));
+  border: 1px solid var(--dropdown-border, var(--input-border));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow, 0 2px 8px rgba(0, 0, 0, 0.2));
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.vs-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+}
+.vs-select-option:hover,
+.vs-select-option:focus {
+  background: var(--bg-hover);
+}
+.vs-select-option.selected {
+  background: var(--bg-active);
+  color: var(--bg-active-fg);
+}
+.vs-select-option-label {
+  font-size: var(--fs-base);
+  color: inherit;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vs-select-option-desc {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  line-height: 1.3;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.vs-select-option.selected .vs-select-option-desc {
+  color: var(--bg-active-fg);
+  opacity: 0.75;
+}

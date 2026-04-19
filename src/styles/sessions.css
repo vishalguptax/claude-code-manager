@@ -265,6 +265,55 @@
 .d-k { width: 55px; flex-shrink: 0; color: var(--fg-dim); }
 .d-v { color: var(--fg); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Label row with inline toggle (used for Messages section header) */
+.d-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+.d-label-row .d-label { margin-bottom: 0; }
+
+/* Message toggle now uses .vs-segmented / .vs-segmented--sm */
+
+.d-msg-hint {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  margin-bottom: var(--space-md);
+}
+
+/* Message items — left border distinguishes user (accent) from Claude (muted) */
+.d-msg {
+  padding: var(--space-md);
+  padding-left: var(--space-lg);
+  border-left: 2px solid var(--fg-muted);
+  margin-bottom: var(--space-sm);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.d-msg-user {
+  border-left-color: var(--accent);
+  background: rgba(127, 127, 255, 0.04);
+}
+.d-msg-role {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+}
+.d-msg-user .d-msg-role { color: var(--accent); }
+.d-msg-content {
+  font-size: var(--fs-base);
+  line-height: 1.55;
+  color: var(--fg);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* Legacy prompt styles (kept for backward compat) */
 .d-prompt {
   display: flex;
   gap: var(--space-md);
@@ -325,7 +374,7 @@
   cursor: pointer;
   padding: var(--space-xs);
   border-radius: var(--radius);
-  transition: color 0.1s;
+  transition: color var(--transition-control);
   font-family: inherit;
 }
 .footer-link .icon           { width: 14px; height: 14px; }

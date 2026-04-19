@@ -36,6 +36,13 @@ export interface AccountProfile {
   startupCount: number;
   /** First use date (ISO) */
   firstUseDate: string;
+  /**
+   * True when ~/.claude.json is empty or invalid AND we successfully
+   * loaded a backup — signals "config was corrupted but we recovered".
+   * Webview shows a restore banner so the user can rewrite the primary
+   * file from the backup before Claude CLI trips its own reset prompt.
+   */
+  configCorrupted: boolean;
 }
 
 // ── Usage / Stats ──
@@ -140,6 +147,25 @@ export interface AccountData {
   usage: UsageStats;
   settings: AccountSettings;
   permissions: PermissionSet[];
+  /**
+   * Models discovered from the installed Claude CLI binary. Includes
+   * every version the CLI knows about, not just the latest — so users
+   * can pin to a specific older version if they want. Each entry:
+   *   - `alias` — the family ("opus", "sonnet", "haiku")
+   *   - `family` — same (kept for clarity when grouping)
+   *   - `label` — display text like "Opus 4.7"
+   *   - `id` — full model ID like "claude-opus-4-7"
+   *   - `isLatest` — true if this is the newest version of its family
+   *     (the dropdown binds latest to the alias so it auto-updates,
+   *     older versions bind to the full ID so they stay pinned)
+   */
+  availableModels: Array<{
+    alias: string;
+    family: string;
+    label: string;
+    id: string;
+    isLatest: boolean;
+  }>;
 }
 
 // ── Messages ──

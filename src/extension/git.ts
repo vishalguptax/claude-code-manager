@@ -10,6 +10,7 @@ interface GitExtensionAPI {
 
 interface GitAPI {
   repositories: GitRepository[];
+  onDidOpenRepository: vscode.Event<GitRepository>;
 }
 
 interface GitRepository {
@@ -17,6 +18,7 @@ interface GitRepository {
     HEAD?: {
       name?: string;
     };
+    onDidChange: vscode.Event<void>;
   };
 }
 
@@ -37,4 +39,58 @@ export function getCurrentBranch(): string {
   } catch {
     return "";
   }
+}
+
+/**
+ * Subscribe to branch changes (checkouts, detached HEAD, repo open/close).
+ * Returns a Disposable that removes every underlying listener — the caller
+ * must keep the returned value alive and dispose it when the subscriber
+ * goes away. Fires `onChange` without arguments; consumers call
+ * `getCurrentBranch()` themselves when they need the latest value.
+ *
+ * The Git extension activates asynchronously, so we retry once after
+ * 2000ms when it is not ready yet. Any failure is swallowed — git is
+ * optional; a workspace with no repo should not spew errors.
+ */
+export function onBranchChange(onChange: () => void): vscode.Disposable {
+  const inner: vscode.Disposable[] = [];
+
+  const attach = (): boolean => {
+    const gitExt = vscode.extensions.getExtension<GitExtensionAPI>("vscode.git");
+    if (!gitExt?.isActive) return false;
+    try {
+      const git = gitExt.exports.getAPI(1);
+      for (const repo of git.repositories) {
+        inner.push(repo.state.onDidChange(() => onChange()));
+      }
+      // New repos (e.g. a user clones/opens a folder after activation)
+      // also need to be wired, otherwise the chip stays stale.
+      inner.push(
+        git.onDidOpenRepository((repo) => {
+          inner.push(repo.state.onDidChange(() => onChange()));
+          onChange();
+        }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  if (!attach()) {
+    const timer = setTimeout(() => attach(), 2000);
+    inner.push({ dispose: () => clearTimeout(timer) });
+  }
+
+  return {
+    dispose: () => {
+      for (const d of inner) {
+        try {
+          d.dispose();
+        } catch {
+          // ignore — best-effort cleanup on webview dispose
+        }
+      }
+    },
+  };
 }

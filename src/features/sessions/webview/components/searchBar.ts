@@ -5,10 +5,18 @@
 import {
   setSearchQuery,
   setVisibleCount,
+  clearFullTextHits,
 } from "../state";
+import { sendSearchFullText } from "../api";
 import { icon } from "../../../../webview/icons";
 
 let searchTimer: ReturnType<typeof setTimeout>;
+/**
+ * Minimum query length to trigger a full-text (transcript content) scan.
+ * Below this the extension-host scan returns thousands of hits that only
+ * slow the render — metadata matches from `searchHaystack` are enough.
+ */
+const FULLTEXT_MIN_CHARS = 2;
 
 /**
  * Render the search bar HTML string.
@@ -39,15 +47,29 @@ export function bindSearchBar(onUpdate: () => void): void {
 
 /**
  * Handle search input with a 150ms debounce.
+ *
+ * Metadata search (name/project/branch/summary) runs entirely in-browser
+ * via `searchHaystack`, so it reacts instantly. Full-text (transcript
+ * content) search is dispatched to the extension host because the index
+ * is too large to ship to the webview. The reply arrives asynchronously
+ * and the list re-renders when it does.
  */
 function onSearch(onUpdate: () => void): void {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
     const input = document.getElementById("search") as HTMLInputElement | null;
     if (!input) return;
-    setSearchQuery(input.value.toLowerCase());
+    const q = input.value.toLowerCase();
+    setSearchQuery(q);
     setVisibleCount(30);
     document.getElementById("searchClear")?.classList.toggle("is-hidden", !input.value);
+    if (q.length >= FULLTEXT_MIN_CHARS) {
+      sendSearchFullText(q);
+    } else {
+      // Clear stale hits below the minimum threshold so a 1-char query
+      // does not keep showing transcript matches from a longer query.
+      clearFullTextHits();
+    }
     onUpdate();
   }, 150);
 }
@@ -60,6 +82,7 @@ function clearSearch(onUpdate: () => void): void {
   if (!input) return;
   input.value = "";
   setSearchQuery("");
+  clearFullTextHits();
   document.getElementById("searchClear")?.classList.add("is-hidden");
   onUpdate();
   input.focus();

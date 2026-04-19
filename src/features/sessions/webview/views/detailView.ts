@@ -14,6 +14,7 @@ import {
   sendUnpinSession,
   sendRenameSession,
   sendExportSession,
+  sendGetSessionDetail,
 } from "../api";
 import {
   getDetail,
@@ -98,15 +99,23 @@ export function showDetail(): void {
         <div class="d-kv"><span class="d-k">Branch</span><span class="d-v">${branch || "\u2014"}</span></div>
       </div>
 
-      ${d.prompts.length ? (() => {
-        const MAX_PROMPTS = 50;
-        const shown = d.prompts.slice(0, MAX_PROMPTS);
-        const hasMore = d.prompts.length > MAX_PROMPTS;
+      ${d.messages.length ? (() => {
+        const mode = d.detailMode ?? "last";
+        const total = d.totalMessages ?? d.messages.length;
+        const showToggle = total > d.messages.length;
         return `
       <div class="d-section">
-        <div class="d-label">Prompts (${d.prompts.length})</div>
-        ${shown.map((p, i) => `<div class="d-prompt"><span class="d-pn">${i + 1}</span>${esc(p)}</div>`).join("")}
-        ${hasMore ? `<div class="d-prompt" style="color:var(--fg-muted);justify-content:center">...and ${d.prompts.length - MAX_PROMPTS} more</div>` : ""}
+        <div class="d-label-row">
+          <span class="d-label">Messages (${total})</span>
+          ${showToggle ? `
+          <div class="vs-segmented vs-segmented--sm">
+            <button class="vs-segmented-btn ${mode === "last" ? "active" : ""}" id="msgLast">Latest</button>
+            <button class="vs-segmented-btn ${mode === "first" ? "active" : ""}" id="msgFirst">Earliest</button>
+          </div>` : ""}
+        </div>
+        ${mode === "first" && showToggle ? `<div class="d-msg-hint">Showing first ${d.messages.length} of ${total} messages</div>` : ""}
+        ${mode === "last" && showToggle ? `<div class="d-msg-hint">Showing last ${d.messages.length} of ${total} messages</div>` : ""}
+        ${d.messages.map((m) => `<div class="d-msg d-msg-${m.role}"><span class="d-msg-role">${m.role === "user" ? "You" : "Claude"}</span><div class="d-msg-content">${esc(m.content.length > 500 ? m.content.slice(0, 500) + "..." : m.content)}</div></div>`).join("")}
       </div>`;
       })() : ""}
     </div>`;
@@ -136,5 +145,26 @@ export function showDetail(): void {
   dv.querySelector("#btnExport")?.addEventListener("click", () => sendExportSession(d.id));
   dv.querySelector("#btnDelete")?.addEventListener("click", () => {
     confirmDelete(d.id, () => showList());
+  });
+
+  // Message page toggle — re-requests the detail with a different mode.
+  // Don't flash a loading state: the request is fast (local file read)
+  // and showing "Loading..." mid-flip makes the panel appear to fully
+  // reload. Instead, optimistically toggle the active class so the
+  // user sees immediate feedback; the response re-renders with fresh
+  // message content.
+  const swapActive = (activeId: string, inactiveId: string): void => {
+    dv.querySelector(`#${activeId}`)?.classList.add("active");
+    dv.querySelector(`#${inactiveId}`)?.classList.remove("active");
+  };
+  dv.querySelector("#msgFirst")?.addEventListener("click", () => {
+    if (d.detailMode === "first") return;
+    swapActive("msgFirst", "msgLast");
+    sendGetSessionDetail(d.id, "first");
+  });
+  dv.querySelector("#msgLast")?.addEventListener("click", () => {
+    if (d.detailMode === "last") return;
+    swapActive("msgLast", "msgFirst");
+    sendGetSessionDetail(d.id, "last");
   });
 }

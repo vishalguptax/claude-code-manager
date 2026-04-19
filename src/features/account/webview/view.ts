@@ -5,6 +5,7 @@
 
 import { icon } from "../../../webview/icons";
 import { esc } from "../../../webview/utils";
+import { renderSelect, bindSelect } from "../../../webview/components/select";
 import {
   sendLaunchSlash,
   sendOpenAccountUrl,
@@ -15,6 +16,8 @@ import {
   sendSetVoiceEnabled,
   sendPromptAddPermission,
   sendRemovePermission,
+  sendPromptCustomModel,
+  sendRestoreClaudeConfig,
 } from "./api";
 import {
   getAccountData,
@@ -29,10 +32,10 @@ import {
 import type { AccountData, DailyActivity, PermissionScope } from "../types";
 
 /**
- * Helper-line descriptions for each model option. Default explicitly
- * names the underlying model (Opus 4.6 + 1M context) so the user knows
- * the recommended pick isn't a separate model. The other entries stay
- * version-free so they don't go stale when Claude bumps a model.
+ * Short purpose descriptions keyed by model family alias. Shown as a
+ * helper line under the model dropdown so users see the same context
+ * Claude's /model picker shows in the terminal. Only family aliases —
+ * no version numbers — so nothing goes stale when Claude bumps a model.
  */
 const MODEL_DESCRIPTIONS: Record<string, string> = {
   default: "1M context · most capable",
@@ -40,6 +43,80 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
   haiku: "Fastest, lightest",
   opus: "Deepest reasoning",
 };
+
+/** A single dropdown option in the model selector. */
+interface ModelOption {
+  value: string;
+  label: string;
+  desc: string;
+}
+
+/**
+ * Build the model dropdown options purely from the CLI binary scan —
+ * no hardcoded fallback, no stats-cache guesses, no "Custom..." typed-
+ * input escape hatch. The dropdown reflects exactly what the installed
+ * Claude CLI supports today.
+ *
+ *   - Latest of each family binds to the alias ("opus", "sonnet", ...)
+ *     so the user auto-upgrades when Claude bumps that family.
+ *   - Older versions bind to the full ID ("claude-opus-4-6") so users
+ *     who want to pin to a specific release can do so explicitly.
+ *   - If the user's current model isn't in the discovered list (e.g.
+ *     they hand-edited settings.json to a value from an older CLI),
+ *     we still surface it as a read-only entry so the trigger label
+ *     renders correctly instead of blank.
+ */
+function buildModelOptions(
+  data: AccountData,
+  currentModel: string,
+): ModelOption[] {
+  // "Default" in Claude CLI resolves to the latest Opus (+ 1M context).
+  // Surface that version in the label so users see what Default is today.
+  const latestOpus = data.availableModels.find(
+    (m) => m.alias === "opus" && m.isLatest,
+  );
+  const defaultLabel = latestOpus
+    ? `Default (${latestOpus.label})`
+    : "Default";
+
+  const options: ModelOption[] = [
+    { value: "default", label: defaultLabel, desc: MODEL_DESCRIPTIONS.default },
+  ];
+  const seen = new Set<string>(["default"]);
+
+  for (const m of data.availableModels) {
+    const value = m.isLatest ? m.alias : m.id;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    options.push({
+      value,
+      label: m.label,
+      desc: m.isLatest
+        ? MODEL_DESCRIPTIONS[m.alias] ?? ""
+        : "Pinned",
+    });
+  }
+
+  // Current model not in the discovered list — surface it so the
+  // trigger label renders. No "Custom model…" typed-input: the
+  // dropdown shows only what exists.
+  if (currentModel && !seen.has(currentModel)) {
+    options.push({
+      value: currentModel,
+      label: formatModelName(currentModel),
+      desc: "",
+    });
+  }
+
+  return options;
+}
+
+/** Build a lookup from option value → description for the change handler. */
+function buildModelDescMap(options: ModelOption[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const o of options) map[o.value] = o.desc;
+  return map;
+}
 
 /** Render the entire account tab into the given container. */
 export function renderAccount(container: HTMLElement): void {
@@ -108,10 +185,19 @@ function renderProfileSection(data: AccountData): string {
       ${renderSectionHeader("profile", "Profile", collapsed)}
       ${collapsed ? "" : `
       <div class="acct-section-body">
+        ${p.configCorrupted ? `
+        <div class="acct-banner" role="alert">
+          ${icon("circle-alert", 14)}
+          <div class="acct-banner-text">
+            <strong>Claude config looks corrupted.</strong>
+            <span>~/.claude.json is empty or invalid. Restore from the latest backup to avoid Claude's re-login prompt and keep your settings.</span>
+          </div>
+          <button class="btn" id="acct-restore-config">${icon("refresh-cw", 12)} Restore</button>
+        </div>` : ""}
         <div class="acct-profile">
           <div class="acct-avatar">${esc(initial)}</div>
           <div class="acct-profile-info">
-            <div class="acct-name">${esc(p.displayName || "Unknown")}</div>
+            <div class="acct-name">${esc(p.displayName || p.email || (p.signedIn ? "Signed in" : "Not signed in"))}</div>
             <div class="acct-email">${esc(p.email)}</div>
           </div>
           ${p.subscriptionType ? `<span class="acct-plan-badge plan-${esc(p.subscriptionType)}">${esc(p.subscriptionType)}</span>` : ""}
@@ -154,35 +240,54 @@ function renderUsageSection(data: AccountData): string {
       </section>`;
   }
 
-  // Filter daily buckets by time period
-  const now = Date.now();
+  // Anchor the filter to the most recent day of recorded data, not
+  // wall-clock today. Claude CLI rebuilds stats-cache.json only
+  // periodically (it's 8+ days stale on some machines), so "last 7
+  // days from today" would show 0. "Last 7 days of recorded data"
+  // gives users the real usage picture regardless of cache freshness.
+  const latestDataDate = u.daily.length > 0
+    ? u.daily[u.daily.length - 1].date
+    : new Date().toISOString().slice(0, 10);
+  const anchor = new Date(latestDataDate).getTime();
   const cutoffDays = period === "week" ? 7 : period === "month" ? 30 : Infinity;
   const withinPeriod = (date: string): boolean =>
-    cutoffDays === Infinity || (now - new Date(date).getTime()) / 86400000 <= cutoffDays;
+    cutoffDays === Infinity ||
+    (anchor - new Date(date).getTime()) / 86400000 <= cutoffDays;
 
   const filteredActivity = u.daily.filter((d) => withinPeriod(d.date));
   const filteredTokens = u.dailyTokens.filter((d) => withinPeriod(d.date));
 
-  const totals = filteredActivity.reduce(
-    (acc, d) => ({
-      messages: acc.messages + d.messageCount,
-      sessions: acc.sessions + d.sessionCount,
-      tools: acc.tools + d.toolCallCount,
-    }),
-    { messages: 0, sessions: 0, tools: 0 },
-  );
+  // For "All time" use the cache's totals directly — they're the
+  // authoritative numbers Claude's /stats reports. For 7d/30d we sum
+  // daily rows (which aggregate the same way Claude's filtered views do).
+  const totals = period === "all"
+    ? {
+        messages: u.totalMessages,
+        sessions: u.totalSessions,
+        tools: filteredActivity.reduce((acc, d) => acc + d.toolCallCount, 0),
+      }
+    : filteredActivity.reduce(
+        (acc, d) => ({
+          messages: acc.messages + d.messageCount,
+          sessions: acc.sessions + d.sessionCount,
+          tools: acc.tools + d.toolCallCount,
+        }),
+        { messages: 0, sessions: 0, tools: 0 },
+      );
 
-  const tokenTotal = filteredTokens.reduce((sum, d) => sum + d.total, 0);
+  const tokenTotal = period === "all"
+    ? u.totalInputTokens + u.totalOutputTokens
+    : filteredTokens.reduce((sum, d) => sum + d.total, 0);
 
   return `
     <section class="acct-section">
       ${renderSectionHeader("usage", "Usage", collapsed)}
       ${collapsed ? "" : `
       <div class="acct-section-body">
-        <div class="acct-period-toggle" role="tablist">
-          <button class="acct-period ${period === "week" ? "active" : ""}" data-period="week" role="tab">7 days</button>
-          <button class="acct-period ${period === "month" ? "active" : ""}" data-period="month" role="tab">30 days</button>
-          <button class="acct-period ${period === "all" ? "active" : ""}" data-period="all" role="tab">All time</button>
+        <div class="vs-segmented acct-period-toggle" role="tablist">
+          <button class="vs-segmented-btn ${period === "week" ? "active" : ""}" data-period="week" role="tab">7 days</button>
+          <button class="vs-segmented-btn ${period === "month" ? "active" : ""}" data-period="month" role="tab">30 days</button>
+          <button class="vs-segmented-btn ${period === "all" ? "active" : ""}" data-period="all" role="tab">All time</button>
         </div>
 
         ${renderHeatmap(u.daily)}
@@ -338,6 +443,8 @@ function renderSettingsSection(data: AccountData): string {
   const s = data.settings;
   const collapsed = isSectionCollapsed("settings");
   const currentModel = s.model || "default";
+  const modelOptions = buildModelOptions(data, currentModel);
+  const currentOption = modelOptions.find((o) => o.value === currentModel);
 
   return `
     <section class="acct-section">
@@ -345,17 +452,9 @@ function renderSettingsSection(data: AccountData): string {
       ${collapsed ? "" : `
       <div class="acct-section-body">
         <div class="acct-field">
-          <label class="acct-label">Model</label>
-          <div class="acct-select-wrap">
-            <select class="acct-select" id="acct-model">
-              <option value="default" ${currentModel === "default" ? "selected" : ""}>Default (Opus 4.6)</option>
-              <option value="sonnet" ${currentModel === "sonnet" ? "selected" : ""}>Sonnet</option>
-              <option value="haiku" ${currentModel === "haiku" ? "selected" : ""}>Haiku</option>
-              <option value="opus" ${currentModel === "opus" ? "selected" : ""}>Opus</option>
-            </select>
-            <span class="acct-select-arrow" aria-hidden="true">${icon("chevron-down", 14)}</span>
-          </div>
-          <div class="acct-field-hint" id="acct-model-desc">${esc(MODEL_DESCRIPTIONS[currentModel] ?? "")}</div>
+          <label class="acct-label" for="acct-model">Model</label>
+          ${renderSelect("acct-model", modelOptions, currentModel)}
+          <div class="acct-field-hint" id="acct-model-desc">${esc(currentOption?.desc ?? "")}</div>
         </div>
 
         <div class="acct-field">
@@ -405,10 +504,10 @@ function renderPermissionsSection(data: AccountData): string {
       ${renderSectionHeader("permissions", "Permissions", collapsed)}
       ${collapsed ? "" : `
       <div class="acct-section-body">
-        <div class="acct-scope-toggle" role="tablist">
-          <button class="acct-scope ${scope === "global" ? "active" : ""}" data-scope="global" role="tab">Global</button>
-          ${hasProjectScope ? `<button class="acct-scope ${scope === "project" ? "active" : ""}" data-scope="project" role="tab">Project</button>` : ""}
-          ${hasProjectScope ? `<button class="acct-scope ${scope === "local" ? "active" : ""}" data-scope="local" role="tab">Local</button>` : ""}
+        <div class="vs-segmented acct-scope-toggle" role="tablist">
+          <button class="vs-segmented-btn ${scope === "global" ? "active" : ""}" data-scope="global" role="tab">Global</button>
+          ${hasProjectScope ? `<button class="vs-segmented-btn ${scope === "project" ? "active" : ""}" data-scope="project" role="tab">Project</button>` : ""}
+          ${hasProjectScope ? `<button class="vs-segmented-btn ${scope === "local" ? "active" : ""}" data-scope="local" role="tab">Local</button>` : ""}
         </div>
 
         ${renderPermissionList(set?.allow ?? [], scope, "allow", "Allowed")}
@@ -498,7 +597,7 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
   });
 
   // Time period toggle
-  container.querySelectorAll<HTMLElement>(".acct-period").forEach((el) => {
+  container.querySelectorAll<HTMLElement>("[data-period]").forEach((el) => {
     el.addEventListener("click", () => {
       const period = el.dataset.period as "all" | "week" | "month" | undefined;
       if (period) {
@@ -517,12 +616,14 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
     setTimeout(() => field.classList.remove("acct-field-saved"), 1200);
   };
 
-  const modelSelect = container.querySelector<HTMLSelectElement>("#acct-model");
+  const modelTrigger = container.querySelector<HTMLElement>("#acct-model");
   const modelDesc = container.querySelector<HTMLElement>("#acct-model-desc");
-  modelSelect?.addEventListener("change", () => {
-    sendSetModel(modelSelect.value === "default" ? "" : modelSelect.value);
-    if (modelDesc) modelDesc.textContent = MODEL_DESCRIPTIONS[modelSelect.value] ?? "";
-    flashSaved(modelSelect);
+  const modelOpts = buildModelOptions(data, data.settings.model || "default");
+  const modelDescMap = buildModelDescMap(modelOpts);
+  bindSelect(container, "acct-model", (value) => {
+    sendSetModel(value === "default" ? "" : value);
+    if (modelDesc) modelDesc.textContent = modelDescMap[value] ?? "";
+    if (modelTrigger) flashSaved(modelTrigger);
   });
 
   const voiceCheckbox = container.querySelector<HTMLInputElement>("#acct-voice");
@@ -543,6 +644,11 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
     flashSaved(prInput);
   });
 
+  // Config restore banner
+  container.querySelector<HTMLElement>("#acct-restore-config")?.addEventListener("click", () => {
+    sendRestoreClaudeConfig();
+  });
+
   // Open settings file buttons
   container.querySelector<HTMLElement>("#acct-open-settings")?.addEventListener("click", () => {
     sendOpenSettingsFile("global");
@@ -552,7 +658,7 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
   });
 
   // Permission scope toggle
-  container.querySelectorAll<HTMLElement>(".acct-scope").forEach((el) => {
+  container.querySelectorAll<HTMLElement>(".acct-scope-toggle [data-scope]").forEach((el) => {
     el.addEventListener("click", () => {
       const scope = el.dataset.scope as PermissionScope | undefined;
       if (scope) {

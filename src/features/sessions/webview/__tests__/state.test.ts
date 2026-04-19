@@ -16,6 +16,13 @@ import {
   setStats,
   setPinnedIds,
   setDeletedIds,
+  setCurrentBranch,
+  getCurrentBranch,
+  setFilterBranch,
+  getFilterBranch,
+  setSearchQuery,
+  setFullTextHits,
+  clearFullTextHits,
 } from "../state";
 
 /**
@@ -65,6 +72,10 @@ beforeEach(() => {
   setPinnedIds([]);
   setDeletedIds([]);
   setWorkspacePath("");
+  setCurrentBranch("");
+  setFilterBranch("all");
+  setSearchQuery("");
+  clearFullTextHits();
   // Bind a fresh persistence backend per test so prior writes don't bleed.
   initPersistence(makeFakeVscode());
   // Clear any persisted filters from prior tests by re-loading from the
@@ -179,5 +190,118 @@ describe("filter persistence", () => {
     initPersistence(makeFakeVscode());
     expect(hasPersistedFilterProject()).toBe(false);
     expect(hasPersistedFilterDate()).toBe(false);
+  });
+});
+
+describe("branch filter", () => {
+  it("narrows to sessions on the picked branch", () => {
+    setSessions([
+      makeSession({ id: "1", branch: "main" }),
+      makeSession({ id: "2", branch: "feature/x" }),
+      makeSession({ id: "3", branch: "feature/x" }),
+      makeSession({ id: "4", branch: "other" }),
+    ]);
+    setFilterProject("all");
+    setFilterBranch("feature/x");
+    expect(getFiltered().map((s) => s.id).sort()).toEqual(["2", "3"]);
+  });
+
+  it("keeps pinned sessions visible even when on a different branch", () => {
+    setSessions([
+      makeSession({ id: "1", branch: "main" }),
+      makeSession({ id: "2", branch: "feature/x" }),
+    ]);
+    setPinnedIds(["1"]);
+    setFilterProject("all");
+    setFilterBranch("feature/x");
+    // pinned "1" survives the branch filter
+    expect(getFiltered().map((s) => s.id).sort()).toEqual(["1", "2"]);
+  });
+
+  it("'all' disables the filter", () => {
+    setSessions([
+      makeSession({ id: "1", branch: "main" }),
+      makeSession({ id: "2", branch: "feature/x" }),
+    ]);
+    setFilterProject("all");
+    setFilterBranch("all");
+    expect(getFiltered().length).toBe(2);
+  });
+
+  it("'(no branch)' matches sessions with an empty branch field", () => {
+    setSessions([
+      makeSession({ id: "1", branch: "" }),
+      makeSession({ id: "2", branch: "main" }),
+    ]);
+    setFilterProject("all");
+    setFilterBranch("(no branch)");
+    expect(getFiltered().map((s) => s.id)).toEqual(["1"]);
+  });
+
+  it("exposes getters that reflect setter state", () => {
+    setCurrentBranch("main");
+    expect(getCurrentBranch()).toBe("main");
+    setFilterBranch("feature/z");
+    expect(getFilterBranch()).toBe("feature/z");
+  });
+
+  it("persists filterBranch across reloads", () => {
+    const fake = makeFakeVscode();
+    initPersistence(fake);
+    setFilterBranch("feature/persist");
+    initPersistence(fake);
+    loadPersistedFilters();
+    expect(getFilterBranch()).toBe("feature/persist");
+  });
+});
+
+describe("full-text search hits", () => {
+  it("unions metadata matches with transcript hits", () => {
+    setSessions([
+      makeSession({ id: "a", project: "alpha", summary: "refactor api" }),
+      makeSession({ id: "b", project: "beta", summary: "unrelated" }),
+      makeSession({ id: "c", project: "gamma", summary: "also unrelated" }),
+    ]);
+    setFilterProject("all");
+    setSearchQuery("refactor");
+    // no full-text hits yet — only metadata match wins
+    expect(getFiltered().map((s) => s.id)).toEqual(["a"]);
+
+    // Extension reports that "c" also matched in the transcript body.
+    setFullTextHits("refactor", ["c"]);
+    expect(getFiltered().map((s) => s.id).sort()).toEqual(["a", "c"]);
+  });
+
+  it("drops stale hits when the echoed query no longer matches", () => {
+    setSessions([
+      makeSession({ id: "a", summary: "x" }),
+      makeSession({ id: "b", summary: "y" }),
+    ]);
+    setFilterProject("all");
+    setSearchQuery("foo");
+    // Reply arrives for an older query.
+    setFullTextHits("oldquery", ["b"]);
+    // Current query is "foo", neither session matches metadata, stale
+    // hits are ignored — result should be empty.
+    expect(getFiltered()).toEqual([]);
+  });
+
+  it("clearFullTextHits removes any previously stored hits", () => {
+    setSessions([makeSession({ id: "a", summary: "unrelated" })]);
+    setFilterProject("all");
+    setSearchQuery("hit");
+    setFullTextHits("hit", ["a"]);
+    expect(getFiltered().map((s) => s.id)).toEqual(["a"]);
+    clearFullTextHits();
+    expect(getFiltered()).toEqual([]);
+  });
+
+  it("ignores hits whose echo query does not match (racy reply)", () => {
+    setSessions([makeSession({ id: "a", summary: "unrelated" })]);
+    setFilterProject("all");
+    setSearchQuery("later");
+    // setFullTextHits is a no-op when query !== current.
+    setFullTextHits("earlier", ["a"]);
+    expect(getFiltered()).toEqual([]);
   });
 });

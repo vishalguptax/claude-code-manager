@@ -13,6 +13,9 @@ import {
   filterSessions,
   getLastParseWarning,
 } from "./parser";
+import { indexSession, clearIndex, searchContent } from "./searchIndex";
+import { slugifyProjectPath } from "./portable";
+import { PROJECTS_DIR } from "../../core/config";
 import { loadState, pinSession, unpinSession, deleteSession, renameSession } from "./state";
 import {
   openProject,
@@ -28,6 +31,7 @@ import {
 } from "./commands";
 import { getWebviewHtml } from "../../extension/html";
 import { getWorkspace } from "../../extension/workspace";
+import { getCurrentBranch, onBranchChange } from "../../extension/git";
 import { parseSkills } from "../skills/parser";
 import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
@@ -39,6 +43,7 @@ import {
   addPermissionEntry,
   removePermissionEntry,
   resolveSettingsPath,
+  restoreClaudeJsonFromBackup,
 } from "../account/parser";
 import { createTerminal } from "../../extension/terminal";
 import type { WebviewMessage, Session } from "./types";
@@ -95,6 +100,19 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }),
     );
 
+    // Also re-post the branch when the user checks out a different ref.
+    // Without this the "This Branch" filter would keep pointing at the
+    // branch that was active when the panel first opened. We only push
+    // the branch (not the full workspace path) so checkouts don't churn
+    // the project-name UI.
+    this.viewSubscriptions.push(
+      onBranchChange(() => {
+        const wv = this.view?.webview;
+        if (!wv) return;
+        wv.postMessage({ type: "workspaceBranch", data: getCurrentBranch() });
+      }),
+    );
+
     view.onDidDispose(() => {
       // Clear `view` so any pending debounce timers find a null webview and
       // bail instead of posting to a disposed surface.
@@ -103,6 +121,47 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       for (const sub of this.viewSubscriptions) sub.dispose();
       this.viewSubscriptions = [];
     });
+  }
+
+  /**
+   * Monotonic counter for search-index rebuilds. Incremented at the
+   * start of each build; chunks bail out if the counter advances
+   * during their scheduled gap, which happens when a new parseSessions
+   * triggers a rebuild while the previous one is still processing.
+   */
+  private indexBuildGen = 0;
+
+  /**
+   * Build the full-text search index in the background, chunked so the
+   * event loop keeps responding to webview events. Called after every
+   * parseSessions() so the index stays in sync with the session list.
+   *
+   * Processes CHUNK sessions per setTimeout tick so a rebuild on a
+   * 5000-session collection doesn't block a postMessage sitting behind
+   * it. The index is cleared upfront and a stale-generation check on
+   * every chunk prevents two overlapping builds from corrupting each
+   * other when the file-watcher fires rapidly.
+   */
+  private buildSearchIndex(): void {
+    const myGen = ++this.indexBuildGen;
+    const snapshot = this.sessions.slice();
+    clearIndex();
+    const CHUNK = 50;
+    const processChunk = (start: number): void => {
+      if (this.view === undefined) return; // webview disposed — abort
+      if (this.indexBuildGen !== myGen) return; // superseded by newer build
+      for (let i = start; i < Math.min(start + CHUNK, snapshot.length); i++) {
+        const s = snapshot[i];
+        if (!s.projectPath) continue;
+        const slug = slugifyProjectPath(s.projectPath);
+        const filePath = path.join(PROJECTS_DIR, slug, s.id + ".jsonl");
+        indexSession(s.id, filePath);
+      }
+      if (start + CHUNK < snapshot.length) {
+        setTimeout(() => processChunk(start + CHUNK), 0);
+      }
+    };
+    setTimeout(() => processChunk(0), 0);
   }
 
   /**
@@ -115,6 +174,12 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     const wv = this.view?.webview;
     if (!wv) return;
     wv.postMessage({ type: "workspacePath", data: getWorkspace() });
+    // Send the branch alongside so the "This Branch" filter stays in
+    // sync with the workspace. Resolving the branch from the Git
+    // extension can return an empty string on a cold panel — it is
+    // re-sent on every workspace-folder change so the chip eventually
+    // appears once the extension activates.
+    wv.postMessage({ type: "workspaceBranch", data: getCurrentBranch() });
   }
 
   /**
@@ -236,6 +301,8 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
           wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
           const warning = getLastParseWarning();
           if (warning) wv.postMessage({ type: "error", message: warning });
+          // Keep the search index in sync when sessions change on disk.
+          this.buildSearchIndex();
         } catch (err) {
           console.warn("[claude-manager] sessions reparse failed:", err);
         }
@@ -277,11 +344,19 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         wv.postMessage({ type: "userState", ...loadState() });
         const warning = getLastParseWarning();
         if (warning) wv.postMessage({ type: "error", message: warning });
+        // Kick off the full-text index in the background — the webview
+        // has its data already, this runs behind the user's first view.
+        this.buildSearchIndex();
         break;
       }
 
       case "getSessionDetail": {
-        const detail = parseSessionDetail(msg.sessionId, this.sessions.find((s) => s.id === msg.sessionId));
+        const mode = (msg as { mode?: "first" | "last" }).mode ?? "last";
+        const detail = parseSessionDetail(
+          msg.sessionId,
+          this.sessions.find((s) => s.id === msg.sessionId),
+          mode,
+        );
         if (detail) {
           wv.postMessage({ type: "sessionDetail", data: detail });
         }
@@ -307,7 +382,17 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       case "refresh":
         this.sessions = parseSessions(loadState().renames);
         wv.postMessage({ type: "sessions", data: groupSessions(this.sessions), stats: getStats(this.sessions) });
+        this.buildSearchIndex();
         break;
+
+      case "searchFullText": {
+        // Transcript content search runs synchronously on the pre-built
+        // lowercased index. The reply carries the echo-query so the webview
+        // can drop stale results if the user has since typed more.
+        const ids = searchContent(msg.query);
+        wv.postMessage({ type: "fullTextResults", query: msg.query, ids });
+        break;
+      }
 
       case "openProject":
         openProject(msg.projectPath);
@@ -424,6 +509,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
             stats: getStats(this.sessions),
           });
           wv2.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
+          this.buildSearchIndex();
         });
         break;
 
@@ -645,6 +731,48 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         writeSettingsValue("model", msg.model || undefined);
         const workspace = getWorkspace();
         wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "promptCustomModel": {
+        const input = await vscode.window.showInputBox({
+          title: "Custom model",
+          prompt: "Enter a model alias (e.g. opus) or full ID (e.g. claude-opus-4-7)",
+          placeHolder: "claude-opus-4-7",
+          validateInput: (v: string) => (v.trim() ? null : "Model name cannot be empty"),
+        });
+        if (input && input.trim()) {
+          writeSettingsValue("model", input.trim());
+          const workspace = getWorkspace();
+          wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        }
+        break;
+      }
+
+      case "restoreClaudeConfig": {
+        // Confirm with the user before overwriting anything.
+        const confirm = await vscode.window.showWarningMessage(
+          "Restore Claude config from the latest backup?",
+          {
+            modal: true,
+            detail:
+              "Your ~/.claude.json is empty or invalid. Claude Manager can copy the most recent backup from ~/.claude/backups over it, which preserves your account and settings so Claude CLI doesn't prompt to reset or re-login.",
+          },
+          "Restore",
+        );
+        if (confirm !== "Restore") break;
+        const restoredFrom = restoreClaudeJsonFromBackup();
+        if (restoredFrom) {
+          vscode.window.showInformationMessage(
+            `Restored ~/.claude.json from backup (${path.basename(restoredFrom)}).`,
+          );
+          const workspace = getWorkspace();
+          wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        } else {
+          vscode.window.showErrorMessage(
+            "No valid backup found in ~/.claude/backups. You may need to re-run Claude to regenerate the config.",
+          );
+        }
         break;
       }
 

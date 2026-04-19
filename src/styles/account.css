@@ -25,14 +25,14 @@
   width: 100%;
   text-align: left;
   border-radius: 0;
-  transition: background 0.12s;
+  transition: background var(--transition-control);
 }
 .acct-section-header:hover .acct-section-title,
 .acct-section-header:hover .acct-section-chevron {
   color: var(--fg);
 }
 .acct-section-header:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: -1px;
 }
 
@@ -40,7 +40,7 @@
   display: flex;
   align-items: center;
   color: var(--fg-muted);
-  transition: transform 0.15s;
+  transition: transform var(--transition-control);
 }
 .acct-section-chevron.collapsed { transform: rotate(-90deg); }
 
@@ -128,6 +128,35 @@
   margin: var(--space-md) 0;
 }
 
+/*
+ * Corrupted-config banner — shown at the top of the Profile section
+ * when ~/.claude.json is empty or invalid. Semi-transparent warning
+ * color so it reads clearly on any theme without overpowering the
+ * panel hierarchy.
+ */
+.acct-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+}
+.acct-banner svg { color: rgb(245, 158, 11); flex-shrink: 0; margin-top: 2px; }
+.acct-banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.4;
+}
+.acct-banner-text strong { color: var(--fg); font-weight: 600; }
+.acct-banner-text span { color: var(--fg-dim); }
+.acct-banner .btn { flex-shrink: 0; }
+
 .acct-meta-row {
   display: flex;
   justify-content: space-between;
@@ -164,36 +193,11 @@
   margin-top: var(--space-lg);
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Usage — period toggle
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.acct-period-toggle {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--bg-hover);
-  border-radius: var(--radius);
+/* Period/scope toggles now use the shared .vs-segmented primitive from
+   components.css. Only the layout spacing stays local. */
+.acct-period-toggle,
+.acct-scope-toggle {
   margin-bottom: var(--space-lg);
-  width: fit-content;
-}
-
-.acct-period {
-  padding: 4px 10px;
-  font-size: var(--fs-sm);
-  background: none;
-  border: none;
-  color: var(--fg-dim);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  transition: background 0.15s, color 0.15s;
-}
-.acct-period:hover { color: var(--fg); }
-.acct-period.active {
-  background: var(--bg);
-  color: var(--fg);
-  font-weight: 500;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -346,7 +350,7 @@
   height: 14px;
   background: rgba(127, 127, 127, 0.35);
   border-radius: 7px;
-  transition: background 150ms ease;
+  transition: background var(--transition-control);
 }
 .acct-toggle-thumb {
   position: absolute;
@@ -360,7 +364,7 @@
   background: rgba(255, 255, 255, 0.65);
   border-radius: 50%;
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
-  transition: transform 150ms ease, background 150ms ease;
+  transition: transform var(--transition-control), background var(--transition-control);
 }
 /* ON state: use the saturated VS Code button background (a true accent
    color, not the focus-border which can be a thin outline). Falls back
@@ -392,49 +396,20 @@
 .acct-input,
 .acct-select {
   width: 100%;
-  padding: 5px 8px;
+  height: var(--h-control);
+  padding: 0 var(--pad-control-x);
   background: var(--input-bg);
   color: var(--input-fg);
   border: 1px solid var(--input-border);
   border-radius: var(--radius);
   font-size: var(--fs-base);
   font-family: inherit;
+  transition: border-color var(--transition-control);
 }
 .acct-input:focus,
 .acct-select:focus {
-  outline: 1px solid var(--accent);
+  outline: var(--focus-ring);
   outline-offset: -1px;
-}
-
-/*
- * Custom-arrow wrapper for <select>. We strip the native browser dropdown
- * indicator (which renders inconsistently across themes — sometimes black
- * on dark backgrounds, sometimes oversized) and replace it with our
- * existing Lucide chevron, theme-tinted via currentColor.
- */
-.acct-select-wrap {
-  position: relative;
-}
-.acct-select-wrap .acct-select {
-  /* Hide the native arrow on every engine. */
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  /* Reserve room on the right so text never collides with our arrow. */
-  padding-right: 28px;
-}
-/* Older Edge / IE-like rendering puts a clear button — kill it too. */
-.acct-select-wrap .acct-select::-ms-expand {
-  display: none;
-}
-.acct-select-arrow {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--fg-muted);
-  pointer-events: none;
-  display: inline-flex;
 }
 
 .acct-code {
@@ -451,33 +426,6 @@
 /* ──────────────────────────────────────────────────────────────────────────────
    Permissions
    ────────────────────────────────────────────────────────────────────────────── */
-
-.acct-scope-toggle {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--bg-hover);
-  border-radius: var(--radius);
-  margin-bottom: var(--space-lg);
-  width: fit-content;
-}
-
-.acct-scope {
-  padding: 4px 10px;
-  font-size: var(--fs-sm);
-  background: none;
-  border: none;
-  color: var(--fg-dim);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-}
-.acct-scope:hover { color: var(--fg); }
-.acct-scope.active {
-  background: var(--bg);
-  color: var(--fg);
-  font-weight: 500;
-}
 
 .acct-perm-group {
   margin-bottom: var(--space-lg);

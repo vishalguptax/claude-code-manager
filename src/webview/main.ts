@@ -24,6 +24,8 @@ import {
   setFilterDate,
   setFilterProject,
   setRestoreWindowMinutes,
+  setFullTextHits,
+  setCurrentBranch,
   getView,
   getDetail,
   isShellMounted,
@@ -278,6 +280,13 @@ window.addEventListener("message", (event: MessageEvent) => {
 
   if (msg.type === "workspacePath") {
     setWorkspacePath(msg.data as string);
+  } else if (msg.type === "workspaceBranch") {
+    // Branch updates can arrive before the list is mounted (ready
+    // handshake) and after checkouts. Storing it unconditionally keeps
+    // the filter in sync; updateFilter() below rebuilds the chip with
+    // the new label.
+    setCurrentBranch(msg.data as string);
+    if (getView() === "list" && isShellMounted()) updateFilter();
   } else if (msg.type === "settings") {
     // Persisted in-app selections beat global defaults — only fall back to
     // settings.json when the user has not made an explicit choice in this
@@ -327,6 +336,12 @@ window.addEventListener("message", (event: MessageEvent) => {
     setDetail(msg.data as SessionDetail);
     setLoading(false);
     showDetail();
+  } else if (msg.type === "fullTextResults") {
+    // Transcript content matches arrive asynchronously. Only re-render
+    // when the reply corresponds to the query the user is still typing
+    // — setFullTextHits drops stale replies on query mismatch.
+    setFullTextHits(msg.query as string, msg.ids as string[]);
+    if (getView() === "list") updateList();
   } else if (msg.type === "error") {
     console.error("[claude-manager]", msg.message);
   }
