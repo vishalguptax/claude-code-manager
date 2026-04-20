@@ -14,6 +14,8 @@ import { getWorkspace } from "../../extension/workspace";
 import {
   isClaudeCodeExtensionInstalled,
   openSessionInExtension,
+  openPromptInExtension,
+  isExtensionEntrypoint,
 } from "../../extension/claudeCodeExtension";
 import { normPath } from "../../core/utils";
 import { PROJECTS_DIR } from "../../core/config";
@@ -40,7 +42,15 @@ export function openProject(projectPath: string): void {
 /**
  * Start a new Claude session in a new terminal.
  */
-export function newSession(): void {
+export async function newSession(): Promise<void> {
+  // No session yet, so "auto" falls through to terminal (nothing to
+  // entrypoint-match against). extension/ask still honour the user's
+  // explicit choice.
+  const target = await resolveClaudeTarget(undefined);
+  if (target === "extension") {
+    await openPromptInExtension("");
+    return;
+  }
   const term = createTerminal("Claude");
   term.show();
   term.sendText("claude");
@@ -49,14 +59,43 @@ export function newSession(): void {
 /**
  * Continue the most recent Claude Code session in the current workspace.
  *
- * Wraps `claude --continue`, which Claude CLI resolves to the most recently
- * active session whose stored cwd matches the terminal's cwd. The terminal
- * is opened at the active workspace folder so the cwd lookup succeeds; if
- * no workspace is open, Claude is launched at its default working directory
- * and `--continue` will fall through to "no recent session" inside Claude.
+ * CLI path: wraps `claude --continue`, which Claude CLI resolves to the
+ * most recently active session whose stored cwd matches the terminal's
+ * cwd. The terminal is opened at the active workspace folder so the cwd
+ * lookup succeeds; if no workspace is open, Claude is launched at its
+ * default working directory and `--continue` will fall through to "no
+ * recent session" inside Claude.
+ *
+ * Extension path: there is no `--continue` URI equivalent, so we find
+ * the most recent session for this workspace ourselves and fire the
+ * session URI handler with its id. If no session is found (new repo),
+ * we fall through to the terminal.
  */
-export function continueLastSession(): void {
-  const cwd = getWorkspace();
+export async function continueLastSession(sessions: Session[]): Promise<void> {
+  const ws = getWorkspace();
+
+  // Locate the latest session in this workspace. Used both for extension
+  // routing and for auto-mode's entrypoint match. `normPath` aligns
+  // casing/separators between workspace fsPath and JSONL-recorded cwd.
+  const wsNorm = ws ? normPath(ws) : "";
+  const latest = wsNorm
+    ? sessions
+        .filter((s) => normPath(s.projectPath) === wsNorm)
+        .reduce<Session | undefined>(
+          (acc, s) => (!acc || s.endTime > acc.endTime ? s : acc),
+          undefined,
+        )
+    : undefined;
+
+  const target = await resolveClaudeTarget(latest);
+
+  if (target === "extension" && latest) {
+    await openSessionInExtension(latest.id);
+    return;
+  }
+
+  // Terminal path (or extension-mode with no session to continue).
+  const cwd = ws;
   const term = createTerminal("Claude: continue", cwd || undefined);
   term.show();
   term.sendText("claude --continue");
@@ -164,12 +203,17 @@ type ResumeTarget = "terminal" | "extension";
 let extensionMissingToastShown = false;
 
 /**
- * Resolve where a Resume click should land, based on the user's
- * `claudeManager.sessions.resumeIn` setting and the session's recorded
- * entrypoint. Kept separate from `resumeSession` so the routing logic
- * is unit-testable without a live terminal.
+ * Resolve where a Resume / New / Continue click should land, based on
+ * the user's `claudeManager.sessions.resumeIn` setting and the session's
+ * recorded entrypoint (when there is one). Kept separate from the
+ * callers so the routing logic is unit-testable without a live
+ * terminal or webview.
+ *
+ * Passing `undefined` for `sess` is valid — used by the New action
+ * which has no session to entrypoint-match against. In that case
+ * `auto` falls through to terminal.
  */
-async function resolveResumeTarget(sess: Session | undefined): Promise<ResumeTarget> {
+async function resolveClaudeTarget(sess: Session | undefined): Promise<ResumeTarget> {
   const cfg = vscode.workspace.getConfiguration("claudeManager.sessions");
   const mode = cfg.get<string>("resumeIn", "auto");
 
@@ -203,10 +247,11 @@ async function resolveResumeTarget(sess: Session | undefined): Promise<ResumeTar
   }
 
   // "auto" — follow the session's origin when the extension is present.
-  // Unknown entrypoints (old sessions) use the terminal since it always
-  // works.
+  // The extension records either "claude-vscode" (current build) or
+  // "vscode" (older sessions); isExtensionEntrypoint covers both.
+  // Unknown / CLI entrypoints use the terminal since it always works.
   if (mode === "auto") {
-    if (sess?.entrypoint === "vscode" && isClaudeCodeExtensionInstalled()) {
+    if (isExtensionEntrypoint(sess?.entrypoint) && isClaudeCodeExtensionInstalled()) {
       return "extension";
     }
     return "terminal";
@@ -274,7 +319,7 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
   }
 
   // Fork always uses the terminal — no extension equivalent.
-  const target: ResumeTarget = fork ? "terminal" : await resolveResumeTarget(sess);
+  const target: ResumeTarget = fork ? "terminal" : await resolveClaudeTarget(sess);
 
   if (target === "extension") {
     await openSessionInExtension(sessionId);

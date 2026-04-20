@@ -111,11 +111,6 @@ export function sendSearchFullText(query: string): void {
   _vscode.postMessage({ type: "searchFullText", query });
 }
 
-/** Open a blank Claude Code chat tab via the URI handler. */
-export function sendLaunchNewChat(): void {
-  _vscode.postMessage({ type: "launchNewChat" });
-}
-
 /** Open a chat tab pre-filled with the given prompt. */
 export function sendLaunchChatWithPrompt(prompt: string): void {
   _vscode.postMessage({ type: "launchChatWithPrompt", prompt });

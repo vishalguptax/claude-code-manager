@@ -158,6 +158,76 @@ describe("parseSessions", () => {
     expect(sessions[0].branch).toBe("feature/auth");
     expect(sessions[0].entrypoint).toBe("cli");
   });
+
+  it("discovers sessions that only exist in projects/ (no history.jsonl entry)", () => {
+    // Extension-originated sessions never touch history.jsonl. We
+    // simulate that here by writing the transcript file directly.
+    const projectCwd = "/home/user/ext-project";
+    const sessionId = "ext-sess-1";
+    writeSessionFile("-home-user-ext-project", sessionId, [
+      {
+        type: "permission-mode",
+        permissionMode: "default",
+        sessionId,
+      },
+      {
+        entrypoint: "claude-vscode",
+        message: { role: "user", content: "hello from extension" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+        cwd: projectCwd,
+        gitBranch: "main",
+      },
+      {
+        message: { role: "assistant", content: "hi" },
+        timestamp: "2026-04-20T15:00:05.000Z",
+        cwd: projectCwd,
+      },
+      {
+        message: { role: "user", content: "second" },
+        timestamp: "2026-04-20T15:00:10.000Z",
+        cwd: projectCwd,
+      },
+    ]);
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === sessionId);
+    expect(sess).toBeDefined();
+    expect(sess!.projectPath).toBe(projectCwd);
+    expect(sess!.project).toBe("ext-project");
+    expect(sess!.entrypoint).toBe("claude-vscode");
+    expect(sess!.branch).toBe("main");
+    expect(sess!.summary).toBe("hello from extension");
+    expect(sess!.messageCount).toBe(2);
+  });
+
+  it("skips orphan files that have no user messages (empty / queue-only shells)", () => {
+    writeSessionFile("-home-user-empty", "empty-sess", [
+      { type: "queue-operation", operation: "enqueue", sessionId: "empty-sess" },
+      { type: "queue-operation", operation: "dequeue", sessionId: "empty-sess" },
+    ]);
+    const sessions = parseSessions();
+    expect(sessions.find((s) => s.id === "empty-sess")).toBeUndefined();
+  });
+
+  it("does not duplicate sessions that exist in BOTH history.jsonl and projects/", () => {
+    const projectCwd = "/home/user/dual-project";
+    writeHistoryEntry({
+      display: "from history",
+      timestamp: Date.now(),
+      project: projectCwd,
+      sessionId: "dual-sess",
+    });
+    writeSessionFile("-home-user-dual-project", "dual-sess", [
+      {
+        message: { role: "user", content: "should not duplicate" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+        cwd: projectCwd,
+      },
+    ]);
+    const sessions = parseSessions();
+    const matches = sessions.filter((s) => s.id === "dual-sess");
+    expect(matches).toHaveLength(1);
+  });
 });
 
 describe("Session pre-computed search keys", () => {
