@@ -13,7 +13,6 @@ import {
   sendRefresh,
   sendGetSessionDetail,
   sendImportSession,
-  sendLaunchNewChat,
 } from "../api";
 import {
   getAllSessions,
@@ -29,7 +28,6 @@ import {
   setView,
   setShellMounted,
 } from "../state";
-import { isClaudeCodeExtensionInstalled } from "../../../../webview/extensionStatus";
 import type { Session } from "../../types";
 import { showDetail } from "./detailView";
 import { showContextMenu } from "../components/contextMenu";
@@ -52,15 +50,10 @@ export function mountShell(): void {
   const root = document.getElementById("root");
   if (!root) return;
 
-  const chatBtn = isClaudeCodeExtensionInstalled()
-    ? `<button class="action-btn" id="actChat" title="Open a new Claude Code chat tab (extension)">${icon("message-square")} Chat</button>`
-    : "";
-
   root.innerHTML = `
     <div class="panel" id="listView">
       <div class="actions-bar">
         <button class="action-btn" id="actNew" title="Start a new Claude Code session in a fresh terminal">${icon("plus")} New</button>
-        ${chatBtn}
         <button class="action-btn" id="actContinue" title="Continue your most recent Claude session in this workspace (claude --continue)">${icon("history")} Continue</button>
         <button class="action-btn" id="actAll" title="Reopen all terminals from your last working session">${icon("split-square-horizontal")} Restore Workspace</button>
         <button class="action-btn" id="actImport" title="Import a session exported from another machine">${icon("download")} Import</button>
@@ -81,7 +74,6 @@ export function mountShell(): void {
   bindDateChips(updateList);
 
   document.getElementById("actNew")?.addEventListener("click", () => sendNewSession());
-  document.getElementById("actChat")?.addEventListener("click", () => sendLaunchNewChat());
   document.getElementById("actContinue")?.addEventListener("click", () => sendContinueLastSession());
   document.getElementById("actAll")?.addEventListener("click", () => {
     const lastGroup = getLastSessionGroup();
@@ -216,18 +208,6 @@ export function updateList(): void {
     h += `<div class="show-more-row"><button class="show-more-btn" id="showMore">Show more (${totalCount - visibleCount} remaining)</button></div>`;
   }
   container.innerHTML = h;
-}
-
-/**
- * Rebuild the list shell from scratch and repopulate it. Called when a
- * conditional UI element (e.g. the New Chat button that only appears
- * when the Claude Code extension is installed) needs to flip on or off
- * mid-session without a full panel reload.
- */
-export function remountShell(): void {
-  mountShell();
-  updateFilter();
-  updateList();
 }
 
 /**

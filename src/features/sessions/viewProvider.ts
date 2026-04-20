@@ -412,17 +412,6 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         break;
       }
 
-      case "launchNewChat": {
-        // Bare extension chat tab. The button that posts this message is
-        // only rendered when the extension is installed, so no fallback
-        // is needed — but we still silently no-op instead of erroring if
-        // the extension somehow vanished between render and click.
-        if (isClaudeCodeExtensionInstalled()) {
-          await openPromptInExtension("");
-        }
-        break;
-      }
-
       case "launchChatWithPrompt": {
         if (isClaudeCodeExtensionInstalled()) {
           await openPromptInExtension(msg.prompt);
@@ -449,11 +438,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case "newSession":
-        newSession();
+        await newSession();
         break;
 
       case "continueLastSession":
-        continueLastSession();
+        await continueLastSession(this.sessions);
         break;
 
       case "forkSession":

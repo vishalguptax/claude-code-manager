@@ -443,8 +443,196 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     });
   }
 
+  // Sessions started inside the official Claude Code VS Code extension
+  // do NOT add entries to ~/.claude/history.jsonl — the CLI owns that
+  // file, not the extension. Without this pass, every extension-
+  // originated session would be invisible in Claude Manager even
+  // though the transcript sits on disk under projects/.
+  //
+  // We scan the projects directory for any sessionId that did not come
+  // through history.jsonl and reconstruct a Session object by reading
+  // the transcript header for the first user prompt, cwd, and
+  // timestamp span.
+  const knownIds = new Set(sessionMap.keys());
+  const orphans = discoverOrphanSessions(knownIds, userRenames, sessionNames);
+  sessions.push(...orphans);
+
   sessions.sort((a, b) => b.endTime - a.endTime);
   return sessions;
+}
+
+/**
+ * Extract the bits of metadata we need to synthesize a Session object
+ * from a transcript .jsonl that has no history.jsonl entries.
+ *
+ * Streams the file in bounded chunks, stopping early once we have a
+ * first user prompt + cwd. We still need to reach the tail to get the
+ * last timestamp — but we only keep the *latest* timestamp seen rather
+ * than collecting every entry, so memory stays flat regardless of
+ * transcript length.
+ */
+function readOrphanSessionData(filePath: string): {
+  cwd: string;
+  firstPrompt: string;
+  messageCount: number;
+  firstTimestamp: number;
+  lastTimestamp: number;
+} | null {
+  let fd: number;
+  try {
+    fd = fs.openSync(filePath, "r");
+  } catch {
+    return null;
+  }
+
+  let cwd = "";
+  let firstPrompt = "";
+  let messageCount = 0;
+  let firstTimestamp = 0;
+  let lastTimestamp = 0;
+  const CHUNK = 64 * 1024;
+  const buf = Buffer.alloc(CHUNK);
+  let leftover = "";
+  let bytesRead: number;
+
+  try {
+    do {
+      bytesRead = fs.readSync(fd, buf, 0, CHUNK, null);
+      if (bytesRead === 0) break;
+      const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
+      const lines = chunk.split("\n");
+      leftover = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let entry: SessionEntry;
+        try {
+          entry = JSON.parse(line) as SessionEntry;
+        } catch {
+          continue;
+        }
+        if (!cwd && typeof entry.cwd === "string") cwd = entry.cwd;
+        if (typeof entry.timestamp === "string") {
+          const ts = Date.parse(entry.timestamp);
+          if (!Number.isNaN(ts)) {
+            if (!firstTimestamp || ts < firstTimestamp) firstTimestamp = ts;
+            if (ts > lastTimestamp) lastTimestamp = ts;
+          }
+        }
+        if (entry.message?.role === "user" && !entry.isSidechain) {
+          messageCount++;
+          if (!firstPrompt) {
+            const content = entry.message.content;
+            if (typeof content === "string") {
+              firstPrompt = content;
+            } else if (Array.isArray(content)) {
+              const text = content
+                .map((b) => (typeof b.text === "string" ? b.text : ""))
+                .filter(Boolean)
+                .join(" ");
+              if (text) firstPrompt = text;
+            }
+          }
+        }
+      }
+    } while (bytesRead === CHUNK);
+
+    if (leftover.trim()) {
+      try {
+        const entry = JSON.parse(leftover) as SessionEntry;
+        if (typeof entry.timestamp === "string") {
+          const ts = Date.parse(entry.timestamp);
+          if (!Number.isNaN(ts) && ts > lastTimestamp) lastTimestamp = ts;
+        }
+      } catch {
+        // ignore — partial JSON at EOF is normal
+      }
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+
+  // A file with no user messages isn't a real session — skip it so
+  // empty shells (queue-operation-only files) don't clutter the list.
+  if (!firstPrompt || messageCount === 0) return null;
+
+  return { cwd, firstPrompt, messageCount, firstTimestamp, lastTimestamp };
+}
+
+/**
+ * Walk ~/.claude/projects/ and build Session objects for any transcript
+ * file whose sessionId isn't already in the history-derived map. Skips
+ * directories we can't read (permissions, dangling symlinks) instead
+ * of failing the whole parse.
+ */
+function discoverOrphanSessions(
+  knownIds: Set<string>,
+  userRenames: Record<string, string>,
+  sessionNames: Map<string, string>,
+): Session[] {
+  const out: Session[] = [];
+  let projectSlugs: string[];
+  try {
+    projectSlugs = fs.readdirSync(PROJECTS_DIR);
+  } catch {
+    return out;
+  }
+
+  for (const slug of projectSlugs) {
+    const dirPath = path.join(PROJECTS_DIR, slug);
+    let files: string[];
+    try {
+      files = fs.readdirSync(dirPath);
+    } catch {
+      continue;
+    }
+
+    for (const file of files) {
+      if (!file.endsWith(".jsonl")) continue;
+      const sessionId = file.slice(0, -".jsonl".length);
+      if (knownIds.has(sessionId)) continue;
+
+      const filePath = path.join(dirPath, file);
+      const data = readOrphanSessionData(filePath);
+      if (!data) continue;
+
+      const meta = readSessionMeta(filePath);
+      const projectPath = data.cwd || "";
+      const project = extractProjectName(projectPath);
+
+      // Name resolution mirrors the history path: extension rename >
+      // active-session PID map > /rename in transcript > auto-summary.
+      let name = userRenames[sessionId] ?? "";
+      if (!name) name = sessionNames.get(sessionId) ?? "";
+      if (!name) name = meta.rename || meta.summary;
+
+      const summary =
+        data.firstPrompt.length > 100
+          ? data.firstPrompt.slice(0, 100) + "..."
+          : data.firstPrompt;
+
+      const projectKey = project.toLowerCase();
+      const searchHaystack =
+        `${name}\n${project}\n${meta.branch}\n${summary}`.toLowerCase();
+
+      out.push({
+        id: sessionId,
+        name,
+        project,
+        projectPath,
+        branch: meta.branch,
+        entrypoint: meta.entrypoint,
+        startTime: data.firstTimestamp || data.lastTimestamp,
+        endTime: data.lastTimestamp || data.firstTimestamp,
+        messageCount: data.messageCount,
+        summary,
+        prompts: [data.firstPrompt],
+        projectKey,
+        searchHaystack,
+      });
+    }
+  }
+
+  return out;
 }
 
 /**

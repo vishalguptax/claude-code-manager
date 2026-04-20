@@ -14,6 +14,12 @@ import * as vscode from "vscode";
 /** Marketplace ID of the official extension. */
 export const CLAUDE_CODE_EXTENSION_ID = "anthropic.claude-code";
 
+// Re-export the entrypoint helpers from core/utils so extension-host
+// callers can import them from this module alongside the URI helpers.
+// The shared definition lives in core so the webview can also reach it
+// without a vscode import.
+export { isExtensionEntrypoint } from "../core/utils";
+
 /**
  * Whether the Claude Code extension is installed. Presence is enough —
  * we don't wait for `isActive`, since the URI handler is registered at
