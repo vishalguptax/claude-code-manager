@@ -34,3 +34,12 @@ export function sendOpenSkillFile(skillPath: string): void {
 export function sendDeleteSkill(skillPath: string): void {
   _vscode.postMessage({ type: "deleteSkill", skillPath });
 }
+
+/**
+ * Open the Claude Code extension's chat tab with the skill invocation
+ * pre-filled as the prompt. Skills are invoked the same way as slash
+ * commands in the chat, so we fire `/<name>` as the prompt body.
+ */
+export function sendLaunchSkillInChat(name: string): void {
+  _vscode.postMessage({ type: "launchChatWithPrompt", prompt: `/${name}` });
+}

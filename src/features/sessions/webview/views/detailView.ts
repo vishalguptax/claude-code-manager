@@ -5,6 +5,7 @@
 
 import { icon } from "../../../../webview/icons";
 import { esc, fmtTime, fmtDuration, flash } from "../../../../webview/utils";
+import { isClaudeCodeExtensionInstalled } from "../../../../webview/extensionStatus";
 import {
   sendResumeSession,
   sendOpenProject,
@@ -15,6 +16,8 @@ import {
   sendRenameSession,
   sendExportSession,
   sendGetSessionDetail,
+  sendLaunchChatWithPrompt,
+  sendOpenProjectAndChat,
 } from "../api";
 import {
   getDetail,
@@ -76,6 +79,7 @@ export function showDetail(): void {
     </div>
     <div class="d-actions">
       <button class="btn primary" id="btnOpenProject">${icon("external-link")} Open ${esc(d.project)}</button>
+      ${isClaudeCodeExtensionInstalled() ? `<button class="btn" id="btnOpenProjectChat" title="Open the project in a new window and start a Claude Code chat there">${icon("message-square")} Open &amp; Chat</button>` : ""}
       <button class="btn" id="btnRename">${icon("pencil")} Rename</button>
       <button class="btn" id="btnPin">${icon(isPinned ? "pin-off" : "pin")} ${isPinned ? "Unpin" : "Pin"}</button>
       <button class="btn" id="btnExport" title="Save this session as a portable .jsonl">${icon("upload")} Export</button>
@@ -115,7 +119,16 @@ export function showDetail(): void {
         </div>
         ${mode === "first" && showToggle ? `<div class="d-msg-hint">Showing first ${d.messages.length} of ${total} messages</div>` : ""}
         ${mode === "last" && showToggle ? `<div class="d-msg-hint">Showing last ${d.messages.length} of ${total} messages</div>` : ""}
-        ${d.messages.map((m) => `<div class="d-msg d-msg-${m.role}"><span class="d-msg-role">${m.role === "user" ? "You" : "Claude"}</span><div class="d-msg-content">${esc(m.content.length > 500 ? m.content.slice(0, 500) + "..." : m.content)}</div></div>`).join("")}
+        ${d.messages.map((m, i) => {
+          // "Ask Again" affordance — only on user prompts and only when
+          // the Claude Code extension is installed. Fires the URI
+          // handler with the original prompt so the user can re-ask in
+          // a fresh chat (new context, same question).
+          const askAgain = m.role === "user" && isClaudeCodeExtensionInstalled()
+            ? `<button class="d-msg-ask" data-ask-idx="${i}" title="Ask again in a new chat">${icon("message-square", 12)}</button>`
+            : "";
+          return `<div class="d-msg d-msg-${m.role}"><span class="d-msg-role">${m.role === "user" ? "You" : "Claude"}</span>${askAgain}<div class="d-msg-content">${esc(m.content.length > 500 ? m.content.slice(0, 500) + "..." : m.content)}</div></div>`;
+        }).join("")}
       </div>`;
       })() : ""}
     </div>`;
@@ -126,6 +139,9 @@ export function showDetail(): void {
   );
   dv.querySelector("#btnOpenProject")?.addEventListener("click", () =>
     sendOpenProject(d.projectPath)
+  );
+  dv.querySelector("#btnOpenProjectChat")?.addEventListener("click", () =>
+    sendOpenProjectAndChat(d.projectPath)
   );
   dv.querySelector("#btnFork")?.addEventListener("click", () =>
     sendForkSession(d.id)
@@ -166,5 +182,17 @@ export function showDetail(): void {
     if (d.detailMode === "last") return;
     swapActive("msgLast", "msgFirst");
     sendGetSessionDetail(d.id, "last");
+  });
+
+  // Event delegation for per-message "Ask Again" buttons. Binding once
+  // on the container survives the message re-render that happens when
+  // the user flips the Latest/Earliest toggle.
+  dv.addEventListener("click", (e: Event) => {
+    const btn = (e.target as HTMLElement).closest(".d-msg-ask") as HTMLElement | null;
+    if (!btn) return;
+    e.stopPropagation();
+    const idx = Number.parseInt(btn.dataset.askIdx ?? "", 10);
+    const msg = Number.isFinite(idx) ? d.messages[idx] : undefined;
+    if (msg?.content) sendLaunchChatWithPrompt(msg.content);
   });
 }

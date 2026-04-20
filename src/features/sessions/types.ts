@@ -209,4 +209,21 @@ export type WebviewMessage =
    * Metadata search still runs client-side on `searchHaystack`; these two
    * result sets are unioned in the webview.
    */
-  | { type: "searchFullText"; query: string };
+  | { type: "searchFullText"; query: string }
+  /**
+   * Open a blank Claude Code chat tab. Host routes to the URI handler
+   * `vscode://anthropic.claude-code/open`. Hidden in the UI when the
+   * extension is not installed.
+   */
+  | { type: "launchNewChat" }
+  /**
+   * Open a chat tab with the given prompt pre-filled. Used by the
+   * Commands tab ("Launch in Chat"), Skills tab, and the "Ask Again"
+   * action on session-detail prompts.
+   */
+  | { type: "launchChatWithPrompt"; prompt: string }
+  /**
+   * Open a project folder and then fire the chat URI handler in the new
+   * window. Intended for the "Open Project + New Chat" action.
+   */
+  | { type: "openProjectAndChat"; projectPath: string };

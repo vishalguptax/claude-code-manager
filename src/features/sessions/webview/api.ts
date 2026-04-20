@@ -110,3 +110,18 @@ export function sendImportSession(): void {
 export function sendSearchFullText(query: string): void {
   _vscode.postMessage({ type: "searchFullText", query });
 }
+
+/** Open a blank Claude Code chat tab via the URI handler. */
+export function sendLaunchNewChat(): void {
+  _vscode.postMessage({ type: "launchNewChat" });
+}
+
+/** Open a chat tab pre-filled with the given prompt. */
+export function sendLaunchChatWithPrompt(prompt: string): void {
+  _vscode.postMessage({ type: "launchChatWithPrompt", prompt });
+}
+
+/** Open a project folder and fire the chat URI in the new window. */
+export function sendOpenProjectAndChat(projectPath: string): void {
+  _vscode.postMessage({ type: "openProjectAndChat", projectPath });
+}

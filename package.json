@@ -172,6 +172,23 @@
           "minimum": 5,
           "maximum": 120,
           "description": "Time window (in minutes) for Restore Workspace — sessions active within this window are grouped together."
+        },
+        "claudeManager.sessions.resumeIn": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "terminal",
+            "extension",
+            "ask"
+          ],
+          "enumDescriptions": [
+            "Resume in the surface the session originated from (extension chat if the session was started there, terminal otherwise)",
+            "Always resume in a terminal (claude --resume)",
+            "Always resume in the Claude Code extension chat tab (requires the official Claude Code extension)",
+            "Ask every time where to resume"
+          ],
+          "description": "Where to open a session when you click Resume. Fork, Continue, and Restore Workspace always use the terminal since they have no equivalent in the extension chat."
         }
       }
     }

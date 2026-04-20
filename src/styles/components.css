@@ -463,6 +463,28 @@
 .item-copy-btn:hover            { opacity: 1; color: var(--fg); background: var(--bg-hover); }
 .item-copy-btn.copied           { opacity: 1; color: var(--green); }
 
+/*
+ * Launch-in-chat button — same layout tokens as .item-copy-btn so the
+ * two buttons sit flush in a row. Only rendered when the Claude Code
+ * extension is installed; the accent colour is the same muted fg so it
+ * doesn't pull focus away from the command name.
+ */
+.item-chat-btn {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.item-chat-btn:hover { color: var(--fg); background: var(--bg-hover); }
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Feature Empty State (shared)

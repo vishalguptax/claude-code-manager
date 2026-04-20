@@ -4,6 +4,8 @@
 
 import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
+import { isClaudeCodeExtensionInstalled } from "../../../../webview/extensionStatus";
+import { sendLaunchSkillInChat } from "../api";
 import type { Skill } from "../../types";
 
 /**
@@ -19,10 +21,15 @@ export function renderSkillItem(skill: Skill, isActive: boolean): string {
       ? skill.description.slice(0, 60) + "..."
       : skill.description;
 
+  const chatBtn = isClaudeCodeExtensionInstalled()
+    ? `<button class="item-chat-btn" data-chat-name="${esc(skill.name)}" title="Launch /${esc(skill.name)} in Claude Code chat">${icon("message-square", 14)}</button>`
+    : "";
+
   return `
     <div class="item skill-item ${isActive ? "active" : ""}" data-skill-id="${esc(skill.id)}">
       <div class="item-row1">
         <span class="item-name" title="${esc(skill.name)}">${esc(skill.name)}</span>
+        ${chatBtn}
         <button class="item-copy-btn" data-copy-name="/${esc(skill.name)}" title="Copy /${esc(skill.name)}">${icon("copy", 14)}</button>
         <span class="skill-scope-badge scope-${skill.scope}">${skill.scope}</span>
       </div>
@@ -51,6 +58,15 @@ export function bindSkillItems(
 ): void {
   container.addEventListener("click", (e: Event) => {
     const target = e.target as HTMLElement;
+
+    // Launch-in-chat button (only rendered when extension is installed).
+    const chatBtn = target.closest(".item-chat-btn") as HTMLElement | null;
+    if (chatBtn) {
+      e.stopPropagation();
+      const name = chatBtn.dataset.chatName;
+      if (name) sendLaunchSkillInChat(name);
+      return;
+    }
 
     // Copy button
     const copyBtn = target.closest(".item-copy-btn") as HTMLElement | null;

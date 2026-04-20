@@ -4,6 +4,8 @@
 
 import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
+import { isClaudeCodeExtensionInstalled } from "../../../../webview/extensionStatus";
+import { sendLaunchCommandInChat } from "../api";
 import type { Command } from "../../types";
 
 /**
@@ -22,10 +24,15 @@ export function renderCommandItem(cmd: Command, isActive: boolean): string {
       ? previewSource.slice(0, 80).replace(/\n/g, " ") + "..."
       : previewSource.replace(/\n/g, " ");
 
+  const chatBtn = isClaudeCodeExtensionInstalled()
+    ? `<button class="item-chat-btn" data-chat-name="${esc(cmd.name)}" title="Launch /${esc(cmd.name)} in Claude Code chat">${icon("message-square", 14)}</button>`
+    : "";
+
   return `
     <div class="cmd-item ${isActive ? "active" : ""}" data-cmd-name="${esc(cmd.name)}" data-cmd-scope="${cmd.scope}">
       <div class="cmd-item-row1">
         <span class="cmd-item-name">/${esc(cmd.name)}</span>
+        ${chatBtn}
         <button class="item-copy-btn" data-copy-name="/${esc(cmd.name)}" title="Copy /${esc(cmd.name)}">${icon("copy", 14)}</button>
         <span class="cmd-scope-badge cmd-scope-${cmd.scope}">${cmd.scope}</span>
       </div>
@@ -50,6 +57,15 @@ export function bindCommandItems(
 ): void {
   container.addEventListener("click", (e: Event) => {
     const target = e.target as HTMLElement;
+
+    // Launch-in-chat button (only rendered when extension is installed).
+    const chatBtn = target.closest(".item-chat-btn") as HTMLElement | null;
+    if (chatBtn) {
+      e.stopPropagation();
+      const name = chatBtn.dataset.chatName;
+      if (name) sendLaunchCommandInChat(name);
+      return;
+    }
 
     // Copy button
     const copyBtn = target.closest(".item-copy-btn") as HTMLElement | null;
