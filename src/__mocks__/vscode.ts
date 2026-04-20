@@ -5,9 +5,25 @@
  * Add more as needed.
  */
 
+const _extensionChangeListeners: Array<() => void> = [];
+
 export const extensions = {
   getExtension: (_id: string): unknown => undefined,
+  onDidChange: (listener: () => void): MockDisposable => {
+    _extensionChangeListeners.push(listener);
+    return {
+      dispose: () => {
+        const idx = _extensionChangeListeners.indexOf(listener);
+        if (idx >= 0) _extensionChangeListeners.splice(idx, 1);
+      },
+    };
+  },
 };
+
+/** Test helper: fire vscode.extensions.onDidChange listeners. */
+export function _fireExtensionsChange(): void {
+  for (const l of _extensionChangeListeners) l();
+}
 
 type WorkspaceFolder = { uri: { fsPath: string }; name: string; index: number };
 
@@ -69,6 +85,7 @@ export function _fireConfigChange(affectedSection: string): void {
 export function _resetListeners(): void {
   _workspaceFolderListeners.length = 0;
   _configChangeListeners.length = 0;
+  _extensionChangeListeners.length = 0;
 }
 
 export class RelativePattern {
@@ -169,11 +186,33 @@ export const commands = {
 };
 
 export const Uri = {
-  file: (path: string) => ({ fsPath: path, scheme: "file", path }),
-  parse: (value: string) => ({ fsPath: value, scheme: "file", path: value }),
+  file: (path: string) => ({
+    fsPath: path,
+    scheme: "file",
+    path,
+    toString: () => path,
+  }),
+  parse: (value: string) => ({
+    fsPath: value,
+    scheme: "file",
+    path: value,
+    toString: () => value,
+  }),
   joinPath: (base: { path: string }, ...pathSegments: string[]) => {
     const joined = [base.path, ...pathSegments].join("/");
-    return { fsPath: joined, scheme: "file", path: joined };
+    return { fsPath: joined, scheme: "file", path: joined, toString: () => joined };
+  },
+};
+
+/**
+ * Minimal `vscode.env` stub. `openExternal` resolves true by default —
+ * tests that want to assert on the URI spy it with vi.spyOn and
+ * override as needed.
+ */
+export const env = {
+  openExternal: async (_uri: unknown) => true,
+  clipboard: {
+    writeText: async (_value: string) => {},
   },
 };
 

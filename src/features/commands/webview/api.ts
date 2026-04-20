@@ -24,3 +24,13 @@ export function sendGetCommands(): void {
 export function sendOpenCommandFile(path: string): void {
   _vscode.postMessage({ type: "openCommandFile", path });
 }
+
+/**
+ * Open the Claude Code extension's chat tab with the slash command
+ * pre-filled as the prompt. No-op when the extension isn't installed —
+ * the calling UI hides the button in that case, but the guard here
+ * prevents a stray URI fire if the flag races the button render.
+ */
+export function sendLaunchCommandInChat(name: string): void {
+  _vscode.postMessage({ type: "launchChatWithPrompt", prompt: `/${name}` });
+}

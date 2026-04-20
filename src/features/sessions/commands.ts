@@ -11,6 +11,10 @@ import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
 import { createTerminal } from "../../extension/terminal";
 import { getWorkspace } from "../../extension/workspace";
+import {
+  isClaudeCodeExtensionInstalled,
+  openSessionInExtension,
+} from "../../extension/claudeCodeExtension";
 import { normPath } from "../../core/utils";
 import { PROJECTS_DIR } from "../../core/config";
 import {
@@ -147,13 +151,79 @@ export async function promptRenameSession(
   return result;
 }
 
+/** Resolution target returned by the resume-target router. */
+type ResumeTarget = "terminal" | "extension";
+
 /**
- * Resume or fork a Claude session in a terminal.
+ * Sticky one-time flag so the "install Claude Code extension" toast
+ * fires at most once per panel session when the user has set
+ * `resumeIn: extension` but the extension isn't installed. Repeating
+ * the toast on every click would be noise; a quieter silent fallback
+ * beats that.
+ */
+let extensionMissingToastShown = false;
+
+/**
+ * Resolve where a Resume click should land, based on the user's
+ * `claudeManager.sessions.resumeIn` setting and the session's recorded
+ * entrypoint. Kept separate from `resumeSession` so the routing logic
+ * is unit-testable without a live terminal.
+ */
+async function resolveResumeTarget(sess: Session | undefined): Promise<ResumeTarget> {
+  const cfg = vscode.workspace.getConfiguration("claudeManager.sessions");
+  const mode = cfg.get<string>("resumeIn", "auto");
+
+  // "ask" wins over everything — the user wants to choose every time.
+  if (mode === "ask") {
+    const pick = await vscode.window.showQuickPick(
+      [
+        { label: "Terminal", description: "claude --resume in a new terminal" },
+        {
+          label: "Extension chat",
+          description: "Open in the Claude Code chat tab",
+        },
+      ],
+      { title: "Resume session in…", placeHolder: "Pick a destination" },
+    );
+    if (!pick) return "terminal"; // cancelled — no-op is handled by caller
+    return pick.label === "Extension chat" ? "extension" : "terminal";
+  }
+
+  // Explicit "extension" — honour it when possible, silent fallback
+  // otherwise. One-time toast so the user learns why it fell back.
+  if (mode === "extension") {
+    if (isClaudeCodeExtensionInstalled()) return "extension";
+    if (!extensionMissingToastShown) {
+      extensionMissingToastShown = true;
+      vscode.window.showInformationMessage(
+        "Install the Claude Code extension to resume in its chat tab. Falling back to terminal.",
+      );
+    }
+    return "terminal";
+  }
+
+  // "auto" — follow the session's origin when the extension is present.
+  // Unknown entrypoints (old sessions) use the terminal since it always
+  // works.
+  if (mode === "auto") {
+    if (sess?.entrypoint === "vscode" && isClaudeCodeExtensionInstalled()) {
+      return "extension";
+    }
+    return "terminal";
+  }
+
+  // "terminal" and any future unknown value — safest default.
+  return "terminal";
+}
+
+/**
+ * Resume or fork a Claude session.
  *
- * Handles three scenarios:
- * 1. Session belongs to a different project - opens that project in a new window
- * 2. Session was on a different git branch - prompts user to switch or resume anyway
- * 3. Normal case - opens terminal and runs the resume command
+ * Routing:
+ *   - Different project → open the project window (user re-clicks Resume there).
+ *   - Fork → always terminal (the URI handler has no --fork-session equivalent).
+ *   - Branch mismatch → always terminal (branch switching is terminal-native).
+ *   - Same project, no branch issue → consult the resumeIn setting.
  */
 export async function resumeSession(sessionId: string, fork: boolean, sessions: Session[]): Promise<void> {
   const sess = sessions.find((s) => s.id === sessionId);
@@ -165,13 +235,17 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
     : `claude --resume ${sessionId}`;
   const ws = getWorkspace();
 
-  // Different project: open that project window
+  // Different project: open that project window. The URI handler is
+  // workspace-scoped, so cross-workspace extension routing isn't
+  // reliable — we keep today's "open the project, user re-clicks" flow.
   if (ws && cwd && normPath(cwd) !== normPath(ws)) {
     openProject(cwd);
     return;
   }
 
-  // Same project or no workspace: check branch before resuming
+  // Same project or no workspace: check branch before resuming. Branch
+  // switching uses `git checkout` in the terminal, so a mismatch always
+  // takes the terminal path.
   if (sessBranch && sessBranch !== "HEAD") {
     const currentBranch = getCurrentBranch();
     if (currentBranch && currentBranch !== sessBranch) {
@@ -195,8 +269,16 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
         term.sendText(`git checkout "${sessBranch}" && ${cmd}`);
         return;
       }
-      // "Resume Anyway" falls through
+      // "Resume Anyway" falls through to the router below.
     }
+  }
+
+  // Fork always uses the terminal — no extension equivalent.
+  const target: ResumeTarget = fork ? "terminal" : await resolveResumeTarget(sess);
+
+  if (target === "extension") {
+    await openSessionInExtension(sessionId);
+    return;
   }
 
   const term = createTerminal(termName, cwd);

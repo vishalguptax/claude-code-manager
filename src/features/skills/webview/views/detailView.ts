@@ -5,7 +5,8 @@
 
 import { icon } from "../../../../webview/icons";
 import { esc, flash } from "../../../../webview/utils";
-import { sendOpenSkillFile, sendDeleteSkill } from "../api";
+import { isClaudeCodeExtensionInstalled } from "../../../../webview/extensionStatus";
+import { sendOpenSkillFile, sendDeleteSkill, sendLaunchSkillInChat } from "../api";
 import { sendNewSession } from "../../../sessions/webview/api";
 import { getSelectedSkill } from "../state";
 import { showSkillsList } from "./listView";
@@ -48,6 +49,7 @@ export function showSkillDetail(): void {
 
     <div class="d-actions">
       <button class="btn primary" id="btnOpenClaude">${icon("play")} Open Claude</button>
+      ${isClaudeCodeExtensionInstalled() ? `<button class="btn" id="btnOpenSkillChat">${icon("message-square")} Open in Chat</button>` : ""}
       <button class="btn" id="btnCopySkillName">${icon("copy")} Copy /${esc(skill.name)}</button>
       <button class="btn" id="btnOpenSkill">${icon("external-link")} Open File</button>
       <button class="btn del" id="btnDeleteSkill">${icon("trash-2")} Delete</button>
@@ -68,6 +70,7 @@ export function showSkillDetail(): void {
 
   dv.querySelector("#skillsGoBack")?.addEventListener("click", showSkillsList);
   dv.querySelector("#btnOpenClaude")?.addEventListener("click", () => sendNewSession());
+  dv.querySelector("#btnOpenSkillChat")?.addEventListener("click", () => sendLaunchSkillInChat(skill.name));
   dv.querySelector("#btnCopySkillName")?.addEventListener("click", () => {
     navigator.clipboard?.writeText(`/${skill.name}`);
     flash("btnCopySkillName", "Copied!");

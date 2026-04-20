@@ -32,6 +32,10 @@ import {
 import { getWebviewHtml } from "../../extension/html";
 import { getWorkspace } from "../../extension/workspace";
 import { getCurrentBranch, onBranchChange } from "../../extension/git";
+import {
+  isClaudeCodeExtensionInstalled,
+  openPromptInExtension,
+} from "../../extension/claudeCodeExtension";
 import { parseSkills } from "../skills/parser";
 import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
@@ -110,6 +114,15 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         const wv = this.view?.webview;
         if (!wv) return;
         wv.postMessage({ type: "workspaceBranch", data: getCurrentBranch() });
+      }),
+    );
+
+    // Re-push settings when the Claude Code extension gets installed or
+    // uninstalled mid-session so the webview's New Chat / Launch-in-Chat
+    // affordances appear or disappear without a panel reload.
+    this.viewSubscriptions.push(
+      vscode.extensions.onDidChange(() => {
+        this.refreshSettings();
       }),
     );
 
@@ -196,6 +209,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       defaultFilter: sessConfig.get<string>("defaultFilter", "recent"),
       defaultProject: sessConfig.get<string>("defaultProject", "current"),
       restoreWindowMinutes: sessConfig.get<number>("restoreWindowMinutes", 30),
+      // Flags the webview uses to conditionally surface extension-only
+      // actions (New Chat button, Launch-in-Chat entries). Re-pushed on
+      // extension install/uninstall so the UI tracks reality without a
+      // panel reload.
+      claudeCodeExtensionInstalled: isClaudeCodeExtensionInstalled(),
     });
   }
 
@@ -391,6 +409,38 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         // can drop stale results if the user has since typed more.
         const ids = searchContent(msg.query);
         wv.postMessage({ type: "fullTextResults", query: msg.query, ids });
+        break;
+      }
+
+      case "launchNewChat": {
+        // Bare extension chat tab. The button that posts this message is
+        // only rendered when the extension is installed, so no fallback
+        // is needed — but we still silently no-op instead of erroring if
+        // the extension somehow vanished between render and click.
+        if (isClaudeCodeExtensionInstalled()) {
+          await openPromptInExtension("");
+        }
+        break;
+      }
+
+      case "launchChatWithPrompt": {
+        if (isClaudeCodeExtensionInstalled()) {
+          await openPromptInExtension(msg.prompt);
+        }
+        break;
+      }
+
+      case "openProjectAndChat": {
+        // The URI handler is workspace-scoped, so we have to open the
+        // target project first and then fire the URI. VS Code opens the
+        // new window asynchronously — a short delay lets the Claude
+        // Code extension finish activating in the new window before the
+        // URI is dispatched. Without the delay the chat tab opens but
+        // the extension may not yet have registered its handler.
+        openProject(msg.projectPath);
+        if (isClaudeCodeExtensionInstalled()) {
+          setTimeout(() => openPromptInExtension(""), 1500);
+        }
         break;
       }
 

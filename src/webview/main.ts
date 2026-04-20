@@ -14,6 +14,10 @@ import { initApi, sendReady } from "../features/sessions/webview/api";
 import { initPersistence } from "./persistence";
 import { installUiResetHandlers } from "./uiReset";
 import {
+  setClaudeCodeExtensionInstalled,
+  isClaudeCodeExtensionInstalled,
+} from "./extensionStatus";
+import {
   setWorkspacePath,
   setSessions,
   setStats,
@@ -34,7 +38,7 @@ import {
   hasPersistedFilterDate,
 } from "../features/sessions/webview/state";
 import type { DateFilter } from "./types";
-import { mountShell, updateList, updateFilter, showList } from "../features/sessions/webview/views/listView";
+import { mountShell, updateList, updateFilter, showList, remountShell } from "../features/sessions/webview/views/listView";
 import { showDetail } from "../features/sessions/webview/views/detailView";
 import { initSkillsApi, sendGetSkills } from "../features/skills/webview/api";
 import {
@@ -294,6 +298,15 @@ window.addEventListener("message", (event: MessageEvent) => {
     if (!hasPersistedFilterDate()) setFilterDate(msg.defaultFilter as DateFilter);
     if (!hasPersistedFilterProject()) setFilterProject(msg.defaultProject as string);
     setRestoreWindowMinutes(msg.restoreWindowMinutes as number);
+    const wasInstalled = isClaudeCodeExtensionInstalled();
+    const nowInstalled = Boolean(msg.claudeCodeExtensionInstalled);
+    setClaudeCodeExtensionInstalled(nowInstalled);
+    // If extension install state flips while the panel is open, rebuild
+    // the list shell so the New Chat button appears / disappears. The
+    // rebuild is cheap and only fires on actual state change.
+    if (wasInstalled !== nowInstalled && isShellMounted() && getView() === "list") {
+      remountShell();
+    }
   } else if (msg.type === "sessions") {
     const groups = msg.data as SessionGroup[];
     const flat: Session[] = [];
