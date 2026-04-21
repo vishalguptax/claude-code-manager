@@ -4,7 +4,7 @@
 
 <h1>Claude Manager</h1>
 
-<p><strong>Every <a href="https://claude.ai/code">Claude Code</a> session, skill, slash command, hook, MCP server, and agent &mdash; one click away in your VS Code sidebar.</strong></p>
+<p><strong>Every <a href="https://claude.ai/code">Claude Code</a> session, skill, slash command, hook, MCP server, and agent &mdash; one click away in your VS Code sidebar. Works with both the Claude Code CLI and the official VS Code extension.</strong></p>
 
 <p>
 <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager"><img src="https://vsmarketplacebadges.dev/version-short/vishalguptax.claude-manager.svg?style=for-the-badge&label=Marketplace&labelColor=1a1a2e&color=007ACC&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace"></a>
@@ -24,14 +24,14 @@
 </div>
 
 <p align="center">
-<sub>Local-first &bull; Zero telemetry &bull; Zero accounts &bull; Works in VS Code, Cursor, Windsurf, VSCodium, Codespaces, and Gitpod</sub>
+<sub>Local-first &bull; Zero telemetry &bull; Zero accounts &bull; Works in VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod</sub>
 </p>
 
 <br>
 
 ## Install
 
-**VS Code &bull; Cursor &bull; Windsurf** &mdash; open Extensions (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>), search **Claude Manager**, click Install.
+**VS Code &bull; Cursor &bull; Windsurf &bull; Antigravity** &mdash; open Extensions (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>), search **Claude Manager**, click Install.
 
 **VSCodium &bull; Theia &bull; Gitpod** &mdash; install from [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager).
 
@@ -45,7 +45,7 @@ Then press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> (<kbd>Cmd</kbd>+<kbd>Alt<
 
 Claude Code is powerful, but the terminal isn't built for browsing. Finding a session you ran last week means scrollback hunting. Editing an MCP server means hand-patching JSON. Keeping track of every custom slash command, hook, and agent is its own job.
 
-Claude Manager turns all of it into a sidebar you can click and search. Same Claude Code underneath &mdash; just one keystroke closer.
+Claude Manager turns all of it into a sidebar you can click and search. Same Claude Code underneath &mdash; just one keystroke closer. Works whether you use the Claude Code **CLI**, the official **VS Code extension**, or both; sessions from either surface show up in the same list, and Resume routes back to the surface each session came from (configurable).
 
 <br>
 
@@ -55,7 +55,7 @@ Claude Manager turns all of it into a sidebar you can click and search. Same Cla
 | :-- | :-- |
 | **Sessions** | Resume, continue, restore, pin, rename, fork, import, export, and full-text search across every Claude Code session. Filter by project and git branch. Resume warns if your current branch doesn't match. Auto-routes Resume to the terminal or the Claude Code extension chat tab based on where the session originated (configurable). |
 | **Skills** | Global and project skills with scope badges. Copy, open, delete, or launch Claude with a skill in one click &mdash; terminal or extension chat. |
-| **Commands** | 52 built-in slash commands plus your custom ones from `.claude/commands/`. One-click copy or launch in Claude Code chat. |
+| **Commands** | Built-in slash commands plus your custom ones from `.claude/commands/`. One-click copy or launch in Claude Code chat. |
 | **Hooks** | Inspect automation hooks across global, project, and local scopes with full command preview. |
 | **MCP Servers** | Enable, disable, delete, or inspect MCP servers &mdash; no JSON editing. API keys and secrets masked automatically. |
 | **Agents** | Browse project agents with Sonnet / Opus / Haiku badges and description previews. |
@@ -72,7 +72,7 @@ Claude Manager turns all of it into a sidebar you can click and search. Same Cla
 <td width="50%" valign="top" align="center">
 <img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/03-commands.png" alt="Commands tab" width="360"><br>
 <strong>Commands</strong><br>
-<sub>52 built-in slash commands plus your custom ones from <code>.claude/commands/</code>. One-click copy.</sub>
+<sub>Built-in slash commands plus your custom ones from <code>.claude/commands/</code>. One-click copy.</sub>
 </td>
 </tr>
 <tr>
@@ -100,72 +100,6 @@ Claude Manager turns all of it into a sidebar you can click and search. Same Cla
 </td>
 </tr>
 </table>
-
-<br>
-
-## Sessions, in depth
-
-- **Smart grouping** &mdash; Today, This Week, This Month, Older
-- **Relative timestamps** &mdash; `now`, `2m`, `4h`, `3d`, `1mo`, `1y`
-- **Project + branch dropdowns** &mdash; narrow to a project, then to any branch that has sessions (current branch is labelled)
-- **Date chips** &mdash; Recent, Week, Month, All
-- **Full-text search** &mdash; matches inside every message, not just titles and metadata. Scales to thousands of sessions without blocking the UI
-- **Pin** favorites &bull; **Rename** sessions &bull; **Fork** for alternate explorations
-- **Resume** with branch detection &mdash; warns if your current branch differs. Auto-routes to the terminal or the Claude Code extension chat tab based on where the session originated (configurable via `claudeManager.sessions.resumeIn`)
-- **Continue** &mdash; pick up your most recent session in the current workspace (`claude --continue`)
-- **Restore Workspace** &mdash; reopen every terminal from your last working session, stacked as tabs in one editor group
-- **Import / Export** &mdash; export any session as a portable `.jsonl`, import it on another machine with a project picker and one-click resume
-- **Right-click menu** &mdash; pin, rename, fork, copy command, export session, delete
-- **Extension sessions** &mdash; sessions started inside the official Claude Code VS Code extension appear in the list alongside CLI-started ones, even when `history.jsonl` doesn't record them
-
-**Inside a session**
-
-- **Transcript search** &mdash; search across every message (content, extended thinking, tool calls) in one session. Sticky search bar, live match count, `<mark>` highlights. Works on 10k+ message sessions.
-- **Per-message tokens** &mdash; input / output / cache-read / cache-creation shown under each assistant turn. Session total in the header stats strip.
-- **Tool call rows** &mdash; `Read src/foo.ts`, `Bash npm test`, `Grep TODO` &mdash; what Claude actually did, inline with the turn that did it.
-- **Extended thinking** &mdash; collapsible blocks show Claude's reasoning when available.
-- **Copy any message** &mdash; hover a message → Copy button. Ask Again button re-opens the prompt in a fresh Claude session (terminal or extension chat per your setting).
-- **Latest first** &mdash; most recent turn at the top; Earliest toggle flips to chronological.
-
-<br>
-
-## Quota (opt-in)
-
-The Account tab has a **Quota** card that shows your current subscription utilization &mdash; how much of the rolling 5-hour and 7-day windows you've consumed, with a reset timer.
-
-- Click **Check quota** to fetch. The extension makes a single `GET https://api.anthropic.com/api/oauth/usage` request using the OAuth token in `~/.claude/.credentials.json`. The token stays on your machine; only the utilization percentages come back.
-- Color-coded: green under 50%, amber 50&ndash;80%, red above 80%.
-- No auto-polling. No background refresh. You decide when to fetch.
-- Breaks down per-model (Opus / Sonnet) when your plan exposes those limits, and surfaces pay-as-you-go overflow if enabled.
-
-If you never click the button, Claude Manager makes no network calls at all.
-
-<br>
-
-## Multi-account switcher
-
-The Account tab's **Accounts** section lets you keep several Claude logins ready to go and swap between them without running through `/logout` + `/login` in the terminal each time.
-
-**How it works**
-- Click **Save current account** to snapshot your live `~/.claude.json` + `~/.claude/.credentials.json` into a labeled slot under `~/.claude/manager-accounts/<slug>/`.
-- The card for the currently-active login is highlighted with an accent border and an **Active** pill.
-- Click **Switch** on any saved card to overwrite the home-dir creds with that slot. A modal confirms before anything is written.
-- After Claude CLI rotates the access token (roughly every 8 hours), click **Update** on the active card to re-snapshot. Each slot tracks its own expiry.
-
-**Security disclaimer &mdash; please read before saving a profile**
-
-> Saving a profile **copies your Claude OAuth tokens to disk in plain text** &mdash; the same format and the same plaintext that Claude CLI already stores in `~/.claude/.credentials.json`. Snapshots live under `~/.claude/manager-accounts/<slug>/`.
->
-> - The folder inherits your home-directory permissions (file mode `0o600` on POSIX). Treat it as sensitive &mdash; anyone with read access to that folder can use your Claude account.
-> - **Don't save profiles on shared machines** or paths synced to a cloud drive you don't fully control (Dropbox, OneDrive, iCloud, etc.).
-> - Delete a profile and its token copy is removed from disk immediately.
-> - The extension shows a one-time confirmation modal on your first save to surface this exact warning. Tokens **never leave your machine** &mdash; Claude Manager has no network calls involved in Save / Switch / Update / Remove.
->
-> Enable OS-level disk encryption (FileVault / BitLocker / LUKS) if you store multiple accounts across security contexts.
-
-**Known limits**
-- Close running Claude terminals before switching. In-flight tool calls may fail if the credentials change mid-task.
-- Org-within-account switching works: `organizationUuid` lives in `.claude.json` and is captured with the snapshot.
 
 <br>
 
@@ -203,11 +137,11 @@ Local-first by default &mdash; zero telemetry, zero accounts, no background traf
 **Where are saved account profiles stored?**
 `~/.claude/manager-accounts/<slug>/` &mdash; each slot holds a copy of `~/.claude.json` and `~/.claude/.credentials.json` plus a small `profile.json` with the label. These files include OAuth tokens (same plaintext format Claude CLI uses), so treat the folder as sensitive. Remove a profile and its token copy is deleted immediately.
 
-**Does it work with Cursor / Windsurf / VSCodium?**
-Yes. It's a standard VS Code extension &mdash; install from the Marketplace (VS Code, Cursor, Windsurf) or [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager) (VSCodium, Theia, Gitpod).
+**Does it work with Cursor / Windsurf / Antigravity / VSCodium?**
+Yes. It's a standard VS Code extension &mdash; install from the Marketplace (VS Code, Cursor, Windsurf, Antigravity) or [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager) (VSCodium, Theia, Gitpod).
 
 **Do I need Claude Code installed?**
-Yes. Claude Manager is a UI over Claude Code's local files &mdash; install Claude Code from [claude.ai/code](https://claude.ai/code) first.
+Yes &mdash; install [Claude Code](https://claude.ai/code) first. Either the CLI, the official VS Code extension, or both works. Claude Manager reads from the shared `~/.claude/` directory, so sessions from either surface show up together.
 
 **Does it modify my Claude config?**
 Only when you explicitly act (enable/disable an MCP server, edit a permission, restore from a backup, rename or delete a session). All reads are passive.
@@ -219,21 +153,15 @@ In `~/.claude/` &mdash; same as Claude Code itself. The extension never copies, 
 
 ## Compatibility
 
-Works on every VS Code-based editor: **VS Code** &bull; **Cursor** &bull; **Windsurf** &bull; **VSCodium** &bull; **Theia** &bull; **Codespaces** &bull; **Gitpod**
+Works on every VS Code-based editor: **VS Code** &bull; **Cursor** &bull; **Windsurf** &bull; **Antigravity** &bull; **VSCodium** &bull; **Theia** &bull; **Codespaces** &bull; **Gitpod**
 
 Requires VS Code 1.85+ and [Claude Code](https://claude.ai/code) installed.
 
 <br>
 
-## What's new
-
-See the [changelog](CHANGELOG.md) for release history, or browse [per-release notes](docs/releases/) for the full detail.
-
-<br>
-
 ## Contributing
 
-Bug reports and PRs are welcome. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the local setup, build, and architecture overview. Browse [open issues](https://github.com/vishalguptax/claude-code-manager/issues) or [open a new one](https://github.com/vishalguptax/claude-code-manager/issues/new).
+Bug reports and PRs are welcome. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local setup, build, and architecture. Browse [open issues](https://github.com/vishalguptax/claude-code-manager/issues), [open a new one](https://github.com/vishalguptax/claude-code-manager/issues/new), or check the [changelog](CHANGELOG.md).
 
 <br>
 
