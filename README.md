@@ -20,7 +20,7 @@
 <br>
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/screenshots/01-sessions.png" alt="Claude Manager sidebar showing pinned and recent Claude Code sessions with git branches" width="420">
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/demo.gif" alt="Claude Manager sidebar demo — sessions, skills, commands, hooks, MCP servers, agents, and account in VS Code" width="480">
 </div>
 
 <p align="center">
