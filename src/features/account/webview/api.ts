@@ -58,3 +58,22 @@ export function sendPromptCustomModel(): void {
 export function sendRestoreClaudeConfig(): void {
   _vscode.postMessage({ type: "restoreClaudeConfig" });
 }
+
+/**
+ * Kick off the (opt-in) network call that fetches current quota
+ * utilization from Anthropic. The extension host replies with a
+ * `quotaData` message; the webview shows a loading state until then.
+ */
+export function sendFetchQuota(): void {
+  _vscode.postMessage({ type: "fetchQuota" });
+}
+
+/** Ask the host to pop a native input box for the profile label. */
+export function sendPromptSaveProfile(): void {
+  _vscode.postMessage({ type: "promptSaveProfile" });
+}
+
+/** Open native QuickPick account switcher (switch / save / remove / login new). */
+export function sendOpenAccountSwitcher(): void {
+  _vscode.postMessage({ type: "openAccountSwitcher" });
+}

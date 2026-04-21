@@ -92,6 +92,10 @@
       {
         "command": "claudeManager.open",
         "title": "Claude Manager: Open"
+      },
+      {
+        "command": "claudeManager.switchAccount",
+        "title": "Claude Manager: Switch Account"
       }
     ],
     "keybindings": [

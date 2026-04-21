@@ -34,6 +34,33 @@ export function slugifyProjectPath(absPath: string): string {
 }
 
 /**
+ * Best-effort inverse of `slugifyProjectPath`. Used as a fallback for
+ * orphan sessions whose JSONL never records a `cwd` line — without a
+ * path we can't open the project when the user clicks Resume.
+ *
+ * The slugify rule is lossy (dashes in folder names collide with path
+ * separators), so we can only recover the *shape* of the path, not
+ * the exact separator characters. We detect two common shapes:
+ *
+ *  - Windows drive paths: `^([A-Za-z])--(.*)$` → `C:/...` (forward
+ *    slashes chosen so both Node and VS Code accept the path).
+ *  - Unix paths: leading `-` from the root `/`.
+ *
+ * Anything else is returned unchanged — better to show the raw slug
+ * than to invent a bogus path.
+ */
+export function deslugifyProjectPath(slug: string): string {
+  const windowsMatch = /^([A-Za-z])--(.*)$/.exec(slug);
+  if (windowsMatch) {
+    return `${windowsMatch[1]}:/${windowsMatch[2].replace(/-/g, "/")}`;
+  }
+  if (slug.startsWith("-")) {
+    return "/" + slug.slice(1).replace(/-/g, "/");
+  }
+  return slug;
+}
+
+/**
  * The result of inspecting a candidate session JSONL string.
  *
  * `ok: true` means the file is structurally a Claude session. `ok: false`

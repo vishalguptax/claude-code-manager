@@ -51,6 +51,46 @@
   letter-spacing: 0.6px;
   color: var(--fg-muted);
   margin: 0;
+  flex: 1; /* push header-action buttons to the far right */
+}
+
+/*
+ * Inline action button rendered at the right edge of a section
+ * header (see Quota's Refresh). Uses the same visual weight as the
+ * header chevron so it blends into the header bar rather than
+ * pulling attention away from the section title.
+ */
+.acct-section-head-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--transition-control), background var(--transition-control);
+}
+.acct-section-head-btn:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+.acct-section-head-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+.acct-section-head-btn[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+/* Spin while fetching — reuses the same keyframe used by the inline
+   quota spinner so there's one source of truth for rotation. */
+.acct-section-head-btn.is-spinning svg { animation: acct-quota-spin 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .acct-section-head-btn.is-spinning svg { animation: none; }
 }
 
 .acct-section-body {
@@ -80,6 +120,44 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+/*
+ * Clickable avatar variant — doubles as a Switch-account affordance.
+ * Subtle outline on hover + focus so the button nature is obvious
+ * without shouting. Reset button defaults so the element keeps the
+ * circular token-tile look.
+ */
+.acct-avatar-btn {
+  /* Reset every button default that shifts the letter off-center:
+     box-sizing, line-height, padding, font baselining. Flex centering
+     inherited from .acct-avatar handles alignment once defaults are
+     cleared. */
+  box-sizing: border-box;
+  border: none;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  /* Explicitly inherit font-size + weight from the base .acct-avatar
+     class; without this, browser-default button font-size (smaller
+     than inherit) pulls the initial down-right. */
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--badge-fg);
+  transition: box-shadow var(--transition-control), transform var(--transition-control);
+}
+.acct-avatar-btn:hover {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.acct-avatar-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.acct-avatar-btn:active { transform: scale(0.96); }
+@media (prefers-reduced-motion: reduce) {
+  .acct-avatar-btn { transition: none; }
+  .acct-avatar-btn:active { transform: none; }
 }
 
 .acct-profile-info {
@@ -256,6 +334,20 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+/*
+ * Freshness caption under the token/session/message stats. The
+ * tooltip explains why terminal `/stats` can disagree, so users
+ * understand any small drift without us trying to reproduce Claude's
+ * undocumented aggregation formula.
+ */
+.acct-stats-note {
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  margin-top: calc(var(--space-sm) * -1);
   margin-bottom: var(--space-md);
 }
 
@@ -527,4 +619,222 @@
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   line-height: 1.4;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Quota section (current subscription utilization)
+   ──────────────────────────────────────────────────────────────────────────────
+
+   Three-state card: idle (prompt to fetch), loading (skeleton +
+   spinner), success (bars + timestamp), error (diagnostic + retry).
+   Uses semantic VS Code tokens everywhere so the palette matches
+   whatever theme the user is on — no hard-coded colours.
+*/
+
+.acct-quota-intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+}
+.acct-quota-intro-text {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+}
+.acct-quota-intro-text code {
+  font-family: var(--font-mono, monospace);
+  background: var(--bg-hover);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.92em;
+  color: var(--fg);
+}
+.acct-quota-intro .btn {
+  align-self: flex-start;
+}
+
+/* Loading state — centered spinner + label, same height as the success
+   card so the layout doesn't jump when data arrives. */
+.acct-quota-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 120px;
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+}
+.acct-quota-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--fg-muted);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: acct-quota-spin 0.8s linear infinite;
+}
+@keyframes acct-quota-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acct-quota-spinner { animation: none; }
+}
+
+/* Bars stack — each row is label + bar + reset timer. Generous
+   vertical rhythm so the numbers remain scannable at a glance. */
+.acct-quota-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+}
+.acct-quota-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.acct-quota-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.acct-quota-label {
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  font-weight: 500;
+}
+.acct-quota-pct {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.acct-quota-sub {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+
+/* Progress bar — rounded track with an absolute fill. 200ms ease-out
+   so a refresh animates in rather than snapping, which reinforces the
+   "something changed" moment without feeling slow. */
+.acct-quota-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: var(--bg-hover);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.acct-quota-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 240ms ease-out, background-color 200ms ease-out;
+  min-width: 2px; /* keep a tiny sliver visible at 0% so the track
+                     doesn't read as "no data" */
+}
+@media (prefers-reduced-motion: reduce) {
+  .acct-quota-bar-fill { transition: none; }
+}
+
+/* Threshold tones — green → amber → red. Uses VS Code's debug/error
+   tokens with fallbacks so the palette is semantic, not random. */
+.acct-quota-bar-fill.tone-low {
+  background: var(--green, var(--vscode-testing-iconPassed, #10b981));
+}
+.acct-quota-bar-fill.tone-mid {
+  background: var(--vscode-editorWarning-foreground, #d49a00);
+}
+.acct-quota-bar-fill.tone-high {
+  background: var(--vscode-editorError-foreground, #e04d4d);
+}
+
+.acct-quota-extra {
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  border-top: 1px dashed var(--border);
+}
+
+/* Footer — "Fetched Xm ago" stamp on the left, Refresh button on the
+   right. Button is subtle (no primary styling) because the primary
+   action moment is done; re-fetching is secondary. */
+.acct-quota-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border);
+}
+.acct-quota-timestamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+.acct-quota-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--transition-control), background var(--transition-control), border-color var(--transition-control);
+}
+.acct-quota-refresh:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+.acct-quota-refresh:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Error state — icon + title + message + retry, laid out in a row so
+   it's compact. Colour lives on the icon (via --vscode-editorError)
+   so the whole block doesn't scream — the goal is "try this again",
+   not panic. */
+.acct-quota-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--vscode-editorError-foreground, #e04d4d);
+  border-radius: var(--radius);
+}
+.acct-quota-error-icon {
+  flex-shrink: 0;
+  color: var(--vscode-editorError-foreground, #e04d4d);
+  margin-top: 2px;
+}
+.acct-quota-error-body {
+  flex: 1;
+  min-width: 0;
+}
+.acct-quota-error-title {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--fg);
+  margin-bottom: 2px;
+}
+.acct-quota-error-msg {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+.acct-quota-error .btn {
+  flex-shrink: 0;
 }

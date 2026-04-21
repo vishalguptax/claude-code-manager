@@ -6,16 +6,20 @@
  * strips OAuth tokens (accessToken, refreshToken) before returning anything,
  * so tokens never cross the extension/webview boundary.
  *
- * Usage stats come exclusively from ~/.claude/stats-cache.json which is what
- * Claude Code itself writes. We do NOT walk session JSONL files to compute
- * token counts — Claude's /stats screen uses a formula we can't reproduce
- * and producing a different number would be misleading.
+ * Usage stats come exclusively from ~/.claude/stats-cache.json — the same
+ * file Claude CLI writes and reads. Claude rebuilds that cache on its own
+ * cadence (often 1–2 days behind today) and the `/stats` view's exact
+ * aggregation formula isn't documented. We display what the cache holds
+ * verbatim and show `lastComputedDate` so the user knows when it was last
+ * refreshed; reverse-engineering Claude's filtered-period math would be a
+ * drift-prone workaround, so we don't attempt it.
  */
 import * as fs from "fs";
 import * as path from "path";
 import { discoverModelsFromCli } from "./models";
 import * as os from "os";
 import { CLAUDE_DIR } from "../../core/config";
+import { listProfiles, getActiveProfileSlug } from "./profiles";
 import type {
   AccountData,
   AccountProfile,
@@ -33,6 +37,19 @@ const CLAUDE_BACKUPS_DIR = path.join(CLAUDE_DIR, "backups");
 const CREDENTIALS_FILE = path.join(CLAUDE_DIR, ".credentials.json");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
 const STATS_CACHE_FILE = path.join(CLAUDE_DIR, "stats-cache.json");
+
+/**
+ * UTC-only "yesterday" helper for YYYY-MM-DD date strings. Used by
+ * streak calculators so timezone shifts never roll a date to the day
+ * before/after. Plain Date arithmetic with `setHours` can land on the
+ * wrong calendar day for users whose local offset pushes UTC midnight
+ * across a boundary (observed on Windows/IST).
+ */
+function prevDayUtc(date: string): string {
+  const dt = new Date(date + "T00:00:00Z");
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return dt.toISOString().slice(0, 10);
+}
 
 /**
  * Read and parse .claude.json, falling back to the most recent backup
@@ -204,6 +221,7 @@ function parseUsage(): UsageStats {
     totalMessages: 0,
     longestSessionMs: 0,
     firstSessionDate: "",
+    lastComputedDate: "",
   };
 
   type StatsCache = {
@@ -217,6 +235,7 @@ function parseUsage(): UsageStats {
     totalMessages?: number;
     longestSession?: { duration?: number };
     firstSessionDate?: string;
+    lastComputedDate?: string;
   };
 
   let cache: StatsCache;
@@ -225,6 +244,10 @@ function parseUsage(): UsageStats {
     cache = JSON.parse(raw) as StatsCache;
   } catch {
     return result;
+  }
+
+  if (typeof cache.lastComputedDate === "string") {
+    result.lastComputedDate = cache.lastComputedDate;
   }
 
   // ── Daily activity (heatmap + filtering) ──
@@ -324,15 +347,26 @@ function parseUsage(): UsageStats {
   }
   result.longestStreak = longest;
 
-  // Current streak
+  // Current streak — walks backwards from the most recent day of
+  // recorded activity (not wall-clock today). Claude CLI rebuilds
+  // stats-cache on its own cadence, often a day or two behind today,
+  // so anchoring to wall-clock causes the loop to fail on its first
+  // check and always return 0 even when the terminal `/stats` view
+  // shows a healthy streak. Anchoring to latest data matches what
+  // the terminal displays.
+  //
+  // Date arithmetic uses UTC exclusively: the daily rows are stored as
+  // YYYY-MM-DD (Claude writes them that way), and mixing `setHours` /
+  // `toISOString` crosses a timezone boundary that can shift the
+  // reported date by one day for users east of UTC.
   const activeDates = new Set(result.daily.map((d) => d.date));
-  const fmt = (d: Date): string => d.toISOString().slice(0, 10);
   let current = 0;
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
-  while (activeDates.has(fmt(cursor))) {
-    current++;
-    cursor.setDate(cursor.getDate() - 1);
+  if (sorted.length > 0) {
+    let cursorDate = sorted[sorted.length - 1].date;
+    while (activeDates.has(cursorDate)) {
+      current++;
+      cursorDate = prevDayUtc(cursorDate);
+    }
   }
   result.currentStreak = current;
 
@@ -424,6 +458,12 @@ function parsePermissions(workspacePath?: string): PermissionSet[] {
  * (one-time 50ms scan, then instant) so it does not slow down re-parses.
  */
 export function parseAccountData(workspacePath?: string): AccountData {
+  // Saved profiles + the active match read here so the whole account
+  // payload stays a single parse pass. No network, no token exposure
+  // — profiles.ts returns metadata with a credentials hash, not the
+  // token itself.
+  const savedProfiles = listProfiles();
+  const activeProfileSlug = getActiveProfileSlug();
   return {
     profile: parseProfile(),
     usage: parseUsage(),
@@ -436,6 +476,8 @@ export function parseAccountData(workspacePath?: string): AccountData {
       id: m.id,
       isLatest: m.isLatest,
     })),
+    savedProfiles,
+    activeProfileSlug,
   };
 }
 

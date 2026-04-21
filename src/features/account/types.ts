@@ -109,6 +109,14 @@ export interface UsageStats {
   longestSessionMs: number;
   /** First session date */
   firstSessionDate: string;
+  /**
+   * The last date Claude CLI wrote into stats-cache.json. The CLI
+   * re-aggregates on its own cadence (often a day or two behind
+   * today), so showing this lets users understand any drift between
+   * the panel and a fresh terminal `/stats` view. Empty string when
+   * the cache is missing the field.
+   */
+  lastComputedDate: string;
 }
 
 // ── Settings (from settings.json) ──
@@ -166,6 +174,39 @@ export interface AccountData {
     id: string;
     isLatest: boolean;
   }>;
+  /**
+   * Snapshots of other Claude accounts the user has saved via the
+   * Accounts section. Each entry is a slot under
+   * ~/.claude/manager-accounts/<slug>/ that the user can switch to
+   * without going through the full login flow again. Empty array when
+   * the user hasn't saved any profile yet.
+   */
+  savedProfiles: SavedProfile[];
+  /**
+   * Slug of the profile whose credentials match the live
+   * ~/.claude/.credentials.json. Null when the active account has not
+   * been saved as a profile yet (user hasn't clicked "Save profile")
+   * or when no active account exists.
+   */
+  activeProfileSlug: string | null;
+}
+
+// ── Saved account profile (imported shape from profiles.ts) ──
+
+/**
+ * Public view of a saved account snapshot. Mirrors the SavedProfile
+ * type defined in `./profiles.ts` — kept here too so types.ts stays
+ * the single import target for webview-side code.
+ */
+export interface SavedProfile {
+  slug: string;
+  label: string;
+  email: string;
+  organizationName: string;
+  subscriptionType: string;
+  savedAt: string;
+  tokenExpiresAt: number;
+  credentialsHash: string;
 }
 
 // ── Messages ──
