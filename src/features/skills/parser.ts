@@ -48,61 +48,81 @@ function parseFrontmatter(raw: string): { name: string; description: string; tag
 }
 
 /**
- * Read all skills from a given directory.
- *
- * @param dir - Absolute path to a skills directory
- * @param scope - Whether these are "global" or "project" skills
- * @returns Array of parsed Skill objects
+ * Max recursion depth for the skills walk. Prevents symlink loops +
+ * accidental runaway scans in deeply-nested dotfile repos. Real-world
+ * skill trees are 2–3 levels deep (e.g. `team/lint/SKILL.md`), so 6
+ * is a generous safety ceiling.
  */
-function readSkillsFromDir(dir: string, scope: "global" | "project"): Skill[] {
+const MAX_SKILLS_DEPTH = 6;
+
+/**
+ * Recursively discover skill folders under `root`. A directory is a
+ * skill if it contains SKILL.md; if it doesn't, we descend into its
+ * subdirectories to find nested skills. This matches real team usage
+ * like `~/.claude/skills/team/lint/SKILL.md` or
+ * `.claude/skills/product/research/SKILL.md` — the flat-list
+ * assumption previously dropped everything below the first level.
+ *
+ * The path from `root` to the skill folder becomes the skill's
+ * `group` (folder segments joined by `/`) so the UI can render a
+ * grouped/nested tree without re-deriving it later.
+ */
+function readSkillsFromDir(root: string, scope: "global" | "project"): Skill[] {
   const skills: Skill[] = [];
+  if (!fs.existsSync(root)) return skills;
 
-  if (!fs.existsSync(dir)) {
-    return skills;
-  }
+  const walk = (dir: string, groupSegments: string[], depth: number): void => {
+    if (depth > MAX_SKILLS_DEPTH) return;
 
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(dir);
-  } catch {
-    return skills;
-  }
-
-  for (const entry of entries) {
-    const folderPath = path.join(dir, entry);
+    let entries: string[];
     try {
-      if (!fs.statSync(folderPath).isDirectory()) {
+      entries = fs.readdirSync(dir);
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const folderPath = path.join(dir, entry);
+      try {
+        if (!fs.statSync(folderPath).isDirectory()) continue;
+      } catch {
         continue;
       }
-    } catch {
-      continue;
+
+      const skillFile = path.join(folderPath, "SKILL.md");
+      if (fs.existsSync(skillFile)) {
+        let raw: string;
+        try {
+          raw = fs.readFileSync(skillFile, "utf-8");
+        } catch {
+          continue;
+        }
+        const parsed = parseFrontmatter(raw);
+        // IDs must stay unique across nested skills — include the
+        // folder path segments so `team/lint` and `lint` don't
+        // collide when both exist. scope:segment1/segment2/name.
+        const idSuffix = [...groupSegments, entry].join("/");
+        skills.push({
+          id: `${scope}:${idSuffix}`,
+          name: parsed.name || entry,
+          description: parsed.description,
+          scope,
+          path: folderPath,
+          content: raw,
+          tags: parsed.tags,
+          group: groupSegments.join("/"),
+        });
+      } else {
+        // Not a skill folder — descend. A dir with SKILL.md is a
+        // leaf: we don't also walk its children so that bundled
+        // resources (e.g. `examples/`) don't get mistaken for
+        // sub-skills.
+        walk(folderPath, [...groupSegments, entry], depth + 1);
+      }
     }
+  };
 
-    const skillFile = path.join(folderPath, "SKILL.md");
-    if (!fs.existsSync(skillFile)) {
-      continue;
-    }
-
-    let raw: string;
-    try {
-      raw = fs.readFileSync(skillFile, "utf-8");
-    } catch {
-      continue;
-    }
-
-    const parsed = parseFrontmatter(raw);
-
-    skills.push({
-      id: `${scope}:${entry}`,
-      name: parsed.name || entry,
-      description: parsed.description,
-      scope,
-      path: folderPath,
-      content: raw,
-      tags: parsed.tags,
-    });
-  }
-
+  walk(root, [], 0);
   return skills;
 }
 

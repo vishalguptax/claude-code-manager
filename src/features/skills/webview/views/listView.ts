@@ -131,18 +131,44 @@ export function updateSkillsList(): void {
     return;
   }
 
-  const groups = new Map<string, Skill[]>();
+  // Compound grouping: first by scope (Project / Global), then by the
+  // folder `group` inside each scope. Top-level (group === "") lives
+  // under the bare scope heading; nested skills get an indented
+  // sub-heading showing the folder path. Keeps the flat-list feel
+  // for simple setups while surfacing structure when teams use it.
+  type ScopeBucket = { top: Skill[]; nested: Map<string, Skill[]> };
+  const groups = new Map<string, ScopeBucket>();
   for (const s of filtered) {
-    const label = s.scope === "project" ? "Project" : "Global";
-    if (!groups.has(label)) groups.set(label, []);
-    groups.get(label)!.push(s);
+    const scopeLabel = s.scope === "project" ? "Project" : "Global";
+    let bucket = groups.get(scopeLabel);
+    if (!bucket) {
+      bucket = { top: [], nested: new Map() };
+      groups.set(scopeLabel, bucket);
+    }
+    if (!s.group) {
+      bucket.top.push(s);
+    } else {
+      const list = bucket.nested.get(s.group);
+      if (list) list.push(s);
+      else bucket.nested.set(s.group, [s]);
+    }
   }
 
   let h = `<div class="list-count">${filtered.length} skill${filtered.length !== 1 ? "s" : ""}</div>`;
-  for (const [label, skills] of groups) {
+  for (const [label, bucket] of groups) {
     h += `<div class="group-label">${esc(label)}</div>`;
-    for (const s of skills) {
+    for (const s of bucket.top) {
       h += renderSkillItem(s, selectedSkill?.id === s.id);
+    }
+    // Nested folders rendered alphabetically for stable ordering.
+    const sortedNested = [...bucket.nested.entries()].sort((a, b) =>
+      a[0].localeCompare(b[0]),
+    );
+    for (const [folder, skills] of sortedNested) {
+      h += `<div class="group-sublabel">${esc(folder)}</div>`;
+      for (const s of skills) {
+        h += renderSkillItem(s, selectedSkill?.id === s.id);
+      }
     }
   }
 

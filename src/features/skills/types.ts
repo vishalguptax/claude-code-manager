@@ -21,6 +21,13 @@ export interface Skill {
   content: string;
   /** Tags parsed from metadata.tags in frontmatter */
   tags: string[];
+  /**
+   * Folder path between the skills root and this skill's folder,
+   * joined with "/". Empty string for top-level skills. Example:
+   * "team/lint" for `~/.claude/skills/team/lint/SKILL.md`. Used by
+   * the webview to group skills under collapsible folder headers.
+   */
+  group: string;
 }
 
 // ── Extension <-> Webview Messages ──

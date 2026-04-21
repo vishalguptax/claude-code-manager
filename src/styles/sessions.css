@@ -23,6 +23,20 @@
   padding: var(--space-2xl) var(--space-2xl) var(--space-sm);
 }
 
+/*
+ * Nested sub-group label under a scope header — shown only when a
+ * skills directory contains subfolders. Lower visual weight than
+ * `.group-label` so the scope (Project / Global) still reads as the
+ * primary grouping; the folder path is contextual.
+ */
+.group-sublabel {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  padding: var(--space-md) var(--space-2xl) 4px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.2px;
+}
+
 .item {
   padding: var(--space-lg) var(--space-2xl);
   cursor: pointer;
@@ -305,18 +319,34 @@
 }
 
 /*
- * "Ask again in new chat" affordance on user prompts. Positioned in
- * the top-right of the message card so it doesn't compete with the
- * role label. Only rendered when the Claude Code extension is
- * installed.
+ * Message head: role label on the left, action row on the right.
+ * `d-msg-actions` is hover-revealed — empty whitespace by default so
+ * the message content isn't visually crowded.
  */
 .d-msg { position: relative; }
-.d-msg-ask {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 20px;
-  height: 20px;
+.d-msg-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 4px;
+}
+.d-msg-head .d-msg-role { margin-bottom: 0; flex: 1; }
+
+.d-msg-actions {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-control);
+}
+.d-msg:hover .d-msg-actions,
+.d-msg-actions:focus-within { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .d-msg-actions { transition: none; }
+}
+
+.d-msg-action {
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -325,13 +355,100 @@
   padding: 0;
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
-  opacity: 0;
   cursor: pointer;
-  transition: opacity var(--transition-control);
+  transition: color var(--transition-control), background var(--transition-control);
 }
-.d-msg:hover .d-msg-ask,
-.d-msg-ask:focus-visible { opacity: 1; }
-.d-msg-ask:hover { color: var(--fg); background: var(--bg-hover); }
+.d-msg-action:hover { color: var(--fg); background: var(--bg-hover); }
+.d-msg-action:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+/* Copy success flash — muted green, 900ms via the JS timeout. */
+.d-msg-action.is-copied {
+  color: var(--green, var(--vscode-testing-iconPassed, #22c55e));
+}
+
+/*
+ * Tool use rows. Single line per call — dim fg, monospace arg so
+ * paths and commands read predictably. No icon (we're not adding
+ * extra visual noise per the minimal brief); role-prefixed name
+ * carries the meaning.
+ */
+.d-msg-tools {
+  list-style: none;
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.d-msg-tool {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  padding: 2px 0;
+}
+.d-msg-tool-name {
+  flex: 0 0 auto;
+  font-weight: 500;
+  color: var(--fg-dim);
+}
+.d-msg-tool-arg {
+  flex: 1 1 auto;
+  font-family: var(--font-mono, monospace);
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Extended-thinking block — collapsed by default via native
+ * <details>. Disclosure triangle from the browser's default so we
+ * don't ship yet another icon; summary stays muted so it reads as
+ * metadata, not a primary section.
+ */
+.d-msg-thinking {
+  margin-bottom: var(--space-sm);
+  font-size: var(--fs-sm);
+}
+.d-msg-thinking > summary {
+  cursor: pointer;
+  color: var(--fg-muted);
+  list-style: revert;
+  padding: 2px 0;
+  user-select: none;
+}
+.d-msg-thinking > summary:hover { color: var(--fg-dim); }
+.d-msg-thinking[open] > summary { color: var(--fg-dim); }
+.d-msg-thinking-body {
+  margin-top: 4px;
+  padding: var(--space-sm) var(--space-md);
+  border-left: 2px solid var(--border);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Per-message token stamp. Right-aligned, tabular nums so digits
+ * line up across messages for quick scanning. Visible at rest
+ * (not hover-revealed) because cost info is something users
+ * often scan down the thread to compare.
+ */
+.d-msg-usage {
+  margin-top: 6px;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  text-align: right;
+}
 
 /* Legacy prompt styles (kept for backward compat) */
 .d-prompt {

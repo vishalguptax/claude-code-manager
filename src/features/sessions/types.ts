@@ -53,14 +53,59 @@ export interface SessionDetail extends Session {
   detailMode?: "first" | "last";
 }
 
+/**
+ * A named tool invocation recorded in an assistant message. Summarised
+ * for display — we pick one short `arg` string from the tool input
+ * (path / command / pattern) rather than dumping the whole JSON.
+ * Kept flat so detail-view rendering stays a single-line row per call.
+ */
+export interface ToolUseBlock {
+  /** Tool name: "Read", "Edit", "Bash", etc. */
+  name: string;
+  /** Short argument preview — e.g. file path or command. Empty = no hint. */
+  arg: string;
+}
+
+/**
+ * Per-message token accounting. Only set on assistant messages since
+ * user messages don't carry usage. All four fields map 1:1 to the
+ * Claude API's `usage.*_tokens` shape so totals add up.
+ */
+export interface MessageUsage {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheCreation: number;
+}
+
 /** A single message in a session transcript. */
 export interface Message {
   /** Who sent the message */
   role: "user" | "assistant";
-  /** Plain text content */
+  /** Plain text content (text + tool_result chunks concatenated). */
   content: string;
   /** ISO timestamp string from the JSONL entry */
   timestamp: string;
+  /**
+   * Tool invocations embedded in this message's content array.
+   * Non-empty only for assistant messages that called tools. Order
+   * matches the order they appear in the JSONL content blocks.
+   */
+  toolUses?: ToolUseBlock[];
+  /**
+   * Extended-thinking text from assistant messages that used the
+   * thinking API. Concatenated if multiple thinking blocks exist.
+   * Empty string / undefined when absent — detail view treats both
+   * the same.
+   */
+  thinking?: string;
+  /**
+   * Assistant-message token counts. Matches Claude API usage shape.
+   * User messages leave this undefined.
+   */
+  usage?: MessageUsage;
+  /** Model id for assistant messages ("claude-opus-4-7", etc.). */
+  model?: string;
 }
 
 // ── Grouping & Statistics ──
@@ -112,7 +157,38 @@ export interface SessionEntry {
   /** The message payload */
   message?: {
     role: string;
-    content: string | Array<{ type: string; text?: string; thinking?: string }>;
+    /**
+     * Either a plain string (legacy user prompts) or a rich array of
+     * content blocks. Known block types:
+     *  - `text` — plain prose via `text` field
+     *  - `thinking` — extended-thinking prose via `thinking` field
+     *  - `tool_use` — tool call; `name` + `input` describe the call
+     *  - `tool_result` — tool's return value; `content` may be text
+     *    or a nested array of text blocks
+     */
+    content:
+      | string
+      | Array<{
+          type: string;
+          text?: string;
+          thinking?: string;
+          name?: string;
+          input?: unknown;
+          content?: unknown;
+        }>;
+    /**
+     * Assistant-message usage bucket. Present on every assistant
+     * message Claude writes; absent on user messages. Cache fields
+     * may be zero when no caching happened.
+     */
+    usage?: {
+      input_tokens?: number;
+      output_tokens?: number;
+      cache_creation_input_tokens?: number;
+      cache_read_input_tokens?: number;
+    };
+    /** Model id ("claude-opus-4-7"). Only on assistant messages. */
+    model?: string;
   };
   /** Unique message identifier */
   uuid?: string;

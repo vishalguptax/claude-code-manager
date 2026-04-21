@@ -422,6 +422,147 @@ describe("parseSessionDetail", () => {
     expect(detail!.id).toBe("cached-sess");
     expect(detail!.messages).toEqual([]);
   });
+
+  it("extracts per-message usage from assistant messages", () => {
+    const now = Date.now();
+    writeHistoryEntry({ display: "hi", timestamp: now, project: "/home/u/p", sessionId: "sess-u" });
+    writeSessionFile("-home-u-p", "sess-u", [
+      {
+        timestamp: new Date(now).toISOString(),
+        message: { role: "user", content: "hi" },
+      },
+      {
+        timestamp: new Date(now + 1000).toISOString(),
+        message: {
+          role: "assistant",
+          content: [{ type: "text", text: "hello" }],
+          model: "claude-opus-4-7",
+          usage: {
+            input_tokens: 10,
+            output_tokens: 42,
+            cache_read_input_tokens: 5000,
+            cache_creation_input_tokens: 300,
+          },
+        },
+      },
+    ]);
+
+    const detail = parseSessionDetail("sess-u");
+    const assistant = detail!.messages.find((m) => m.role === "assistant");
+    expect(assistant).toBeDefined();
+    expect(assistant!.usage).toEqual({
+      input: 10,
+      output: 42,
+      cacheRead: 5000,
+      cacheCreation: 300,
+    });
+    expect(assistant!.model).toBe("claude-opus-4-7");
+  });
+
+  it("extracts tool_use blocks with a short arg summary", () => {
+    const now = Date.now();
+    writeHistoryEntry({ display: "go", timestamp: now, project: "/home/u/p", sessionId: "sess-t" });
+    writeSessionFile("-home-u-p", "sess-t", [
+      {
+        timestamp: new Date(now).toISOString(),
+        message: { role: "user", content: "run stuff" },
+      },
+      {
+        timestamp: new Date(now + 500).toISOString(),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "on it" },
+            { type: "tool_use", name: "Bash", input: { command: "git status" } },
+            { type: "tool_use", name: "Read", input: { file_path: "/x/foo.ts" } },
+            { type: "tool_use", name: "Grep", input: { pattern: "TODO" } },
+          ],
+        },
+      },
+    ]);
+
+    const detail = parseSessionDetail("sess-t");
+    const assistant = detail!.messages.find((m) => m.role === "assistant");
+    expect(assistant!.toolUses).toEqual([
+      { name: "Bash", arg: "git status" },
+      { name: "Read", arg: "/x/foo.ts" },
+      { name: "Grep", arg: "TODO" },
+    ]);
+  });
+
+  it("extracts extended-thinking content separately from visible text", () => {
+    const now = Date.now();
+    writeHistoryEntry({ display: "q", timestamp: now, project: "/home/u/p", sessionId: "sess-think" });
+    writeSessionFile("-home-u-p", "sess-think", [
+      {
+        timestamp: new Date(now).toISOString(),
+        message: { role: "user", content: "?" },
+      },
+      {
+        timestamp: new Date(now + 1).toISOString(),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "deliberating…" },
+            { type: "text", text: "answer" },
+          ],
+        },
+      },
+    ]);
+    const detail = parseSessionDetail("sess-think");
+    const assistant = detail!.messages.find((m) => m.role === "assistant");
+    expect(assistant!.thinking).toBe("deliberating…");
+    expect(assistant!.content).toBe("answer");
+  });
+
+  it("truncates oversized tool args to 120 characters with ellipsis", () => {
+    const now = Date.now();
+    const longCmd = "git log --format='%H %s'" + " extra".repeat(40);
+    writeHistoryEntry({ display: "q", timestamp: now, project: "/home/u/p", sessionId: "sess-long" });
+    writeSessionFile("-home-u-p", "sess-long", [
+      {
+        timestamp: new Date(now).toISOString(),
+        message: { role: "user", content: "?" },
+      },
+      {
+        timestamp: new Date(now + 1).toISOString(),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "tool_use", name: "Bash", input: { command: longCmd } },
+          ],
+        },
+      },
+    ]);
+    const detail = parseSessionDetail("sess-long");
+    const arg = detail!.messages[1].toolUses![0].arg;
+    expect(arg.length).toBeLessThanOrEqual(120);
+    expect(arg).toMatch(/…$/);
+  });
+
+  it("keeps assistant messages with tools but no text content", () => {
+    const now = Date.now();
+    writeHistoryEntry({ display: "q", timestamp: now, project: "/home/u/p", sessionId: "sess-nt" });
+    writeSessionFile("-home-u-p", "sess-nt", [
+      {
+        timestamp: new Date(now).toISOString(),
+        message: { role: "user", content: "read foo" },
+      },
+      {
+        timestamp: new Date(now + 1).toISOString(),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "tool_use", name: "Read", input: { file_path: "foo" } },
+          ],
+        },
+      },
+    ]);
+    const detail = parseSessionDetail("sess-nt");
+    expect(detail!.messages).toHaveLength(2);
+    expect(detail!.messages[1].toolUses?.length).toBe(1);
+    expect(detail!.messages[1].content).toBe("");
+  });
 });
 
 describe("groupSessions", () => {
