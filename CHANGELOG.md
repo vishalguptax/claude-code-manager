@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.0] - 2026-04-21
+
+Major account + detail-view overhaul: multi-account switcher, opt-in subscription quota card, full-transcript search, per-message token + tool insight, and deep Claude Code extension integration.
+
+See [docs/releases/v1.5.0.md](docs/releases/v1.5.0.md) for full details.
+
 ## [1.4.0] - 2026-04-19
 
 Full-text session search, a proper branch-filter dropdown, and an account tab overhaul — the largest sessions pass since import/export.
