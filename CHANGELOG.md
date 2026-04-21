@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.1] - 2026-04-21
+
+Detail-view transcript search feels native now (focus + caret survive every keystroke), plus a new demo GIF headlines the marketplace listing.
+
+See [docs/releases/v1.5.1.md](docs/releases/v1.5.1.md) for full details.
+
 ## [1.5.0] - 2026-04-21
 
 Major account + detail-view overhaul: multi-account switcher, opt-in subscription quota card, full-transcript search, per-message token + tool insight, and deep Claude Code extension integration.
