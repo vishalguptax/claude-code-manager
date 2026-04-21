@@ -118,6 +118,15 @@ Claude Manager turns all of it into a sidebar you can click and search. Same Cla
 - **Right-click menu** &mdash; pin, rename, fork, copy command, export session, delete
 - **Extension sessions** &mdash; sessions started inside the official Claude Code VS Code extension appear in the list alongside CLI-started ones, even when `history.jsonl` doesn't record them
 
+**Inside a session**
+
+- **Transcript search** &mdash; search across every message (content, extended thinking, tool calls) in one session. Sticky search bar, live match count, `<mark>` highlights. Works on 10k+ message sessions.
+- **Per-message tokens** &mdash; input / output / cache-read / cache-creation shown under each assistant turn. Session total in the header stats strip.
+- **Tool call rows** &mdash; `Read src/foo.ts`, `Bash npm test`, `Grep TODO` &mdash; what Claude actually did, inline with the turn that did it.
+- **Extended thinking** &mdash; collapsible blocks show Claude's reasoning when available.
+- **Copy any message** &mdash; hover a message → Copy button. Ask Again button re-opens the prompt in a fresh Claude session (terminal or extension chat per your setting).
+- **Latest first** &mdash; most recent turn at the top; Earliest toggle flips to chronological.
+
 <br>
 
 ## Quota (opt-in)
@@ -143,8 +152,16 @@ The Account tab's **Accounts** section lets you keep several Claude logins ready
 - Click **Switch** on any saved card to overwrite the home-dir creds with that slot. A modal confirms before anything is written.
 - After Claude CLI rotates the access token (roughly every 8 hours), click **Update** on the active card to re-snapshot. Each slot tracks its own expiry.
 
-**Privacy**
-Saved profiles duplicate your OAuth tokens on disk &mdash; same format, same plaintext as Claude CLI itself stores in `~/.claude/.credentials.json`. Treat `~/.claude/manager-accounts` as sensitive; delete slots you no longer need. The extension never transmits these tokens anywhere.
+**Security disclaimer &mdash; please read before saving a profile**
+
+> Saving a profile **copies your Claude OAuth tokens to disk in plain text** &mdash; the same format and the same plaintext that Claude CLI already stores in `~/.claude/.credentials.json`. Snapshots live under `~/.claude/manager-accounts/<slug>/`.
+>
+> - The folder inherits your home-directory permissions (file mode `0o600` on POSIX). Treat it as sensitive &mdash; anyone with read access to that folder can use your Claude account.
+> - **Don't save profiles on shared machines** or paths synced to a cloud drive you don't fully control (Dropbox, OneDrive, iCloud, etc.).
+> - Delete a profile and its token copy is removed from disk immediately.
+> - The extension shows a one-time confirmation modal on your first save to surface this exact warning. Tokens **never leave your machine** &mdash; Claude Manager has no network calls involved in Save / Switch / Update / Remove.
+>
+> Enable OS-level disk encryption (FileVault / BitLocker / LUKS) if you store multiple accounts across security contexts.
 
 **Known limits**
 - Close running Claude terminals before switching. In-flight tool calls may fail if the credentials change mid-task.
