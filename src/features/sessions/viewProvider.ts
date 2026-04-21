@@ -28,6 +28,7 @@ import {
   resumeSession,
   exportSessionFile,
   importSessionFile,
+  resolveClaudeTarget,
 } from "./commands";
 import { getWebviewHtml } from "../../extension/html";
 import { getWorkspace } from "../../extension/workspace";
@@ -380,10 +381,12 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "getSessionDetail": {
         const mode = (msg as { mode?: "first" | "last" }).mode ?? "last";
+        const query = (msg as { query?: string }).query ?? "";
         const detail = parseSessionDetail(
           msg.sessionId,
           this.sessions.find((s) => s.id === msg.sessionId),
           mode,
+          query,
         );
         if (detail) {
           wv.postMessage({ type: "sessionDetail", data: detail });
@@ -423,28 +426,35 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "launchChatWithPrompt": {
-        if (isClaudeCodeExtensionInstalled()) {
-          // Cap the prompt payload before URI-encoding. The browser
-          // and various URI handlers impose length limits (2 KB on
-          // some shells, 32 KB typical, 2 MB hard ceiling in Chromium)
-          // and a very long user message URL-encodes to 3×, so a
-          // 50 KB transcript prompt can exceed safe limits. 4 KB of
-          // source covers ~95% of real prompts without truncation
-          // and stays well inside every handler's budget. Callers
-          // that need more should chunk their intent into something
-          // shorter anyway — a 50 KB prompt isn't something you'd
-          // want prefilled in a chat box.
-          const PROMPT_MAX = 4000;
-          const prompt =
-            msg.prompt.length > PROMPT_MAX
-              ? msg.prompt.slice(0, PROMPT_MAX) + "\n\n…(truncated)"
-              : msg.prompt;
-          if (msg.prompt.length > PROMPT_MAX) {
-            vscode.window.showInformationMessage(
-              `Prompt was truncated to ${PROMPT_MAX} characters before launching chat.`,
-            );
-          }
+        // Route via the shared resumeIn setting so Ask Again / Launch
+        // in Chat respect the user's chosen surface. Extension → URI
+        // handler. Terminal → spawn `claude` and inject prompt after
+        // activation (~1800 ms — same timing launchSlash uses).
+        // Cap prompt length once up-front regardless of target: URIs
+        // cap at ~2 MB in Chromium but shells (cmd/PowerShell) reject
+        // far smaller; terminal sendText fine with 4 KB.
+        const PROMPT_MAX = 4000;
+        const prompt =
+          msg.prompt.length > PROMPT_MAX
+            ? msg.prompt.slice(0, PROMPT_MAX) + "\n\n…(truncated)"
+            : msg.prompt;
+        if (msg.prompt.length > PROMPT_MAX) {
+          vscode.window.showInformationMessage(
+            `Prompt was truncated to ${PROMPT_MAX} characters before launching Claude.`,
+          );
+        }
+        const target = await resolveClaudeTarget(undefined);
+        if (target === "cancel") break;
+        if (target === "extension") {
           await openPromptInExtension(prompt);
+        } else {
+          // Terminal path: launch claude, then send the prompt after a
+          // short delay so Claude has switched to raw-input mode. Same
+          // pattern launchSlash uses for /login + /config.
+          const term = createTerminal("Claude: ask");
+          term.show();
+          term.sendText("claude");
+          setTimeout(() => term.sendText(prompt), 1800);
         }
         break;
       }

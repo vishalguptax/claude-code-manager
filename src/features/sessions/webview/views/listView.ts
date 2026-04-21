@@ -24,6 +24,7 @@ import {
   getVisibleCount,
   incrementVisibleCount,
   setSelectedId,
+  setDetailSearchQuery,
   setLoading,
   setView,
   setShellMounted,
@@ -221,6 +222,10 @@ export function showList(): void {
   // item sets selectedId; there's no reason to carry that state back —
   // if the user re-opens the same detail, setSelectedId will refire.
   setSelectedId(null);
+  // Reset any detail-view transcript-search filter so opening a
+  // different session starts from the default paged view instead of
+  // filtering by the previous query.
+  setDetailSearchQuery("");
   document.getElementById("detailView")?.classList.add("hidden");
   document.getElementById("listView")?.classList.remove("hidden");
   updateList();

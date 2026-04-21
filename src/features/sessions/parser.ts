@@ -772,6 +772,7 @@ export function parseSessionDetail(
   sessionId: string,
   cachedSession?: Session,
   mode: "first" | "last" = "last",
+  query?: string,
 ): SessionDetail | null {
   const session =
     cachedSession ?? parseSessions().find((s) => s.id === sessionId);
@@ -781,6 +782,11 @@ export function parseSessionDetail(
   if (!sessionFile) {
     return { ...session, messages: [], detailMode: mode, totalMessages: 0 };
   }
+
+  // Normalise query once up front. Empty / whitespace-only strings
+  // count as "no query" so the webview can clear its filter without
+  // triggering a second request shape.
+  const q = query?.trim().toLowerCase() ?? "";
 
   const entries = parseJsonlFile<SessionEntry>(sessionFile);
   const allMessages: Message[] = [];
@@ -874,6 +880,66 @@ export function parseSessionDetail(
   }
 
   const total = allMessages.length;
+
+  // Session-wide token + tool totals summed across every message so
+  // the detail view can show a "spent X on this session" line
+  // without the caller recomputing from a paged message list.
+  let totalToolUses = 0;
+  let hasUsage = false;
+  const totalUsage = {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheCreation: 0,
+  };
+  for (const m of allMessages) {
+    if (m.toolUses) totalToolUses += m.toolUses.length;
+    if (m.usage) {
+      hasUsage = true;
+      totalUsage.input += m.usage.input;
+      totalUsage.output += m.usage.output;
+      totalUsage.cacheRead += m.usage.cacheRead;
+      totalUsage.cacheCreation += m.usage.cacheCreation;
+    }
+  }
+
+  // Query-mode: filter across the full transcript and return every
+  // match. We intentionally skip paging here — search exists
+  // specifically to let users find things beyond the 50-msg window,
+  // so truncating hits would defeat the feature. On long sessions
+  // (10k+ msgs) the match set stays small in practice because
+  // queries are specific enough.
+  //
+  // Matching fields: content, thinking, tool name + arg. Case-
+  // insensitive substring (haystack pre-lowered at compare time to
+  // avoid allocating lowercased copies of entire transcripts when
+  // most messages won't match).
+  if (q) {
+    const matches: Message[] = [];
+    for (const m of allMessages) {
+      const haystack = [
+        m.content,
+        m.thinking ?? "",
+        ...(m.toolUses ?? []).map((t) => `${t.name} ${t.arg}`),
+      ]
+        .join("\n")
+        .toLowerCase();
+      if (haystack.includes(q)) matches.push(m);
+    }
+    return {
+      ...session,
+      messages: matches,
+      messageCount: matches.length,
+      totalMessages: total,
+      detailMode: mode,
+      detailQuery: q,
+      totalMatches: matches.length,
+      totalToolUses,
+      ...(hasUsage ? { totalUsage } : {}),
+    };
+  }
+
+  // Default paged view (no query).
   const page = mode === "first"
     ? allMessages.slice(0, DETAIL_PAGE_SIZE)
     : allMessages.slice(-DETAIL_PAGE_SIZE);
@@ -884,6 +950,8 @@ export function parseSessionDetail(
     messageCount: page.length,
     totalMessages: total,
     detailMode: mode,
+    totalToolUses,
+    ...(hasUsage ? { totalUsage } : {}),
   };
 }
 

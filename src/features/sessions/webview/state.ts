@@ -34,6 +34,13 @@ let selectedId: string | null = null;
 let detail: SessionDetail | null = null;
 let searchQuery = "";
 /**
+ * Active detail-view search query (lowercased). When non-empty, the
+ * detail renders a filtered transcript (every match across the full
+ * session) instead of the default first/last paged view. Cleared on
+ * showList() so opening a different session starts fresh.
+ */
+let detailSearchQuery = "";
+/**
  * Session IDs returned by the latest full-text (transcript content) search.
  * The extension host keeps the text index and replies asynchronously; we
  * store the hits here and union them with the local `searchHaystack`
@@ -84,6 +91,10 @@ export function getDetail(): SessionDetail | null { return detail; }
 
 /** Return the current search query (lowercase). */
 export function getSearchQuery(): string { return searchQuery; }
+
+/** Active detail-view transcript search. Empty = no filter. */
+export function getDetailSearchQuery(): string { return detailSearchQuery; }
+export function setDetailSearchQuery(q: string): void { detailSearchQuery = q; }
 
 /** Return whether a detail request is in progress. */
 export function isLoading(): boolean { return loading; }

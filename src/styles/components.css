@@ -268,10 +268,19 @@
   background: var(--bg-hover);
   color: var(--fg-dim);
   white-space: nowrap;
+  /* Clip content that doesn't fit inside the button box. Without
+     this, inline-flex buttons inside a grid with equal 1fr columns
+     let long labels spill outside the background, which reads as
+     overlapping the neighbour button. */
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: inline-flex;
   align-items: center;
   gap: 5px;
 }
+/* Inline SVG icons shouldn't shrink when text ellipsizes — keeps
+   the icon visible next to whatever label text survives. */
+.btn > svg { flex-shrink: 0; }
 .btn:hover                   { color: var(--fg); }
 .btn.primary                 { background: var(--btn-bg); color: var(--btn-fg); }
 .btn.primary:hover           { background: var(--btn-hover); }
@@ -630,6 +639,16 @@
   background: var(--bg, var(--input-bg));
   color: var(--fg);
   font-weight: 500;
+}
+/* Dimmed + non-interactive. Kept in the DOM so the surrounding
+   header doesn't reflow when the toggle becomes contextually
+   meaningless (e.g. search active). */
+.vs-segmented.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.vs-segmented-btn[disabled] {
+  cursor: default;
 }
 
 /* Compact variant for inline toggles (smaller font + padding) */

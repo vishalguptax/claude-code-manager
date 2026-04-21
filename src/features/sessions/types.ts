@@ -51,6 +51,28 @@ export interface SessionDetail extends Session {
   totalMessages?: number;
   /** Which page is loaded: "first" (earliest) or "last" (most recent) */
   detailMode?: "first" | "last";
+  /**
+   * Echo of the query string used when producing this detail. When
+   * non-empty, `messages` contains every match across the whole
+   * session (paging is bypassed) and `totalMatches` is populated.
+   * Webview uses the echo to drop stale replies when the user keeps
+   * typing faster than the host can respond.
+   */
+  detailQuery?: string;
+  /** Number of messages matching `detailQuery`. Absent when no query. */
+  totalMatches?: number;
+  /**
+   * Session-wide token totals summed across every assistant message,
+   * not just the current page. Absent when the transcript has no
+   * usage metadata (very old sessions pre-usage bucket).
+   */
+  totalUsage?: MessageUsage;
+  /**
+   * Count of tool invocations across the entire session — sums each
+   * message's toolUses length. Helpful companion to totalMessages in
+   * the Info row.
+   */
+  totalToolUses?: number;
 }
 
 /**
@@ -233,7 +255,7 @@ export type WebviewMessage =
   | { type: "ready" }
   | { type: "refresh" }
   | { type: "continueLastSession" }
-  | { type: "getSessionDetail"; sessionId: string; mode?: "first" | "last" }
+  | { type: "getSessionDetail"; sessionId: string; mode?: "first" | "last"; query?: string }
   | { type: "search"; query: string }
   | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }

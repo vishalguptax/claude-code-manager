@@ -25,20 +25,65 @@ import {
   getPinnedIds,
   getCurrentProjectName,
   setView,
+  getDetailSearchQuery,
+  setDetailSearchQuery,
 } from "../state";
 import { showList } from "./listView";
 import { confirmDelete } from "../components/contextMenu";
 import type { Message } from "../../types";
 
 /**
- * Compact number formatter for per-message token stamps.
- * Examples: 1200 → "1.2k", 33050 → "33k", 980 → "980".
+ * Compact number formatter shared across per-message stamps + stat
+ * strip totals. Boundaries chosen so the visible precision stays
+ * meaningful (1.2k beats 1,200 for glance-reading) and never loses
+ * scale. Uppercase M / B follow common SI convention; k stays
+ * lowercase because that's how terminals and most dashboards write
+ * it ("10k PRs", "3.5k LoC").
+ *
+ *   980        → "980"       (under 1k: raw)
+ *   1200       → "1.2k"
+ *   10_582     → "10.6k"
+ *   1_500_000  → "1.5M"
+ *   2_755_200_000 → "2.76B"
  */
+/**
+ * Wrap each case-insensitive occurrence of `query` inside `text` with
+ * a `<mark>` tag. Input is already the raw message content (unescaped);
+ * we escape the non-match chunks + the match itself separately to keep
+ * output safe. Returns escaped HTML.
+ */
+/**
+ * Mirrors DETAIL_PAGE_SIZE in parser.ts — toggle only meaningful
+ * when the session has more messages than fit in a single page.
+ * Kept in sync manually; no runtime coupling worth a round-trip.
+ */
+const DETAIL_PAGE_SIZE_FOR_TOGGLE = 50;
+
+function highlight(text: string, query: string): string {
+  if (!query) return esc(text);
+  const q = query.toLowerCase();
+  const lower = text.toLowerCase();
+  let out = "";
+  let cursor = 0;
+  while (cursor < text.length) {
+    const hit = lower.indexOf(q, cursor);
+    if (hit === -1) {
+      out += esc(text.slice(cursor));
+      break;
+    }
+    if (hit > cursor) out += esc(text.slice(cursor, hit));
+    out += `<mark class="d-match">${esc(text.slice(hit, hit + q.length))}</mark>`;
+    cursor = hit + q.length;
+  }
+  return out;
+}
+
 function fmtTokens(n: number): string {
   if (n < 1000) return String(n);
   if (n < 10_000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
-  if (n < 1_000_000) return Math.round(n / 1000) + "k";
-  return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "m";
+  if (n < 1_000_000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+  if (n < 1_000_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+  return (n / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "") + "B";
 }
 
 /**
@@ -53,14 +98,21 @@ function fmtTokens(n: number): string {
  *   3. Text content — unchanged, full weight
  *   4. Usage stamp — right-aligned, tiny, muted
  */
-function renderMessageBody(m: Message): string {
+function renderMessageBody(m: Message, query: string = ""): string {
   const parts: string[] = [];
+
+  // When search is active we render the thinking block expanded so
+  // matches inside it are visible without another click. Default
+  // state (no query) keeps it collapsed.
+  const thinkingOpen = query && m.thinking?.toLowerCase().includes(query)
+    ? " open"
+    : "";
 
   if (m.thinking) {
     parts.push(
-      `<details class="d-msg-thinking">
+      `<details class="d-msg-thinking"${thinkingOpen}>
          <summary>Thinking</summary>
-         <div class="d-msg-thinking-body">${esc(m.thinking)}</div>
+         <div class="d-msg-thinking-body">${highlight(m.thinking, query)}</div>
        </details>`,
     );
   }
@@ -71,8 +123,8 @@ function renderMessageBody(m: Message): string {
         m.toolUses
           .map(
             (t) => `<li class="d-msg-tool">
-          <span class="d-msg-tool-name">${esc(t.name)}</span>${
-              t.arg ? `<span class="d-msg-tool-arg">${esc(t.arg)}</span>` : ""
+          <span class="d-msg-tool-name">${highlight(t.name, query)}</span>${
+              t.arg ? `<span class="d-msg-tool-arg">${highlight(t.arg, query)}</span>` : ""
             }
         </li>`,
           )
@@ -82,9 +134,14 @@ function renderMessageBody(m: Message): string {
   }
 
   if (m.content) {
-    const displayed =
-      m.content.length > 500 ? m.content.slice(0, 500) + "…" : m.content;
-    parts.push(`<div class="d-msg-content">${esc(displayed)}</div>`);
+    // When searching, show the full content so the match is in
+    // context — 500-char default cap exists for default view only.
+    const displayed = query
+      ? m.content
+      : m.content.length > 500
+        ? m.content.slice(0, 500) + "…"
+        : m.content;
+    parts.push(`<div class="d-msg-content">${highlight(displayed, query)}</div>`);
   }
 
   if (m.usage && (m.usage.input || m.usage.output || m.usage.cacheRead || m.usage.cacheCreation)) {
@@ -134,17 +191,52 @@ export function showDetail(): void {
   const isDiffProject = currentProjectName && d.projectKey !== currentProjectName;
   const isPinned = getPinnedIds().has(d.id);
 
+  // Compact top: one big title, one-line contextual meta, an optional
+  // stat strip. Keeps visual weight on the session's identity and
+  // pushes everything else to secondary color.
+  const totalMsgs = d.totalMessages ?? d.messageCount;
+  const tokenTotal = d.totalUsage
+    ? d.totalUsage.input +
+      d.totalUsage.output +
+      d.totalUsage.cacheRead +
+      d.totalUsage.cacheCreation
+    : 0;
+  const statsRow: string[] = [];
+  statsRow.push(
+    `<span class="d-stat" title="${totalMsgs.toLocaleString()} message${totalMsgs === 1 ? "" : "s"}"><span class="d-stat-v">${esc(fmtTokens(totalMsgs))}</span><span class="d-stat-k">message${totalMsgs === 1 ? "" : "s"}</span></span>`,
+  );
+  if (d.totalToolUses && d.totalToolUses > 0) {
+    statsRow.push(
+      `<span class="d-stat" title="${d.totalToolUses.toLocaleString()} tool call${d.totalToolUses === 1 ? "" : "s"}"><span class="d-stat-v">${esc(fmtTokens(d.totalToolUses))}</span><span class="d-stat-k">tool${d.totalToolUses === 1 ? "" : "s"}</span></span>`,
+    );
+  }
+  if (tokenTotal > 0) {
+    const usageTip = d.totalUsage
+      ? `Input ${d.totalUsage.input} · Output ${d.totalUsage.output} · Cache read ${d.totalUsage.cacheRead} · Cache creation ${d.totalUsage.cacheCreation}`
+      : "";
+    statsRow.push(
+      `<span class="d-stat" title="${esc(usageTip)}"><span class="d-stat-v">${esc(fmtTokens(tokenTotal))}</span><span class="d-stat-k">tokens</span></span>`,
+    );
+  }
+  statsRow.push(
+    `<span class="d-stat"><span class="d-stat-v">${esc(dur)}</span><span class="d-stat-k">duration</span></span>`,
+  );
+
   dv.innerHTML = `
     <button class="back-btn" id="goBack">${icon("arrow-left")} Back</button>
 
     <div class="d-head">
       <div class="d-title" title="${esc(d.name || d.summary)}">${esc(d.name || d.summary)}</div>
       ${d.name && d.summary ? `<div class="d-subtitle" title="${esc(d.summary)}">${esc(d.summary)}</div>` : ""}
-      <div class="d-tags">
-        ${branch ? `<span class="tag">${esc(branch)}</span>` : ""}
-        <span class="tag folder">${esc(d.project)}</span>
+      <div class="d-meta">
+        <span class="d-meta-pill">${esc(d.project)}</span>
+        ${branch ? `<span class="d-meta-pill d-meta-pill-branch">${icon("git-branch", 11)} ${esc(branch)}</span>` : ""}
+        <span class="d-meta-dot" aria-hidden="true">·</span>
+        <span>${date} at ${time}</span>
       </div>
-      <div class="d-meta">${date} at ${time} · ${dur} · ${d.messageCount} msgs</div>
+      <div class="d-stats">
+        ${statsRow.join("")}
+      </div>
     </div>
 
     ${isDiffProject ? `
@@ -171,47 +263,82 @@ export function showDetail(): void {
     </div>`}
 
     <div class="d-scroll">
-      <div class="d-section">
-        <div class="d-label">Info</div>
-        <div class="d-kv"><span class="d-k">ID</span><span class="d-v mono">${d.id.slice(0, 18)}...</span></div>
-        <div class="d-kv"><span class="d-k">Path</span><span class="d-v mono">${esc(d.project)}</span></div>
-        <div class="d-kv"><span class="d-k">Branch</span><span class="d-v">${branch || "\u2014"}</span></div>
-      </div>
-
-      ${d.messages.length ? (() => {
+      ${(() => {
         const mode = d.detailMode ?? "last";
         const total = d.totalMessages ?? d.messages.length;
-        const showToggle = total > d.messages.length;
+        const activeQuery = getDetailSearchQuery();
+        const isSearching = activeQuery.length > 0;
+        // Toggle visibility decoupled from search state to stop the
+        // header from jumping when the user starts typing. Always
+        // render when the session is long enough to be paged; just
+        // disable interaction during a search (mode is meaningless
+        // when results are filtered across the full transcript).
+        const showToggle = total > DETAIL_PAGE_SIZE_FOR_TOGGLE;
+        const matchCount = d.totalMatches ?? d.messages.length;
+        // Placeholder while host re-searches: echoed query on
+        // SessionDetail confirms we're looking at the latest reply.
+        // Mismatch = stale result from a previous keystroke.
+        const stale = isSearching && d.detailQuery !== activeQuery;
         return `
       <div class="d-section">
-        <div class="d-label-row">
-          <span class="d-label">Messages (${total})</span>
-          ${showToggle ? `
-          <div class="vs-segmented vs-segmented--sm">
-            <button class="vs-segmented-btn ${mode === "last" ? "active" : ""}" id="msgLast">Latest</button>
-            <button class="vs-segmented-btn ${mode === "first" ? "active" : ""}" id="msgFirst">Earliest</button>
-          </div>` : ""}
+        <div class="d-msg-header">
+          <div class="d-label-row">
+            <span class="d-label">Messages (${total})</span>
+            ${showToggle ? `
+            <div class="vs-segmented vs-segmented--sm ${isSearching ? "is-disabled" : ""}" ${isSearching ? "aria-hidden=\"true\"" : ""}>
+              <button class="vs-segmented-btn ${mode === "last" ? "active" : ""}" id="msgLast" ${isSearching ? "disabled" : ""}>Latest</button>
+              <button class="vs-segmented-btn ${mode === "first" ? "active" : ""}" id="msgFirst" ${isSearching ? "disabled" : ""}>Earliest</button>
+            </div>` : ""}
+          </div>
+          <div class="d-msg-search ${isSearching ? "has-value" : ""}">
+            <input id="msgSearchInput"
+              class="d-msg-search-input"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Search messages..."
+              value="${esc(activeQuery)}"
+              aria-label="Search messages" />
+            ${isSearching ? `
+              <div class="d-msg-search-addon">
+                <span class="d-msg-search-count">${stale ? "…" : `${matchCount}`}</span>
+                <button class="d-msg-search-clear" id="msgSearchClear" title="Clear search" aria-label="Clear search">${icon("x", 12)}</button>
+              </div>` : ""}
+          </div>
         </div>
-        ${mode === "first" && showToggle ? `<div class="d-msg-hint">Showing first ${d.messages.length} of ${total} messages</div>` : ""}
-        ${mode === "last" && showToggle ? `<div class="d-msg-hint">Showing last ${d.messages.length} of ${total} messages</div>` : ""}
-        ${d.messages.map((m, i) => {
+        ${!isSearching && mode === "first" && showToggle ? `<div class="d-msg-hint">Showing first ${d.messages.length} of ${total} messages</div>` : ""}
+        ${!isSearching && mode === "last" && showToggle ? `<div class="d-msg-hint">Showing last ${d.messages.length} of ${total} messages · newest first</div>` : ""}
+        ${isSearching && !stale && d.messages.length === 0 ? `<div class="d-msg-hint">No matches.</div>` : ""}
+        ${(() => {
+          // "Latest" mode renders newest-first so the most recent turn
+          // is visible without scrolling to the bottom. "Earliest" +
+          // search modes keep chronological order — search results
+          // read naturally top-to-bottom, and the Earliest toggle
+          // explicitly asks for the session opening.
+          //
+          // We walk `d.messages` with the original index captured in
+          // `origIdx` so click handlers can still look the message
+          // up by `d.messages[origIdx]` after reversal.
+          const indexed = d.messages.map((m, origIdx) => ({ m, origIdx }));
+          return !isSearching && mode === "last" ? indexed.slice().reverse() : indexed;
+        })().map(({ m, origIdx }) => {
           // Per-message actions sit in the top-right corner, hover-
           // revealed. Copy is always available; Ask Again is user-
           // prompts-only and extension-gated.
-          const copyBtn = `<button class="d-msg-action" data-copy-idx="${i}" title="Copy message" aria-label="Copy message">${icon("copy", 12)}</button>`;
-          const askAgain = m.role === "user" && isClaudeCodeExtensionInstalled()
-            ? `<button class="d-msg-action" data-ask-idx="${i}" title="Ask again in a new chat" aria-label="Ask again in a new chat">${icon("message-square", 12)}</button>`
+          const copyBtn = `<button class="d-msg-action" data-copy-idx="${origIdx}" title="Copy message" aria-label="Copy message">${icon("copy", 12)}</button>`;
+          const askAgain = m.role === "user"
+            ? `<button class="d-msg-action" data-ask-idx="${origIdx}" title="Ask again in a new Claude session" aria-label="Ask again">${icon("message-square", 12)}</button>`
             : "";
           return `<div class="d-msg d-msg-${m.role}">
             <div class="d-msg-head">
               <span class="d-msg-role">${m.role === "user" ? "You" : "Claude"}</span>
               <div class="d-msg-actions">${copyBtn}${askAgain}</div>
             </div>
-            ${renderMessageBody(m)}
+            ${renderMessageBody(m, activeQuery)}
           </div>`;
         }).join("")}
       </div>`;
-      })() : ""}
+      })()}
     </div>`;
 
   dv.querySelector("#goBack")?.addEventListener("click", showList);
@@ -263,6 +390,41 @@ export function showDetail(): void {
     if (d.detailMode === "last") return;
     swapActive("msgLast", "msgFirst");
     sendGetSessionDetail(d.id, "last");
+  });
+
+  // Transcript search — debounce 200ms so the host isn't spammed per
+  // keystroke on long sessions. Empty value reverts to the default
+  // paged view (host treats blank query as "no filter").
+  const searchInput = dv.querySelector<HTMLInputElement>("#msgSearchInput");
+  if (searchInput) {
+    // Preserve focus + caret across re-renders so typing feels
+    // unbroken. Count/result refresh re-renders the whole detail
+    // view; without this the input lost focus every keystroke.
+    const priorQuery = getDetailSearchQuery();
+    if (priorQuery && document.activeElement !== searchInput) {
+      searchInput.focus();
+      searchInput.setSelectionRange(priorQuery.length, priorQuery.length);
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    searchInput.addEventListener("input", () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const q = searchInput.value.trim();
+        setDetailSearchQuery(q.toLowerCase());
+        sendGetSessionDetail(d.id, d.detailMode ?? "last", q);
+      }, 200);
+    });
+    searchInput.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        searchInput.value = "";
+        setDetailSearchQuery("");
+        sendGetSessionDetail(d.id, d.detailMode ?? "last", "");
+      }
+    });
+  }
+  dv.querySelector("#msgSearchClear")?.addEventListener("click", () => {
+    setDetailSearchQuery("");
+    sendGetSessionDetail(d.id, d.detailMode ?? "last", "");
   });
 
   // Event delegation for per-message action buttons. Binding once

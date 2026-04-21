@@ -222,7 +222,7 @@ let extensionMissingToastShown = false;
  * which has no session to entrypoint-match against. In that case
  * `auto` falls through to terminal.
  */
-async function resolveClaudeTarget(sess: Session | undefined): Promise<ResumeTarget> {
+export async function resolveClaudeTarget(sess: Session | undefined): Promise<ResumeTarget> {
   const cfg = vscode.workspace.getConfiguration("claudeManager.sessions");
   const mode = cfg.get<string>("resumeIn", "auto");
 

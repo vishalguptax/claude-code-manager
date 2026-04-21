@@ -761,44 +761,16 @@
 /* Footer — "Fetched Xm ago" stamp on the left, Refresh button on the
    right. Button is subtle (no primary styling) because the primary
    action moment is done; re-fetching is secondary. */
-.acct-quota-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--border);
-}
+/*
+ * "Fetched Xm ago" stamp inline in the section header, immediately
+ * before the refresh button. Xs size + muted fg so it reads as
+ * metadata. No icon — keeps the header lean.
+ */
 .acct-quota-timestamp {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
   font-size: var(--fs-xs);
   color: var(--fg-muted);
-}
-.acct-quota-refresh {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-xs);
-  color: var(--fg-dim);
-  background: none;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 4px 10px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: color var(--transition-control), background var(--transition-control), border-color var(--transition-control);
-}
-.acct-quota-refresh:hover {
-  color: var(--fg);
-  background: var(--bg-hover);
-  border-color: var(--border);
-}
-.acct-quota-refresh:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 2px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
 /* Error state — icon + title + message + retry, laid out in a row so

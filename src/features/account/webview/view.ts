@@ -387,17 +387,14 @@ function renderQuotaSuccess(data: QuotaData): string {
       </div>`;
   }
 
-  const fetchedRelative = formatFetchedRelative(data.fetchedAt);
-
+  // Timestamp moved into the section header (next to Refresh) in
+  // renderQuotaSection — no footer here anymore. Keeps the card
+  // visually bottom-flush with other sections (Profile, Usage) and
+  // drops the extra horizontal divider.
   return `
     <div class="acct-quota-bars">
       ${rows.join("")}
       ${extraBlock}
-    </div>
-    <div class="acct-quota-footer">
-      <span class="acct-quota-timestamp" title="${esc(data.fetchedAt)}">
-        ${icon("check", 12)} Fetched ${esc(fetchedRelative)}
-      </span>
     </div>`;
 }
 
@@ -442,11 +439,14 @@ function formatFetchedRelative(iso: string): string {
 function renderQuotaSection(): string {
   const collapsed = isSectionCollapsed("quota");
   const status = getQuotaStatus();
-  // Refresh button sits inside the header, right-aligned. Hidden in
-  // idle state (user hasn't opted in yet — no cache to refresh) and
-  // disabled while loading. Kept inside the header so the hit target
-  // lives next to the section identity, not buried after the bars.
-  const headerAction =
+  // "Fetched Xm ago" stamp lives in the header, immediately before
+  // the Refresh button — so freshness + action sit together at the
+  // top of the card, no bottom footer needed.
+  const timestamp =
+    status.kind === "success"
+      ? `<span class="acct-quota-timestamp" title="${esc(status.data.fetchedAt)}">${esc(formatFetchedRelative(status.data.fetchedAt))}</span>`
+      : "";
+  const refreshBtn =
     status.kind === "idle"
       ? ""
       : `<button class="acct-section-head-btn ${status.kind === "loading" ? "is-spinning" : ""}"
@@ -462,7 +462,8 @@ function renderQuotaSection(): string {
         role="button" tabindex="0" aria-expanded="${!collapsed}">
         <span class="acct-section-chevron ${collapsed ? "collapsed" : ""}">${icon("chevron-down", 14)}</span>
         <h2 class="acct-section-title">Quota</h2>
-        ${headerAction}
+        ${timestamp}
+        ${refreshBtn}
       </header>
       ${collapsed ? "" : `
       <div class="acct-section-body">

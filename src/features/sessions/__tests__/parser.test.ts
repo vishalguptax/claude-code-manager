@@ -563,6 +563,83 @@ describe("parseSessionDetail", () => {
     expect(detail!.messages[1].toolUses?.length).toBe(1);
     expect(detail!.messages[1].content).toBe("");
   });
+
+  it("query mode returns every match across the full transcript", () => {
+    const now = Date.now();
+    const slug = "-home-u-p";
+    writeHistoryEntry({ display: "q", timestamp: now, project: "/home/u/p", sessionId: "sess-q" });
+    writeSessionFile(slug, "sess-q", [
+      {
+        timestamp: new Date(now).toISOString(),
+        message: { role: "user", content: "look at the parser bug" },
+      },
+      {
+        timestamp: new Date(now + 1).toISOString(),
+        message: { role: "assistant", content: [{ type: "text", text: "sure" }] },
+      },
+      {
+        timestamp: new Date(now + 2).toISOString(),
+        message: { role: "user", content: "another unrelated message" },
+      },
+      {
+        timestamp: new Date(now + 3).toISOString(),
+        message: { role: "assistant", content: [{ type: "text", text: "more parser notes" }] },
+      },
+    ]);
+
+    const detail = parseSessionDetail("sess-q", undefined, "last", "parser");
+    expect(detail!.detailQuery).toBe("parser");
+    expect(detail!.totalMessages).toBe(4);
+    expect(detail!.messages).toHaveLength(2);
+    expect(detail!.totalMatches).toBe(2);
+  });
+
+  it("query mode matches thinking + tool_use fields too", () => {
+    const now = Date.now();
+    writeHistoryEntry({ display: "q", timestamp: now, project: "/home/u/p", sessionId: "sess-qt" });
+    writeSessionFile("-home-u-p", "sess-qt", [
+      {
+        timestamp: new Date(now).toISOString(),
+        message: { role: "user", content: "go" },
+      },
+      {
+        timestamp: new Date(now + 1).toISOString(),
+        message: {
+          role: "assistant",
+          content: [{ type: "thinking", thinking: "considering refactor" }],
+        },
+      },
+      {
+        timestamp: new Date(now + 2).toISOString(),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "tool_use", name: "Bash", input: { command: "npm test" } },
+          ],
+        },
+      },
+    ]);
+
+    const thinkHit = parseSessionDetail("sess-qt", undefined, "last", "refactor");
+    expect(thinkHit!.totalMatches).toBe(1);
+
+    const toolHit = parseSessionDetail("sess-qt", undefined, "last", "npm test");
+    expect(toolHit!.totalMatches).toBe(1);
+  });
+
+  it("empty/whitespace query reverts to paged mode", () => {
+    const now = Date.now();
+    writeHistoryEntry({ display: "q", timestamp: now, project: "/home/u/p", sessionId: "sess-empty-q" });
+    writeSessionFile("-home-u-p", "sess-empty-q", [
+      {
+        timestamp: new Date(now).toISOString(),
+        message: { role: "user", content: "hi" },
+      },
+    ]);
+    const detail = parseSessionDetail("sess-empty-q", undefined, "last", "   ");
+    expect(detail!.detailQuery).toBeUndefined();
+    expect(detail!.totalMatches).toBeUndefined();
+  });
 });
 
 describe("groupSessions", () => {

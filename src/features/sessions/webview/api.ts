@@ -45,9 +45,19 @@ export function sendResumeMultiple(sessionIds: string[], projectPaths: string[])
   _vscode.postMessage({ type: "resumeMultiple", sessionIds, projectPaths });
 }
 
-/** Request a page of messages for a session. Defaults to "last" (most recent). */
-export function sendGetSessionDetail(sessionId: string, mode: "first" | "last" = "last"): void {
-  _vscode.postMessage({ type: "getSessionDetail", sessionId, mode });
+/**
+ * Request messages for a session.
+ *  - `mode` picks first-N or last-N paging (default "last").
+ *  - `query` switches the host into full-transcript search mode —
+ *    paging is bypassed, every matching message comes back with a
+ *    `detailQuery` echo so stale replies can be dropped.
+ */
+export function sendGetSessionDetail(
+  sessionId: string,
+  mode: "first" | "last" = "last",
+  query: string = "",
+): void {
+  _vscode.postMessage({ type: "getSessionDetail", sessionId, mode, query });
 }
 
 /** Pin a session to the top of the list. */
