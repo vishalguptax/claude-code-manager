@@ -17,6 +17,7 @@ import {
   SESSIONS_DIR,
   SESSION_META_READ_BYTES,
 } from "../../core/config";
+import { deslugifyProjectPath } from "./portable";
 import type {
   HistoryEntry,
   Session,
@@ -385,8 +386,14 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     lastParseWarning = null;
   }
 
-  // Build session objects
+  // Build session objects.
+  //
+  // `projectPathByKey` remembers the first-seen absolute path for each
+  // lowercased project name so Windows casing variants collapse into a
+  // single dropdown entry. History-derived sessions populate it here;
+  // orphan discovery (below) both reads from and extends it.
   const sessions: Session[] = [];
+  const projectPathByKey = new Map<string, string>();
   for (const [sessionId, data] of sessionMap) {
     const timestamps = data.entries.map((e) => e.timestamp);
     const prompts = data.entries
@@ -426,11 +433,19 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     const projectKey = data.project.toLowerCase();
     const searchHaystack = `${name}\n${data.project}\n${branch}\n${summary}`.toLowerCase();
 
+    // Canonicalize projectPath casing: same project typed with
+    // different casings collapses into one entry. First sighting wins.
+    const canonicalPath =
+      projectPathByKey.get(projectKey) ?? data.projectPath;
+    if (!projectPathByKey.has(projectKey)) {
+      projectPathByKey.set(projectKey, data.projectPath);
+    }
+
     sessions.push({
       id: sessionId,
       name,
       project: data.project,
-      projectPath: data.projectPath,
+      projectPath: canonicalPath,
       branch,
       entrypoint,
       startTime: Math.min(...timestamps),
@@ -454,12 +469,39 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
   // the transcript header for the first user prompt, cwd, and
   // timestamp span.
   const knownIds = new Set(sessionMap.keys());
-  const orphans = discoverOrphanSessions(knownIds, userRenames, sessionNames);
+  const orphans = discoverOrphanSessions(
+    knownIds,
+    userRenames,
+    sessionNames,
+    projectPathByKey,
+  );
   sessions.push(...orphans);
 
   sessions.sort((a, b) => b.endTime - a.endTime);
   return sessions;
 }
+
+/** Shape returned by `readOrphanSessionData` — null when the file has no usable content. */
+interface OrphanData {
+  cwd: string;
+  firstPrompt: string;
+  messageCount: number;
+  firstTimestamp: number;
+  lastTimestamp: number;
+}
+
+/**
+ * Cache of `readOrphanSessionData` results keyed on file path, valid
+ * while the underlying file's mtime hasn't changed. Transcript files
+ * can be 50 MB+ each and parseSessions reruns on every file-watcher
+ * tick — without this cache, a watcher-triggered refresh on one
+ * session would re-stream every other orphan file in the projects
+ * directory. With it, a refresh costs one stat per unchanged orphan.
+ *
+ * Negative cache entries (data === null) are kept too so empty /
+ * queue-only shells don't get re-read each tick.
+ */
+const orphanCache = new Map<string, { mtimeMs: number; data: OrphanData | null }>();
 
 /**
  * Extract the bits of metadata we need to synthesize a Session object
@@ -471,13 +513,22 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
  * than collecting every entry, so memory stays flat regardless of
  * transcript length.
  */
-function readOrphanSessionData(filePath: string): {
-  cwd: string;
-  firstPrompt: string;
-  messageCount: number;
-  firstTimestamp: number;
-  lastTimestamp: number;
-} | null {
+function readOrphanSessionData(filePath: string): OrphanData | null {
+  // Mtime cache: avoid re-streaming unchanged transcripts on every
+  // parseSessions. A missing stat bails to the uncached read path.
+  try {
+    const st = fs.statSync(filePath);
+    const cached = orphanCache.get(filePath);
+    if (cached && cached.mtimeMs === st.mtimeMs) return cached.data;
+    const fresh = readOrphanSessionDataUncached(filePath);
+    orphanCache.set(filePath, { mtimeMs: st.mtimeMs, data: fresh });
+    return fresh;
+  } catch {
+    return readOrphanSessionDataUncached(filePath);
+  }
+}
+
+function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
   let fd: number;
   try {
     fd = fs.openSync(filePath, "r");
@@ -563,11 +614,17 @@ function readOrphanSessionData(filePath: string): {
  * file whose sessionId isn't already in the history-derived map. Skips
  * directories we can't read (permissions, dangling symlinks) instead
  * of failing the whole parse.
+ *
+ * Takes `projectPathByKey` so it can align path casing with whatever
+ * history.jsonl already used. Without this, Windows users who see both
+ * `C--Users-foo` and `c--Users-foo` slugs for the same project would
+ * get duplicated entries in the project dropdown — one per casing.
  */
 function discoverOrphanSessions(
   knownIds: Set<string>,
   userRenames: Record<string, string>,
   sessionNames: Map<string, string>,
+  projectPathByKey: Map<string, string>,
 ): Session[] {
   const out: Session[] = [];
   let projectSlugs: string[];
@@ -596,8 +653,26 @@ function discoverOrphanSessions(
       if (!data) continue;
 
       const meta = readSessionMeta(filePath);
-      const projectPath = data.cwd || "";
-      const project = extractProjectName(projectPath);
+      // Resolve projectPath with a three-tier fallback:
+      //   1. cwd recorded in the JSONL — exact + authoritative
+      //   2. slug-decoded (best-effort; lossy around embedded dashes)
+      //   3. raw slug (so the UI shows *something* instead of blank)
+      // Without this fallback, orphan sessions that never recorded a
+      // cwd would have empty projectPath and Resume couldn't launch.
+      const rawProjectPath = data.cwd || deslugifyProjectPath(slug) || slug;
+      const project = extractProjectName(rawProjectPath);
+      const projectKey = project.toLowerCase();
+
+      // Windows path-casing dedupe: if history already saw this
+      // project under a different casing (e.g. `C:\Users\foo` vs
+      // `c:\Users\foo`), reuse the established path so both casings
+      // collapse into one dropdown entry. Only applies when the
+      // project name lowercases identically — real distinct projects
+      // with different names aren't touched.
+      const canonicalPath = projectPathByKey.get(projectKey) ?? rawProjectPath;
+      if (!projectPathByKey.has(projectKey)) {
+        projectPathByKey.set(projectKey, rawProjectPath);
+      }
 
       // Name resolution mirrors the history path: extension rename >
       // active-session PID map > /rename in transcript > auto-summary.
@@ -610,7 +685,6 @@ function discoverOrphanSessions(
           ? data.firstPrompt.slice(0, 100) + "..."
           : data.firstPrompt;
 
-      const projectKey = project.toLowerCase();
       const searchHaystack =
         `${name}\n${project}\n${meta.branch}\n${summary}`.toLowerCase();
 
@@ -618,7 +692,7 @@ function discoverOrphanSessions(
         id: sessionId,
         name,
         project,
-        projectPath,
+        projectPath: canonicalPath,
         branch: meta.branch,
         entrypoint: meta.entrypoint,
         startTime: data.firstTimestamp || data.lastTimestamp,

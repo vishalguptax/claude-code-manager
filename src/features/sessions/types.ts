@@ -204,6 +204,35 @@ export type WebviewMessage =
   | { type: "promptCustomModel" }
   | { type: "restoreClaudeConfig" }
   /**
+   * Opt-in network call to the Anthropic OAuth quota endpoint.
+   * Triggered only by the user clicking "Refresh" on the Quota card,
+   * never automatically. Extension replies with a `quotaData` message.
+   */
+  | { type: "fetchQuota" }
+  /**
+   * Accounts section — manage saved profile snapshots under
+   * ~/.claude/manager-accounts/<slug>/. Each command sends a
+   * refreshed `accountData` reply so the webview re-renders with the
+   * latest list + active marker.
+   */
+  | { type: "saveProfile"; label: string }
+  /**
+   * Ask the host to pop a native VS Code input box for the profile
+   * label, then save if the user submits. Invoked from the Profile
+   * section's "Save profile" button.
+   */
+  | { type: "promptSaveProfile" }
+  /**
+   * Open the native QuickPick account switcher — lists saved profiles
+   * with item buttons for Switch / Update / Remove, plus entries for
+   * "Log in as a new account" and "Save current account". Single
+   * entry point replacing the standalone Accounts section UI.
+   */
+  | { type: "openAccountSwitcher" }
+  | { type: "switchProfile"; slug: string }
+  | { type: "updateProfile"; slug: string }
+  | { type: "removeProfile"; slug: string }
+  /**
    * Search inside session transcripts (content of every message), not just
    * metadata. The extension replies with matching IDs via `fullTextResults`.
    * Metadata search still runs client-side on `searchHaystack`; these two

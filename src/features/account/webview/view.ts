@@ -18,18 +18,29 @@ import {
   sendRemovePermission,
   sendPromptCustomModel,
   sendRestoreClaudeConfig,
+  sendFetchQuota,
+  sendPromptSaveProfile,
+  sendOpenAccountSwitcher,
 } from "./api";
 import {
   getAccountData,
   getPermissionScope,
   getTimePeriod,
+  getQuotaStatus,
   isLoading,
   isSectionCollapsed,
   setPermissionScope,
+  setQuotaStatus,
+  setQuotaOptIn,
   setTimePeriod,
   toggleSection,
 } from "./state";
-import type { AccountData, DailyActivity, PermissionScope } from "../types";
+import type {
+  AccountData,
+  DailyActivity,
+  PermissionScope,
+} from "../types";
+import type { QuotaData, QuotaWindow, QuotaError } from "../quota";
 
 /**
  * Short purpose descriptions keyed by model family alias. Shown as a
@@ -138,6 +149,7 @@ export function renderAccount(container: HTMLElement): void {
   container.innerHTML = `
     <div class="panel">
       ${renderProfileSection(data)}
+      ${renderQuotaSection()}
       ${renderUsageSection(data)}
       ${renderSettingsSection(data)}
       ${renderPermissionsSection(data)}
@@ -195,7 +207,8 @@ function renderProfileSection(data: AccountData): string {
           <button class="btn" id="acct-restore-config">${icon("refresh-cw", 12)} Restore</button>
         </div>` : ""}
         <div class="acct-profile">
-          <div class="acct-avatar">${esc(initial)}</div>
+          <button class="acct-avatar acct-avatar-btn" id="acct-avatar-switch"
+            title="Switch account" aria-label="Switch account">${esc(initial)}</button>
           <div class="acct-profile-info">
             <div class="acct-name">${esc(p.displayName || p.email || (p.signedIn ? "Signed in" : "Not signed in"))}</div>
             <div class="acct-email">${esc(p.email)}</div>
@@ -211,10 +224,249 @@ function renderProfileSection(data: AccountData): string {
         </div>
 
         <div class="acct-actions">
-          <button class="btn" data-slash="/login">${icon("refresh-cw", 14)} Switch account</button>
+          <button class="btn" id="acct-switch-account" title="Switch between saved Claude accounts or log in a new one">${icon("refresh-cw", 14)} Switch account</button>
+          ${!data.activeProfileSlug ? `<button class="btn" id="acct-save-profile" title="Save this account as a profile so you can switch back without re-logging-in">${icon("save", 14)} Save profile</button>` : ""}
           <button class="btn del" data-slash="/logout">${icon("x", 14)} Log out</button>
           <button class="btn" data-url="https://claude.ai/settings">${icon("external-link", 14)} Open claude.ai</button>
         </div>
+      </div>`}
+    </section>`;
+}
+
+// ── Section: Quota (current subscription limits) ──
+//
+// Quota lives in its own section between Profile and Usage because it
+// answers a different question: "how much of my subscription window
+// have I already consumed". Profile is identity, Usage is history;
+// Quota is the live "can I keep going for the next hour" signal.
+//
+// Fetching quota is the ONLY network call Claude Manager makes — so
+// the card is explicitly opt-in: an "idle" state renders a Refresh
+// button rather than auto-loading on tab open. This preserves the
+// extension's 100%-local-by-default posture while still offering the
+// number when users want it.
+
+/**
+ * Turn an ISO timestamp into a human-readable "resets in" string.
+ * Avoids showing tiny "resets in 42m" at the wrong scale — rounds to
+ * days when >=24h, hours when >=1h, otherwise shows minutes.
+ */
+function formatResetsIn(isoResetsAt: string): string {
+  if (!isoResetsAt) return "";
+  const resetMs = Date.parse(isoResetsAt);
+  if (Number.isNaN(resetMs)) return "";
+  const diffMs = resetMs - Date.now();
+  if (diffMs <= 0) return "resets now";
+  const mins = Math.floor(diffMs / 60_000);
+  if (mins < 60) return `resets in ${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) {
+    const leftoverMin = mins % 60;
+    return leftoverMin > 0
+      ? `resets in ${hours}h ${leftoverMin}m`
+      : `resets in ${hours}h`;
+  }
+  const days = Math.floor(hours / 24);
+  const leftoverHours = hours % 24;
+  return leftoverHours > 0
+    ? `resets in ${days}d ${leftoverHours}h`
+    : `resets in ${days}d`;
+}
+
+/**
+ * Utilization colour classes — three tiers so the bar changes mood as
+ * the user approaches their cap. Semantic tokens only; exact colours
+ * live in the CSS so theme changes pick them up.
+ */
+function quotaTone(utilizationPct: number): "low" | "mid" | "high" {
+  if (utilizationPct >= 80) return "high";
+  if (utilizationPct >= 50) return "mid";
+  return "low";
+}
+
+/**
+ * Render a single "window" row: label, progress bar, percentage, and
+ * the human reset timer. The bar has an accessible `role=progressbar`
+ * with value/max attributes so screen readers announce the percentage
+ * without needing a visual scan.
+ */
+function renderQuotaBar(label: string, win: QuotaWindow): string {
+  const pct = Math.max(0, Math.min(100, Math.round(win.utilization)));
+  const tone = quotaTone(win.utilization);
+  const resetsLabel = formatResetsIn(win.resetsAt);
+  return `
+    <div class="acct-quota-row">
+      <div class="acct-quota-row-head">
+        <span class="acct-quota-label">${esc(label)}</span>
+        <span class="acct-quota-pct">${pct}%</span>
+      </div>
+      <div class="acct-quota-bar" role="progressbar"
+        aria-label="${esc(label)} utilization"
+        aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+        <div class="acct-quota-bar-fill tone-${tone}" style="width: ${pct}%;"></div>
+      </div>
+      ${resetsLabel ? `<div class="acct-quota-sub">${esc(resetsLabel)}</div>` : ""}
+    </div>`;
+}
+
+/**
+ * Render the inner body for each quota state. Kept as a function so
+ * the container shell (header, footer actions) stays small and
+ * readable in renderQuotaSection.
+ */
+function renderQuotaBody(): string {
+  const status = getQuotaStatus();
+
+  if (status.kind === "idle") {
+    return `
+      <div class="acct-quota-intro">
+        <p class="acct-quota-intro-text">
+          See how much of your Claude subscription you've used in the last
+          five hours and the last seven days. Uses your own OAuth token —
+          the request goes to <code>api.anthropic.com</code> and nothing
+          else leaves your machine.
+        </p>
+        <button class="btn primary" id="acct-quota-fetch">
+          ${icon("refresh-cw", 14)} Check quota
+        </button>
+      </div>`;
+  }
+
+  if (status.kind === "loading") {
+    return `
+      <div class="acct-quota-loading" aria-live="polite">
+        <span class="acct-quota-spinner" aria-hidden="true"></span>
+        <span>Checking your quota…</span>
+      </div>`;
+  }
+
+  if (status.kind === "error") {
+    return renderQuotaError(status.error);
+  }
+
+  return renderQuotaSuccess(status.data);
+}
+
+/** Render the populated quota card — bars + optional extras + footer. */
+function renderQuotaSuccess(data: QuotaData): string {
+  const rows: string[] = [];
+  rows.push(renderQuotaBar("5-hour window", data.fiveHour));
+  rows.push(renderQuotaBar("7-day window", data.sevenDay));
+  if (data.sevenDayOpus) {
+    rows.push(renderQuotaBar("7-day Opus", data.sevenDayOpus));
+  }
+  if (data.sevenDaySonnet) {
+    rows.push(renderQuotaBar("7-day Sonnet", data.sevenDaySonnet));
+  }
+
+  // Pay-as-you-go overflow, if the user has it enabled. Formats
+  // monthly_limit/used_credits as currency when present.
+  let extraBlock = "";
+  if (data.extraUsage?.enabled) {
+    const used = data.extraUsage.usedCredits ?? 0;
+    const limit = data.extraUsage.monthlyLimit ?? 0;
+    const currency = data.extraUsage.currency ?? "USD";
+    const fmt = (n: number): string =>
+      currency === "USD" ? `$${n.toFixed(2)}` : `${n.toFixed(2)} ${currency}`;
+    const pct =
+      typeof data.extraUsage.utilization === "number"
+        ? Math.round(data.extraUsage.utilization)
+        : null;
+    extraBlock = `
+      <div class="acct-quota-row acct-quota-extra">
+        <div class="acct-quota-row-head">
+          <span class="acct-quota-label">Extra usage (monthly)</span>
+          <span class="acct-quota-pct">${fmt(used)} / ${fmt(limit)}</span>
+        </div>
+        ${pct !== null ? `
+        <div class="acct-quota-bar" role="progressbar"
+          aria-label="Extra usage utilization"
+          aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+          <div class="acct-quota-bar-fill tone-${quotaTone(pct)}" style="width: ${pct}%;"></div>
+        </div>` : ""}
+      </div>`;
+  }
+
+  const fetchedRelative = formatFetchedRelative(data.fetchedAt);
+
+  return `
+    <div class="acct-quota-bars">
+      ${rows.join("")}
+      ${extraBlock}
+    </div>
+    <div class="acct-quota-footer">
+      <span class="acct-quota-timestamp" title="${esc(data.fetchedAt)}">
+        ${icon("check", 12)} Fetched ${esc(fetchedRelative)}
+      </span>
+    </div>`;
+}
+
+/**
+ * Render an error state that's specific enough for the user to act
+ * on. The error kind drives the icon; the `message` is human-crafted
+ * in quota.ts so we can surface it verbatim.
+ */
+function renderQuotaError(err: QuotaError): string {
+  const iconName =
+    err.kind === "no-credentials" || err.kind === "unauthorized"
+      ? "log-in"
+      : err.kind === "network"
+      ? "wifi-off"
+      : "circle-alert";
+  return `
+    <div class="acct-quota-error" role="alert">
+      <span class="acct-quota-error-icon">${icon(iconName, 16)}</span>
+      <div class="acct-quota-error-body">
+        <div class="acct-quota-error-title">Couldn't fetch quota</div>
+        <div class="acct-quota-error-msg">${esc(err.message)}</div>
+      </div>
+      <button class="btn" id="acct-quota-fetch">
+        ${icon("refresh-cw", 12)} Try again
+      </button>
+    </div>`;
+}
+
+/** Format "Fetched Xm ago" relative to now — tight, scanable. */
+function formatFetchedRelative(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "just now";
+  const diff = Date.now() - t;
+  if (diff < 10_000) return "just now";
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return `${Math.floor(diff / 1000)}s ago`;
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  return `${hours}h ago`;
+}
+
+function renderQuotaSection(): string {
+  const collapsed = isSectionCollapsed("quota");
+  const status = getQuotaStatus();
+  // Refresh button sits inside the header, right-aligned. Hidden in
+  // idle state (user hasn't opted in yet — no cache to refresh) and
+  // disabled while loading. Kept inside the header so the hit target
+  // lives next to the section identity, not buried after the bars.
+  const headerAction =
+    status.kind === "idle"
+      ? ""
+      : `<button class="acct-section-head-btn ${status.kind === "loading" ? "is-spinning" : ""}"
+           id="acct-quota-fetch"
+           title="Refresh quota"
+           aria-label="Refresh quota"
+           ${status.kind === "loading" ? "disabled" : ""}>
+           ${icon("refresh-cw", 12)}
+         </button>`;
+  return `
+    <section class="acct-section">
+      <header class="acct-section-header" data-section="quota"
+        role="button" tabindex="0" aria-expanded="${!collapsed}">
+        <span class="acct-section-chevron ${collapsed ? "collapsed" : ""}">${icon("chevron-down", 14)}</span>
+        <h2 class="acct-section-title">Quota</h2>
+        ${headerAction}
+      </header>
+      ${collapsed ? "" : `
+      <div class="acct-section-body">
+        ${renderQuotaBody()}
       </div>`}
     </section>`;
 }
@@ -240,11 +492,11 @@ function renderUsageSection(data: AccountData): string {
       </section>`;
   }
 
-  // Anchor the filter to the most recent day of recorded data, not
-  // wall-clock today. Claude CLI rebuilds stats-cache.json only
-  // periodically (it's 8+ days stale on some machines), so "last 7
-  // days from today" would show 0. "Last 7 days of recorded data"
-  // gives users the real usage picture regardless of cache freshness.
+  // Anchor the filter to the most recent day of recorded data. We
+  // read stats-cache.json verbatim — it's what Claude CLI maintains,
+  // and its `lastComputedDate` defines where "recent" ends. Anchoring
+  // here keeps the filtered windows internally consistent with the
+  // heatmap and day-level scalars that come from the same source.
   const latestDataDate = u.daily.length > 0
     ? u.daily[u.daily.length - 1].date
     : new Date().toISOString().slice(0, 10);
@@ -252,10 +504,19 @@ function renderUsageSection(data: AccountData): string {
   const cutoffDays = period === "week" ? 7 : period === "month" ? 30 : Infinity;
   const withinPeriod = (date: string): boolean =>
     cutoffDays === Infinity ||
-    (anchor - new Date(date).getTime()) / 86400000 <= cutoffDays;
+    (anchor - new Date(date).getTime()) / 86400000 < cutoffDays;
 
   const filteredActivity = u.daily.filter((d) => withinPeriod(d.date));
   const filteredTokens = u.dailyTokens.filter((d) => withinPeriod(d.date));
+
+  // Active-days in the *selected* period, not all-time. Without this
+  // scoping the label shows "94 / 110" for a 30-day view because the
+  // raw `activeDays`/`totalDays` are computed once across every
+  // recorded day, regardless of filter. Matches the terminal /stats
+  // display (e.g. "28 / 30").
+  const activeInPeriod = filteredActivity.length;
+  const totalInPeriod =
+    period === "week" ? 7 : period === "month" ? 30 : u.totalDays;
 
   // For "All time" use the cache's totals directly — they're the
   // authoritative numbers Claude's /stats reports. For 7d/30d we sum
@@ -297,10 +558,11 @@ function renderUsageSection(data: AccountData): string {
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.sessions)}</div><div class="acct-stat-k">sessions</div></div>
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.messages)}</div><div class="acct-stat-k">messages</div></div>
         </div>
+        ${u.lastComputedDate ? `<div class="acct-stats-note" title="Claude CLI maintains these numbers in ~/.claude/stats-cache.json and refreshes them on its own cadence. Terminal /stats may use a different formula for the same period, so small drift is expected.">Cache last refreshed ${esc(u.lastComputedDate)}</div>` : ""}
 
         <div class="acct-meta">
           ${u.favoriteModel ? `<div class="acct-meta-row"><span class="acct-meta-k">Favorite model</span><span class="acct-meta-v">${esc(formatModelName(u.favoriteModel))}</span></div>` : ""}
-          <div class="acct-meta-row"><span class="acct-meta-k">Active days</span><span class="acct-meta-v">${u.activeDays} / ${u.totalDays}</span></div>
+          <div class="acct-meta-row"><span class="acct-meta-k">Active days</span><span class="acct-meta-v">${activeInPeriod} / ${totalInPeriod}</span></div>
           <div class="acct-meta-row"><span class="acct-meta-k">Current streak</span><span class="acct-meta-v">${u.currentStreak} day${u.currentStreak === 1 ? "" : "s"}</span></div>
           <div class="acct-meta-row"><span class="acct-meta-k">Longest streak</span><span class="acct-meta-v">${u.longestStreak} day${u.longestStreak === 1 ? "" : "s"}</span></div>
           ${u.longestSessionMs > 0 ? `<div class="acct-meta-row"><span class="acct-meta-k">Longest session</span><span class="acct-meta-v">${formatDuration(u.longestSessionMs)}</span></div>` : ""}
@@ -648,6 +910,42 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
   container.querySelector<HTMLElement>("#acct-restore-config")?.addEventListener("click", () => {
     sendRestoreClaudeConfig();
   });
+
+  // Quota fetch / retry. Same element id across idle / error / success
+  // states so one handler covers every Refresh/Try-again click. We
+  // flip to the loading status optimistically so the UI reacts
+  // immediately and the spinner appears without waiting for the
+  // network round-trip.
+  container.querySelector<HTMLElement>("#acct-quota-fetch")?.addEventListener("click", (e: Event) => {
+    // Prevent the click from bubbling to the section header (the
+    // button lives inside `.acct-section-header` for layout) — a
+    // bubble would collapse the section on every refresh.
+    e.stopPropagation();
+    // Flip opt-in on first user-initiated fetch so subsequent tab
+    // opens auto-refresh (up to the TTL) without re-asking.
+    setQuotaOptIn(true);
+    setQuotaStatus({ kind: "loading" });
+    renderAccount(container);
+    sendFetchQuota();
+  });
+
+  // Profile section — Save profile + Switch account buttons. Save
+  // routes through the host's showInputBox (via promptSaveProfile);
+  // Switch opens a QuickPick with saved profiles + add/remove
+  // controls. Everything UX-sensitive lives in the host so the
+  // webview stays lean.
+  container
+    .querySelector<HTMLElement>("#acct-save-profile")
+    ?.addEventListener("click", () => sendPromptSaveProfile());
+  container
+    .querySelector<HTMLElement>("#acct-switch-account")
+    ?.addEventListener("click", () => sendOpenAccountSwitcher());
+  // Avatar doubles as a switch-account affordance — standard pattern
+  // (Gmail, Mac menubar, GitHub header). Keeps the action reachable
+  // even when the user scrolls past the button row.
+  container
+    .querySelector<HTMLElement>("#acct-avatar-switch")
+    ?.addEventListener("click", () => sendOpenAccountSwitcher());
 
   // Open settings file buttons
   container.querySelector<HTMLElement>("#acct-open-settings")?.addEventListener("click", () => {

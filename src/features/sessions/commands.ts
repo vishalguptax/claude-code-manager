@@ -47,6 +47,7 @@ export async function newSession(): Promise<void> {
   // entrypoint-match against). extension/ask still honour the user's
   // explicit choice.
   const target = await resolveClaudeTarget(undefined);
+  if (target === "cancel") return;
   if (target === "extension") {
     await openPromptInExtension("");
     return;
@@ -88,6 +89,7 @@ export async function continueLastSession(sessions: Session[]): Promise<void> {
     : undefined;
 
   const target = await resolveClaudeTarget(latest);
+  if (target === "cancel") return;
 
   if (target === "extension" && latest) {
     await openSessionInExtension(latest.id);
@@ -190,8 +192,15 @@ export async function promptRenameSession(
   return result;
 }
 
-/** Resolution target returned by the resume-target router. */
-type ResumeTarget = "terminal" | "extension";
+/**
+ * Resolution target returned by the resume-target router.
+ *
+ * "cancel" exists so the caller can distinguish "user dismissed the
+ * ask QuickPick" from "user picked terminal". Without it, cancelling
+ * the picker would silently fall through to a terminal launch the user
+ * never asked for.
+ */
+type ResumeTarget = "terminal" | "extension" | "cancel";
 
 /**
  * Sticky one-time flag so the "install Claude Code extension" toast
@@ -229,7 +238,7 @@ async function resolveClaudeTarget(sess: Session | undefined): Promise<ResumeTar
       ],
       { title: "Resume session in…", placeHolder: "Pick a destination" },
     );
-    if (!pick) return "terminal"; // cancelled — no-op is handled by caller
+    if (!pick) return "cancel"; // dismissed → caller bails out silently
     return pick.label === "Extension chat" ? "extension" : "terminal";
   }
 
@@ -279,12 +288,30 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
     ? `claude --resume ${sessionId} --fork-session`
     : `claude --resume ${sessionId}`;
   const ws = getWorkspace();
+  const differentProject = Boolean(ws && cwd && normPath(cwd) !== normPath(ws));
 
-  // Different project: open that project window. The URI handler is
-  // workspace-scoped, so cross-workspace extension routing isn't
-  // reliable — we keep today's "open the project, user re-clicks" flow.
-  if (ws && cwd && normPath(cwd) !== normPath(ws)) {
+  // Fork always uses the terminal — no extension equivalent. Resolve
+  // the target up-front so we know whether a cross-workspace hop needs
+  // to be paired with a delayed URI.
+  const target: ResumeTarget = fork ? "terminal" : await resolveClaudeTarget(sess);
+
+  if (target === "cancel") return;
+
+  // Different project → open that project window. If the user wants
+  // extension routing, chain a URI fire in the new window: VS Code
+  // delivers the URI to whichever window most recently claimed focus,
+  // so firing after the project window opens routes correctly. The
+  // 3000ms delay is empirical — enough for Claude Code to finish
+  // activating on cold starts. On faster machines the early fire
+  // still works; the extension queues the URI if its handler is
+  // registered before dispatch.
+  if (differentProject) {
     openProject(cwd);
+    if (target === "extension") {
+      setTimeout(() => {
+        void openSessionInExtension(sessionId);
+      }, 3000);
+    }
     return;
   }
 
@@ -317,9 +344,6 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
       // "Resume Anyway" falls through to the router below.
     }
   }
-
-  // Fork always uses the terminal — no extension equivalent.
-  const target: ResumeTarget = fork ? "terminal" : await resolveClaudeTarget(sess);
 
   if (target === "extension") {
     await openSessionInExtension(sessionId);

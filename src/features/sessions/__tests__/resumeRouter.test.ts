@@ -241,7 +241,45 @@ describe("resumeSession routing", () => {
     expect(sentText.length).toBeGreaterThan(0);
   });
 
-  it("ask mode + cancelled → no-op (neither target fires)", async () => {
+  it("different project + extension mode → opens project, then fires URI after delay", async () => {
+    vi.useFakeTimers();
+    try {
+      const sess = makeSession({
+        entrypoint: "cli",
+        projectPath: "/some/other/proj",
+      });
+      extensionPresent = true;
+      // Workspace is the *current* project, session is in a *different* one.
+      (vscode.workspace as { workspaceFolders: unknown }).workspaceFolders = [
+        { uri: { fsPath: "/work/claude-manager" }, name: "cm", index: 0 },
+      ];
+      mockBranch("main");
+      mockResumeIn("extension");
+      const openProjectSpy = vi
+        .spyOn(vscode.commands, "executeCommand")
+        .mockResolvedValue(undefined as never);
+      const openSpy = vi
+        .spyOn(vscode.env, "openExternal")
+        .mockResolvedValue(true as never);
+
+      await resumeSession(sess.id, false, [sess]);
+
+      // Project opens synchronously; URI is deferred.
+      expect(openProjectSpy).toHaveBeenCalled();
+      expect(openSpy).not.toHaveBeenCalled();
+
+      // Advance past the 3 s delay we use to let the new window
+      // finish activating before routing the URI.
+      vi.advanceTimersByTime(3100);
+      await vi.runAllTimersAsync();
+
+      expect(openSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ask mode + cancelled → neither target fires (clean bail-out)", async () => {
     const sess = makeSession({ entrypoint: "cli" });
     extensionPresent = true;
     mockSameWorkspace(sess);
@@ -252,10 +290,9 @@ describe("resumeSession routing", () => {
 
     await resumeSession(sess.id, false, [sess]);
 
-    // Cancelled quickpick yields "terminal" as the safe default, so
-    // terminal still fires. This is the current contract — cancelling
-    // does not abort the resume, it picks terminal.
+    // Cancelling the QuickPick is a deliberate no-op — the user
+    // backed out, so neither destination should be launched.
     expect(openSpy).not.toHaveBeenCalled();
-    expect(sentText.length).toBeGreaterThan(0);
+    expect(sentText).toEqual([]);
   });
 });

@@ -15,7 +15,10 @@ export function activate(context: vscode.ExtensionContext): void {
   // Wire persistent storage into the sessions commands module so the
   // export/import dialogs can remember the last folder the user chose.
   setSessionStorage(context.globalState);
-  const provider = new ClaudeSessionViewProvider(context.extensionUri);
+  const provider = new ClaudeSessionViewProvider(
+    context.extensionUri,
+    context.globalState,
+  );
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
@@ -28,6 +31,17 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.open", () => {
       vscode.commands.executeCommand("claudeCodeManager.view.focus");
+    }),
+  );
+
+  // Command Palette entry for "Claude Manager: Switch Account". Opens
+  // the sidebar first so the webview exists to receive the message,
+  // then fires the native QuickPick switcher. Works whether or not
+  // the panel was visible beforehand.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("claudeManager.switchAccount", async () => {
+      await vscode.commands.executeCommand("claudeCodeManager.view.focus");
+      provider.openAccountSwitcher();
     }),
   );
 

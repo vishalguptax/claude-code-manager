@@ -49,6 +49,13 @@ import {
   resolveSettingsPath,
   restoreClaudeJsonFromBackup,
 } from "../account/parser";
+import { fetchQuota } from "../account/quota";
+import {
+  saveProfile as saveProfileSnapshot,
+  switchProfile as switchProfileSnapshot,
+  updateProfile as updateProfileSnapshot,
+  removeProfile as removeProfileSnapshot,
+} from "../account/profiles";
 import { createTerminal } from "../../extension/terminal";
 import type { WebviewMessage, Session } from "./types";
 import type { Skill } from "../skills/types";
@@ -80,7 +87,10 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   /** Debounce timer for session list re-parse on file changes. */
   private sessionsReparseTimer: NodeJS.Timeout | undefined;
 
-  constructor(private readonly extensionUri: vscode.Uri) {}
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly globalState?: vscode.Memento,
+  ) {}
 
   /** Called by VS Code when the webview view becomes visible. */
   resolveWebviewView(view: vscode.WebviewView): void {
@@ -414,21 +424,43 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "launchChatWithPrompt": {
         if (isClaudeCodeExtensionInstalled()) {
-          await openPromptInExtension(msg.prompt);
+          // Cap the prompt payload before URI-encoding. The browser
+          // and various URI handlers impose length limits (2 KB on
+          // some shells, 32 KB typical, 2 MB hard ceiling in Chromium)
+          // and a very long user message URL-encodes to 3×, so a
+          // 50 KB transcript prompt can exceed safe limits. 4 KB of
+          // source covers ~95% of real prompts without truncation
+          // and stays well inside every handler's budget. Callers
+          // that need more should chunk their intent into something
+          // shorter anyway — a 50 KB prompt isn't something you'd
+          // want prefilled in a chat box.
+          const PROMPT_MAX = 4000;
+          const prompt =
+            msg.prompt.length > PROMPT_MAX
+              ? msg.prompt.slice(0, PROMPT_MAX) + "\n\n…(truncated)"
+              : msg.prompt;
+          if (msg.prompt.length > PROMPT_MAX) {
+            vscode.window.showInformationMessage(
+              `Prompt was truncated to ${PROMPT_MAX} characters before launching chat.`,
+            );
+          }
+          await openPromptInExtension(prompt);
         }
         break;
       }
 
       case "openProjectAndChat": {
         // The URI handler is workspace-scoped, so we have to open the
-        // target project first and then fire the URI. VS Code opens the
-        // new window asynchronously — a short delay lets the Claude
-        // Code extension finish activating in the new window before the
-        // URI is dispatched. Without the delay the chat tab opens but
-        // the extension may not yet have registered its handler.
+        // target project first and then fire the URI. VS Code opens
+        // the new window asynchronously — the delay lets the Claude
+        // Code extension finish activating in the new window before
+        // the URI is dispatched. 3000ms is empirical: short enough to
+        // not feel laggy, long enough for cold-start activation on
+        // slower machines. Without it the URI races activation and
+        // the chat tab opens without the prompt attaching.
         openProject(msg.projectPath);
         if (isClaudeCodeExtensionInstalled()) {
-          setTimeout(() => openPromptInExtension(""), 1500);
+          setTimeout(() => openPromptInExtension(""), 3000);
         }
         break;
       }
@@ -740,6 +772,170 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         break;
       }
 
+      case "fetchQuota": {
+        // The only network call in Claude Manager — opt-in, triggered
+        // only by the user clicking Refresh on the Quota card. The
+        // result carries either `data` or an `error` shape so the
+        // webview can render a precise UI state instead of a generic
+        // "something went wrong" message.
+        const result = await fetchQuota();
+        wv.postMessage({ type: "quotaData", result });
+        break;
+      }
+
+      case "saveProfile": {
+        // Snapshot current creds into a new slot. Label already
+        // validated by the caller (host's promptSaveProfile path or a
+        // future programmatic caller).
+        const result = saveProfileSnapshot(msg.label);
+        if (!result.ok) {
+          vscode.window.showErrorMessage(
+            `Couldn't save profile: ${result.detail ?? result.error}.`,
+          );
+        }
+        const workspace = getWorkspace();
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
+        break;
+      }
+
+      case "promptSaveProfile": {
+        // Native VS Code input box replaces the old inline save form.
+        // Default label sourced from the live account so most users
+        // can just press Enter. We pre-parse account data once to seed
+        // the default; re-parse after save so the reply reflects the
+        // new profile list.
+        const workspace = getWorkspace();
+        const current = parseAccountData(workspace || undefined);
+        const p = current.profile;
+
+        // One-time security disclaimer: saving copies the OAuth
+        // token into ~/.claude/manager-accounts/. We surface that
+        // exactly once via globalState so users give informed
+        // consent on first save, then never see it again. Refusing
+        // the prompt aborts the save entirely.
+        const DISCLAIMER_KEY = "claudeManager.accounts.disclaimerAck";
+        const seen = this.globalState?.get<boolean>(DISCLAIMER_KEY) ?? false;
+        if (!seen) {
+          const choice = await vscode.window.showWarningMessage(
+            "Save Claude account as a profile?",
+            {
+              modal: true,
+              detail:
+                "Claude Manager will copy your OAuth tokens from ~/.claude.json and ~/.claude/.credentials.json into ~/.claude/manager-accounts/ so you can switch back to this account later. Tokens are stored in plain text — same format Claude CLI uses. Treat that folder as sensitive. This notice is shown once.",
+            },
+            "Understood, save",
+          );
+          if (choice !== "Understood, save") break;
+          await this.globalState?.update(DISCLAIMER_KEY, true);
+        }
+
+        const defaultLabel =
+          p.organizationName ||
+          p.displayName ||
+          (p.email ? p.email.split("@")[0] : "Profile");
+        const label = await vscode.window.showInputBox({
+          title: "Save account as profile",
+          prompt: "Label for this Claude account snapshot",
+          value: defaultLabel,
+          validateInput: (v: string) =>
+            v.trim().length > 0 ? null : "Label cannot be empty",
+        });
+        if (label === undefined) break;
+        const result = saveProfileSnapshot(label);
+        if (!result.ok) {
+          vscode.window.showErrorMessage(
+            `Couldn't save profile: ${result.detail ?? result.error}.`,
+          );
+        }
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
+        break;
+      }
+
+      case "openAccountSwitcher":
+        await this.openAccountSwitcher();
+        break;
+
+      case "switchProfile": {
+        // Destructive-ish: overwrites ~/.claude.json + credentials.
+        // Require modal confirmation so a mis-click doesn't yank the
+        // user's login out from under a running Claude session.
+        const confirm = await vscode.window.showWarningMessage(
+          "Switch Claude account?",
+          {
+            modal: true,
+            detail:
+              "Your home-dir credentials will be overwritten with this saved profile. Close any running Claude terminals first — in-flight sessions may fail mid-task.",
+          },
+          "Switch",
+        );
+        if (confirm !== "Switch") break;
+        const result = switchProfileSnapshot(msg.slug);
+        if (!result.ok) {
+          vscode.window.showErrorMessage(
+            `Switch failed: ${result.detail ?? result.error}.`,
+          );
+        } else {
+          vscode.window.showInformationMessage(
+            `Switched to ${result.data.email || result.data.label}.`,
+          );
+        }
+        const workspace = getWorkspace();
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
+        break;
+      }
+
+      case "updateProfile": {
+        // Re-snapshot live creds into an existing slot — used after
+        // Claude CLI rotates the access token so the saved profile
+        // stays current. No confirmation; it's strictly additive.
+        const result = updateProfileSnapshot(msg.slug);
+        if (!result.ok) {
+          vscode.window.showErrorMessage(
+            `Couldn't update profile: ${result.detail ?? result.error}.`,
+          );
+        }
+        const workspace = getWorkspace();
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
+        break;
+      }
+
+      case "removeProfile": {
+        const confirm = await vscode.window.showWarningMessage(
+          "Delete saved profile?",
+          {
+            modal: true,
+            detail:
+              "The snapshot (including its OAuth token copy) will be permanently removed from ~/.claude/manager-accounts. The live Claude account isn't affected.",
+          },
+          "Delete",
+        );
+        if (confirm !== "Delete") break;
+        const result = removeProfileSnapshot(msg.slug);
+        if (!result.ok) {
+          vscode.window.showErrorMessage(
+            `Couldn't delete profile: ${result.detail ?? result.error}.`,
+          );
+        }
+        const workspace = getWorkspace();
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
+        break;
+      }
+
       case "openAccountUrl": {
         vscode.env.openExternal(vscode.Uri.parse(msg.url));
         break;
@@ -943,5 +1139,192 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       console.error(`[claude-manager] Message handler error (${msg.type}):`, message);
       wv.postMessage({ type: "error", message: `Internal error: ${message}` });
     }
+  }
+
+  /**
+   * Native QuickPick-based account switcher. Extracted as a public
+   * method so the command palette entry (`claudeManager.switchAccount`)
+   * can invoke it directly — not only via postMessage from the
+   * webview.
+   */
+  async openAccountSwitcher(): Promise<void> {
+    const wv = this.view?.webview;
+    const workspace = getWorkspace();
+    const current = parseAccountData(workspace || undefined);
+    const savedProfiles = current.savedProfiles;
+    const activeSlug = current.activeProfileSlug;
+
+    const UPDATE_BUTTON: vscode.QuickInputButton = {
+      iconPath: new vscode.ThemeIcon("sync"),
+      tooltip: "Update snapshot with current credentials",
+    };
+    const REMOVE_BUTTON: vscode.QuickInputButton = {
+      iconPath: new vscode.ThemeIcon("trash"),
+      tooltip: "Delete saved profile",
+    };
+
+    type Item = vscode.QuickPickItem & {
+      action: "switch" | "save" | "login";
+      slug?: string;
+    };
+
+    // Active profile first — users see "where am I" without scanning.
+    const sortedProfiles = [...savedProfiles].sort((a, b) => {
+      if (a.slug === activeSlug) return -1;
+      if (b.slug === activeSlug) return 1;
+      return 0;
+    });
+
+    // ThemeIcon via iconPath aligns consistently across every row
+    // regardless of label length — cleaner than `$(…)` prefixes.
+    const CHECK_ICON = new vscode.ThemeIcon("check");
+    const ACCOUNT_ICON = new vscode.ThemeIcon("account");
+    const SAVE_ICON = new vscode.ThemeIcon("save");
+    const LOGIN_ICON = new vscode.ThemeIcon("log-in");
+
+    const items: Item[] = [];
+    for (const p of sortedProfiles) {
+      const isActive = p.slug === activeSlug;
+      const metaParts: string[] = [];
+      if (p.subscriptionType) metaParts.push(p.subscriptionType);
+      if (p.organizationName) metaParts.push(p.organizationName);
+      const detailMeta = metaParts.join(" · ");
+      items.push({
+        action: "switch",
+        slug: p.slug,
+        iconPath: isActive ? CHECK_ICON : ACCOUNT_ICON,
+        label: p.label || p.email || p.slug,
+        description: isActive ? "Active" : p.email,
+        // Every row keeps a `detail` so native row heights match —
+        // prevents the mixed 1-line/2-line hover-overlap glitch.
+        detail:
+          isActive
+            ? `${p.email}${detailMeta ? " · " + detailMeta : ""}`
+            : detailMeta || p.email || "Saved profile",
+        buttons: isActive
+          ? [UPDATE_BUTTON, REMOVE_BUTTON]
+          : [REMOVE_BUTTON],
+      });
+    }
+
+    if (sortedProfiles.length > 0) {
+      items.push({
+        action: "save",
+        label: "",
+        kind: vscode.QuickPickItemKind.Separator,
+      } as Item);
+    }
+
+    if (current.profile.signedIn && !activeSlug) {
+      items.push({
+        action: "save",
+        iconPath: SAVE_ICON,
+        label: "Save current account as profile",
+        detail: "Snapshot current credentials so you can switch back later",
+      });
+    }
+    items.push({
+      action: "login",
+      iconPath: LOGIN_ICON,
+      label: "Log in as a new account",
+      detail: "Opens /login in a new Claude terminal",
+    });
+
+    const picker = vscode.window.createQuickPick<Item>();
+    picker.title = "Switch Claude account";
+    picker.placeholder = savedProfiles.length
+      ? "Pick an account to switch to, or add a new one"
+      : "No saved profiles yet — save the current account or log in a new one";
+    picker.items = items;
+    picker.matchOnDescription = true;
+    picker.matchOnDetail = true;
+
+    const pushAccountUpdate = (): void => {
+      const wv2 = this.view?.webview;
+      if (wv2) {
+        wv2.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
+      }
+    };
+
+    picker.onDidTriggerItemButton(async (e) => {
+      const slug = (e.item as Item).slug;
+      if (!slug) return;
+      if (e.button === UPDATE_BUTTON) {
+        picker.hide();
+        const result = updateProfileSnapshot(slug);
+        if (!result.ok) {
+          vscode.window.showErrorMessage(
+            `Couldn't update profile: ${result.detail ?? result.error}.`,
+          );
+        } else {
+          vscode.window.showInformationMessage(
+            `Profile "${result.data.label}" updated.`,
+          );
+        }
+        pushAccountUpdate();
+      } else if (e.button === REMOVE_BUTTON) {
+        picker.hide();
+        const confirm = await vscode.window.showWarningMessage(
+          "Delete saved profile?",
+          {
+            modal: true,
+            detail:
+              "The snapshot (including its OAuth token copy) will be permanently removed from ~/.claude/manager-accounts. The live Claude account isn't affected.",
+          },
+          "Delete",
+        );
+        if (confirm === "Delete") {
+          removeProfileSnapshot(slug);
+          pushAccountUpdate();
+        }
+      }
+    });
+
+    picker.onDidAccept(async () => {
+      const pick = picker.selectedItems[0];
+      picker.hide();
+      picker.dispose();
+      if (!pick) return;
+      if (pick.action === "switch" && pick.slug) {
+        if (pick.slug === activeSlug) return;
+        const confirm = await vscode.window.showWarningMessage(
+          "Switch Claude account?",
+          {
+            modal: true,
+            detail:
+              "Your home-dir credentials will be overwritten with this saved profile. Close any running Claude terminals first — in-flight sessions may fail mid-task.",
+          },
+          "Switch",
+        );
+        if (confirm !== "Switch") return;
+        const result = switchProfileSnapshot(pick.slug);
+        if (!result.ok) {
+          vscode.window.showErrorMessage(
+            `Switch failed: ${result.detail ?? result.error}.`,
+          );
+        } else {
+          vscode.window.showInformationMessage(
+            `Switched to ${result.data.email || result.data.label}.`,
+          );
+        }
+        pushAccountUpdate();
+      } else if (pick.action === "save") {
+        void this.onMessage({ type: "promptSaveProfile" } as WebviewMessage);
+      } else if (pick.action === "login") {
+        const term = createTerminal("Claude: login");
+        term.show();
+        term.sendText("claude");
+        setTimeout(() => term.sendText("/login"), 1800);
+      }
+    });
+
+    picker.onDidHide(() => picker.dispose());
+    picker.show();
+    // Keep the wv reference referenced for future ports where the
+    // switcher needs to post something pre-accept (unused today).
+    void wv;
   }
 }
