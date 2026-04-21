@@ -138,6 +138,41 @@ The extension exposes these user-configurable settings (search "Claude Manager" 
 | Default Date Filter | `claudeManager.sessions.defaultFilter` | `recent` | `recent`, `week`, `month`, `all` |
 | Default Project Filter | `claudeManager.sessions.defaultProject` | `current` | `current`, `all` |
 | Restore Window | `claudeManager.sessions.restoreWindowMinutes` | `30` | 5–120 |
+| Resume Destination | `claudeManager.sessions.resumeIn` | `auto` | `auto`, `terminal`, `extension`, `ask` |
+
+---
+
+# Network & Privacy
+
+**The extension is local-first.** By default it does not make any network calls. There is exactly **one** opt-in exception:
+
+## Opt-in quota fetch
+
+When the user clicks **Check quota** / **Refresh** on the Account tab's Quota card, the extension-host code (`src/features/account/quota.ts`) issues a single HTTPS request:
+
+```
+GET https://api.anthropic.com/api/oauth/usage
+Authorization: Bearer <accessToken from ~/.claude/.credentials.json>
+anthropic-beta: oauth-2025-04-20
+```
+
+The response contains subscription utilization percentages and reset timestamps only — no message content, no account-wide identifiers beyond what's already in the user's local credentials file. The `accessToken` never crosses the extension/webview boundary.
+
+Nothing else in the codebase makes outbound HTTP requests. If you add one, register it here and update the README's FAQ / Privacy section in the same commit.
+
+## Data sources read from disk
+
+| Path | Used for |
+| :-- | :-- |
+| `~/.claude.json` | Profile, startup count, account identity |
+| `~/.claude/.credentials.json` | OAuth token (quota fetch only; token is never exposed to the webview) |
+| `~/.claude/settings.json` | Model, voice, attribution, status-line settings |
+| `~/.claude/stats-cache.json` | Per-day activity, model-usage totals, streaks |
+| `~/.claude/projects/<slug>/*.jsonl` | Session transcripts — parsed for list, detail, full-text search, and live-delta discovery of extension-originated sessions |
+| `~/.claude/backups/` | Fallback source when `~/.claude.json` is empty or invalid |
+| `~/.claude/manager-accounts/<slug>/` | Saved account profiles &mdash; snapshots of `.claude.json` + `.credentials.json` + a `profile.json` label. Written ONLY when the user clicks "Save profile"; deleted immediately on "Remove". |
+| Project `.claude/` | Workspace-scoped skills, commands, hooks, MCP servers, agents |
+| Project `.mcp.json` | Workspace-scoped MCP server definitions |
 
 ---
 
