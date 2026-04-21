@@ -222,6 +222,17 @@ export function showDetail(): void {
     `<span class="d-stat"><span class="d-stat-v">${esc(dur)}</span><span class="d-stat-k">duration</span></span>`,
   );
 
+  // Capture live search-input state BEFORE we blow away the DOM so we
+  // can faithfully restore what the user is *currently* typing — not
+  // just the last debounced query. Without this, a response landing
+  // mid-type wipes uncommitted characters, drops focus, or resets the
+  // caret; all three look like the input is "stuck" to the user.
+  const liveInput = dv.querySelector<HTMLInputElement>("#msgSearchInput");
+  const liveValue = liveInput?.value ?? null;
+  const liveSelStart = liveInput?.selectionStart ?? null;
+  const liveSelEnd = liveInput?.selectionEnd ?? null;
+  const liveFocused = liveInput !== null && document.activeElement === liveInput;
+
   dv.innerHTML = `
     <button class="back-btn" id="goBack">${icon("arrow-left")} Back</button>
 
@@ -397,13 +408,20 @@ export function showDetail(): void {
   // paged view (host treats blank query as "no filter").
   const searchInput = dv.querySelector<HTMLInputElement>("#msgSearchInput");
   if (searchInput) {
-    // Preserve focus + caret across re-renders so typing feels
-    // unbroken. Count/result refresh re-renders the whole detail
-    // view; without this the input lost focus every keystroke.
-    const priorQuery = getDetailSearchQuery();
-    if (priorQuery && document.activeElement !== searchInput) {
+    // Restore live state captured before the innerHTML wipe. The
+    // rendered `value` attribute reflects the last *committed*
+    // (debounced) query, which can lag behind what the user has
+    // actually typed — overwrite with the live value so uncommitted
+    // characters stick. Focus + caret position are restored the same
+    // way so typing mid-response feels seamless.
+    if (liveValue !== null && searchInput.value !== liveValue) {
+      searchInput.value = liveValue;
+    }
+    if (liveFocused) {
       searchInput.focus();
-      searchInput.setSelectionRange(priorQuery.length, priorQuery.length);
+      if (liveSelStart !== null && liveSelEnd !== null) {
+        searchInput.setSelectionRange(liveSelStart, liveSelEnd);
+      }
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     searchInput.addEventListener("input", () => {
