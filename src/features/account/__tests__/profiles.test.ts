@@ -107,7 +107,13 @@ describe("listProfiles", () => {
   it("returns metadata for valid slots, sorted by label", () => {
     writeLiveAccount();
     saveProfile("Bravo Profile");
-    writeLiveAccount({ ...CLAUDE_JSON_SAMPLE, oauthAccount: { emailAddress: "a@a.com", organizationName: "Alpha" } });
+    // Second save must be a different identity (different userID) so
+    // dedupe in saveProfile doesn't reject it. Accounts sharing a
+    // userID collapse into one profile by design.
+    writeLiveAccount({
+      oauthAccount: { emailAddress: "a@a.com", organizationName: "Alpha" },
+      userID: "alpha-id",
+    });
     saveProfile("Alpha Profile");
     const list = listProfiles();
     expect(list.map((p) => p.label)).toEqual(["Alpha Profile", "Bravo Profile"]);
@@ -144,9 +150,23 @@ describe("saveProfile", () => {
     expect(fs.existsSync(path.join(slotDir, "profile.json"))).toBe(true);
   });
 
-  it("auto-suffixes the slug when one already exists", () => {
+  it("auto-suffixes the slug when a different account reuses the same label", () => {
+    // Two distinct identities sharing a label should both be savable
+    // with auto-suffix on the slug. Same-identity duplicate saves are
+    // rejected by dedupe and covered in the "dedupe" describe block.
     writeLiveAccount();
     saveProfile("Work");
+    writeLiveAccount(
+      { oauthAccount: { emailAddress: "b@b.com" }, userID: "b-id" },
+      {
+        claudeAiOauth: {
+          accessToken: "tok-b",
+          refreshToken: "r",
+          expiresAt: 0,
+          subscriptionType: "pro",
+        },
+      },
+    );
     const second = saveProfile("Work");
     expect(second.ok).toBe(true);
     if (!second.ok) return;
@@ -248,12 +268,14 @@ describe("getActiveProfileSlug", () => {
     expect(getActiveProfileSlug()).toBeNull();
   });
 
-  it("returns null when live creds don't match any saved profile", () => {
+  it("returns null when neither hash nor identity match any saved profile", () => {
     writeLiveAccount();
     saveProfile("stored");
-    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
-      claudeAiOauth: { accessToken: "different", expiresAt: 0 },
-    });
+    // Different email AND different credentials — nothing to match on.
+    writeLiveAccount(
+      { oauthAccount: { emailAddress: "stranger@x.com" }, userID: "stranger-id" },
+      { claudeAiOauth: { accessToken: "different", expiresAt: 0 } },
+    );
     expect(getActiveProfileSlug()).toBeNull();
   });
 
@@ -263,15 +285,137 @@ describe("getActiveProfileSlug", () => {
     expect(getActiveProfileSlug()).toBe("active-one");
   });
 
+  it("falls back to userID match when Claude CLI has rotated the token", () => {
+    writeLiveAccount();
+    saveProfile("rotated");
+    // Rotate the access token — hash changes, userID stable.
+    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
+      claudeAiOauth: {
+        accessToken: "rotated-token",
+        refreshToken: "rotated-refresh",
+        expiresAt: 2_000_000_000_000,
+        subscriptionType: "max",
+      },
+    });
+    expect(getActiveProfileSlug()).toBe("rotated");
+  });
+
+  it("falls back to email match when the snapshot predates userID storage", () => {
+    writeLiveAccount();
+    saveProfile("no-user-id");
+    // Simulate an old snapshot that has no userID in profile.json OR
+    // in the captured .claude.json by rewriting both without userID.
+    const slotDir = path.join(PROFILES_DIR, "no-user-id");
+    fs.writeFileSync(
+      path.join(slotDir, "profile.json"),
+      JSON.stringify({ label: "no-user-id", savedAt: new Date().toISOString() }),
+    );
+    fs.writeFileSync(
+      path.join(slotDir, ".claude.json"),
+      JSON.stringify({ oauthAccount: { emailAddress: "alice@example.com" } }),
+    );
+    // Rotate live token AND drop the userID so only email can match.
+    writeLiveAccount(
+      { oauthAccount: { emailAddress: "alice@example.com" } },
+      { claudeAiOauth: { accessToken: "new", expiresAt: 0 } },
+    );
+    expect(getActiveProfileSlug()).toBe("no-user-id");
+  });
+
   it("flips after a switch so the active slug follows the swap", () => {
     writeLiveAccount();
     saveProfile("a");
-    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
-      claudeAiOauth: { accessToken: "token-b", expiresAt: 0 },
-    });
+    writeLiveAccount(
+      { oauthAccount: { emailAddress: "b@b.com" }, userID: "b-id" },
+      {
+        claudeAiOauth: {
+          accessToken: "token-b",
+          refreshToken: "r",
+          expiresAt: 0,
+          subscriptionType: "pro",
+        },
+      },
+    );
     saveProfile("b");
     expect(getActiveProfileSlug()).toBe("b");
     switchProfile("a");
     expect(getActiveProfileSlug()).toBe("a");
+  });
+});
+
+describe("switchProfile — merge semantics", () => {
+  it("preserves non-identity keys from live .claude.json", () => {
+    // Live account has a rich .claude.json (projects, numStartups,
+    // migration flags). After switching to a minimal saved profile,
+    // those keys must survive — only oauthAccount + userID change.
+    const richLive = {
+      oauthAccount: { emailAddress: "live@x.com" },
+      userID: "live-id",
+      projects: { "/path/a": { foo: 1 } },
+      numStartups: 42,
+      migrationVersion: 7,
+      sonnet1m45MigrationComplete: true,
+      hasCompletedOnboarding: true,
+    };
+    writeLiveAccount(richLive, CREDENTIALS_SAMPLE);
+    saveProfile("live-slot");
+    // Snapshot a second, minimal profile.
+    writeLiveAccount(
+      { oauthAccount: { emailAddress: "other@x.com" }, userID: "other-id" },
+      { claudeAiOauth: { accessToken: "o", refreshToken: "r", expiresAt: 0 } },
+    );
+    saveProfile("other-slot");
+    // Restore the rich live state and switch to the minimal profile.
+    writeLiveAccount(richLive, CREDENTIALS_SAMPLE);
+    const result = switchProfile("other-slot");
+    expect(result.ok).toBe(true);
+
+    const liveAfter = JSON.parse(fs.readFileSync(CLAUDE_JSON_PATH, "utf-8")) as Record<
+      string,
+      unknown
+    >;
+    // Identity swapped:
+    expect((liveAfter.oauthAccount as { emailAddress: string }).emailAddress).toBe(
+      "other@x.com",
+    );
+    expect(liveAfter.userID).toBe("other-id");
+    // Everything else preserved from live:
+    expect(liveAfter.projects).toEqual({ "/path/a": { foo: 1 } });
+    expect(liveAfter.numStartups).toBe(42);
+    expect(liveAfter.migrationVersion).toBe(7);
+    expect(liveAfter.sonnet1m45MigrationComplete).toBe(true);
+    expect(liveAfter.hasCompletedOnboarding).toBe(true);
+  });
+});
+
+describe("saveProfile — dedupe", () => {
+  it("rejects a second save for the same userID with already-saved", () => {
+    writeLiveAccount();
+    const first = saveProfile("First");
+    expect(first.ok).toBe(true);
+
+    const second = saveProfile("Second label");
+    expect(second.ok).toBe(false);
+    if (second.ok) return;
+    expect(second.error).toBe("already-saved");
+    expect(second.detail).toBe("first");
+  });
+
+  it("allows saving when a different identity is live", () => {
+    writeLiveAccount();
+    expect(saveProfile("Alpha").ok).toBe(true);
+    writeLiveAccount(
+      { oauthAccount: { emailAddress: "b@b.com" }, userID: "b-id" },
+      {
+        claudeAiOauth: {
+          accessToken: "tok-b",
+          refreshToken: "r",
+          expiresAt: 0,
+          subscriptionType: "pro",
+        },
+      },
+    );
+    expect(saveProfile("Bravo").ok).toBe(true);
+    expect(listProfiles()).toHaveLength(2);
   });
 });

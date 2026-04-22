@@ -56,7 +56,9 @@ import {
   switchProfile as switchProfileSnapshot,
   updateProfile as updateProfileSnapshot,
   removeProfile as removeProfileSnapshot,
+  listProfiles as listProfilesSnapshot,
 } from "../account/profiles";
+import type { SavedProfile } from "../account/profiles";
 import { createTerminal } from "../../extension/terminal";
 import type { WebviewMessage, Session } from "./types";
 import type { Skill } from "../skills/types";
@@ -67,6 +69,26 @@ import type { Agent } from "../agents/types";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
+
+/**
+ * Build the modal body shown before a profile switch. The base
+ * message always warns about running Claude terminals; when the
+ * snapshot's access token is already past its `expiresAt`, we prepend
+ * a stale-token notice so the user knows a `/login` may be required
+ * after the swap (refresh tokens rotate on use, so a long-stale
+ * snapshot may have no valid refresh path left).
+ */
+function buildSwitchConfirmDetail(profile: SavedProfile | undefined): string {
+  const base =
+    "Your home-dir credentials will be overwritten with this saved profile. Close any running Claude terminals first — in-flight sessions may fail mid-task.";
+  if (!profile || !profile.tokenExpiresAt) return base;
+  const ageMs = Date.now() - profile.tokenExpiresAt;
+  if (ageMs <= 0) return base;
+  const days = Math.floor(ageMs / 86_400_000);
+  const when =
+    days >= 2 ? `${days} days ago` : days === 1 ? "yesterday" : "recently";
+  return `⚠ The saved access token expired ${when}. Claude CLI will try to refresh in the background; if the refresh token has also rotated since you saved this profile, you'll need to /login after switching.\n\n${base}`;
+}
 
 /**
  * Provides the webview content for the Claude Manager sidebar panel.
@@ -799,9 +821,41 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         // future programmatic caller).
         const result = saveProfileSnapshot(msg.label);
         if (!result.ok) {
-          vscode.window.showErrorMessage(
-            `Couldn't save profile: ${result.detail ?? result.error}.`,
-          );
+          if (result.error === "already-saved" && result.detail) {
+            // A slot already exists for this identity — happens when
+            // Claude CLI's token rotation desynced the active-profile
+            // hash match and the UI re-surfaced "Save profile". Offer
+            // to Update the existing slot so tokens get re-captured,
+            // which is almost always the user's actual intent.
+            const existingSlug = result.detail;
+            const existing = listProfilesSnapshot().find((p) => p.slug === existingSlug);
+            const label = existing?.label ?? existingSlug;
+            const choice = await vscode.window.showInformationMessage(
+              `A profile already exists for this account (${label}).`,
+              {
+                modal: true,
+                detail:
+                  "Refresh its saved tokens with the current login so it picks up Claude CLI's latest rotated token.",
+              },
+              "Update existing",
+            );
+            if (choice === "Update existing") {
+              const upd = updateProfileSnapshot(existingSlug);
+              if (!upd.ok) {
+                vscode.window.showErrorMessage(
+                  `Couldn't update profile: ${upd.detail ?? upd.error}.`,
+                );
+              } else {
+                vscode.window.showInformationMessage(
+                  `Profile "${upd.data.label}" refreshed.`,
+                );
+              }
+            }
+          } else {
+            vscode.window.showErrorMessage(
+              `Couldn't save profile: ${result.detail ?? result.error}.`,
+            );
+          }
         }
         const workspace = getWorkspace();
         wv.postMessage({
@@ -856,9 +910,37 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         if (label === undefined) break;
         const result = saveProfileSnapshot(label);
         if (!result.ok) {
-          vscode.window.showErrorMessage(
-            `Couldn't save profile: ${result.detail ?? result.error}.`,
-          );
+          if (result.error === "already-saved" && result.detail) {
+            // Same dedupe path as the `saveProfile` case — see there.
+            const existingSlug = result.detail;
+            const existing = listProfilesSnapshot().find((pp) => pp.slug === existingSlug);
+            const existingLabel = existing?.label ?? existingSlug;
+            const choice = await vscode.window.showInformationMessage(
+              `A profile already exists for this account (${existingLabel}).`,
+              {
+                modal: true,
+                detail:
+                  "Refresh its saved tokens with the current login so it picks up Claude CLI's latest rotated token.",
+              },
+              "Update existing",
+            );
+            if (choice === "Update existing") {
+              const upd = updateProfileSnapshot(existingSlug);
+              if (!upd.ok) {
+                vscode.window.showErrorMessage(
+                  `Couldn't update profile: ${upd.detail ?? upd.error}.`,
+                );
+              } else {
+                vscode.window.showInformationMessage(
+                  `Profile "${upd.data.label}" refreshed.`,
+                );
+              }
+            }
+          } else {
+            vscode.window.showErrorMessage(
+              `Couldn't save profile: ${result.detail ?? result.error}.`,
+            );
+          }
         }
         wv.postMessage({
           type: "accountData",
@@ -875,12 +957,12 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         // Destructive-ish: overwrites ~/.claude.json + credentials.
         // Require modal confirmation so a mis-click doesn't yank the
         // user's login out from under a running Claude session.
+        const targetProfile = listProfilesSnapshot().find((p) => p.slug === msg.slug);
         const confirm = await vscode.window.showWarningMessage(
           "Switch Claude account?",
           {
             modal: true,
-            detail:
-              "Your home-dir credentials will be overwritten with this saved profile. Close any running Claude terminals first — in-flight sessions may fail mid-task.",
+            detail: buildSwitchConfirmDetail(targetProfile),
           },
           "Switch",
         );
@@ -1300,12 +1382,12 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       if (!pick) return;
       if (pick.action === "switch" && pick.slug) {
         if (pick.slug === activeSlug) return;
+        const targetProfile = savedProfiles.find((p) => p.slug === pick.slug);
         const confirm = await vscode.window.showWarningMessage(
           "Switch Claude account?",
           {
             modal: true,
-            detail:
-              "Your home-dir credentials will be overwritten with this saved profile. Close any running Claude terminals first — in-flight sessions may fail mid-task.",
+            detail: buildSwitchConfirmDetail(targetProfile),
           },
           "Switch",
         );
