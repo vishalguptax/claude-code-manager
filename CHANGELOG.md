@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.2] - 2026-04-22
+
+Repairs the multi-account switcher: identity survives Claude CLI's background token rotation, switching preserves your project history + migration flags, and the two-file swap is crash-safe with rollback.
+
+See [docs/releases/v1.5.2.md](docs/releases/v1.5.2.md) for full details.
+
 ## [1.5.1] - 2026-04-21
 
 Detail-view transcript search feels native now (focus + caret survive every keystroke), plus a new demo GIF headlines the marketplace listing.
