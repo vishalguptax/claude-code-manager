@@ -77,19 +77,63 @@ export type QuotaResult = { ok: true; data: QuotaData } | { ok: false; error: Qu
  * Returns null (not an error) when the file is missing — that's the
  * legitimate "user hasn't logged in" state, and callers should surface
  * it with an install-Claude prompt, not an error toast.
+ *
+ * The credentials file is rewritten whenever Claude CLI rotates tokens
+ * or the Claude Manager profile switcher swaps accounts. A read
+ * landing mid-write returns empty or partial JSON, so we re-try once
+ * after a short sleep. Without the retry, the quota card falsely
+ * reported "No Claude Code credentials" whenever the user clicked
+ * Refresh in the same second as a background token refresh.
  */
-function readAccessToken(): string | null {
+function readTokenOnce(): { state: "ok" | "missing" | "transient"; token: string | null } {
+  let raw: string;
   try {
-    const raw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
-    if (!raw.trim()) return null;
-    const parsed = JSON.parse(raw) as {
-      claudeAiOauth?: { accessToken?: string };
-    };
-    const token = parsed.claudeAiOauth?.accessToken;
-    return typeof token === "string" && token.length > 0 ? token : null;
-  } catch {
-    return null;
+    raw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return { state: "missing", token: null };
+    return { state: "transient", token: null };
   }
+  if (!raw.trim()) return { state: "transient", token: null };
+  try {
+    const parsed = JSON.parse(raw) as { claudeAiOauth?: { accessToken?: string } };
+    const token = parsed.claudeAiOauth?.accessToken;
+    if (typeof token === "string" && token.length > 0) {
+      return { state: "ok", token };
+    }
+    return { state: "missing", token: null };
+  } catch {
+    // Mid-rewrite reads show truncated JSON — treat as transient.
+    return { state: "transient", token: null };
+  }
+}
+
+/**
+ * Three-stage read with exponential backoff. 80ms → 250ms → 600ms
+ * covers the typical disk-flush window for a CLI token refresh
+ * (<100ms on SSD, occasionally spiky on Windows FS filters or slow
+ * antivirus scans). If every attempt observes a transient state, we
+ * return `{ kind: "transient" }` so callers can surface a distinct
+ * "try again in a moment" error instead of the misleading
+ * "no credentials" message.
+ */
+async function readAccessToken(): Promise<
+  | { kind: "ok"; token: string }
+  | { kind: "missing" }
+  | { kind: "transient" }
+> {
+  const delays = [80, 250, 600];
+  let sawTransient = false;
+  for (let attempt = 0; attempt <= delays.length; attempt++) {
+    const r = readTokenOnce();
+    if (r.state === "ok" && r.token) return { kind: "ok", token: r.token };
+    if (r.state === "missing") return { kind: "missing" };
+    sawTransient = true;
+    if (attempt < delays.length) {
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+  }
+  return sawTransient ? { kind: "transient" } : { kind: "missing" };
 }
 
 /**
@@ -141,10 +185,10 @@ function normaliseWindow(
  *   - parse          → "Unexpected response; if this keeps happening, report it."
  *   - unknown        → generic fallback with the raw message.
  */
-export function fetchQuota(): Promise<QuotaResult> {
+export async function fetchQuota(): Promise<QuotaResult> {
+  const read = await readAccessToken();
   return new Promise((resolve) => {
-    const token = readAccessToken();
-    if (!token) {
+    if (read.kind === "missing") {
       resolve({
         ok: false,
         error: {
@@ -155,6 +199,22 @@ export function fetchQuota(): Promise<QuotaResult> {
       });
       return;
     }
+    if (read.kind === "transient") {
+      // Credentials file was mid-rewrite across every retry window —
+      // usually means Claude CLI or our own profile switcher is
+      // actively rotating tokens. Tell the user to try again in a
+      // moment rather than falsely reporting "no credentials".
+      resolve({
+        ok: false,
+        error: {
+          kind: "network",
+          message:
+            "Credentials file is being updated (token rotation or account switch in progress). Try Refresh again in a moment.",
+        },
+      });
+      return;
+    }
+    const token = read.token;
 
     const req = https.request(
       {

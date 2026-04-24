@@ -140,6 +140,50 @@ function extractIdentity(claudeJsonRaw: string): { email: string; userID: string
 }
 
 /**
+ * Decode a JWT access token's payload (no signature verification — we
+ * only need the claims for identity correlation, not auth). Returns
+ * null on any parse failure; callers fall back to other identity
+ * sources.
+ *
+ * Why this exists: during Claude CLI's `/login` flow, `.credentials.json`
+ * is rewritten with the new tokens BEFORE `.claude.json` gets the new
+ * `oauthAccount` + `userID` blocks. Reading identity from `.claude.json`
+ * during that window returns the PREVIOUS account's identity — which
+ * makes `getActiveProfileSlug` match the old saved slot, hide the
+ * "Save profile" button, and mislabel the switcher's active row. The
+ * JWT inside `.credentials.json` is always current; trusting it sidesteps
+ * the file-write ordering entirely.
+ */
+function extractIdentityFromToken(credsRaw: string): { email: string; userID: string } | null {
+  try {
+    const parsed = JSON.parse(credsRaw) as { claudeAiOauth?: { accessToken?: string } };
+    const token = parsed.claudeAiOauth?.accessToken;
+    if (typeof token !== "string") return null;
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const payload = Buffer.from(parts[1], "base64url").toString("utf-8");
+    const claims = JSON.parse(payload) as Record<string, unknown>;
+    // Claim names vary across OAuth implementations; accept the most
+    // common ones and fall through silently if none present. `sub` is
+    // the standard JWT subject; `account_uuid` is what Anthropic uses
+    // in some payloads; `email` / `email_address` for the email claim.
+    const userID =
+      (typeof claims.sub === "string" && claims.sub) ||
+      (typeof claims.account_uuid === "string" && claims.account_uuid) ||
+      (typeof claims.user_id === "string" && claims.user_id) ||
+      "";
+    const email =
+      (typeof claims.email === "string" && claims.email) ||
+      (typeof claims.email_address === "string" && claims.email_address) ||
+      "";
+    if (!userID && !email) return null;
+    return { email, userID };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Parse a credentials snapshot without exposing the token. Returns the
  * fields the UI needs for the saved-profile card.
  */
@@ -263,25 +307,66 @@ export function getActiveProfileSlug(): string | null {
     if (p.credentialsHash === liveHash) return p.slug;
   }
 
-  // Pass 2 + 3 need live identity; read it once.
-  let liveIdentity: { email: string; userID: string };
+  // Pass 2 + 3 need live identity. ONLY source: the JWT access-token
+  // claims. Reading identity from `.claude.json` is a trap because
+  // Claude CLI rewrites `.credentials.json` BEFORE `.claude.json`
+  // during /login — so during that window `.claude.json` still
+  // describes the PREVIOUS account while `.credentials.json` holds
+  // the new tokens. Trusting the JWT sidesteps the file-write race
+  // entirely. If the token yields no claims we recognise, we return
+  // null and let the UI show the "Save profile" button; saveProfile's
+  // dedupe will catch the case where a matching slot already exists
+  // (it keys off the same JWT).
+  let liveIdentity: { email: string; userID: string } | null = null;
   try {
-    liveIdentity = extractIdentity(fs.readFileSync(CLAUDE_JSON, "utf-8"));
+    const credsRaw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
+    liveIdentity = extractIdentityFromToken(credsRaw);
   } catch {
-    return null;
+    // Credentials missing / unreadable — no active account to match.
   }
+  if (!liveIdentity) return null;
 
+  // Tie-break by freshest savedAt when more than one profile matches
+  // the same identity. Without this, duplicate slots (created before
+  // the dedupe fix landed, or by a user who intentionally double-
+  // saved) would always resolve to the alphabetically-first slug —
+  // which is rarely what the user means when they look at the
+  // switcher. Newest wins: most-recent activity is the best proxy
+  // for "which slot is this user mentally tracking".
+  const freshestFirst = (a: SavedProfile, b: SavedProfile): number => {
+    const at = Date.parse(a.savedAt || "") || 0;
+    const bt = Date.parse(b.savedAt || "") || 0;
+    return bt - at;
+  };
+
+  // Stage 2: userID match — but only when the saved slot's captured
+  // email ALSO matches (or is empty). Requiring both fields agrees
+  // protects against pre-fix snapshots that captured a stale userID
+  // from `.claude.json` mid-write; those snapshots have the right
+  // email but the wrong userID, and a userID-only match would point
+  // them at the wrong account.
   if (liveIdentity.userID) {
-    for (const p of profiles) {
-      if (p.userID && p.userID === liveIdentity.userID) return p.slug;
-    }
+    const emailLower = liveIdentity.email.toLowerCase();
+    const candidates = profiles
+      .filter((p) => {
+        if (!p.userID || p.userID !== liveIdentity.userID) return false;
+        if (!p.email || !emailLower) return true; // no email to cross-check
+        return p.email.toLowerCase() === emailLower;
+      })
+      .sort(freshestFirst);
+    if (candidates[0]) return candidates[0].slug;
   }
 
+  // Stage 3: email-only match (snapshots saved before userID storage
+  // existed, or saved snapshots whose userID got corrupted by the
+  // pre-fix race). Safe to match on email alone here because stage 2
+  // already absorbed the userID-matching cases.
   if (liveIdentity.email) {
     const emailLower = liveIdentity.email.toLowerCase();
-    for (const p of profiles) {
-      if (p.email && p.email.toLowerCase() === emailLower) return p.slug;
-    }
+    const candidates = profiles
+      .filter((p) => p.email && p.email.toLowerCase() === emailLower)
+      .sort(freshestFirst);
+    if (candidates[0]) return candidates[0].slug;
   }
 
   return null;
@@ -316,18 +401,21 @@ export function saveProfile(label: string): ProfileResult<SavedProfile> {
     return { ok: false, error: "no-active-account" };
   }
   const { claudeJsonRaw, credsRaw } = pair;
-  const identity = extractIdentity(claudeJsonRaw);
 
-  // Dedupe: if a profile already exists for this userID (or email as a
-  // last-ditch fallback), the user should Update it instead of saving
-  // a duplicate. Without this check, the "Save profile" suggestion
-  // that surfaces after a hash mismatch (Bug 1) would mint a fresh
-  // slot every time the user clicked it.
-  if (identity.userID || identity.email) {
+  // Dedupe key: prefer JWT identity (authoritative for the current
+  // token). Fall back to .claude.json identity only when the token
+  // isn't decodable — in that case .claude.json's staleness risks a
+  // false-positive dedupe, but minting a duplicate is preferable to
+  // silently refusing a legitimate save on fresh login.
+  const tokenIdentity = extractIdentityFromToken(credsRaw);
+  const jsonIdentity = extractIdentity(claudeJsonRaw);
+  const identity = tokenIdentity ?? jsonIdentity;
+
+  if (tokenIdentity && (tokenIdentity.userID || tokenIdentity.email)) {
     const existing = listProfiles().find((p) => {
-      if (identity.userID && p.userID) return p.userID === identity.userID;
-      if (identity.email && p.email) {
-        return p.email.toLowerCase() === identity.email.toLowerCase();
+      if (tokenIdentity.userID && p.userID) return p.userID === tokenIdentity.userID;
+      if (tokenIdentity.email && p.email) {
+        return p.email.toLowerCase() === tokenIdentity.email.toLowerCase();
       }
       return false;
     });
@@ -526,8 +614,30 @@ export function switchProfile(slug: string): ProfileResult<SavedProfile> {
       Object.keys(live).length > 0 ? { ...live } : { ...snap };
     // Swap identity keys only. These are the ONLY two top-level keys
     // that encode which account the CLI thinks it's running as.
-    if (snap.oauthAccount !== undefined) merged.oauthAccount = snap.oauthAccount;
-    if (snap.userID !== undefined) merged.userID = snap.userID;
+    //
+    // The `oauthAccount` + `userID` pair must stay consistent after
+    // the swap: if we set oauthAccount from the snapshot but leave
+    // userID from the live account, the CLI sees a mismatched pair
+    // until its next launch rewrites userID from the token. To avoid
+    // that transient inconsistency, we:
+    //   - always swap oauthAccount when the snapshot has one
+    //   - drop the live userID whenever we've swapped oauthAccount
+    //     without a matching snapshot userID (rare: very old
+    //     snapshots predate userID storage). CLI repopulates userID
+    //     on next launch, so "unset" is a cleaner momentary state
+    //     than "belongs to the previous account".
+    if (snap.oauthAccount !== undefined) {
+      merged.oauthAccount = snap.oauthAccount;
+      if (snap.userID !== undefined) {
+        merged.userID = snap.userID;
+      } else {
+        delete merged.userID;
+      }
+    } else if (snap.userID !== undefined) {
+      // Snapshot has no oauthAccount but does have a userID —
+      // exotic shape, but swap userID anyway for consistency.
+      merged.userID = snap.userID;
+    }
     mergedClaudeJson = JSON.stringify(merged, null, 2);
   } catch (err) {
     return {

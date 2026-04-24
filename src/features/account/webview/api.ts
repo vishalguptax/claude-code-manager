@@ -77,3 +77,47 @@ export function sendPromptSaveProfile(): void {
 export function sendOpenAccountSwitcher(): void {
   _vscode.postMessage({ type: "openAccountSwitcher" });
 }
+
+/**
+ * Generic settings writer — takes a dotted key path and a JSON-safe
+ * value. Used by the Config tab for fields that don't warrant a
+ * dedicated message type (permissions.defaultMode, includeCoAuthoredBy,
+ * spinnerTipsEnabled, cleanupPeriodDays, permissions.additionalDirectories).
+ * Empty string / null / undefined removes the key.
+ */
+export function sendSetSetting(
+  key: string,
+  value: unknown,
+  scope: PermissionScope = "global",
+): void {
+  _vscode.postMessage({ type: "setSetting", key, value, scope });
+}
+
+/** Open host-native input box to append an allowed extra-directory path. */
+export function sendPromptAddDirectory(): void {
+  _vscode.postMessage({ type: "promptAddDirectory" });
+}
+
+/** Open VS Code Settings filtered to `claudeManager.*` keys. */
+export function sendOpenExtensionSettings(): void {
+  _vscode.postMessage({ type: "openExtensionSettings" });
+}
+
+/** Fire a whitelisted VS Code command — used for Brain Export/Import. */
+export function sendRunCommand(command: string): void {
+  _vscode.postMessage({ type: "runCommand", command });
+}
+
+/** Confirm-before-delete variant of sendRemovePermission. */
+export function sendPromptRemovePermission(
+  scope: PermissionScope,
+  tool: string,
+  list: "allow" | "deny",
+): void {
+  _vscode.postMessage({ type: "promptRemovePermission", scope, tool, list });
+}
+
+/** Rename the scope's settings.json to a .bak sibling and regenerate. */
+export function sendResetSettings(scope: PermissionScope): void {
+  _vscode.postMessage({ type: "resetSettings", scope });
+}

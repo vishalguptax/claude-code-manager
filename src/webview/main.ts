@@ -51,6 +51,7 @@ import { initHooksTab, mount as mountHooks, unmount as unmountHooks } from "../f
 import { initMcpTab, mount as mountMcp, unmount as unmountMcp } from "../features/mcp/webview/tab";
 import { initAgentsTab, mount as mountAgents, unmount as unmountAgents } from "../features/agents/webview/tab";
 import { initAccountTab, mount as mountAccount, unmount as unmountAccount } from "../features/account/webview/tab";
+import { initConfigTab, mount as mountConfig, unmount as unmountConfig } from "../features/config/webview/tab";
 import type { VSCodeAPI, Tab } from "./types";
 import type { Session, SessionDetail, Stats, SessionGroup } from "../features/sessions/types";
 import type { Skill } from "../features/skills/types";
@@ -61,7 +62,7 @@ let activeTab: Tab = "sessions";
 let tabShellMounted = false;
 
 /** All tabs in display order. */
-const ALL_TABS: Tab[] = ["sessions", "skills", "commands", "hooks", "mcp", "agents", "account"];
+const ALL_TABS: Tab[] = ["sessions", "skills", "commands", "hooks", "mcp", "agents", "account", "config"];
 
 /** Display labels for each tab. */
 const TAB_LABELS: Record<Tab, string> = {
@@ -72,6 +73,7 @@ const TAB_LABELS: Record<Tab, string> = {
   mcp: "MCP",
   agents: "Agents",
   account: "Account",
+  config: "Config",
 };
 
 /** Lucide icon name for each tab. */
@@ -83,6 +85,7 @@ const TAB_ICONS: Record<Tab, string> = {
   mcp: "plug",
   agents: "bot",
   account: "circle-user",
+  config: "settings",
 };
 
 // ── Bootstrap ──
@@ -105,6 +108,7 @@ initHooksTab(vscode);
 initMcpTab(vscode);
 initAgentsTab(vscode);
 initAccountTab(vscode);
+initConfigTab(vscode);
 
 /**
  * Mount the top-level tab bar and content containers inside the existing #root div.
@@ -128,7 +132,6 @@ function mountTabShell(): void {
   root.innerHTML = `
     <div class="tab-bar-wrap">
       <div id="tabBar" class="tab-bar" role="tablist">${tabButtons}</div>
-      <button class="tab-settings-btn" id="openExtSettings" title="Extension settings" aria-label="Extension settings">${icon("settings", 14)}</button>
     </div>
     <div id="tabContentArea" class="tab-content-area">${contentDivs}</div>
     <div class="app-footer">
@@ -178,10 +181,8 @@ function mountTabShell(): void {
     });
   });
 
-  // Extension settings gear — opens VS Code settings filtered to Claude Manager
-  document.getElementById("openExtSettings")?.addEventListener("click", () => {
-    vscode.postMessage({ type: "openExtensionSettings" });
-  });
+  // (Extension-settings gear removed — its action now lives inside
+  // the Config tab where all config is consolidated.)
 
   tabShellMounted = true;
 }
@@ -204,6 +205,7 @@ const tabLifecycle: Record<string, { mount: (container: HTMLElement) => void; un
   mcp: { mount: mountMcp, unmount: unmountMcp },
   agents: { mount: mountAgents, unmount: unmountAgents },
   account: { mount: mountAccount, unmount: unmountAccount },
+  config: { mount: mountConfig, unmount: unmountConfig },
 };
 
 /**

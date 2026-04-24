@@ -385,13 +385,25 @@ function parseSettings(): AccountSettings {
     commitAttribution: "",
     prAttribution: "",
     statusLineCommand: "",
+    includeCoAuthoredBy: true,
+    spinnerTipsEnabled: true,
+    defaultMode: "",
+    additionalDirectories: [],
+    cleanupPeriodDays: 0,
+    effortLevel: "",
   };
 
   try {
     const raw = fs.readFileSync(SETTINGS_FILE, "utf-8");
     const data = JSON.parse(raw) as Record<string, unknown>;
     if (typeof data.model === "string") result.model = data.model;
+    // Voice enabled lives under two historical keys depending on the
+    // CLI version that wrote the file: top-level `voiceEnabled`
+    // (legacy) or nested `voice.enabled` (current). Reading both keeps
+    // the toggle in sync regardless of which CLI last touched the file.
     if (typeof data.voiceEnabled === "boolean") result.voiceEnabled = data.voiceEnabled;
+    const voice = data.voice as Record<string, unknown> | undefined;
+    if (voice && typeof voice.enabled === "boolean") result.voiceEnabled = voice.enabled;
     const attribution = data.attribution as Record<string, unknown> | undefined;
     if (attribution) {
       if (typeof attribution.commit === "string") result.commitAttribution = attribution.commit;
@@ -400,6 +412,32 @@ function parseSettings(): AccountSettings {
     const statusLine = data.statusLine as Record<string, unknown> | undefined;
     if (statusLine && typeof statusLine.command === "string") {
       result.statusLineCommand = statusLine.command;
+    }
+    if (typeof data.includeCoAuthoredBy === "boolean") {
+      result.includeCoAuthoredBy = data.includeCoAuthoredBy;
+    }
+    if (typeof data.spinnerTipsEnabled === "boolean") {
+      result.spinnerTipsEnabled = data.spinnerTipsEnabled;
+    }
+    if (typeof data.cleanupPeriodDays === "number" && data.cleanupPeriodDays >= 0) {
+      result.cleanupPeriodDays = data.cleanupPeriodDays;
+    }
+    // Accept any string — Claude CLI may introduce new effort tiers
+    // without our needing a release to recognise them (the picker
+    // surfaces unknown values alongside the built-in options).
+    if (typeof data.effortLevel === "string") {
+      result.effortLevel = data.effortLevel;
+    }
+    const permissions = data.permissions as Record<string, unknown> | undefined;
+    if (permissions) {
+      const mode = permissions.defaultMode;
+      if (mode === "default" || mode === "acceptEdits" || mode === "plan" || mode === "bypassPermissions") {
+        result.defaultMode = mode;
+      }
+      const dirs = permissions.additionalDirectories;
+      if (Array.isArray(dirs)) {
+        result.additionalDirectories = dirs.filter((d): d is string => typeof d === "string");
+      }
     }
   } catch {
     // file may not exist

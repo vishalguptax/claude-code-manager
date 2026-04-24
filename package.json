@@ -96,6 +96,14 @@
       {
         "command": "claudeManager.switchAccount",
         "title": "Claude Manager: Switch Account"
+      },
+      {
+        "command": "claudeManager.exportBrain",
+        "title": "Claude Manager: Export Brain…"
+      },
+      {
+        "command": "claudeManager.importBrain",
+        "title": "Claude Manager: Import Brain…"
       }
     ],
     "keybindings": [

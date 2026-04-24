@@ -50,6 +50,7 @@ import {
   resolveSettingsPath,
   restoreClaudeJsonFromBackup,
 } from "../account/parser";
+import type { AccountData } from "../account/types";
 import { fetchQuota } from "../account/quota";
 import {
   saveProfile as saveProfileSnapshot,
@@ -109,6 +110,26 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private accountReparseTimer: NodeJS.Timeout | undefined;
   /** Debounce timer for session list re-parse on file changes. */
   private sessionsReparseTimer: NodeJS.Timeout | undefined;
+  /**
+   * Last observed live `userID`. Used by the file watcher to spot
+   * identity changes (manual CLI `/login` / `/logout` cycles) so we
+   * can nudge the user to save the new account as a profile when no
+   * matching saved slot exists. Seeded on the first account parse so
+   * the initial load doesn't trigger a false-positive toast.
+   *
+   *   null    — never parsed yet (no comparison possible)
+   *   ""      — parsed, live is signed out
+   *   "abc…"  — parsed, signed in as user abc…
+   */
+  private lastSeenUserID: string | null = null;
+  /**
+   * Single in-flight identity-change toast. Guards against stacked
+   * notifications when the user rapid-fires `/logout` + `/login`
+   * cycles — only one prompt shows at a time; subsequent identity
+   * changes that land while the toast is up skip posting another.
+   * Cleared when the current toast resolves (button click or dismiss).
+   */
+  private identityToastPending = false;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -124,6 +145,14 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     };
     view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
     view.webview.onDidReceiveMessage((msg: WebviewMessage) => this.onMessage(msg));
+
+    // Sweep leftover .bak files from an interrupted profile swap.
+    // switchProfile backs live files up before rename + removes the
+    // backups on success; if the process died mid-swap (power loss,
+    // VS Code force-quit), the backups linger. Detect + surface a
+    // one-time recovery prompt so users with half-switched state can
+    // restore cleanly.
+    void this.sweepSwitchBackups();
 
     // Set up file watchers once per webview lifecycle
     this.setupWatchers();
@@ -295,13 +324,19 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
       this.accountReparseTimer = setTimeout(() => {
         const wv = this.view?.webview;
-        if (!wv) return;
         try {
           const ws = getWorkspace();
-          wv.postMessage({
-            type: "accountData",
-            data: parseAccountData(ws || undefined),
-          });
+          const data = parseAccountData(ws || undefined);
+          // Identity-change detection: when the live userID shifts
+          // (manual CLI /login replaced the account behind our back),
+          // nudge the user to save the new account as a profile so
+          // the next login doesn't wipe it too. Silent when the new
+          // account already has a saved slot — that's a known
+          // identity and no prompt is useful.
+          this.checkForIdentityChange(data);
+          if (wv) {
+            wv.postMessage({ type: "accountData", data });
+          }
         } catch (err) {
           console.warn("[claude-manager] account reparse failed:", err);
         }
@@ -376,6 +411,147 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     this.sessionsReparseTimer = undefined;
     for (const w of this.watchers) w.dispose();
     this.watchers = [];
+  }
+
+  /**
+   * Passive post-swap observer. Compares `data.profile.userID` against
+   * the previous seen value and surfaces a non-blocking nudge when:
+   *   - the user logged into a brand-new account (no saved slot for
+   *     the new userID) — toast offers a "Save as profile" shortcut
+   *
+   * Seeds `lastSeenUserID` silently on the first parse so extension
+   * activation never fires a false-positive toast. Re-entries for the
+   * same userID (token rotations) skip the check entirely.
+   *
+   * This is the closest we can get to "prevent CLI /login from silently
+   * replacing an account": CLI owns its terminal, so we can't block the
+   * write — but we can see the result, compare identities, and point
+   * the user at the switcher before they lose more state.
+   */
+  private checkForIdentityChange(data: AccountData): void {
+    const liveUserID = data.profile.userID ?? "";
+    if (this.lastSeenUserID === null) {
+      // First observation — seed and return silently.
+      this.lastSeenUserID = liveUserID;
+      return;
+    }
+    if (liveUserID === this.lastSeenUserID) return;
+
+    const prevUserID = this.lastSeenUserID;
+    this.lastSeenUserID = liveUserID;
+
+    // Logged out — identity went from something to nothing. The
+    // signed-out UI already shows the switcher prominently, so no
+    // extra toast needed here.
+    if (!liveUserID) return;
+
+    // New identity is already backed by a saved slot — this is an
+    // expected switch (via our switcher or a re-login to a known
+    // account). Nothing to nudge about.
+    const hasSlotForNew = data.savedProfiles.some(
+      (p) => p.userID && p.userID === liveUserID,
+    );
+    if (hasSlotForNew) return;
+
+    // Old identity wasn't saved either → surface the loss so the user
+    // knows the previous account can't be recovered from our side.
+    // Still end the toast on the actionable "Save" button so the NEW
+    // identity doesn't suffer the same fate next login.
+    const hadSlotForPrev =
+      !!prevUserID &&
+      data.savedProfiles.some((p) => p.userID && p.userID === prevUserID);
+
+    const email = data.profile.email || data.profile.displayName || "this account";
+    const prelude = hadSlotForPrev
+      ? `Switched to ${email}.`
+      : `Switched to ${email}. The previous account wasn't saved — to restore it you'll need to re-login.`;
+
+    // Single-toast gate: if a prior notification is still on screen,
+    // skip this one. Rapid logout/login cycles would otherwise stack
+    // multiple info messages in VS Code's notification queue.
+    if (this.identityToastPending) return;
+    this.identityToastPending = true;
+
+    void vscode.window
+      .showInformationMessage(
+        `${prelude} Save this account as a profile so you can switch back without re-logging-in.`,
+        "Save as profile",
+        "Dismiss",
+      )
+      .then((choice) => {
+        this.identityToastPending = false;
+        if (choice === "Save as profile") {
+          void this.onMessage({ type: "promptSaveProfile" } as WebviewMessage);
+        }
+      });
+  }
+
+  /**
+   * Detect + recover from a profile switch that crashed between the
+   * two file renames. switchProfile copies live files to
+   * `~/.claude.json.bak` + `~/.claude/.credentials.json.bak` before
+   * renaming, then deletes those backups on success — so their
+   * presence on startup implies an interrupted swap.
+   *
+   * Rather than silently rolling back or silently discarding, we
+   * prompt the user with three explicit choices:
+   *   - Restore previous identity (copy .bak → live; they picked the
+   *     wrong profile or the switch failed and they want their old
+   *     account back)
+   *   - Discard backup (the live files are what they want; backups
+   *     are stale)
+   *   - Later (leave .bak in place; prompt again next session)
+   */
+  private async sweepSwitchBackups(): Promise<void> {
+    const home = os.homedir();
+    const claudeDir = path.join(home, ".claude");
+    const claudeJsonBak = path.join(home, ".claude.json.bak");
+    const credsBak = path.join(claudeDir, ".credentials.json.bak");
+    const hasClaudeJsonBak = fs.existsSync(claudeJsonBak);
+    const hasCredsBak = fs.existsSync(credsBak);
+    if (!hasClaudeJsonBak && !hasCredsBak) return;
+
+    const choice = await vscode.window.showWarningMessage(
+      "Found leftover backup from an interrupted profile switch.",
+      {
+        modal: true,
+        detail:
+          "Claude Manager was interrupted while swapping accounts. The previous account's credentials are still on disk as .bak files. Restore them, discard them, or decide later.",
+      },
+      "Restore previous",
+      "Discard backup",
+      "Later",
+    );
+
+    const claudeJson = path.join(home, ".claude.json");
+    const credsFile = path.join(claudeDir, ".credentials.json");
+
+    if (choice === "Restore previous") {
+      try {
+        if (hasClaudeJsonBak) fs.copyFileSync(claudeJsonBak, claudeJson);
+        if (hasCredsBak) fs.copyFileSync(credsBak, credsFile);
+        if (hasClaudeJsonBak) fs.rmSync(claudeJsonBak, { force: true });
+        if (hasCredsBak) fs.rmSync(credsBak, { force: true });
+        vscode.window.showInformationMessage(
+          "Previous Claude account restored. Reload the Claude Manager panel to refresh.",
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Restore failed: ${msg}.`);
+      }
+      return;
+    }
+    if (choice === "Discard backup") {
+      try {
+        if (hasClaudeJsonBak) fs.rmSync(claudeJsonBak, { force: true });
+        if (hasCredsBak) fs.rmSync(credsBak, { force: true });
+      } catch {
+        // Best-effort cleanup; a persistent failure isn't worth
+        // surfacing as an error toast.
+      }
+      return;
+    }
+    // choice === "Later" or modal dismissed — leave .bak files alone.
   }
 
   private async onMessage(msg: WebviewMessage): Promise<void> {
@@ -1104,9 +1280,136 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "setVoiceEnabled": {
+        // Write both keys so both schemas agree — legacy CLI versions
+        // read `voiceEnabled`, current CLI reads `voice.enabled`. Without
+        // touching both, the toggle could appear to flip back on next
+        // open when the CLI overwrites one key and we only wrote the
+        // other.
         writeSettingsValue("voiceEnabled", msg.value);
+        writeSettingsValue("voice.enabled", msg.value);
         const workspace = getWorkspace();
         wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "setSetting": {
+        // Generic writer — key is dotted path, value is any JSON-safe
+        // scalar or array. Empty string / null / undefined removes the
+        // key (writeSettingsValue handles that case).
+        writeSettingsValue(msg.key, msg.value, msg.scope ?? "global", getWorkspace() || undefined);
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "runCommand": {
+        // Whitelist guard: webview must not be able to fire arbitrary
+        // VS Code commands. Only Claude-Manager-owned commands pass.
+        const allowed = new Set([
+          "claudeManager.exportBrain",
+          "claudeManager.importBrain",
+          "claudeManager.switchAccount",
+          "claudeManager.open",
+        ]);
+        if (allowed.has(msg.command)) {
+          await vscode.commands.executeCommand(msg.command);
+        }
+        break;
+      }
+
+      case "promptRemovePermission": {
+        // Confirm-before-delete to prevent mis-click data loss on
+        // the inline remove buttons inside the Permissions list.
+        const { scope: permScope, tool, list: permList } = msg;
+        const confirm = await vscode.window.showWarningMessage(
+          `Remove ${permList === "allow" ? "allowed" : "denied"} tool?`,
+          {
+            modal: true,
+            detail: `\"${tool}\" will be removed from the ${permScope} scope. You can re-add it via "Add tool" or by editing the settings file directly.`,
+          },
+          "Remove",
+        );
+        if (confirm !== "Remove") break;
+        removePermissionEntry(permScope, tool, permList, getWorkspace() || undefined);
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(getWorkspace() || undefined),
+        });
+        break;
+      }
+
+      case "resetSettings": {
+        const scope = msg.scope;
+        const confirm = await vscode.window.showWarningMessage(
+          `Reset ${scope} settings.json?`,
+          {
+            modal: true,
+            detail:
+              "The current settings file will be renamed to `settings.json.bak-<timestamp>` and a fresh file will be created on Claude's next launch. All your custom model, voice, attribution, hooks, permissions, and tool allow/deny rules in this scope will stop taking effect until you restore the .bak. Reversible.",
+          },
+          "Reset",
+        );
+        if (confirm !== "Reset") break;
+        const workspace = getWorkspace();
+        const filePath = resolveSettingsPath(scope, workspace || undefined);
+        if (!filePath) {
+          vscode.window.showErrorMessage(`Can't resolve settings path for ${scope} scope.`);
+          break;
+        }
+        try {
+          if (fs.existsSync(filePath)) {
+            const bak = `${filePath}.bak-${Date.now()}`;
+            fs.renameSync(filePath, bak);
+            vscode.window.showInformationMessage(
+              `Settings reset. Backup at ${path.basename(bak)}.`,
+            );
+          } else {
+            vscode.window.showInformationMessage(
+              `${scope} settings file was already empty.`,
+            );
+          }
+          wv.postMessage({
+            type: "accountData",
+            data: parseAccountData(workspace || undefined),
+          });
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err);
+          vscode.window.showErrorMessage(`Reset failed: ${errMsg}.`);
+        }
+        break;
+      }
+
+      case "promptAddDirectory": {
+        const workspace = getWorkspace();
+        const current = parseAccountData(workspace || undefined);
+        const existing = current.settings.additionalDirectories;
+        // Native folder picker beats a raw text input — users don't
+        // have to type or copy an absolute path, and the dialog's
+        // validation is OS-idiomatic (no missing-path guessing).
+        const picked = await vscode.window.showOpenDialog({
+          canSelectFolders: true,
+          canSelectFiles: false,
+          canSelectMany: false,
+          openLabel: "Add directory",
+          title: "Pick a directory Claude is allowed to read",
+        });
+        if (!picked || picked.length === 0) break;
+        const dir = picked[0].fsPath;
+        if (existing.includes(dir)) {
+          vscode.window.showInformationMessage(`\"${dir}\" is already in the list.`);
+          break;
+        }
+        const next = [...existing, dir];
+        writeSettingsValue(
+          "permissions.additionalDirectories",
+          next,
+          "global",
+          workspace || undefined,
+        );
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
         break;
       }
 
@@ -1243,7 +1546,22 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     const wv = this.view?.webview;
     const workspace = getWorkspace();
     const current = parseAccountData(workspace || undefined);
-    const savedProfiles = current.savedProfiles;
+    // Overlay the active profile's displayed email with the live
+    // profile email when it diverges — users who changed their email
+    // on claude.ai after saving would otherwise see the snapshot's
+    // stale value in the switcher. The overlay only affects display;
+    // the stored snapshot stays untouched so Update Profile can
+    // re-capture when the user wants.
+    const savedProfiles = current.savedProfiles.map((p) => {
+      if (
+        p.slug === current.activeProfileSlug &&
+        current.profile.email &&
+        current.profile.email !== p.email
+      ) {
+        return { ...p, email: current.profile.email };
+      }
+      return p;
+    });
     const activeSlug = current.activeProfileSlug;
 
     const UPDATE_BUTTON: vscode.QuickInputButton = {
@@ -1274,25 +1592,62 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     const SAVE_ICON = new vscode.ThemeIcon("save");
     const LOGIN_ICON = new vscode.ThemeIcon("log-in");
 
+    // Pre-scan: identify duplicate profiles so we can mark any row
+    // that isn't the freshest saved slot for its identity. Users
+    // accumulated duplicates under the old hash-only active detection;
+    // the dedupe fix prevents NEW ones but legacy duplicates persist.
+    //
+    // Grouping key is userID + email tuple — userID alone is unsafe
+    // because pre-fix saves could capture a stale userID from
+    // `.claude.json` mid-write, producing two genuinely distinct
+    // accounts that happen to share a (wrong) userID. Requiring both
+    // fields to match catches real duplicates without false-flagging
+    // unrelated accounts that share corrupted metadata.
+    const identityGroups = new Map<string, SavedProfile[]>();
+    for (const p of savedProfiles) {
+      if (!p.userID || !p.email) continue;
+      const key = `${p.userID}|${p.email.toLowerCase()}`;
+      const bucket = identityGroups.get(key) ?? [];
+      bucket.push(p);
+      identityGroups.set(key, bucket);
+    }
+    const duplicateSlugs = new Set<string>();
+    for (const group of identityGroups.values()) {
+      if (group.length <= 1) continue;
+      const ranked = [...group].sort((a, b) => {
+        const at = Date.parse(a.savedAt || "") || 0;
+        const bt = Date.parse(b.savedAt || "") || 0;
+        return bt - at;
+      });
+      for (let i = 1; i < ranked.length; i++) duplicateSlugs.add(ranked[i].slug);
+    }
+
     const items: Item[] = [];
     for (const p of sortedProfiles) {
       const isActive = p.slug === activeSlug;
+      const isDuplicate = duplicateSlugs.has(p.slug);
       const metaParts: string[] = [];
+      if (p.email) metaParts.push(p.email);
       if (p.subscriptionType) metaParts.push(p.subscriptionType);
       if (p.organizationName) metaParts.push(p.organizationName);
-      const detailMeta = metaParts.join(" · ");
+      if (isDuplicate) metaParts.push("duplicate — remove if unused");
+      // Row 1 shows label + "Active" badge (when active) + "Duplicate"
+      // marker (when another saved slot is fresher for the same
+      // userID). Row 2 carries email, plan, org, and the duplicate
+      // hint so users know why the row is flagged.
       items.push({
         action: "switch",
         slug: p.slug,
         iconPath: isActive ? CHECK_ICON : ACCOUNT_ICON,
         label: p.label || p.email || p.slug,
-        description: isActive ? "Active" : p.email,
+        description: isActive
+          ? "Active"
+          : isDuplicate
+          ? "Duplicate"
+          : "",
         // Every row keeps a `detail` so native row heights match —
         // prevents the mixed 1-line/2-line hover-overlap glitch.
-        detail:
-          isActive
-            ? `${p.email}${detailMeta ? " · " + detailMeta : ""}`
-            : detailMeta || p.email || "Saved profile",
+        detail: metaParts.join(" · ") || "Saved profile",
         buttons: isActive
           ? [UPDATE_BUTTON, REMOVE_BUTTON]
           : [REMOVE_BUTTON],
@@ -1406,6 +1761,38 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       } else if (pick.action === "save") {
         void this.onMessage({ type: "promptSaveProfile" } as WebviewMessage);
       } else if (pick.action === "login") {
+        // Claude CLI's /login overwrites ~/.claude.json +
+        // ~/.claude/.credentials.json in place. If the live account
+        // isn't backed by a saved profile, firing /login immediately
+        // replaces it — the old account becomes unrecoverable short
+        // of re-logging-in to it later. Force a save-first prompt so
+        // users don't discover this the hard way.
+        if (current.profile.signedIn && !activeSlug) {
+          const choice = await vscode.window.showWarningMessage(
+            "Save the current account first?",
+            {
+              modal: true,
+              detail:
+                `Logging in as a new account will overwrite ~/.claude.json and ~/.claude/.credentials.json in place — your current account (${current.profile.email || current.profile.displayName || "signed-in account"}) will be replaced, not added. Save it as a profile first so you can switch back later.`,
+            },
+            "Save and log in",
+            "Log in anyway",
+          );
+          if (choice === undefined) return;
+          if (choice === "Save and log in") {
+            // Reuse the same input-box + disclaimer flow as the
+            // Account tab's save button. Wait for the snapshot to
+            // land before firing /login so the overwrite happens
+            // against a safely-backed-up state.
+            await this.onMessage({ type: "promptSaveProfile" } as WebviewMessage);
+            // If the user aborted the label input or the disclaimer,
+            // they're now looking at an unchanged home dir — still
+            // bail rather than silently continuing to the login.
+            const refreshed = parseAccountData(workspace || undefined);
+            if (!refreshed.activeProfileSlug) return;
+          }
+          // choice === "Log in anyway" falls through to the login.
+        }
         const term = createTerminal("Claude: login");
         term.show();
         term.sendText("claude");

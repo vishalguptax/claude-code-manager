@@ -80,6 +80,18 @@ function clearLiveAccount(): void {
   fs.rmSync(CREDENTIALS_PATH, { force: true });
 }
 
+/**
+ * Encode a minimal unsigned JWT. Only the payload section matters for
+ * our identity-extraction cascade; header and signature are cosmetic.
+ */
+function makeJwt(claims: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString(
+    "base64url",
+  );
+  const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
+  return `${header}.${payload}.`;
+}
+
 beforeEach(resetTmp);
 afterEach(() => {
   fs.rmSync(path.dirname(CLAUDE_DIR), { recursive: true, force: true });
@@ -285,13 +297,18 @@ describe("getActiveProfileSlug", () => {
     expect(getActiveProfileSlug()).toBe("active-one");
   });
 
-  it("falls back to userID match when Claude CLI has rotated the token", () => {
+  it("matches the saved slot via JWT sub when tokens rotate", () => {
+    // Saved profile captures userID = "alice-id" from the sample.
     writeLiveAccount();
     saveProfile("rotated");
-    // Rotate the access token — hash changes, userID stable.
+    // Rotate the access token — hash changes, but the NEW token is
+    // still a JWT with the SAME sub (same account). Our cascade must
+    // stay locked to the saved slot via JWT identity even though the
+    // bytes have changed.
+    const rotatedJwt = makeJwt({ sub: "alice-id", email: "alice@example.com" });
     writeLiveAccount(CLAUDE_JSON_SAMPLE, {
       claudeAiOauth: {
-        accessToken: "rotated-token",
+        accessToken: rotatedJwt,
         refreshToken: "rotated-refresh",
         expiresAt: 2_000_000_000_000,
         subscriptionType: "max",
@@ -300,26 +317,21 @@ describe("getActiveProfileSlug", () => {
     expect(getActiveProfileSlug()).toBe("rotated");
   });
 
-  it("falls back to email match when the snapshot predates userID storage", () => {
+  it("matches via JWT email claim when sub is absent", () => {
     writeLiveAccount();
-    saveProfile("no-user-id");
-    // Simulate an old snapshot that has no userID in profile.json OR
-    // in the captured .claude.json by rewriting both without userID.
-    const slotDir = path.join(PROFILES_DIR, "no-user-id");
-    fs.writeFileSync(
-      path.join(slotDir, "profile.json"),
-      JSON.stringify({ label: "no-user-id", savedAt: new Date().toISOString() }),
-    );
-    fs.writeFileSync(
-      path.join(slotDir, ".claude.json"),
-      JSON.stringify({ oauthAccount: { emailAddress: "alice@example.com" } }),
-    );
-    // Rotate live token AND drop the userID so only email can match.
-    writeLiveAccount(
-      { oauthAccount: { emailAddress: "alice@example.com" } },
-      { claudeAiOauth: { accessToken: "new", expiresAt: 0 } },
-    );
-    expect(getActiveProfileSlug()).toBe("no-user-id");
+    saveProfile("email-only");
+    // Token with only an email claim — no sub. Identity still
+    // resolvable via email match against the saved slot.
+    const tokenNoSub = makeJwt({ email: "alice@example.com" });
+    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
+      claudeAiOauth: {
+        accessToken: tokenNoSub,
+        refreshToken: "r",
+        expiresAt: 0,
+        subscriptionType: "max",
+      },
+    });
+    expect(getActiveProfileSlug()).toBe("email-only");
   });
 
   it("flips after a switch so the active slug follows the swap", () => {
@@ -388,9 +400,128 @@ describe("switchProfile — merge semantics", () => {
   });
 });
 
+describe("getActiveProfileSlug — JWT identity", () => {
+
+  it("matches the saved slot via JWT sub when .claude.json is stale", () => {
+    // Save a profile with a specific userID in claude.json.
+    writeLiveAccount(
+      { oauthAccount: { emailAddress: "alice@example.com" }, userID: "alice-user-id" },
+      CREDENTIALS_SAMPLE,
+    );
+    saveProfile("Alice");
+
+    // Now simulate Claude CLI's /login mid-write: credentials.json
+    // holds a JWT for account B but .claude.json still says Alice.
+    // Our cascade must trust the JWT — otherwise the switcher would
+    // show Alice as active while the live tokens belong to Bob.
+    const bobToken = makeJwt({ sub: "alice-user-id", email: "alice@example.com" });
+    writeLiveAccount(
+      // Claude.json still stale (pretends CLI rewrote only creds first):
+      { oauthAccount: { emailAddress: "alice@example.com" }, userID: "alice-user-id" },
+      {
+        claudeAiOauth: {
+          accessToken: bobToken,
+          refreshToken: "r",
+          expiresAt: 0,
+          subscriptionType: "max",
+        },
+      },
+    );
+    // JWT sub matches alice-user-id → returns the Alice slot.
+    expect(getActiveProfileSlug()).toBe("alice");
+  });
+
+  it("returns null when live JWT sub matches no saved slot", () => {
+    writeLiveAccount();
+    saveProfile("Alice");
+    const strangerToken = makeJwt({
+      sub: "stranger-user-id",
+      email: "stranger@example.com",
+    });
+    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
+      claudeAiOauth: {
+        accessToken: strangerToken,
+        refreshToken: "r",
+        expiresAt: 0,
+        subscriptionType: "pro",
+      },
+    });
+    expect(getActiveProfileSlug()).toBeNull();
+  });
+
+  it("returns null when the access token isn't a JWT with identity claims", () => {
+    // Non-JWT tokens (or JWTs missing identity claims) can't identify
+    // the current account. We refuse to cascade to .claude.json in
+    // that case — its staleness during /login would mis-attribute
+    // the live account to the previous saved slot. Returning null
+    // surfaces the "Save profile" button instead, and save-time
+    // dedupe catches true duplicates.
+    writeLiveAccount();
+    saveProfile("Alice");
+    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
+      claudeAiOauth: {
+        accessToken: "opaque-non-jwt-token",
+        refreshToken: "r",
+        expiresAt: 0,
+        subscriptionType: "max",
+      },
+    });
+    expect(getActiveProfileSlug()).toBeNull();
+  });
+
+  it("prefers newest savedAt when two slots match the same JWT sub", () => {
+    // Create two slots with same userID — legacy duplicates from
+    // pre-dedupe state. Bypass dedupe by writing the second slot
+    // directly.
+    writeLiveAccount();
+    saveProfile("First");
+    const secondSlot = path.join(PROFILES_DIR, "second");
+    fs.mkdirSync(secondSlot, { recursive: true });
+    fs.writeFileSync(
+      path.join(secondSlot, ".claude.json"),
+      JSON.stringify(CLAUDE_JSON_SAMPLE),
+    );
+    fs.writeFileSync(
+      path.join(secondSlot, ".credentials.json"),
+      JSON.stringify(CREDENTIALS_SAMPLE),
+    );
+    fs.writeFileSync(
+      path.join(secondSlot, "profile.json"),
+      JSON.stringify({
+        label: "Second",
+        savedAt: new Date(Date.now() + 60_000).toISOString(), // newer
+        userID: "alice-id",
+        email: "alice@example.com",
+      }),
+    );
+    const token = makeJwt({ sub: "alice-id" });
+    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
+      claudeAiOauth: {
+        accessToken: token,
+        refreshToken: "r",
+        expiresAt: 0,
+        subscriptionType: "max",
+      },
+    });
+    // "second" has a later savedAt → wins the tiebreak.
+    expect(getActiveProfileSlug()).toBe("second");
+  });
+});
+
 describe("saveProfile — dedupe", () => {
   it("rejects a second save for the same userID with already-saved", () => {
-    writeLiveAccount();
+    // Dedupe keys on the JWT access-token identity. Use a JWT sample
+    // so the identity is extractable — opaque tokens skip dedupe on
+    // purpose (see `extractIdentityFromToken`).
+    const aliceToken = makeJwt({ sub: "alice-id", email: "alice@example.com" });
+    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
+      claudeAiOauth: {
+        accessToken: aliceToken,
+        refreshToken: "r",
+        expiresAt: 0,
+        subscriptionType: "max",
+      },
+    });
     const first = saveProfile("First");
     expect(first.ok).toBe(true);
 

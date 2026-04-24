@@ -295,6 +295,41 @@ export type WebviewMessage =
   | { type: "setVoiceEnabled"; value: boolean }
   | { type: "setCommitAttribution"; value: string }
   | { type: "setPrAttribution"; value: string }
+  /**
+   * Generic scalar / array settings writer. Covers fields like
+   * `permissions.defaultMode`, `includeCoAuthoredBy`, `cleanupPeriodDays`,
+   * and `permissions.additionalDirectories` — all written through
+   * writeSettingsValue with dotted keys. Kept generic so adding a
+   * new Claude Code setting doesn't require a new message variant
+   * per field.
+   */
+  | { type: "setSetting"; key: string; value: unknown; scope?: "global" | "project" | "local" }
+  /**
+   * Open a native input box for an additional-directory path and
+   * append it to `permissions.additionalDirectories` in settings.json.
+   * Host validates the path and rejects duplicates before writing.
+   */
+  | { type: "promptAddDirectory" }
+  /**
+   * Confirm-before-delete wrapper around `removePermission`. Host
+   * shows a modal; on confirm, performs the removal + echoes fresh
+   * accountData. Stops one-click data loss on mis-tapped remove
+   * buttons in the Permissions list.
+   */
+  | { type: "promptRemovePermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }
+  /**
+   * Back up `settings.json` to a `.bak-<epoch>` sibling, clearing the
+   * live file so Claude CLI regenerates sane defaults on next start.
+   * Reversible via the backup.
+   */
+  | { type: "resetSettings"; scope: "global" | "project" | "local" }
+  /**
+   * Trigger a VS Code command from the webview — generic escape hatch
+   * for actions that already exist as commands (Brain export/import,
+   * future command-palette entries). Host dispatches via
+   * `vscode.commands.executeCommand(msg.command)`.
+   */
+  | { type: "runCommand"; command: string }
   | { type: "openSettingsFile"; scope: "global" | "project" | "local" }
   | { type: "addPermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }
   | { type: "removePermission"; scope: "global" | "project" | "local"; tool: string; list: "allow" | "deny" }

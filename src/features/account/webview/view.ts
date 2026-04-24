@@ -38,6 +38,7 @@ import {
 import type {
   AccountData,
   DailyActivity,
+  DailyTokens,
   PermissionScope,
 } from "../types";
 import type { QuotaData, QuotaWindow, QuotaError } from "../quota";
@@ -151,8 +152,6 @@ export function renderAccount(container: HTMLElement): void {
       ${renderProfileSection(data)}
       ${renderQuotaSection()}
       ${renderUsageSection(data)}
-      ${renderSettingsSection(data)}
-      ${renderPermissionsSection(data)}
     </div>`;
 
   // Restore scroll position after DOM replacement
@@ -171,6 +170,14 @@ function renderProfileSection(data: AccountData): string {
   const collapsed = isSectionCollapsed("profile");
 
   if (!p.signedIn) {
+    // Signed-out path after /logout. When the user has saved profiles,
+    // show them as the primary affordance — switching restores a
+    // whole identity without a browser round-trip. Without this, the
+    // only exit from the signed-out state was /login, which re-auths
+    // from scratch and doesn't reach the saved snapshots. Users who
+    // had saved profiles wondered why logout plus a switch didn't
+    // work; the switcher was literally unreachable from the UI.
+    const saved = data.savedProfiles;
     return `
       <section class="acct-section">
         ${renderSectionHeader("profile", "Profile", collapsed)}
@@ -178,8 +185,11 @@ function renderProfileSection(data: AccountData): string {
         <div class="acct-section-body">
           <div class="acct-empty">
             <div class="acct-empty-title">Not signed in</div>
-            <div class="acct-empty-hint">Sign in to Claude Code to view your account.</div>
-            <button class="btn green" data-slash="/login">${icon("play", 14)} Log in</button>
+            <div class="acct-empty-hint">${saved.length > 0 ? `Switch to a saved account or log in a new one.` : `Sign in to Claude Code to view your account.`}</div>
+            <div class="acct-actions">
+              ${saved.length > 0 ? `<button class="btn primary" id="acct-switch-account" title="Switch to a saved Claude account">${icon("refresh-cw", 14)} Switch account</button>` : ""}
+              <button class="btn ${saved.length > 0 ? "" : "green"}" data-slash="/login">${icon("play", 14)} Log in</button>
+            </div>
           </div>
         </div>`}
       </section>`;
@@ -274,6 +284,60 @@ function formatResetsIn(isoResetsAt: string): string {
 }
 
 /**
+ * ISO 4217 minor-unit decimal count for a currency code. The OAuth
+ * /usage endpoint returns `used_credits` / `monthly_limit` in the
+ * currency's minor unit (cents, fils, etc.), so we divide the raw
+ * integer by 10^digits before rendering. Zero-decimal currencies (JPY,
+ * KRW, …) and three-decimal currencies (BHD, KWD, …) both occur in
+ * the wild — treating everything as two decimals showed AUD users
+ * "23346.00 AUD" instead of "233.46".
+ *
+ * List mirrors the ISO 4217 standard. Missing currencies fall back
+ * to 2 digits, which matches every mainstream currency and the
+ * Intl.NumberFormat default.
+ */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW",
+  "PYG", "RWF", "UGX", "UYI", "VND", "VUV", "XAF", "XOF",
+  "XPF", "XAG", "XAU", "XDR", "XSU", "XUA",
+]);
+const THREE_DECIMAL_CURRENCIES = new Set([
+  "BHD", "IQD", "JOD", "KWD", "LYD", "OMR", "TND",
+]);
+const FOUR_DECIMAL_CURRENCIES = new Set(["CLF", "UYW"]);
+
+function currencyFractionDigits(currency: string): number {
+  const code = currency.toUpperCase();
+  if (ZERO_DECIMAL_CURRENCIES.has(code)) return 0;
+  if (THREE_DECIMAL_CURRENCIES.has(code)) return 3;
+  if (FOUR_DECIMAL_CURRENCIES.has(code)) return 4;
+  return 2;
+}
+
+/**
+ * Render a minor-unit integer as a locale-formatted currency string.
+ * Uses Intl.NumberFormat with the caller-supplied currency code so
+ * symbol placement, decimal/thousands separators, and spacing all
+ * match the user's region — we don't hardcode "$" for USD anymore.
+ * Falls back to a plain `${major} ${currency}` render if Intl
+ * rejects the code (very old runtimes, unknown ISO code).
+ */
+function formatMoney(minorUnits: number, currency: string): string {
+  const digits = currencyFractionDigits(currency);
+  const major = minorUnits / Math.pow(10, digits);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency.toUpperCase(),
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(major);
+  } catch {
+    return `${major.toFixed(digits)} ${currency}`;
+  }
+}
+
+/**
  * Utilization colour classes — three tiers so the bar changes mood as
  * the user approaches their cap. Semantic tokens only; exact colours
  * live in the CSS so theme changes pick them up.
@@ -361,13 +425,19 @@ function renderQuotaSuccess(data: QuotaData): string {
 
   // Pay-as-you-go overflow, if the user has it enabled. Formats
   // monthly_limit/used_credits as currency when present.
+  //
+  // The OAuth /usage endpoint returns these fields in the currency's
+  // MINOR unit (cents for USD/AUD/EUR, fils for BHD, etc.) — same
+  // convention Stripe uses. Rendering the raw integer gave users
+  // "23346.00 AUD" for a $233.46 spend. We convert to the major unit
+  // using the ISO 4217 fraction-digit count for the currency, then
+  // format via Intl.NumberFormat so locale + symbol are handled for
+  // every region, not just USD.
   let extraBlock = "";
   if (data.extraUsage?.enabled) {
     const used = data.extraUsage.usedCredits ?? 0;
     const limit = data.extraUsage.monthlyLimit ?? 0;
     const currency = data.extraUsage.currency ?? "USD";
-    const fmt = (n: number): string =>
-      currency === "USD" ? `$${n.toFixed(2)}` : `${n.toFixed(2)} ${currency}`;
     const pct =
       typeof data.extraUsage.utilization === "number"
         ? Math.round(data.extraUsage.utilization)
@@ -376,7 +446,7 @@ function renderQuotaSuccess(data: QuotaData): string {
       <div class="acct-quota-row acct-quota-extra">
         <div class="acct-quota-row-head">
           <span class="acct-quota-label">Extra usage (monthly)</span>
-          <span class="acct-quota-pct">${fmt(used)} / ${fmt(limit)}</span>
+          <span class="acct-quota-pct">${esc(formatMoney(used, currency))} / ${esc(formatMoney(limit, currency))}</span>
         </div>
         ${pct !== null ? `
         <div class="acct-quota-bar" role="progressbar"
@@ -552,7 +622,7 @@ function renderUsageSection(data: AccountData): string {
           <button class="vs-segmented-btn ${period === "all" ? "active" : ""}" data-period="all" role="tab">All time</button>
         </div>
 
-        ${renderHeatmap(u.daily)}
+        ${renderHeatmap(u.daily, u.dailyTokens)}
 
         <div class="acct-stats-grid">
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(tokenTotal)}</div><div class="acct-stat-k">tokens</div></div>
@@ -621,9 +691,16 @@ function formatDuration(ms: number): string {
  *   ...
  *   Sun   ░▒▓░
  */
-function renderHeatmap(daily: DailyActivity[]): string {
+function renderHeatmap(daily: DailyActivity[], dailyTokens: DailyTokens[]): string {
   const byDate = new Map<string, DailyActivity>();
   for (const d of daily) byDate.set(d.date, d);
+  // Parallel index by date so tooltips can quote per-day token spend
+  // alongside messages + sessions. dailyTokens is authored by the
+  // same Claude CLI stats cache that populates daily, so missing
+  // days simply mean "no tokens recorded that day" (common on
+  // sessions that predate usage tracking).
+  const tokensByDate = new Map<string, number>();
+  for (const d of dailyTokens) tokensByDate.set(d.date, d.total);
 
   const WEEKS = 12;
   const DAYS = WEEKS * 7;
@@ -638,10 +715,23 @@ function renderHeatmap(daily: DailyActivity[]): string {
   const dayOfWeek = (start.getDay() + 6) % 7; // Mon=0, Sun=6
   start.setDate(start.getDate() - dayOfWeek);
 
-  // Find max for scaling (only count actual daily entries)
+  // Find max for scaling. Tokens are the primary signal — they
+  // measure actual work done, whereas messageCount conflates a
+  // one-word ping with a 50k-context turn. Fall back to messageCount
+  // only when no token data was recorded (older sessions that
+  // predate usage tracking).
   let max = 0;
-  for (const entry of byDate.values()) {
-    if (entry.messageCount > max) max = entry.messageCount;
+  let useTokens = false;
+  for (const total of tokensByDate.values()) {
+    if (total > 0) {
+      useTokens = true;
+      if (total > max) max = total;
+    }
+  }
+  if (!useTokens) {
+    for (const entry of byDate.values()) {
+      if (entry.messageCount > max) max = entry.messageCount;
+    }
   }
 
   const DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -671,11 +761,21 @@ function renderHeatmap(daily: DailyActivity[]): string {
       }
       const key = d.toISOString().slice(0, 10);
       const entry = byDate.get(key);
-      const count = entry?.messageCount ?? 0;
-      const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / max) * 4));
+      const tokenTotal = tokensByDate.get(key) ?? 0;
+      // Intensity scales on tokens when the cache has them; otherwise
+      // falls back to message count so older data still paints the
+      // heatmap at all. max is computed from whichever signal drives
+      // the palette, so the `/max` ratio is dimensionally correct.
+      const intensitySource = useTokens ? tokenTotal : (entry?.messageCount ?? 0);
+      const level =
+        max === 0 || intensitySource === 0
+          ? 0
+          : Math.min(4, Math.ceil((intensitySource / max) * 4));
       const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       const tooltip = entry
-        ? `${entry.messageCount} messages · ${entry.sessionCount} session${entry.sessionCount === 1 ? "" : "s"} · ${dateLabel}`
+        ? (tokenTotal > 0
+            ? `${formatNumber(tokenTotal)} tokens · ${entry.messageCount} message${entry.messageCount === 1 ? "" : "s"} · ${entry.sessionCount} session${entry.sessionCount === 1 ? "" : "s"} · ${dateLabel}`
+            : `${entry.messageCount} message${entry.messageCount === 1 ? "" : "s"} · ${entry.sessionCount} session${entry.sessionCount === 1 ? "" : "s"} · ${dateLabel}`)
         : `No activity · ${dateLabel}`;
       cellsHtml.push(
         `<div class="acct-heat-cell lvl-${level}" title="${esc(tooltip)}" style="grid-column:${col + 2};grid-row:${row + 2}"></div>`,
@@ -702,117 +802,8 @@ function renderHeatmap(daily: DailyActivity[]): string {
 
 // ── Section: Settings ──
 
-function renderSettingsSection(data: AccountData): string {
-  const s = data.settings;
-  const collapsed = isSectionCollapsed("settings");
-  const currentModel = s.model || "default";
-  const modelOptions = buildModelOptions(data, currentModel);
-  const currentOption = modelOptions.find((o) => o.value === currentModel);
-
-  return `
-    <section class="acct-section">
-      ${renderSectionHeader("settings", "Settings", collapsed)}
-      ${collapsed ? "" : `
-      <div class="acct-section-body">
-        <div class="acct-field">
-          <label class="acct-label" for="acct-model">Model</label>
-          ${renderSelect("acct-model", modelOptions, currentModel)}
-          <div class="acct-field-hint" id="acct-model-desc">${esc(currentOption?.desc ?? "")}</div>
-        </div>
-
-        <div class="acct-field">
-          <label class="acct-toggle">
-            <input type="checkbox" id="acct-voice" ${s.voiceEnabled ? "checked" : ""}>
-            <span class="acct-toggle-track" aria-hidden="true"><span class="acct-toggle-thumb"></span></span>
-            <span class="acct-toggle-text">Voice dictation</span>
-          </label>
-        </div>
-
-        <div class="acct-field">
-          <label class="acct-label">Commit attribution</label>
-          <input type="text" class="acct-input" id="acct-commit" value="${esc(s.commitAttribution)}" placeholder="e.g., Co-authored-by: Claude">
-        </div>
-
-        <div class="acct-field">
-          <label class="acct-label">PR attribution</label>
-          <input type="text" class="acct-input" id="acct-pr" value="${esc(s.prAttribution)}" placeholder="e.g., Generated with Claude Code">
-        </div>
-
-        ${s.statusLineCommand ? `
-        <div class="acct-field">
-          <label class="acct-label">Status line command</label>
-          <code class="acct-code">${esc(s.statusLineCommand)}</code>
-        </div>` : ""}
-
-        <div class="acct-actions">
-          <button class="btn" data-scope="global" id="acct-open-settings">${icon("external-link", 14)} Open settings.json</button>
-          <button class="btn" data-slash="/config">${icon("terminal", 14)} Open /config</button>
-        </div>
-
-        <div class="acct-footnote">Changes apply to new Claude sessions.</div>
-      </div>`}
-    </section>`;
-}
-
-// ── Section: Permissions ──
-
-function renderPermissionsSection(data: AccountData): string {
-  const collapsed = isSectionCollapsed("permissions");
-  const scope = getPermissionScope();
-  const set = data.permissions.find((p) => p.scope === scope);
-  const hasProjectScope = data.permissions.some((p) => p.scope === "project");
-
-  return `
-    <section class="acct-section">
-      ${renderSectionHeader("permissions", "Permissions", collapsed)}
-      ${collapsed ? "" : `
-      <div class="acct-section-body">
-        <div class="vs-segmented acct-scope-toggle" role="tablist">
-          <button class="vs-segmented-btn ${scope === "global" ? "active" : ""}" data-scope="global" role="tab">Global</button>
-          ${hasProjectScope ? `<button class="vs-segmented-btn ${scope === "project" ? "active" : ""}" data-scope="project" role="tab">Project</button>` : ""}
-          ${hasProjectScope ? `<button class="vs-segmented-btn ${scope === "local" ? "active" : ""}" data-scope="local" role="tab">Local</button>` : ""}
-        </div>
-
-        ${renderPermissionList(set?.allow ?? [], scope, "allow", "Allowed")}
-        ${renderPermissionList(set?.deny ?? [], scope, "deny", "Denied")}
-
-        <div class="acct-actions">
-          <button class="btn" id="acct-add-perm">${icon("plus", 14)} Add tool</button>
-          <button class="btn" data-scope="${scope}" id="acct-open-perms">${icon("external-link", 14)} Edit in file</button>
-        </div>
-
-        <div class="acct-footnote">Changes apply to new Claude sessions.</div>
-      </div>`}
-    </section>`;
-}
-
-function renderPermissionList(
-  items: string[],
-  scope: PermissionScope,
-  list: "allow" | "deny",
-  label: string,
-): string {
-  if (items.length === 0) {
-    return `
-      <div class="acct-perm-group">
-        <div class="acct-perm-group-label">${esc(label)}</div>
-        <div class="acct-empty-small">No ${list === "allow" ? "allowed" : "denied"} tools</div>
-      </div>`;
-  }
-
-  const rows = items
-    .map(
-      (t) =>
-        `<div class="acct-perm-row"><span class="acct-perm-name">${esc(t)}</span><button class="acct-perm-remove" data-remove="${esc(t)}" data-remove-list="${list}" data-remove-scope="${scope}" title="Remove">${icon("x", 12)}</button></div>`,
-    )
-    .join("");
-
-  return `
-    <div class="acct-perm-group">
-      <div class="acct-perm-group-label">${esc(label)} (${items.length})</div>
-      ${rows}
-    </div>`;
-}
+// Settings + Permissions rendering moved to Config tab (src/features/config/webview/view.ts).
+// The Account tab is identity-only now: Profile + Quota + Usage.
 
 // ── Shared header ──
 

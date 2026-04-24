@@ -121,11 +121,27 @@ export interface UsageStats {
 
 // ── Settings (from settings.json) ──
 
+/**
+ * Permission mode — one of Claude Code's built-in default-mode values.
+ * Controls how the CLI handles tool-use confirmations:
+ *   - "default"          — prompt per tool call (safest)
+ *   - "acceptEdits"      — auto-approve file edits
+ *   - "plan"             — plan-first mode; requires explicit proceed
+ *   - "bypassPermissions"— no prompts (most permissive; security risk)
+ * Empty string = unset in settings.json (falls back to CLI default).
+ */
+export type PermissionDefaultMode =
+  | ""
+  | "default"
+  | "acceptEdits"
+  | "plan"
+  | "bypassPermissions";
+
 /** Parsed settings from ~/.claude/settings.json. */
 export interface AccountSettings {
   /** Current model setting: "sonnet" | "opus" | "haiku" | "" (default) */
   model: string;
-  /** Voice dictation enabled */
+  /** Voice dictation enabled. Reads both `voiceEnabled` and `voice.enabled`. */
   voiceEnabled: boolean;
   /** Git commit attribution line */
   commitAttribution: string;
@@ -133,6 +149,26 @@ export interface AccountSettings {
   prAttribution: string;
   /** Status line command */
   statusLineCommand: string;
+  /** `includeCoAuthoredBy` — toggles Claude's default co-author trailer. */
+  includeCoAuthoredBy: boolean;
+  /** `spinnerTipsEnabled` — "Tip:" lines under the spinner. Many users want off. */
+  spinnerTipsEnabled: boolean;
+  /** `permissions.defaultMode` — how the CLI treats tool-use confirmations. */
+  defaultMode: PermissionDefaultMode;
+  /** `permissions.additionalDirectories` — paths outside the workspace Claude may read. */
+  additionalDirectories: string[];
+  /** `cleanupPeriodDays` — session transcript retention in days. 0 means unset. */
+  cleanupPeriodDays: number;
+  /**
+   * `effortLevel` — reasoning-effort preset set by the CLI's `/effort`
+   * slash command. Controls how much thinking budget Claude spends
+   * before answering. Known values today are
+   * `low | medium | high | xhigh | max | auto`, but we store + display
+   * whatever string the CLI wrote so a new tier (e.g. a future
+   * "ultra") surfaces immediately without an extension update.
+   * Empty string = unset (CLI picks its own default).
+   */
+  effortLevel: string;
 }
 
 // ── Permissions ──
@@ -207,6 +243,7 @@ export interface SavedProfile {
   savedAt: string;
   tokenExpiresAt: number;
   credentialsHash: string;
+  userID: string;
 }
 
 // ── Messages ──
