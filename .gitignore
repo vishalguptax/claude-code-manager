@@ -11,3 +11,6 @@ scripts/.settings-snapshot.json
 .binaryos/
 CLAUDE.md
 docs/marketing
+docs/backlog.md
+docs/prompts/
+.local-plans/
