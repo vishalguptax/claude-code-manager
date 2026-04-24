@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.6.0] - 2026-04-24
+
+New Config tab, Brain backup / restore, and a rewrite of the multi-account switcher so `/login` no longer replaces saved accounts.
+
+See [docs/releases/v1.6.0.md](docs/releases/v1.6.0.md) for full details.
+
 ## [1.5.2] - 2026-04-22
 
 Repairs the multi-account switcher: identity survives Claude CLI's background token rotation, switching preserves your project history + migration flags, and the two-file swap is crash-safe with rollback.
