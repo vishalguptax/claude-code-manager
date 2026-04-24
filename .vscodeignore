@@ -11,3 +11,13 @@ vitest.config.ts
 scripts/**
 *.map
 *.vsix
+
+# Hero GIF + screenshots are referenced by README via absolute
+# https://raw.githubusercontent.com/... URLs so the marketplace
+# listing renders them without bundling. Keep in repo for GitHub
+# to serve; exclude from .vsix — demo.gif alone is 3.7MB.
+media/demo.gif
+media/screenshots/**
+media/marketplace-icon.svg
+.local-plans/**
+.binaryos/**
