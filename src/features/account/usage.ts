@@ -21,6 +21,7 @@
  */
 import * as fs from "fs";
 import { STATS_CACHE_FILE } from "../../core/config";
+import { computeModelCost, PRICES_EFFECTIVE_DATE } from "../../core/pricing";
 import type {
   DailyActivity,
   DailyTokens,
@@ -33,6 +34,10 @@ import type {
 interface CacheModelUsage {
   inputTokens?: number;
   outputTokens?: number;
+  /** Tokens served from prompt cache. Field absent on older caches. */
+  cacheReadInputTokens?: number;
+  /** Tokens written to prompt cache. Field absent on older caches. */
+  cacheCreationInputTokens?: number;
 }
 
 interface CacheDailyActivity {
@@ -125,20 +130,34 @@ function projectCache(cache: StatsCacheShape): UsageStats {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // modelUsage → byModel. Sort by totalTokens desc so the top entry
-  // is the user's favorite model.
+  // is the user's favorite model. Cost is layered on at projection
+  // time using the price snapshot in core/pricing — keeping it in
+  // the projector means the heavy stats-cache parse runs once.
   const modelList: ModelStats[] = [];
   if (cache.modelUsage) {
     for (const [model, t] of Object.entries(cache.modelUsage)) {
       const inputTokens = t.inputTokens ?? 0;
       const outputTokens = t.outputTokens ?? 0;
+      const cacheReadTokens = t.cacheReadInputTokens ?? 0;
+      const cacheCreationTokens = t.cacheCreationInputTokens ?? 0;
+      const costUsd = computeModelCost(model, {
+        input: inputTokens,
+        output: outputTokens,
+        cacheRead: cacheReadTokens,
+        cacheWrite: cacheCreationTokens,
+      });
       modelList.push({
         model,
         inputTokens,
         outputTokens,
         totalTokens: inputTokens + outputTokens,
+        cacheReadTokens,
+        cacheCreationTokens,
+        costUsd,
       });
       result.totalInputTokens += inputTokens;
       result.totalOutputTokens += outputTokens;
+      result.totalCostUsd += costUsd;
     }
   }
   modelList.sort((a, b) => b.totalTokens - a.totalTokens);
@@ -278,6 +297,8 @@ function emptyStats(): UsageStats {
     longestSessionMs: 0,
     firstSessionDate: "",
     lastComputedDate: "",
+    totalCostUsd: 0,
+    pricesEffectiveDate: PRICES_EFFECTIVE_DATE,
   };
 }
 

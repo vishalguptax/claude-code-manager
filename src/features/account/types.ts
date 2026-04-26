@@ -69,6 +69,16 @@ export interface ModelStats {
   outputTokens: number;
   /** input + output (what Claude CLI shows as "total") */
   totalTokens: number;
+  /** Tokens served from the prompt cache. 0 when the model never cached. */
+  cacheReadTokens: number;
+  /** Tokens written to the prompt cache. 0 when caching unused. */
+  cacheCreationTokens: number;
+  /**
+   * Computed USD cost for this model's lifetime token totals using
+   * the snapshot in `src/core/pricing.ts`. Approximate by design —
+   * see PRICES_EFFECTIVE_DATE on the snapshot for the anchor date.
+   */
+  costUsd: number;
 }
 
 /**
@@ -117,6 +127,19 @@ export interface UsageStats {
    * the cache is missing the field.
    */
   lastComputedDate: string;
+  /**
+   * Approximate lifetime USD cost summed across all models. Uses the
+   * static price snapshot in `src/core/pricing.ts` — a real billing
+   * call would break the local-first promise. Zero when no token
+   * data is available.
+   */
+  totalCostUsd: number;
+  /**
+   * Snapshot date of the prices used to compute `totalCostUsd` and
+   * `byModel[].costUsd`. Surface this in the UI so users know how
+   * stale the figure is.
+   */
+  pricesEffectiveDate: string;
 }
 
 // ── Settings (from settings.json) ──

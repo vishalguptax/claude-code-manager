@@ -632,6 +632,9 @@ function renderUsageSection(data: AccountData): string {
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(tokenTotal)}</div><div class="acct-stat-k">tokens</div></div>
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.sessions)}</div><div class="acct-stat-k">sessions</div></div>
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.messages)}</div><div class="acct-stat-k">messages</div></div>
+          ${period === "all" && u.totalCostUsd > 0 ? `
+          <div class="acct-stat" title="Approximate — uses static price snapshot from ${esc(u.pricesEffectiveDate)}"><div class="acct-stat-v">${esc(formatMoney(Math.round(u.totalCostUsd * 100), "USD"))}</div><div class="acct-stat-k">est. cost</div></div>
+          ` : ""}
         </div>
         ${renderUsageFooter(u, period)}
 
@@ -649,8 +652,9 @@ function renderUsageSection(data: AccountData): string {
           ${u.byModel.map((m) => `
             <div class="acct-meta-row">
               <span class="acct-meta-k">${esc(formatModelName(m.model))}</span>
-              <span class="acct-meta-v">${formatNumber(m.totalTokens)}</span>
+              <span class="acct-meta-v">${formatNumber(m.totalTokens)}${m.costUsd > 0 ? ` · ${esc(formatMoney(Math.round(m.costUsd * 100), "USD"))}` : ""}</span>
             </div>`).join("")}
+          ${u.totalCostUsd > 0 ? `<div class="acct-meta-foot">Cost is an estimate from the static Anthropic price snapshot dated ${esc(u.pricesEffectiveDate)}.</div>` : ""}
         </div>` : ""}
       </div>`}
     </section>`;

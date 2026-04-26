@@ -128,6 +128,37 @@ describe("projectCache — field mapping", () => {
     expect(r.favoriteModel).toBe("");
   });
 
+  it("populates totalCostUsd + per-model costUsd from the price snapshot", () => {
+    const r = projectCache({
+      modelUsage: {
+        // Opus rates: $15 input + $75 output per 1M tokens →
+        // 1M+1M = $90 for this entry alone.
+        "claude-opus-4-7": {
+          inputTokens: 1_000_000,
+          outputTokens: 1_000_000,
+        },
+      },
+    });
+    expect(r.byModel[0].costUsd).toBe(90);
+    expect(r.totalCostUsd).toBe(90);
+    expect(r.pricesEffectiveDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("includes cache token fields when the cache provides them", () => {
+    const r = projectCache({
+      modelUsage: {
+        m: {
+          inputTokens: 100,
+          outputTokens: 100,
+          cacheReadInputTokens: 200,
+          cacheCreationInputTokens: 50,
+        },
+      },
+    });
+    expect(r.byModel[0].cacheReadTokens).toBe(200);
+    expect(r.byModel[0].cacheCreationTokens).toBe(50);
+  });
+
   it("sums input + output across modelUsage and excludes cache fields", () => {
     const r = projectCache({
       modelUsage: {

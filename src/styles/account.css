@@ -256,6 +256,17 @@
 }
 .acct-meta-v em { color: var(--fg-dim); font-style: normal; }
 
+/* Footnote rendered under a meta group — used by the cost disclaimer
+   to anchor the figure to its price-snapshot date. Smaller and dimmer
+   than meta rows so it doesn't compete with the data. */
+.acct-meta-foot {
+  margin-top: var(--space-xs);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+}
+
 /* ──────────────────────────────────────────────────────────────────────────────
    Actions
    ────────────────────────────────────────────────────────────────────────────── */
