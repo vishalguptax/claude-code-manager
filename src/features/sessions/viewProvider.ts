@@ -349,6 +349,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     const wv = this.view?.webview;
     if (!wv) return;
     const sessConfig = vscode.workspace.getConfiguration("claudeManager.sessions");
+    const rootConfig = vscode.workspace.getConfiguration("claudeManager");
     wv.postMessage({
       type: "settings",
       defaultFilter: sessConfig.get<string>("defaultFilter", "recent"),
@@ -359,6 +360,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       // extension install/uninstall so the UI tracks reality without a
       // panel reload.
       claudeCodeExtensionInstalled: isClaudeCodeExtensionInstalled(),
+      marketplaceSkillsUrl: rootConfig.get<string>(
+        "marketplaceSkillsUrl",
+        "https://github.com/anthropics/claude-code/wiki/Skills",
+      ),
+      marketplaceMcpUrl: rootConfig.get<string>("marketplaceMcpUrl", "https://mcp.so"),
     });
   }
 

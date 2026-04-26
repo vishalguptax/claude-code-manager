@@ -98,6 +98,25 @@
 .loading { text-align: center; padding: 24px; font-size: var(--fs-base); color: var(--fg-muted); }
 .empty   { text-align: center; padding: 28px var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
 
+/* Inline link button rendered inside an .empty / .mcp-empty block.
+   Visual: link-coloured text with no chrome so it reads as a follow-up
+   prompt rather than a primary CTA. The marketplace "Browse community"
+   buttons use this. */
+.empty-link-btn {
+  margin-top: var(--space-sm);
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: var(--link, var(--accent));
+  font-size: var(--fs-base);
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.empty-link-btn:hover { color: var(--fg); }
+.empty-link-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
 /* Shared empty state (renderEmptyState) — icon + title + description + action */
 .state-empty {
   display: flex;

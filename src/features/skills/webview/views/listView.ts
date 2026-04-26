@@ -6,6 +6,8 @@
 import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
 import { sendGetSkills, sendGetSkillDetail } from "../api";
+import { sendOpenUrl } from "../../../sessions/webview/api";
+import { getMarketplaceSkillsUrl } from "../../../../webview/marketplace";
 import {
   getAllSkills,
   getFilteredSkills,
@@ -55,6 +57,7 @@ export function mountSkillsShell(): void {
           <input id="skillsSearch" type="text" placeholder="Search skills..." value="${esc(searchQuery)}" />
           <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="skillsClear" title="Clear (Esc)">${icon("x", 14)}</button>
         </div>
+        <button class="search-side-btn" id="skillsBrowse" title="Browse community skills (opens externally)">${icon("globe", 14)}</button>
         <button class="search-side-btn" id="skillsRefresh" title="Refresh skills list">${icon("refresh-cw", 14)}</button>
       </div>
       ${scopeFilterHtml}
@@ -110,6 +113,9 @@ export function mountSkillsShell(): void {
   });
 
   document.getElementById("skillsRefresh")?.addEventListener("click", () => sendGetSkills());
+  document.getElementById("skillsBrowse")?.addEventListener("click", () =>
+    sendOpenUrl(getMarketplaceSkillsUrl()),
+  );
 
   setSkillsShellMounted(true);
 }
@@ -127,7 +133,21 @@ export function updateSkillsList(): void {
   const searchQuery = getSkillsSearchQuery();
 
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="empty">${searchQuery ? "No matching skills" : "No skills found"}</div>`;
+    if (searchQuery) {
+      container.innerHTML = `<div class="empty">No matching skills</div>`;
+    } else {
+      // No skills, no query — show a discovery prompt with the
+      // marketplace link inline so first-run users have somewhere to
+      // go from the empty state.
+      container.innerHTML = `
+        <div class="empty">
+          <div>No skills found</div>
+          <button class="empty-link-btn" id="skillsBrowseEmpty">Browse community skills →</button>
+        </div>`;
+      container.querySelector("#skillsBrowseEmpty")?.addEventListener("click", () =>
+        sendOpenUrl(getMarketplaceSkillsUrl()),
+      );
+    }
     return;
   }
 

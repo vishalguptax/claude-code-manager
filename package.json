@@ -195,6 +195,16 @@
           "maximum": 120,
           "description": "Time window (in minutes) for Restore Workspace — sessions active within this window are grouped together."
         },
+        "claudeManager.marketplaceSkillsUrl": {
+          "type": "string",
+          "default": "https://github.com/anthropics/claude-code/wiki/Skills",
+          "description": "URL opened by the 'Browse community skills' button on the Skills tab. Override to point at a curated team list."
+        },
+        "claudeManager.marketplaceMcpUrl": {
+          "type": "string",
+          "default": "https://mcp.so",
+          "description": "URL opened by the 'Browse MCP servers' button on the MCP tab. Override to point at a curated team registry."
+        },
         "claudeManager.sessions.resumeIn": {
           "type": "string",
           "default": "auto",

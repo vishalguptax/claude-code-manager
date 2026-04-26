@@ -6,6 +6,8 @@
 import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
 import { sendGetMcpServers } from "../api";
+import { sendOpenUrl } from "../../../sessions/webview/api";
+import { getMarketplaceMcpUrl } from "../../../../webview/marketplace";
 import {
   getAllServers,
   getFilteredServers,
@@ -45,6 +47,7 @@ export function renderMcpList(container: HTMLElement): void {
         <input id="mcpSearch" type="text" placeholder="Search servers..." value="${esc(searchQuery)}" />
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="mcpSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
       </div>
+      <button class="search-side-btn" id="mcpBrowse" title="Browse MCP servers (opens externally)">${icon("globe", 14)}</button>
       <button class="search-side-btn" id="mcpRefresh" title="Refresh MCP servers">${icon("refresh-cw", 14)}</button>
     </div>`;
 
@@ -105,6 +108,9 @@ export function renderMcpList(container: HTMLElement): void {
 
   // Bind refresh
   container.querySelector("#mcpRefresh")?.addEventListener("click", () => sendGetMcpServers());
+  container.querySelector("#mcpBrowse")?.addEventListener("click", () =>
+    sendOpenUrl(getMarketplaceMcpUrl()),
+  );
 
   // Render inner list
   updateMcpListInner(container);
@@ -133,7 +139,11 @@ function updateMcpListInner(container: HTMLElement): void {
           <code>~/.claude/mcp.json</code> (global)<br><br>
           Each server has a <code>command</code> (stdio) or <code>url</code> (http) transport.
         </div>
+        <button class="empty-link-btn" id="mcpBrowseEmpty">Browse MCP servers →</button>
       </div>`;
+    inner.querySelector("#mcpBrowseEmpty")?.addEventListener("click", () =>
+      sendOpenUrl(getMarketplaceMcpUrl()),
+    );
     return;
   }
 

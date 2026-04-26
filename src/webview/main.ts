@@ -12,6 +12,7 @@ import { icon } from "./icons";
 import { sendOpenUrl, sendReloadAll } from "../features/sessions/webview/api";
 import { initApi, sendReady } from "../features/sessions/webview/api";
 import { clearQuotaCache } from "../features/account/webview/state";
+import { setMarketplaceSkillsUrl, setMarketplaceMcpUrl } from "./marketplace";
 import { initPersistence } from "./persistence";
 import { installUiResetHandlers } from "./uiReset";
 import { bindDemoTrigger } from "./demo";
@@ -320,6 +321,12 @@ window.addEventListener("message", (event: MessageEvent) => {
     if (!hasPersistedFilterProject()) setFilterProject(msg.defaultProject as string);
     setRestoreWindowMinutes(msg.restoreWindowMinutes as number);
     setClaudeCodeExtensionInstalled(Boolean(msg.claudeCodeExtensionInstalled));
+    if (typeof msg.marketplaceSkillsUrl === "string") {
+      setMarketplaceSkillsUrl(msg.marketplaceSkillsUrl);
+    }
+    if (typeof msg.marketplaceMcpUrl === "string") {
+      setMarketplaceMcpUrl(msg.marketplaceMcpUrl);
+    }
   } else if (msg.type === "sessions") {
     const groups = msg.data as SessionGroup[];
     const flat: Session[] = [];
