@@ -90,17 +90,24 @@
   color: var(--bg-active-fg);
   padding: var(--space-md) var(--space-2xl);
   margin: 0;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   font-size: var(--fs-base);
   border-bottom: 1px solid var(--border);
+  overflow-x: auto;
 }
+.list-count.list-count-bulk::-webkit-scrollbar { display: none; }
 .list-count-bulk .list-count-label {
   font-weight: 600;
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  margin-right: var(--space-xs);
 }
 .list-count-bulk .bulk-btn {
   padding: 4px 10px;
   font-size: var(--fs-sm);
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .bulk-btn {
@@ -118,7 +125,13 @@
 }
 .bulk-btn:hover { background: color-mix(in srgb, var(--bg-active-fg) 12%, transparent); }
 .bulk-btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
-.bulk-btn[disabled] { opacity: 0.5; cursor: default; }
+.bulk-btn[disabled] {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+  color: var(--bg-active-fg);
+  border-color: color-mix(in srgb, var(--bg-active-fg) 25%, transparent);
+}
 .bulk-btn[disabled]:hover { background: transparent; }
 /* Delete button uses a solid red fill so it stays legible on the
    bg-active toolbar surface — a tinted-border-only style washed out
@@ -132,10 +145,8 @@
   background: color-mix(in srgb, var(--red, #d04444) 80%, white);
   border-color: color-mix(in srgb, var(--red, #d04444) 80%, white);
 }
-.bulk-btn.del[disabled] {
-  background: color-mix(in srgb, var(--red, #d04444) 50%, transparent);
-  border-color: transparent;
-}
+/* Disabled del inherits the generic disabled style above (transparent
+   bg + dim text) so it stops fighting the toolbar background. */
 .item:last-child             { border-bottom: none; }
 .item:hover                  { background: var(--bg-hover); }
 .session-item:hover .item-time { visibility: hidden; }
