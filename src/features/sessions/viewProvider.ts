@@ -262,6 +262,89 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
    * handshake and again whenever VS Code settings change so the panel reacts
    * without needing a reload.
    */
+  /**
+   * Re-parse every feature's data and push a fresh snapshot to the
+   * webview without recreating it. Cancels any pending file-watcher
+   * debounces so callers see only the post-reload state. Idempotent —
+   * safe to fire from the toolbar button, the command palette, and
+   * back-to-back invocations.
+   *
+   * Tab state and scroll position are preserved because the webview
+   * instance is unchanged: only the data messages are republished.
+   */
+  reloadAll(): void {
+    const wv = this.view?.webview;
+    if (!wv) return;
+    if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
+    this.accountReparseTimer = undefined;
+    if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
+    this.sessionsReparseTimer = undefined;
+
+    const workspace = getWorkspace();
+    const ws = workspace || undefined;
+
+    try {
+      this.sessions = parseSessions(loadState().renames);
+      wv.postMessage({
+        type: "sessions",
+        data: groupSessions(this.sessions),
+        stats: getStats(this.sessions),
+      });
+      wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
+      wv.postMessage({ type: "userState", ...loadState() });
+      const warning = getLastParseWarning();
+      if (warning) wv.postMessage({ type: "error", message: warning });
+      this.buildSearchIndex();
+    } catch (err) {
+      console.warn("[claude-manager] reload sessions failed:", err);
+    }
+
+    try {
+      wv.postMessage({ type: "accountData", data: parseAccountData(ws) });
+    } catch (err) {
+      console.warn("[claude-manager] reload account failed:", err);
+    }
+
+    try {
+      this.skills = parseSkills(ws);
+      wv.postMessage({ type: "skills", data: this.skills });
+    } catch (err) {
+      console.warn("[claude-manager] reload skills failed:", err);
+    }
+
+    try {
+      this.commands = parseCommands(ws);
+      wv.postMessage({ type: "commands", data: this.commands });
+    } catch (err) {
+      console.warn("[claude-manager] reload commands failed:", err);
+    }
+
+    try {
+      this.hooks = parseHooks(ws);
+      wv.postMessage({ type: "hooks", data: this.hooks });
+    } catch (err) {
+      console.warn("[claude-manager] reload hooks failed:", err);
+    }
+
+    try {
+      this.mcpServers = parseMcpServers(ws);
+      wv.postMessage({ type: "mcpServers", data: this.mcpServers });
+    } catch (err) {
+      console.warn("[claude-manager] reload mcp failed:", err);
+    }
+
+    try {
+      this.agents = parseAgents(ws);
+      wv.postMessage({ type: "agents", data: this.agents });
+    } catch (err) {
+      console.warn("[claude-manager] reload agents failed:", err);
+    }
+
+    this.refreshSettings();
+    this.postWorkspacePath();
+    wv.postMessage({ type: "reloadComplete" });
+  }
+
   refreshSettings(): void {
     const wv = this.view?.webview;
     if (!wv) return;
@@ -612,6 +695,10 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         this.sessions = parseSessions(loadState().renames);
         wv.postMessage({ type: "sessions", data: groupSessions(this.sessions), stats: getStats(this.sessions) });
         this.buildSearchIndex();
+        break;
+
+      case "reloadAll":
+        this.reloadAll();
         break;
 
       case "searchFullText": {

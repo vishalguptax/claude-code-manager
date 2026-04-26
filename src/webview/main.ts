@@ -9,10 +9,12 @@
  */
 
 import { icon } from "./icons";
-import { sendOpenUrl } from "../features/sessions/webview/api";
+import { sendOpenUrl, sendReloadAll } from "../features/sessions/webview/api";
 import { initApi, sendReady } from "../features/sessions/webview/api";
+import { clearQuotaCache } from "../features/account/webview/state";
 import { initPersistence } from "./persistence";
 import { installUiResetHandlers } from "./uiReset";
+import { bindDemoTrigger } from "./demo";
 import { setClaudeCodeExtensionInstalled } from "./extensionStatus";
 import {
   setWorkspacePath,
@@ -132,6 +134,7 @@ function mountTabShell(): void {
   root.innerHTML = `
     <div class="tab-bar-wrap">
       <div id="tabBar" class="tab-bar" role="tablist">${tabButtons}</div>
+      <button id="reloadAllBtn" class="tab-settings-btn" title="Reload — re-parse all tabs" aria-label="Reload all tabs">${icon("refresh-cw", 16)}</button>
     </div>
     <div id="tabContentArea" class="tab-content-area">${contentDivs}</div>
     <div class="app-footer">
@@ -180,6 +183,19 @@ function mountTabShell(): void {
       if (url) sendOpenUrl(url);
     });
   });
+
+  // Bind the toolbar reload button. Clearing the quota cache eagerly
+  // (before the host replies) means the Account tab won't briefly
+  // re-render the previous-account number after the swap; the spin
+  // class is removed when the host's `reloadComplete` arrives.
+  const reloadBtn = document.getElementById("reloadAllBtn");
+  if (reloadBtn) {
+    reloadBtn.addEventListener("click", () => {
+      reloadBtn.classList.add("spinning");
+      clearQuotaCache();
+      sendReloadAll();
+    });
+  }
 
   // (Extension-settings gear removed — its action now lives inside
   // the Config tab where all config is consolidated.)
@@ -257,6 +273,12 @@ function switchTab(tab: Tab): void {
 
 // Mount the tab shell first, then redirect #root for session feature compatibility
 mountTabShell();
+
+// Wire the cinematic intro (auto-plays once per first-run, replay via
+// triple-clicking the footer brand text). Runs at product level, not
+// per-tab, so it covers the whole sidebar regardless of where the
+// user lands first.
+bindDemoTrigger();
 
 // Patch getElementById so that the sessions feature's lookups for "root"
 // are redirected to #sessionsContent. This avoids modifying session code.
@@ -348,6 +370,13 @@ window.addEventListener("message", (event: MessageEvent) => {
     if (getView() === "list") updateList();
   } else if (msg.type === "error") {
     console.error("[claude-manager]", msg.message);
+  } else if (msg.type === "reloadComplete") {
+    // Drop the spin animation now that fresh data is back. Quota
+    // cache was already cleared on click — no second clear here so
+    // an in-flight `quotaData` reply (if the user mashed Refresh
+    // moments earlier) still wins on its own merits.
+    const btn = document.getElementById("reloadAllBtn");
+    if (btn) btn.classList.remove("spinning");
   }
 
   } catch (err: unknown) {

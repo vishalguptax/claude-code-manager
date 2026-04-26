@@ -248,7 +248,14 @@ export type ExtensionMessage =
    * webview can ignore stale replies for a query the user has since changed.
    * `ids` are session IDs whose transcript content matched.
    */
-  | { type: "fullTextResults"; query: string; ids: string[] };
+  | { type: "fullTextResults"; query: string; ids: string[] }
+  /**
+   * Sent after a `reloadAll` round-trip finishes (or after the
+   * `claudeManager.reload` command runs). The webview clears its
+   * browser-side caches (quota cache, full-text result echoes) and
+   * may flash a transient "Reloaded" acknowledgement.
+   */
+  | { type: "reloadComplete" };
 
 /** Messages sent from the webview to the extension host. */
 export type WebviewMessage =
@@ -382,4 +389,11 @@ export type WebviewMessage =
    * Open a project folder and then fire the chat URI handler in the new
    * window. Intended for the "Open Project + New Chat" action.
    */
-  | { type: "openProjectAndChat"; projectPath: string };
+  | { type: "openProjectAndChat"; projectPath: string }
+  /**
+   * Force a full re-parse + re-post of every tab's data without
+   * recreating the webview. Triggered by the toolbar refresh icon and
+   * by the `claudeManager.reload` command palette entry — both routes
+   * end up in `ClaudeSessionViewProvider.reloadAll()`.
+   */
+  | { type: "reloadAll" };

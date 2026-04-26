@@ -104,6 +104,10 @@
       {
         "command": "claudeManager.importBrain",
         "title": "Claude Manager: Import Brain…"
+      },
+      {
+        "command": "claudeManager.reload",
+        "title": "Claude Manager: Reload"
       }
     ],
     "keybindings": [
@@ -111,6 +115,12 @@
         "command": "claudeManager.open",
         "key": "ctrl+alt+c",
         "mac": "cmd+alt+c"
+      },
+      {
+        "command": "claudeManager.reload",
+        "key": "ctrl+alt+r",
+        "mac": "cmd+alt+r",
+        "when": "focusedView == claudeCodeManager.view"
       }
     ],
     "configuration": {

@@ -130,3 +130,12 @@ export function sendLaunchChatWithPrompt(prompt: string): void {
 export function sendOpenProjectAndChat(projectPath: string): void {
   _vscode.postMessage({ type: "openProjectAndChat", projectPath });
 }
+
+/**
+ * Force a full re-parse + re-post of every tab's data on the host.
+ * Backs the toolbar refresh button. Host replies asynchronously with a
+ * `reloadComplete` message once data is back on the wire.
+ */
+export function sendReloadAll(): void {
+  _vscode.postMessage({ type: "reloadAll" });
+}

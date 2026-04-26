@@ -62,18 +62,17 @@ const DEFAULT_MODE_OPTIONS: Array<{ value: PermissionDefaultMode; label: string;
 
 /**
  * Known `effortLevel` values from Claude CLI's `/effort` slash command.
- * Surface these in the dropdown but fall back to showing whatever string
- * the CLI wrote if it's something new — so when Anthropic ships a new
- * tier we don't block the user behind an extension update.
+ * Short labels for the segmented control row — descriptions show below
+ * the pill row so the active tier still gets a sentence of context.
  */
 const EFFORT_OPTIONS: Array<{ value: string; label: string; desc: string }> = [
-  { value: "", label: "Use CLI default", desc: "Let Claude CLI pick the effort tier" },
-  { value: "low", label: "Low", desc: "Fastest — minimal reasoning budget" },
-  { value: "medium", label: "Medium", desc: "Balanced — default for most tasks" },
-  { value: "high", label: "High", desc: "More thinking for harder problems" },
-  { value: "xhigh", label: "Extra high", desc: "Deep reasoning — slower, more tokens" },
-  { value: "max", label: "Max", desc: "Largest budget — slowest, most thorough" },
-  { value: "auto", label: "Auto", desc: "CLI picks effort tier based on task" },
+  { value: "",       label: "Default", desc: "Let Claude CLI pick the tier" },
+  { value: "low",    label: "Low",     desc: "Fastest — minimal reasoning budget" },
+  { value: "medium", label: "Med",     desc: "Balanced — default for most tasks" },
+  { value: "high",   label: "High",    desc: "More thinking for harder problems" },
+  { value: "xhigh",  label: "XHigh",   desc: "Deep reasoning — slower, more tokens" },
+  { value: "max",    label: "Max",     desc: "Largest budget — slowest, most thorough" },
+  { value: "auto",   label: "Auto",    desc: "CLI picks tier based on task" },
 ];
 
 function buildEffortOptions(currentValue: string): Array<{ value: string; label: string; desc: string }> {
@@ -177,17 +176,12 @@ function renderSettings(data: AccountData): string {
 
         <div class="acct-field">
           <label class="acct-label">Reasoning effort</label>
-          <div class="cfg-radio-group" role="radiogroup" aria-label="Reasoning effort">
+          <div class="vs-segmented cfg-effort-row" role="tablist" aria-label="Reasoning effort">
             ${buildEffortOptions(s.effortLevel).map((o) => `
-              <label class="cfg-radio">
-                <input type="radio" name="cfg-effort" value="${esc(o.value)}" ${o.value === s.effortLevel ? "checked" : ""}>
-                <span class="cfg-radio-body">
-                  <span class="cfg-radio-label">${esc(o.label)}</span>
-                  <span class="cfg-radio-desc">${esc(o.desc)}</span>
-                </span>
-              </label>`).join("")}
+              <button class="vs-segmented-btn ${o.value === s.effortLevel ? "active" : ""}"
+                data-effort="${esc(o.value)}" role="tab" title="${esc(o.desc)}">${esc(o.label)}</button>`).join("")}
           </div>
-          <div class="acct-field-hint">Equivalent to the CLI's <code>/effort</code> slash command. New tiers from Claude CLI appear here automatically.</div>
+          <div class="acct-field-hint" id="cfg-effort-desc">${esc(EFFORT_OPTIONS.find((o) => o.value === s.effortLevel)?.desc ?? EFFORT_OPTIONS[0].desc)}</div>
         </div>
 
         <div class="acct-field">
@@ -396,16 +390,20 @@ export function bindConfig(
     if (desc && opt) desc.textContent = opt.desc;
   });
 
-  // Effort radio group — one change listener per input so click-to-
-  // select and keyboard navigation both fire the write.
-  container.querySelectorAll<HTMLInputElement>('input[name="cfg-effort"]').forEach((input) => {
-    input.addEventListener("change", () => {
-      if (input.checked) {
-        // Empty string removes the key — writeSettingsValue treats ""
-        // as "delete this key", so picking "Use CLI default" cleans
-        // up settings.json instead of leaving effortLevel: "".
-        sendSetSetting("effortLevel", input.value);
-      }
+  // Effort segmented row — clicking a pill writes the new tier and
+  // optimistically toggles the active class so the UI doesn't have
+  // to wait for the round-trip from extension host. Empty value
+  // removes the key (writeSettingsValue treats "" as delete).
+  container.querySelectorAll<HTMLElement>(".cfg-effort-row [data-effort]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const value = btn.dataset.effort ?? "";
+      sendSetSetting("effortLevel", value);
+      container
+        .querySelectorAll<HTMLElement>(".cfg-effort-row [data-effort]")
+        .forEach((b) => b.classList.toggle("active", b === btn));
+      const desc = container.querySelector<HTMLElement>("#cfg-effort-desc");
+      const opt = EFFORT_OPTIONS.find((o) => o.value === value);
+      if (desc && opt) desc.textContent = opt.desc;
     });
   });
 

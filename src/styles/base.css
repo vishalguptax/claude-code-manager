@@ -138,3 +138,31 @@
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/*
+ * Make every interactive surface non-selectable so a stray double or
+ * triple click on a button / row / header doesn't highlight the label
+ * and hijack the click handler. Keep things users actually want to
+ * copy (input values, code blocks, message content, key/value rows,
+ * permission tool names, stat numerals) selectable by keeping them
+ * out of this list.
+ */
+button,
+[role="button"],
+.tab-btn, .tab-btn *,
+.vs-segmented-btn,
+.acct-section-header, .acct-section-header *,
+.acct-toggle, .acct-toggle *,
+.acct-actions .btn, .acct-actions .btn *,
+.acct-perm-remove,
+.acct-quota-row-head, .acct-quota-row-head *,
+.acct-empty-title,
+.acct-empty-hint,
+.cfg-radio, .cfg-radio *,
+.footer-link,
+.footer-name,
+.app-footer,
+.acct-scope-toggle, .acct-scope-toggle * {
+  user-select: none;
+  -webkit-user-select: none;
+}

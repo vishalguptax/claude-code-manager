@@ -51,6 +51,18 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  // Force a full re-parse of every tab without recreating the webview.
+  // Surfaces in the command palette and through the toolbar button;
+  // both routes funnel into the provider's `reloadAll`. Focuses the
+  // sidebar first so a freshly-opened panel still receives the data
+  // push (no-op when the view is already visible).
+  context.subscriptions.push(
+    vscode.commands.registerCommand("claudeManager.reload", async () => {
+      await vscode.commands.executeCommand("claudeCodeManager.view.focus");
+      provider.reloadAll();
+    }),
+  );
+
   // Re-push settings to the open webview whenever the user changes a
   // claudeManager.* setting. Without this they have to close and reopen the
   // panel for new defaults to take effect.

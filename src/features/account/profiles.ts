@@ -403,19 +403,30 @@ export function saveProfile(label: string): ProfileResult<SavedProfile> {
   const { claudeJsonRaw, credsRaw } = pair;
 
   // Dedupe key: prefer JWT identity (authoritative for the current
-  // token). Fall back to .claude.json identity only when the token
-  // isn't decodable — in that case .claude.json's staleness risks a
-  // false-positive dedupe, but minting a duplicate is preferable to
-  // silently refusing a legitimate save on fresh login.
+  // token), fall back to .claude.json identity when the token isn't
+  // decodable. ALWAYS run dedupe — silently minting a duplicate when
+  // a slot for this account already exists is the bug we keep
+  // hitting (Anthropic's tokens aren't always JWTs we can parse, so
+  // skipping dedupe in that branch let duplicates pile up).
   const tokenIdentity = extractIdentityFromToken(credsRaw);
   const jsonIdentity = extractIdentity(claudeJsonRaw);
   const identity = tokenIdentity ?? jsonIdentity;
 
-  if (tokenIdentity && (tokenIdentity.userID || tokenIdentity.email)) {
+  if (identity.userID || identity.email) {
     const existing = listProfiles().find((p) => {
-      if (tokenIdentity.userID && p.userID) return p.userID === tokenIdentity.userID;
-      if (tokenIdentity.email && p.email) {
-        return p.email.toLowerCase() === tokenIdentity.email.toLowerCase();
+      if (identity.userID && p.userID && identity.userID === p.userID) {
+        // userID match is strongest, but cross-check email when both
+        // sides have one — pre-fix snapshots could store a stale
+        // userID alongside the right email; matching on userID alone
+        // could collide unrelated accounts that share corrupted
+        // metadata.
+        if (identity.email && p.email) {
+          return p.email.toLowerCase() === identity.email.toLowerCase();
+        }
+        return true;
+      }
+      if (identity.email && p.email) {
+        return p.email.toLowerCase() === identity.email.toLowerCase();
       }
       return false;
     });

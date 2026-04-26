@@ -263,6 +263,120 @@ describe("ClaudeSessionViewProvider", () => {
     expect(empty!.ids).toEqual([]);
   });
 
+  it("reloadAll re-posts data for every feature plus a reloadComplete marker", async () => {
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    vi.doMock("../../../extension/html", () => ({
+      getWebviewHtml: () => "<html></html>",
+    }));
+    vi.doMock("../../skills/parser", () => ({ parseSkills: () => [{ id: "sk1" }] }));
+    vi.doMock("../../commands/parser", () => ({ parseCommands: () => [{ name: "cmd1" }] }));
+    vi.doMock("../../hooks/parser", () => ({ parseHooks: () => [{ name: "hook1" }] }));
+    vi.doMock("../../mcp/parser", () => ({
+      parseMcpServers: () => [{ name: "srv1" }],
+      toggleMcpServer: () => true,
+      deleteMcpServer: () => true,
+    }));
+    vi.doMock("../../agents/parser", () => ({ parseAgents: () => [{ name: "agent1" }] }));
+    vi.doMock("../../account/parser", () => ({
+      parseAccountData: () => ({ profile: { userID: "u-1" } }),
+      writeSettingsValue: () => true,
+      addPermissionEntry: () => true,
+      removePermissionEntry: () => true,
+      resolveSettingsPath: () => "",
+      restoreClaudeJsonFromBackup: () => true,
+    }));
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    view.webview.posted.length = 0;
+
+    provider.reloadAll();
+
+    const types = view.webview.posted.map((m) => m.type);
+    expect(types).toContain("sessions");
+    expect(types).toContain("accountData");
+    expect(types).toContain("skills");
+    expect(types).toContain("commands");
+    expect(types).toContain("hooks");
+    expect(types).toContain("mcpServers");
+    expect(types).toContain("agents");
+    // reloadComplete must be the final wire event so the webview can
+    // safely drop the spinner once it arrives.
+    expect(types[types.length - 1]).toBe("reloadComplete");
+  });
+
+  it("reloadAll routes through the reloadAll webview message", async () => {
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    vi.doMock("../../../extension/html", () => ({
+      getWebviewHtml: () => "<html></html>",
+    }));
+    vi.doMock("../../skills/parser", () => ({ parseSkills: () => [] }));
+    vi.doMock("../../commands/parser", () => ({ parseCommands: () => [] }));
+    vi.doMock("../../hooks/parser", () => ({ parseHooks: () => [] }));
+    vi.doMock("../../mcp/parser", () => ({
+      parseMcpServers: () => [],
+      toggleMcpServer: () => true,
+      deleteMcpServer: () => true,
+    }));
+    vi.doMock("../../agents/parser", () => ({ parseAgents: () => [] }));
+    vi.doMock("../../account/parser", () => ({
+      parseAccountData: () => ({ profile: { userID: "" } }),
+      writeSettingsValue: () => true,
+      addPermissionEntry: () => true,
+      removePermissionEntry: () => true,
+      resolveSettingsPath: () => "",
+      restoreClaudeJsonFromBackup: () => true,
+    }));
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    view.webview.posted.length = 0;
+
+    const handler = view.webview._msgHandler;
+    expect(handler).toBeDefined();
+    await handler!({ type: "reloadAll" });
+
+    expect(view.webview.posted.some((m) => m.type === "reloadComplete")).toBe(true);
+  });
+
   it("postWorkspacePath silently ignores posts after the view is disposed", async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],

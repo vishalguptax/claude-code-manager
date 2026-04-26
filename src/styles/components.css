@@ -375,6 +375,16 @@
   outline: var(--focus-ring);
   outline-offset: -1px;
 }
+.tab-settings-btn.spinning svg {
+  animation: tab-settings-spin 700ms linear infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes tab-settings-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-settings-btn.spinning svg { animation: none; }
+}
 
 .tab-btn {
   flex: 0 0 auto;
