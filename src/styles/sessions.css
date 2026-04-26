@@ -55,13 +55,18 @@
 }
 
 /* Count row hosts both the resting label ("N sessions" + Select
-   toggle) and, in bulk mode, an inline action toolbar. Same vertical
-   slot in both states so the list never jumps when the user toggles. */
+   toggle) and, in bulk mode, an inline action toolbar. Sticky to
+   the top of the scrolling list so bulk actions stay reachable
+   while the user scans deeper rows. */
 .list-count {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-2xl) 2px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg, var(--vscode-sideBar-background));
 }
 .list-count-label { flex: 1; min-width: 0; }
 .list-count-toggle {
@@ -83,12 +88,20 @@
 .list-count.list-count-bulk {
   background: var(--bg-active);
   color: var(--bg-active-fg);
-  border-radius: var(--radius-sm);
-  padding: var(--space-xs) var(--space-md);
-  margin: 2px var(--space-2xl);
+  padding: var(--space-md) var(--space-2xl);
+  margin: 0;
   flex-wrap: wrap;
+  font-size: var(--fs-base);
+  border-bottom: 1px solid var(--border);
 }
-.list-count-bulk .list-count-label { font-weight: 600; }
+.list-count-bulk .list-count-label {
+  font-weight: 600;
+  font-size: var(--fs-md);
+}
+.list-count-bulk .bulk-btn {
+  padding: 4px 10px;
+  font-size: var(--fs-sm);
+}
 
 .bulk-btn {
   display: inline-flex;
@@ -107,8 +120,22 @@
 .bulk-btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .bulk-btn[disabled] { opacity: 0.5; cursor: default; }
 .bulk-btn[disabled]:hover { background: transparent; }
-.bulk-btn.del { color: var(--red, #ff6b6b); border-color: color-mix(in srgb, var(--red, #ff6b6b) 50%, transparent); }
-.bulk-btn.del:hover { background: color-mix(in srgb, var(--red, #ff6b6b) 18%, transparent); }
+/* Delete button uses a solid red fill so it stays legible on the
+   bg-active toolbar surface — a tinted-border-only style washed out
+   on dark themes where bg-active and the muted red blended. */
+.bulk-btn.del {
+  background: var(--red, #d04444);
+  color: #fff;
+  border-color: var(--red, #d04444);
+}
+.bulk-btn.del:hover {
+  background: color-mix(in srgb, var(--red, #d04444) 80%, white);
+  border-color: color-mix(in srgb, var(--red, #d04444) 80%, white);
+}
+.bulk-btn.del[disabled] {
+  background: color-mix(in srgb, var(--red, #d04444) 50%, transparent);
+  border-color: transparent;
+}
 .item:last-child             { border-bottom: none; }
 .item:hover                  { background: var(--bg-hover); }
 .session-item:hover .item-time { visibility: hidden; }
