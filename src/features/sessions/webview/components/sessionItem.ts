@@ -38,7 +38,6 @@ export function renderSessionItem(
 
   return `
     <div class="item session-item ${isActive ? "active" : ""} ${isSelected ? "is-selected" : ""}" data-id="${s.id}">
-      <input type="checkbox" class="item-select" data-select="${s.id}" ${isSelected ? "checked" : ""} aria-label="Select session" title="Select for bulk action">
       <div class="item-row1">
         <span class="item-name" title="${esc(name)}">${esc(name)}</span>
         <span class="item-time" title="${esc(absDate)}">${esc(relTime)}</span>
@@ -76,10 +75,17 @@ export function bindSessionItems(
     onContextMenu: (e: MouseEvent, id: string, isPinned: boolean) => void;
     onResume: (id: string) => void;
     /**
+     * True when the list is in bulk-select mode. While active, row
+     * clicks fire `onSelectionToggle` instead of `onSelect`, and
+     * the resume button is suppressed by CSS so the row is purely a
+     * selection target.
+     */
+    isBulkMode: () => boolean;
+    /**
      * Bulk-select toggle. `range` is true for shift-click — caller
      * extends the selection from the current anchor to this id.
      */
-    onSelectionToggle?: (id: string, range: boolean) => void;
+    onSelectionToggle: (id: string, range: boolean) => void;
   },
 ): void {
   container.addEventListener("click", (e: Event) => {
@@ -88,17 +94,13 @@ export function bindSessionItems(
     // "Show more" button
     if (target.id === "showMore" || target.closest("#showMore")) return;
 
-    // Selection checkbox — never opens the detail view. Shift-click
-    // bubbles a `range` flag so the list view can fan out from the
-    // anchor through the visible rows.
-    const checkbox = target.closest("[data-select]") as HTMLElement | null;
-    if (checkbox) {
-      e.stopPropagation();
-      const id = (checkbox as HTMLElement).dataset.select;
-      if (id && callbacks.onSelectionToggle) {
-        const ev = e as MouseEvent;
-        callbacks.onSelectionToggle(id, ev.shiftKey === true);
-      }
+    // In bulk mode the row IS the selection target — no resume,
+    // no detail. Shift-click extends the range from the anchor.
+    if (callbacks.isBulkMode()) {
+      const item = target.closest(".session-item") as HTMLElement | null;
+      if (!item?.dataset.id) return;
+      const ev = e as MouseEvent;
+      callbacks.onSelectionToggle(item.dataset.id, ev.shiftKey === true);
       return;
     }
 

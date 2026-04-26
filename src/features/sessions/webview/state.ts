@@ -28,16 +28,22 @@ const PERSIST_KEY_FILTER_BRANCH = "sessions.filterBranch";
 
 /**
  * Currently bulk-selected session IDs. Empty by default; populated
- * when the user ticks a row checkbox or fires the Ctrl+A shortcut.
- * Exposed via getter + small mutators so the list view, toolbar, and
- * keyboard handlers all share one source of truth.
+ * once the user enters bulk mode and clicks rows. Exposed via
+ * getter + small mutators so the list view, toolbar, and keyboard
+ * handlers all share one source of truth.
  */
 let selectedSet: Set<string> = new Set();
 /**
  * Anchor for shift-click range selection. The id of the row most
- * recently checked. `null` until the user makes a first selection.
+ * recently toggled. `null` until the user makes a first selection.
  */
 let selectAnchor: string | null = null;
+/**
+ * When true, row clicks toggle selection instead of opening the
+ * detail view. Engaged via the "Select" toggle next to the list
+ * count and disengaged on Cancel / showList navigations.
+ */
+let bulkModeActive = false;
 
 let allSessions: Session[] = [];
 let stats: Stats = { totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 };
@@ -234,9 +240,18 @@ export function hasPersistedFilterDate(): boolean {
 export function getSelectedSet(): Set<string> { return selectedSet; }
 export function isSelected(id: string): boolean { return selectedSet.has(id); }
 export function selectionCount(): number { return selectedSet.size; }
+export function isBulkMode(): boolean { return bulkModeActive; }
+export function setBulkMode(v: boolean): void {
+  bulkModeActive = v;
+  if (!v) {
+    selectedSet = new Set();
+    selectAnchor = null;
+  }
+}
 export function clearSelection(): void {
   selectedSet = new Set();
   selectAnchor = null;
+  bulkModeActive = false;
 }
 export function toggleSelected(id: string): void {
   if (selectedSet.has(id)) selectedSet.delete(id);

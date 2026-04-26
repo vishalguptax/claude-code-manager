@@ -39,6 +39,8 @@ import {
   selectAll,
   setSelectedRange,
   getSelectAnchor,
+  isBulkMode,
+  setBulkMode,
 } from "../state";
 import type { Session } from "../../types";
 import { showDetail } from "./detailView";
@@ -76,7 +78,6 @@ export function mountShell(): void {
         ${renderBranchDropdown()}
       </div>
       ${renderDateChips()}
-      <div id="bulkBar" class="bulk-bar hidden" role="toolbar" aria-label="Bulk actions"></div>
       <div id="sessionList" class="list"></div>
     </div>
     <div class="panel hidden" id="detailView"></div>`;
@@ -114,6 +115,7 @@ export function mountShell(): void {
         const s = getAllSessions().find((x) => x.id === id);
         if (s) sendResumeSession(id, s.entrypoint, s.projectPath);
       },
+      isBulkMode,
       onSelectionToggle: (id: string, range: boolean) => {
         // Range selection extends from the current anchor through the
         // visible filtered list to the clicked id. We compute on the
@@ -128,14 +130,12 @@ export function mountShell(): void {
             if (a >= 0 && b >= 0) {
               const [lo, hi] = a < b ? [a, b] : [b, a];
               setSelectedRange(visible.slice(lo, hi + 1));
-              renderBulkBar();
               updateList();
               return;
             }
           }
         }
         toggleSelected(id);
-        renderBulkBar();
         updateList();
       },
     });
@@ -150,12 +150,13 @@ export function mountShell(): void {
     });
   }
 
-  // Ctrl/Cmd+A while the list view is the active panel selects every
-  // currently visible row. Scoping with `#listView` (and a non-input
-  // target) keeps the shortcut from hijacking text selection inside
-  // the search input or the detail view.
+  // Ctrl/Cmd+A while the list view is the active panel and bulk
+  // mode is engaged selects every currently visible row. Scoped to
+  // bulk mode so users typing in the search input still get the
+  // native select-all behaviour they expect.
   document.addEventListener("keydown", (e: KeyboardEvent) => {
     if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "a") return;
+    if (!isBulkMode()) return;
     const tag = (e.target as HTMLElement | null)?.tagName ?? "";
     if (tag === "INPUT" || tag === "TEXTAREA") return;
     const listView = document.getElementById("listView");
@@ -163,7 +164,6 @@ export function mountShell(): void {
     e.preventDefault();
     const visible = getFiltered().slice(0, getVisibleCount()).map((s) => s.id);
     selectAll(visible);
-    renderBulkBar();
     updateList();
   });
 
@@ -195,55 +195,70 @@ export function updateFilter(): void {
 }
 
 /**
- * Re-render the floating bulk-action toolbar. Hidden when no rows
- * are checked; otherwise shows the count + Pin / Unpin / Export /
- * Delete / Clear buttons. Pin vs. Unpin is a single toggle that
- * looks at the current selection — if every selected row is
- * already pinned, it offers Unpin; otherwise Pin (mass-pin is the
- * common case).
+ * Build the markup for the count row. In normal mode it's just the
+ * "N sessions" label plus a "Select" toggle that flips the list
+ * into bulk mode. In bulk mode the row turns into a compact
+ * toolbar: count of selected rows + Pin/Unpin / Export / Delete /
+ * Cancel. Inline render keeps the toolbar pinned to the same
+ * vertical slot the count occupied so the list does not jump.
  */
-export function renderBulkBar(): void {
-  const bar = document.getElementById("bulkBar");
-  if (!bar) return;
-  const count = selectionCount();
-  if (count === 0) {
-    bar.classList.add("hidden");
-    bar.innerHTML = "";
-    return;
+function renderCountRow(totalCount: number): string {
+  if (!isBulkMode()) {
+    return `
+      <div class="list-count">
+        <span class="list-count-label">${totalCount} session${totalCount !== 1 ? "s" : ""}</span>
+        <button class="list-count-toggle" id="bulkEnter" title="Enter bulk-select mode">${icon("check", 12)} Select</button>
+      </div>`;
   }
-  const pinned = getPinnedIds();
   const sel = getSelectedSet();
-  let allPinned = true;
+  const pinned = getPinnedIds();
+  let allPinned = sel.size > 0;
   for (const id of sel) {
-    if (!pinned.has(id)) {
-      allPinned = false;
-      break;
-    }
+    if (!pinned.has(id)) { allPinned = false; break; }
   }
   const pinLabel = allPinned ? "Unpin" : "Pin";
   const pinIcon = allPinned ? "pin-off" : "pin";
-  bar.classList.remove("hidden");
-  bar.innerHTML = `
-    <span class="bulk-count">${count} selected</span>
-    <button class="bulk-btn" id="bulkPin">${icon(pinIcon, 14)} ${pinLabel}</button>
-    <button class="bulk-btn" id="bulkExport">${icon("download", 14)} Export…</button>
-    <button class="bulk-btn del" id="bulkDelete">${icon("trash-2", 14)} Delete</button>
-    <button class="bulk-btn" id="bulkClear" title="Clear selection">${icon("x", 14)} Clear</button>`;
+  const count = sel.size;
+  const disabled = count === 0 ? "disabled" : "";
+  return `
+    <div class="list-count list-count-bulk">
+      <span class="list-count-label">${count} selected</span>
+      <button class="bulk-btn" id="bulkPin" ${disabled}>${icon(pinIcon, 12)} ${pinLabel}</button>
+      <button class="bulk-btn" id="bulkExport" ${disabled}>${icon("download", 12)} Export</button>
+      <button class="bulk-btn del" id="bulkDelete" ${disabled}>${icon("trash-2", 12)} Delete</button>
+      <button class="bulk-btn" id="bulkCancel" title="Exit bulk mode">${icon("x", 12)} Cancel</button>
+    </div>`;
+}
 
-  bar.querySelector("#bulkPin")?.addEventListener("click", () => {
+function bindCountRow(): void {
+  const enter = document.getElementById("bulkEnter");
+  if (enter) {
+    enter.addEventListener("click", () => {
+      setBulkMode(true);
+      updateList();
+    });
+    return;
+  }
+  const sel = getSelectedSet();
+  const pinned = getPinnedIds();
+  let allPinned = sel.size > 0;
+  for (const id of sel) {
+    if (!pinned.has(id)) { allPinned = false; break; }
+  }
+  document.getElementById("bulkPin")?.addEventListener("click", () => {
+    if (sel.size === 0) return;
     sendBulkPinSessions(Array.from(sel), !allPinned);
-    // Pin reply (`userState`) refreshes the bar via updateList /
-    // renderBulkBar — no optimistic mutation here.
   });
-  bar.querySelector("#bulkExport")?.addEventListener("click", () => {
+  document.getElementById("bulkExport")?.addEventListener("click", () => {
+    if (sel.size === 0) return;
     sendBulkExportSessions(Array.from(sel));
   });
-  bar.querySelector("#bulkDelete")?.addEventListener("click", () => {
+  document.getElementById("bulkDelete")?.addEventListener("click", () => {
+    if (sel.size === 0) return;
     sendBulkDeleteSessions(Array.from(sel));
   });
-  bar.querySelector("#bulkClear")?.addEventListener("click", () => {
-    clearSelection();
-    renderBulkBar();
+  document.getElementById("bulkCancel")?.addEventListener("click", () => {
+    setBulkMode(false);
     updateList();
   });
 }
@@ -304,7 +319,7 @@ export function updateList(): void {
     return;
   }
 
-  let h = `<div class="list-count">${totalCount} session${totalCount !== 1 ? "s" : ""}</div>`;
+  let h = renderCountRow(totalCount);
   for (const [label, sessions] of groups) {
     h += `<div class="group-label">${esc(label)}</div>`;
     for (const s of sessions) {
@@ -316,10 +331,7 @@ export function updateList(): void {
     h += `<div class="show-more-row"><button class="show-more-btn" id="showMore">Show more (${totalCount - visibleCount} remaining)</button></div>`;
   }
   container.innerHTML = h;
-  // Selection state and the list it decorates share a re-render
-  // boundary — keep them in sync so the bar's count never lags the
-  // visible checkboxes after an external state change.
-  renderBulkBar();
+  bindCountRow();
 }
 
 /**

@@ -43,58 +43,53 @@
   border-bottom: 1px solid var(--border);
   position: relative;
 }
-/* Reserve room on the left so the bulk-select checkbox slot never
-   overlaps the title. Applies only to session rows; skill / agent /
-   command lists keep the original 14px gutter. */
-.session-item {
-  padding-left: calc(var(--space-2xl) + 16px);
-}
-
-/* Bulk-select checkbox — pinned to the left edge, fades in only when
-   the row is hovered so resting rows stay visually clean. Once a
-   row is selected the checkbox is forced visible (.is-selected on
-   the row) so the user can see what's already in the bulk action. */
-.item-select {
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  margin: 0;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--transition-control);
-  z-index: 1;
-}
-.session-item:hover .item-select,
-.session-item.is-selected .item-select {
-  opacity: 1;
-}
+/* Selected row indicator — left border accent + subtle background.
+   Active (detail-open) takes precedence so the resume-target highlight
+   keeps reading as the dominant signal. */
 .session-item.is-selected {
   background: var(--bg-hover);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .session-item.is-selected.active {
   background: var(--bg-active);
 }
 
-/* Floating bulk-action toolbar that appears above the list as soon
-   as one row is checked. Pin / Unpin / Export / Delete / Clear
-   buttons sit on a single horizontal strip. */
-.bulk-bar {
+/* Count row hosts both the resting label ("N sessions" + Select
+   toggle) and, in bulk mode, an inline action toolbar. Same vertical
+   slot in both states so the list never jumps when the user toggles. */
+.list-count {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-2xl);
-  border-bottom: 1px solid var(--border);
+  padding: var(--space-xs) var(--space-2xl) 2px;
+}
+.list-count-label { flex: 1; min-width: 0; }
+.list-count-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  font-family: inherit;
+  cursor: pointer;
+}
+.list-count-toggle:hover { color: var(--fg); border-color: var(--accent); }
+.list-count-toggle:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+
+.list-count.list-count-bulk {
   background: var(--bg-active);
   color: var(--bg-active-fg);
-  font-size: var(--fs-base);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-md);
+  margin: 2px var(--space-2xl);
   flex-wrap: wrap;
 }
-.bulk-bar.hidden { display: none; }
-.bulk-count {
-  font-weight: 600;
-  margin-right: var(--space-sm);
-}
+.list-count-bulk .list-count-label { font-weight: 600; }
+
 .bulk-btn {
   display: inline-flex;
   align-items: center;
@@ -110,6 +105,8 @@
 }
 .bulk-btn:hover { background: color-mix(in srgb, var(--bg-active-fg) 12%, transparent); }
 .bulk-btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+.bulk-btn[disabled] { opacity: 0.5; cursor: default; }
+.bulk-btn[disabled]:hover { background: transparent; }
 .bulk-btn.del { color: var(--red, #ff6b6b); border-color: color-mix(in srgb, var(--red, #ff6b6b) 50%, transparent); }
 .bulk-btn.del:hover { background: color-mix(in srgb, var(--red, #ff6b6b) 18%, transparent); }
 .item:last-child             { border-bottom: none; }
