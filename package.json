@@ -108,6 +108,10 @@
       {
         "command": "claudeManager.reload",
         "title": "Claude Manager: Reload"
+      },
+      {
+        "command": "claudeManager.runDiagnostics",
+        "title": "Claude Manager: Run Diagnostics"
       }
     ],
     "keybindings": [

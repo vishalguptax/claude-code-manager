@@ -412,6 +412,7 @@ function renderBrain(): string {
         <div class="acct-actions">
           <button class="btn" id="cfg-brain-export">${icon("upload", 14)} Export Brain…</button>
           <button class="btn" id="cfg-brain-import">${icon("download", 14)} Import Brain…</button>
+          <button class="btn" id="cfg-run-diagnostics" title="Open a markdown report covering CLI presence, file health, hook paths, and version checks">${icon("info", 14)} Run diagnostics</button>
         </div>
       </div>
     </section>`;
@@ -519,6 +520,9 @@ export function bindConfig(
   });
   container.querySelector("#cfg-brain-import")?.addEventListener("click", () => {
     sendRunCommand("claudeManager.importBrain");
+  });
+  container.querySelector("#cfg-run-diagnostics")?.addEventListener("click", () => {
+    sendRunCommand("claudeManager.runDiagnostics");
   });
 
   // Slash commands

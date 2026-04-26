@@ -12,6 +12,7 @@ import { setExtensionUri } from "./terminal";
 import { getWorkspace } from "./workspace";
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, readManifest } from "../features/brain/importer";
+import { runDiagnosticsCommand } from "../features/diagnostics/commands";
 
 /**
  * Activate the Claude Manager extension.
@@ -61,6 +62,14 @@ export function activate(context: vscode.ExtensionContext): void {
       await vscode.commands.executeCommand("claudeCodeManager.view.focus");
       provider.reloadAll();
     }),
+  );
+
+  // Self-diagnostic — runs a battery of pre-flight checks and opens
+  // the result in a markdown editor tab so the user can read, copy,
+  // or paste it into a bug report. No webview surface needed; the
+  // editor is the obvious medium for a one-shot text report.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("claudeManager.runDiagnostics", () => runDiagnosticsCommand()),
   );
 
   // Re-push settings to the open webview whenever the user changes a

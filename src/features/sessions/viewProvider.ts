@@ -1449,6 +1449,8 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
           "claudeManager.importBrain",
           "claudeManager.switchAccount",
           "claudeManager.open",
+          "claudeManager.runDiagnostics",
+          "claudeManager.reload",
         ]);
         if (allowed.has(msg.command)) {
           await vscode.commands.executeCommand(msg.command);
