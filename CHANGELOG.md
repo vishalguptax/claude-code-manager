@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.0] - 2026-04-26
+
+Backlog batch — eight new capabilities land in one release: full hook CRUD, bulk session ops, cost estimates, settings rollback, self-diagnostic, reload command, marketplace links, and tighter usage stats.
+
+See [docs/releases/v1.7.0.md](docs/releases/v1.7.0.md) for full details.
+
 ## [1.6.0] - 2026-04-24
 
 New Config tab, Brain backup / restore, and a rewrite of the multi-account switcher so `/login` no longer replaces saved accounts.
