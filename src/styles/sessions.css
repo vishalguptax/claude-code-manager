@@ -54,19 +54,13 @@
   background: var(--bg-active);
 }
 
-/* Count row hosts both the resting label ("N sessions" + Select
-   toggle) and, in bulk mode, an inline action toolbar. Sticky to
-   the top of the scrolling list so bulk actions stay reachable
-   while the user scans deeper rows. */
+/* Resting count row — "N sessions" + Select toggle. Lives inside
+   the scrolling list and scrolls with content. */
 .list-count {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-xs) var(--space-2xl) 2px;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--bg, var(--vscode-sideBar-background));
 }
 .list-count-label { flex: 1; min-width: 0; }
 .list-count-toggle {
@@ -85,25 +79,30 @@
 .list-count-toggle:hover { color: var(--fg); border-color: var(--accent); }
 .list-count-toggle:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 
-.list-count.list-count-bulk {
+/* Bulk-action toolbar — sits above the scrolling list, fixed in
+   the panel layout so it does not move when the user scrolls. */
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-2xl);
   background: var(--bg-active);
   color: var(--bg-active-fg);
-  padding: var(--space-md) var(--space-2xl);
-  margin: 0;
-  flex-wrap: nowrap;
-  font-size: var(--fs-base);
   border-bottom: 1px solid var(--border);
+  flex-wrap: nowrap;
   overflow-x: auto;
+  flex-shrink: 0;
 }
-.list-count.list-count-bulk::-webkit-scrollbar { display: none; }
-.list-count-bulk .list-count-label {
+.bulk-bar.hidden { display: none; }
+.bulk-bar::-webkit-scrollbar { display: none; }
+.bulk-count {
   font-weight: 600;
   font-size: var(--fs-base);
   white-space: nowrap;
   flex: 0 0 auto;
   margin-right: var(--space-xs);
 }
-.list-count-bulk .bulk-btn {
+.bulk-bar .bulk-btn {
   padding: 4px 10px;
   font-size: var(--fs-sm);
   flex: 0 0 auto;
