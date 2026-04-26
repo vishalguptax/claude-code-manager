@@ -179,12 +179,16 @@ function renderSettings(data: AccountData): string {
         </div>
 
         <div class="acct-field">
-          <label class="acct-label">Reasoning effort</label>
-          <div class="vs-segmented cfg-effort-row" role="tablist" aria-label="Reasoning effort">
-            ${buildEffortOptions(s.effortLevel).map((o) => `
-              <button class="vs-segmented-btn ${o.value === s.effortLevel ? "active" : ""}"
-                data-effort="${esc(o.value)}" role="tab" title="${esc(o.desc)}">${esc(o.label)}</button>`).join("")}
-          </div>
+          <label class="acct-label" for="cfg-effort">Reasoning effort</label>
+          ${renderSelect(
+            "cfg-effort",
+            buildEffortOptions(s.effortLevel).map((o) => ({
+              value: o.value,
+              label: o.label,
+              desc: o.desc,
+            })),
+            s.effortLevel,
+          )}
           <div class="acct-field-hint" id="cfg-effort-desc">${esc(EFFORT_OPTIONS.find((o) => o.value === s.effortLevel)?.desc ?? EFFORT_OPTIONS[0].desc)}</div>
         </div>
 
@@ -461,21 +465,14 @@ export function bindConfig(
     if (desc && opt) desc.textContent = opt.desc;
   });
 
-  // Effort segmented row — clicking a pill writes the new tier and
-  // optimistically toggles the active class so the UI doesn't have
-  // to wait for the round-trip from extension host. Empty value
-  // removes the key (writeSettingsValue treats "" as delete).
-  container.querySelectorAll<HTMLElement>(".cfg-effort-row [data-effort]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const value = btn.dataset.effort ?? "";
-      sendSetSetting("effortLevel", value);
-      container
-        .querySelectorAll<HTMLElement>(".cfg-effort-row [data-effort]")
-        .forEach((b) => b.classList.toggle("active", b === btn));
-      const desc = container.querySelector<HTMLElement>("#cfg-effort-desc");
-      const opt = EFFORT_OPTIONS.find((o) => o.value === value);
-      if (desc && opt) desc.textContent = opt.desc;
-    });
+  // Effort dropdown — same pattern as Model and Tool-use
+  // confirmation. Empty value removes the key (writeSettingsValue
+  // treats "" as delete) so the CLI default returns.
+  bindSelect(container, "cfg-effort", (value) => {
+    sendSetSetting("effortLevel", value);
+    const desc = container.querySelector<HTMLElement>("#cfg-effort-desc");
+    const opt = EFFORT_OPTIONS.find((o) => o.value === value);
+    if (desc && opt) desc.textContent = opt.desc;
   });
 
   // Toggles
