@@ -36,44 +36,50 @@ function readHooksFromFile(filePath: string, scope: HookScope): Hook[] {
     return [];
   }
 
-  const hooksObj = settings.hooks;
-  if (!hooksObj || typeof hooksObj !== "object" || Array.isArray(hooksObj)) {
-    return [];
-  }
-
   const hooks: Hook[] = [];
-  const hooksMap = hooksObj as Record<string, unknown>;
+  // Active block first, then the parked `_disabled_hooks` block (if
+  // any). We tag each hook with its `disabled` origin so the UI can
+  // render and toggle it without re-reading the file.
+  collectFromBlock(settings.hooks, scope, false, hooks);
+  collectFromBlock(settings._disabled_hooks, scope, true, hooks);
+  return hooks;
+}
+
+function collectFromBlock(
+  block: unknown,
+  scope: HookScope,
+  disabled: boolean,
+  out: Hook[],
+): void {
+  if (!block || typeof block !== "object" || Array.isArray(block)) return;
+  const map = block as Record<string, unknown>;
 
   // Hooks can be in two formats:
   // Format A (flat):  { "PreToolUse": [{ matcher, command }] }
   // Format B (nested): { "Stop": [{ matcher, hooks: [{ type, command }] }] }
-  for (const [event, entries] of Object.entries(hooksMap)) {
+  for (const [event, entries] of Object.entries(map)) {
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
       if (!entry || typeof entry !== "object") continue;
       const rec = entry as Record<string, unknown>;
       const matcher = typeof rec.matcher === "string" ? rec.matcher : "";
 
-      // Format B: nested hooks array
       if (Array.isArray(rec.hooks)) {
         for (const sub of rec.hooks) {
           if (!sub || typeof sub !== "object") continue;
           const subRec = sub as Record<string, unknown>;
           const command = typeof subRec.command === "string" ? subRec.command : "";
           if (!command) continue;
-          hooks.push({ event, matcher, command, scope });
+          out.push({ event, matcher, command, scope, disabled });
         }
         continue;
       }
 
-      // Format A: flat command field
       const command = typeof rec.command === "string" ? rec.command : "";
       if (!command) continue;
-      hooks.push({ event, matcher, command, scope });
+      out.push({ event, matcher, command, scope, disabled });
     }
   }
-
-  return hooks;
 }
 
 /**

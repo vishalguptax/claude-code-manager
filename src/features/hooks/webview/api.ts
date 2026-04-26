@@ -24,3 +24,28 @@ export function sendGetHooks(): void {
 export function sendOpenHookSettingsFile(scope: "global" | "project" | "local"): void {
   _vscode.postMessage({ type: "openSettingsFile", scope });
 }
+
+import type { Hook } from "../types";
+
+/** Move the hook between active and parked blocks. */
+export function sendToggleHookEnabled(hook: Hook): void {
+  _vscode.postMessage({ type: "toggleHookEnabled", hook });
+}
+
+/** Permanently delete a hook. Host shows a confirm modal first. */
+export function sendDeleteHook(hook: Hook): void {
+  _vscode.postMessage({ type: "deleteHook", hook });
+}
+
+/** Apply a matcher / command edit to an existing hook. */
+export function sendUpdateHook(
+  original: Hook,
+  next: { matcher: string; command: string },
+): void {
+  _vscode.postMessage({ type: "updateHook", original, next });
+}
+
+/** Open the host's native scope → event → matcher → command wizard. */
+export function sendPromptAddHook(): void {
+  _vscode.postMessage({ type: "promptAddHook" });
+}

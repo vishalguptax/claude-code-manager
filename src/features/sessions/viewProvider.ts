@@ -50,6 +50,12 @@ import {
 import { parseSkills } from "../skills/parser";
 import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
+import {
+  toggleHookEnabled as writerToggleHookEnabled,
+  deleteHook as writerDeleteHook,
+  updateHook as writerUpdateHook,
+  addHook as writerAddHook,
+} from "../hooks/writer";
 import { parseMcpServers, toggleMcpServer, deleteMcpServer } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
 import {
@@ -76,7 +82,7 @@ import { createTerminal } from "../../extension/terminal";
 import type { WebviewMessage, Session } from "./types";
 import type { Skill } from "../skills/types";
 import type { Command } from "../commands/types";
-import type { Hook } from "../hooks/types";
+import type { Hook, HookScope } from "../hooks/types";
 import type { McpServer } from "../mcp/types";
 import type { Agent } from "../agents/types";
 import * as path from "path";
@@ -1010,6 +1016,119 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "getHooks": {
         this.hooks = parseHooks(getWorkspace());
+        wv.postMessage({ type: "hooks", data: this.hooks });
+        break;
+      }
+
+      case "toggleHookEnabled": {
+        const workspace = getWorkspace();
+        const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
+        if (filePath) {
+          writerToggleHookEnabled(filePath, msg.hook, msg.hook.disabled);
+        }
+        this.hooks = parseHooks(workspace);
+        wv.postMessage({ type: "hooks", data: this.hooks });
+        break;
+      }
+
+      case "deleteHook": {
+        const workspace = getWorkspace();
+        const choice = await vscode.window.showWarningMessage(
+          "Delete this hook?",
+          {
+            modal: true,
+            detail: `Removes the ${msg.hook.event} hook (${msg.hook.matcher || "*"}) from ${msg.hook.scope} settings. This is reversible only by editing settings.json.`,
+          },
+          "Delete",
+        );
+        if (choice !== "Delete") break;
+        const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
+        if (filePath) writerDeleteHook(filePath, msg.hook);
+        this.hooks = parseHooks(workspace);
+        wv.postMessage({ type: "hooks", data: this.hooks });
+        break;
+      }
+
+      case "updateHook": {
+        const workspace = getWorkspace();
+        const filePath = resolveSettingsPath(msg.original.scope, workspace || undefined);
+        if (filePath) writerUpdateHook(filePath, msg.original, msg.next);
+        this.hooks = parseHooks(workspace);
+        wv.postMessage({ type: "hooks", data: this.hooks });
+        break;
+      }
+
+      case "promptAddHook": {
+        // Native VS Code wizard: scope → event → matcher → command.
+        // Each step bails on cancel so a user can dismiss without
+        // persisting a partial entry.
+        const workspace = getWorkspace();
+        type ScopeOption = vscode.QuickPickItem & { value: HookScope };
+        const scopeChoices: ScopeOption[] = [
+          { label: "Global", description: "~/.claude/settings.json", value: "global" },
+        ];
+        if (workspace) {
+          scopeChoices.push(
+            { label: "Project", description: "<workspace>/.claude/settings.json", value: "project" },
+            { label: "Local", description: "<workspace>/.claude/settings.local.json (gitignored)", value: "local" },
+          );
+        }
+        const scopePick = await vscode.window.showQuickPick(scopeChoices, {
+          title: "Add hook — scope?",
+          placeHolder: "Where should this hook live?",
+        });
+        if (!scopePick) break;
+
+        const eventChoices: vscode.QuickPickItem[] = [
+          { label: "PreToolUse", description: "Before any tool runs" },
+          { label: "PostToolUse", description: "After a tool finishes" },
+          { label: "Notification", description: "On a Claude Notification event" },
+          { label: "Stop", description: "When the user stops the run" },
+          { label: "SubagentStop", description: "When a subagent finishes" },
+          { label: "PreCompact", description: "Before context auto-compaction" },
+          { label: "Other…", description: "Type a custom event name" },
+        ];
+        const eventPick = await vscode.window.showQuickPick(eventChoices, {
+          title: "Add hook — event?",
+          placeHolder: "Which event should fire this hook?",
+        });
+        if (!eventPick) break;
+        let event = eventPick.label;
+        if (event === "Other…") {
+          const custom = await vscode.window.showInputBox({
+            title: "Add hook — custom event name",
+            placeHolder: "Event name as written in Claude CLI docs",
+            validateInput: (v) => (v.trim() ? null : "Event name cannot be empty"),
+          });
+          if (!custom) break;
+          event = custom.trim();
+        }
+
+        const matcher = await vscode.window.showInputBox({
+          title: `Add hook — matcher (optional)`,
+          placeHolder: "Tool name / pattern, e.g. Write or Bash(git:*). Leave blank to match all.",
+        });
+        if (matcher === undefined) break; // user cancelled (empty string is fine)
+
+        const command = await vscode.window.showInputBox({
+          title: `Add hook — command`,
+          placeHolder: "Shell command to run when the hook fires",
+          validateInput: (v) => (v.trim() ? null : "Command cannot be empty"),
+        });
+        if (!command) break;
+
+        const filePath = resolveSettingsPath(scopePick.value, workspace || undefined);
+        if (!filePath) {
+          vscode.window.showErrorMessage(
+            `Cannot write to ${scopePick.value} scope without a workspace open.`,
+          );
+          break;
+        }
+        const ok = writerAddHook(filePath, event, matcher.trim(), command.trim(), scopePick.value);
+        if (!ok) {
+          vscode.window.showErrorMessage("Failed to write hook to settings.json.");
+        }
+        this.hooks = parseHooks(workspace);
         wv.postMessage({ type: "hooks", data: this.hooks });
         break;
       }

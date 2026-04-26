@@ -4,7 +4,7 @@
 
 import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
-import { sendGetHooks } from "../api";
+import { sendGetHooks, sendPromptAddHook, sendToggleHookEnabled, sendDeleteHook } from "../api";
 import {
   getAllHooks,
   getFilteredHooks,
@@ -63,6 +63,7 @@ export function renderHooksList(container: HTMLElement): void {
         <input id="hookSearch" type="text" placeholder="Search hooks..." value="${esc(searchQuery)}" />
         <button class="search-btn ${searchQuery ? "" : "is-hidden"}" id="hookSearchClear" title="Clear (Esc)">${icon("x", 14)}</button>
       </div>
+      <button class="search-side-btn" id="hookAdd" title="Add a new hook">${icon("plus", 14)}</button>
       <button class="search-side-btn" id="hookRefresh" title="Refresh hooks">${icon("refresh-cw", 14)}</button>
     </div>
     ${scopeFilterHtml}
@@ -105,6 +106,7 @@ export function renderHooksList(container: HTMLElement): void {
 
   // Bind refresh
   container.querySelector("#hookRefresh")?.addEventListener("click", () => sendGetHooks());
+  container.querySelector("#hookAdd")?.addEventListener("click", () => sendPromptAddHook());
 
   // Bind scope filter
   container.querySelectorAll("#hookScopeFilter .scope-btn").forEach((btn) => {
@@ -175,9 +177,11 @@ function updateHooksListInner(container: HTMLElement): void {
 
   inner.innerHTML = h;
 
-  // Bind click handlers — use event delegation for O(1) listener count
+  // Bind click handlers — row body opens detail, inline action
+  // buttons short-circuit so a tap on the toggle never opens the
+  // detail surface.
   inner.querySelectorAll<HTMLElement>(".hook-item").forEach((el) => {
-    const handler = (): void => {
+    const open = (): void => {
       const i = Number(el.dataset.hookIndex);
       if (Number.isNaN(i)) return;
       const hook = filtered[i];
@@ -185,11 +189,25 @@ function updateHooksListInner(container: HTMLElement): void {
       setSelectedHook(hook);
       showHookDetail(container);
     };
-    el.addEventListener("click", handler);
+    el.addEventListener("click", (e: Event) => {
+      const target = e.target as HTMLElement;
+      const action = target.closest("[data-hook-action]") as HTMLElement | null;
+      if (action) {
+        e.stopPropagation();
+        const i = Number(el.dataset.hookIndex);
+        const hook = filtered[i];
+        if (!hook) return;
+        const kind = action.dataset.hookAction;
+        if (kind === "toggle") sendToggleHookEnabled(hook);
+        else if (kind === "delete") sendDeleteHook(hook);
+        return;
+      }
+      open();
+    });
     el.addEventListener("keydown", (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        handler();
+        open();
       }
     });
   });

@@ -5,7 +5,12 @@
 
 import { icon } from "../../../../webview/icons";
 import { esc } from "../../../../webview/utils";
-import { sendOpenHookSettingsFile } from "../api";
+import {
+  sendOpenHookSettingsFile,
+  sendToggleHookEnabled,
+  sendDeleteHook,
+  sendUpdateHook,
+} from "../api";
 import { getSelectedHook, setSelectedHook } from "../state";
 import { renderHooksList } from "./listView";
 
@@ -39,6 +44,9 @@ export function showHookDetail(container: HTMLElement): void {
   const scopeLabel = SCOPE_LABELS[hook.scope] ?? hook.scope;
   const matcherDisplay = hook.matcher || "* (any)";
 
+  const toggleLabel = hook.disabled ? "Enable" : "Disable";
+  const toggleIcon = hook.disabled ? "play" : "pin-off";
+
   container.innerHTML = `<div class="panel">
     <button class="back-btn" id="hookGoBack">${icon("arrow-left")} Back</button>
 
@@ -47,15 +55,19 @@ export function showHookDetail(container: HTMLElement): void {
       <div class="d-tags">
         <span class="scope-badge ${esc(hook.scope)}">${esc(scopeLabel)}</span>
         <span class="tag">matcher: ${esc(matcherDisplay)}</span>
+        ${hook.disabled ? `<span class="hook-disabled-badge">disabled</span>` : ""}
       </div>
     </div>
 
     <div class="d-actions">
+      <button class="btn" id="hookEdit">${icon("pencil")} Edit</button>
+      <button class="btn" id="hookToggle">${icon(toggleIcon)} ${toggleLabel}</button>
       <button class="btn primary" id="hookCopy">${icon("copy")} Copy command</button>
       <button class="btn" id="hookOpenFile">${icon("external-link")} Open settings file</button>
+      <button class="btn del" id="hookDelete">${icon("trash-2")} Delete</button>
     </div>
 
-    <div class="d-scroll">
+    <div class="d-scroll" id="hookDetailScroll">
       <div class="d-section">
         <div class="d-label">Event</div>
         <div class="d-kv"><span class="d-k">Type</span><span class="d-v">${esc(eventLabel)}</span></div>
@@ -87,5 +99,53 @@ export function showHookDetail(container: HTMLElement): void {
 
   container.querySelector("#hookOpenFile")?.addEventListener("click", () => {
     sendOpenHookSettingsFile(hook.scope);
+  });
+
+  container.querySelector("#hookToggle")?.addEventListener("click", () => {
+    sendToggleHookEnabled(hook);
+  });
+
+  container.querySelector("#hookDelete")?.addEventListener("click", () => {
+    sendDeleteHook(hook);
+  });
+
+  container.querySelector("#hookEdit")?.addEventListener("click", () => {
+    renderEditForm(container, hook);
+  });
+}
+
+/**
+ * Replace the detail body with an inline edit form. Saving fires
+ * `updateHook` and the host's reply re-renders the detail surface
+ * via the regular `hooks` message round-trip.
+ */
+function renderEditForm(container: HTMLElement, hook: import("../../types").Hook): void {
+  const scroll = container.querySelector<HTMLElement>("#hookDetailScroll");
+  if (!scroll) return;
+  scroll.innerHTML = `
+    <div class="d-section">
+      <div class="d-label">Edit hook</div>
+      <div class="acct-field">
+        <label class="acct-label" for="hookEditMatcher">Matcher</label>
+        <input class="acct-input" id="hookEditMatcher" type="text" value="${esc(hook.matcher)}" placeholder="Tool name or pattern (blank = match all)">
+      </div>
+      <div class="acct-field">
+        <label class="acct-label" for="hookEditCommand">Command</label>
+        <textarea class="acct-input hook-edit-command" id="hookEditCommand" rows="4" placeholder="Shell command to run">${esc(hook.command)}</textarea>
+      </div>
+      <div class="d-actions">
+        <button class="btn primary" id="hookEditSave">${icon("check")} Save</button>
+        <button class="btn" id="hookEditCancel">${icon("x")} Cancel</button>
+      </div>
+    </div>`;
+
+  scroll.querySelector("#hookEditCancel")?.addEventListener("click", () => {
+    showHookDetail(container);
+  });
+  scroll.querySelector("#hookEditSave")?.addEventListener("click", () => {
+    const matcher = (scroll.querySelector<HTMLInputElement>("#hookEditMatcher")?.value ?? "").trim();
+    const command = (scroll.querySelector<HTMLTextAreaElement>("#hookEditCommand")?.value ?? "").trim();
+    if (!command) return;
+    sendUpdateHook(hook, { matcher, command });
   });
 }

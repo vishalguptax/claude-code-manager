@@ -28,6 +28,12 @@ export interface Hook {
   command: string;
   /** Source of this hook: global (~/.claude), project (.claude/settings.json), or local (.claude/settings.local.json) */
   scope: HookScope;
+  /**
+   * True when the hook lives under `_disabled_hooks` instead of
+   * `hooks` in settings.json. Disabled hooks are preserved verbatim
+   * so re-enable is a structural move, not a re-author.
+   */
+  disabled: boolean;
 }
 
 // ── Extension <-> Webview Messages ──
@@ -39,4 +45,23 @@ export type HooksExtensionMessage =
 
 /** Messages sent from the webview to the extension host for the hooks feature. */
 export type HooksWebviewMessage =
-  | { type: "getHooks" };
+  | { type: "getHooks" }
+  /**
+   * Toggle a hook between active (`hooks`) and parked
+   * (`_disabled_hooks`). The host moves the entry between blocks
+   * verbatim — no field rewriting — so re-enabling restores the
+   * previous matcher / command bytes exactly.
+   */
+  | { type: "toggleHookEnabled"; hook: Hook }
+  /** Delete a hook entry. Host shows a confirm modal first. */
+  | { type: "deleteHook"; hook: Hook }
+  /**
+   * Apply edits to an existing hook. Identifies the target by the
+   * `original` snapshot (scope + event + matcher + command) and
+   * rewrites it with the `next` values. Disabled hooks edit their
+   * parked block — staying disabled — so toggling and editing are
+   * independent.
+   */
+  | { type: "updateHook"; original: Hook; next: { matcher: string; command: string } }
+  /** Native VS Code wizard flow: pick scope/event, then matcher + command. */
+  | { type: "promptAddHook" };

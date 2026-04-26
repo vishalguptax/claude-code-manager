@@ -256,6 +256,15 @@
 }
 .acct-meta-v em { color: var(--fg-dim); font-style: normal; }
 
+/* Totals row inside a meta group — slightly heavier weight + a top
+   border so it reads as a summary line under the per-model rows. */
+.acct-meta-row-total {
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-xs);
+  padding-top: var(--space-sm);
+  font-weight: 600;
+}
+
 /* Footnote rendered under a meta group — used by the cost disclaimer
    to anchor the figure to its price-snapshot date. Smaller and dimmer
    than meta rows so it doesn't compete with the data. */

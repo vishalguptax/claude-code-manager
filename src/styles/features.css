@@ -252,6 +252,58 @@
   margin-bottom: var(--space-xs);
 }
 
+.hook-item.is-disabled .hook-matcher,
+.hook-item.is-disabled .hook-item-command code {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.hook-disabled-badge {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  background: var(--badge-bg);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.hook-item-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-control);
+}
+.hook-item:hover .hook-item-actions,
+.hook-item:focus-within .hook-item-actions {
+  opacity: 1;
+}
+
+.hook-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.hook-action-btn:hover { color: var(--fg); background: var(--bg-hover); border-color: var(--border); }
+.hook-action-btn.del:hover { color: var(--red, #d04444); border-color: color-mix(in srgb, var(--red, #d04444) 50%, transparent); }
+.hook-action-btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+
+.hook-edit-command {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  resize: vertical;
+  min-height: 80px;
+}
+
 .hook-matcher {
   display: inline-flex;
   align-items: center;
