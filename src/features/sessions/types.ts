@@ -391,6 +391,26 @@ export type WebviewMessage =
    */
   | { type: "openProjectAndChat"; projectPath: string }
   /**
+   * Restore the live settings.json for a scope from a saved
+   * snapshot. Host shows a confirm modal before overwriting; the
+   * snapshot module makes a fresh snapshot of the *current* live
+   * file first so the restore is itself reversible.
+   */
+  | {
+      type: "restoreSettingsSnapshot";
+      scope: "global" | "project" | "local";
+      snapshotId: string;
+    }
+  /**
+   * Permanently delete a single settings snapshot. Host shows a
+   * brief confirm; no recovery beyond that.
+   */
+  | {
+      type: "deleteSettingsSnapshot";
+      scope: "global" | "project" | "local";
+      snapshotId: string;
+    }
+  /**
    * Force a full re-parse + re-post of every tab's data without
    * recreating the webview. Triggered by the toolbar refresh icon and
    * by the `claudeManager.reload` command palette entry — both routes

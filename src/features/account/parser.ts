@@ -21,6 +21,8 @@ import * as os from "os";
 import { CLAUDE_DIR } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
 import { computeUsageStats } from "./usage";
+import { snapshotSettings, listSnapshots, restoreSnapshot, deleteSnapshot } from "./snapshots";
+import type { SettingsSnapshot } from "./snapshots";
 import type {
   AccountData,
   AccountProfile,
@@ -328,6 +330,7 @@ export function parseAccountData(workspacePath?: string): AccountData {
     })),
     savedProfiles,
     activeProfileSlug,
+    settingsSnapshots: listAllSnapshots(workspacePath),
   };
 }
 
@@ -345,6 +348,12 @@ export function writeSettingsValue(
 ): boolean {
   const filePath = resolveSettingsPath(scope, workspacePath);
   if (!filePath) return false;
+
+  // Snapshot before mutating so the user always has a one-click undo.
+  // Failure to snapshot must not block the write (the underlying op
+  // is what the user asked for); snapshotSettings returns null on a
+  // missing file, which is fine for the very first write.
+  snapshotSettings(scope, filePath);
 
   let data: Record<string, unknown> = {};
   try {
@@ -391,6 +400,7 @@ export function addPermissionEntry(
   const filePath = resolveSettingsPath(scope, workspacePath);
   if (!filePath) return false;
 
+  snapshotSettings(scope, filePath);
   let data: Record<string, unknown> = {};
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
@@ -428,6 +438,7 @@ export function removePermissionEntry(
   const filePath = resolveSettingsPath(scope, workspacePath);
   if (!filePath) return false;
 
+  snapshotSettings(scope, filePath);
   let data: Record<string, unknown> = {};
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
@@ -464,6 +475,46 @@ export function resolveSettingsPath(
   if (scope === "project") return path.join(workspacePath, ".claude", PROJECT_SETTINGS_NAME);
   if (scope === "local") return path.join(workspacePath, ".claude", LOCAL_SETTINGS_NAME);
   return null;
+}
+
+/**
+ * List settings snapshots for every scope reachable from the
+ * current workspace. Each scope's list is independent so the UI can
+ * group them; an unreachable scope (no workspace open) returns an
+ * empty array.
+ */
+export function listAllSnapshots(workspacePath?: string): SettingsSnapshot[] {
+  const scopes: PermissionScope[] = workspacePath
+    ? ["global", "project", "local"]
+    : ["global"];
+  const all: SettingsSnapshot[] = [];
+  for (const s of scopes) {
+    const live = resolveSettingsPath(s, workspacePath);
+    if (!live) continue;
+    all.push(...listSnapshots(s, live));
+  }
+  // Newest first across the entire combined list keeps the UI simple
+  // — one chronological feed instead of three buckets.
+  return all.sort((a, b) => b.takenAtMs - a.takenAtMs);
+}
+
+/** Wrapper around `restoreSnapshot` that resolves the live file from scope. */
+export function restoreSettingsSnapshot(
+  scope: PermissionScope,
+  snapshotId: string,
+  workspacePath?: string,
+): boolean {
+  const filePath = resolveSettingsPath(scope, workspacePath);
+  if (!filePath) return false;
+  return restoreSnapshot(scope, filePath, snapshotId);
+}
+
+/** Wrapper around `deleteSnapshot` so callers don't import the snapshots module. */
+export function deleteSettingsSnapshot(
+  scope: PermissionScope,
+  snapshotId: string,
+): boolean {
+  return deleteSnapshot(scope, snapshotId);
 }
 
 /**

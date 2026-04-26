@@ -49,6 +49,8 @@ import {
   removePermissionEntry,
   resolveSettingsPath,
   restoreClaudeJsonFromBackup,
+  restoreSettingsSnapshot as restoreSettingsSnapshotFile,
+  deleteSettingsSnapshot as deleteSettingsSnapshotFile,
 } from "../account/parser";
 import type { AccountData } from "../account/types";
 import { fetchQuota } from "../account/quota";
@@ -1299,6 +1301,50 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "openAccountUrl": {
         vscode.env.openExternal(vscode.Uri.parse(msg.url));
+        break;
+      }
+
+      case "restoreSettingsSnapshot": {
+        const workspace = getWorkspace();
+        const choice = await vscode.window.showWarningMessage(
+          `Restore ${msg.scope} settings from this snapshot?`,
+          {
+            modal: true,
+            detail:
+              "Your current settings.json will be overwritten. The current file is itself snapshotted first, so this restore is reversible from the same list.",
+          },
+          "Restore",
+        );
+        if (choice !== "Restore") break;
+        const ok = restoreSettingsSnapshotFile(
+          msg.scope,
+          msg.snapshotId,
+          workspace || undefined,
+        );
+        if (!ok) {
+          vscode.window.showErrorMessage(
+            `Couldn't restore ${msg.scope} snapshot — file may be missing.`,
+          );
+        }
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
+        break;
+      }
+
+      case "deleteSettingsSnapshot": {
+        const workspace = getWorkspace();
+        const ok = deleteSettingsSnapshotFile(msg.scope, msg.snapshotId);
+        if (!ok) {
+          vscode.window.showWarningMessage(
+            `Couldn't delete snapshot — already gone.`,
+          );
+        }
+        wv.postMessage({
+          type: "accountData",
+          data: parseAccountData(workspace || undefined),
+        });
         break;
       }
 

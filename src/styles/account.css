@@ -268,6 +268,54 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
+   Settings history (Config tab) — one row per snapshot.
+   Layout: timestamp + scope/diff metadata on the left, action
+   buttons on the right. Stays compact so 20 entries don't dominate
+   the Config view scroll length.
+   ────────────────────────────────────────────────────────────────────────────── */
+.cfg-snap-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+.cfg-snap-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.cfg-snap-meta { min-width: 0; flex: 1; }
+.cfg-snap-when {
+  font-size: var(--fs-base);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.cfg-snap-detail {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  margin-top: 2px;
+}
+.cfg-snap-scope {
+  text-transform: capitalize;
+}
+.cfg-snap-diff {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cfg-snap-actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
    Actions
    ────────────────────────────────────────────────────────────────────────────── */
 

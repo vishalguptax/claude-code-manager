@@ -121,3 +121,19 @@ export function sendPromptRemovePermission(
 export function sendResetSettings(scope: PermissionScope): void {
   _vscode.postMessage({ type: "resetSettings", scope });
 }
+
+/** Restore a settings.json snapshot taken before a prior mutation. */
+export function sendRestoreSettingsSnapshot(
+  scope: PermissionScope,
+  snapshotId: string,
+): void {
+  _vscode.postMessage({ type: "restoreSettingsSnapshot", scope, snapshotId });
+}
+
+/** Permanently delete a settings.json snapshot. */
+export function sendDeleteSettingsSnapshot(
+  scope: PermissionScope,
+  snapshotId: string,
+): void {
+  _vscode.postMessage({ type: "deleteSettingsSnapshot", scope, snapshotId });
+}

@@ -25,3 +25,14 @@ export const STATS_CACHE_FILE: string = path.join(CLAUDE_DIR, "stats-cache.json"
 
 /** Number of bytes to read from a session file for metadata extraction */
 export const SESSION_META_READ_BYTES: number = 4096;
+
+/**
+ * Where settings.json snapshots are kept before each mutation. Lives
+ * under ~/.claude/ (not the workspace) so it survives `git clean` and
+ * project switches. The directory is rotated to keep the most recent
+ * N entries per scope; see src/features/account/snapshots.ts.
+ */
+export const SETTINGS_SNAPSHOTS_DIR: string = path.join(
+  CLAUDE_DIR,
+  ".claude-manager-snapshots",
+);

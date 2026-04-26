@@ -248,6 +248,27 @@ export interface AccountData {
    * or when no active account exists.
    */
   activeProfileSlug: string | null;
+  /**
+   * Settings.json snapshots taken before each `writeSettingsValue` /
+   * permissions mutation. Newest first. Capped per scope by
+   * `SNAPSHOT_KEEP_DEFAULT` so the directory never grows without
+   * bound. Each entry is restorable via the
+   * `restoreSettingsSnapshot` webview message.
+   */
+  settingsSnapshots: SettingsSnapshotInfo[];
+}
+
+/**
+ * Public, webview-safe view of one snapshot. Mirrors the
+ * `SettingsSnapshot` produced in `./snapshots.ts` — types.ts stays
+ * the single import target for webview consumers.
+ */
+export interface SettingsSnapshotInfo {
+  id: string;
+  takenAtMs: number;
+  scope: PermissionScope;
+  changedKeys: string[];
+  sizeBytes: number;
 }
 
 // ── Saved account profile (imported shape from profiles.ts) ──

@@ -30,12 +30,15 @@ import {
   sendRunCommand,
   sendPromptRemovePermission,
   sendResetSettings,
+  sendRestoreSettingsSnapshot,
+  sendDeleteSettingsSnapshot,
 } from "../../account/webview/api";
 import type {
   AccountData,
   PermissionScope,
   PermissionSet,
   PermissionDefaultMode,
+  SettingsSnapshotInfo,
 } from "../../account/types";
 
 /** Short purpose descriptions keyed by model family alias. */
@@ -140,6 +143,7 @@ export function renderConfig(
     <div class="panel">
       ${renderSettings(data)}
       ${renderPermissions(data, ui)}
+      ${renderSnapshots(data.settingsSnapshots ?? [])}
       ${renderBrain()}
     </div>`;
 
@@ -320,6 +324,72 @@ function renderPermissionList(
       <div class="acct-perm-group-label">${esc(label)} (${countLabel})</div>
       ${rows}
     </div>`;
+}
+
+function formatSnapshotTime(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return new Date(ms).toISOString();
+  }
+}
+
+function formatSnapshotKb(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(1)} KB`;
+}
+
+/**
+ * Settings history — every writeSettingsValue / addPermission /
+ * removePermission mutation snapshots the live settings.json before
+ * touching it. This section surfaces those snapshots with a Restore
+ * button per entry. Keeping the section collapsed by default avoids
+ * cluttering the Config tab for users who never need to roll back.
+ */
+function renderSnapshots(snapshots: SettingsSnapshotInfo[]): string {
+  if (snapshots.length === 0) {
+    return `
+      <section class="acct-section">
+        <header class="acct-section-header"><h2 class="acct-section-title">${icon("history", 14)} Settings history</h2></header>
+        <div class="acct-section-body">
+          <div class="acct-field-hint">No snapshots yet. The next time you change a setting or permission, Claude Manager will save the previous state here so you can roll back.</div>
+        </div>
+      </section>`;
+  }
+
+  const rows = snapshots
+    .map((s) => {
+      const keysLabel = s.changedKeys.length === 0
+        ? "no key diff"
+        : `${s.changedKeys.length} key${s.changedKeys.length === 1 ? "" : "s"}: ${s.changedKeys.slice(0, 3).map(esc).join(", ")}${s.changedKeys.length > 3 ? "…" : ""}`;
+      return `
+        <div class="cfg-snap-row">
+          <div class="cfg-snap-meta">
+            <div class="cfg-snap-when">${esc(formatSnapshotTime(s.takenAtMs))}</div>
+            <div class="cfg-snap-detail">
+              <span class="cfg-snap-scope">${esc(s.scope)}</span>
+              <span class="cfg-snap-diff">${esc(keysLabel)}</span>
+              ${s.sizeBytes > 0 ? `<span class="cfg-snap-size">${esc(formatSnapshotKb(s.sizeBytes))}</span>` : ""}
+            </div>
+          </div>
+          <div class="cfg-snap-actions">
+            <button class="btn cfg-snap-restore" data-snap-id="${esc(s.id)}" data-snap-scope="${esc(s.scope)}" title="Replace live settings.json with this snapshot">${icon("history", 12)} Restore</button>
+            <button class="btn del cfg-snap-delete" data-snap-id="${esc(s.id)}" data-snap-scope="${esc(s.scope)}" title="Delete this snapshot">${icon("trash-2", 12)}</button>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  return `
+    <section class="acct-section">
+      <header class="acct-section-header"><h2 class="acct-section-title">${icon("history", 14)} Settings history</h2></header>
+      <div class="acct-section-body">
+        <div class="acct-field-hint">Snapshots are taken before each settings.json mutation. The 20 most recent per scope are kept.</div>
+        <div class="cfg-snap-list">${rows}</div>
+      </div>
+    </section>`;
 }
 
 /**
@@ -522,6 +592,25 @@ export function bindConfig(
       if (!dir) return;
       const next = data.settings.additionalDirectories.filter((d) => d !== dir);
       sendSetSetting("permissions.additionalDirectories", next);
+    });
+  });
+
+  // Settings snapshot rows — restore is host-confirmed, delete is
+  // not (delete only loses the rollback option, doesn't touch live
+  // config). Buttons are scope-tagged via data attributes so the
+  // host always restores into the right settings.json.
+  container.querySelectorAll<HTMLElement>(".cfg-snap-restore").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.snapId;
+      const scope = el.dataset.snapScope as PermissionScope | undefined;
+      if (id && scope) sendRestoreSettingsSnapshot(scope, id);
+    });
+  });
+  container.querySelectorAll<HTMLElement>(".cfg-snap-delete").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.snapId;
+      const scope = el.dataset.snapScope as PermissionScope | undefined;
+      if (id && scope) sendDeleteSettingsSnapshot(scope, id);
     });
   });
 }
