@@ -391,6 +391,25 @@ export type WebviewMessage =
    */
   | { type: "openProjectAndChat"; projectPath: string }
   /**
+   * Bulk-pin (or unpin) every id in the array. Single round-trip
+   * keeps the userState reply atomic — without batching, N
+   * `pinSession` calls fire N reply messages and the UI flickers.
+   */
+  | { type: "bulkPinSessions"; ids: string[]; pin: boolean }
+  /**
+   * Bulk-delete with a single host-side confirm modal. The host
+   * shows the count, then loops `deleteSession` and emits one
+   * userState reply.
+   */
+  | { type: "bulkDeleteSessions"; ids: string[] }
+  /**
+   * Bulk-export selected sessions as a single .zip with a
+   * manifest. Host opens a save dialog, gathers each session's
+   * jsonl from disk, zips them with a `manifest.json`, and writes
+   * the archive.
+   */
+  | { type: "bulkExportSessions"; ids: string[] }
+  /**
    * Restore the live settings.json for a scope from a saved
    * snapshot. Host shows a confirm modal before overwriting; the
    * snapshot module makes a fresh snapshot of the *current* live

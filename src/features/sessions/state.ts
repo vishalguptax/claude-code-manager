@@ -90,6 +90,42 @@ export function deleteSession(sessionId: string): UserState {
 }
 
 /**
+ * Bulk variant of `pinSession`. Single state load + single save —
+ * back-to-back single-id calls would otherwise read + write
+ * `~/.claude/.csm-state.json` once per id and the UI would receive
+ * one stale snapshot per pin while the writes drained.
+ */
+export function pinSessions(sessionIds: string[]): UserState {
+  const state = loadState();
+  for (const id of sessionIds) {
+    if (!state.pinned.includes(id)) state.pinned.push(id);
+  }
+  saveState(state);
+  return state;
+}
+
+/** Bulk variant of `unpinSession`. */
+export function unpinSessions(sessionIds: string[]): UserState {
+  const state = loadState();
+  const drop = new Set(sessionIds);
+  state.pinned = state.pinned.filter((id) => !drop.has(id));
+  saveState(state);
+  return state;
+}
+
+/** Bulk variant of `deleteSession`. Strips ids from pinned too. */
+export function deleteSessions(sessionIds: string[]): UserState {
+  const state = loadState();
+  const drop = new Set(sessionIds);
+  for (const id of sessionIds) {
+    if (!state.deleted.includes(id)) state.deleted.push(id);
+  }
+  state.pinned = state.pinned.filter((id) => !drop.has(id));
+  saveState(state);
+  return state;
+}
+
+/**
  * Set a custom name for a session. An empty name removes the existing rename.
  * Returns the updated state.
  */

@@ -14,7 +14,12 @@ import type { Session } from "../../types";
  * @param isPinned - Whether this session is pinned
  * @returns HTML string for the session item
  */
-export function renderSessionItem(s: Session, isActive: boolean, isPinned: boolean): string {
+export function renderSessionItem(
+  s: Session,
+  isActive: boolean,
+  isPinned: boolean,
+  isSelected = false,
+): string {
   // When the session has a user-set rename, the rename is the title and the
   // first prompt is shown as a dim subtitle. When there is no rename, the
   // first prompt itself becomes the title (CSS truncates it on narrow widths).
@@ -32,7 +37,8 @@ export function renderSessionItem(s: Session, isActive: boolean, isPinned: boole
   const showSubPrompt = Boolean(s.name && firstPrompt);
 
   return `
-    <div class="item session-item ${isActive ? "active" : ""}" data-id="${s.id}">
+    <div class="item session-item ${isActive ? "active" : ""} ${isSelected ? "is-selected" : ""}" data-id="${s.id}">
+      <input type="checkbox" class="item-select" data-select="${s.id}" ${isSelected ? "checked" : ""} aria-label="Select session" title="Select for bulk action">
       <div class="item-row1">
         <span class="item-name" title="${esc(name)}">${esc(name)}</span>
         <span class="item-time" title="${esc(absDate)}">${esc(relTime)}</span>
@@ -69,6 +75,11 @@ export function bindSessionItems(
     onSelect: (id: string) => void;
     onContextMenu: (e: MouseEvent, id: string, isPinned: boolean) => void;
     onResume: (id: string) => void;
+    /**
+     * Bulk-select toggle. `range` is true for shift-click — caller
+     * extends the selection from the current anchor to this id.
+     */
+    onSelectionToggle?: (id: string, range: boolean) => void;
   },
 ): void {
   container.addEventListener("click", (e: Event) => {
@@ -76,6 +87,20 @@ export function bindSessionItems(
 
     // "Show more" button
     if (target.id === "showMore" || target.closest("#showMore")) return;
+
+    // Selection checkbox — never opens the detail view. Shift-click
+    // bubbles a `range` flag so the list view can fan out from the
+    // anchor through the visible rows.
+    const checkbox = target.closest("[data-select]") as HTMLElement | null;
+    if (checkbox) {
+      e.stopPropagation();
+      const id = (checkbox as HTMLElement).dataset.select;
+      if (id && callbacks.onSelectionToggle) {
+        const ev = e as MouseEvent;
+        callbacks.onSelectionToggle(id, ev.shiftKey === true);
+      }
+      return;
+    }
 
     // Resume button
     const resumeBtn = target.closest("[data-resume]") as HTMLElement | null;

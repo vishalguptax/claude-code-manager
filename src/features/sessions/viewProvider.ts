@@ -16,7 +16,16 @@ import {
 import { indexSession, clearIndex, searchContent } from "./searchIndex";
 import { slugifyProjectPath } from "./portable";
 import { PROJECTS_DIR } from "../../core/config";
-import { loadState, pinSession, unpinSession, deleteSession, renameSession } from "./state";
+import {
+  loadState,
+  pinSession,
+  unpinSession,
+  deleteSession,
+  renameSession,
+  pinSessions as bulkPinState,
+  unpinSessions as bulkUnpinState,
+  deleteSessions as bulkDeleteState,
+} from "./state";
 import {
   openProject,
   newSession,
@@ -27,6 +36,7 @@ import {
   promptRenameSession,
   resumeSession,
   exportSessionFile,
+  bulkExportSessionFiles,
   importSessionFile,
   resolveClaudeTarget,
 } from "./commands";
@@ -865,6 +875,38 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "exportSession":
         await exportSessionFile(msg.sessionId, this.sessions);
+        break;
+
+      case "bulkPinSessions": {
+        // One state read + write covers every id, then a single
+        // `userState` reply keeps the webview re-renders coalesced.
+        const state = msg.pin
+          ? bulkPinState(msg.ids)
+          : bulkUnpinState(msg.ids);
+        wv.postMessage({ type: "userState", ...state });
+        break;
+      }
+
+      case "bulkDeleteSessions": {
+        if (msg.ids.length === 0) break;
+        const choice = await vscode.window.showWarningMessage(
+          `Delete ${msg.ids.length} session${msg.ids.length === 1 ? "" : "s"}?`,
+          {
+            modal: true,
+            detail:
+              "Selected sessions will be hidden from the list. The .jsonl files on disk are not removed; running `claude --resume` against them in a terminal still works.",
+          },
+          "Delete",
+        );
+        if (choice !== "Delete") break;
+        const state = bulkDeleteState(msg.ids);
+        wv.postMessage({ type: "userState", ...state });
+        wv.postMessage({ type: "navigateList" });
+        break;
+      }
+
+      case "bulkExportSessions":
+        await bulkExportSessionFiles(msg.ids, this.sessions);
         break;
 
       case "importSession":

@@ -27,6 +27,7 @@ import {
   defaultExportFilename,
   type KnownProject,
 } from "./portable";
+import { writeZip, type ZipEntry } from "../brain/zip";
 
 /**
  * Open a project folder in a new VS Code window.
@@ -477,6 +478,108 @@ export async function exportSessionFile(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     vscode.window.showErrorMessage(`Failed to export session: ${message}`);
+  }
+}
+
+/**
+ * Bulk export every session in `ids` as a single STORE-only zip
+ * with a `manifest.json` listing each entry's session metadata.
+ * Sessions whose jsonl can't be located on disk are skipped and
+ * counted in the result toast — never silently dropped.
+ *
+ * Uses the same writeZip helper Brain export does: STORE-only,
+ * zero compression, no new dependency. Archives ~50 KB per session
+ * uncompressed, fine for a few hundred at a time.
+ */
+export async function bulkExportSessionFiles(
+  ids: string[],
+  sessions: Session[],
+): Promise<void> {
+  const targets: Array<{ sess: Session; filePath: string }> = [];
+  const missing: string[] = [];
+  for (const id of ids) {
+    const sess = sessions.find((s) => s.id === id);
+    if (!sess) {
+      missing.push(id);
+      continue;
+    }
+    const filePath = resolveSessionFilePath(sess);
+    if (!filePath) {
+      missing.push(sess.name || sess.id.slice(0, 8));
+      continue;
+    }
+    targets.push({ sess, filePath });
+  }
+
+  if (targets.length === 0) {
+    vscode.window.showErrorMessage(
+      "No selected sessions could be located on disk.",
+    );
+    return;
+  }
+
+  const lastDir = readLastDir(STORAGE_KEY_LAST_EXPORT_DIR);
+  const stamp = new Date().toISOString().slice(0, 10);
+  const defaultName = `claude-sessions-${stamp}.zip`;
+  const defaultUri = vscode.Uri.file(
+    lastDir ? path.join(lastDir, defaultName) : defaultName,
+  );
+
+  const targetUri = await vscode.window.showSaveDialog({
+    title: `Export ${targets.length} session${targets.length === 1 ? "" : "s"}`,
+    defaultUri,
+    filters: { "Zip archive": ["zip"] },
+    saveLabel: "Export",
+  });
+  if (!targetUri) return; // user cancelled
+
+  const manifest = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    count: targets.length,
+    sessions: targets.map(({ sess }) => ({
+      id: sess.id,
+      file: `${sess.id}.jsonl`,
+      name: sess.name,
+      project: sess.project,
+      projectPath: sess.projectPath,
+      branch: sess.branch,
+      startTime: sess.startTime,
+      endTime: sess.endTime,
+      messageCount: sess.messageCount,
+    })),
+  };
+
+  const entries: ZipEntry[] = [];
+  entries.push({
+    path: "manifest.json",
+    data: Buffer.from(JSON.stringify(manifest, null, 2), "utf-8"),
+  });
+  for (const { sess, filePath } of targets) {
+    try {
+      entries.push({
+        path: `sessions/${sess.id}.jsonl`,
+        data: fs.readFileSync(filePath),
+      });
+    } catch {
+      // Disappeared between scan + read — drop it. Manifest already
+      // counted, but the zip will be missing the file. Toast notes
+      // any partial export below.
+    }
+  }
+
+  try {
+    fs.writeFileSync(targetUri.fsPath, writeZip(entries));
+    rememberLastDir(STORAGE_KEY_LAST_EXPORT_DIR, targetUri.fsPath);
+    const tail = missing.length > 0
+      ? ` (${missing.length} skipped — file missing)`
+      : "";
+    vscode.window.showInformationMessage(
+      `Exported ${targets.length} session${targets.length === 1 ? "" : "s"} to ${path.basename(targetUri.fsPath)}${tail}.`,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(`Bulk export failed: ${msg}`);
   }
 }
 

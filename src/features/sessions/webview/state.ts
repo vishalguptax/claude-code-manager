@@ -26,6 +26,19 @@ const PERSIST_KEY_FILTER_BRANCH = "sessions.filterBranch";
 
 // ── Raw state ──
 
+/**
+ * Currently bulk-selected session IDs. Empty by default; populated
+ * when the user ticks a row checkbox or fires the Ctrl+A shortcut.
+ * Exposed via getter + small mutators so the list view, toolbar, and
+ * keyboard handlers all share one source of truth.
+ */
+let selectedSet: Set<string> = new Set();
+/**
+ * Anchor for shift-click range selection. The id of the row most
+ * recently checked. `null` until the user makes a first selection.
+ */
+let selectAnchor: string | null = null;
+
 let allSessions: Session[] = [];
 let stats: Stats = { totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 };
 let pinnedIds: Set<string> = new Set();
@@ -216,6 +229,28 @@ export function hasPersistedFilterProject(): boolean {
 export function hasPersistedFilterDate(): boolean {
   return getPersisted<DateFilter>(PERSIST_KEY_FILTER_DATE) !== undefined;
 }
+
+/** Bulk selection getters / mutators. */
+export function getSelectedSet(): Set<string> { return selectedSet; }
+export function isSelected(id: string): boolean { return selectedSet.has(id); }
+export function selectionCount(): number { return selectedSet.size; }
+export function clearSelection(): void {
+  selectedSet = new Set();
+  selectAnchor = null;
+}
+export function toggleSelected(id: string): void {
+  if (selectedSet.has(id)) selectedSet.delete(id);
+  else selectedSet.add(id);
+  selectAnchor = id;
+}
+export function setSelectedRange(ids: string[]): void {
+  for (const id of ids) selectedSet.add(id);
+}
+export function selectAll(ids: string[]): void {
+  selectedSet = new Set(ids);
+  selectAnchor = ids[ids.length - 1] ?? null;
+}
+export function getSelectAnchor(): string | null { return selectAnchor; }
 
 /** Set how many list items are visible. */
 export function setVisibleCount(n: number): void { visibleCount = n; }

@@ -23,6 +23,13 @@ import {
   setSearchQuery,
   setFullTextHits,
   clearFullTextHits,
+  toggleSelected,
+  isSelected,
+  selectionCount,
+  selectAll,
+  clearSelection,
+  setSelectedRange,
+  getSelectAnchor,
 } from "../state";
 
 /**
@@ -76,6 +83,7 @@ beforeEach(() => {
   setFilterBranch("all");
   setSearchQuery("");
   clearFullTextHits();
+  clearSelection();
   // Bind a fresh persistence backend per test so prior writes don't bleed.
   initPersistence(makeFakeVscode());
   // Clear any persisted filters from prior tests by re-loading from the
@@ -303,5 +311,44 @@ describe("full-text search hits", () => {
     // setFullTextHits is a no-op when query !== current.
     setFullTextHits("earlier", ["a"]);
     expect(getFiltered()).toEqual([]);
+  });
+});
+
+describe("bulk selection state", () => {
+  it("toggleSelected adds then removes the same id", () => {
+    toggleSelected("a");
+    expect(isSelected("a")).toBe(true);
+    expect(selectionCount()).toBe(1);
+    toggleSelected("a");
+    expect(isSelected("a")).toBe(false);
+    expect(selectionCount()).toBe(0);
+  });
+
+  it("tracks the most recent toggle as the range anchor", () => {
+    toggleSelected("a");
+    toggleSelected("b");
+    expect(getSelectAnchor()).toBe("b");
+  });
+
+  it("selectAll replaces the set with the supplied ids", () => {
+    toggleSelected("a");
+    selectAll(["x", "y", "z"]);
+    expect(isSelected("a")).toBe(false);
+    expect(selectionCount()).toBe(3);
+    expect(getSelectAnchor()).toBe("z");
+  });
+
+  it("setSelectedRange unions ids without dropping prior selections", () => {
+    toggleSelected("a");
+    setSelectedRange(["b", "c"]);
+    expect(selectionCount()).toBe(3);
+    expect(isSelected("a")).toBe(true);
+  });
+
+  it("clearSelection wipes both the set and the anchor", () => {
+    toggleSelected("a");
+    clearSelection();
+    expect(selectionCount()).toBe(0);
+    expect(getSelectAnchor()).toBeNull();
   });
 });

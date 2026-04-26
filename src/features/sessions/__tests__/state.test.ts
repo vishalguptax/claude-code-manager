@@ -18,7 +18,17 @@ vi.mock("../../../core/config", () => ({
   STATE_FILE,
 }));
 
-import { loadState, saveState, pinSession, unpinSession, deleteSession, renameSession } from "../state";
+import {
+  loadState,
+  saveState,
+  pinSession,
+  unpinSession,
+  deleteSession,
+  renameSession,
+  pinSessions,
+  unpinSessions,
+  deleteSessions,
+} from "../state";
 
 const empty = () => ({ pinned: [] as string[], deleted: [] as string[], renames: {} as Record<string, string> });
 
@@ -191,5 +201,37 @@ describe("renameSession", () => {
     renameSession("sess-1", "Persistent");
     const state = loadState();
     expect(state.renames["sess-1"]).toBe("Persistent");
+  });
+});
+
+describe("bulk pin/unpin/delete", () => {
+  beforeEach(() => {
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  });
+
+  it("pinSessions adds every id once even when some are already pinned", () => {
+    saveState({ pinned: ["a"], deleted: [], renames: {} });
+    const state = pinSessions(["a", "b", "c"]);
+    expect(state.pinned.sort()).toEqual(["a", "b", "c"]);
+  });
+
+  it("unpinSessions removes every id atomically", () => {
+    saveState({ pinned: ["a", "b", "c", "d"], deleted: [], renames: {} });
+    const state = unpinSessions(["a", "c"]);
+    expect(state.pinned).toEqual(["b", "d"]);
+  });
+
+  it("deleteSessions adds to deleted + strips ids from pinned", () => {
+    saveState({ pinned: ["a", "b"], deleted: ["x"], renames: {} });
+    const state = deleteSessions(["a", "b"]);
+    expect(state.deleted.sort()).toEqual(["a", "b", "x"]);
+    expect(state.pinned).toEqual([]);
+  });
+
+  it("deleteSessions does not duplicate ids that were already deleted", () => {
+    saveState({ pinned: [], deleted: ["a"], renames: {} });
+    const state = deleteSessions(["a", "b"]);
+    expect(state.deleted.sort()).toEqual(["a", "b"]);
   });
 });

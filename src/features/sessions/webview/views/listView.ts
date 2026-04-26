@@ -13,6 +13,9 @@ import {
   sendRefresh,
   sendGetSessionDetail,
   sendImportSession,
+  sendBulkPinSessions,
+  sendBulkDeleteSessions,
+  sendBulkExportSessions,
 } from "../api";
 import {
   getAllSessions,
@@ -28,6 +31,14 @@ import {
   setLoading,
   setView,
   setShellMounted,
+  getSelectedSet,
+  isSelected,
+  selectionCount,
+  toggleSelected,
+  clearSelection,
+  selectAll,
+  setSelectedRange,
+  getSelectAnchor,
 } from "../state";
 import type { Session } from "../../types";
 import { showDetail } from "./detailView";
@@ -65,6 +76,7 @@ export function mountShell(): void {
         ${renderBranchDropdown()}
       </div>
       ${renderDateChips()}
+      <div id="bulkBar" class="bulk-bar hidden" role="toolbar" aria-label="Bulk actions"></div>
       <div id="sessionList" class="list"></div>
     </div>
     <div class="panel hidden" id="detailView"></div>`;
@@ -102,6 +114,30 @@ export function mountShell(): void {
         const s = getAllSessions().find((x) => x.id === id);
         if (s) sendResumeSession(id, s.entrypoint, s.projectPath);
       },
+      onSelectionToggle: (id: string, range: boolean) => {
+        // Range selection extends from the current anchor through the
+        // visible filtered list to the clicked id. We compute on the
+        // visible slice (`getFiltered().slice(0, visibleCount)`) so a
+        // shift-click never reaches into rows the user can't see.
+        if (range) {
+          const anchor = getSelectAnchor();
+          if (anchor) {
+            const visible = getFiltered().slice(0, getVisibleCount()).map((s) => s.id);
+            const a = visible.indexOf(anchor);
+            const b = visible.indexOf(id);
+            if (a >= 0 && b >= 0) {
+              const [lo, hi] = a < b ? [a, b] : [b, a];
+              setSelectedRange(visible.slice(lo, hi + 1));
+              renderBulkBar();
+              updateList();
+              return;
+            }
+          }
+        }
+        toggleSelected(id);
+        renderBulkBar();
+        updateList();
+      },
     });
 
     // "Show more" also via delegation (button is re-created on each render)
@@ -113,6 +149,23 @@ export function mountShell(): void {
       }
     });
   }
+
+  // Ctrl/Cmd+A while the list view is the active panel selects every
+  // currently visible row. Scoping with `#listView` (and a non-input
+  // target) keeps the shortcut from hijacking text selection inside
+  // the search input or the detail view.
+  document.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "a") return;
+    const tag = (e.target as HTMLElement | null)?.tagName ?? "";
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+    const listView = document.getElementById("listView");
+    if (!listView || listView.classList.contains("hidden")) return;
+    e.preventDefault();
+    const visible = getFiltered().slice(0, getVisibleCount()).map((s) => s.id);
+    selectAll(visible);
+    renderBulkBar();
+    updateList();
+  });
 
   setShellMounted(true);
 }
@@ -139,6 +192,60 @@ function onProjectFilterChange(): void {
 export function updateFilter(): void {
   updateDropdown(onProjectFilterChange);
   updateBranchDropdown(updateList);
+}
+
+/**
+ * Re-render the floating bulk-action toolbar. Hidden when no rows
+ * are checked; otherwise shows the count + Pin / Unpin / Export /
+ * Delete / Clear buttons. Pin vs. Unpin is a single toggle that
+ * looks at the current selection — if every selected row is
+ * already pinned, it offers Unpin; otherwise Pin (mass-pin is the
+ * common case).
+ */
+export function renderBulkBar(): void {
+  const bar = document.getElementById("bulkBar");
+  if (!bar) return;
+  const count = selectionCount();
+  if (count === 0) {
+    bar.classList.add("hidden");
+    bar.innerHTML = "";
+    return;
+  }
+  const pinned = getPinnedIds();
+  const sel = getSelectedSet();
+  let allPinned = true;
+  for (const id of sel) {
+    if (!pinned.has(id)) {
+      allPinned = false;
+      break;
+    }
+  }
+  const pinLabel = allPinned ? "Unpin" : "Pin";
+  const pinIcon = allPinned ? "pin-off" : "pin";
+  bar.classList.remove("hidden");
+  bar.innerHTML = `
+    <span class="bulk-count">${count} selected</span>
+    <button class="bulk-btn" id="bulkPin">${icon(pinIcon, 14)} ${pinLabel}</button>
+    <button class="bulk-btn" id="bulkExport">${icon("download", 14)} Export…</button>
+    <button class="bulk-btn del" id="bulkDelete">${icon("trash-2", 14)} Delete</button>
+    <button class="bulk-btn" id="bulkClear" title="Clear selection">${icon("x", 14)} Clear</button>`;
+
+  bar.querySelector("#bulkPin")?.addEventListener("click", () => {
+    sendBulkPinSessions(Array.from(sel), !allPinned);
+    // Pin reply (`userState`) refreshes the bar via updateList /
+    // renderBulkBar — no optimistic mutation here.
+  });
+  bar.querySelector("#bulkExport")?.addEventListener("click", () => {
+    sendBulkExportSessions(Array.from(sel));
+  });
+  bar.querySelector("#bulkDelete")?.addEventListener("click", () => {
+    sendBulkDeleteSessions(Array.from(sel));
+  });
+  bar.querySelector("#bulkClear")?.addEventListener("click", () => {
+    clearSelection();
+    renderBulkBar();
+    updateList();
+  });
 }
 
 /**
@@ -201,7 +308,7 @@ export function updateList(): void {
   for (const [label, sessions] of groups) {
     h += `<div class="group-label">${esc(label)}</div>`;
     for (const s of sessions) {
-      h += renderSessionItem(s, s.id === selectedId, pinnedIds.has(s.id));
+      h += renderSessionItem(s, s.id === selectedId, pinnedIds.has(s.id), isSelected(s.id));
     }
   }
 
@@ -209,6 +316,10 @@ export function updateList(): void {
     h += `<div class="show-more-row"><button class="show-more-btn" id="showMore">Show more (${totalCount - visibleCount} remaining)</button></div>`;
   }
   container.innerHTML = h;
+  // Selection state and the list it decorates share a re-render
+  // boundary — keep them in sync so the bar's count never lags the
+  // visible checkboxes after an external state change.
+  renderBulkBar();
 }
 
 /**
@@ -226,6 +337,10 @@ export function showList(): void {
   // different session starts from the default paged view instead of
   // filtering by the previous query.
   setDetailSearchQuery("");
+  // Drop the bulk selection on detail → list navigation. The user has
+  // already left the multi-select context; preserving it would leave a
+  // stale-looking toolbar on top of the freshly re-rendered list.
+  clearSelection();
   document.getElementById("detailView")?.classList.add("hidden");
   document.getElementById("listView")?.classList.remove("hidden");
   updateList();

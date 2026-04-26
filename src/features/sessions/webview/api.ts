@@ -139,3 +139,18 @@ export function sendOpenProjectAndChat(projectPath: string): void {
 export function sendReloadAll(): void {
   _vscode.postMessage({ type: "reloadAll" });
 }
+
+/** Bulk pin / unpin — `pin` chooses which leg to take. */
+export function sendBulkPinSessions(ids: string[], pin: boolean): void {
+  _vscode.postMessage({ type: "bulkPinSessions", ids, pin });
+}
+
+/** Bulk delete — host pops a single confirm before doing anything. */
+export function sendBulkDeleteSessions(ids: string[]): void {
+  _vscode.postMessage({ type: "bulkDeleteSessions", ids });
+}
+
+/** Bulk export — host packages selected sessions into a single .zip. */
+export function sendBulkExportSessions(ids: string[]): void {
+  _vscode.postMessage({ type: "bulkExportSessions", ids });
+}
