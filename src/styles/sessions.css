@@ -54,15 +54,43 @@
   background: var(--bg-active);
 }
 
-/* Resting count row — "N sessions" + Select toggle. Lives inside
-   the scrolling list and scrolls with content. */
-.list-count {
+/* Fixed header above the scrolling list. Toggles between the
+   resting "N sessions + Select" view and the bulk-action toolbar.
+   Sits in the panel flex layout, never inside the scroll area. */
+.list-header {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-2xl) 2px;
+  padding: var(--space-sm) var(--space-2xl);
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
 }
-.list-count-label { flex: 1; min-width: 0; }
+.list-header::-webkit-scrollbar { display: none; }
+.list-header-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+.list-header.list-header-bulk {
+  background: var(--bg-active);
+  color: var(--bg-active-fg);
+  font-size: var(--fs-base);
+}
+.list-header.list-header-bulk .list-header-label {
+  flex: 0 0 auto;
+  font-weight: 600;
+  margin-right: var(--space-xs);
+}
+.list-header .bulk-btn {
+  padding: 4px 10px;
+  font-size: var(--fs-sm);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .list-count-toggle {
   display: inline-flex;
   align-items: center;
@@ -78,36 +106,6 @@
 }
 .list-count-toggle:hover { color: var(--fg); border-color: var(--accent); }
 .list-count-toggle:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
-
-/* Bulk-action toolbar — sits above the scrolling list, fixed in
-   the panel layout so it does not move when the user scrolls. */
-.bulk-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-md) var(--space-2xl);
-  background: var(--bg-active);
-  color: var(--bg-active-fg);
-  border-bottom: 1px solid var(--border);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  flex-shrink: 0;
-}
-.bulk-bar.hidden { display: none; }
-.bulk-bar::-webkit-scrollbar { display: none; }
-.bulk-count {
-  font-weight: 600;
-  font-size: var(--fs-base);
-  white-space: nowrap;
-  flex: 0 0 auto;
-  margin-right: var(--space-xs);
-}
-.bulk-bar .bulk-btn {
-  padding: 4px 10px;
-  font-size: var(--fs-sm);
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
 
 .bulk-btn {
   display: inline-flex;

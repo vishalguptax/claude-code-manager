@@ -78,7 +78,7 @@ export function mountShell(): void {
         ${renderBranchDropdown()}
       </div>
       ${renderDateChips()}
-      <div id="bulkBar" class="bulk-bar hidden" role="toolbar" aria-label="Bulk actions"></div>
+      <div id="listHeader" class="list-header" role="toolbar" aria-label="Session list header"></div>
       <div id="sessionList" class="list"></div>
     </div>
     <div class="panel hidden" id="detailView"></div>`;
@@ -196,42 +196,33 @@ export function updateFilter(): void {
 }
 
 /**
- * Build the count row inside the scrolling list. Just the "N
- * sessions" label plus a "Select" toggle that flips the list into
- * bulk mode. The bulk-action toolbar lives outside the list (in
- * #bulkBar) so it stays put when the user scrolls.
+ * Render the fixed list header that sits above the scrolling list.
+ * Two views toggled by bulk mode:
+ *
+ *   resting  →  "N sessions" + Select toggle
+ *   bulk     →  "N selected" + Pin/Export/Delete/Cancel
+ *
+ * The header is the same row in both modes; only its content
+ * swaps. Living outside `#sessionList` keeps it stationary while
+ * the user scrolls deeper rows.
  */
-function renderCountRow(totalCount: number): string {
-  return `
-    <div class="list-count">
-      <span class="list-count-label">${totalCount} session${totalCount !== 1 ? "s" : ""}</span>
-      <button class="list-count-toggle" id="bulkEnter" title="Enter bulk-select mode">${icon("check", 12)} Select</button>
-    </div>`;
-}
+export function renderListHeader(totalCount: number): void {
+  const header = document.getElementById("listHeader");
+  if (!header) return;
 
-function bindCountRow(): void {
-  document.getElementById("bulkEnter")?.addEventListener("click", () => {
-    setBulkMode(true);
-    renderBulkBar();
-    updateList();
-  });
-}
-
-/**
- * Render or hide the bulk-action toolbar that sits above the
- * scrolling list. Hidden entirely when bulk mode is off; visible
- * with Pin/Unpin/Export/Delete/Cancel buttons + selected count
- * otherwise. Living outside `#sessionList` is what keeps the
- * toolbar pinned in place while the user scrolls.
- */
-export function renderBulkBar(): void {
-  const bar = document.getElementById("bulkBar");
-  if (!bar) return;
   if (!isBulkMode()) {
-    bar.classList.add("hidden");
-    bar.innerHTML = "";
+    header.classList.remove("list-header-bulk");
+    header.innerHTML = `
+      <span class="list-header-label">${totalCount} session${totalCount !== 1 ? "s" : ""}</span>
+      <button class="list-count-toggle" id="bulkEnter" title="Enter bulk-select mode">${icon("check", 12)} Select</button>`;
+    header.querySelector("#bulkEnter")?.addEventListener("click", () => {
+      setBulkMode(true);
+      renderListHeader(totalCount);
+      updateList();
+    });
     return;
   }
+
   const sel = getSelectedSet();
   const pinned = getPinnedIds();
   let allPinned = sel.size > 0;
@@ -242,29 +233,29 @@ export function renderBulkBar(): void {
   const pinIcon = allPinned ? "pin-off" : "pin";
   const count = sel.size;
   const disabled = count === 0 ? "disabled" : "";
-  bar.classList.remove("hidden");
-  bar.innerHTML = `
-    <span class="bulk-count">${count} selected</span>
+  header.classList.add("list-header-bulk");
+  header.innerHTML = `
+    <span class="list-header-label">${count} selected</span>
     <button class="bulk-btn" id="bulkPin" ${disabled}>${icon(pinIcon, 12)} ${pinLabel}</button>
     <button class="bulk-btn" id="bulkExport" ${disabled}>${icon("download", 12)} Export</button>
     <button class="bulk-btn del" id="bulkDelete" ${disabled}>${icon("trash-2", 12)} Delete</button>
     <button class="bulk-btn" id="bulkCancel" title="Exit bulk mode">${icon("x", 12)} Cancel</button>`;
 
-  bar.querySelector("#bulkPin")?.addEventListener("click", () => {
+  header.querySelector("#bulkPin")?.addEventListener("click", () => {
     if (sel.size === 0) return;
     sendBulkPinSessions(Array.from(sel), !allPinned);
   });
-  bar.querySelector("#bulkExport")?.addEventListener("click", () => {
+  header.querySelector("#bulkExport")?.addEventListener("click", () => {
     if (sel.size === 0) return;
     sendBulkExportSessions(Array.from(sel));
   });
-  bar.querySelector("#bulkDelete")?.addEventListener("click", () => {
+  header.querySelector("#bulkDelete")?.addEventListener("click", () => {
     if (sel.size === 0) return;
     sendBulkDeleteSessions(Array.from(sel));
   });
-  bar.querySelector("#bulkCancel")?.addEventListener("click", () => {
+  header.querySelector("#bulkCancel")?.addEventListener("click", () => {
     setBulkMode(false);
-    renderBulkBar();
+    renderListHeader(totalCount);
     updateList();
   });
 }
@@ -299,6 +290,7 @@ export function updateList(): void {
   }
 
   if (filtered.length === 0) {
+    renderListHeader(0);
     if (searchQuery) {
       container.innerHTML = renderEmptyState({
         iconSvg: icon("search-slash", 32),
@@ -325,7 +317,7 @@ export function updateList(): void {
     return;
   }
 
-  let h = renderCountRow(totalCount);
+  let h = "";
   for (const [label, sessions] of groups) {
     h += `<div class="group-label">${esc(label)}</div>`;
     for (const s of sessions) {
@@ -337,8 +329,7 @@ export function updateList(): void {
     h += `<div class="show-more-row"><button class="show-more-btn" id="showMore">Show more (${totalCount - visibleCount} remaining)</button></div>`;
   }
   container.innerHTML = h;
-  bindCountRow();
-  renderBulkBar();
+  renderListHeader(totalCount);
 }
 
 /**
