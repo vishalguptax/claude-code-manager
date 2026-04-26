@@ -282,15 +282,39 @@
    Heatmap
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* Heatmap scroll container. Cells are a fixed 16px square so the
+   grid is wider than a typical sidebar — wrap exposes a thin
+   horizontal scrollbar and bindHandlers scrolls to today on render
+   + resize so the right edge is always in view by default. */
+.acct-heatmap-wrap {
+  overflow-x: auto;
+  margin: var(--space-md) 0 var(--space-md);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle, rgba(127,127,127,0.3)) transparent;
+  padding-bottom: 4px;
+}
+.acct-heatmap-wrap::-webkit-scrollbar { height: 6px; }
+.acct-heatmap-wrap::-webkit-scrollbar-track { background: transparent; }
+.acct-heatmap-wrap::-webkit-scrollbar-thumb {
+  background: var(--border-subtle, rgba(127,127,127,0.3));
+  border-radius: 3px;
+}
+.acct-heatmap-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--border, rgba(127,127,127,0.5));
+}
+
 /* Heatmap — grid with day labels on left and month labels on top.
-   Template: first column = day labels, row 1 = month labels.
-   The renderer assigns explicit grid-column/grid-row to each cell. */
+   Cells are a fixed 12px square so they stay readable regardless of
+   sidebar width. The wrap container scrolls horizontally (silently
+   — scrollbar is hidden) when the grid overflows; bindHandlers
+   scrolls to today on render + resize so the right edge is always
+   in view. */
 .acct-heatmap {
   display: grid;
-  grid-template-rows: 14px repeat(7, 1fr);
+  grid-template-rows: 14px repeat(7, 16px);
   gap: 3px;
-  margin: var(--space-md) 0 var(--space-lg);
-  max-width: 100%;
+  width: max-content;
+  padding-right: 4px;
 }
 
 .acct-heat-month {
@@ -300,6 +324,13 @@
   letter-spacing: 0.3px;
   align-self: end;
   padding-bottom: 2px;
+  /* Each label is anchored to a single ~12px column but the month
+     name is wider — force a single line so the text overflows the
+     column visibly to the right instead of wrapping into two lines
+     (the wrapped second line collapses to just the year suffix and
+     `align-self: end` would show only that, hiding the month). */
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .acct-heat-day {
@@ -311,12 +342,38 @@
 }
 
 .acct-heat-cell {
-  aspect-ratio: 1;
-  border-radius: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
   background: var(--bg-hover);
-  min-width: 0;
 }
-.acct-heat-cell.empty { background: transparent; }
+.acct-heat-cell.empty,
+.acct-heat-cell.state-future {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border-subtle, rgba(127, 127, 127, 0.15));
+}
+/* "Stale" — past day not yet aggregated by Claude's stats-cache.json.
+   Diagonal hatch reads as "indeterminate, retry later" without
+   shouting an error colour. Matches the cache-lag note in the legend. */
+.acct-heat-cell.state-stale {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      rgba(255, 153, 102, 0.10) 0,
+      rgba(255, 153, 102, 0.10) 2px,
+      transparent 2px,
+      transparent 4px
+    );
+  box-shadow: inset 0 0 0 1px rgba(255, 153, 102, 0.20);
+}
+/* Today: subtle ring on whatever level the cell already has. Uses the
+   same orange so it reads as part of the ramp, not a foreign accent. */
+.acct-heat-cell.state-today {
+  outline: 1.5px solid #FF9966;
+  outline-offset: 1px;
+  position: relative;
+  z-index: 1;
+}
 /* Single-hue ramp with monotonically increasing intensity. The previous
    ramp mixed bg-hover@0.4 (lvl-0) with orange@0.2 (lvl-1), which on dark
    themes made a no-activity day look brighter than a 1-message day. */
@@ -334,21 +391,34 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
 }
 
 /*
- * Freshness caption under the token/session/message stats. The
- * tooltip explains why terminal `/stats` can disagree, so users
- * understand any small drift without us trying to reproduce Claude's
- * undocumented aggregation formula.
+ * Freshness caption under the stats grid. Sits a touch below the
+ * cards and a touch above the meta rows; tooltip carries the
+ * cadence explanation so the timestamp itself stays scanable.
  */
-.acct-stats-note {
-  text-align: center;
+.acct-usage-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-top: var(--space-xs);
+  margin-bottom: var(--space-md);
   font-size: var(--fs-sm);
   color: var(--fg-muted);
-  margin-top: calc(var(--space-sm) * -1);
-  margin-bottom: var(--space-md);
+}
+
+/*
+ * "Period totals approximate" caption. Italic + slightly dimmer
+ * so it reads as a clarification rather than a primary line, but
+ * the underline on hover (via the title attribute) still makes
+ * the tooltip discoverable.
+ */
+.acct-usage-footer-note {
+  font-style: italic;
+  opacity: 0.75;
+  cursor: help;
 }
 
 .acct-stat {
@@ -622,9 +692,28 @@
 }
 
 /*
- * Radio group used by the Config tab's effort picker. Stacked list
- * with label + one-line description per row. Whole row is clickable
- * because the `<input>` lives inside the surrounding `<label>`.
+ * Effort segmented row in Config tab. 7 pills (Default · Low · Med ·
+ * High · XHigh · Max · Auto). Flex-wraps when the sidebar is too
+ * narrow for one row so nothing overflows; pills share remaining
+ * width evenly.
+ */
+.cfg-effort-row {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 2px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.cfg-effort-row .vs-segmented-btn {
+  flex: 1 1 auto;
+  min-width: 48px;
+  padding: 4px 6px;
+  font-size: var(--fs-xs);
+}
+
+/*
+ * Radio group (legacy — superseded by segmented row above; kept in
+ * case future settings benefit from the stacked-with-desc layout).
  */
 .cfg-radio-group {
   display: flex;

@@ -42,6 +42,11 @@ import type {
   PermissionScope,
 } from "../types";
 import type { QuotaData, QuotaWindow, QuotaError } from "../quota";
+import {
+  buildHeatmap,
+  cutoffDaysForPeriod,
+  type HeatmapCell,
+} from "./heatmap";
 
 /**
  * Short purpose descriptions keyed by model family alias. Shown as a
@@ -196,9 +201,6 @@ function renderProfileSection(data: AccountData): string {
   }
 
   const initial = (p.displayName || p.email || "?").charAt(0).toUpperCase();
-  const memberSince = p.accountCreatedAt
-    ? new Date(p.accountCreatedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
-    : "";
   const expiresInDays =
     p.tokenExpiresAt > 0 ? Math.round((p.tokenExpiresAt - Date.now()) / 86400000) : 0;
 
@@ -226,12 +228,10 @@ function renderProfileSection(data: AccountData): string {
           ${p.subscriptionType ? `<span class="acct-plan-badge plan-${esc(p.subscriptionType)}">${esc(p.subscriptionType)}</span>` : ""}
         </div>
 
+        ${expiresInDays > 0 ? `
         <div class="acct-meta">
-          ${p.organizationName ? `<div class="acct-meta-row"><span class="acct-meta-k">Organization</span><span class="acct-meta-v">${esc(p.organizationName)}${p.organizationRole ? ` &middot; <em>${esc(p.organizationRole)}</em>` : ""}</span></div>` : ""}
-          ${memberSince ? `<div class="acct-meta-row"><span class="acct-meta-k">Member since</span><span class="acct-meta-v">${esc(memberSince)}</span></div>` : ""}
-          ${p.startupCount > 0 ? `<div class="acct-meta-row"><span class="acct-meta-k">Launches</span><span class="acct-meta-v">${p.startupCount.toLocaleString()}</span></div>` : ""}
-          ${expiresInDays > 0 ? `<div class="acct-meta-row"><span class="acct-meta-k">Session expires</span><span class="acct-meta-v">in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}</span></div>` : ""}
-        </div>
+          <div class="acct-meta-row"><span class="acct-meta-k">Session expires</span><span class="acct-meta-v">in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}</span></div>
+        </div>` : ""}
 
         <div class="acct-actions">
           <button class="btn" id="acct-switch-account" title="Switch between saved Claude accounts or log in a new one">${icon("refresh-cw", 14)} Switch account</button>
@@ -572,7 +572,7 @@ function renderUsageSection(data: AccountData): string {
     ? u.daily[u.daily.length - 1].date
     : new Date().toISOString().slice(0, 10);
   const anchor = new Date(latestDataDate).getTime();
-  const cutoffDays = period === "week" ? 7 : period === "month" ? 30 : Infinity;
+  const cutoffDays = cutoffDaysForPeriod(period);
   const withinPeriod = (date: string): boolean =>
     cutoffDays === Infinity ||
     (anchor - new Date(date).getTime()) / 86400000 < cutoffDays;
@@ -580,35 +580,39 @@ function renderUsageSection(data: AccountData): string {
   const filteredActivity = u.daily.filter((d) => withinPeriod(d.date));
   const filteredTokens = u.dailyTokens.filter((d) => withinPeriod(d.date));
 
-  // Active-days in the *selected* period, not all-time. Without this
-  // scoping the label shows "94 / 110" for a 30-day view because the
-  // raw `activeDays`/`totalDays` are computed once across every
-  // recorded day, regardless of filter. Matches the terminal /stats
-  // display (e.g. "28 / 30").
-  const activeInPeriod = filteredActivity.length;
-  const totalInPeriod =
-    period === "week" ? 7 : period === "month" ? 30 : u.totalDays;
+  // Active-days in the *selected* period, not all-time. Counts only
+  // dates with user messages — sub-agent activity creates per-day
+  // rows for token attribution, but a day with only agent-internal
+  // work isn't a day the user "used Claude" in /stats's sense.
+  const activeInPeriod = filteredActivity.filter((d) => d.messageCount > 0).length;
+  const totalInPeriod = cutoffDays === Infinity ? u.totalDays : cutoffDays;
 
-  // For "All time" use the cache's totals directly — they're the
-  // authoritative numbers Claude's /stats reports. For 7d/30d we sum
-  // daily rows (which aggregate the same way Claude's filtered views do).
+  // Period sessions: sum of per-day `sessionCount`. Matches Claude
+  // CLI `/stats`, which uses the same dailyActivity rows we read.
+  // A session that crosses midnight is counted on both days here —
+  // the cache itself is built that way, and reconciling it would
+  // require per-session timestamps the cache doesn't expose.
+  const sessionsInPeriod = period === "all"
+    ? u.totalSessions
+    : filteredActivity.reduce((acc, d) => acc + d.sessionCount, 0);
+
   const totals = period === "all"
     ? {
         messages: u.totalMessages,
-        sessions: u.totalSessions,
+        sessions: sessionsInPeriod,
         tools: filteredActivity.reduce((acc, d) => acc + d.toolCallCount, 0),
       }
     : filteredActivity.reduce(
         (acc, d) => ({
           messages: acc.messages + d.messageCount,
-          sessions: acc.sessions + d.sessionCount,
+          sessions: sessionsInPeriod, // overwritten — same value every iteration
           tools: acc.tools + d.toolCallCount,
         }),
-        { messages: 0, sessions: 0, tools: 0 },
+        { messages: 0, sessions: sessionsInPeriod, tools: 0 },
       );
 
   const tokenTotal = period === "all"
-    ? u.totalInputTokens + u.totalOutputTokens
+    ? u.totalTokens
     : filteredTokens.reduce((sum, d) => sum + d.total, 0);
 
   return `
@@ -622,14 +626,14 @@ function renderUsageSection(data: AccountData): string {
           <button class="vs-segmented-btn ${period === "all" ? "active" : ""}" data-period="all" role="tab">All time</button>
         </div>
 
-        ${renderHeatmap(u.daily, u.dailyTokens)}
+        ${renderHeatmap(u.daily, u.dailyTokens, u.lastComputedDate)}
 
         <div class="acct-stats-grid">
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(tokenTotal)}</div><div class="acct-stat-k">tokens</div></div>
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.sessions)}</div><div class="acct-stat-k">sessions</div></div>
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.messages)}</div><div class="acct-stat-k">messages</div></div>
         </div>
-        ${u.lastComputedDate ? `<div class="acct-stats-note" title="Claude CLI maintains these numbers in ~/.claude/stats-cache.json and refreshes them on its own cadence. Terminal /stats may use a different formula for the same period, so small drift is expected.">Cache last refreshed ${esc(u.lastComputedDate)}</div>` : ""}
+        ${renderUsageFooter(u, period)}
 
         <div class="acct-meta">
           ${u.favoriteModel ? `<div class="acct-meta-row"><span class="acct-meta-k">Favorite model</span><span class="acct-meta-v">${esc(formatModelName(u.favoriteModel))}</span></div>` : ""}
@@ -650,6 +654,31 @@ function renderUsageSection(data: AccountData): string {
         </div>` : ""}
       </div>`}
     </section>`;
+}
+
+/**
+ * Footer note under the stats grid. Only rendered on 7d / 30d views.
+ *
+ * All-time totals match Claude's `/stats` to the digit (we read
+ * the same `modelUsage` / `totalSessions` fields straight from
+ * stats-cache.json). Period totals can't — Claude computes them
+ * through an internal counter that isn't exposed in the cache, so
+ * we approximate by summing the per-day buckets the cache does
+ * publish. Calling that out keeps the small drift from looking
+ * like a bug. All-time view stays uncluttered with no footer.
+ */
+function renderUsageFooter(
+  u: AccountData["usage"],
+  period: "all" | "week" | "month",
+): string {
+  if (!u.lastComputedDate || period === "all") return "";
+  const tooltip =
+    `All-time totals match Claude's /stats to the digit. Period ` +
+    `totals are summed from the per-day buckets in stats-cache.json; ` +
+    `Claude's /stats computes its own period totals through an ` +
+    `internal counter that isn't exposed in the cache, so the two ` +
+    `can drift by ~10–30%.`;
+  return `<footer class="acct-usage-footer"><div class="acct-usage-footer-note" title="${esc(tooltip)}">Period totals approximate — see tooltip</div></footer>`;
 }
 
 /** Format large numbers as 1.2M / 345.2K / 1234. */
@@ -681,124 +710,91 @@ function formatDuration(ms: number): string {
 }
 
 /**
- * Render a GitHub-style activity heatmap for the last ~12 weeks with
- * day-of-week labels on the left and month labels across the top.
+ * Render a GitHub-style activity heatmap. Date math + intensity
+ * scaling live in `buildHeatmap` (heatmap.ts) so this function only
+ * formats the resolved model into HTML — easier to reason about and
+ * lets the builder be unit-tested directly.
  *
- * Layout (12 weeks × 7 days):
- *
- *         Mon Feb Mar Apr
- *   Mon   ░▒▓░ ... 12 columns
- *   ...
- *   Sun   ░▒▓░
+ * Width is period-aware: 7 days → 4 weeks, 30 days → 8 weeks, All →
+ * span from first activity (capped at 52 weeks). Cells whose date is
+ * past `lastComputedDate` but <= today render as "stale" with a
+ * hatched fill, signalling that Claude's stats cache hasn't yet
+ * aggregated those days.
  */
-function renderHeatmap(daily: DailyActivity[], dailyTokens: DailyTokens[]): string {
-  const byDate = new Map<string, DailyActivity>();
-  for (const d of daily) byDate.set(d.date, d);
-  // Parallel index by date so tooltips can quote per-day token spend
-  // alongside messages + sessions. dailyTokens is authored by the
-  // same Claude CLI stats cache that populates daily, so missing
-  // days simply mean "no tokens recorded that day" (common on
-  // sessions that predate usage tracking).
-  const tokensByDate = new Map<string, number>();
-  for (const d of dailyTokens) tokensByDate.set(d.date, d.total);
-
-  const WEEKS = 12;
-  const DAYS = WEEKS * 7;
-
+/**
+ * Heatmap shows the same fixed window (a rolling year, GitHub-style)
+ * regardless of the period selector — the period only affects the
+ * numeric totals below. A stable visual anchor lets the user compare
+ * weeks across filter changes without the grid jumping under them.
+ */
+function renderHeatmap(
+  daily: DailyActivity[],
+  dailyTokens: DailyTokens[],
+  lastComputedDate: string,
+): string {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Align the start date to a Monday so columns == whole weeks
-  // Oldest day = today - (DAYS - 1). Walk back further if needed to land on Monday.
+  // 52 weeks = 364 days. Builder Mon-aligns whatever start date we
+  // pass, so the resulting grid is always 52 or 53 columns depending
+  // on which weekday today is.
   const start = new Date(today);
-  start.setDate(start.getDate() - (DAYS - 1));
-  const dayOfWeek = (start.getDay() + 6) % 7; // Mon=0, Sun=6
-  start.setDate(start.getDate() - dayOfWeek);
-
-  // Find max for scaling. Tokens are the primary signal — they
-  // measure actual work done, whereas messageCount conflates a
-  // one-word ping with a 50k-context turn. Fall back to messageCount
-  // only when no token data was recorded (older sessions that
-  // predate usage tracking).
-  let max = 0;
-  let useTokens = false;
-  for (const total of tokensByDate.values()) {
-    if (total > 0) {
-      useTokens = true;
-      if (total > max) max = total;
-    }
-  }
-  if (!useTokens) {
-    for (const entry of byDate.values()) {
-      if (entry.messageCount > max) max = entry.messageCount;
-    }
-  }
-
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - 364);
+  const startDate = start.toISOString().slice(0, 10);
+  const model = buildHeatmap(today, daily, dailyTokens, {
+    startDate,
+    lastComputedDate,
+  });
   const DAY_ABBR = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const MS_PER_DAY = 86400000;
 
-  // Build month labels — show the month name above the first column where it appears
-  const monthLabels: Array<{ col: number; label: string }> = [];
-  let lastMonth = -1;
-  for (let w = 0; w < WEEKS; w++) {
-    const weekStart = new Date(start.getTime() + w * 7 * MS_PER_DAY);
-    const m = weekStart.getMonth();
-    if (m !== lastMonth) {
-      monthLabels.push({ col: w, label: MONTH_ABBR[m] });
-      lastMonth = m;
-    }
-  }
-
-  // Build cells (column-major order: week by week, day by day within week)
-  const cellsHtml: string[] = [];
-  for (let row = 0; row < 7; row++) {
-    for (let col = 0; col < WEEKS; col++) {
-      const d = new Date(start.getTime() + (col * 7 + row) * MS_PER_DAY);
-      if (d > today) {
-        cellsHtml.push(`<div class="acct-heat-cell empty"></div>`);
-        continue;
-      }
-      const key = d.toISOString().slice(0, 10);
-      const entry = byDate.get(key);
-      const tokenTotal = tokensByDate.get(key) ?? 0;
-      // Intensity scales on tokens when the cache has them; otherwise
-      // falls back to message count so older data still paints the
-      // heatmap at all. max is computed from whichever signal drives
-      // the palette, so the `/max` ratio is dimensionally correct.
-      const intensitySource = useTokens ? tokenTotal : (entry?.messageCount ?? 0);
-      const level =
-        max === 0 || intensitySource === 0
-          ? 0
-          : Math.min(4, Math.ceil((intensitySource / max) * 4));
-      const dateLabel = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      const tooltip = entry
-        ? (tokenTotal > 0
-            ? `${formatNumber(tokenTotal)} tokens · ${entry.messageCount} message${entry.messageCount === 1 ? "" : "s"} · ${entry.sessionCount} session${entry.sessionCount === 1 ? "" : "s"} · ${dateLabel}`
-            : `${entry.messageCount} message${entry.messageCount === 1 ? "" : "s"} · ${entry.sessionCount} session${entry.sessionCount === 1 ? "" : "s"} · ${dateLabel}`)
-        : `No activity · ${dateLabel}`;
-      cellsHtml.push(
-        `<div class="acct-heat-cell lvl-${level}" title="${esc(tooltip)}" style="grid-column:${col + 2};grid-row:${row + 2}"></div>`,
-      );
-    }
-  }
-
-  // Month labels (only the ones with assigned columns)
-  const monthHtml = monthLabels
+  const monthHtml = model.monthLabels
     .map(
       (m) => `<div class="acct-heat-month" style="grid-column:${m.col + 2};grid-row:1">${esc(m.label)}</div>`,
     )
     .join("");
 
-  // Day labels — show Mon/Wed/Fri on the left side
+  // Day labels — Mon/Wed/Fri on the left side. Three labels keep the
+  // strip readable without crowding the column for each weekday.
   const dayHtml = [
     `<div class="acct-heat-day" style="grid-column:1;grid-row:2">${DAY_ABBR[0]}</div>`,
     `<div class="acct-heat-day" style="grid-column:1;grid-row:4">${DAY_ABBR[2]}</div>`,
     `<div class="acct-heat-day" style="grid-column:1;grid-row:6">${DAY_ABBR[4]}</div>`,
   ].join("");
 
-  return `<div class="acct-heatmap" style="grid-template-columns:auto repeat(${WEEKS}, 1fr);">${monthHtml}${dayHtml}${cellsHtml.join("")}</div>`;
+  const cellsHtml = model.cells.map(renderHeatCell).join("");
+
+  return `
+    <div class="acct-heatmap-wrap">
+      <div class="acct-heatmap" style="grid-template-columns:auto repeat(${model.weeks}, 16px);">
+        ${monthHtml}${dayHtml}${cellsHtml}
+      </div>
+    </div>`;
 }
+
+/** Format one cell's HTML — class list, grid coords, tooltip. */
+function renderHeatCell(cell: HeatmapCell): string {
+  const classes = ["acct-heat-cell", `lvl-${cell.level}`, `state-${cell.state}`];
+  const date = new Date(cell.date + "T00:00:00");
+  const dateLabel = date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  let tooltip: string;
+  if (cell.state === "future") {
+    tooltip = dateLabel;
+  } else if (cell.state === "stale") {
+    tooltip = `Not yet computed · ${dateLabel}`;
+  } else if (cell.tokens > 0) {
+    tooltip = `${formatNumber(cell.tokens)} tokens · ${cell.messages} message${cell.messages === 1 ? "" : "s"} · ${cell.sessions} session${cell.sessions === 1 ? "" : "s"} · ${dateLabel}`;
+  } else if (cell.messages > 0) {
+    tooltip = `${cell.messages} message${cell.messages === 1 ? "" : "s"} · ${cell.sessions} session${cell.sessions === 1 ? "" : "s"} · ${dateLabel}`;
+  } else {
+    tooltip = `No activity · ${dateLabel}`;
+  }
+  return `<div class="${classes.join(" ")}" title="${esc(tooltip)}" style="grid-column:${cell.col + 2};grid-row:${cell.row + 2}"></div>`;
+}
+
 
 // ── Section: Settings ──
 
@@ -817,6 +813,25 @@ function renderSectionHeader(id: string, title: string, collapsed: boolean): str
 // ── Handlers ──
 
 function bindHandlers(container: HTMLElement, data: AccountData): void {
+  // Heatmap horizontal scroll: keep today (rightmost column) visible.
+  // The 52-week grid is wider than a narrow sidebar, so the default
+  // browser scroll-position (left) hides today on first paint and on
+  // every resize that changes the grid's intrinsic width. Snap to the
+  // right edge after layout, and re-snap on container resize.
+  const heatWrap = container.querySelector<HTMLElement>(".acct-heatmap-wrap");
+  if (heatWrap) {
+    const scrollToToday = (): void => {
+      heatWrap.scrollLeft = heatWrap.scrollWidth;
+    };
+    // Defer one frame so the browser has computed scrollWidth after
+    // the freshly-injected innerHTML lays out.
+    requestAnimationFrame(scrollToToday);
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(scrollToToday);
+      ro.observe(heatWrap);
+    }
+  }
+
   // Section collapse
   container.querySelectorAll<HTMLElement>(".acct-section-header").forEach((el) => {
     el.addEventListener("click", () => {

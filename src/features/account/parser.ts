@@ -20,36 +20,19 @@ import { discoverModelsFromCli } from "./models";
 import * as os from "os";
 import { CLAUDE_DIR } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
+import { computeUsageStats } from "./usage";
 import type {
   AccountData,
   AccountProfile,
   AccountSettings,
-  DailyActivity,
-  DailyTokens,
-  ModelStats,
   PermissionScope,
   PermissionSet,
-  UsageStats,
 } from "./types";
 
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const CLAUDE_BACKUPS_DIR = path.join(CLAUDE_DIR, "backups");
 const CREDENTIALS_FILE = path.join(CLAUDE_DIR, ".credentials.json");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
-const STATS_CACHE_FILE = path.join(CLAUDE_DIR, "stats-cache.json");
-
-/**
- * UTC-only "yesterday" helper for YYYY-MM-DD date strings. Used by
- * streak calculators so timezone shifts never roll a date to the day
- * before/after. Plain Date arithmetic with `setHours` can land on the
- * wrong calendar day for users whose local offset pushes UTC midnight
- * across a boundary (observed on Windows/IST).
- */
-function prevDayUtc(date: string): string {
-  const dt = new Date(date + "T00:00:00Z");
-  dt.setUTCDate(dt.getUTCDate() - 1);
-  return dt.toISOString().slice(0, 10);
-}
 
 /**
  * Read and parse .claude.json, falling back to the most recent backup
@@ -193,185 +176,14 @@ function parseProfile(): AccountProfile {
   return profile;
 }
 
-// ── Usage stats (stats-cache.json only) ──
-
-/**
- * Read all usage stats from stats-cache.json.
- *
- * This cache file is written by Claude Code itself and contains pre-computed
- * totals (totalSessions, totalMessages, modelUsage, etc.) plus per-day arrays.
- * All numbers here match what /stats shows in the CLI because we read from
- * the same source.
- */
-function parseUsage(): UsageStats {
-  const result: UsageStats = {
-    daily: [],
-    dailyTokens: [],
-    activeDays: 0,
-    totalDays: 0,
-    mostActiveDay: "",
-    longestStreak: 0,
-    currentStreak: 0,
-    byModel: [],
-    favoriteModel: "",
-    totalInputTokens: 0,
-    totalOutputTokens: 0,
-    totalTokens: 0,
-    totalSessions: 0,
-    totalMessages: 0,
-    longestSessionMs: 0,
-    firstSessionDate: "",
-    lastComputedDate: "",
-  };
-
-  type StatsCache = {
-    dailyActivity?: DailyActivity[];
-    dailyModelTokens?: Array<{ date: string; tokensByModel: Record<string, number> }>;
-    modelUsage?: Record<
-      string,
-      { inputTokens?: number; outputTokens?: number }
-    >;
-    totalSessions?: number;
-    totalMessages?: number;
-    longestSession?: { duration?: number };
-    firstSessionDate?: string;
-    lastComputedDate?: string;
-  };
-
-  let cache: StatsCache;
-  try {
-    const raw = fs.readFileSync(STATS_CACHE_FILE, "utf-8");
-    cache = JSON.parse(raw) as StatsCache;
-  } catch {
-    return result;
-  }
-
-  if (typeof cache.lastComputedDate === "string") {
-    result.lastComputedDate = cache.lastComputedDate;
-  }
-
-  // ── Daily activity (heatmap + filtering) ──
-  if (Array.isArray(cache.dailyActivity)) {
-    result.daily = cache.dailyActivity.filter(
-      (d): d is DailyActivity =>
-        typeof d === "object" &&
-        d !== null &&
-        typeof d.date === "string" &&
-        typeof d.messageCount === "number" &&
-        typeof d.sessionCount === "number" &&
-        typeof d.toolCallCount === "number",
-    );
-  }
-
-  // ── Per-day token totals (sum across models in each day's bucket) ──
-  if (Array.isArray(cache.dailyModelTokens)) {
-    const tokenDays: DailyTokens[] = [];
-    for (const entry of cache.dailyModelTokens) {
-      if (!entry || typeof entry.date !== "string" || typeof entry.tokensByModel !== "object") {
-        continue;
-      }
-      let sum = 0;
-      for (const v of Object.values(entry.tokensByModel)) {
-        if (typeof v === "number") sum += v;
-      }
-      tokenDays.push({ date: entry.date, total: sum });
-    }
-    tokenDays.sort((a, b) => a.date.localeCompare(b.date));
-    result.dailyTokens = tokenDays;
-  }
-
-  // ── Per-model breakdown from modelUsage ──
-  if (cache.modelUsage && typeof cache.modelUsage === "object") {
-    const modelList: ModelStats[] = [];
-    for (const [model, usage] of Object.entries(cache.modelUsage)) {
-      if (!usage || typeof usage !== "object") continue;
-      const input = typeof usage.inputTokens === "number" ? usage.inputTokens : 0;
-      const output = typeof usage.outputTokens === "number" ? usage.outputTokens : 0;
-      modelList.push({
-        model,
-        inputTokens: input,
-        outputTokens: output,
-        totalTokens: input + output,
-      });
-      result.totalInputTokens += input;
-      result.totalOutputTokens += output;
-    }
-    modelList.sort((a, b) => b.totalTokens - a.totalTokens);
-    result.byModel = modelList;
-    result.favoriteModel = modelList[0]?.model ?? "";
-    result.totalTokens = result.totalInputTokens + result.totalOutputTokens;
-  }
-
-  // ── Scalar totals ──
-  if (typeof cache.totalSessions === "number") result.totalSessions = cache.totalSessions;
-  if (typeof cache.totalMessages === "number") result.totalMessages = cache.totalMessages;
-  if (cache.longestSession && typeof cache.longestSession.duration === "number") {
-    result.longestSessionMs = cache.longestSession.duration;
-  }
-  if (typeof cache.firstSessionDate === "string") result.firstSessionDate = cache.firstSessionDate;
-
-  // ── Derived: most active day, streaks, day span ──
-  let maxDay = "";
-  let maxMessages = -1;
-  for (const d of result.daily) {
-    if (d.messageCount > maxMessages) {
-      maxMessages = d.messageCount;
-      maxDay = d.date;
-    }
-  }
-  result.activeDays = result.daily.length;
-  result.mostActiveDay = maxDay;
-
-  if (result.daily.length > 0) {
-    const first = new Date(result.daily[0].date).getTime();
-    const last = new Date(result.daily[result.daily.length - 1].date).getTime();
-    result.totalDays = Math.max(1, Math.round((last - first) / 86400000) + 1);
-  }
-
-  // Longest consecutive-day streak
-  const sorted = [...result.daily].sort((a, b) => a.date.localeCompare(b.date));
-  let longest = 0;
-  let run = 0;
-  let prev: string | null = null;
-  for (const d of sorted) {
-    if (!prev) {
-      run = 1;
-    } else {
-      const prevMs = new Date(prev).getTime();
-      const curMs = new Date(d.date).getTime();
-      const diff = Math.round((curMs - prevMs) / 86400000);
-      run = diff === 1 ? run + 1 : 1;
-    }
-    if (run > longest) longest = run;
-    prev = d.date;
-  }
-  result.longestStreak = longest;
-
-  // Current streak — walks backwards from the most recent day of
-  // recorded activity (not wall-clock today). Claude CLI rebuilds
-  // stats-cache on its own cadence, often a day or two behind today,
-  // so anchoring to wall-clock causes the loop to fail on its first
-  // check and always return 0 even when the terminal `/stats` view
-  // shows a healthy streak. Anchoring to latest data matches what
-  // the terminal displays.
-  //
-  // Date arithmetic uses UTC exclusively: the daily rows are stored as
-  // YYYY-MM-DD (Claude writes them that way), and mixing `setHours` /
-  // `toISOString` crosses a timezone boundary that can shift the
-  // reported date by one day for users east of UTC.
-  const activeDates = new Set(result.daily.map((d) => d.date));
-  let current = 0;
-  if (sorted.length > 0) {
-    let cursorDate = sorted[sorted.length - 1].date;
-    while (activeDates.has(cursorDate)) {
-      current++;
-      cursorDate = prevDayUtc(cursorDate);
-    }
-  }
-  result.currentStreak = current;
-
-  return result;
-}
+// ── Usage stats — projected from ~/.claude/stats-cache.json ──
+//
+// Aggregation lives in `./usage` so `parseAccountData` stays a
+// single dispatch point. We read the same file Claude CLI's
+// `/stats` reads, which guarantees one set of numbers across the
+// extension and the terminal. See usage.ts for the cadence/lag
+// tradeoff that comes with that choice.
+const parseUsage = computeUsageStats;
 
 // ── Settings ──
 

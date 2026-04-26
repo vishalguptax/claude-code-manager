@@ -20,5 +20,8 @@ export const SESSIONS_DIR: string = path.join(CLAUDE_DIR, "sessions");
 /** Path to the extension's user state file (pins/deletes) */
 export const STATE_FILE: string = path.join(CLAUDE_DIR, ".csm-state.json");
 
+/** Claude CLI's pre-aggregated stats cache (what /stats reads). */
+export const STATS_CACHE_FILE: string = path.join(CLAUDE_DIR, "stats-cache.json");
+
 /** Number of bytes to read from a session file for metadata extraction */
 export const SESSION_META_READ_BYTES: number = 4096;
