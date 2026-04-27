@@ -2,7 +2,7 @@
   "name": "claude-manager",
   "displayName": "Claude Manager",
   "description": "✨ Claude Code, one click closer. Browse sessions, skills, slash commands, hooks, MCP servers, and agents from your VS Code sidebar. Resume with git branch detection. 100% local, zero telemetry.",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "publisher": "vishalguptax",
   "author": {
     "name": "Vishal Gupta",
