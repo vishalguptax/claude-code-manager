@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.2] - 2026-04-27
+
+Two reliability fixes — the model dropdown now finds Claude CLI no matter how it was installed, and the cinematic intro stays dismissed for good.
+
+See [docs/releases/v1.7.2.md](docs/releases/v1.7.2.md) for full details.
+
 ## [1.7.1] - 2026-04-27
 
 Performance overhaul across all parsers (mtime-cached disk reads, smart watcher, parallel reload), keyed DOM diff for the session list, panel loaders for cold start, plus two crash fixes: Brain export under an open workspace and the Save-Profile button against Anthropic's opaque access tokens.
