@@ -3,6 +3,8 @@
  * Covers session data, grouping, statistics, JSONL entries, and message protocol.
  */
 
+import type { HooksWebviewMessage } from "../hooks/types";
+
 // ── Session Data ──
 
 /** A parsed Claude Code session with metadata and prompt history. */
@@ -435,4 +437,11 @@ export type WebviewMessage =
    * by the `claudeManager.reload` command palette entry — both routes
    * end up in `ClaudeSessionViewProvider.reloadAll()`.
    */
-  | { type: "reloadAll" };
+  | { type: "reloadAll" }
+  /**
+   * Hooks-feature messages routed through the same webview channel.
+   * Their definitions live in `../hooks/types` so the hooks feature
+   * owns its own protocol shape; we reference the union here so the
+   * shared dispatcher in `viewProvider.ts` narrows correctly.
+   */
+  | HooksWebviewMessage;

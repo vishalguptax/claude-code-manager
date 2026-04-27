@@ -4,7 +4,7 @@
  */
 
 import { icon } from "../../../../webview/icons";
-import { esc, dateLabel, renderEmptyState } from "../../../../webview/utils";
+import { dateLabel, renderEmptyState } from "../../../../webview/utils";
 import {
   sendNewSession,
   sendContinueLastSession,
@@ -33,7 +33,6 @@ import {
   setShellMounted,
   getSelectedSet,
   isSelected,
-  selectionCount,
   toggleSelected,
   clearSelection,
   selectAll,
@@ -53,7 +52,15 @@ import {
   updateBranchDropdown,
 } from "../components/branchDropdown";
 import { renderDateChips, bindDateChips } from "../components/dateChips";
-import { renderSessionItem, bindSessionItems } from "../components/sessionItem";
+import {
+  bindSessionItems,
+  createSessionItemNode,
+  updateSessionItemNode,
+} from "../components/sessionItem";
+import { applyDiff } from "../components/listDiff";
+
+const GROUP_KEY_PREFIX = "__group__:";
+const SHOW_MORE_KEY = "__show-more__";
 
 /**
  * Build the initial shell HTML for the list view and wire up all
@@ -87,6 +94,7 @@ export function mountShell(): void {
   bindDropdown();
   bindBranchDropdown();
   bindDateChips(updateList);
+  mountListHeader();
 
   document.getElementById("actNew")?.addEventListener("click", () => sendNewSession());
   document.getElementById("actContinue")?.addEventListener("click", () => sendContinueLastSession());
@@ -99,7 +107,7 @@ export function mountShell(): void {
   document.getElementById("actImport")?.addEventListener("click", () => sendImportSession());
   document.getElementById("sessionsRefresh")?.addEventListener("click", () => sendRefresh());
 
-  // Event delegation on session list — bind once, survives innerHTML updates
+  // Event delegation on session list — bind once, survives child mutation
   const sessionList = document.getElementById("sessionList");
   if (sessionList) {
     bindSessionItems(sessionList, getPinnedIds, {
@@ -196,30 +204,106 @@ export function updateFilter(): void {
 }
 
 /**
- * Render the fixed list header that sits above the scrolling list.
- * Two views toggled by bulk mode:
- *
- *   resting  →  "N sessions" + Select toggle
- *   bulk     →  "N selected" + Pin/Export/Delete/Cancel
- *
- * The header is the same row in both modes; only its content
- * swaps. Living outside `#sessionList` keeps it stationary while
- * the user scrolls deeper rows.
+ * Build the header skeleton once. All buttons live in the DOM from
+ * mount; `renderListHeader` flips classes / disabled / labels rather
+ * than recreating nodes — so click handlers bound here survive every
+ * subsequent state change (selection toggle, bulk enter/exit, etc.).
+ */
+export function mountListHeader(): void {
+  const header = document.getElementById("listHeader");
+  if (!header) return;
+
+  const label = document.createElement("span");
+  label.className = "list-header-label";
+  label.id = "listHeaderLabel";
+
+  const enterBtn = document.createElement("button");
+  enterBtn.className = "list-count-toggle";
+  enterBtn.id = "bulkEnter";
+  enterBtn.title = "Enter bulk-select mode";
+  enterBtn.innerHTML = `${icon("check", 12)} Select`;
+
+  const pinBtn = document.createElement("button");
+  pinBtn.className = "bulk-btn";
+  pinBtn.id = "bulkPin";
+
+  const exportBtn = document.createElement("button");
+  exportBtn.className = "bulk-btn";
+  exportBtn.id = "bulkExport";
+  exportBtn.innerHTML = `${icon("download", 12)} Export`;
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "bulk-btn del";
+  deleteBtn.id = "bulkDelete";
+  deleteBtn.innerHTML = `${icon("trash-2", 12)} Delete`;
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.className = "bulk-btn";
+  cancelBtn.id = "bulkCancel";
+  cancelBtn.title = "Exit bulk mode";
+  cancelBtn.innerHTML = `${icon("x", 12)} Cancel`;
+
+  header.replaceChildren(label, enterBtn, pinBtn, exportBtn, deleteBtn, cancelBtn);
+
+  enterBtn.addEventListener("click", () => {
+    setBulkMode(true);
+    renderListHeader(getFiltered().length);
+    updateList();
+  });
+  pinBtn.addEventListener("click", () => {
+    const sel = getSelectedSet();
+    if (sel.size === 0) return;
+    const pinned = getPinnedIds();
+    let allPinned = true;
+    for (const id of sel) {
+      if (!pinned.has(id)) { allPinned = false; break; }
+    }
+    sendBulkPinSessions(Array.from(sel), !allPinned);
+  });
+  exportBtn.addEventListener("click", () => {
+    const sel = getSelectedSet();
+    if (sel.size === 0) return;
+    sendBulkExportSessions(Array.from(sel));
+  });
+  deleteBtn.addEventListener("click", () => {
+    const sel = getSelectedSet();
+    if (sel.size === 0) return;
+    sendBulkDeleteSessions(Array.from(sel));
+  });
+  cancelBtn.addEventListener("click", () => {
+    setBulkMode(false);
+    renderListHeader(getFiltered().length);
+    updateList();
+  });
+}
+
+/**
+ * Surgically update the header to reflect current state. Toggles the
+ * bulk class, rewrites the label text, swaps the pin label/icon, and
+ * sets the disabled attribute on bulk buttons. Buttons themselves are
+ * never recreated — their listeners (bound in `mountListHeader`)
+ * persist across every render.
  */
 export function renderListHeader(totalCount: number): void {
   const header = document.getElementById("listHeader");
   if (!header) return;
+  const label = header.querySelector<HTMLElement>("#listHeaderLabel");
+  const enterBtn = header.querySelector<HTMLButtonElement>("#bulkEnter");
+  const pinBtn = header.querySelector<HTMLButtonElement>("#bulkPin");
+  const exportBtn = header.querySelector<HTMLButtonElement>("#bulkExport");
+  const deleteBtn = header.querySelector<HTMLButtonElement>("#bulkDelete");
+  const cancelBtn = header.querySelector<HTMLButtonElement>("#bulkCancel");
+  if (!label || !enterBtn || !pinBtn || !exportBtn || !deleteBtn || !cancelBtn) return;
 
   if (!isBulkMode()) {
     header.classList.remove("list-header-bulk");
-    header.innerHTML = `
-      <span class="list-header-label">${totalCount} session${totalCount !== 1 ? "s" : ""}</span>
-      <button class="list-count-toggle" id="bulkEnter" title="Enter bulk-select mode">${icon("check", 12)} Select</button>`;
-    header.querySelector("#bulkEnter")?.addEventListener("click", () => {
-      setBulkMode(true);
-      renderListHeader(totalCount);
-      updateList();
-    });
+    const text = `${totalCount} session${totalCount !== 1 ? "s" : ""}`;
+    if (label.textContent !== text) label.textContent = text;
+    enterBtn.style.display = "";
+    pinBtn.style.display = "none";
+    exportBtn.style.display = "none";
+    deleteBtn.style.display = "none";
+    cancelBtn.style.display = "none";
     return;
   }
 
@@ -230,40 +314,30 @@ export function renderListHeader(totalCount: number): void {
     if (!pinned.has(id)) { allPinned = false; break; }
   }
   const pinLabel = allPinned ? "Unpin" : "Pin";
-  const pinIcon = allPinned ? "pin-off" : "pin";
+  const pinIconName = allPinned ? "pin-off" : "pin";
   const count = sel.size;
-  const disabled = count === 0 ? "disabled" : "";
-  header.classList.add("list-header-bulk");
-  header.innerHTML = `
-    <span class="list-header-label">${count} selected</span>
-    <button class="bulk-btn" id="bulkPin" ${disabled}>${icon(pinIcon, 12)} ${pinLabel}</button>
-    <button class="bulk-btn" id="bulkExport" ${disabled}>${icon("download", 12)} Export</button>
-    <button class="bulk-btn del" id="bulkDelete" ${disabled}>${icon("trash-2", 12)} Delete</button>
-    <button class="bulk-btn" id="bulkCancel" title="Exit bulk mode">${icon("x", 12)} Cancel</button>`;
 
-  header.querySelector("#bulkPin")?.addEventListener("click", () => {
-    if (sel.size === 0) return;
-    sendBulkPinSessions(Array.from(sel), !allPinned);
-  });
-  header.querySelector("#bulkExport")?.addEventListener("click", () => {
-    if (sel.size === 0) return;
-    sendBulkExportSessions(Array.from(sel));
-  });
-  header.querySelector("#bulkDelete")?.addEventListener("click", () => {
-    if (sel.size === 0) return;
-    sendBulkDeleteSessions(Array.from(sel));
-  });
-  header.querySelector("#bulkCancel")?.addEventListener("click", () => {
-    setBulkMode(false);
-    renderListHeader(totalCount);
-    updateList();
-  });
+  header.classList.add("list-header-bulk");
+  const text = `${count} selected`;
+  if (label.textContent !== text) label.textContent = text;
+  enterBtn.style.display = "none";
+  pinBtn.style.display = "";
+  exportBtn.style.display = "";
+  deleteBtn.style.display = "";
+  cancelBtn.style.display = "";
+
+  const pinHtml = `${icon(pinIconName, 12)} ${pinLabel}`;
+  if (pinBtn.innerHTML !== pinHtml) pinBtn.innerHTML = pinHtml;
+  pinBtn.disabled = count === 0;
+  exportBtn.disabled = count === 0;
+  deleteBtn.disabled = count === 0;
 }
 
 /**
  * Re-render the session list inside #sessionList. Groups items by
- * pinned status and date label. Wires click, context-menu, and resume
- * handlers on each item.
+ * pinned status and date label. Reuses existing DOM nodes via keyed
+ * reconciliation (`applyDiff`) so a search keystroke patches state on
+ * surviving rows instead of tearing the list down.
  */
 export function updateList(): void {
   const container = document.getElementById("sessionList");
@@ -277,17 +351,6 @@ export function updateList(): void {
   const pinnedIds = getPinnedIds();
   const selectedId = getSelectedId();
   const searchQuery = getSearchQuery();
-
-  const groups = new Map<string, Session[]>();
-  const pinned = visible.filter((s) => pinnedIds.has(s.id));
-  const unpinned = visible.filter((s) => !pinnedIds.has(s.id));
-
-  if (pinned.length > 0) groups.set("Pinned", pinned);
-  for (const s of unpinned) {
-    const l = dateLabel(s.endTime);
-    if (!groups.has(l)) groups.set(l, []);
-    groups.get(l)!.push(s);
-  }
 
   if (filtered.length === 0) {
     renderListHeader(0);
@@ -317,18 +380,84 @@ export function updateList(): void {
     return;
   }
 
-  let h = "";
-  for (const [label, sessions] of groups) {
-    h += `<div class="group-label">${esc(label)}</div>`;
-    for (const s of sessions) {
-      h += renderSessionItem(s, s.id === selectedId, pinnedIds.has(s.id), isSelected(s.id));
-    }
+  const groups = new Map<string, Session[]>();
+  const pinned = visible.filter((s) => pinnedIds.has(s.id));
+  const unpinned = visible.filter((s) => !pinnedIds.has(s.id));
+
+  if (pinned.length > 0) groups.set("Pinned", pinned);
+  for (const s of unpinned) {
+    const l = dateLabel(s.endTime);
+    if (!groups.has(l)) groups.set(l, []);
+    groups.get(l)!.push(s);
   }
 
-  if (hasMore) {
-    h += `<div class="show-more-row"><button class="show-more-btn" id="showMore">Show more (${totalCount - visibleCount} remaining)</button></div>`;
+  // Build the desired key list and a parallel lookup so the updater
+  // can resolve sessions / group labels back from a key without
+  // re-walking the groups map.
+  const desiredKeys: string[] = [];
+  const groupLabelByKey = new Map<string, string>();
+  const sessionByKey = new Map<string, Session>();
+  for (const [label, sessions] of groups) {
+    const groupKey = `${GROUP_KEY_PREFIX}${label}`;
+    desiredKeys.push(groupKey);
+    groupLabelByKey.set(groupKey, label);
+    for (const s of sessions) {
+      desiredKeys.push(s.id);
+      sessionByKey.set(s.id, s);
+    }
   }
-  container.innerHTML = h;
+  if (hasMore) desiredKeys.push(SHOW_MORE_KEY);
+
+  applyDiff(
+    container,
+    desiredKeys,
+    (key) => {
+      if (key.startsWith(GROUP_KEY_PREFIX)) {
+        const el = document.createElement("div");
+        el.className = "group-label";
+        return el;
+      }
+      if (key === SHOW_MORE_KEY) {
+        const wrap = document.createElement("div");
+        wrap.className = "show-more-row";
+        const btn = document.createElement("button");
+        btn.className = "show-more-btn";
+        btn.id = "showMore";
+        wrap.appendChild(btn);
+        return wrap;
+      }
+      const session = sessionByKey.get(key);
+      // Fallback never realistically hit — desiredKeys is built from
+      // the same map — but keep the type tight without a non-null !.
+      if (!session) return document.createElement("div");
+      return createSessionItemNode(session);
+    },
+    (node, key) => {
+      if (key.startsWith(GROUP_KEY_PREFIX)) {
+        const label = groupLabelByKey.get(key) ?? "";
+        if (node.textContent !== label) node.textContent = label;
+        return;
+      }
+      if (key === SHOW_MORE_KEY) {
+        const btn = node.querySelector<HTMLButtonElement>("#showMore");
+        if (btn) {
+          const text = `Show more (${totalCount - visibleCount} remaining)`;
+          if (btn.textContent !== text) btn.textContent = text;
+        }
+        return;
+      }
+      const session = sessionByKey.get(key);
+      if (!session) return;
+      updateSessionItemNode(
+        node,
+        session,
+        session.id === selectedId,
+        pinnedIds.has(session.id),
+        isSelected(session.id),
+      );
+    },
+  );
+
   renderListHeader(totalCount);
 }
 

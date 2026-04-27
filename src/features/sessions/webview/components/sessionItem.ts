@@ -3,30 +3,76 @@
  */
 
 import { icon } from "../../../../webview/icons";
-import { esc, fmtRelativeTime } from "../../../../webview/utils";
+import { fmtRelativeTime } from "../../../../webview/utils";
 import type { Session } from "../../types";
 
 /**
- * Render a single session list item as an HTML string.
+ * Create a fresh session-item DOM node. Children that change with state
+ * (name, time, prompt, branch, project, pin badge) are populated by
+ * `updateSessionItemNode` so the create/update paths stay in sync —
+ * one source of truth for DOM shape.
  *
- * @param s - The session to render
- * @param isActive - Whether this session is currently selected
- * @param isPinned - Whether this session is pinned
- * @returns HTML string for the session item
+ * data-id keeps the existing `bindSessionItems` delegation contract; the
+ * keyed reconciler uses `data-key` set by the diff helper.
  */
-export function renderSessionItem(
+export function createSessionItemNode(s: Session): HTMLElement {
+  const root = document.createElement("div");
+  root.className = "item session-item";
+  root.dataset.id = s.id;
+
+  const row1 = document.createElement("div");
+  row1.className = "item-row1";
+  const name = document.createElement("span");
+  name.className = "item-name";
+  const time = document.createElement("span");
+  time.className = "item-time";
+  row1.append(name, time);
+
+  const resume = document.createElement("button");
+  resume.className = "item-resume";
+  resume.dataset.resume = s.id;
+  resume.title = "Resume session";
+  resume.innerHTML = icon("play");
+
+  const prompt = document.createElement("div");
+  prompt.className = "item-prompt";
+
+  const row2 = document.createElement("div");
+  row2.className = "item-row2";
+  const branch = document.createElement("span");
+  branch.className = "tag";
+  const proj = document.createElement("span");
+  proj.className = "item-proj";
+  const pin = document.createElement("span");
+  pin.className = "pin-icon";
+  pin.title = "Pinned";
+  pin.innerHTML = icon("pin");
+  row2.append(branch, proj, pin);
+
+  root.append(row1, resume, prompt, row2);
+  return root;
+}
+
+/**
+ * Patch a session-item node in place. Toggles only the classes /
+ * attributes / text that actually changed so a search keystroke
+ * touching 200 visible rows pays for the deltas, not for full DOM
+ * reconstruction.
+ */
+export function updateSessionItemNode(
+  node: HTMLElement,
   s: Session,
   isActive: boolean,
   isPinned: boolean,
-  isSelected = false,
-): string {
-  // When the session has a user-set rename, the rename is the title and the
-  // first prompt is shown as a dim subtitle. When there is no rename, the
-  // first prompt itself becomes the title (CSS truncates it on narrow widths).
-  const name = s.name || s.prompts[0] || "Untitled session";
+  isSelected: boolean,
+): void {
+  if (node.dataset.id !== s.id) node.dataset.id = s.id;
+  node.classList.toggle("active", isActive);
+  node.classList.toggle("is-selected", isSelected);
+
+  const displayName = s.name || s.prompts[0] || "Untitled session";
   const branch = s.branch && s.branch !== "HEAD" ? s.branch : "";
   const relTime = fmtRelativeTime(s.endTime);
-  // Full absolute date shown as tooltip on hover
   const absDate = new Date(s.endTime).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
@@ -36,35 +82,50 @@ export function renderSessionItem(
   const firstPrompt = s.prompts[0] ?? "";
   const showSubPrompt = Boolean(s.name && firstPrompt);
 
-  return `
-    <div class="item session-item ${isActive ? "active" : ""} ${isSelected ? "is-selected" : ""}" data-id="${s.id}">
-      <div class="item-row1">
-        <span class="item-name" title="${esc(name)}">${esc(name)}</span>
-        <span class="item-time" title="${esc(absDate)}">${esc(relTime)}</span>
-      </div>
-      <button class="item-resume" data-resume="${s.id}" title="Resume session">${icon("play")}</button>
-      ${showSubPrompt ? `<div class="item-prompt" title="${esc(firstPrompt)}">${esc(firstPrompt)}</div>` : ""}
-      <div class="item-row2">
-        ${branch ? `<span class="tag" title="${esc(branch)}">${esc(branch)}</span>` : ""}
-        <span class="item-proj" title="${esc(s.project)}">${esc(s.project)}</span>
-        ${isPinned ? `<span class="pin-icon" title="Pinned">${icon("pin")}</span>` : ""}
-      </div>
-    </div>`;
+  const row1 = node.firstChild as HTMLElement;
+  const nameEl = row1.firstChild as HTMLElement;
+  const timeEl = row1.lastChild as HTMLElement;
+  if (nameEl.textContent !== displayName) nameEl.textContent = displayName;
+  if (nameEl.title !== displayName) nameEl.title = displayName;
+  if (timeEl.textContent !== relTime) timeEl.textContent = relTime;
+  if (timeEl.title !== absDate) timeEl.title = absDate;
+
+  const resume = row1.nextSibling as HTMLElement;
+  if (resume.dataset.resume !== s.id) resume.dataset.resume = s.id;
+
+  const prompt = resume.nextSibling as HTMLElement;
+  if (showSubPrompt) {
+    prompt.style.display = "";
+    if (prompt.textContent !== firstPrompt) prompt.textContent = firstPrompt;
+    if (prompt.title !== firstPrompt) prompt.title = firstPrompt;
+  } else if (prompt.style.display !== "none") {
+    prompt.style.display = "none";
+  }
+
+  const row2 = prompt.nextSibling as HTMLElement;
+  const branchEl = row2.firstChild as HTMLElement;
+  const projEl = branchEl.nextSibling as HTMLElement;
+  const pinEl = row2.lastChild as HTMLElement;
+  if (branch) {
+    branchEl.style.display = "";
+    if (branchEl.textContent !== branch) branchEl.textContent = branch;
+    if (branchEl.title !== branch) branchEl.title = branch;
+  } else if (branchEl.style.display !== "none") {
+    branchEl.style.display = "none";
+  }
+  if (projEl.textContent !== s.project) projEl.textContent = s.project;
+  if (projEl.title !== s.project) projEl.title = s.project;
+  const pinHidden = !isPinned;
+  const wasHidden = pinEl.style.display === "none";
+  if (pinHidden !== wasHidden) pinEl.style.display = pinHidden ? "none" : "";
 }
 
-/**
- * Bind click, context-menu, and resume handlers on session items in a container.
- *
- * @param container - The DOM element containing session items
- * @param pinnedIds - Set of currently pinned session IDs
- * @param callbacks - Event handler callbacks
- */
 /**
  * Bind click, context-menu, and resume handlers on session items using
  * event delegation. A single listener per event type on the container
  * handles all items, avoiding O(n) listener creation on each render.
  *
- * Call this once during mount — delegation survives innerHTML updates.
+ * Call this once during mount — delegation survives child mutation.
  * Uses getPinnedIds getter so the context menu always reads fresh state.
  */
 export function bindSessionItems(
