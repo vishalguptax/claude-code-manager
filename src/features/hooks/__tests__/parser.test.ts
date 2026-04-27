@@ -74,3 +74,33 @@ describe("parseHooks disabled support", () => {
     expect(list.map((h) => h.disabled)).toEqual([false, true]);
   });
 });
+
+describe("parseHooks mtime caching", () => {
+  it("returns cached hooks when settings.json mtime is unchanged", () => {
+    const original = JSON.stringify({
+      hooks: { PreToolUse: [{ matcher: "z", command: "echo z" }] },
+    });
+    // Replacement keeps the same byte length so the size component of
+    // the cache key stays stable; mtime is restored explicitly below.
+    const replacement = JSON.stringify({
+      hooks: { PreToolUse: [{ matcher: "Z", command: "echo Z" }] },
+    });
+    expect(replacement.length).toBe(original.length);
+
+    fs.writeFileSync(tmp.settings, original);
+    const fixedSec = Math.floor(Date.now() / 1000) - 600;
+    fs.utimesSync(tmp.settings, fixedSec, fixedSec);
+
+    const list = parseHooks(undefined);
+    expect(list[0].matcher).toBe("z");
+
+    // Replace bytes (same length), restore the mtime. The cache key
+    // (mtime + size) is unchanged, so the second parse must return
+    // the cached list — it would not parse the new bytes.
+    fs.writeFileSync(tmp.settings, replacement);
+    fs.utimesSync(tmp.settings, fixedSec, fixedSec);
+
+    const second = parseHooks(undefined);
+    expect(second[0].matcher).toBe("z");
+  });
+});

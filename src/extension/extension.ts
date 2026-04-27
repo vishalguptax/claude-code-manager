@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.reload", async () => {
       await vscode.commands.executeCommand("claudeCodeManager.view.focus");
-      provider.reloadAll();
+      await provider.reloadAll();
     }),
   );
 

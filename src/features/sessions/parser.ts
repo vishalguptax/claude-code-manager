@@ -17,6 +17,7 @@ import {
   SESSIONS_DIR,
   SESSION_META_READ_BYTES,
 } from "../../core/config";
+import { createMtimeCache } from "../../core/mtimeCache";
 import { deslugifyProjectPath } from "./portable";
 import type {
   HistoryEntry,
@@ -81,8 +82,25 @@ const NAME_HINT_READ_BYTES = 256 * 1024; // 256 KB — covers most sessions
 /** Maximum messages returned per detail view page (first/last). */
 const DETAIL_PAGE_SIZE = 50;
 
-/** Pre-built index: sessionId -> absolute file path. Reset on each parseSessions() call. */
-let sessionFileIndex: Map<string, string> | null = null;
+/**
+ * Cached `sessionId -> absolute file path` map. Rebuilt only when
+ * PROJECTS_DIR or any of its subdirectories change mtime. Without
+ * this cache every parseSessions() re-walked the projects directory
+ * (one readdir + N statSync) even when no session file had moved or
+ * been added. With it, an unchanged tree resolves the index in two
+ * stat calls (the projects dir itself plus a per-subdir confirmation).
+ *
+ * Invalidation is mtime-only: an empty/null cache means the next
+ * call rebuilds. We do not invalidate by file content — a JSONL
+ * line append doesn't add or remove a session file, so the index
+ * stays correct.
+ */
+interface SessionFileIndexCache {
+  projectsDirMtimeMs: number;
+  subdirMtimes: Map<string, number>;
+  index: Map<string, string>;
+}
+let sessionFileIndex: SessionFileIndexCache | null = null;
 
 /**
  * Warning from the most recent parseSessions() call, or null if all entries
@@ -106,50 +124,100 @@ export function getLastParseWarning(): string | null {
 }
 
 /**
- * Scan the projects directory and build an index mapping session IDs to their JSONL file paths.
- * Returns an empty map if the projects directory does not exist.
+ * Return the cached `sessionId -> absolute file path` map, rebuilding it
+ * only when PROJECTS_DIR (or any of its subdirectories) has changed
+ * mtime since the last build.
+ *
+ * Why subdir mtime matters: adding or removing a transcript file mutates
+ * its parent project subdirectory's mtime — but does NOT touch
+ * PROJECTS_DIR itself unless the project subdir is created/removed too.
+ * Tracking subdirs catches the common case (new session inside an
+ * existing project) without re-walking the whole tree on every call.
  */
-function buildSessionFileIndex(): Map<string, string> {
-  const index = new Map<string, string>();
+function getSessionFileIndex(): Map<string, string> {
+  let projectsStat: fs.Stats;
   try {
-    const dirs = fs.readdirSync(PROJECTS_DIR);
-    for (const dir of dirs) {
-      const dirPath = path.join(PROJECTS_DIR, dir);
-      let stat: fs.Stats;
-      try {
-        stat = fs.statSync(dirPath);
-      } catch {
-        continue;
-      }
-      if (!stat.isDirectory()) continue;
+    projectsStat = fs.statSync(PROJECTS_DIR);
+  } catch {
+    // Projects directory missing — keep a stale cache (might be a
+    // transient FS hiccup) and fall back to whatever we had. Returning
+    // an empty map either way is fine because callers .get() and tolerate
+    // null.
+    return sessionFileIndex?.index ?? new Map();
+  }
 
-      let files: string[];
+  if (sessionFileIndex && sessionFileIndex.projectsDirMtimeMs === projectsStat.mtimeMs) {
+    // Top-level mtime unchanged — verify each subdir is also unchanged.
+    let allFresh = true;
+    for (const [sub, mtime] of sessionFileIndex.subdirMtimes) {
+      let st: fs.Stats;
       try {
-        files = fs.readdirSync(dirPath);
+        st = fs.statSync(sub);
       } catch {
-        continue;
+        allFresh = false;
+        break;
       }
-
-      for (const file of files) {
-        if (file.endsWith(".jsonl")) {
-          index.set(file.slice(0, -6), path.join(dirPath, file));
-        }
+      if (st.mtimeMs !== mtime) {
+        allFresh = false;
+        break;
       }
     }
-  } catch {
-    // ENOENT is expected if projects dir doesn't exist yet
+    if (allFresh) return sessionFileIndex.index;
   }
+
+  const index = new Map<string, string>();
+  const subdirMtimes = new Map<string, number>();
+  let dirs: string[];
+  try {
+    dirs = fs.readdirSync(PROJECTS_DIR);
+  } catch {
+    sessionFileIndex = {
+      projectsDirMtimeMs: projectsStat.mtimeMs,
+      subdirMtimes,
+      index,
+    };
+    return index;
+  }
+
+  for (const dir of dirs) {
+    const dirPath = path.join(PROJECTS_DIR, dir);
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(dirPath);
+    } catch {
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+
+    let files: string[];
+    try {
+      files = fs.readdirSync(dirPath);
+    } catch {
+      continue;
+    }
+
+    subdirMtimes.set(dirPath, stat.mtimeMs);
+    for (const file of files) {
+      if (file.endsWith(".jsonl")) {
+        index.set(file.slice(0, -6), path.join(dirPath, file));
+      }
+    }
+  }
+
+  sessionFileIndex = {
+    projectsDirMtimeMs: projectsStat.mtimeMs,
+    subdirMtimes,
+    index,
+  };
   return index;
 }
 
 /**
- * Look up the JSONL file path for a session ID, building the index on first call.
+ * Look up the JSONL file path for a session ID using the mtime-cached
+ * directory index.
  */
 function getSessionFile(sessionId: string): string | null {
-  if (!sessionFileIndex) {
-    sessionFileIndex = buildSessionFileIndex();
-  }
-  return sessionFileIndex.get(sessionId) ?? null;
+  return getSessionFileIndex().get(sessionId) ?? null;
 }
 
 /**
@@ -237,6 +305,22 @@ function getDateGroup(timestamp: number): string {
 /** Size of the tail window we read to capture the most recent gitBranch. */
 const TAIL_READ_BYTES = 64 * 1024;
 
+interface SessionMeta {
+  branch: string;
+  entrypoint: string;
+  rename: string;
+  summary: string;
+}
+
+/**
+ * Module-scoped mtime cache for session metadata. parseSessions() runs
+ * once per file-watcher tick (multiple per minute during active
+ * sessions). Without caching, every tick re-read 256KB+64KB per session
+ * even when only one transcript had changed. With it, an unchanged
+ * session resolves in one stat call.
+ */
+const sessionMetaCache = createMtimeCache<SessionMeta>();
+
 /**
  * Read both the head (first ~256KB) and tail (last ~64KB) of a session file
  * to extract metadata:
@@ -248,13 +332,24 @@ const TAIL_READ_BYTES = 64 * 1024;
  * We need the tail because long-running sessions may have switched branches
  * mid-session, and the starting branch is misleading. The head captures
  * entrypoint and early summaries; the tail captures the latest branch.
+ *
+ * Results are mtime-cached. Same path with the same (mtime, size) returns
+ * the previously parsed meta object without touching the file again.
  */
-function readSessionMeta(filePath: string): {
-  branch: string;
-  entrypoint: string;
-  rename: string;
-  summary: string;
-} {
+function readSessionMeta(filePath: string): SessionMeta {
+  return sessionMetaCache.get(filePath, computeSessionMeta);
+}
+
+/**
+ * Invalidate the cached meta for a single session file. Used by the
+ * targeted file-watcher path so a single transcript change does not
+ * stale the rest of the cache.
+ */
+export function invalidateSessionMetaCache(filePath: string): void {
+  sessionMetaCache.invalidate(filePath);
+}
+
+function computeSessionMeta(filePath: string): SessionMeta {
   const result = { branch: "", entrypoint: "", rename: "", summary: "" };
   let fd: number;
   try {
@@ -299,7 +394,7 @@ function readSessionMeta(filePath: string): {
  */
 function processMetaChunk(
   chunk: string,
-  result: { branch: string; entrypoint: string; rename: string; summary: string },
+  result: SessionMeta,
   isTail: boolean,
 ): void {
   const hasRename = chunk.includes("/rename");
@@ -388,9 +483,6 @@ function buildSessionNameMap(): Map<string, string> {
  * @param userRenames - Extension-managed session rename map (takes highest priority).
  */
 export function parseSessions(userRenames: Record<string, string> = {}): Session[] {
-  // Reset file index for fresh scan
-  sessionFileIndex = null;
-
   const sessionNames = buildSessionNameMap();
   const entries = parseJsonlFile<HistoryEntry>(HISTORY_FILE);
 
@@ -528,13 +620,27 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
   return sessions;
 }
 
-/** Shape returned by `readOrphanSessionData` — null when the file has no usable content. */
+/**
+ * Shape returned by `readOrphanSessionData` — null when the file has no
+ * usable content.
+ *
+ * `branch`, `entrypoint`, `rename`, `summary` are captured during the
+ * single streaming pass so `discoverOrphanSessions` doesn't have to
+ * call `readSessionMeta` afterwards (which would trigger a second
+ * 320KB read on top of the full-file stream we already did). Latest-
+ * wins for branch + summary mirrors the head/tail rules in
+ * `processMetaChunk`. Entrypoint = first observed.
+ */
 interface OrphanData {
   cwd: string;
   firstPrompt: string;
   messageCount: number;
   firstTimestamp: number;
   lastTimestamp: number;
+  branch: string;
+  entrypoint: string;
+  rename: string;
+  summary: string;
 }
 
 /**
@@ -549,6 +655,11 @@ interface OrphanData {
  * queue-only shells don't get re-read each tick.
  */
 const orphanCache = new Map<string, { mtimeMs: number; data: OrphanData | null }>();
+
+/** Drop the orphan-cache entry for a single transcript so the next read re-streams it. */
+function invalidateOrphanCacheEntry(filePath: string): void {
+  orphanCache.delete(filePath);
+}
 
 /**
  * Extract the bits of metadata we need to synthesize a Session object
@@ -588,10 +699,31 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
   let messageCount = 0;
   let firstTimestamp = 0;
   let lastTimestamp = 0;
+  let branch = "";
+  let entrypoint = "";
+  let rename = "";
+  let summary = "";
   const CHUNK = 64 * 1024;
   const buf = Buffer.alloc(CHUNK);
   let leftover = "";
   let bytesRead: number;
+
+  const captureRename = (line: string, message: { content?: unknown } | undefined): void => {
+    if (!line.includes("/rename")) return;
+    if (!message?.content) return;
+    const text =
+      typeof message.content === "string"
+        ? message.content
+        : Array.isArray(message.content)
+          ? (message.content as Array<{ text?: string }>)
+              .map((b) => b.text ?? "")
+              .join("")
+          : "";
+    const match = text.match(
+      /<command-name>\/rename<\/command-name>[\s\S]*?<command-args>([^<]+)<\/command-args>/,
+    );
+    if (match?.[1]) rename = match[1].trim();
+  };
 
   try {
     do {
@@ -616,6 +748,15 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
             if (ts > lastTimestamp) lastTimestamp = ts;
           }
         }
+        // Meta capture mirrors readSessionMeta: branch + summary follow
+        // latest-wins, entrypoint takes the first observed value.
+        const e = entry as unknown as Record<string, unknown>;
+        if (typeof e.gitBranch === "string") branch = e.gitBranch;
+        if (typeof e.entrypoint === "string" && !entrypoint) entrypoint = e.entrypoint;
+        if (e.type === "summary" && typeof e.summary === "string") {
+          summary = (e.summary as string).trim();
+        }
+        captureRename(line, entry.message);
         if (entry.message?.role === "user" && !entry.isSidechain) {
           messageCount++;
           if (!firstPrompt) {
@@ -653,7 +794,17 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
   // empty shells (queue-operation-only files) don't clutter the list.
   if (!firstPrompt || messageCount === 0) return null;
 
-  return { cwd, firstPrompt, messageCount, firstTimestamp, lastTimestamp };
+  return {
+    cwd,
+    firstPrompt,
+    messageCount,
+    firstTimestamp,
+    lastTimestamp,
+    branch,
+    entrypoint,
+    rename,
+    summary,
+  };
 }
 
 /**
@@ -699,7 +850,8 @@ function discoverOrphanSessions(
       const data = readOrphanSessionData(filePath);
       if (!data) continue;
 
-      const meta = readSessionMeta(filePath);
+      // Meta is captured during the streaming pass above so we don't
+      // re-read 320KB per orphan via readSessionMeta.
       // Resolve projectPath with a three-tier fallback:
       //   1. cwd recorded in the JSONL — exact + authoritative
       //   2. slug-decoded (best-effort; lossy around embedded dashes)
@@ -725,7 +877,7 @@ function discoverOrphanSessions(
       // active-session PID map > /rename in transcript > auto-summary.
       let name = userRenames[sessionId] ?? "";
       if (!name) name = sessionNames.get(sessionId) ?? "";
-      if (!name) name = meta.rename || meta.summary;
+      if (!name) name = data.rename || data.summary;
 
       const summary =
         data.firstPrompt.length > 100
@@ -733,15 +885,15 @@ function discoverOrphanSessions(
           : data.firstPrompt;
 
       const searchHaystack =
-        `${name}\n${project}\n${meta.branch}\n${summary}`.toLowerCase();
+        `${name}\n${project}\n${data.branch}\n${summary}`.toLowerCase();
 
       out.push({
         id: sessionId,
         name,
         project,
         projectPath: canonicalPath,
-        branch: meta.branch,
-        entrypoint: meta.entrypoint,
+        branch: data.branch,
+        entrypoint: data.entrypoint,
         startTime: data.firstTimestamp || data.lastTimestamp,
         endTime: data.lastTimestamp || data.firstTimestamp,
         messageCount: data.messageCount,
@@ -976,6 +1128,41 @@ export function groupSessions(sessions: Session[]): SessionGroup[] {
       label,
       sessions: groups.get(label)!,
     }));
+}
+
+/**
+ * Re-parse a single session by id, returning a fresh Session object or
+ * null when the session no longer exists.
+ *
+ * Used by the targeted file-watcher path so a single transcript change
+ * doesn't trigger a full corpus re-read. Only the named session's
+ * mtime cache entry is invalidated; siblings keep their cached meta.
+ *
+ * For history-derived sessions we re-read history.jsonl to rebuild the
+ * prompt list (a transcript append corresponds to a new history entry
+ * for active sessions). Orphan sessions don't have history entries and
+ * are reconstructed entirely from the transcript stream.
+ */
+export function reparseOneSession(
+  sessionId: string,
+  userRenames: Record<string, string> = {},
+): Session | null {
+  const filePath = getSessionFile(sessionId);
+  if (!filePath) return null;
+
+  // Drop the stale cache entry so the next readSessionMeta picks up the
+  // new mtime. Without this the cached meta from before the change wins.
+  invalidateSessionMetaCache(filePath);
+  invalidateOrphanCacheEntry(filePath);
+
+  // Cheapest path that produces a correct Session: re-run parseSessions
+  // and pluck the matching id. parseSessions itself is now mtime-cached
+  // for meta reads (via sessionMetaCache) and for the file index, so the
+  // cost of a watcher-triggered rebuild is dominated by history.jsonl
+  // (small, line-streamed) plus one transcript meta read for the changed
+  // session. Sibling meta reads are served from cache.
+  const sessions = parseSessions(userRenames);
+  return sessions.find((s) => s.id === sessionId) ?? null;
 }
 
 /**

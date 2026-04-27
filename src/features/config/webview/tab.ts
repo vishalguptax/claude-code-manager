@@ -75,7 +75,7 @@ export function initConfigTab(vscode: VSCodeAPI): void {
 export function mount(container: HTMLElement): void {
   _container = container;
   if (!_data) {
-    container.innerHTML = `<div class="panel"><div class="loading">Loading config...</div></div>`;
+    container.innerHTML = `<div class="panel"><div class="panel-loader" role="status" aria-live="polite"><div class="panel-loader-spinner"></div><div class="panel-loader-text">Loading config…</div></div></div>`;
   }
 
   _messageHandler = (event: MessageEvent) => {

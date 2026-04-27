@@ -64,6 +64,17 @@ import type { Skill } from "../features/skills/types";
 let activeTab: Tab = "sessions";
 let tabShellMounted = false;
 
+/**
+ * Skeleton loader markup. Painted into a tab container the moment it
+ * mounts so weak machines show activity instead of an empty panel
+ * while the host parses data. Each feature's mount() overwrites the
+ * container's innerHTML with the real shell on first data arrival —
+ * no cleanup needed.
+ */
+function panelLoaderHtml(text: string): string {
+  return `<div class="panel-loader" role="status" aria-live="polite"><div class="panel-loader-spinner"></div><div class="panel-loader-text">${text}</div></div>`;
+}
+
 /** All tabs in display order. */
 const ALL_TABS: Tab[] = ["sessions", "skills", "commands", "hooks", "mcp", "agents", "account", "config"];
 
@@ -274,6 +285,15 @@ function switchTab(tab: Tab): void {
 
 // Mount the tab shell first, then redirect #root for session feature compatibility
 mountTabShell();
+
+// Paint a skeleton loader into the sessions container immediately so
+// users see activity before the host's first `sessions` message lands.
+// `mountShell()` overwrites the container's innerHTML when sessions data
+// arrives, so no explicit cleanup is needed.
+const initialSessionsLoader = document.getElementById("sessionsContent");
+if (initialSessionsLoader) {
+  initialSessionsLoader.innerHTML = panelLoaderHtml("Loading sessions…");
+}
 
 // Wire the cinematic intro (auto-plays once per first-run, replay via
 // triple-clicking the footer brand text). Runs at product level, not

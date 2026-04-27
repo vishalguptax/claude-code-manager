@@ -5,7 +5,16 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { createMtimeCache } from "../../core/mtimeCache";
 import type { Hook, HookScope } from "./types";
+
+/**
+ * Cache `Hook[]` keyed by settings file path. The hooks list is
+ * derived from settings.json — re-parsing the JSON every reload was
+ * cheap individually but adds up across global + project + local
+ * scopes when nothing has changed.
+ */
+const hooksCache = createMtimeCache<Hook[]>();
 
 /** Path to the global settings file (~/.claude/settings.json). */
 const GLOBAL_SETTINGS_FILE: string = path.join(os.homedir(), ".claude", "settings.json");
@@ -18,31 +27,37 @@ const GLOBAL_SETTINGS_FILE: string = path.join(os.homedir(), ".claude", "setting
  * @param scope - Source label for the parsed hooks
  */
 function readHooksFromFile(filePath: string, scope: HookScope): Hook[] {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(filePath, "utf-8");
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(`[claude-manager] Failed to read settings file ${filePath}:`, (err as Error).message);
+  // mtime cache wraps both the read and the parse — when settings.json
+  // hasn't changed we skip both. On stat failure (typical: file
+  // doesn't exist) the cache calls compute() uncached, which returns
+  // [] for ENOENT.
+  return hooksCache.get(filePath, (p) => {
+    let raw: string;
+    try {
+      raw = fs.readFileSync(p, "utf-8");
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn(`[claude-manager] Failed to read settings file ${p}:`, (err as Error).message);
+      }
+      return [];
     }
-    return [];
-  }
 
-  let settings: Record<string, unknown>;
-  try {
-    settings = JSON.parse(raw) as Record<string, unknown>;
-  } catch (err: unknown) {
-    console.warn(`[claude-manager] Failed to parse ${filePath}:`, (err as Error).message);
-    return [];
-  }
+    let settings: Record<string, unknown>;
+    try {
+      settings = JSON.parse(raw) as Record<string, unknown>;
+    } catch (err: unknown) {
+      console.warn(`[claude-manager] Failed to parse ${p}:`, (err as Error).message);
+      return [];
+    }
 
-  const hooks: Hook[] = [];
-  // Active block first, then the parked `_disabled_hooks` block (if
-  // any). We tag each hook with its `disabled` origin so the UI can
-  // render and toggle it without re-reading the file.
-  collectFromBlock(settings.hooks, scope, false, hooks);
-  collectFromBlock(settings._disabled_hooks, scope, true, hooks);
-  return hooks;
+    const hooks: Hook[] = [];
+    // Active block first, then the parked `_disabled_hooks` block (if
+    // any). We tag each hook with its `disabled` origin so the UI can
+    // render and toggle it without re-reading the file.
+    collectFromBlock(settings.hooks, scope, false, hooks);
+    collectFromBlock(settings._disabled_hooks, scope, true, hooks);
+    return hooks;
+  });
 }
 
 function collectFromBlock(

@@ -6,7 +6,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { createMtimeCache } from "../../core/mtimeCache";
 import type { McpServer, McpServerType } from "./types";
+
+/** Cache parsed `McpServer[]` keyed by config file path. */
+const mcpCache = createMtimeCache<McpServer[]>();
 
 /** Global MCP config file: ~/.claude/mcp.json */
 const GLOBAL_MCP_FILE: string = path.join(os.homedir(), ".claude", "mcp.json");
@@ -20,72 +24,74 @@ const GLOBAL_MCP_FILE: string = path.join(os.homedir(), ".claude", "mcp.json");
  * @returns Array of parsed McpServer objects
  */
 function readMcpServersFromFile(filePath: string, scope: "global" | "project"): McpServer[] {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(filePath, "utf-8");
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(`[claude-manager] Failed to read MCP config ${filePath}:`, (err as Error).message);
-    }
-    return [];
-  }
-
-  let config: Record<string, unknown>;
-  try {
-    config = JSON.parse(raw) as Record<string, unknown>;
-  } catch (err: unknown) {
-    console.warn(`[claude-manager] Failed to parse MCP config ${filePath}:`, (err as Error).message);
-    return [];
-  }
-
-  const mcpServers = config.mcpServers;
-  if (!mcpServers || typeof mcpServers !== "object" || Array.isArray(mcpServers)) {
-    return [];
-  }
-
-  const servers: McpServer[] = [];
-  const serversMap = mcpServers as Record<string, unknown>;
-
-  for (const [name, entry] of Object.entries(serversMap)) {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
-
-    const rec = entry as Record<string, unknown>;
-    const explicitType = typeof rec.type === "string" ? rec.type : undefined;
-    const disabled = rec.disabled === true;
-    const command = typeof rec.command === "string" ? rec.command : undefined;
-    const url = typeof rec.url === "string" ? rec.url : undefined;
-    const args = Array.isArray(rec.args)
-      ? (rec.args as unknown[]).filter((a): a is string => typeof a === "string")
-      : undefined;
-    const env = rec.env && typeof rec.env === "object" && !Array.isArray(rec.env)
-      ? Object.fromEntries(
-          Object.entries(rec.env as Record<string, unknown>)
-            .filter(([, v]) => typeof v === "string")
-            .map(([k, v]) => [k, v as string]),
-        )
-      : undefined;
-
-    // Determine server type: explicit type field, or infer from presence of url vs command
-    let serverType: McpServerType;
-    if (explicitType === "http" || (!command && url)) {
-      serverType = "http";
-    } else {
-      serverType = "stdio";
+  return mcpCache.get(filePath, (p) => {
+    let raw: string;
+    try {
+      raw = fs.readFileSync(p, "utf-8");
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.warn(`[claude-manager] Failed to read MCP config ${p}:`, (err as Error).message);
+      }
+      return [];
     }
 
-    servers.push({
-      name,
-      type: serverType,
-      command,
-      args,
-      url,
-      env: env && Object.keys(env).length > 0 ? env : undefined,
-      scope,
-      disabled: disabled || undefined,
-    });
-  }
+    let config: Record<string, unknown>;
+    try {
+      config = JSON.parse(raw) as Record<string, unknown>;
+    } catch (err: unknown) {
+      console.warn(`[claude-manager] Failed to parse MCP config ${p}:`, (err as Error).message);
+      return [];
+    }
 
-  return servers;
+    const mcpServers = config.mcpServers;
+    if (!mcpServers || typeof mcpServers !== "object" || Array.isArray(mcpServers)) {
+      return [];
+    }
+
+    const servers: McpServer[] = [];
+    const serversMap = mcpServers as Record<string, unknown>;
+
+    for (const [name, entry] of Object.entries(serversMap)) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+
+      const rec = entry as Record<string, unknown>;
+      const explicitType = typeof rec.type === "string" ? rec.type : undefined;
+      const disabled = rec.disabled === true;
+      const command = typeof rec.command === "string" ? rec.command : undefined;
+      const url = typeof rec.url === "string" ? rec.url : undefined;
+      const args = Array.isArray(rec.args)
+        ? (rec.args as unknown[]).filter((a): a is string => typeof a === "string")
+        : undefined;
+      const env = rec.env && typeof rec.env === "object" && !Array.isArray(rec.env)
+        ? Object.fromEntries(
+            Object.entries(rec.env as Record<string, unknown>)
+              .filter(([, v]) => typeof v === "string")
+              .map(([k, v]) => [k, v as string]),
+          )
+        : undefined;
+
+      // Determine server type: explicit type field, or infer from presence of url vs command
+      let serverType: McpServerType;
+      if (explicitType === "http" || (!command && url)) {
+        serverType = "http";
+      } else {
+        serverType = "stdio";
+      }
+
+      servers.push({
+        name,
+        type: serverType,
+        command,
+        args,
+        url,
+        env: env && Object.keys(env).length > 0 ? env : undefined,
+        scope,
+        disabled: disabled || undefined,
+      });
+    }
+
+    return servers;
+  });
 }
 
 /**

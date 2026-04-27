@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
 import {
   indexSession,
-  clearIndex,
+  pruneIndex,
   searchContent,
 } from "../searchIndex";
 
@@ -22,7 +22,7 @@ function writeJsonl(filename: string, lines: unknown[]): string {
 
 beforeEach(() => {
   fs.rmSync(TMP, { recursive: true, force: true });
-  clearIndex();
+  pruneIndex(new Set());
 });
 
 describe("searchIndex", () => {
@@ -130,14 +130,78 @@ describe("searchIndex", () => {
     expect(searchContent("valid line")).toEqual(["s7"]);
   });
 
-  it("clearIndex drops all entries", () => {
+  it("pruneIndex with an empty set drops all entries", () => {
     const file = writeJsonl("h.jsonl", [
       { message: { role: "user", content: "findme" } },
     ]);
     indexSession("s8", file);
     expect(searchContent("findme")).toEqual(["s8"]);
-    clearIndex();
+    pruneIndex(new Set());
     expect(searchContent("findme")).toEqual([]);
+  });
+
+  it("pruneIndex keeps active ids and drops stale ones", () => {
+    const a = writeJsonl("p1.jsonl", [
+      { message: { role: "user", content: "alpha" } },
+    ]);
+    const b = writeJsonl("p2.jsonl", [
+      { message: { role: "user", content: "beta" } },
+    ]);
+    indexSession("A", a);
+    indexSession("B", b);
+    pruneIndex(new Set(["A"]));
+    expect(searchContent("alpha")).toEqual(["A"]);
+    expect(searchContent("beta")).toEqual([]);
+  });
+
+  it("indexSession skips re-extraction when mtime is unchanged", () => {
+    const original = JSON.stringify({
+      message: { role: "user", content: "old version" },
+    });
+    const replacement = JSON.stringify({
+      message: { role: "user", content: "new vrsion" }, // same byte length
+    });
+    const file = path.join(TMP, "inc.jsonl");
+    fs.mkdirSync(TMP, { recursive: true });
+    fs.writeFileSync(file, original + "\n");
+
+    // Pin the mtime to a known value (seconds-precision argument to
+    // utimesSync sidesteps cross-platform sub-second rounding).
+    const fixedSec = Math.floor(Date.now() / 1000) - 600;
+    fs.utimesSync(file, fixedSec, fixedSec);
+
+    indexSession("inc", file);
+    expect(searchContent("old version")).toEqual(["inc"]);
+
+    // Overwrite the bytes (same length so `size` stays stable), then
+    // pin the mtime back to the same fixed value. Cache key unchanged
+    // — indexSession must skip the re-extract.
+    fs.writeFileSync(file, replacement + "\n");
+    fs.utimesSync(file, fixedSec, fixedSec);
+
+    indexSession("inc", file);
+    expect(searchContent("old version")).toEqual(["inc"]);
+    expect(searchContent("new vrsion")).toEqual([]);
+  });
+
+  it("indexSession re-extracts when the file mtime advances", () => {
+    const file = writeJsonl("inc2.jsonl", [
+      { message: { role: "user", content: "old text" } },
+    ]);
+    indexSession("inc2", file);
+    expect(searchContent("old text")).toEqual(["inc2"]);
+
+    // Bump mtime + content.
+    fs.writeFileSync(
+      file,
+      JSON.stringify({ message: { role: "user", content: "new text" } }) + "\n",
+    );
+    const future = new Date(Date.now() + 60_000);
+    fs.utimesSync(file, future, future);
+
+    indexSession("inc2", file);
+    expect(searchContent("new text")).toEqual(["inc2"]);
+    expect(searchContent("old text")).toEqual([]);
   });
 
   it("returns every matching id when multiple sessions match", () => {

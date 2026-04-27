@@ -22,7 +22,7 @@ let _messageHandler: ((event: MessageEvent) => void) | null = null;
  */
 export function mount(container: HTMLElement): void {
   _container = container;
-  container.innerHTML = `<div class="loading">Loading agents...</div>`;
+  container.innerHTML = `<div class="panel-loader" role="status" aria-live="polite"><div class="panel-loader-spinner"></div><div class="panel-loader-text">Loading agents…</div></div>`;
 
   // Set up message listener for agents data
   _messageHandler = (event: MessageEvent) => {

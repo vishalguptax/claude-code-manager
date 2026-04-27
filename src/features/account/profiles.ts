@@ -30,6 +30,14 @@ import * as path from "path";
 import * as os from "os";
 import * as crypto from "crypto";
 import { CLAUDE_DIR } from "../../core/config";
+import { createMtimeCache } from "../../core/mtimeCache";
+
+/**
+ * Cache SHA-256 hashes by file path. listProfiles() can run on every
+ * panel reload and re-hashing N saved-profile credential files plus
+ * the live credentials file is wasted work when nothing has changed.
+ */
+const hashCache = createMtimeCache<string>();
 
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const CREDENTIALS_FILE = path.join(CLAUDE_DIR, ".credentials.json");
@@ -83,12 +91,14 @@ function slugify(label: string): string {
 
 /** SHA-256 hex of a file's content, or "" when the file can't be read. */
 function hashFile(filePath: string): string {
-  try {
-    const buf = fs.readFileSync(filePath);
-    return crypto.createHash("sha256").update(buf).digest("hex");
-  } catch {
-    return "";
-  }
+  return hashCache.get(filePath, (p) => {
+    try {
+      const buf = fs.readFileSync(p);
+      return crypto.createHash("sha256").update(buf).digest("hex");
+    } catch {
+      return "";
+    }
+  });
 }
 
 /**

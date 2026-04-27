@@ -6,7 +6,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { createMtimeCache } from "../../core/mtimeCache";
 import type { Command } from "./types";
+
+/** Cache parsed Command objects by their .md path; readdir stays uncached. */
+const commandCache = createMtimeCache<Command>();
 
 /** Global commands directory: ~/.claude/commands/ */
 const GLOBAL_COMMANDS_DIR: string = path.join(os.homedir(), ".claude", "commands");
@@ -121,16 +125,18 @@ function readCommandsFromDir(dir: string, scope: "global" | "project"): Command[
     }
     if (!stat.isFile()) continue;
 
-    let content: string;
+    const name = file.replace(/\.md$/, "");
+    let cmd: Command;
     try {
-      content = fs.readFileSync(filePath, "utf-8");
+      cmd = commandCache.get(filePath, (p) => {
+        const content = fs.readFileSync(p, "utf-8");
+        return { name, scope, content, path: p };
+      });
     } catch (err: unknown) {
       console.warn(`[claude-manager] Failed to read command file ${filePath}:`, (err as Error).message);
       continue;
     }
-
-    const name = file.replace(/\.md$/, "");
-    commands.push({ name, scope, content, path: filePath });
+    commands.push(cmd);
   }
 
   return commands;

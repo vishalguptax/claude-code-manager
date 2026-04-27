@@ -58,6 +58,8 @@ import {
   searchSessions,
   filterSessions,
   getLastParseWarning,
+  reparseOneSession,
+  invalidateSessionMetaCache,
 } from "../parser";
 
 describe("parseSessions", () => {
@@ -783,6 +785,79 @@ describe("filterSessions", () => {
 
   it("returns all sessions when no filters are provided", () => {
     expect(filterSessions(sessions, {})).toHaveLength(3);
+  });
+});
+
+describe("reparseOneSession", () => {
+  beforeEach(setup);
+
+  it("returns null when the session id is unknown", () => {
+    expect(reparseOneSession("never-existed")).toBeNull();
+  });
+
+  it("returns the freshly-parsed Session for an existing id", () => {
+    const now = Date.now();
+    writeHistoryEntry({
+      display: "first",
+      timestamp: now,
+      project: "/projects/r",
+      sessionId: "rep-1",
+    });
+    writeSessionFile("r-hash", "rep-1", [
+      { gitBranch: "main", entrypoint: "cli", sessionId: "rep-1" },
+      {
+        message: { role: "user", content: "first" },
+        timestamp: new Date(now).toISOString(),
+      },
+    ]);
+    // Prime caches.
+    parseSessions();
+
+    const fresh = reparseOneSession("rep-1");
+    expect(fresh).not.toBeNull();
+    expect(fresh!.id).toBe("rep-1");
+    expect(fresh!.branch).toBe("main");
+  });
+
+  it("invalidateSessionMetaCache forces a re-read for the named file", () => {
+    const now = Date.now();
+    writeHistoryEntry({
+      display: "x",
+      timestamp: now,
+      project: "/projects/r2",
+      sessionId: "rep-2",
+    });
+    writeSessionFile("r2-hash", "rep-2", [
+      { gitBranch: "old", sessionId: "rep-2" },
+      {
+        message: { role: "user", content: "x" },
+        timestamp: new Date(now).toISOString(),
+      },
+    ]);
+    const sess = parseSessions();
+    expect(sess.find((s) => s.id === "rep-2")?.branch).toBe("old");
+
+    // Rewrite the transcript with a new branch + future mtime so the
+    // mtime cache key advances.
+    writeSessionFile("r2-hash", "rep-2", [
+      { gitBranch: "new", sessionId: "rep-2" },
+      {
+        message: { role: "user", content: "x" },
+        timestamp: new Date(now).toISOString(),
+      },
+    ]);
+    const future = new Date(Date.now() + 60_000);
+    fs.utimesSync(
+      path.join(PROJECTS_DIR, "r2-hash", "rep-2.jsonl"),
+      future,
+      future,
+    );
+    invalidateSessionMetaCache(
+      path.join(PROJECTS_DIR, "r2-hash", "rep-2.jsonl"),
+    );
+
+    const refreshed = parseSessions();
+    expect(refreshed.find((s) => s.id === "rep-2")?.branch).toBe("new");
   });
 });
 

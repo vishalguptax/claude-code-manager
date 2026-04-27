@@ -41,7 +41,7 @@ function computeAccountKey(data: AccountData): string {
  */
 export function mount(container: HTMLElement): void {
   _container = container;
-  container.innerHTML = `<div class="panel"><div class="loading">Loading account...</div></div>`;
+  container.innerHTML = `<div class="panel"><div class="panel-loader" role="status" aria-live="polite"><div class="panel-loader-spinner"></div><div class="panel-loader-text">Loading account…</div></div></div>`;
 
   _messageHandler = (event: MessageEvent) => {
     const msg = event.data as Record<string, unknown>;

@@ -12,8 +12,9 @@ import {
   searchSessions,
   filterSessions,
   getLastParseWarning,
+  reparseOneSession,
 } from "./parser";
-import { indexSession, clearIndex, searchContent } from "./searchIndex";
+import { indexSession, pruneIndex, searchContent } from "./searchIndex";
 import { slugifyProjectPath } from "./portable";
 import { PROJECTS_DIR } from "../../core/config";
 import {
@@ -90,6 +91,18 @@ import * as os from "os";
 import * as fs from "fs";
 
 /**
+ * Extract `<sessionId>` from `…/projects/<slug>/<sessionId>.jsonl`.
+ * Returns null when the path is not a transcript file (e.g. history.jsonl
+ * or a non-jsonl path).
+ */
+function sessionIdFromTranscriptPath(filePath: string): string | null {
+  if (!filePath.endsWith(".jsonl")) return null;
+  const base = path.basename(filePath, ".jsonl");
+  if (!base || base === "history") return null;
+  return base;
+}
+
+/**
  * Build the modal body shown before a profile switch. The base
  * message always warns about running Claude terminals; when the
  * snapshot's access token is already past its `expiresAt`, we prepend
@@ -148,6 +161,21 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
    * Cleared when the current toast resolves (button click or dismiss).
    */
   private identityToastPending = false;
+
+  /**
+   * Last workspace path string posted to the webview. The watcher path
+   * was unconditionally re-posting on every session change, churning
+   * the project filter UI even when the workspace hadn't moved. We
+   * now compare-then-post.
+   */
+  private lastPostedWorkspace: string | undefined = undefined;
+
+  /**
+   * Set of paths that have changed since the last debounced session
+   * reparse. Used by the smart watcher to decide whether a single
+   * transcript can be patched in-place or a full reparse is required.
+   */
+  private pendingSessionPaths = new Set<string>();
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -238,7 +266,10 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private buildSearchIndex(): void {
     const myGen = ++this.indexBuildGen;
     const snapshot = this.sessions.slice();
-    clearIndex();
+    // Drop stale ids (deleted sessions) but KEEP entries for unchanged
+    // files — indexSession's mtime gate will skip those without
+    // re-extracting. clearIndex() would have re-streamed every JSONL.
+    pruneIndex(new Set(snapshot.map((s) => s.id)));
     const CHUNK = 50;
     const processChunk = (start: number): void => {
       if (this.view === undefined) return; // webview disposed — abort
@@ -263,10 +294,13 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
    * reload). Used as the recovery for the cold-start race where
    * workspace.workspaceFolders is briefly undefined while VS Code initializes.
    */
-  private postWorkspacePath(): void {
+  private postWorkspacePath(force = false): void {
     const wv = this.view?.webview;
     if (!wv) return;
-    wv.postMessage({ type: "workspacePath", data: getWorkspace() });
+    const ws = getWorkspace();
+    if (!force && ws === this.lastPostedWorkspace) return;
+    this.lastPostedWorkspace = ws;
+    wv.postMessage({ type: "workspacePath", data: ws });
     // Send the branch alongside so the "This Branch" filter stays in
     // sync with the workspace. Resolving the branch from the Git
     // extension can return an empty string on a cold panel — it is
@@ -290,7 +324,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
    * Tab state and scroll position are preserved because the webview
    * instance is unchanged: only the data messages are republished.
    */
-  reloadAll(): void {
+  async reloadAll(): Promise<void> {
     const wv = this.view?.webview;
     if (!wv) return;
     if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
@@ -301,8 +335,50 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     const workspace = getWorkspace();
     const ws = workspace || undefined;
 
-    try {
-      this.sessions = parseSessions(loadState().renames);
+    // Yield to the event loop between parser kickoffs so the watchdog
+    // doesn't see a 200ms pause while six parsers run back-to-back on
+    // a slow disk. Each parser is sync but bounded — a single
+    // setImmediate gap is enough for VS Code to keep the panel
+    // responsive while the work happens.
+    const yieldEventLoop = (): Promise<void> =>
+      new Promise<void>((r) => setImmediate(r));
+
+    type ParseResult<T> = { ok: true; data: T } | { ok: false };
+    const safe = async <T>(fn: () => T, label: string): Promise<ParseResult<T>> => {
+      try {
+        await yieldEventLoop();
+        return { ok: true, data: fn() };
+      } catch (err) {
+        console.warn(`[claude-manager] reload ${label} failed:`, err);
+        return { ok: false };
+      }
+    };
+
+    const renames = loadState().renames;
+    const [
+      sessionsResult,
+      accountResult,
+      skillsResult,
+      commandsResult,
+      hooksResult,
+      mcpResult,
+      agentsResult,
+    ] = await Promise.all([
+      safe(() => parseSessions(renames), "sessions"),
+      safe(() => parseAccountData(ws), "account"),
+      safe(() => parseSkills(ws), "skills"),
+      safe(() => parseCommands(ws), "commands"),
+      safe(() => parseHooks(ws), "hooks"),
+      safe(() => parseMcpServers(ws), "mcp"),
+      safe(() => parseAgents(ws), "agents"),
+    ]);
+
+    // Re-check the webview after the awaits — disposal during reload
+    // is rare but possible.
+    if (this.view === undefined) return;
+
+    if (sessionsResult.ok) {
+      this.sessions = sessionsResult.data;
       wv.postMessage({
         type: "sessions",
         data: groupSessions(this.sessions),
@@ -313,49 +389,29 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       const warning = getLastParseWarning();
       if (warning) wv.postMessage({ type: "error", message: warning });
       this.buildSearchIndex();
-    } catch (err) {
-      console.warn("[claude-manager] reload sessions failed:", err);
     }
-
-    try {
-      wv.postMessage({ type: "accountData", data: parseAccountData(ws) });
-    } catch (err) {
-      console.warn("[claude-manager] reload account failed:", err);
+    if (accountResult.ok) {
+      wv.postMessage({ type: "accountData", data: accountResult.data });
     }
-
-    try {
-      this.skills = parseSkills(ws);
+    if (skillsResult.ok) {
+      this.skills = skillsResult.data;
       wv.postMessage({ type: "skills", data: this.skills });
-    } catch (err) {
-      console.warn("[claude-manager] reload skills failed:", err);
     }
-
-    try {
-      this.commands = parseCommands(ws);
+    if (commandsResult.ok) {
+      this.commands = commandsResult.data;
       wv.postMessage({ type: "commands", data: this.commands });
-    } catch (err) {
-      console.warn("[claude-manager] reload commands failed:", err);
     }
-
-    try {
-      this.hooks = parseHooks(ws);
+    if (hooksResult.ok) {
+      this.hooks = hooksResult.data;
       wv.postMessage({ type: "hooks", data: this.hooks });
-    } catch (err) {
-      console.warn("[claude-manager] reload hooks failed:", err);
     }
-
-    try {
-      this.mcpServers = parseMcpServers(ws);
+    if (mcpResult.ok) {
+      this.mcpServers = mcpResult.data;
       wv.postMessage({ type: "mcpServers", data: this.mcpServers });
-    } catch (err) {
-      console.warn("[claude-manager] reload mcp failed:", err);
     }
-
-    try {
-      this.agents = parseAgents(ws);
+    if (agentsResult.ok) {
+      this.agents = agentsResult.data;
       wv.postMessage({ type: "agents", data: this.agents });
-    } catch (err) {
-      console.warn("[claude-manager] reload agents failed:", err);
     }
 
     this.refreshSettings();
@@ -427,6 +483,16 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       );
     }
 
+    /** Bind change/create/delete to a single URI-aware handler. */
+    const bindAll = (
+      w: vscode.FileSystemWatcher,
+      handler: (uri: vscode.Uri) => void,
+    ): void => {
+      w.onDidChange(handler);
+      w.onDidCreate(handler);
+      w.onDidDelete(handler);
+    };
+
     const onAccountChange = (): void => {
       if (this.accountReparseTimer) clearTimeout(this.accountReparseTimer);
       this.accountReparseTimer = setTimeout(() => {
@@ -452,49 +518,86 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
     for (const pattern of watchPatterns) {
       const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-      watcher.onDidChange(onAccountChange);
-      watcher.onDidCreate(onAccountChange);
-      watcher.onDidDelete(onAccountChange);
+      bindAll(watcher, onAccountChange);
       this.watchers.push(watcher);
     }
 
     // ── Session data watchers ──
-    // Watch history.jsonl (new sessions) and all session transcripts
-    // (branch changes, message updates). Debounced at 1s since JSONL files
-    // are appended to frequently during live sessions — we don't want to
-    // hammer the parser on every tool call.
-    const sessionWatchPatterns = [
-      new vscode.RelativePattern(
-        vscode.Uri.file(claudeDir),
-        "history.jsonl",
-      ),
-      new vscode.RelativePattern(
-        vscode.Uri.file(path.join(claudeDir, "projects")),
-        "**/*.jsonl",
-      ),
-    ];
+    // history.jsonl is split out from the projects watcher so the
+    // dispatch logic can pick the cheap path (single-session reparse)
+    // when only a transcript file changed, and fall back to a full
+    // reparse only when history.jsonl moved or a flood of transcripts
+    // tripped the threshold.
+    const historyPattern = new vscode.RelativePattern(
+      vscode.Uri.file(claudeDir),
+      "history.jsonl",
+    );
+    const transcriptPattern = new vscode.RelativePattern(
+      vscode.Uri.file(path.join(claudeDir, "projects")),
+      "**/*.jsonl",
+    );
 
-    const onSessionChange = (): void => {
+    /**
+     * Threshold above which a transcript-flood falls back to full
+     * reparse. A burst of >10 transcript changes inside one debounce
+     * window almost always means a project import / restore — full
+     * reparse is faster than 10+ targeted updates.
+     */
+    const TRANSCRIPT_FLOOD_THRESHOLD = 10;
+
+    const onSessionChange = (uri: vscode.Uri): void => {
+      this.pendingSessionPaths.add(uri.fsPath);
       if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
       this.sessionsReparseTimer = setTimeout(() => {
+        const paths = Array.from(this.pendingSessionPaths);
+        this.pendingSessionPaths.clear();
         const wv = this.view?.webview;
         if (!wv) return;
+
+        const historyChanged = paths.some((p) =>
+          p.endsWith(`${path.sep}history.jsonl`) || p.endsWith("/history.jsonl"),
+        );
+        const transcriptPaths = paths.filter(
+          (p) => p.endsWith(".jsonl") && !p.endsWith("history.jsonl"),
+        );
+
         try {
-          this.sessions = parseSessions(loadState().renames);
-          // Belt-and-suspenders for the cold-start race: re-post workspace
-          // path on every reload so the webview's project filter recovers
-          // even if the initial "ready" handshake fired before VS Code
-          // resolved its workspace folders.
-          this.postWorkspacePath();
+          if (historyChanged || transcriptPaths.length > TRANSCRIPT_FLOOD_THRESHOLD) {
+            this.fullSessionsReparse();
+            return;
+          }
+          // Targeted path: single transcript changed. Re-parse only
+          // that session and merge into the cached list. Sibling
+          // sessions keep their cached meta — the whole point of the
+          // smart watcher.
+          const renames = loadState().renames;
+          let mutated = false;
+          for (const filePath of transcriptPaths) {
+            const id = sessionIdFromTranscriptPath(filePath);
+            if (!id) continue;
+            const fresh = reparseOneSession(id, renames);
+            if (!fresh) {
+              // Session was deleted — drop it from the cache.
+              const idx = this.sessions.findIndex((s) => s.id === id);
+              if (idx >= 0) {
+                this.sessions.splice(idx, 1);
+                mutated = true;
+              }
+              continue;
+            }
+            const idx = this.sessions.findIndex((s) => s.id === id);
+            if (idx >= 0) this.sessions[idx] = fresh;
+            else this.sessions.push(fresh);
+            mutated = true;
+          }
+          if (!mutated) return;
+          this.sessions.sort((a, b) => b.endTime - a.endTime);
           wv.postMessage({
             type: "sessions",
             data: groupSessions(this.sessions),
             stats: getStats(this.sessions),
           });
           wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
-          const warning = getLastParseWarning();
-          if (warning) wv.postMessage({ type: "error", message: warning });
-          // Keep the search index in sync when sessions change on disk.
           this.buildSearchIndex();
         } catch (err) {
           console.warn("[claude-manager] sessions reparse failed:", err);
@@ -502,13 +605,30 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }, 1000);
     };
 
-    for (const pattern of sessionWatchPatterns) {
-      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-      watcher.onDidChange(onSessionChange);
-      watcher.onDidCreate(onSessionChange);
-      watcher.onDidDelete(onSessionChange);
-      this.watchers.push(watcher);
-    }
+    const historyWatcher = vscode.workspace.createFileSystemWatcher(historyPattern);
+    bindAll(historyWatcher, onSessionChange);
+    this.watchers.push(historyWatcher);
+
+    const transcriptWatcher = vscode.workspace.createFileSystemWatcher(transcriptPattern);
+    bindAll(transcriptWatcher, onSessionChange);
+    this.watchers.push(transcriptWatcher);
+  }
+
+  /** Full reparse path — extracted so the smart watcher can fall back to it. */
+  private fullSessionsReparse(): void {
+    const wv = this.view?.webview;
+    if (!wv) return;
+    this.sessions = parseSessions(loadState().renames);
+    this.postWorkspacePath();
+    wv.postMessage({
+      type: "sessions",
+      data: groupSessions(this.sessions),
+      stats: getStats(this.sessions),
+    });
+    wv.postMessage({ type: "projects", data: getUniqueProjects(this.sessions) });
+    const warning = getLastParseWarning();
+    if (warning) wv.postMessage({ type: "error", message: warning });
+    this.buildSearchIndex();
   }
 
   private disposeWatchers(): void {
@@ -722,7 +842,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         break;
 
       case "reloadAll":
-        this.reloadAll();
+        await this.reloadAll();
         break;
 
       case "searchFullText": {

@@ -5,7 +5,11 @@
  */
 import * as fs from "fs";
 import * as path from "path";
+import { createMtimeCache } from "../../core/mtimeCache";
 import type { Agent } from "./types";
+
+/** Cache parsed Agent objects by their .md path. */
+const agentCache = createMtimeCache<Agent>();
 
 /**
  * Parse YAML frontmatter from an agent .md file content string.
@@ -82,23 +86,24 @@ export function parseAgents(workspacePath?: string): Agent[] {
     }
     if (!stat.isFile()) continue;
 
-    let raw: string;
+    let agent: Agent;
     try {
-      raw = fs.readFileSync(filePath, "utf-8");
+      agent = agentCache.get(filePath, (p) => {
+        const raw = fs.readFileSync(p, "utf-8");
+        const parsed = parseFrontmatter(raw);
+        return {
+          name: parsed.name || file.replace(/\.md$/, ""),
+          description: parsed.description,
+          model: parsed.model || "sonnet",
+          path: p,
+          content: raw,
+        };
+      });
     } catch (err: unknown) {
       console.warn(`[claude-manager] Failed to read agent file ${filePath}:`, (err as Error).message);
       continue;
     }
-
-    const parsed = parseFrontmatter(raw);
-
-    agents.push({
-      name: parsed.name || file.replace(/\.md$/, ""),
-      description: parsed.description,
-      model: parsed.model || "sonnet",
-      path: filePath,
-      content: raw,
-    });
+    agents.push(agent);
   }
 
   return agents;

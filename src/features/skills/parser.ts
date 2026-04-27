@@ -6,7 +6,16 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { createMtimeCache } from "../../core/mtimeCache";
 import type { Skill } from "./types";
+
+/**
+ * Cache parsed Skill objects by their SKILL.md path. The directory
+ * walk stays uncached (it's cheap), but parsing the frontmatter for
+ * dozens of unchanged skills on every reload was the dominant cost
+ * of the Skills tab on weak machines.
+ */
+const skillCache = createMtimeCache<Skill>();
 
 /** Global skills directory (~/.claude/skills/) */
 const GLOBAL_SKILLS_DIR: string = path.join(os.homedir(), ".claude", "skills");
@@ -134,27 +143,30 @@ function readSkillsFromDir(root: string, scope: "global" | "project"): Skill[] {
 
       const skillFile = path.join(folderPath, "SKILL.md");
       if (fs.existsSync(skillFile)) {
-        let raw: string;
-        try {
-          raw = fs.readFileSync(skillFile, "utf-8");
-        } catch {
-          continue;
-        }
-        const parsed = parseFrontmatter(raw);
         // IDs must stay unique across nested skills — include the
         // folder path segments so `team/lint` and `lint` don't
         // collide when both exist. scope:segment1/segment2/name.
         const idSuffix = [...groupSegments, entry].join("/");
-        skills.push({
-          id: `${scope}:${idSuffix}`,
-          name: parsed.name || entry,
-          description: parsed.description,
-          scope,
-          path: folderPath,
-          content: raw,
-          tags: parsed.tags,
-          group: groupSegments.join("/"),
-        });
+        let skill: Skill;
+        try {
+          skill = skillCache.get(skillFile, (p) => {
+            const raw = fs.readFileSync(p, "utf-8");
+            const parsed = parseFrontmatter(raw);
+            return {
+              id: `${scope}:${idSuffix}`,
+              name: parsed.name || entry,
+              description: parsed.description,
+              scope,
+              path: folderPath,
+              content: raw,
+              tags: parsed.tags,
+              group: groupSegments.join("/"),
+            };
+          });
+        } catch {
+          continue;
+        }
+        skills.push(skill);
       } else {
         // Not a skill folder — descend. A dir with SKILL.md is a
         // leaf: we don't also walk its children so that bundled

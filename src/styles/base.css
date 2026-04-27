@@ -98,6 +98,34 @@
 .loading { text-align: center; padding: 24px; font-size: var(--fs-base); color: var(--fg-muted); }
 .empty   { text-align: center; padding: 28px var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
 
+/* Initial-paint loader for tab containers — shows immediately while
+   the host parses data so users see activity instead of an empty
+   panel. Replaced the moment the tab's first data message arrives
+   and the feature mounts its real shell. */
+.panel-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  gap: 12px;
+  color: var(--fg-muted);
+}
+.panel-loader-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--fg-muted);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: panel-loader-spin 0.8s linear infinite;
+}
+.panel-loader-text {
+  font-size: var(--fs-sm);
+}
+@keyframes panel-loader-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Inline link button rendered inside an .empty / .mcp-empty block.
    Visual: link-coloured text with no chrome so it reads as a follow-up
    prompt rather than a primary CTA. The marketplace "Browse community"

@@ -28,8 +28,20 @@ const MAX_CONTENT_BYTES = 50 * 1024;
 /** Bytes to read per JSONL chunk while streaming — same tuning as parseJsonlFile. */
 const READ_CHUNK = 64 * 1024;
 
-/** sessionId -> lowercased searchable content. Module-scoped singleton. */
-const index = new Map<string, string>();
+/**
+ * sessionId -> { mtimeMs of the source file, lowercased searchable
+ * content }. Module-scoped singleton.
+ *
+ * Storing mtime alongside the content lets indexSession() skip the
+ * extract step when the file hasn't changed since the last build.
+ * Without this, every parseSessions() tick re-streamed every JSONL
+ * even when only one session had been touched.
+ */
+interface IndexEntry {
+  mtimeMs: number;
+  content: string;
+}
+const index = new Map<string, IndexEntry>();
 
 /**
  * Extract lowercased, search-friendly text from a single session's
@@ -116,19 +128,41 @@ function extractLineText(line: string): string {
 }
 
 /**
- * Index a single session's file. Called from the chunked index build
- * scheduled by viewProvider after each parseSessions().
+ * Index a single session's file. No-op when the entry already exists
+ * with a matching mtime — re-extracting an unchanged 50MB transcript
+ * is the dominant cost of a full rebuild on weak machines, so keeping
+ * an mtime gate here turns subsequent rebuilds into stat-only scans
+ * for unchanged sessions.
+ *
+ * On stat failure (file missing) we still call extractContent so a
+ * deleted file ends up with empty content — searchContent then
+ * returns no matches for that id, which is the user-visible-correct
+ * outcome.
  */
 export function indexSession(sessionId: string, filePath: string): void {
-  index.set(sessionId, extractContent(filePath));
+  let mtimeMs: number;
+  try {
+    mtimeMs = fs.statSync(filePath).mtimeMs;
+  } catch {
+    index.set(sessionId, { mtimeMs: 0, content: extractContent(filePath) });
+    return;
+  }
+  const cached = index.get(sessionId);
+  if (cached && cached.mtimeMs === mtimeMs) return;
+  index.set(sessionId, { mtimeMs, content: extractContent(filePath) });
 }
 
 /**
- * Reset the whole index. Called at the start of each full rebuild so
- * stale entries from deleted sessions do not leak.
+ * Drop entries whose ids are not in `activeIds`. Replaces the previous
+ * `clearIndex()` semantics: a full rebuild now keeps unchanged-file
+ * entries (so indexSession can skip them on the mtime check) and only
+ * evicts ids that no longer correspond to a live session — typically
+ * sessions the user deleted from the panel.
  */
-export function clearIndex(): void {
-  index.clear();
+export function pruneIndex(activeIds: Set<string>): void {
+  for (const id of index.keys()) {
+    if (!activeIds.has(id)) index.delete(id);
+  }
 }
 
 /**
@@ -141,8 +175,8 @@ export function searchContent(query: string): string[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const hits: string[] = [];
-  for (const [id, text] of index) {
-    if (text.includes(q)) hits.push(id);
+  for (const [id, entry] of index) {
+    if (entry.content.includes(q)) hits.push(id);
   }
   return hits;
 }

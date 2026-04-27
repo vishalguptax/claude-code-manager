@@ -76,7 +76,7 @@ vi.mock("../../../extension/git", () => ({
 }));
 vi.mock("../searchIndex", () => ({
   indexSession: () => {},
-  clearIndex: () => {},
+  pruneIndex: () => {},
   searchContent: (q: string) => __mockedSearchContent(q),
 }));
 
@@ -309,7 +309,7 @@ describe("ClaudeSessionViewProvider", () => {
     provider.resolveWebviewView(view as unknown as vscode.WebviewView);
     view.webview.posted.length = 0;
 
-    provider.reloadAll();
+    await provider.reloadAll();
 
     const types = view.webview.posted.map((m) => m.type);
     expect(types).toContain("sessions");
