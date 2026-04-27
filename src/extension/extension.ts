@@ -125,9 +125,9 @@ export function activate(context: vscode.ExtensionContext): void {
           pick.value === "global"
             ? `claude-brain-${new Date().toISOString().slice(0, 10)}.claudebrain.zip`
             : workspace
-            ? `${path.basename(workspace.uri.fsPath)}.claudebrain.zip`
+            ? `${path.basename(workspace)}.claudebrain.zip`
             : `claude-brain.claudebrain.zip`;
-        const defaultDir = workspace ? workspace.uri.fsPath : os.homedir();
+        const defaultDir = workspace || os.homedir();
 
         const target = await vscode.window.showSaveDialog({
           defaultUri: vscode.Uri.file(path.join(defaultDir, defaultName)),
@@ -136,7 +136,7 @@ export function activate(context: vscode.ExtensionContext): void {
         });
         if (!target) return;
 
-        const buf = exportBrain(pick.value, workspace?.uri.fsPath);
+        const buf = exportBrain(pick.value, workspace || undefined);
         fs.writeFileSync(target.fsPath, buf);
         const size = (buf.length / 1024).toFixed(1);
         vscode.window.showInformationMessage(
@@ -190,7 +190,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (manifest.sections.includes("project")) {
         if (workspace) {
           sectionPicks.push({
-            label: `Project (current workspace: ${path.basename(workspace.uri.fsPath)})`,
+            label: `Project (current workspace: ${path.basename(workspace)})`,
             section: "project",
             picked: true,
           });
@@ -235,7 +235,7 @@ export function activate(context: vscode.ExtensionContext): void {
       );
 
       try {
-        const summary = importBrain(buf, workspace?.uri.fsPath, chosenSections);
+        const summary = importBrain(buf, workspace || undefined, chosenSections);
         const parts: string[] = [];
         if (summary.written.length) parts.push(`${summary.written.length} written`);
         if (summary.deferredAsImported.length) parts.push(`${summary.deferredAsImported.length} saved as .imported`);
