@@ -15,7 +15,7 @@ import { clearQuotaCache } from "../features/account/webview/state";
 import { setMarketplaceSkillsUrl, setMarketplaceMcpUrl } from "./marketplace";
 import { initPersistence } from "./persistence";
 import { installUiResetHandlers } from "./uiReset";
-import { bindDemoTrigger } from "./demo";
+import { bindDemoReplay, maybePlayDemoOnce } from "./demo";
 import { setClaudeCodeExtensionInstalled } from "./extensionStatus";
 import {
   setWorkspacePath,
@@ -295,11 +295,12 @@ if (initialSessionsLoader) {
   initialSessionsLoader.innerHTML = panelLoaderHtml("Loading sessions…");
 }
 
-// Wire the cinematic intro (auto-plays once per first-run, replay via
-// triple-clicking the footer brand text). Runs at product level, not
-// per-tab, so it covers the whole sidebar regardless of where the
-// user lands first.
-bindDemoTrigger();
+// Wire the cinematic intro replay trigger (triple-click the footer
+// brand text). Auto-play of the first-run cinematic happens later in
+// the `settings` message handler once the host tells us the persisted
+// seen-flag. Runs at product level, not per-tab, so it covers the
+// whole sidebar regardless of where the user lands first.
+bindDemoReplay();
 
 // Patch getElementById so that the sessions feature's lookups for "root"
 // are redirected to #sessionsContent. This avoids modifying session code.
@@ -347,6 +348,11 @@ window.addEventListener("message", (event: MessageEvent) => {
     if (typeof msg.marketplaceMcpUrl === "string") {
       setMarketplaceMcpUrl(msg.marketplaceMcpUrl);
     }
+    // Auto-play the cinematic intro on first launch only. The host
+    // ships the persisted seen-flag from globalState; the helper
+    // self-suppresses on subsequent settings messages within the
+    // same webview lifetime.
+    maybePlayDemoOnce(Boolean(msg.demoSeen));
   } else if (msg.type === "sessions") {
     const groups = msg.data as SessionGroup[];
     const flat: Session[] = [];

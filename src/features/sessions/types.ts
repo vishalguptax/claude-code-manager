@@ -263,6 +263,12 @@ export type ExtensionMessage =
 export type WebviewMessage =
   | { type: "ready" }
   | { type: "refresh" }
+  /**
+   * Webview signals it has shown the cinematic intro for the first
+   * time. Host persists the flag in globalState so the intro never
+   * auto-plays again on this VS Code install.
+   */
+  | { type: "markDemoSeen" }
   | { type: "continueLastSession" }
   | { type: "getSessionDetail"; sessionId: string; mode?: "first" | "last"; query?: string }
   | { type: "search"; query: string }

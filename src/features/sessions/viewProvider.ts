@@ -123,6 +123,14 @@ function buildSwitchConfirmDetail(profile: SavedProfile | undefined): string {
 }
 
 /**
+ * globalState key for the cinematic intro "seen" flag. Stored in the
+ * extension's globalState (not webview setState) so the intro is shown
+ * exactly once per VS Code install and never replays unless the user
+ * explicitly triple-clicks the footer brand text.
+ */
+const DEMO_SEEN_KEY = "claudeManager.demoSeen";
+
+/**
  * Provides the webview content for the Claude Manager sidebar panel.
  * Handles all message passing between the webview UI and the extension host.
  */
@@ -439,6 +447,12 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         "https://github.com/anthropics/claude-code/wiki/Skills",
       ),
       marketplaceMcpUrl: rootConfig.get<string>("marketplaceMcpUrl", "https://mcp.so"),
+      // Persisted in extension globalState (not webview setState) so
+      // the cinematic intro auto-plays exactly once per VS Code install
+      // and survives full panel reloads, workspace switches, and
+      // webview state purges. The webview gates auto-play on this flag
+      // and posts `markDemoSeen` after it plays.
+      demoSeen: this.globalState?.get<boolean>(DEMO_SEEN_KEY) ?? false,
     });
   }
 
@@ -789,6 +803,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
     try {
     switch (msg.type) {
+      case "markDemoSeen": {
+        await this.globalState?.update(DEMO_SEEN_KEY, true);
+        break;
+      }
+
       case "ready": {
         this.sessions = parseSessions(loadState().renames);
         this.postWorkspacePath();

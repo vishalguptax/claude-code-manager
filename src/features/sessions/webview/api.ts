@@ -20,6 +20,15 @@ export function sendReady(): void {
   _vscode.postMessage({ type: "ready" });
 }
 
+/**
+ * Tell the host the cinematic intro has played. Host writes the flag
+ * into globalState so the intro never auto-plays again on this VS Code
+ * install.
+ */
+export function sendMarkDemoSeen(): void {
+  _vscode.postMessage({ type: "markDemoSeen" });
+}
+
 /** Request a fresh session list from the extension. */
 export function sendRefresh(): void {
   _vscode.postMessage({ type: "refresh" });

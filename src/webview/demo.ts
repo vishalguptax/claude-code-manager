@@ -12,11 +12,20 @@
  *
  * Layout is tuned for a 400–450px sidebar — short lines, compact
  * monograms, scrollable overlay so nothing clips.
+ *
+ * The "seen" gate lives in the extension host's globalState (not
+ * webview setState) so the intro plays exactly once per VS Code
+ * install and never replays on panel reloads, workspace switches, or
+ * webview state purges.
  */
 
-import { getPersisted, setPersisted } from "./persistence";
+import { sendMarkDemoSeen } from "../features/sessions/webview/api";
 
-const DEMO_SEEN_KEY = "demoSeen";
+/**
+ * Process-local guard so two rapid `settings` messages can't auto-play
+ * the intro twice before the host's `markDemoSeen` round-trip lands.
+ */
+let _autoPlayedThisSession = false;
 
 /**
  * Full Claude + Manager wordmarks, stacked. Manager intentionally
@@ -315,25 +324,22 @@ export function runDemo(): void {
 
 /**
  * Wire triple-click on the footer brand text (`.footer-name`) to
- * replay the demo. Also auto-plays once on first-ever webview mount
- * for each machine, gated by a persisted `demoSeen` flag.
+ * replay the demo. Always-on, regardless of seen-state — power users
+ * who want to rewatch the intro can trigger it any time.
+ *
+ * Auto-play of the first-run cinematic is handled separately by
+ * `maybePlayDemoOnce`, which the main webview calls when the host
+ * sends the persisted seen-flag in its `settings` message.
+ *
+ * Returns a disposer that removes the click handler. The webview
+ * never disposes in production (sidebar lives for the session) but
+ * tests use the disposer to keep listener state from bleeding across
+ * cases.
  */
-export function bindDemoTrigger(): void {
-  // First-run auto-play: show the cinematic exactly once per webview
-  // state bucket. Stored via VS Code's setState — survives reloads,
-  // scoped per-webview (so re-installs reset it naturally).
-  if (!getPersisted<boolean>(DEMO_SEEN_KEY)) {
-    setTimeout(() => {
-      runDemo();
-      setPersisted(DEMO_SEEN_KEY, true);
-    }, 900);
-  }
-
-  // Triple-click replay trigger — footer brand text is always
-  // rendered regardless of active tab.
+export function bindDemoReplay(): () => void {
   let clicks = 0;
   let resetTimer: ReturnType<typeof setTimeout> | null = null;
-  document.addEventListener("click", (event: MouseEvent) => {
+  const handler = (event: MouseEvent): void => {
     const target = event.target as HTMLElement | null;
     if (!target) return;
     if (!target.closest(".footer-name")) return;
@@ -344,5 +350,28 @@ export function bindDemoTrigger(): void {
       clicks = 0;
       runDemo();
     }
-  });
+  };
+  document.addEventListener("click", handler);
+  return () => document.removeEventListener("click", handler);
+}
+
+/**
+ * Auto-play the cinematic once on first-ever launch.
+ *
+ * `seen` comes from the host's globalState — the extension host owns
+ * this state, not the webview, so the gate survives webview disposal,
+ * panel reload, workspace switch, and webview state purge. The webview
+ * round-trips a `markDemoSeen` message after the demo plays so the
+ * next launch reads `seen=true`.
+ *
+ * Idempotent: subsequent calls with `seen=false` within the same
+ * webview lifetime are no-ops thanks to `_autoPlayedThisSession`.
+ */
+export function maybePlayDemoOnce(seen: boolean): void {
+  if (seen || _autoPlayedThisSession) return;
+  _autoPlayedThisSession = true;
+  setTimeout(() => {
+    runDemo();
+    sendMarkDemoSeen();
+  }, 900);
 }
