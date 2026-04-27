@@ -449,15 +449,19 @@ describe("getActiveProfileSlug — JWT identity", () => {
     expect(getActiveProfileSlug()).toBeNull();
   });
 
-  it("returns null when the access token isn't a JWT with identity claims", () => {
-    // Non-JWT tokens (or JWTs missing identity claims) can't identify
-    // the current account. We refuse to cascade to .claude.json in
-    // that case — its staleness during /login would mis-attribute
-    // the live account to the previous saved slot. Returning null
-    // surfaces the "Save profile" button instead, and save-time
-    // dedupe catches true duplicates.
+  it("falls back to .claude.json identity when access token is opaque", () => {
+    // Anthropic's current production access tokens are opaque (not
+    // JWTs), so extractIdentityFromToken returns null. The cascade
+    // must fall through to .claude.json — otherwise the saved slot
+    // never matches at steady state and the "Save profile" button
+    // stays visible after every save. The /login race the JWT path
+    // protects against is transient; .claude.json is the only
+    // identity source we have once the token has rotated past the
+    // saved slot's hash.
     writeLiveAccount();
     saveProfile("Alice");
+    // Mutate creds to trigger a hash mismatch with the saved slot,
+    // forcing the cascade past Pass 1.
     writeLiveAccount(CLAUDE_JSON_SAMPLE, {
       claudeAiOauth: {
         accessToken: "opaque-non-jwt-token",
@@ -466,6 +470,23 @@ describe("getActiveProfileSlug — JWT identity", () => {
         subscriptionType: "max",
       },
     });
+    expect(getActiveProfileSlug()).toBe("alice");
+  });
+
+  it("returns null when both JWT and .claude.json yield no identity", () => {
+    writeLiveAccount();
+    saveProfile("Alice");
+    writeLiveAccount(
+      { oauthAccount: {} }, // claude.json has no email/userID
+      {
+        claudeAiOauth: {
+          accessToken: "opaque-non-jwt-token",
+          refreshToken: "r",
+          expiresAt: 0,
+          subscriptionType: "max",
+        },
+      },
+    );
     expect(getActiveProfileSlug()).toBeNull();
   });
 

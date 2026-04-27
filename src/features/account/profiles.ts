@@ -317,22 +317,30 @@ export function getActiveProfileSlug(): string | null {
     if (p.credentialsHash === liveHash) return p.slug;
   }
 
-  // Pass 2 + 3 need live identity. ONLY source: the JWT access-token
-  // claims. Reading identity from `.claude.json` is a trap because
-  // Claude CLI rewrites `.credentials.json` BEFORE `.claude.json`
-  // during /login — so during that window `.claude.json` still
-  // describes the PREVIOUS account while `.credentials.json` holds
-  // the new tokens. Trusting the JWT sidesteps the file-write race
-  // entirely. If the token yields no claims we recognise, we return
-  // null and let the UI show the "Save profile" button; saveProfile's
-  // dedupe will catch the case where a matching slot already exists
-  // (it keys off the same JWT).
+  // Pass 2 + 3 need live identity. Preferred source is the JWT access-
+  // token claims because during Claude CLI's `/login` flow,
+  // `.credentials.json` is rewritten BEFORE `.claude.json` — so during
+  // that window `.claude.json` still describes the PREVIOUS account.
+  // Anthropic's current access tokens are opaque (not JWTs), so the
+  // JWT path returns null; we then fall back to `.claude.json`. The
+  // /login race only matters during the rotation window — at steady
+  // state, `.claude.json` is the only identity source we have.
   let liveIdentity: { email: string; userID: string } | null = null;
   try {
     const credsRaw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
     liveIdentity = extractIdentityFromToken(credsRaw);
   } catch {
     // Credentials missing / unreadable — no active account to match.
+    return null;
+  }
+  if (!liveIdentity) {
+    try {
+      const claudeJsonRaw = fs.readFileSync(CLAUDE_JSON, "utf-8");
+      const fromJson = extractIdentity(claudeJsonRaw);
+      if (fromJson.userID || fromJson.email) liveIdentity = fromJson;
+    } catch {
+      // .claude.json missing — nothing left to try.
+    }
   }
   if (!liveIdentity) return null;
 
