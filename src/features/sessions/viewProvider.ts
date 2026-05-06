@@ -13,6 +13,7 @@ import {
   filterSessions,
   getLastParseWarning,
   reparseOneSession,
+  getSessionFile,
 } from "./parser";
 import { indexSession, pruneIndex, searchContent } from "./searchIndex";
 import { slugifyProjectPath } from "./portable";
@@ -284,9 +285,16 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       if (this.indexBuildGen !== myGen) return; // superseded by newer build
       for (let i = start; i < Math.min(start + CHUNK, snapshot.length); i++) {
         const s = snapshot[i];
-        if (!s.projectPath) continue;
-        const slug = slugifyProjectPath(s.projectPath);
-        const filePath = path.join(PROJECTS_DIR, slug, s.id + ".jsonl");
+        // Prefer the parser's on-disk index — authoritative across
+        // every platform/tool. projectPath-derived slug is a fallback
+        // for when the index has not yet picked up a fresh write.
+        const indexed = getSessionFile(s.id);
+        const filePath =
+          indexed ??
+          (s.projectPath
+            ? path.join(PROJECTS_DIR, slugifyProjectPath(s.projectPath), s.id + ".jsonl")
+            : "");
+        if (!filePath) continue;
         indexSession(s.id, filePath);
       }
       if (start + CHUNK < snapshot.length) {

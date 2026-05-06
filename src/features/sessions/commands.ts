@@ -6,7 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import type { Session, SessionDetail } from "./types";
-import { parseSessionDetail } from "./parser";
+import { parseSessionDetail, getSessionFile } from "./parser";
 import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
 import { createTerminal } from "../../extension/terminal";
@@ -584,14 +584,18 @@ export async function bulkExportSessionFiles(
 }
 
 /**
- * Find the on-disk path of a session's JSONL file by scanning the project
- * slug derived from its `projectPath`. Returns null if the file can't be
- * located (e.g., the session was deleted from disk after the last scan).
+ * Find the on-disk path of a session's JSONL file. Prefers the parser's
+ * authoritative sessionId→path index, which is the truth on disk. Falls
+ * back to slug reconstruction from projectPath only if the index has no
+ * entry — covers the rare case where the index is stale on a fresh write.
  *
- * We could index this in the parser like `getSessionFile` does, but exports
- * are rare enough that a direct lookup keeps the data flow obvious.
+ * The index lookup matters when projectPath disagrees with the on-disk
+ * slug. e.g. on Cursor+WSL the history.jsonl `project` field can record
+ * a cwd that slugifies differently than the directory Claude CLI created.
  */
 function resolveSessionFilePath(sess: Session): string | null {
+  const indexed = getSessionFile(sess.id);
+  if (indexed && fs.existsSync(indexed)) return indexed;
   if (!sess.projectPath) return null;
   const slug = slugifyProjectPath(sess.projectPath);
   const candidate = path.join(PROJECTS_DIR, slug, `${sess.id}.jsonl`);

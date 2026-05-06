@@ -216,7 +216,7 @@ function getSessionFileIndex(): Map<string, string> {
  * Look up the JSONL file path for a session ID using the mtime-cached
  * directory index.
  */
-function getSessionFile(sessionId: string): string | null {
+export function getSessionFile(sessionId: string): string | null {
   return getSessionFileIndex().get(sessionId) ?? null;
 }
 
