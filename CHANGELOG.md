@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.3] - 2026-05-06
+
+Session export now works reliably across every platform — including Cursor + WSL — by routing file lookups through the parser's authoritative on-disk index instead of reconstructing paths from cwd metadata.
+
+See [docs/releases/v1.7.3.md](docs/releases/v1.7.3.md) for full details.
+
 ## [1.7.2] - 2026-04-27
 
 Two reliability fixes — the model dropdown now finds Claude CLI no matter how it was installed, and the cinematic intro stays dismissed for good.
