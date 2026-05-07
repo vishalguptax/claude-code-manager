@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.0] - 2026-05-08
+
+Account profile switching now survives Claude CLI's token-rotation lifecycle, sessions pick up the CLI-generated topic title, and usage stats fill in days the stats cache hasn't caught up to yet.
+
+See [docs/releases/v1.8.0.md](docs/releases/v1.8.0.md) for full details.
+
 ## [1.7.3] - 2026-05-06
 
 Session export now works reliably across every platform — including Cursor + WSL — by routing file lookups through the parser's authoritative on-disk index instead of reconstructing paths from cwd metadata.
