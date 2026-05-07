@@ -78,6 +78,7 @@ import {
   updateProfile as updateProfileSnapshot,
   removeProfile as removeProfileSnapshot,
   listProfiles as listProfilesSnapshot,
+  syncActiveProfile as syncActiveProfileSnapshot,
 } from "../account/profiles";
 import type { SavedProfile } from "../account/profiles";
 import { createTerminal } from "../../extension/terminal";
@@ -124,6 +125,23 @@ function buildSwitchConfirmDetail(profile: SavedProfile | undefined): string {
 }
 
 /**
+ * Account-distinct identity key. `accountUuid` is authoritative when
+ * present; legacy snapshots without it fall back to lowercase email
+ * (the next-best account-distinct field on `.claude.json`'s
+ * `oauthAccount`). Empty string means "no identity" — used to detect
+ * the signed-out → signed-in transition without firing a toast.
+ *
+ * The `email:` prefix on the fallback prevents an arbitrary uuid that
+ * happens to equal someone's email (vanishingly unlikely but free
+ * insurance) from colliding with a legacy slot.
+ */
+function identityKey(accountUuid: string, email: string): string {
+  if (accountUuid) return accountUuid;
+  if (email) return `email:${email.toLowerCase()}`;
+  return "";
+}
+
+/**
  * globalState key for the cinematic intro "seen" flag. Stored in the
  * extension's globalState (not webview setState) so the intro is shown
  * exactly once per VS Code install and never replays unless the user
@@ -161,7 +179,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
    *   ""      — parsed, live is signed out
    *   "abc…"  — parsed, signed in as user abc…
    */
-  private lastSeenUserID: string | null = null;
+  private lastSeenIdentity: string | null = null;
   /**
    * Single in-flight identity-change toast. Guards against stacked
    * notifications when the user rapid-fires `/logout` + `/login`
@@ -520,6 +538,16 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       this.accountReparseTimer = setTimeout(() => {
         const wv = this.view?.webview;
         try {
+          // Mirror live token rotations into the saved slot. Anthropic
+          // single-use rotates refresh tokens, so a slot whose snapshot
+          // pre-dates the latest rotation will 401 on a future switch.
+          // No-op when no slot matches the live identity. Best-effort:
+          // a write failure here must not block the reparse + UI push.
+          try {
+            syncActiveProfileSnapshot();
+          } catch (err) {
+            console.warn("[claude-manager] sync active profile failed:", err);
+          }
           const ws = getWorkspace();
           const data = parseAccountData(ws || undefined);
           // Identity-change detection: when the live userID shifts
@@ -663,14 +691,20 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   }
 
   /**
-   * Passive post-swap observer. Compares `data.profile.userID` against
-   * the previous seen value and surfaces a non-blocking nudge when:
+   * Passive post-swap observer. Compares the live account-distinct
+   * identity (`accountUuid`, falling back to lowercase email for legacy
+   * accounts that predate accountUuid storage) against the previously
+   * seen value and surfaces a non-blocking nudge when:
    *   - the user logged into a brand-new account (no saved slot for
-   *     the new userID) — toast offers a "Save as profile" shortcut
+   *     the new identity) — toast offers a "Save as profile" shortcut
    *
-   * Seeds `lastSeenUserID` silently on the first parse so extension
+   * Seeds `lastSeenIdentity` silently on the first parse so extension
    * activation never fires a false-positive toast. Re-entries for the
-   * same userID (token rotations) skip the check entirely.
+   * same identity (token rotations) skip the check entirely.
+   *
+   * Why not `userID`: the top-level `userID` in `.claude.json` is
+   * device-stable (one machine = one userID), so it never changes
+   * across account switches and the toast would never fire.
    *
    * This is the closest we can get to "prevent CLI /login from silently
    * replacing an account": CLI owns its terminal, so we can't block the
@@ -678,27 +712,27 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
    * the user at the switcher before they lose more state.
    */
   private checkForIdentityChange(data: AccountData): void {
-    const liveUserID = data.profile.userID ?? "";
-    if (this.lastSeenUserID === null) {
+    const liveIdentity = identityKey(data.profile.accountUuid, data.profile.email);
+    if (this.lastSeenIdentity === null) {
       // First observation — seed and return silently.
-      this.lastSeenUserID = liveUserID;
+      this.lastSeenIdentity = liveIdentity;
       return;
     }
-    if (liveUserID === this.lastSeenUserID) return;
+    if (liveIdentity === this.lastSeenIdentity) return;
 
-    const prevUserID = this.lastSeenUserID;
-    this.lastSeenUserID = liveUserID;
+    const prevIdentity = this.lastSeenIdentity;
+    this.lastSeenIdentity = liveIdentity;
 
     // Logged out — identity went from something to nothing. The
     // signed-out UI already shows the switcher prominently, so no
     // extra toast needed here.
-    if (!liveUserID) return;
+    if (!liveIdentity) return;
 
     // New identity is already backed by a saved slot — this is an
     // expected switch (via our switcher or a re-login to a known
     // account). Nothing to nudge about.
     const hasSlotForNew = data.savedProfiles.some(
-      (p) => p.userID && p.userID === liveUserID,
+      (p) => identityKey(p.accountUuid, p.email) === liveIdentity,
     );
     if (hasSlotForNew) return;
 
@@ -707,8 +741,8 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     // Still end the toast on the actionable "Save" button so the NEW
     // identity doesn't suffer the same fate next login.
     const hadSlotForPrev =
-      !!prevUserID &&
-      data.savedProfiles.some((p) => p.userID && p.userID === prevUserID);
+      !!prevIdentity &&
+      data.savedProfiles.some((p) => identityKey(p.accountUuid, p.email) === prevIdentity);
 
     const email = data.profile.email || data.profile.displayName || "this account";
     const prelude = hadSlotForPrev
@@ -2046,16 +2080,21 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     // accumulated duplicates under the old hash-only active detection;
     // the dedupe fix prevents NEW ones but legacy duplicates persist.
     //
-    // Grouping key is userID + email tuple — userID alone is unsafe
-    // because pre-fix saves could capture a stale userID from
-    // `.claude.json` mid-write, producing two genuinely distinct
-    // accounts that happen to share a (wrong) userID. Requiring both
-    // fields to match catches real duplicates without false-flagging
-    // unrelated accounts that share corrupted metadata.
+    // Grouping key prefers `accountUuid` (account-distinct, the proper
+    // primary identity); legacy snapshots without it fall back to
+    // userID + email — userID alone is device-stable, NOT account-
+    // distinct, so the email cross-check is required to avoid
+    // collapsing distinct accounts on the same machine.
     const identityGroups = new Map<string, SavedProfile[]>();
     for (const p of savedProfiles) {
-      if (!p.userID || !p.email) continue;
-      const key = `${p.userID}|${p.email.toLowerCase()}`;
+      let key: string;
+      if (p.accountUuid) {
+        key = `uuid:${p.accountUuid}`;
+      } else if (p.userID && p.email) {
+        key = `${p.userID}|${p.email.toLowerCase()}`;
+      } else {
+        continue;
+      }
       const bucket = identityGroups.get(key) ?? [];
       bucket.push(p);
       identityGroups.set(key, bucket);

@@ -7,7 +7,7 @@
  *   ~/.claude/manager-accounts/<slug>/
  *     .claude.json            — oauthAccount + userID captured at save time
  *     .credentials.json       — OAuth access/refresh tokens, expiry
- *     profile.json            — label, savedAt, userID, email (our metadata)
+ *     profile.json            — label, savedAt, accountUuid, userID, email
  *
  * Switching merges identity into live state: `oauthAccount` + `userID`
  * are overwritten from the snapshot; every other key in `~/.claude.json`
@@ -15,10 +15,27 @@
  * config, …) is preserved as-is. `~/.claude/.credentials.json` is
  * swapped wholesale because it holds only OAuth tokens.
  *
- * Active-profile detection falls through three matchers in this order:
+ * Active-profile detection falls through four matchers in this order:
  *   1. byte-identical credentials hash (same token = same snapshot)
- *   2. live `userID` equals a saved userID (token rotated, same acct)
- *   3. live email equals a saved email (pre-userID snapshots)
+ *   2. `oauthAccount.accountUuid` (account-stable; primary identity)
+ *   3. `userID` + email cross-check (legacy snapshots without accountUuid)
+ *   4. email (oldest snapshots, pre-userID storage)
+ *
+ * Why the cascade exists: Anthropic's refresh tokens are single-use
+ * rotated. Once the CLI uses a saved snapshot's refresh token, the
+ * server revokes it and issues a new pair into the live creds file —
+ * the snapshot's bytes go stale. `syncActiveProfile()` writes the live
+ * pair back into the active slot whenever creds change so the snapshot
+ * never lags behind the rotation; switchProfile calls it before any
+ * swap so the outgoing slot captures its freshest token before being
+ * unmounted.
+ *
+ * About `userID` vs `accountUuid`: the top-level `userID` field in
+ * `.claude.json` is device-stable (same value across accounts on one
+ * machine), NOT account-distinct. `oauthAccount.accountUuid` is the
+ * authoritative per-account id. Pre-fix snapshots stored userID as the
+ * dedupe key, which is why the cascade still cross-checks email when
+ * matching on it.
  *
  * Security: OAuth tokens are duplicated on disk, unencrypted, exactly
  * the way Claude CLI already stores them. We inherit the user's home-
@@ -69,11 +86,29 @@ export interface SavedProfile {
   credentialsHash: string;
   /**
    * Anthropic `userID` captured from the snapshot's `.claude.json`.
-   * Stable across token rotations, unlike the credentials hash; used
-   * as the fallback identity matcher in `getActiveProfileSlug` and as
-   * the dedupe key in `saveProfile`.
+   * Note: this field is device-stable (same value across accounts on
+   * one machine), NOT account-distinct. Kept as a secondary matcher
+   * for legacy snapshots; new code should prefer `accountUuid`.
    */
   userID: string;
+  /**
+   * `oauthAccount.accountUuid` from the snapshot's `.claude.json` —
+   * Anthropic's per-account UUID. Account-distinct and stable across
+   * token rotations, so this is the primary identity key for both
+   * `getActiveProfileSlug` matching and `saveProfile` dedupe. Empty
+   * for snapshots taken before this field was introduced.
+   */
+  accountUuid: string;
+}
+
+/** Live-account identity extracted from `.claude.json` or the access token. */
+interface LiveIdentity {
+  /** `oauthAccount.accountUuid` — primary, account-distinct. */
+  accountUuid: string;
+  /** Top-level `userID` — device-stable; secondary matcher only. */
+  userID: string;
+  /** `oauthAccount.emailAddress`. Lowercase comparisons in matchers. */
+  email: string;
 }
 
 /**
@@ -136,16 +171,17 @@ function readLivePairRaceSafe(): {
   return null;
 }
 
-/** Parse oauthAccount.emailAddress + userID from claude.json content. */
-function extractIdentity(claudeJsonRaw: string): { email: string; userID: string } {
+/** Parse identity fields from a `.claude.json` payload. */
+function extractIdentity(claudeJsonRaw: string): LiveIdentity {
   try {
     const parsed = JSON.parse(claudeJsonRaw) as Record<string, unknown>;
     const oauth = parsed.oauthAccount as Record<string, unknown> | undefined;
     const email = typeof oauth?.emailAddress === "string" ? oauth.emailAddress : "";
+    const accountUuid = typeof oauth?.accountUuid === "string" ? oauth.accountUuid : "";
     const userID = typeof parsed.userID === "string" ? parsed.userID : "";
-    return { email, userID };
+    return { accountUuid, userID, email };
   } catch {
-    return { email: "", userID: "" };
+    return { accountUuid: "", userID: "", email: "" };
   }
 }
 
@@ -164,7 +200,7 @@ function extractIdentity(claudeJsonRaw: string): { email: string; userID: string
  * JWT inside `.credentials.json` is always current; trusting it sidesteps
  * the file-write ordering entirely.
  */
-function extractIdentityFromToken(credsRaw: string): { email: string; userID: string } | null {
+function extractIdentityFromToken(credsRaw: string): LiveIdentity | null {
   try {
     const parsed = JSON.parse(credsRaw) as { claudeAiOauth?: { accessToken?: string } };
     const token = parsed.claudeAiOauth?.accessToken;
@@ -176,18 +212,19 @@ function extractIdentityFromToken(credsRaw: string): { email: string; userID: st
     // Claim names vary across OAuth implementations; accept the most
     // common ones and fall through silently if none present. `sub` is
     // the standard JWT subject; `account_uuid` is what Anthropic uses
-    // in some payloads; `email` / `email_address` for the email claim.
+    // for the per-account UUID; `email` / `email_address` for email.
+    const accountUuid =
+      (typeof claims.account_uuid === "string" && claims.account_uuid) || "";
     const userID =
       (typeof claims.sub === "string" && claims.sub) ||
-      (typeof claims.account_uuid === "string" && claims.account_uuid) ||
       (typeof claims.user_id === "string" && claims.user_id) ||
       "";
     const email =
       (typeof claims.email === "string" && claims.email) ||
       (typeof claims.email_address === "string" && claims.email_address) ||
       "";
-    if (!userID && !email) return null;
-    return { email, userID };
+    if (!accountUuid && !userID && !email) return null;
+    return { accountUuid, userID, email };
   } catch {
     return null;
   }
@@ -209,6 +246,7 @@ function readSnapshotMeta(slotDir: string): Partial<SavedProfile> {
     // re-derived below from the captured .claude.json.
     if (typeof parsed.userID === "string") out.userID = parsed.userID;
     if (typeof parsed.email === "string") out.email = parsed.email;
+    if (typeof parsed.accountUuid === "string") out.accountUuid = parsed.accountUuid;
   } catch {
     // Missing/corrupt metadata — we'll re-derive from the snapshot files.
   }
@@ -221,6 +259,9 @@ function readSnapshotMeta(slotDir: string): Partial<SavedProfile> {
       if (!out.email && typeof oauth.emailAddress === "string") out.email = oauth.emailAddress;
       if (typeof oauth.organizationName === "string") {
         out.organizationName = oauth.organizationName;
+      }
+      if (!out.accountUuid && typeof oauth.accountUuid === "string") {
+        out.accountUuid = oauth.accountUuid;
       }
     }
     if (!out.userID && typeof parsed.userID === "string") out.userID = parsed.userID;
@@ -288,6 +329,7 @@ export function listProfiles(): SavedProfile[] {
       tokenExpiresAt: meta.tokenExpiresAt ?? 0,
       credentialsHash: credHash,
       userID: meta.userID ?? "",
+      accountUuid: meta.accountUuid ?? "",
     });
   }
 
@@ -296,11 +338,39 @@ export function listProfiles(): SavedProfile[] {
 }
 
 /**
+ * Read the live identity, preferring the access-token claims when the
+ * token is a JWT (covers the Claude CLI `/login` window where
+ * `.credentials.json` is rewritten before `.claude.json`). Falls back
+ * to `.claude.json` for opaque tokens — Anthropic's current production
+ * tokens are `sk-ant-oat01-…` opaque strings, so this is the steady-
+ * state path. Returns null when no identity can be derived.
+ */
+function readLiveIdentity(): LiveIdentity | null {
+  let credsRaw: string;
+  try {
+    credsRaw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
+  } catch {
+    return null;
+  }
+  const tokenIdentity = extractIdentityFromToken(credsRaw);
+  if (tokenIdentity) return tokenIdentity;
+  try {
+    const claudeJsonRaw = fs.readFileSync(CLAUDE_JSON, "utf-8");
+    const fromJson = extractIdentity(claudeJsonRaw);
+    if (fromJson.accountUuid || fromJson.userID || fromJson.email) return fromJson;
+  } catch {
+    // .claude.json missing — nothing left to try.
+  }
+  return null;
+}
+
+/**
  * Return the slug of the profile that matches the live credentials, or
  * null when none do. Match cascade:
  *   1. credentials hash (byte-identical = same snapshot)
- *   2. userID (Anthropic-stable id; survives token rotation)
- *   3. email (fallback for older snapshots saved before userID storage)
+ *   2. accountUuid (Anthropic per-account UUID; account-distinct)
+ *   3. userID + email cross-check (legacy snapshots)
+ *   4. email (oldest snapshots, pre-userID storage)
  *
  * Without the cascade, Claude CLI's background token refresh would
  * silently "unsave" the active profile because the hash diverges even
@@ -317,68 +387,50 @@ export function getActiveProfileSlug(): string | null {
     if (p.credentialsHash === liveHash) return p.slug;
   }
 
-  // Pass 2 + 3 need live identity. Preferred source is the JWT access-
-  // token claims because during Claude CLI's `/login` flow,
-  // `.credentials.json` is rewritten BEFORE `.claude.json` — so during
-  // that window `.claude.json` still describes the PREVIOUS account.
-  // Anthropic's current access tokens are opaque (not JWTs), so the
-  // JWT path returns null; we then fall back to `.claude.json`. The
-  // /login race only matters during the rotation window — at steady
-  // state, `.claude.json` is the only identity source we have.
-  let liveIdentity: { email: string; userID: string } | null = null;
-  try {
-    const credsRaw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
-    liveIdentity = extractIdentityFromToken(credsRaw);
-  } catch {
-    // Credentials missing / unreadable — no active account to match.
-    return null;
-  }
-  if (!liveIdentity) {
-    try {
-      const claudeJsonRaw = fs.readFileSync(CLAUDE_JSON, "utf-8");
-      const fromJson = extractIdentity(claudeJsonRaw);
-      if (fromJson.userID || fromJson.email) liveIdentity = fromJson;
-    } catch {
-      // .claude.json missing — nothing left to try.
-    }
-  }
+  const liveIdentity = readLiveIdentity();
   if (!liveIdentity) return null;
 
   // Tie-break by freshest savedAt when more than one profile matches
-  // the same identity. Without this, duplicate slots (created before
-  // the dedupe fix landed, or by a user who intentionally double-
-  // saved) would always resolve to the alphabetically-first slug —
-  // which is rarely what the user means when they look at the
-  // switcher. Newest wins: most-recent activity is the best proxy
-  // for "which slot is this user mentally tracking".
+  // the same identity. Without this, duplicate slots (legacy state
+  // before dedupe landed, or an intentional double-save) would always
+  // resolve to the alphabetically-first slug — rarely what the user
+  // means in the switcher. Newest wins.
   const freshestFirst = (a: SavedProfile, b: SavedProfile): number => {
     const at = Date.parse(a.savedAt || "") || 0;
     const bt = Date.parse(b.savedAt || "") || 0;
     return bt - at;
   };
 
-  // Stage 2: userID match — but only when the saved slot's captured
-  // email ALSO matches (or is empty). Requiring both fields agrees
-  // protects against pre-fix snapshots that captured a stale userID
-  // from `.claude.json` mid-write; those snapshots have the right
-  // email but the wrong userID, and a userID-only match would point
-  // them at the wrong account.
+  // Stage 2: accountUuid match — primary identity. Account-distinct
+  // and stable across token rotations, so this is the strongest
+  // matcher we have once the byte-hash pass fails.
+  if (liveIdentity.accountUuid) {
+    const candidates = profiles
+      .filter((p) => p.accountUuid && p.accountUuid === liveIdentity.accountUuid)
+      .sort(freshestFirst);
+    if (candidates[0]) return candidates[0].slug;
+  }
+
+  // Stage 3: userID + email cross-check for legacy snapshots that
+  // predate accountUuid storage. The `userID` field in `.claude.json`
+  // is device-stable (same value across accounts on one machine), so
+  // matching on it alone would collide accounts; the email cross-
+  // check disambiguates.
   if (liveIdentity.userID) {
     const emailLower = liveIdentity.email.toLowerCase();
     const candidates = profiles
       .filter((p) => {
         if (!p.userID || p.userID !== liveIdentity.userID) return false;
-        if (!p.email || !emailLower) return true; // no email to cross-check
+        if (p.accountUuid) return false; // would already have matched at stage 2
+        if (!p.email || !emailLower) return true;
         return p.email.toLowerCase() === emailLower;
       })
       .sort(freshestFirst);
     if (candidates[0]) return candidates[0].slug;
   }
 
-  // Stage 3: email-only match (snapshots saved before userID storage
-  // existed, or saved snapshots whose userID got corrupted by the
-  // pre-fix race). Safe to match on email alone here because stage 2
-  // already absorbed the userID-matching cases.
+  // Stage 4: email-only match (snapshots saved before any id storage,
+  // or whose stored ids got corrupted by the pre-fix /login race).
   if (liveIdentity.email) {
     const emailLower = liveIdentity.email.toLowerCase();
     const candidates = profiles
@@ -420,28 +472,31 @@ export function saveProfile(label: string): ProfileResult<SavedProfile> {
   }
   const { claudeJsonRaw, credsRaw } = pair;
 
-  // Dedupe key: prefer JWT identity (authoritative for the current
-  // token), fall back to .claude.json identity when the token isn't
-  // decodable. ALWAYS run dedupe — silently minting a duplicate when
-  // a slot for this account already exists is the bug we keep
-  // hitting (Anthropic's tokens aren't always JWTs we can parse, so
-  // skipping dedupe in that branch let duplicates pile up).
+  // Identity for dedupe + storage. Token claims authoritative for the
+  // current credentials; .claude.json fills in fields the token omits
+  // (most importantly accountUuid, which opaque Anthropic tokens
+  // don't expose). Merge so we get the broadest possible identity.
   const tokenIdentity = extractIdentityFromToken(credsRaw);
   const jsonIdentity = extractIdentity(claudeJsonRaw);
-  const identity = tokenIdentity ?? jsonIdentity;
+  const identity: LiveIdentity = {
+    accountUuid: tokenIdentity?.accountUuid || jsonIdentity.accountUuid,
+    userID: tokenIdentity?.userID || jsonIdentity.userID,
+    email: tokenIdentity?.email || jsonIdentity.email,
+  };
 
-  if (identity.userID || identity.email) {
+  if (identity.accountUuid || identity.userID || identity.email) {
     const existing = listProfiles().find((p) => {
+      if (identity.accountUuid && p.accountUuid && identity.accountUuid === p.accountUuid) {
+        return true;
+      }
       if (identity.userID && p.userID && identity.userID === p.userID) {
-        // userID match is strongest, but cross-check email when both
-        // sides have one — pre-fix snapshots could store a stale
-        // userID alongside the right email; matching on userID alone
-        // could collide unrelated accounts that share corrupted
-        // metadata.
+        // userID is device-stable, NOT account-distinct — matching on
+        // it alone collides distinct accounts on the same machine.
+        // Cross-check email so this only fires for the same account.
         if (identity.email && p.email) {
           return p.email.toLowerCase() === identity.email.toLowerCase();
         }
-        return true;
+        return false;
       }
       if (identity.email && p.email) {
         return p.email.toLowerCase() === identity.email.toLowerCase();
@@ -488,6 +543,7 @@ export function saveProfile(label: string): ProfileResult<SavedProfile> {
         {
           label: trimmed,
           savedAt: new Date().toISOString(),
+          accountUuid: identity.accountUuid,
           userID: identity.userID,
           email: identity.email,
         },
@@ -518,6 +574,7 @@ export function saveProfile(label: string): ProfileResult<SavedProfile> {
       tokenExpiresAt: meta.tokenExpiresAt ?? 0,
       credentialsHash: hashFile(path.join(slotDir, ".credentials.json")),
       userID: meta.userID ?? identity.userID,
+      accountUuid: meta.accountUuid ?? identity.accountUuid,
     },
   };
 }
@@ -538,7 +595,13 @@ export function updateProfile(slug: string): ProfileResult<SavedProfile> {
     return { ok: false, error: "no-active-account" };
   }
   const { claudeJsonRaw, credsRaw } = pair;
-  const identity = extractIdentity(claudeJsonRaw);
+  const tokenIdentity = extractIdentityFromToken(credsRaw);
+  const jsonIdentity = extractIdentity(claudeJsonRaw);
+  const identity: LiveIdentity = {
+    accountUuid: tokenIdentity?.accountUuid || jsonIdentity.accountUuid,
+    userID: tokenIdentity?.userID || jsonIdentity.userID,
+    email: tokenIdentity?.email || jsonIdentity.email,
+  };
 
   try {
     fs.writeFileSync(path.join(slotDir, ".claude.json"), claudeJsonRaw);
@@ -561,6 +624,7 @@ export function updateProfile(slug: string): ProfileResult<SavedProfile> {
         {
           label,
           savedAt: new Date().toISOString(),
+          accountUuid: identity.accountUuid,
           userID: identity.userID,
           email: identity.email,
         },
@@ -589,8 +653,34 @@ export function updateProfile(slug: string): ProfileResult<SavedProfile> {
       tokenExpiresAt: meta.tokenExpiresAt ?? 0,
       credentialsHash: hashFile(path.join(slotDir, ".credentials.json")),
       userID: meta.userID ?? identity.userID,
+      accountUuid: meta.accountUuid ?? identity.accountUuid,
     },
   };
+}
+
+/**
+ * Re-snapshot the live credentials into whichever slot currently
+ * matches them, if any. This is the keystone of the token-rotation
+ * fix: Anthropic's refresh tokens are single-use rotated, so the
+ * snapshot's bytes go stale as soon as the CLI uses them. Calling
+ * this on every `~/.claude/.credentials.json` change keeps the
+ * active slot byte-current with the live tokens; calling it before
+ * any switch swap captures the outgoing slot's freshest pair before
+ * it gets unmounted.
+ *
+ * Returns the updated slug, or null when no slot matched. Failures
+ * are swallowed because callers can't act on them — the operation
+ * is best-effort housekeeping.
+ */
+export function syncActiveProfile(): string | null {
+  const slug = getActiveProfileSlug();
+  if (!slug) return null;
+  // Skip when already byte-identical: avoids spurious mtime bumps and
+  // a self-triggering loop if the caller is running from a watcher.
+  const slotCreds = path.join(PROFILES_DIR, slug, ".credentials.json");
+  if (hashFile(slotCreds) === hashFile(CREDENTIALS_FILE)) return slug;
+  const result = updateProfile(slug);
+  return result.ok ? slug : null;
 }
 
 /**
@@ -616,6 +706,22 @@ export function switchProfile(slug: string): ProfileResult<SavedProfile> {
 
   if (!fs.existsSync(slotClaudeJson) || !fs.existsSync(slotCreds)) {
     return { ok: false, error: "slot-missing", detail: slug };
+  }
+
+  // Capture the outgoing account's freshest tokens into its slot
+  // before we replace the live files. Without this, any rotation that
+  // happened while the outgoing account was active stays only in
+  // memory of the live creds — the slot keeps the original (now
+  // server-revoked) refresh token, and switching back to it later
+  // produces a 401. Best-effort: a write failure here doesn't block
+  // the switch the user requested.
+  try {
+    const activeSlug = getActiveProfileSlug();
+    if (activeSlug && activeSlug !== slug) {
+      updateProfile(activeSlug);
+    }
+  } catch {
+    // best-effort: never fail the user's switch on housekeeping
   }
 
   let mergedClaudeJson: string;
@@ -750,6 +856,7 @@ export function switchProfile(slug: string): ProfileResult<SavedProfile> {
       tokenExpiresAt: meta.tokenExpiresAt ?? 0,
       credentialsHash: hashFile(CREDENTIALS_FILE),
       userID: meta.userID ?? "",
+      accountUuid: meta.accountUuid ?? "",
     },
   };
 }

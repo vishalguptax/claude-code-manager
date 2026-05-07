@@ -106,6 +106,7 @@ function parseProfile(): AccountProfile {
     signedIn: false,
     tokenExpiresAt: 0,
     userID: "",
+    accountUuid: "",
     startupCount: 0,
     firstUseDate: "",
     configCorrupted: false,
@@ -144,6 +145,8 @@ function parseProfile(): AccountProfile {
         typeof oauth.accountCreatedAt === "string" ? oauth.accountCreatedAt : "";
       profile.subscriptionCreatedAt =
         typeof oauth.subscriptionCreatedAt === "string" ? oauth.subscriptionCreatedAt : "";
+      profile.accountUuid =
+        typeof oauth.accountUuid === "string" ? oauth.accountUuid : "";
     }
     if (typeof data.userID === "string") profile.userID = data.userID;
     if (typeof data.numStartups === "number") profile.startupCount = data.numStartups;

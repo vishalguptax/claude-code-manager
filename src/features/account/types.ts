@@ -30,8 +30,10 @@ export interface AccountProfile {
   signedIn: boolean;
   /** OAuth token expiration timestamp (ms) — used to compute "expires in X days" */
   tokenExpiresAt: number;
-  /** User ID from .claude.json */
+  /** User ID from .claude.json (device-stable, NOT account-distinct). */
   userID: string;
+  /** `oauthAccount.accountUuid` — Anthropic per-account UUID. */
+  accountUuid: string;
   /** Number of Claude Code startups */
   startupCount: number;
   /** First use date (ISO) */
@@ -287,7 +289,10 @@ export interface SavedProfile {
   savedAt: string;
   tokenExpiresAt: number;
   credentialsHash: string;
+  /** Device-stable id from `.claude.json` — kept for legacy matching only. */
   userID: string;
+  /** `oauthAccount.accountUuid` — primary, account-distinct identity. */
+  accountUuid: string;
 }
 
 // ── Messages ──

@@ -43,6 +43,7 @@ import {
   updateProfile,
   removeProfile,
   getActiveProfileSlug,
+  syncActiveProfile,
 } from "../profiles";
 
 const CLAUDE_JSON_SAMPLE = {
@@ -526,6 +527,187 @@ describe("getActiveProfileSlug — JWT identity", () => {
     });
     // "second" has a later savedAt → wins the tiebreak.
     expect(getActiveProfileSlug()).toBe("second");
+  });
+});
+
+describe("getActiveProfileSlug — accountUuid", () => {
+  it("matches via oauthAccount.accountUuid even when userID and email differ", () => {
+    // Save a snapshot with accountUuid in oauthAccount.
+    writeLiveAccount(
+      {
+        oauthAccount: {
+          emailAddress: "alice@example.com",
+          accountUuid: "uuid-alice",
+        },
+        userID: "shared-device-id",
+      },
+      CREDENTIALS_SAMPLE,
+    );
+    saveProfile("Alice");
+    // Live state simulates the same account but userID rewritten by
+    // CLI to a different device-id (which can happen on re-init), and
+    // a corrupted email field. accountUuid is the only stable signal.
+    writeLiveAccount(
+      {
+        oauthAccount: {
+          emailAddress: "different@x.com",
+          accountUuid: "uuid-alice",
+        },
+        userID: "rotated-device-id",
+      },
+      {
+        claudeAiOauth: {
+          accessToken: "opaque-token",
+          refreshToken: "r",
+          expiresAt: 0,
+          subscriptionType: "max",
+        },
+      },
+    );
+    expect(getActiveProfileSlug()).toBe("alice");
+  });
+
+  it("does not collide two distinct accounts that share the device-stable userID", () => {
+    // Two genuinely different accounts whose .claude.json captured
+    // the same `userID` (device-stable). With accountUuid populated,
+    // the matcher must NOT collapse them.
+    writeLiveAccount(
+      {
+        oauthAccount: {
+          emailAddress: "a@x.com",
+          accountUuid: "uuid-a",
+        },
+        userID: "device-stable-id",
+      },
+      CREDENTIALS_SAMPLE,
+    );
+    saveProfile("A");
+    writeLiveAccount(
+      {
+        oauthAccount: {
+          emailAddress: "b@x.com",
+          accountUuid: "uuid-b",
+        },
+        userID: "device-stable-id",
+      },
+      {
+        claudeAiOauth: {
+          accessToken: "tok-b",
+          refreshToken: "r",
+          expiresAt: 0,
+          subscriptionType: "pro",
+        },
+      },
+    );
+    saveProfile("B");
+    // Live = B → must match B, not A.
+    expect(getActiveProfileSlug()).toBe("b");
+  });
+});
+
+describe("syncActiveProfile", () => {
+  it("returns null when no slot matches the live identity", () => {
+    writeLiveAccount();
+    // No profiles yet — syncActiveProfile is a no-op.
+    expect(syncActiveProfile()).toBeNull();
+  });
+
+  it("rewrites the matching slot when live tokens have rotated", () => {
+    writeLiveAccount();
+    saveProfile("rotated");
+    const oldHash = listProfiles()[0].credentialsHash;
+    // Simulate a token rotation in the live creds — same identity,
+    // new bytes. syncActiveProfile must pull the new bytes into the
+    // slot so a future switch back doesn't restore the old (now
+    // server-revoked) refresh token.
+    writeLiveAccount(CLAUDE_JSON_SAMPLE, {
+      claudeAiOauth: {
+        accessToken: "rotated-access",
+        refreshToken: "rotated-refresh",
+        expiresAt: 9_000_000_000_000,
+        subscriptionType: "max",
+      },
+    });
+    const slug = syncActiveProfile();
+    expect(slug).toBe("rotated");
+    const newHash = listProfiles()[0].credentialsHash;
+    expect(newHash).not.toBe(oldHash);
+  });
+
+  it("is a no-op when the live creds already match the slot byte-for-byte", () => {
+    writeLiveAccount();
+    saveProfile("stable");
+    const before = fs.statSync(
+      path.join(PROFILES_DIR, "stable", "profile.json"),
+    ).mtimeMs;
+    // Call a few ms later; with no rotation, profile.json must NOT
+    // get bumped (avoids self-triggering loops when called from a
+    // file watcher).
+    const slug = syncActiveProfile();
+    expect(slug).toBe("stable");
+    const after = fs.statSync(
+      path.join(PROFILES_DIR, "stable", "profile.json"),
+    ).mtimeMs;
+    expect(after).toBe(before);
+  });
+});
+
+describe("switchProfile — outgoing slot auto-sync", () => {
+  it("captures the active slot's freshest tokens before swapping", () => {
+    // Save A and B as distinct accounts.
+    writeLiveAccount(
+      {
+        oauthAccount: { emailAddress: "a@x.com", accountUuid: "uuid-a" },
+        userID: "id-a",
+      },
+      CREDENTIALS_SAMPLE,
+    );
+    saveProfile("A");
+    writeLiveAccount(
+      {
+        oauthAccount: { emailAddress: "b@x.com", accountUuid: "uuid-b" },
+        userID: "id-b",
+      },
+      {
+        claudeAiOauth: {
+          accessToken: "b-original",
+          refreshToken: "b-refresh-1",
+          expiresAt: 1_900_000_000_000,
+          subscriptionType: "max",
+        },
+      },
+    );
+    saveProfile("B");
+    // B is currently live. Simulate the CLI rotating B's tokens in
+    // place (auto-refresh while B is active) — slot B still has the
+    // ORIGINAL token; live has the rotated one.
+    writeLiveAccount(
+      {
+        oauthAccount: { emailAddress: "b@x.com", accountUuid: "uuid-b" },
+        userID: "id-b",
+      },
+      {
+        claudeAiOauth: {
+          accessToken: "b-rotated",
+          refreshToken: "b-refresh-2",
+          expiresAt: 2_000_000_000_000,
+          subscriptionType: "max",
+        },
+      },
+    );
+    // Switch to A. Outgoing slot (B) must be auto-synced with the
+    // rotated tokens before the swap. Otherwise switching back to B
+    // later would restore the now-server-revoked b-refresh-1.
+    const result = switchProfile("a");
+    expect(result.ok).toBe(true);
+    const slotBCreds = JSON.parse(
+      fs.readFileSync(
+        path.join(PROFILES_DIR, "b", ".credentials.json"),
+        "utf-8",
+      ),
+    ) as { claudeAiOauth: { accessToken: string; refreshToken: string } };
+    expect(slotBCreds.claudeAiOauth.accessToken).toBe("b-rotated");
+    expect(slotBCreds.claudeAiOauth.refreshToken).toBe("b-refresh-2");
   });
 });
 
