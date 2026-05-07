@@ -310,6 +310,8 @@ interface SessionMeta {
   entrypoint: string;
   rename: string;
   summary: string;
+  /** Latest CLI-generated topic title (`{type:"ai-title"}`). Higher quality than `summary`. */
+  aiTitle: string;
 }
 
 /**
@@ -350,7 +352,7 @@ export function invalidateSessionMetaCache(filePath: string): void {
 }
 
 function computeSessionMeta(filePath: string): SessionMeta {
-  const result = { branch: "", entrypoint: "", rename: "", summary: "" };
+  const result = { branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "" };
   let fd: number;
   try {
     fd = fs.openSync(filePath, "r");
@@ -399,6 +401,7 @@ function processMetaChunk(
 ): void {
   const hasRename = chunk.includes("/rename");
   const hasSummary = chunk.includes('"type":"summary"') || chunk.includes('"type": "summary"');
+  const hasAiTitle = chunk.includes('"type":"ai-title"') || chunk.includes('"type": "ai-title"');
 
   for (const line of chunk.split("\n")) {
     if (!line.trim()) continue;
@@ -423,6 +426,12 @@ function processMetaChunk(
       // Auto-summary — take the latest one seen
       if (hasSummary && entry.type === "summary" && typeof entry.summary === "string") {
         result.summary = (entry.summary as string).trim();
+      }
+
+      // CLI-generated topic title (`type:"ai-title"`) — latest wins.
+      // Emitted by Claude CLI 2.1+ as the terminal/session title.
+      if (hasAiTitle && entry.type === "ai-title" && typeof entry.aiTitle === "string") {
+        result.aiTitle = (entry.aiTitle as string).trim();
       }
 
       // /rename command in user message — take the latest one seen
@@ -546,22 +555,25 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     const sessionFile = getSessionFile(sessionId);
     let fileRename = "";
     let fileSummary = "";
+    let fileAiTitle = "";
     if (sessionFile) {
       const meta = readSessionMeta(sessionFile);
       branch = meta.branch;
       entrypoint = meta.entrypoint;
       fileRename = meta.rename;
       fileSummary = meta.summary;
+      fileAiTitle = meta.aiTitle;
     }
 
     // Resolve session name with priority:
     // 1. Extension-managed rename (always wins)
     // 2. Live PID map (active sessions)
     // 3. /rename command in transcript
-    // 4. Claude's auto-generated summary
+    // 4. CLI-generated `ai-title` (Claude 2.1+ terminal/session title)
+    // 5. Claude's older auto-generated `summary` (fallback for pre-2.1 sessions)
     let name = userRenames[sessionId] ?? "";
     if (!name) name = sessionNames.get(sessionId) ?? "";
-    if (!name) name = fileRename || fileSummary;
+    if (!name) name = fileRename || fileAiTitle || fileSummary;
 
     const summary =
       prompts[0].length > 100 ? prompts[0].slice(0, 100) + "..." : prompts[0];
@@ -641,6 +653,7 @@ interface OrphanData {
   entrypoint: string;
   rename: string;
   summary: string;
+  aiTitle: string;
 }
 
 /**
@@ -703,6 +716,7 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
   let entrypoint = "";
   let rename = "";
   let summary = "";
+  let aiTitle = "";
   const CHUNK = 64 * 1024;
   const buf = Buffer.alloc(CHUNK);
   let leftover = "";
@@ -756,6 +770,9 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
         if (e.type === "summary" && typeof e.summary === "string") {
           summary = (e.summary as string).trim();
         }
+        if (e.type === "ai-title" && typeof e.aiTitle === "string") {
+          aiTitle = (e.aiTitle as string).trim();
+        }
         captureRename(line, entry.message);
         if (entry.message?.role === "user" && !entry.isSidechain) {
           messageCount++;
@@ -804,6 +821,7 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
     entrypoint,
     rename,
     summary,
+    aiTitle,
   };
 }
 
@@ -874,10 +892,11 @@ function discoverOrphanSessions(
       }
 
       // Name resolution mirrors the history path: extension rename >
-      // active-session PID map > /rename in transcript > auto-summary.
+      // active-session PID map > /rename in transcript > ai-title (CLI 2.1+) >
+      // older auto-summary fallback.
       let name = userRenames[sessionId] ?? "";
       if (!name) name = sessionNames.get(sessionId) ?? "";
-      if (!name) name = data.rename || data.summary;
+      if (!name) name = data.rename || data.aiTitle || data.summary;
 
       const summary =
         data.firstPrompt.length > 100

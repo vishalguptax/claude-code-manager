@@ -161,6 +161,85 @@ describe("parseSessions", () => {
     expect(sessions[0].entrypoint).toBe("cli");
   });
 
+  it("uses CLI ai-title as session name (priority above auto-summary)", () => {
+    writeHistoryEntry({
+      display: "first prompt that would otherwise be summary",
+      timestamp: Date.now(),
+      project: "/projects/ai-title-app",
+      sessionId: "sess-ai-title",
+    });
+    writeSessionFile("ai-title-hash", "sess-ai-title", [
+      { type: "summary", summary: "older auto summary text", sessionId: "sess-ai-title" },
+      { type: "ai-title", aiTitle: "Debug heatmap not working", sessionId: "sess-ai-title" },
+      {
+        message: { role: "user", content: "first prompt" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+      },
+    ]);
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === "sess-ai-title");
+    expect(sess!.name).toBe("Debug heatmap not working");
+  });
+
+  it("uses latest ai-title when multiple are emitted", () => {
+    writeHistoryEntry({
+      display: "x",
+      timestamp: Date.now(),
+      project: "/projects/multi-title",
+      sessionId: "sess-multi",
+    });
+    writeSessionFile("multi-hash", "sess-multi", [
+      { type: "ai-title", aiTitle: "First topic", sessionId: "sess-multi" },
+      {
+        message: { role: "user", content: "x" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+      },
+      { type: "ai-title", aiTitle: "Second topic", sessionId: "sess-multi" },
+    ]);
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === "sess-multi");
+    expect(sess!.name).toBe("Second topic");
+  });
+
+  it("user rename overrides ai-title", () => {
+    writeHistoryEntry({
+      display: "x",
+      timestamp: Date.now(),
+      project: "/projects/override",
+      sessionId: "sess-override",
+    });
+    writeSessionFile("override-hash", "sess-override", [
+      { type: "ai-title", aiTitle: "AI generated title", sessionId: "sess-override" },
+      {
+        message: { role: "user", content: "x" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+      },
+    ]);
+
+    const sessions = parseSessions({ "sess-override": "user picked name" });
+    const sess = sessions.find((s) => s.id === "sess-override");
+    expect(sess!.name).toBe("user picked name");
+  });
+
+  it("captures ai-title for orphan (extension-originated) sessions", () => {
+    const sessionId = "orphan-ai-title";
+    writeSessionFile("-home-user-orphan", sessionId, [
+      { type: "ai-title", aiTitle: "Refactor auth flow", sessionId },
+      {
+        entrypoint: "claude-vscode",
+        message: { role: "user", content: "first prompt" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+        cwd: "/home/user/orphan",
+      },
+    ]);
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === sessionId);
+    expect(sess!.name).toBe("Refactor auth flow");
+  });
+
   it("discovers sessions that only exist in projects/ (no history.jsonl entry)", () => {
     // Extension-originated sessions never touch history.jsonl. We
     // simulate that here by writing the transcript file directly.
