@@ -263,7 +263,13 @@ describe("ClaudeSessionViewProvider", () => {
     expect(empty!.ids).toEqual([]);
   });
 
-  it("reloadAll re-posts data for every feature plus a reloadComplete marker", async () => {
+  // Bumped per-test timeout: this test does `vi.doMock(...)` for eight
+  // modules then `await import("../viewProvider")` — the dynamic import
+  // pulls a fresh dep graph through Vite's transformer on the first
+  // run, which crosses the default 5s timeout on cold CI/dev workers.
+  // The reloadAll work itself is sub-second; the slack covers cold
+  // import cost only.
+  it("reloadAll re-posts data for every feature plus a reloadComplete marker", { timeout: 15000 }, async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],
       parseSessionDetail: () => null,
