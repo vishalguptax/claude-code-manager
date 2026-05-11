@@ -11,7 +11,7 @@ import { setSessionStorage } from "../features/sessions/commands";
 import { setExtensionUri } from "./terminal";
 import { getWorkspace } from "./workspace";
 import { exportBrain } from "../features/brain/exporter";
-import { importBrain, readManifest } from "../features/brain/importer";
+import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
 import { runDiagnosticsCommand } from "../features/diagnostics/commands";
 
 /**
@@ -219,26 +219,48 @@ export function activate(context: vscode.ExtensionContext): void {
       );
       if (!chosen || chosen.length === 0) return;
 
-      const confirm = await vscode.window.showWarningMessage(
-        "Import this Brain archive?",
-        {
-          modal: true,
-          detail:
-            "Files that exist and differ from incoming content will NOT be overwritten — the incoming version is saved as `<name>.imported.<ext>` next to it so you can diff + merge manually. `mcpServers` entries merge additively.",
-        },
-        "Import",
-      );
-      if (confirm !== "Import") return;
-
       const chosenSections = chosen.map((c) =>
         (c as typeof chosen[number] & { sectionValue: "global" | "project" }).sectionValue,
       );
+
+      const preview = previewConflicts(buf, workspace || undefined, chosenSections);
+      const totalReplacements = preview.overwrites.length + preview.mcpReplacements.length;
+      const detail = (() => {
+        if (totalReplacements === 0) {
+          return "No existing files conflict. New files will be written into place. `mcpServers` entries merge into ~/.claude.json.";
+        }
+        const samplePaths = preview.overwrites.slice(0, 5);
+        const moreFiles = preview.overwrites.length > samplePaths.length
+          ? `\n…and ${preview.overwrites.length - samplePaths.length} more`
+          : "";
+        const filesBlock = preview.overwrites.length
+          ? `Files to overwrite (${preview.overwrites.length}):\n${samplePaths.join("\n")}${moreFiles}`
+          : "";
+        const sampleMcp = preview.mcpReplacements.slice(0, 5);
+        const moreMcp = preview.mcpReplacements.length > sampleMcp.length
+          ? `\n…and ${preview.mcpReplacements.length - sampleMcp.length} more`
+          : "";
+        const mcpBlock = preview.mcpReplacements.length
+          ? `mcpServers entries to replace (${preview.mcpReplacements.length}):\n${sampleMcp.join("\n")}${moreMcp}`
+          : "";
+        return [filesBlock, mcpBlock].filter(Boolean).join("\n\n");
+      })();
+
+      const confirmLabel = totalReplacements === 0 ? "Import" : "Replace & Import";
+      const confirm = await vscode.window.showWarningMessage(
+        totalReplacements === 0
+          ? "Import this Brain archive?"
+          : `Replace ${totalReplacements} existing item${totalReplacements === 1 ? "" : "s"}?`,
+        { modal: true, detail },
+        confirmLabel,
+      );
+      if (confirm !== confirmLabel) return;
 
       try {
         const summary = importBrain(buf, workspace || undefined, chosenSections);
         const parts: string[] = [];
         if (summary.written.length) parts.push(`${summary.written.length} written`);
-        if (summary.deferredAsImported.length) parts.push(`${summary.deferredAsImported.length} saved as .imported`);
+        if (summary.overwritten.length) parts.push(`${summary.overwritten.length} replaced`);
         if (summary.mergedMcpServers.length) parts.push(`${summary.mergedMcpServers.length} MCP merged`);
         if (summary.skipped.length) parts.push(`${summary.skipped.length} skipped`);
         const body = parts.length > 0 ? parts.join(" · ") : "Nothing to import";

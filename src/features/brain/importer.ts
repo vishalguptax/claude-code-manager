@@ -1,13 +1,12 @@
 /**
  * Brain importer — unpacks a `.claudebrain.zip` written by exporter.ts
- * back onto disk. Conflicts are resolved by writing the incoming file
- * to a sibling with `.imported` appended to the extension so the
- * existing file stays intact and the user can diff/merge manually.
+ * back onto disk. Caller confirms the destructive replace; existing
+ * files at conflicting paths are overwritten.
  *
- * Merging mcpServers.json is special-cased: incoming `mcpServers`
- * entries are added to the live `~/.claude.json` alongside existing
- * entries rather than replacing the file wholesale. Losing the
- * oauthAccount + userID + projects blocks would brick the CLI.
+ * Merging mcpServers entries is still special-cased: they're written
+ * back into the live `~/.claude.json` (not into a standalone file) so
+ * the surrounding oauthAccount + userID + projects blocks survive.
+ * Incoming entries replace same-named existing entries.
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -17,16 +16,23 @@ import { readZip, type ZipEntry } from "./zip";
 import type { BrainManifest } from "./exporter";
 
 export interface ImportSummary {
-  /** Files written at their natural destination (no conflict). */
+  /** Files written to a path that didn't exist before. */
   written: string[];
-  /** Files that would have overwritten existing content; saved as `.imported`. */
-  deferredAsImported: string[];
+  /** Existing files whose contents were replaced by the incoming version. */
+  overwritten: string[];
   /** Files in the archive we refused to restore (e.g. out-of-tree paths). */
   skipped: string[];
-  /** mcpServers entries merged into ~/.claude.json. */
+  /** mcpServers entry names written into ~/.claude.json (new or replaced). */
   mergedMcpServers: string[];
   /** Human-readable warnings to surface in the post-import toast. */
   warnings: string[];
+}
+
+export interface ConflictPreview {
+  /** Destination paths that already exist and will be overwritten. */
+  overwrites: string[];
+  /** mcpServers entry names already present in ~/.claude.json. */
+  mcpReplacements: string[];
 }
 
 /**
@@ -42,47 +48,37 @@ function safeJoin(root: string, rel: string): string | null {
   return joined;
 }
 
-/** Suffix path with `.imported` before the extension. */
-function importedSibling(absPath: string): string {
-  const ext = path.extname(absPath);
-  const base = absPath.slice(0, absPath.length - ext.length);
-  return `${base}.imported${ext}`;
-}
-
 /**
- * Write a file, creating parent directories. When the destination
- * exists and content differs, write to `.imported` sibling instead.
- * Returns one of: "written", "deferred", "skipped".
+ * Write a file, creating parent directories. Overwrites existing
+ * content when the bytes differ; skips the write when identical so
+ * mtimes stay stable.
  */
-function writeFileConflictAware(
+function writeFileReplacing(
   absPath: string,
   data: Buffer,
   summary: ImportSummary,
-): "written" | "deferred" {
+): void {
   fs.mkdirSync(path.dirname(absPath), { recursive: true });
-  if (fs.existsSync(absPath)) {
-    // Compare content — don't bother writing .imported siblings when
-    // the incoming data is byte-identical to what's already there.
+  const existed = fs.existsSync(absPath);
+  if (existed) {
     try {
       const existing = fs.readFileSync(absPath);
       if (existing.equals(data)) {
         summary.written.push(absPath);
-        return "written";
+        return;
       }
     } catch {
-      // unreadable — treat as conflict
+      // unreadable — fall through and overwrite
     }
-    const sibling = importedSibling(absPath);
-    fs.writeFileSync(sibling, data);
-    summary.deferredAsImported.push(sibling);
-    return "deferred";
+    fs.writeFileSync(absPath, data);
+    summary.overwritten.push(absPath);
+    return;
   }
   fs.writeFileSync(absPath, data);
   summary.written.push(absPath);
-  return "written";
 }
 
-/** Merge incoming mcpServers entries into ~/.claude.json. */
+/** Merge incoming mcpServers entries into ~/.claude.json, replacing same-named entries. */
 function mergeMcpServers(raw: string, summary: ImportSummary): void {
   let incoming: { mcpServers?: Record<string, unknown> };
   try {
@@ -105,13 +101,8 @@ function mergeMcpServers(raw: string, summary: ImportSummary): void {
   const existingServers = (live.mcpServers as Record<string, unknown>) ?? {};
   const merged: Record<string, unknown> = { ...existingServers };
   for (const [name, cfg] of Object.entries(incoming.mcpServers)) {
-    if (!(name in merged)) {
-      merged[name] = cfg;
-      summary.mergedMcpServers.push(name);
-    }
-    // else: keep the live entry; incoming goes to skipped to surface
-    // that the user still has two choices.
-    else summary.skipped.push(`mcpServers.${name} (already exists)`);
+    merged[name] = cfg;
+    summary.mergedMcpServers.push(name);
   }
   live.mcpServers = merged;
   fs.writeFileSync(target, JSON.stringify(live, null, 2));
@@ -124,7 +115,7 @@ export function importBrain(
 ): ImportSummary {
   const summary: ImportSummary = {
     written: [],
-    deferredAsImported: [],
+    overwritten: [],
     skipped: [],
     mergedMcpServers: [],
     warnings: [],
@@ -170,7 +161,7 @@ export function importBrain(
         summary.skipped.push(entry.path);
         continue;
       }
-      writeFileConflictAware(abs, entry.data, summary);
+      writeFileReplacing(abs, entry.data, summary);
       // settings.json from another machine often contains hooks
       // whose `command` begins with an absolute path only valid on
       // the source machine. Warn on import so users can fix them
@@ -190,7 +181,7 @@ export function importBrain(
         summary.skipped.push(entry.path);
         continue;
       }
-      writeFileConflictAware(abs, entry.data, summary);
+      writeFileReplacing(abs, entry.data, summary);
       if (relative === ".claude/settings.json") {
         const sourceWarnings = checkSettingsHookPaths(entry.data.toString("utf-8"));
         summary.warnings.push(...sourceWarnings);
@@ -241,6 +232,81 @@ function checkSettingsHookPaths(raw: string): string[] {
     }
   }
   return warnings;
+}
+
+/**
+ * Dry-run the import to enumerate what would be overwritten. Caller
+ * uses this to build a precise confirmation dialog before the
+ * destructive write. Pure read — no filesystem mutation.
+ */
+export function previewConflicts(
+  zipBuf: Buffer,
+  workspacePath: string | undefined,
+  pickSections: Array<"global" | "project">,
+): ConflictPreview {
+  const overwrites: string[] = [];
+  const mcpReplacements: string[] = [];
+  let entries: ZipEntry[];
+  try {
+    entries = readZip(zipBuf);
+  } catch {
+    return { overwrites, mcpReplacements };
+  }
+
+  for (const entry of entries) {
+    if (entry.path === "brain-manifest.json") continue;
+
+    let section: "global" | "project" | null = null;
+    let relative = "";
+    if (entry.path.startsWith("global/")) {
+      section = "global";
+      relative = entry.path.slice("global/".length);
+    } else if (entry.path.startsWith("project/")) {
+      section = "project";
+      relative = entry.path.slice("project/".length);
+    } else {
+      continue;
+    }
+    if (!pickSections.includes(section)) continue;
+
+    if (section === "global" && relative === "mcpServers.json") {
+      try {
+        const incoming = JSON.parse(entry.data.toString("utf-8")) as {
+          mcpServers?: Record<string, unknown>;
+        };
+        if (!incoming.mcpServers) continue;
+        const target = path.join(os.homedir(), ".claude.json");
+        let live: Record<string, unknown> = {};
+        try {
+          const raw = fs.readFileSync(target, "utf-8");
+          if (raw.trim()) live = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+          // no live file — nothing to replace
+        }
+        const existing = (live.mcpServers as Record<string, unknown>) ?? {};
+        for (const name of Object.keys(incoming.mcpServers)) {
+          if (name in existing) mcpReplacements.push(name);
+        }
+      } catch {
+        // unparseable — importer will surface as skipped
+      }
+      continue;
+    }
+
+    const root = section === "global" ? CLAUDE_DIR : workspacePath;
+    if (!root) continue;
+    const abs = safeJoin(root, relative);
+    if (!abs) continue;
+    if (!fs.existsSync(abs)) continue;
+    try {
+      const existing = fs.readFileSync(abs);
+      if (existing.equals(entry.data)) continue;
+    } catch {
+      // unreadable — count as overwrite candidate
+    }
+    overwrites.push(abs);
+  }
+  return { overwrites, mcpReplacements };
 }
 
 /** Expose just the manifest for pre-import UI (scope picker). */
