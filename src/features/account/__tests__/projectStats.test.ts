@@ -438,8 +438,10 @@ describe("aggregateUsage — CLAUDE_CONFIG_DIRS", () => {
     setupProject("a", "s.jsonl", [
       assistantLine({ sessionId: "s1", input: 100, output: 200 }),
     ]);
-    // Set up a second config dir with its own projects/.
-    const altRoot = path.normalize("C:/alt-claude");
+    // Set up a second config dir with its own projects/. Avoid a drive
+    // letter — on POSIX, `path.delimiter` is `:`, so `C:/...` would be
+    // split into two bogus entries when CLAUDE_CONFIG_DIRS is parsed.
+    const altRoot = process.platform === "win32" ? "C:\\alt-claude" : "/alt-claude";
     const altProjects = path.join(altRoot, "projects");
     const altSlug = path.join(altProjects, "z");
     vfs.dirs[altProjects] = ["z"];
