@@ -941,7 +941,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
           // Terminal path: launch claude, then send the prompt after a
           // short delay so Claude has switched to raw-input mode. Same
           // pattern launchSlash uses for /login + /config.
-          const term = createTerminal("Claude: ask");
+          const term = createTerminal("ask");
           term.show();
           term.sendText("claude");
           setTimeout(() => term.sendText(prompt), 1800);
@@ -1701,7 +1701,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         // then send the slash command. Shows a notification as a safety net
         // in case the auto-type misses due to slow startup.
         const command = msg.command;
-        const term = createTerminal(`Claude: ${command}`);
+        const term = createTerminal(command);
         term.show();
         term.sendText("claude");
         setTimeout(() => term.sendText(command), 1800);
@@ -2281,7 +2281,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
           }
           // choice === "Log in anyway" falls through to the login.
         }
-        const term = createTerminal("Claude: login");
+        const term = createTerminal("login");
         term.show();
         term.sendText("claude");
         setTimeout(() => term.sendText("/login"), 1800);

@@ -41,18 +41,25 @@ const sentTo = new WeakSet<vscode.Terminal>();
 /**
  * Find an editor ViewColumn that already hosts a terminal tab, if any.
  *
- * Prefers a column holding a Claude terminal (keeps our own tabs together),
+ * Prefers a column holding one of our own terminals (keeps our tabs together),
  * but falls back to any column with any terminal — so if the user already has
  * a terminal open in an editor group, new ones stack there as tabs instead of
  * splitting yet another panel. This is what fixes the "new panel instead of
  * new tab" complaint.
+ *
+ * Identity match uses the sentTo set rather than a name prefix, so terminal
+ * names can be short (no "Claude: " branding required for grouping).
  */
 function findExistingTerminalColumn(): vscode.ViewColumn | undefined {
+  const ourNames = new Set<string>();
+  for (const t of vscode.window.terminals) {
+    if (sentTo.has(t)) ourNames.add(t.name);
+  }
   let fallback: vscode.ViewColumn | undefined;
   for (const group of vscode.window.tabGroups.all) {
     for (const tab of group.tabs) {
       if (!(tab.input instanceof vscode.TabInputTerminal)) continue;
-      if (tab.label.startsWith("Claude")) return group.viewColumn; // preferred
+      if (ourNames.has(tab.label)) return group.viewColumn; // preferred
       if (fallback === undefined) fallback = group.viewColumn;
     }
   }

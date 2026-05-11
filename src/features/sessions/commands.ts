@@ -99,7 +99,7 @@ export async function continueLastSession(sessions: Session[]): Promise<void> {
 
   // Terminal path (or extension-mode with no session to continue).
   const cwd = ws;
-  const term = createTerminal("Claude: continue", cwd || undefined);
+  const term = createTerminal("continue", cwd || undefined);
   term.show();
   term.sendText("claude --continue");
 }
@@ -356,15 +356,23 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
   term.sendText(cmd);
 }
 
+// VS Code terminal tabs get unreadable past ~24 chars in the side editor —
+// the tail truncates and the user can't tell sessions apart. No "Claude: "
+// prefix: the tab icon already identifies it.
+const MAX_TERMINAL_NAME_LENGTH = 24;
+
 /**
  * Build a human-friendly terminal name for a session.
  * Uses the user's rename if set, otherwise a short session-id label.
- * We deliberately avoid the first prompt — it's almost always too long for a
- * terminal tab and unhelpful when truncated.
+ * Truncated to MAX_TERMINAL_NAME_LENGTH with an ellipsis. We deliberately
+ * avoid the first prompt — it's almost always too long for a terminal tab
+ * and unhelpful when truncated.
  */
 function buildTerminalName(sess: Session | undefined, sessionId: string): string {
-  if (sess?.name) return `Claude: ${sess.name}`;
-  return `Claude: ${sessionId.slice(0, 8)}`;
+  const raw = sess?.name ?? sessionId.slice(0, 8);
+  return raw.length > MAX_TERMINAL_NAME_LENGTH
+    ? raw.slice(0, MAX_TERMINAL_NAME_LENGTH - 1) + "…"
+    : raw;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -704,7 +712,7 @@ export async function importSessionFile(
   }
 
   // 7. Launch
-  const term = createTerminal(`Claude: imported ${newId.slice(0, 8)}`, target.path);
+  const term = createTerminal(`imported ${newId.slice(0, 8)}`, target.path);
   term.show();
   term.sendText(`claude --resume ${newId}`);
 

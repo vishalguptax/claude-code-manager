@@ -158,26 +158,28 @@ describe("createTerminal — location", () => {
     });
   });
 
-  it("reuses an editor column that already hosts a Claude terminal", () => {
+  it("reuses an editor column that already hosts one of our terminals", () => {
     setConfig({ location: "editor", editorPosition: "beside" });
+    // Create one of our terminals first so it's tracked in the sentTo set,
+    // then mount a tab whose label matches its name in column Two.
+    const existing = createTerminal("abc123");
     vscode.window.tabGroups.all = [
       {
         viewColumn: vscode.ViewColumn.Two,
-        tabs: [
-          { label: "Claude: abc123", input: new vscode.TabInputTerminal() },
-        ],
+        tabs: [{ label: existing.name, input: new vscode.TabInputTerminal() }],
       },
     ];
 
-    const term = createTerminal("Claude");
+    const term = createTerminal("xyz");
 
     expect(term.createOptions?.location).toEqual({
       viewColumn: vscode.ViewColumn.Two,
     });
   });
 
-  it("prefers a Claude column over a non-Claude column", () => {
+  it("prefers our terminal's column over an unrelated terminal column", () => {
     setConfig({ location: "editor", editorPosition: "beside" });
+    const existing = createTerminal("abc123");
     vscode.window.tabGroups.all = [
       {
         viewColumn: vscode.ViewColumn.One,
@@ -185,13 +187,11 @@ describe("createTerminal — location", () => {
       },
       {
         viewColumn: vscode.ViewColumn.Three,
-        tabs: [
-          { label: "Claude: abc123", input: new vscode.TabInputTerminal() },
-        ],
+        tabs: [{ label: existing.name, input: new vscode.TabInputTerminal() }],
       },
     ];
 
-    const term = createTerminal("Claude");
+    const term = createTerminal("xyz");
 
     expect(term.createOptions?.location).toEqual({
       viewColumn: vscode.ViewColumn.Three,
