@@ -23,7 +23,11 @@
 import * as fs from "fs";
 import { STATS_CACHE_FILE } from "../../core/config";
 import { PRICES_EFFECTIVE_DATE, computeModelCost } from "../../core/pricing";
-import { aggregateUsage, type UsageAggregate } from "./projectStats";
+import {
+  aggregateUsage,
+  type UsageAggregate,
+  type DailyModelTokens,
+} from "./projectStats";
 import type {
   DailyActivity,
   DailyTokens,
@@ -99,12 +103,13 @@ function mergeCacheWithJsonl(
     (a, b) => a.date.localeCompare(b.date),
   );
 
-  // byModel: fold post-cutoff JSONL deltas into cache totals. We can't
-  // recover the per-model token split of the JSONL gap window from the
-  // aggregate alone (it sums lifetime), so we approximate by treating
-  // JSONL byModel as lifetime and taking the max per-row with the
-  // cache. Same shape codeburn produces; small drift on cutoff day.
-  const byModelMerged = mergeByModel(base.byModel, agg.byModel, cutoffMs);
+  // byModel: cache lifetime + sum of JSONL `dailyByModel` rows past
+  // the cache cutoff. Additive (not max) so any activity that happened
+  // after Claude last rebuilt its cache lands on byModel immediately,
+  // without waiting for the next cache rebuild. Each post-cutoff day
+  // contributes its full bucket detail (input / output / cacheRead /
+  // cacheCreation) so cost recomputes from the correct splits.
+  const byModelMerged = mergeByModel(base.byModel, agg.dailyByModel, cutoffMs);
   const totalInput = byModelMerged.reduce((s, m) => s + m.inputTokens, 0);
   const totalOutput = byModelMerged.reduce((s, m) => s + m.outputTokens, 0);
   const totalCacheRead = byModelMerged.reduce(
@@ -173,49 +178,71 @@ function mergeCacheWithJsonl(
 }
 
 /**
- * Fold JSONL byModel into the cache's per-model totals. Per model we
- * take the max of (cache, JSONL) for each token bucket — cache holds
- * a strict lifetime cumulative, JSONL captures whatever transcripts
- * survive on disk. Taking max yields the larger, more inclusive view
- * without double-counting overlap. Cost recomputes from the merged
- * buckets using the static price snapshot.
+ * Cache byModel + post-cutoff JSONL delta. Walks the per-day per-model
+ * splits the aggregator produced and adds every day whose date is
+ * strictly past `cutoffMs` to the cache's cumulative totals. Models
+ * that exist only in the JSONL window get inserted; cost recomputes
+ * from the merged bucket detail.
+ *
+ * `cutoffMs === -Infinity` means "no cache cutoff" — treat every JSONL
+ * day as a delta. Callers in the cache-fallback / fresh-install path
+ * use that to fold the entire aggregate into an otherwise-empty base.
  */
 function mergeByModel(
   cacheModels: ModelStats[],
-  jsonlModels: ModelStats[],
-  _cutoffMs: number,
+  dailyByModel: DailyModelTokens[],
+  cutoffMs: number,
 ): ModelStats[] {
-  const map = new Map<string, ModelStats>();
-  for (const m of cacheModels) map.set(m.model, { ...m });
-  for (const m of jsonlModels) {
-    const existing = map.get(m.model);
-    if (!existing) {
-      map.set(m.model, { ...m });
-      continue;
+  type Bucket = {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheCreation: number;
+  };
+  const buckets = new Map<string, Bucket>();
+  for (const m of cacheModels) {
+    buckets.set(m.model, {
+      input: m.inputTokens,
+      output: m.outputTokens,
+      cacheRead: m.cacheReadTokens,
+      cacheCreation: m.cacheCreationTokens,
+    });
+  }
+  for (const day of dailyByModel) {
+    if (cutoffMs !== -Infinity) {
+      const dayMs = Date.parse(day.date + "T00:00:00");
+      if (!Number.isFinite(dayMs) || dayMs <= cutoffMs) continue;
     }
-    const inputTokens = Math.max(existing.inputTokens, m.inputTokens);
-    const outputTokens = Math.max(existing.outputTokens, m.outputTokens);
-    const cacheReadTokens = Math.max(existing.cacheReadTokens, m.cacheReadTokens);
-    const cacheCreationTokens = Math.max(
-      existing.cacheCreationTokens,
-      m.cacheCreationTokens,
-    );
-    map.set(m.model, {
-      model: m.model,
-      inputTokens,
-      outputTokens,
-      totalTokens: inputTokens + outputTokens,
-      cacheReadTokens,
-      cacheCreationTokens,
-      costUsd: computeModelCost(m.model, {
-        input: inputTokens,
-        output: outputTokens,
-        cacheRead: cacheReadTokens,
-        cacheWrite: cacheCreationTokens,
+    for (const [model, t] of Object.entries(day.byModel)) {
+      let b = buckets.get(model);
+      if (!b) {
+        b = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+        buckets.set(model, b);
+      }
+      b.input += t.input;
+      b.output += t.output;
+      b.cacheRead += t.cacheRead;
+      b.cacheCreation += t.cacheCreation;
+    }
+  }
+  const out: ModelStats[] = [];
+  for (const [model, b] of buckets.entries()) {
+    out.push({
+      model,
+      inputTokens: b.input,
+      outputTokens: b.output,
+      totalTokens: b.input + b.output,
+      cacheReadTokens: b.cacheRead,
+      cacheCreationTokens: b.cacheCreation,
+      costUsd: computeModelCost(model, {
+        input: b.input,
+        output: b.output,
+        cacheRead: b.cacheRead,
+        cacheWrite: b.cacheCreation,
       }),
     });
   }
-  return [...map.values()].sort((a, b) => b.totalTokens - a.totalTokens);
+  return out.sort((a, b) => b.totalTokens - a.totalTokens);
 }
 
 function pickFirstDate(a: string, b: string): string {

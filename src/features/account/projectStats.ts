@@ -60,10 +60,29 @@ interface JsonlEntry {
   };
 }
 
+/** Per-day per-model token split. Used by usage.ts to compute the
+ *  post-cutoff delta when merging with stats-cache.json's lifetime
+ *  byModel — the alternative (max-merge) loses today's activity until
+ *  Claude rebuilds its cache. */
+export interface DailyModelTokens {
+  date: string;
+  /** model id → token buckets for that day. */
+  byModel: Record<
+    string,
+    {
+      input: number;
+      output: number;
+      cacheRead: number;
+      cacheCreation: number;
+    }
+  >;
+}
+
 /** Full payload the aggregator returns — one shape, no follow-up reads. */
 export interface UsageAggregate {
   daily: DailyActivity[];
   dailyTokens: DailyTokens[];
+  dailyByModel: DailyModelTokens[];
   byModel: ModelStats[];
   byProject: ProjectStats[];
   byTool: ToolStats[];
@@ -101,6 +120,8 @@ interface DayAcc {
   sessions: Set<string>;
   toolCalls: number;
   tokens: number;
+  /** Per-model token split for this day — feeds DailyModelTokens. */
+  byModel: Map<string, ModelAcc>;
 }
 
 interface ModelAcc {
@@ -334,13 +355,22 @@ class AggState {
       m.output += outT;
       m.cacheRead += crT;
       m.cacheCreation += ccT;
-      // Per-day token total is input + output only — matches Claude
-      // CLI's `dailyModelTokens.tokensByModel` semantic (verified
-      // against the live stats-cache: 30-day sum ≈ Claude `/stats`
-      // total). Cache tokens are tracked separately on byModel; they
-      // are an order of magnitude larger than I+O and would dwarf the
-      // headline numbers if added here.
-      if (day) day.tokens += inT + outT;
+      if (day) {
+        // Per-day token total is input + output only — matches Claude
+        // CLI's `dailyModelTokens.tokensByModel` semantic. Cache tokens
+        // tracked separately on day.byModel so the post-cutoff delta
+        // can fold full bucket detail into the cache merge.
+        day.tokens += inT + outT;
+        let dm = day.byModel.get(model);
+        if (!dm) {
+          dm = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+          day.byModel.set(model, dm);
+        }
+        dm.input += inT;
+        dm.output += outT;
+        dm.cacheRead += crT;
+        dm.cacheCreation += ccT;
+      }
     }
     const content = msg.content;
     if (Array.isArray(content)) {
@@ -397,6 +427,7 @@ class AggState {
         sessions: new Set(),
         toolCalls: 0,
         tokens: 0,
+        byModel: new Map(),
       };
       this.days.set(date, d);
     }
@@ -417,6 +448,7 @@ class AggState {
     const byModel = this.buildByModel();
     const daily = this.buildDaily();
     const dailyTokens = this.buildDailyTokens();
+    const dailyByModel = this.buildDailyByModel();
     const byTool = [...this.toolCounts.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
@@ -450,6 +482,7 @@ class AggState {
     return {
       daily,
       dailyTokens,
+      dailyByModel,
       byModel,
       byProject,
       byTool,
@@ -550,6 +583,25 @@ class AggState {
       .map((d) => ({ date: d.date, total: d.tokens }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }
+
+  private buildDailyByModel(): DailyModelTokens[] {
+    const out: DailyModelTokens[] = [];
+    for (const d of this.days.values()) {
+      if (d.byModel.size === 0) continue;
+      const byModel: DailyModelTokens["byModel"] = {};
+      for (const [model, m] of d.byModel.entries()) {
+        byModel[model] = {
+          input: m.input,
+          output: m.output,
+          cacheRead: m.cacheRead,
+          cacheCreation: m.cacheCreation,
+        };
+      }
+      out.push({ date: d.date, byModel });
+    }
+    out.sort((a, b) => a.date.localeCompare(b.date));
+    return out;
+  }
 }
 
 function parseMcpTool(name: string): { server: string; tool: string } | null {
@@ -597,6 +649,7 @@ function emptyAggregate(): UsageAggregate {
   return {
     daily: [],
     dailyTokens: [],
+    dailyByModel: [],
     byModel: [],
     byProject: [],
     byTool: [],

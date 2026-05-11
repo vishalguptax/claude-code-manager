@@ -59,6 +59,7 @@ function emptyAggregate(): UsageAggregate {
   return {
     daily: [],
     dailyTokens: [],
+    dailyByModel: [],
     byModel: [],
     byProject: [],
     byTool: [],
@@ -168,6 +169,48 @@ describe("computeUsageStats — JSONL primary", () => {
     expect(computeUsageStats().totalTokens).toBe(0);
   });
 
+  it("byModel adds post-cutoff JSONL delta to cache lifetime", () => {
+    // Cache: opus lifetime = 1000 input + 2000 output.
+    // JSONL daily-by-model: same model adds 100/200 on a day past
+    // cutoff. Merged byModel should show 1100/2200 — additive, not
+    // max-merge (which would lose this delta until cache rebuild).
+    fsState.content = JSON.stringify({
+      lastComputedDate: "2026-05-09",
+      modelUsage: {
+        "claude-opus-4-7": {
+          inputTokens: 1_000,
+          outputTokens: 2_000,
+          cacheReadInputTokens: 5_000,
+          cacheCreationInputTokens: 500,
+        },
+      },
+      totalSessions: 0,
+      totalMessages: 0,
+    });
+    aggState.result = {
+      ...emptyAggregate(),
+      dailyByModel: [
+        {
+          date: "2026-05-11",
+          byModel: {
+            "claude-opus-4-7": {
+              input: 100,
+              output: 200,
+              cacheRead: 50,
+              cacheCreation: 10,
+            },
+          },
+        },
+      ],
+    };
+    const r = computeUsageStats();
+    const opus = r.byModel.find((m) => m.model === "claude-opus-4-7")!;
+    expect(opus.inputTokens).toBe(1_100);
+    expect(opus.outputTokens).toBe(2_200);
+    expect(opus.cacheReadTokens).toBe(5_050);
+    expect(opus.cacheCreationTokens).toBe(510);
+  });
+
   it("merges cache history with JSONL gap-fill for recent days", () => {
     // Cache holds two days of lifetime history. JSONL aggregate has
     // one day that falls past the cache cutoff plus a totally new
@@ -196,6 +239,32 @@ describe("computeUsageStats — JSONL primary", () => {
         { date: "2026-05-11", messageCount: 5, sessionCount: 1, toolCallCount: 2 },
       ],
       dailyTokens: [{ date: "2026-05-11", total: 300 }],
+      dailyByModel: [
+        // Pre-cutoff JSONL row — must NOT contribute (cache wins).
+        {
+          date: "2026-05-09",
+          byModel: {
+            "claude-opus-4-7": {
+              input: 999,
+              output: 999,
+              cacheRead: 0,
+              cacheCreation: 0,
+            },
+          },
+        },
+        // Post-cutoff JSONL row — folds into byModel additively.
+        {
+          date: "2026-05-11",
+          byModel: {
+            "claude-sonnet-4-6": {
+              input: 50,
+              output: 250,
+              cacheRead: 0,
+              cacheCreation: 0,
+            },
+          },
+        },
+      ],
       byModel: [
         {
           model: "claude-sonnet-4-6",
