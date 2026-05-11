@@ -793,28 +793,17 @@ function displayToolName(name: string): string {
 }
 
 /**
- * Footer note under the stats grid. Only rendered on 7d / 30d views.
- *
- * All-time totals match Claude's `/stats` to the digit (we read
- * the same `modelUsage` / `totalSessions` fields straight from
- * stats-cache.json). Period totals can't — Claude computes them
- * through an internal counter that isn't exposed in the cache, so
- * we approximate by summing the per-day buckets the cache does
- * publish. Calling that out keeps the small drift from looking
- * like a bug. All-time view stays uncluttered with no footer.
+ * Footer note under the stats grid. Currently a no-op — kept as a
+ * seam so future caveats (e.g. multi-profile merge attribution) can
+ * surface without re-threading a new render slot. Numbers come from
+ * the live JSONL walk, so we no longer need the previous "period
+ * totals approximate" disclaimer.
  */
 function renderUsageFooter(
-  u: AccountData["usage"],
-  period: "all" | "week" | "month",
+  _u: AccountData["usage"],
+  _period: "all" | "week" | "month",
 ): string {
-  if (!u.lastComputedDate || period === "all") return "";
-  const tooltip =
-    `All-time totals match Claude's /stats to the digit. Period ` +
-    `totals are summed from the per-day buckets in stats-cache.json; ` +
-    `Claude's /stats computes its own period totals through an ` +
-    `internal counter that isn't exposed in the cache, so the two ` +
-    `can drift by ~10–30%.`;
-  return `<footer class="acct-usage-footer"><div class="acct-usage-footer-note" title="${esc(tooltip)}">Period totals approximate — see tooltip</div></footer>`;
+  return "";
 }
 
 /** Format large numbers as 1.2M / 345.2K / 1234. */

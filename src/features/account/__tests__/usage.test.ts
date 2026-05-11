@@ -1,10 +1,32 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 /**
- * `usage.ts` reads exactly one path (~/.claude/stats-cache.json
- * via STATS_CACHE_FILE). Mocking `fs.readFileSync` lets us drive
- * every path — present, missing, malformed — without touching the
- * real user file.
+ * `computeUsageStats` now sources its payload from the JSONL
+ * aggregator (`aggregateUsage`). We mock that module directly so tests
+ * can drive every shape — populated, empty, or fallback-into-cache —
+ * without juggling a virtual filesystem here.
+ */
+const aggState = vi.hoisted(() => ({
+  result: null as unknown as ReturnType<
+    typeof import("../projectStats").aggregateUsage
+  > | null,
+}));
+
+vi.mock("../projectStats", () => ({
+  aggregateUsage: () => aggState.result ?? emptyAggregate(),
+  resetUsageAggregateCache: (): void => {
+    /* noop in tests */
+  },
+  resetProjectStatsCache: (): void => {
+    /* noop in tests */
+  },
+  aggregateProjectStats: () => aggState.result ?? emptyAggregate(),
+}));
+
+/**
+ * stats-cache.json fallback path reads `STATS_CACHE_FILE` via
+ * `fs.readFileSync`. The mock toggles between "missing", "malformed",
+ * and "valid" content per test.
  */
 const fsState = vi.hoisted(() => ({
   content: null as string | null,
@@ -23,185 +45,132 @@ vi.mock("fs", () => ({
 }));
 
 import { computeUsageStats, __internals } from "../usage";
+import type { UsageAggregate } from "../projectStats";
 
-const { projectCache, longestStreakOf, currentStreakOf, withCacheStats } = __internals;
+const {
+  longestStreakOf,
+  currentStreakOf,
+  cacheHitRatioOf,
+  mostActiveDayOf,
+  spanDays,
+} = __internals;
+
+function emptyAggregate(): UsageAggregate {
+  return {
+    daily: [],
+    dailyTokens: [],
+    byModel: [],
+    byProject: [],
+    byTool: [],
+    byMcpServer: [],
+    totalSessions: 0,
+    totalMessages: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalTokens: 0,
+    totalCacheReadTokens: 0,
+    totalCacheCreationTokens: 0,
+    totalCostUsd: 0,
+    longestSessionMs: 0,
+    firstSessionDate: "",
+  };
+}
 
 beforeEach(() => {
+  aggState.result = null;
   fsState.content = null;
   fsState.throwError = false;
 });
 
-describe("computeUsageStats — file IO", () => {
-  it("returns zeroed stats when stats-cache.json is missing", () => {
+describe("computeUsageStats — JSONL primary", () => {
+  it("returns zeroed stats when JSONL is empty AND cache is missing", () => {
     fsState.throwError = true;
     const r = computeUsageStats();
     expect(r.totalTokens).toBe(0);
-    expect(r.totalSessions).toBe(0);
     expect(r.daily).toEqual([]);
     expect(r.lastComputedDate).toBe("");
   });
 
-  it("returns zeroed stats when the cache file is malformed JSON", () => {
+  it("builds full stats from the aggregator when JSONL has data", () => {
+    aggState.result = {
+      ...emptyAggregate(),
+      daily: [
+        { date: "2026-05-09", messageCount: 5, sessionCount: 1, toolCallCount: 3 },
+        { date: "2026-05-10", messageCount: 8, sessionCount: 2, toolCallCount: 4 },
+        { date: "2026-05-11", messageCount: 12, sessionCount: 1, toolCallCount: 6 },
+      ],
+      dailyTokens: [
+        { date: "2026-05-09", total: 1_000 },
+        { date: "2026-05-10", total: 2_000 },
+        { date: "2026-05-11", total: 3_000 },
+      ],
+      byModel: [
+        {
+          model: "claude-opus-4-7",
+          inputTokens: 2_000,
+          outputTokens: 4_000,
+          totalTokens: 6_000,
+          cacheReadTokens: 500,
+          cacheCreationTokens: 100,
+          costUsd: 0.5,
+        },
+      ],
+      totalSessions: 3,
+      totalMessages: 25,
+      totalInputTokens: 2_000,
+      totalOutputTokens: 4_000,
+      totalTokens: 6_000,
+      totalCacheReadTokens: 500,
+      totalCacheCreationTokens: 100,
+      totalCostUsd: 0.5,
+      longestSessionMs: 3_600_000,
+      firstSessionDate: "2026-05-09",
+    };
+    const r = computeUsageStats();
+    expect(r.totalSessions).toBe(3);
+    expect(r.totalMessages).toBe(25);
+    expect(r.totalTokens).toBe(6_000);
+    expect(r.totalCacheReadTokens).toBe(500);
+    expect(r.cacheHitRatio).toBeCloseTo(500 / (500 + 2_000));
+    expect(r.favoriteModel).toBe("claude-opus-4-7");
+    expect(r.activeDays).toBe(3);
+    expect(r.mostActiveDay).toBe("2026-05-11");
+    expect(r.currentStreak).toBe(3);
+    expect(r.longestStreak).toBe(3);
+    // lastComputedDate points at the latest day so the heatmap doesn't
+    // hatch fresh data as "stale".
+    expect(r.lastComputedDate).toBe("2026-05-11");
+  });
+
+  it("falls back to stats-cache.json when JSONL is empty", () => {
+    // JSONL aggregate is empty (default), cache holds legacy data.
+    fsState.content = JSON.stringify({
+      lastComputedDate: "2026-04-25",
+      dailyActivity: [
+        { date: "2026-04-24", messageCount: 10, sessionCount: 2, toolCallCount: 5 },
+      ],
+      modelUsage: {
+        "claude-opus-4-6": { inputTokens: 1_000, outputTokens: 2_000 },
+      },
+      totalSessions: 7,
+      totalMessages: 50,
+    });
+    const r = computeUsageStats();
+    expect(r.totalSessions).toBe(7);
+    expect(r.totalMessages).toBe(50);
+    expect(r.totalTokens).toBe(3_000);
+    expect(r.favoriteModel).toBe("claude-opus-4-6");
+    expect(r.lastComputedDate).toBe("2026-04-25");
+  });
+
+  it("returns zeroed stats when cache JSON is malformed and JSONL is empty", () => {
     fsState.content = "{not json";
     expect(computeUsageStats().totalTokens).toBe(0);
   });
-
-  it("projects a real cache shape end-to-end", () => {
-    fsState.content = JSON.stringify({
-      version: 3,
-      lastComputedDate: "2026-04-25",
-      dailyActivity: [
-        { date: "2026-04-23", messageCount: 100, sessionCount: 2, toolCallCount: 30 },
-        { date: "2026-04-24", messageCount: 250, sessionCount: 4, toolCallCount: 75 },
-        { date: "2026-04-25", messageCount: 50,  sessionCount: 1, toolCallCount: 12 },
-      ],
-      dailyModelTokens: [
-        { date: "2026-04-23", tokensByModel: { "claude-opus-4-6": 200_000 } },
-        { date: "2026-04-24", tokensByModel: { "claude-opus-4-6": 500_000, "claude-sonnet-4-5": 100_000 } },
-      ],
-      modelUsage: {
-        "claude-opus-4-6": { inputTokens: 500_000, outputTokens: 4_500_000 },
-        "claude-sonnet-4-5": { inputTokens: 100_000, outputTokens: 900_000 },
-      },
-      totalSessions: 50,
-      totalMessages: 12345,
-      longestSession: { duration: 7_200_000 },
-      firstSessionDate: "2025-12-31T06:52:32.057Z",
-    });
-    const r = computeUsageStats();
-    expect(r.lastComputedDate).toBe("2026-04-25");
-    expect(r.totalSessions).toBe(50);
-    expect(r.totalMessages).toBe(12345);
-    expect(r.totalTokens).toBe(6_000_000);
-    expect(r.totalInputTokens).toBe(600_000);
-    expect(r.totalOutputTokens).toBe(5_400_000);
-    expect(r.longestSessionMs).toBe(7_200_000);
-    expect(r.firstSessionDate).toBe("2025-12-31");
-    expect(r.daily).toHaveLength(3);
-    expect(r.dailyTokens).toHaveLength(2);
-    expect(r.dailyTokens[1].total).toBe(600_000);
-    expect(r.activeDays).toBe(3);
-    expect(r.totalDays).toBe(3);
-    expect(r.mostActiveDay).toBe("2026-04-24");
-    expect(r.favoriteModel).toBe("claude-opus-4-6");
-    expect(r.byModel[0].totalTokens).toBe(5_000_000);
-  });
 });
 
-describe("projectCache — field mapping", () => {
-  it("sorts daily + dailyTokens by date regardless of input order", () => {
-    const r = projectCache({
-      dailyActivity: [
-        { date: "2026-02-10", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
-        { date: "2026-01-05", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
-      ],
-      dailyModelTokens: [
-        { date: "2026-02-10", tokensByModel: { x: 5 } },
-        { date: "2026-01-05", tokensByModel: { x: 3 } },
-      ],
-    });
-    expect(r.daily.map((d) => d.date)).toEqual(["2026-01-05", "2026-02-10"]);
-    expect(r.dailyTokens.map((d) => d.date)).toEqual(["2026-01-05", "2026-02-10"]);
-  });
-
-  it("ignores rows missing a date (defensive against stale cache shapes)", () => {
-    const r = projectCache({
-      dailyActivity: [
-        { date: "2026-04-25", messageCount: 5, sessionCount: 1, toolCallCount: 1 },
-        { messageCount: 99 },
-      ] as never,
-      dailyModelTokens: [
-        { tokensByModel: { x: 99 } },
-      ] as never,
-    });
-    expect(r.daily).toHaveLength(1);
-    expect(r.dailyTokens).toHaveLength(0);
-  });
-
-  it("treats missing modelUsage as zero tokens", () => {
-    const r = projectCache({
-      lastComputedDate: "2026-04-25",
-      totalSessions: 1,
-    });
-    expect(r.totalTokens).toBe(0);
-    expect(r.byModel).toEqual([]);
-    expect(r.favoriteModel).toBe("");
-  });
-
-  it("populates totalCostUsd + per-model costUsd from the price snapshot", () => {
-    const r = projectCache({
-      modelUsage: {
-        // Opus rates: $15 input + $75 output per 1M tokens →
-        // 1M+1M = $90 for this entry alone.
-        "claude-opus-4-7": {
-          inputTokens: 1_000_000,
-          outputTokens: 1_000_000,
-        },
-      },
-    });
-    expect(r.byModel[0].costUsd).toBe(90);
-    expect(r.totalCostUsd).toBe(90);
-    expect(r.pricesEffectiveDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-  });
-
-  it("includes cache token fields when the cache provides them", () => {
-    const r = projectCache({
-      modelUsage: {
-        m: {
-          inputTokens: 100,
-          outputTokens: 100,
-          cacheReadInputTokens: 200,
-          cacheCreationInputTokens: 50,
-        },
-      },
-    });
-    expect(r.byModel[0].cacheReadTokens).toBe(200);
-    expect(r.byModel[0].cacheCreationTokens).toBe(50);
-  });
-
-  it("sums input + output across modelUsage and excludes cache fields", () => {
-    const r = projectCache({
-      modelUsage: {
-        a: {
-          inputTokens: 1_000,
-          outputTokens: 2_000,
-          // Cache figures must not leak into the headline total —
-          // matches Claude CLI's `/stats` which shows input+output.
-          // (extra fields ignored by our typed projection)
-        },
-        b: { inputTokens: 500, outputTokens: 500 },
-      },
-    });
-    expect(r.totalTokens).toBe(4_000);
-    expect(r.byModel).toHaveLength(2);
-    expect(r.byModel[0].model).toBe("a"); // sorted desc by total
-  });
-
-  it("computes totalDays as inclusive span of first → last active day", () => {
-    const r = projectCache({
-      dailyActivity: [
-        { date: "2026-04-01", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
-        { date: "2026-04-10", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
-      ],
-    });
-    expect(r.totalDays).toBe(10); // 1st → 10th inclusive
-  });
-
-  it("slices firstSessionDate to YYYY-MM-DD", () => {
-    expect(
-      projectCache({ firstSessionDate: "2025-12-31T06:52:32.057Z" }).firstSessionDate,
-    ).toBe("2025-12-31");
-    expect(projectCache({ firstSessionDate: "" }).firstSessionDate).toBe("");
-    expect(projectCache({}).firstSessionDate).toBe("");
-  });
-});
-
-describe("longestStreakOf", () => {
-  it("returns 0 for empty input", () => {
-    expect(longestStreakOf([])).toBe(0);
-  });
-
-  it("counts consecutive-day runs and resets on gaps", () => {
+describe("derivers", () => {
+  it("longestStreakOf — counts consecutive-day runs and resets on gaps", () => {
     expect(
       longestStreakOf([
         { date: "2026-04-01", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
@@ -211,44 +180,12 @@ describe("longestStreakOf", () => {
       ]),
     ).toBe(3);
   });
-});
 
-describe("withCacheStats", () => {
-  it("sums cache totals across models and derives hit ratio", () => {
-    const stats = projectCache({
-      modelUsage: {
-        a: {
-          inputTokens: 800,
-          outputTokens: 1_000,
-          cacheReadInputTokens: 200,
-          cacheCreationInputTokens: 50,
-        },
-        b: {
-          inputTokens: 200,
-          outputTokens: 500,
-          cacheReadInputTokens: 800,
-          cacheCreationInputTokens: 100,
-        },
-      },
-    });
-    withCacheStats(stats);
-    expect(stats.totalCacheReadTokens).toBe(1000);
-    expect(stats.totalCacheCreationTokens).toBe(150);
-    // input=1000, cacheRead=1000 → 1000 / (1000+1000) = 0.5
-    expect(stats.cacheHitRatio).toBe(0.5);
+  it("longestStreakOf — empty input returns 0", () => {
+    expect(longestStreakOf([])).toBe(0);
   });
 
-  it("returns ratio 0 when no input or cache activity", () => {
-    const stats = projectCache({});
-    withCacheStats(stats);
-    expect(stats.cacheHitRatio).toBe(0);
-  });
-});
-
-describe("currentStreakOf", () => {
-  it("anchors to latest active date — not wall-clock today", () => {
-    // Two-day run ending 2026-04-24 (not today). Matches CLI
-    // `/stats` which doesn't penalise a not-yet-active today.
+  it("currentStreakOf — anchors to latest active date", () => {
     expect(
       currentStreakOf([
         { date: "2026-04-23", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
@@ -257,7 +194,33 @@ describe("currentStreakOf", () => {
     ).toBe(2);
   });
 
-  it("returns 0 for empty input", () => {
+  it("currentStreakOf — empty input returns 0", () => {
     expect(currentStreakOf([])).toBe(0);
+  });
+
+  it("cacheHitRatioOf — input/cacheRead split", () => {
+    expect(cacheHitRatioOf(500, 1_500)).toBeCloseTo(0.25);
+    expect(cacheHitRatioOf(0, 0)).toBe(0);
+    expect(cacheHitRatioOf(1_000, 0)).toBe(1);
+  });
+
+  it("mostActiveDayOf — picks the day with the most messages", () => {
+    expect(
+      mostActiveDayOf([
+        { date: "2026-04-01", messageCount: 5, sessionCount: 1, toolCallCount: 0 },
+        { date: "2026-04-02", messageCount: 12, sessionCount: 1, toolCallCount: 0 },
+        { date: "2026-04-03", messageCount: 8, sessionCount: 1, toolCallCount: 0 },
+      ]),
+    ).toBe("2026-04-02");
+  });
+
+  it("spanDays — inclusive day span first → last", () => {
+    expect(
+      spanDays([
+        { date: "2026-04-01", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
+        { date: "2026-04-10", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
+      ]),
+    ).toBe(10);
+    expect(spanDays([])).toBe(0);
   });
 });

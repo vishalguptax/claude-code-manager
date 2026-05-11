@@ -1,44 +1,109 @@
 /**
- * Usage stats — read straight from `~/.claude/stats-cache.json`,
- * the same file Claude CLI's `/stats` reads. By projecting that
- * cache verbatim we guarantee one set of numbers across the
- * extension and the terminal: tokens, sessions, messages, the
- * heatmap cells, and the per-model breakdown all match `/stats`
- * to the digit.
+ * Usage stats — sourced primarily from raw session JSONL via
+ * `aggregateUsage` so the panel reflects what's on disk right now.
  *
- * Tradeoff: Claude rebuilds the cache on its own cadence (often
- * 1–2 days behind today). The heatmap reflects that — today's
- * cell renders as "stale" until the CLI re-aggregates. Reading
- * raw transcripts would surface today's activity immediately, but
- * the resulting numbers diverged from `/stats` (sub-agent walks,
- * history-filtered session count, different cache_creation
- * accounting), and the divergence was the user-facing bug. Two
- * sources of truth is worse than one slightly-lagging source.
+ * Previous versions of this module projected `~/.claude/stats-cache.json`
+ * (the same file Claude CLI's `/stats` reads). That gave bit-exact parity
+ * with `/stats`, but the cache lags Claude's actual cadence by 1–2 days
+ * (sometimes more) and has no project / tool / MCP dimension. The new
+ * JSONL-primary path:
  *
- * If the cache is missing or unreadable (first-run users, fresh
- * install) we return zeroed stats — the UI shows its empty state
- * inviting the user to start a Claude session.
+ *   - Is always live — today's row reflects the user's actual activity.
+ *   - Carries the richer breakdowns we now surface (project, tool, MCP)
+ *     without a second walk.
+ *   - Dedups by entry `uuid` / `message.id`, so resumed sessions that
+ *     re-append prior turns don't inflate counters.
+ *   - Honours `CLAUDE_CONFIG_DIRS` so multi-profile setups (e.g.
+ *     `~/.claude-work:~/.claude-personal`) merge correctly.
+ *
+ * `~/.claude/stats-cache.json` is still consulted as a fallback when no
+ * JSONL files exist at all — covers a fresh install before the first
+ * session writes anything, where the cache may already exist from a
+ * prior Claude CLI run that pre-dated the manager extension.
  */
 import * as fs from "fs";
 import { STATS_CACHE_FILE } from "../../core/config";
-import { computeModelCost, PRICES_EFFECTIVE_DATE } from "../../core/pricing";
-import { aggregateJsonlSince, type JsonlDayAgg } from "./jsonlFallback";
-import { aggregateProjectStats } from "./projectStats";
+import { PRICES_EFFECTIVE_DATE, computeModelCost } from "../../core/pricing";
+import { aggregateUsage, type UsageAggregate } from "./projectStats";
 import type {
   DailyActivity,
-  DailyTokens,
   ModelStats,
   UsageStats,
 } from "./types";
 
-// ── stats-cache.json shape (only the fields we project) ──
+/** Public entry — single source for everything the Usage section renders. */
+export function computeUsageStats(): UsageStats {
+  const agg = aggregateUsage();
+  if (agg.daily.length === 0 && agg.byModel.length === 0) {
+    // No transcripts on disk yet. Surface whatever the legacy cache
+    // holds so users who already have a /stats history aren't greeted
+    // by an empty panel on first install.
+    return projectCacheFallback();
+  }
+  return fromAggregate(agg);
+}
+
+/**
+ * Build the full UsageStats payload from the JSONL aggregate. Derived
+ * fields (streaks, totalDays, mostActiveDay) compute over the daily
+ * series so they stay consistent with what the heatmap shows.
+ */
+function fromAggregate(agg: UsageAggregate): UsageStats {
+  const stats: UsageStats = {
+    daily: agg.daily,
+    dailyTokens: agg.dailyTokens,
+    activeDays: agg.daily.length,
+    totalDays: spanDays(agg.daily),
+    mostActiveDay: mostActiveDayOf(agg.daily),
+    longestStreak: longestStreakOf(agg.daily),
+    currentStreak: currentStreakOf(agg.daily),
+    byModel: agg.byModel,
+    favoriteModel: agg.byModel[0]?.model ?? "",
+    totalInputTokens: agg.totalInputTokens,
+    totalOutputTokens: agg.totalOutputTokens,
+    totalTokens: agg.totalTokens,
+    totalSessions: agg.totalSessions,
+    totalMessages: agg.totalMessages,
+    longestSessionMs: agg.longestSessionMs,
+    firstSessionDate: agg.firstSessionDate,
+    // JSONL is the source — there's no "computed up to" anchor. We set
+    // this to the latest active date so the heatmap doesn't hatch
+    // recent cells as stale.
+    lastComputedDate: agg.daily.at(-1)?.date ?? "",
+    totalCostUsd: agg.totalCostUsd,
+    pricesEffectiveDate: PRICES_EFFECTIVE_DATE,
+    totalCacheReadTokens: agg.totalCacheReadTokens,
+    totalCacheCreationTokens: agg.totalCacheCreationTokens,
+    cacheHitRatio: cacheHitRatioOf(
+      agg.totalCacheReadTokens,
+      agg.totalInputTokens,
+    ),
+    byProject: agg.byProject,
+    byTool: agg.byTool,
+    byMcpServer: agg.byMcpServer,
+  };
+  return stats;
+}
+
+/**
+ * Cache hit ratio = cacheRead / (cacheRead + input). Reads what the
+ * user effectively spent on context — anything served from cache saved
+ * them a fresh-input round trip. cacheCreation isn't in the denominator
+ * because creation writes happen regardless of hit/miss; this metric
+ * answers "how much input was reused," not "how efficient was every
+ * byte we paid for."
+ */
+function cacheHitRatioOf(cacheRead: number, input: number): number {
+  const denom = cacheRead + input;
+  return denom > 0 ? cacheRead / denom : 0;
+}
+
+// ── stats-cache.json fallback (fresh-install only) ───────────────────
 
 interface CacheModelUsage {
   inputTokens?: number;
   outputTokens?: number;
-  /** Tokens served from prompt cache. Field absent on older caches. */
   cacheReadInputTokens?: number;
-  /** Tokens written to prompt cache. Field absent on older caches. */
   cacheCreationInputTokens?: number;
 }
 
@@ -51,12 +116,10 @@ interface CacheDailyActivity {
 
 interface CacheDailyModelTokens {
   date?: string;
-  /** Per-model totals already summed by Claude (input + output). */
   tokensByModel?: Record<string, number>;
 }
 
 interface CacheLongestSession {
-  /** Milliseconds. */
   duration?: number;
 }
 
@@ -71,88 +134,48 @@ interface StatsCacheShape {
   firstSessionDate?: string;
 }
 
-// ── Public entry ──
-
 /**
- * Build UsageStats by projecting `~/.claude/stats-cache.json`. Cheap
- * to call (small file, one read), so callers don't need their own
- * caching layer — the prior FileSummary cache is gone.
+ * Used when no JSONL is on disk. Reads `stats-cache.json` so the UI can
+ * still show something — but this branch is rare in normal use (any
+ * session the user runs writes a transcript first).
  */
-export function computeUsageStats(): UsageStats {
-  const cache = readCache();
-  const projected = cache ? projectCache(cache) : emptyStats();
-  // Cache lags Claude CLI's actual cadence (often days). Fill the
-  // gap [lastComputedDate+1, today] from raw session JSONL so the
-  // heatmap and period totals reflect reality. Drift on cache-cutoff
-  // day is acceptable; the alternative (showing a half-empty
-  // heatmap) is a worse user experience.
-  const augmented = augmentWithJsonl(projected);
-  // Cache totals + hit ratio derive from per-model fields populated
-  // by both the cache projection and the JSONL gap-fill. Computing
-  // them after augmentation means the gap window contributes too.
-  withCacheStats(augmented);
-  // Project / tool / MCP breakdowns can't come from stats-cache.json
-  // (the cache doesn't bucket by project) — they require a full
-  // JSONL walk. aggregateProjectStats is memoised so the second tab
-  // open is near-instant.
-  const breakdown = aggregateProjectStats();
-  augmented.byProject = breakdown.byProject;
-  augmented.byTool = breakdown.byTool;
-  augmented.byMcpServer = breakdown.byMcpServer;
-  return augmented;
-}
-
-function readCache(): StatsCacheShape | null {
+function projectCacheFallback(): UsageStats {
   let raw: string;
   try {
     raw = fs.readFileSync(STATS_CACHE_FILE, "utf-8");
   } catch {
-    return null;
+    return emptyStats();
   }
+  let cache: StatsCacheShape;
   try {
-    return JSON.parse(raw) as StatsCacheShape;
+    cache = JSON.parse(raw) as StatsCacheShape;
   } catch {
-    return null;
+    return emptyStats();
   }
-}
 
-// ── Projection ──
-
-function projectCache(cache: StatsCacheShape): UsageStats {
   const result = emptyStats();
-
-  // dailyActivity → daily. Filter rows missing a date — the cache
-  // is generally well-formed, but a guard avoids an undefined
-  // string sneaking into streak math downstream.
   result.daily = (cache.dailyActivity ?? [])
-    .filter((d): d is CacheDailyActivity & { date: string } =>
-      typeof d.date === "string" && d.date.length > 0,
+    .filter(
+      (d): d is CacheDailyActivity & { date: string } =>
+        typeof d.date === "string" && d.date.length > 0,
     )
     .map((d) => ({
       date: d.date,
       messageCount: typeof d.messageCount === "number" ? d.messageCount : 0,
       sessionCount: typeof d.sessionCount === "number" ? d.sessionCount : 0,
-      toolCallCount: typeof d.toolCallCount === "number" ? d.toolCallCount : 0,
+      toolCallCount:
+        typeof d.toolCallCount === "number" ? d.toolCallCount : 0,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // dailyModelTokens → dailyTokens. Each row's `tokensByModel` map
-  // already holds per-model totals (Claude pre-sums input + output);
-  // we sum across models for the headline per-day number.
   result.dailyTokens = (cache.dailyModelTokens ?? [])
-    .filter((d): d is CacheDailyModelTokens & { date: string } =>
-      typeof d.date === "string" && d.date.length > 0,
+    .filter(
+      (d): d is CacheDailyModelTokens & { date: string } =>
+        typeof d.date === "string" && d.date.length > 0,
     )
-    .map<DailyTokens>((d) => ({
-      date: d.date,
-      total: sumModelMap(d.tokensByModel),
-    }))
+    .map((d) => ({ date: d.date, total: sumModelMap(d.tokensByModel) }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // modelUsage → byModel. Sort by totalTokens desc so the top entry
-  // is the user's favorite model. Cost is layered on at projection
-  // time using the price snapshot in core/pricing — keeping it in
-  // the projector means the heavy stats-cache parse runs once.
   const modelList: ModelStats[] = [];
   if (cache.modelUsage) {
     for (const [model, t] of Object.entries(cache.modelUsage)) {
@@ -160,12 +183,6 @@ function projectCache(cache: StatsCacheShape): UsageStats {
       const outputTokens = t.outputTokens ?? 0;
       const cacheReadTokens = t.cacheReadInputTokens ?? 0;
       const cacheCreationTokens = t.cacheCreationInputTokens ?? 0;
-      const costUsd = computeModelCost(model, {
-        input: inputTokens,
-        output: outputTokens,
-        cacheRead: cacheReadTokens,
-        cacheWrite: cacheCreationTokens,
-      });
       modelList.push({
         model,
         inputTokens,
@@ -173,19 +190,29 @@ function projectCache(cache: StatsCacheShape): UsageStats {
         totalTokens: inputTokens + outputTokens,
         cacheReadTokens,
         cacheCreationTokens,
-        costUsd,
+        costUsd: computeModelCost(model, {
+          input: inputTokens,
+          output: outputTokens,
+          cacheRead: cacheReadTokens,
+          cacheWrite: cacheCreationTokens,
+        }),
       });
       result.totalInputTokens += inputTokens;
       result.totalOutputTokens += outputTokens;
-      result.totalCostUsd += costUsd;
+      result.totalCacheReadTokens += cacheReadTokens;
+      result.totalCacheCreationTokens += cacheCreationTokens;
+      result.totalCostUsd += modelList[modelList.length - 1].costUsd;
     }
   }
   modelList.sort((a, b) => b.totalTokens - a.totalTokens);
   result.byModel = modelList;
   result.favoriteModel = modelList[0]?.model ?? "";
   result.totalTokens = result.totalInputTokens + result.totalOutputTokens;
+  result.cacheHitRatio = cacheHitRatioOf(
+    result.totalCacheReadTokens,
+    result.totalInputTokens,
+  );
 
-  // Direct field projections.
   result.totalSessions =
     typeof cache.totalSessions === "number" ? cache.totalSessions : 0;
   result.totalMessages =
@@ -198,28 +225,9 @@ function projectCache(cache: StatsCacheShape): UsageStats {
   result.lastComputedDate =
     typeof cache.lastComputedDate === "string" ? cache.lastComputedDate : "";
 
-  // Derived fields from `daily`.
   result.activeDays = result.daily.length;
-
-  let mostActiveCount = -1;
-  let mostActiveDay = "";
-  for (const d of result.daily) {
-    if (d.messageCount > mostActiveCount) {
-      mostActiveCount = d.messageCount;
-      mostActiveDay = d.date;
-    }
-  }
-  result.mostActiveDay = mostActiveDay;
-
-  if (result.daily.length > 0) {
-    const firstMs = parseLocalDate(result.daily[0].date);
-    const lastMs = parseLocalDate(result.daily[result.daily.length - 1].date);
-    result.totalDays = Math.max(
-      1,
-      Math.round((lastMs - firstMs) / 86_400_000) + 1,
-    );
-  }
-
+  result.mostActiveDay = mostActiveDayOf(result.daily);
+  result.totalDays = spanDays(result.daily);
   result.longestStreak = longestStreakOf(result.daily);
   result.currentStreak = currentStreakOf(result.daily);
 
@@ -228,24 +236,38 @@ function projectCache(cache: StatsCacheShape): UsageStats {
 
 function sumModelMap(map: Record<string, number> | undefined): number {
   if (!map) return 0;
-  let sum = 0;
+  let s = 0;
   for (const v of Object.values(map)) {
-    if (typeof v === "number") sum += v;
+    if (typeof v === "number") s += v;
   }
-  return sum;
+  return s;
 }
 
-/**
- * Slice a YYYY-MM-DD prefix from an ISO timestamp. `firstSessionDate`
- * in the cache is a full ISO string ("2025-12-31T06:52:..."); the UI
- * only wants the date portion.
- */
 function isoDate(s: string | undefined): string {
   if (typeof s !== "string" || s.length < 10) return "";
   return s.slice(0, 10);
 }
 
-// ── Streak helpers ──
+// ── Derivers (shared between JSONL + fallback paths) ─────────────────
+
+function mostActiveDayOf(daily: DailyActivity[]): string {
+  let best = -1;
+  let day = "";
+  for (const d of daily) {
+    if (d.messageCount > best) {
+      best = d.messageCount;
+      day = d.date;
+    }
+  }
+  return day;
+}
+
+function spanDays(daily: DailyActivity[]): number {
+  if (daily.length === 0) return 0;
+  const firstMs = parseLocalDate(daily[0].date);
+  const lastMs = parseLocalDate(daily[daily.length - 1].date);
+  return Math.max(1, Math.round((lastMs - firstMs) / 86_400_000) + 1);
+}
 
 function longestStreakOf(daily: DailyActivity[]): number {
   let longest = 0;
@@ -269,9 +291,6 @@ function longestStreakOf(daily: DailyActivity[]): number {
 function currentStreakOf(daily: DailyActivity[]): number {
   if (daily.length === 0) return 0;
   const dates = new Set(daily.map((d) => d.date));
-  // Walk backwards from the latest active date (not wall-clock
-  // today — matches CLI `/stats` which doesn't penalise a not-yet-
-  // active day).
   let cursor = daily[daily.length - 1].date;
   let streak = 0;
   while (dates.has(cursor)) {
@@ -281,14 +300,10 @@ function currentStreakOf(daily: DailyActivity[]): number {
   return streak;
 }
 
-// ── Date helpers ──
-
-/** Parse YYYY-MM-DD as local midnight ms. */
 function parseLocalDate(iso: string): number {
   return new Date(iso + "T00:00:00").getTime();
 }
 
-/** YYYY-MM-DD shifted back one calendar day in local time. */
 function previousLocalDate(iso: string): string {
   const d = new Date(iso + "T00:00:00");
   d.setDate(d.getDate() - 1);
@@ -296,186 +311,6 @@ function previousLocalDate(iso: string): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-// ── JSONL gap-fill ──
-
-/**
- * Merge JSONL-derived rows for dates past `cache.lastComputedDate`
- * into the projected stats. Mutates and returns `stats` for the
- * caller's convenience. Only touches the gap window — fully-cached
- * dates stay verbatim from the cache.
- */
-function augmentWithJsonl(stats: UsageStats): UsageStats {
-  const startDate = gapStartDate(stats.lastComputedDate);
-  if (!startDate) return stats;
-
-  const gap = aggregateJsonlSince(startDate);
-  if (gap.length === 0) return stats;
-
-  const cachedDates = new Set(stats.daily.map((d) => d.date));
-  const newDailyActivity: DailyActivity[] = [];
-  const newDailyTokens: DailyTokens[] = [];
-
-  // Per-model totals to fold into byModel. Tracking the same four
-  // counters the cache uses keeps cost recomputation accurate.
-  const inputDelta: Record<string, number> = {};
-  const outputDelta: Record<string, number> = {};
-  const cacheReadDelta: Record<string, number> = {};
-  const cacheCreationDelta: Record<string, number> = {};
-  const allSessionIds = new Set<string>();
-  let messagesDelta = 0;
-
-  for (const day of gap) {
-    if (cachedDates.has(day.date)) continue;
-    newDailyActivity.push({
-      date: day.date,
-      messageCount: day.messageCount,
-      sessionCount: day.sessionCount,
-      toolCallCount: day.toolCallCount,
-    });
-    const tokenTotal = sumNumberMap(day.tokensByModel);
-    if (tokenTotal > 0) {
-      newDailyTokens.push({ date: day.date, total: tokenTotal });
-    }
-    foldInto(inputDelta, day.inputByModel);
-    foldInto(outputDelta, day.outputByModel);
-    foldInto(cacheReadDelta, day.cacheReadByModel);
-    foldInto(cacheCreationDelta, day.cacheCreationByModel);
-    for (const id of day.sessionIds) allSessionIds.add(id);
-    messagesDelta += day.messageCount;
-  }
-
-  if (newDailyActivity.length === 0 && newDailyTokens.length === 0) return stats;
-
-  stats.daily = [...stats.daily, ...newDailyActivity].sort((a, b) => a.date.localeCompare(b.date));
-  stats.dailyTokens = [...stats.dailyTokens, ...newDailyTokens].sort((a, b) => a.date.localeCompare(b.date));
-
-  // Update lastComputedDate so the heatmap doesn't render the
-  // newly-filled days as "stale".
-  if (stats.daily.length > 0) {
-    stats.lastComputedDate = stats.daily[stats.daily.length - 1].date;
-  }
-
-  // Fold per-model deltas into byModel. New models added; existing
-  // models accumulate. Costs recomputed from updated input/output.
-  const byModelMap = new Map<string, ModelStats>();
-  for (const m of stats.byModel) byModelMap.set(m.model, { ...m });
-  const allModels = new Set<string>([
-    ...byModelMap.keys(),
-    ...Object.keys(inputDelta),
-    ...Object.keys(outputDelta),
-    ...Object.keys(cacheReadDelta),
-    ...Object.keys(cacheCreationDelta),
-  ]);
-  for (const model of allModels) {
-    const existing = byModelMap.get(model);
-    const inputTokens = (existing?.inputTokens ?? 0) + (inputDelta[model] ?? 0);
-    const outputTokens = (existing?.outputTokens ?? 0) + (outputDelta[model] ?? 0);
-    const cacheReadTokens = (existing?.cacheReadTokens ?? 0) + (cacheReadDelta[model] ?? 0);
-    const cacheCreationTokens = (existing?.cacheCreationTokens ?? 0) + (cacheCreationDelta[model] ?? 0);
-    const costUsd = computeModelCost(model, {
-      input: inputTokens,
-      output: outputTokens,
-      cacheRead: cacheReadTokens,
-      cacheWrite: cacheCreationTokens,
-    });
-    byModelMap.set(model, {
-      model,
-      inputTokens,
-      outputTokens,
-      totalTokens: inputTokens + outputTokens,
-      cacheReadTokens,
-      cacheCreationTokens,
-      costUsd,
-    });
-  }
-  stats.byModel = [...byModelMap.values()].sort((a, b) => b.totalTokens - a.totalTokens);
-  stats.favoriteModel = stats.byModel[0]?.model ?? stats.favoriteModel;
-
-  // Resync the totals derived from byModel.
-  stats.totalInputTokens = stats.byModel.reduce((s, m) => s + m.inputTokens, 0);
-  stats.totalOutputTokens = stats.byModel.reduce((s, m) => s + m.outputTokens, 0);
-  stats.totalTokens = stats.totalInputTokens + stats.totalOutputTokens;
-  stats.totalCostUsd = stats.byModel.reduce((s, m) => s + m.costUsd, 0);
-
-  // Sessions / messages — additive. Cross-midnight sessions can
-  // double-count vs the cache, but the gap window is small enough
-  // that the user-visible impact is negligible. The "Period totals
-  // approximate" footer in the UI already covers this.
-  stats.totalMessages = stats.totalMessages + messagesDelta;
-  stats.totalSessions = stats.totalSessions + allSessionIds.size;
-
-  // Refresh derived fields that depend on `daily`.
-  stats.activeDays = stats.daily.length;
-  if (stats.daily.length > 0) {
-    const firstMs = parseLocalDate(stats.daily[0].date);
-    const lastMs = parseLocalDate(stats.daily[stats.daily.length - 1].date);
-    stats.totalDays = Math.max(1, Math.round((lastMs - firstMs) / 86_400_000) + 1);
-  }
-  stats.longestStreak = longestStreakOf(stats.daily);
-  stats.currentStreak = currentStreakOf(stats.daily);
-  let mostActiveCount = -1;
-  let mostActiveDay = "";
-  for (const d of stats.daily) {
-    if (d.messageCount > mostActiveCount) {
-      mostActiveCount = d.messageCount;
-      mostActiveDay = d.date;
-    }
-  }
-  stats.mostActiveDay = mostActiveDay;
-
-  return stats;
-}
-
-/** Day after `lastComputedDate`, or "" when no anchor is available. */
-function gapStartDate(lastComputedDate: string): string {
-  if (!lastComputedDate) return "";
-  const d = new Date(lastComputedDate + "T00:00:00");
-  if (Number.isNaN(d.getTime())) return "";
-  d.setDate(d.getDate() + 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function sumNumberMap(map: Record<string, number>): number {
-  let s = 0;
-  for (const v of Object.values(map)) s += v;
-  return s;
-}
-
-function foldInto(dst: Record<string, number>, src: Record<string, number>): void {
-  for (const [k, v] of Object.entries(src)) {
-    if (v === 0) continue;
-    dst[k] = (dst[k] ?? 0) + v;
-  }
-}
-
-/**
- * Sum the cache-read / cache-creation columns from per-model rows and
- * derive the hit ratio. Mutates the stats in place so the helper plugs
- * straight into the compute pipeline without an extra copy.
- *
- * Hit ratio definition: `cacheRead / (cacheRead + input)`. Reads what
- * the user effectively spent on context — anything served from cache
- * saved them a fresh-input round trip. cacheCreation isn't part of the
- * denominator because creation writes happen regardless of hit/miss;
- * the metric answers "how much input was reused," not "how efficient
- * was every byte we paid for."
- */
-function withCacheStats(stats: UsageStats): void {
-  let read = 0;
-  let create = 0;
-  for (const m of stats.byModel) {
-    read += m.cacheReadTokens;
-    create += m.cacheCreationTokens;
-  }
-  stats.totalCacheReadTokens = read;
-  stats.totalCacheCreationTokens = create;
-  const denom = read + stats.totalInputTokens;
-  stats.cacheHitRatio = denom > 0 ? read / denom : 0;
 }
 
 function emptyStats(): UsageStats {
@@ -509,14 +344,12 @@ function emptyStats(): UsageStats {
 }
 
 // ── Test-only export ─────────────────────────────────────────────
-// Streak helpers + cache projector exposed for unit tests so they
-// can drive the math directly without round-tripping through the
-// filesystem.
 export const __internals = {
-  projectCache,
+  fromAggregate,
+  projectCacheFallback,
   longestStreakOf,
   currentStreakOf,
-  augmentWithJsonl,
-  gapStartDate,
-  withCacheStats,
+  cacheHitRatioOf,
+  mostActiveDayOf,
+  spanDays,
 };
