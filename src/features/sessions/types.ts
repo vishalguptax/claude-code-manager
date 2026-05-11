@@ -43,6 +43,12 @@ export interface Session {
    * calls. Built once at parse time.
    */
   searchHaystack: string;
+  /**
+   * True when a live PID file under `~/.claude/sessions/` references this
+   * session and the recorded PID still names a running process. Drives the
+   * green "live" dot in the session list. Undefined / false = no signal.
+   */
+  isLive?: boolean;
 }
 
 /** A session with a page of its message transcript loaded. */

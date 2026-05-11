@@ -49,6 +49,13 @@ function writeSessionFile(
   fs.writeFileSync(path.join(dir, `${sessionId}.jsonl`), content);
 }
 
+function writePidFile(pid: number, sessionId: string) {
+  fs.writeFileSync(
+    path.join(SESSIONS_DIR, `${pid}.json`),
+    JSON.stringify({ pid, sessionId }),
+  );
+}
+
 // Import parser AFTER mocks are set up
 import {
   parseSessions,
@@ -279,6 +286,29 @@ describe("parseSessions", () => {
     expect(sess!.branch).toBe("main");
     expect(sess!.summary).toBe("hello from extension");
     expect(sess!.messageCount).toBe(2);
+  });
+
+  it("marks isLive true when a PID file references a running process", () => {
+    writeHistoryEntry({
+      display: "live one",
+      timestamp: Date.now(),
+      project: "/projects/live",
+      sessionId: "sess-live",
+    });
+    writeHistoryEntry({
+      display: "dead one",
+      timestamp: Date.now(),
+      project: "/projects/dead",
+      sessionId: "sess-dead",
+    });
+    // process.pid is always alive inside this test. Use a tiny pid
+    // (2**31-1) for the stale entry — `process.kill` returns ESRCH.
+    writePidFile(process.pid, "sess-live");
+    writePidFile(2147483646, "sess-dead");
+
+    const sessions = parseSessions();
+    expect(sessions.find((s) => s.id === "sess-live")!.isLive).toBe(true);
+    expect(sessions.find((s) => s.id === "sess-dead")!.isLive).toBe(false);
   });
 
   it("skips orphan files that have no user messages (empty / queue-only shells)", () => {

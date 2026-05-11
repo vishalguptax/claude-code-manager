@@ -156,6 +156,20 @@
   gap: var(--space-lg);
 }
 
+.live-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 25%, transparent);
+  animation: live-pulse 1.8s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
 .item-name {
   font-size: var(--fs-md);
   color: var(--fg);

@@ -22,11 +22,15 @@ export function createSessionItemNode(s: Session): HTMLElement {
 
   const row1 = document.createElement("div");
   row1.className = "item-row1";
+  const live = document.createElement("span");
+  live.className = "live-dot";
+  live.title = "Session is live";
+  live.style.display = "none";
   const name = document.createElement("span");
   name.className = "item-name";
   const time = document.createElement("span");
   time.className = "item-time";
-  row1.append(name, time);
+  row1.append(live, name, time);
 
   const resume = document.createElement("button");
   resume.className = "item-resume";
@@ -83,8 +87,12 @@ export function updateSessionItemNode(
   const showSubPrompt = Boolean(s.name && firstPrompt);
 
   const row1 = node.firstChild as HTMLElement;
-  const nameEl = row1.firstChild as HTMLElement;
+  const liveEl = row1.firstChild as HTMLElement;
+  const nameEl = liveEl.nextSibling as HTMLElement;
   const timeEl = row1.lastChild as HTMLElement;
+  const liveHidden = !s.isLive;
+  const wasLiveHidden = liveEl.style.display === "none";
+  if (liveHidden !== wasLiveHidden) liveEl.style.display = liveHidden ? "none" : "";
   if (nameEl.textContent !== displayName) nameEl.textContent = displayName;
   if (nameEl.title !== displayName) nameEl.title = displayName;
   if (timeEl.textContent !== relTime) timeEl.textContent = relTime;

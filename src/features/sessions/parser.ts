@@ -457,16 +457,37 @@ function processMetaChunk(
 }
 
 /**
- * Build a map of sessionId -> user-assigned session name from the sessions directory.
- * Reads PID-named files in ~/.claude/sessions/ which store active session metadata.
+ * Probe whether a process id is still running. `process.kill(pid, 0)` is
+ * the standard no-op liveness check — on Windows it works the same as on
+ * POSIX, and a permission error (EPERM) still proves the process exists.
  */
-function buildSessionNameMap(): Map<string, string> {
-  const nameMap = new Map<string, string>();
+function isPidAlive(pid: number): boolean {
+  if (!Number.isFinite(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * Scan PID-named files in `~/.claude/sessions/` once and return:
+ *   - `names`: sessionId -> user-set display name (subset that carry `name`)
+ *   - `live`:  sessionId set whose recorded PID is still running
+ *
+ * Combined so both reads happen in a single directory walk. The CLI leaves
+ * these files behind on hard exits, so the PID liveness check is what
+ * distinguishes a session that's actually running from a stale shell.
+ */
+function readSessionsDir(): { names: Map<string, string>; live: Set<string> } {
+  const names = new Map<string, string>();
+  const live = new Set<string>();
   let files: string[];
   try {
     files = fs.readdirSync(SESSIONS_DIR);
   } catch {
-    return nameMap;
+    return { names, live };
   }
 
   for (const file of files) {
@@ -474,15 +495,18 @@ function buildSessionNameMap(): Map<string, string> {
     try {
       const raw = fs.readFileSync(path.join(SESSIONS_DIR, file), "utf-8");
       const data = JSON.parse(raw) as Record<string, unknown>;
-      if (typeof data.sessionId === "string" && typeof data.name === "string") {
-        nameMap.set(data.sessionId, data.name);
+      const sessionId = typeof data.sessionId === "string" ? data.sessionId : "";
+      if (!sessionId) continue;
+      if (typeof data.name === "string") names.set(sessionId, data.name);
+      if (typeof data.pid === "number" && isPidAlive(data.pid)) {
+        live.add(sessionId);
       }
     } catch {
       // Skip unreadable files
     }
   }
 
-  return nameMap;
+  return { names, live };
 }
 
 /**
@@ -492,7 +516,7 @@ function buildSessionNameMap(): Map<string, string> {
  * @param userRenames - Extension-managed session rename map (takes highest priority).
  */
 export function parseSessions(userRenames: Record<string, string> = {}): Session[] {
-  const sessionNames = buildSessionNameMap();
+  const { names: sessionNames, live: liveSessionIds } = readSessionsDir();
   const entries = parseJsonlFile<HistoryEntry>(HISTORY_FILE);
 
   // Group entries by sessionId
@@ -606,6 +630,7 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
       prompts,
       projectKey,
       searchHaystack,
+      isLive: liveSessionIds.has(sessionId),
     });
   }
 
@@ -625,6 +650,7 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     userRenames,
     sessionNames,
     projectPathByKey,
+    liveSessionIds,
   );
   sessions.push(...orphans);
 
@@ -841,6 +867,7 @@ function discoverOrphanSessions(
   userRenames: Record<string, string>,
   sessionNames: Map<string, string>,
   projectPathByKey: Map<string, string>,
+  liveSessionIds: Set<string>,
 ): Session[] {
   const out: Session[] = [];
   let projectSlugs: string[];
@@ -920,6 +947,7 @@ function discoverOrphanSessions(
         prompts: [data.firstPrompt],
         projectKey,
         searchHaystack,
+        isLive: liveSessionIds.has(sessionId),
       });
     }
   }
