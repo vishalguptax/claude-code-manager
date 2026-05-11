@@ -167,6 +167,92 @@ describe("computeUsageStats — JSONL primary", () => {
     fsState.content = "{not json";
     expect(computeUsageStats().totalTokens).toBe(0);
   });
+
+  it("merges cache history with JSONL gap-fill for recent days", () => {
+    // Cache holds two days of lifetime history. JSONL aggregate has
+    // one day that falls past the cache cutoff plus a totally new
+    // model that the cache never saw.
+    fsState.content = JSON.stringify({
+      lastComputedDate: "2026-05-09",
+      dailyActivity: [
+        { date: "2026-05-08", messageCount: 4, sessionCount: 1, toolCallCount: 2 },
+        { date: "2026-05-09", messageCount: 6, sessionCount: 1, toolCallCount: 3 },
+      ],
+      dailyModelTokens: [
+        { date: "2026-05-08", tokensByModel: { "claude-opus-4-7": 500 } },
+        { date: "2026-05-09", tokensByModel: { "claude-opus-4-7": 700 } },
+      ],
+      modelUsage: {
+        "claude-opus-4-7": { inputTokens: 200, outputTokens: 1_000 },
+      },
+      totalSessions: 2,
+      totalMessages: 10,
+      firstSessionDate: "2026-05-08T00:00:00Z",
+    });
+    aggState.result = {
+      ...emptyAggregate(),
+      daily: [
+        { date: "2026-05-09", messageCount: 99, sessionCount: 99, toolCallCount: 99 },
+        { date: "2026-05-11", messageCount: 5, sessionCount: 1, toolCallCount: 2 },
+      ],
+      dailyTokens: [{ date: "2026-05-11", total: 300 }],
+      byModel: [
+        {
+          model: "claude-sonnet-4-6",
+          inputTokens: 50,
+          outputTokens: 250,
+          totalTokens: 300,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          costUsd: 0,
+        },
+      ],
+      totalSessions: 1,
+      totalMessages: 1,
+      totalInputTokens: 50,
+      totalOutputTokens: 250,
+      totalTokens: 300,
+      firstSessionDate: "2026-05-11",
+      byProject: [
+        {
+          path: "p",
+          slug: "p",
+          sessions: 1,
+          messages: 1,
+          tokens: 300,
+          costUsd: 0,
+          lastActiveDate: "2026-05-11",
+        },
+      ],
+      byTool: [{ name: "Read", count: 2 }],
+    };
+    const r = computeUsageStats();
+    // Daily: cache rows kept, JSONL row past cutoff appended. The
+    // duplicate "2026-05-09" from JSONL is ignored (cache wins).
+    expect(r.daily.map((d) => d.date)).toEqual([
+      "2026-05-08",
+      "2026-05-09",
+      "2026-05-11",
+    ]);
+    expect(r.daily.find((d) => d.date === "2026-05-09")?.messageCount).toBe(6);
+    expect(r.daily.find((d) => d.date === "2026-05-11")?.messageCount).toBe(5);
+    // byModel: cache model kept; JSONL-only model added.
+    const opus = r.byModel.find((m) => m.model === "claude-opus-4-7")!;
+    const sonnet = r.byModel.find((m) => m.model === "claude-sonnet-4-6")!;
+    expect(opus.inputTokens).toBe(200);
+    expect(sonnet.totalTokens).toBe(300);
+    // Totals: sessions = cache + JSONL post-cutoff delta.
+    expect(r.totalSessions).toBe(2 + 1);
+    expect(r.totalMessages).toBe(10 + 5);
+    // Breakdowns come from JSONL regardless of cutoff.
+    expect(r.byProject).toHaveLength(1);
+    expect(r.byTool[0].name).toBe("Read");
+    // firstSessionDate = earlier of the two.
+    expect(r.firstSessionDate).toBe("2026-05-08");
+    // lastComputedDate advances past the JSONL day so the heatmap
+    // stops hatching recent activity.
+    expect(r.lastComputedDate).toBe("2026-05-11");
+  });
 });
 
 describe("derivers", () => {
