@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.9.0] - 2026-05-12
+
+Usage analytics overhauled with per-project / per-tool / MCP-server breakdowns and JSONL-primary aggregation that keeps history past the CLI's stats-cache cutoff. New ephemeral "Temp" session button launches Claude with full skills/agents/hooks but wipes the transcript on terminal close.
+
+See [docs/releases/v1.9.0.md](docs/releases/v1.9.0.md) for full details.
+
 ## [1.8.0] - 2026-05-08
 
 Account profile switching now survives Claude CLI's token-rotation lifecycle, sessions pick up the CLI-generated topic title, and usage stats fill in days the stats cache hasn't caught up to yet.
