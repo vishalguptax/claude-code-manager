@@ -334,7 +334,15 @@ class AggState {
       m.output += outT;
       m.cacheRead += crT;
       m.cacheCreation += ccT;
-      if (day) day.tokens += inT + outT;
+      // Per-day token total includes cache buckets to match Claude
+      // CLI's `dailyModelTokens.tokensByModel` semantic (input + output
+      // + cache_read + cache_creation). The `byModel.totalTokens`
+      // field stays input+output because Claude's lifetime `modelUsage`
+      // is reported that way — they're two different scopes with
+      // different summing rules; we mirror both verbatim so the
+      // weekly/monthly numbers don't drift across the cache-cutoff
+      // boundary.
+      if (day) day.tokens += inT + outT + crT + ccT;
     }
     const content = msg.content;
     if (Array.isArray(content)) {
