@@ -39,6 +39,15 @@ export function sendNewSession(): void {
   _vscode.postMessage({ type: "newSession" });
 }
 
+/**
+ * Request an ephemeral Claude terminal session. The host wipes the
+ * transcript and the matching history.jsonl rows when the terminal
+ * exits.
+ */
+export function sendNewTempSession(): void {
+  _vscode.postMessage({ type: "newTempSession" });
+}
+
 /** Continue the most recent Claude Code session in the current workspace. */
 export function sendContinueLastSession(): void {
   _vscode.postMessage({ type: "continueLastSession" });

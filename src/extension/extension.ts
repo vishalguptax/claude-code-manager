@@ -9,6 +9,7 @@ import * as path from "path";
 import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
 import { setSessionStorage } from "../features/sessions/commands";
 import { setExtensionUri } from "./terminal";
+import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
@@ -22,6 +23,10 @@ export function activate(context: vscode.ExtensionContext): void {
   // Wire persistent storage into the sessions commands module so the
   // export/import dialogs can remember the last folder the user chose.
   setSessionStorage(context.globalState);
+  // Ephemeral (temp) session cleanup: wire storage, then drain any
+  // pending entries left behind by a prior VS Code crash or reload.
+  setEphemeralStorage(context.globalState);
+  sweepOrphans();
   const provider = new ClaudeSessionViewProvider(
     context.extensionUri,
     context.globalState,

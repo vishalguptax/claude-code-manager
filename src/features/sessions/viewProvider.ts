@@ -31,6 +31,7 @@ import {
 import {
   openProject,
   newSession,
+  newTempSession,
   continueLastSession,
   copyResumeCommand,
   copyMarkdown,
@@ -971,6 +972,10 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "newSession":
         await newSession();
+        break;
+
+      case "newTempSession":
+        await newTempSession();
         break;
 
       case "continueLastSession":
