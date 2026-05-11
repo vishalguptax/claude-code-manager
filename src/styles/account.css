@@ -1051,13 +1051,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 2px;
+  padding: 4px 0;
+  margin-bottom: 0;
   min-width: 0;
-}
-.acct-breakdown-row:hover {
-  background: var(--bg-hover);
 }
 
 .acct-breakdown-label {
@@ -1087,12 +1083,8 @@
   grid-template-columns: minmax(80px, 1.4fr) minmax(0, 2fr) auto;
   align-items: center;
   gap: var(--space-sm);
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  margin-bottom: 2px;
-}
-.acct-toolbar:hover {
-  background: var(--bg-hover);
+  padding: 3px 0;
+  margin-bottom: 0;
 }
 .acct-toolbar-label {
   font-size: var(--fs-sm);
