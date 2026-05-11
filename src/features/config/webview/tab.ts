@@ -11,6 +11,7 @@
  */
 
 import type { VSCodeAPI } from "../../../webview/types";
+import { skeletonListHtml } from "../../../webview/loader";
 import { sendGetAccountData, initAccountApi } from "../../account/webview/api";
 import type { AccountData, PermissionScope } from "../../account/types";
 import { renderConfig, bindConfig } from "./view";
@@ -75,7 +76,7 @@ export function initConfigTab(vscode: VSCodeAPI): void {
 export function mount(container: HTMLElement): void {
   _container = container;
   if (!_data) {
-    container.innerHTML = `<div class="panel"><div class="panel-loader" role="status" aria-live="polite"><div class="panel-loader-spinner"></div><div class="panel-loader-text">Loading config…</div></div></div>`;
+    container.innerHTML = `<div class="panel">${skeletonListHtml("Loading config…")}</div>`;
   }
 
   _messageHandler = (event: MessageEvent) => {

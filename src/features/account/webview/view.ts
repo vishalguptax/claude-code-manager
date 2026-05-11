@@ -40,6 +40,7 @@ import type {
   DailyActivity,
   DailyTokens,
   PermissionScope,
+  UsageStats,
 } from "../types";
 import type { QuotaData, QuotaWindow, QuotaError } from "../quota";
 import {
@@ -632,6 +633,7 @@ function renderUsageSection(data: AccountData): string {
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(tokenTotal)}</div><div class="acct-stat-k">tokens</div></div>
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.sessions)}</div><div class="acct-stat-k">sessions</div></div>
           <div class="acct-stat"><div class="acct-stat-v">${formatNumber(totals.messages)}</div><div class="acct-stat-k">messages</div></div>
+          <div class="acct-stat" title="${esc(cacheHitTooltip(u))}"><div class="acct-stat-v">${formatPct(u.cacheHitRatio)}</div><div class="acct-stat-k">cache hit</div></div>
         </div>
         ${renderUsageFooter(u, period)}
 
@@ -659,33 +661,149 @@ function renderUsageSection(data: AccountData): string {
             <div class="acct-meta-foot">Cost is an estimate from the static Anthropic price snapshot dated ${esc(u.pricesEffectiveDate)}.</div>
           ` : ""}
         </div>` : ""}
+
+        ${renderProjectsGroup(u.byProject)}
+        ${renderToolsGroup(u.byTool)}
+        ${renderMcpGroup(u.byMcpServer)}
       </div>`}
     </section>`;
 }
 
 /**
- * Footer note under the stats grid. Only rendered on 7d / 30d views.
- *
- * All-time totals match Claude's `/stats` to the digit (we read
- * the same `modelUsage` / `totalSessions` fields straight from
- * stats-cache.json). Period totals can't — Claude computes them
- * through an internal counter that isn't exposed in the cache, so
- * we approximate by summing the per-day buckets the cache does
- * publish. Calling that out keeps the small drift from looking
- * like a bug. All-time view stays uncluttered with no footer.
+ * Project breakdown — top 10 by tokens. Each row shows the project's
+ * display path (real cwd when known, slug fallback), its token total
+ * with estimated cost, and the last active date. The list is collapsed
+ * when only one project exists because the headline numbers above
+ * already cover that case.
+ */
+function renderProjectsGroup(byProject: UsageStats["byProject"]): string {
+  if (byProject.length <= 1) return "";
+  const top = byProject.slice(0, 10);
+  const remaining = byProject.length - top.length;
+  return `
+    <div class="acct-perm-group acct-breakdown" style="margin-top:var(--space-lg)">
+      <div class="acct-perm-group-label">By project (top ${top.length})</div>
+      ${top.map((p) => `
+        <div class="acct-breakdown-row" title="${esc(p.path)}">
+          <span class="acct-breakdown-label">${esc(shortenProjectPath(p.path))}</span>
+          <span class="acct-breakdown-meta">
+            ${formatNumber(p.tokens)} tok
+            ${p.costUsd > 0 ? ` · ${esc(formatMoney(Math.round(p.costUsd * 100), "USD"))}` : ""}
+            · ${p.sessions} sess
+          </span>
+        </div>`).join("")}
+      ${remaining > 0 ? `<div class="acct-meta-foot">+ ${remaining} more project${remaining === 1 ? "" : "s"}</div>` : ""}
+    </div>`;
+}
+
+/**
+ * Tool usage — top 12 by call count, rendered as horizontal bars
+ * normalised against the most-used tool. Lets users see which tools
+ * dominate their workflow at a glance.
+ */
+function renderToolsGroup(byTool: UsageStats["byTool"]): string {
+  if (byTool.length === 0) return "";
+  const top = byTool.slice(0, 12);
+  const max = top[0].count;
+  return `
+    <div class="acct-perm-group acct-breakdown" style="margin-top:var(--space-lg)">
+      <div class="acct-perm-group-label">Tools (top ${top.length})</div>
+      ${top.map((t) => `
+        <div class="acct-toolbar">
+          <span class="acct-toolbar-label" title="${esc(t.name)}">${esc(displayToolName(t.name))}</span>
+          <span class="acct-toolbar-track">
+            <span class="acct-toolbar-fill" style="width:${Math.max(2, Math.round((t.count / max) * 100))}%"></span>
+          </span>
+          <span class="acct-toolbar-count">${formatNumber(t.count)}</span>
+        </div>`).join("")}
+    </div>`;
+}
+
+/**
+ * MCP server breakdown — only renders when at least one MCP tool was
+ * actually invoked. Users with no MCP usage see nothing here, which
+ * keeps the panel clean for the common case.
+ */
+function renderMcpGroup(byMcpServer: UsageStats["byMcpServer"]): string {
+  if (byMcpServer.length === 0) return "";
+  return `
+    <div class="acct-perm-group acct-breakdown" style="margin-top:var(--space-lg)">
+      <div class="acct-perm-group-label">MCP servers used</div>
+      ${byMcpServer.map((s) => `
+        <div class="acct-breakdown-row">
+          <span class="acct-breakdown-label">${esc(s.server)}</span>
+          <span class="acct-breakdown-meta">${formatNumber(s.toolCount)} call${s.toolCount === 1 ? "" : "s"} · ${s.uniqueTools} tool${s.uniqueTools === 1 ? "" : "s"}</span>
+        </div>`).join("")}
+    </div>`;
+}
+
+/**
+ * Tooltip for the cache-hit tile — explains the math so users don't
+ * have to guess what "cache hit" means in the prompt-caching context.
+ */
+function cacheHitTooltip(u: UsageStats): string {
+  if (u.totalCacheReadTokens + u.totalInputTokens === 0) {
+    return "No cache activity recorded yet.";
+  }
+  return (
+    `${formatNumber(u.totalCacheReadTokens)} tokens served from prompt cache out of ` +
+    `${formatNumber(u.totalCacheReadTokens + u.totalInputTokens)} effective input tokens. ` +
+    `Cache writes: ${formatNumber(u.totalCacheCreationTokens)}.`
+  );
+}
+
+/** Format a ratio in [0, 1] as an integer percent. Falls back to "—". */
+function formatPct(ratio: number): string {
+  if (!Number.isFinite(ratio) || ratio <= 0) return "—";
+  return Math.round(ratio * 100) + "%";
+}
+
+/**
+ * Trim a project's display path down to its trailing 2–3 segments so
+ * the row stays scannable in a narrow sidebar. The full path is
+ * preserved in a tooltip on the parent element. Works for both real
+ * `cwd` paths (Windows `\`, POSIX `/`) and slug fallbacks (`-`-joined).
+ */
+function shortenProjectPath(p: string): string {
+  if (!p) return "(unknown)";
+  // Real path: split on either separator and keep the last 2 parts.
+  const parts = p.split(/[\\/]/).filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.slice(-2).join("/");
+  }
+  // Slug fallback like `C--Users-…-claude-manager`. Keep last 3 segments
+  // joined — slugs lose true path boundaries (Claude replaces both `\`
+  // and `:` with `-`), but the tail is usually the project name.
+  const slugParts = p.split("-").filter(Boolean);
+  if (slugParts.length >= 3) return slugParts.slice(-3).join("-");
+  return p;
+}
+
+/**
+ * Friendly display name for a tool. MCP tools (`mcp__server__name`)
+ * collapse to `server: name`; built-in tools render verbatim.
+ */
+function displayToolName(name: string): string {
+  if (name.startsWith("mcp__")) {
+    const rest = name.slice(5);
+    const sep = rest.indexOf("__");
+    if (sep > 0) return `${rest.slice(0, sep)}: ${rest.slice(sep + 2)}`;
+  }
+  return name;
+}
+
+/**
+ * Footer note under the stats grid. Currently a no-op — kept as a
+ * seam so future caveats (e.g. multi-profile merge attribution) can
+ * surface without re-threading a new render slot. Numbers come from
+ * the live JSONL walk, so we no longer need the previous "period
+ * totals approximate" disclaimer.
  */
 function renderUsageFooter(
-  u: AccountData["usage"],
-  period: "all" | "week" | "month",
+  _u: AccountData["usage"],
+  _period: "all" | "week" | "month",
 ): string {
-  if (!u.lastComputedDate || period === "all") return "";
-  const tooltip =
-    `All-time totals match Claude's /stats to the digit. Period ` +
-    `totals are summed from the per-day buckets in stats-cache.json; ` +
-    `Claude's /stats computes its own period totals through an ` +
-    `internal counter that isn't exposed in the cache, so the two ` +
-    `can drift by ~10–30%.`;
-  return `<footer class="acct-usage-footer"><div class="acct-usage-footer-note" title="${esc(tooltip)}">Period totals approximate — see tooltip</div></footer>`;
+  return "";
 }
 
 /** Format large numbers as 1.2M / 345.2K / 1234. */

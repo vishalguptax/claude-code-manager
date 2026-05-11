@@ -10,6 +10,7 @@ import { parseSessionDetail, getSessionFile } from "./parser";
 import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
 import { createTerminal } from "../../extension/terminal";
+import { registerEphemeralTerminal } from "../../extension/ephemeralSession";
 import { getWorkspace } from "../../extension/workspace";
 import {
   isClaudeCodeExtensionInstalled,
@@ -54,6 +55,29 @@ export async function newSession(): Promise<void> {
     return;
   }
   const term = createTerminal("Claude");
+  term.show();
+  term.sendText("claude");
+}
+
+/**
+ * Start a new ephemeral Claude session. The session JSONL and matching
+ * history.jsonl rows are deleted when the terminal closes. Claude
+ * settings, skills, agents, hooks, and MCP servers are unchanged —
+ * only the persisted transcript is throwaway.
+ *
+ * Requires a workspace folder: without a project path we cannot scope
+ * the snapshot/diff that drives cleanup.
+ */
+export async function newTempSession(): Promise<void> {
+  const ws = getWorkspace();
+  if (!ws) {
+    vscode.window.showWarningMessage(
+      "Open a folder first — temp sessions need a workspace to scope the cleanup.",
+    );
+    return;
+  }
+  const term = createTerminal("Claude (temp)", ws);
+  registerEphemeralTerminal(term, ws);
   term.show();
   term.sendText("claude");
 }

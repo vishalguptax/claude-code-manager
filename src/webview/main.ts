@@ -9,6 +9,7 @@
  */
 
 import { icon } from "./icons";
+import { skeletonListHtml } from "./loader";
 import { sendOpenUrl, sendReloadAll } from "../features/sessions/webview/api";
 import { initApi, sendReady } from "../features/sessions/webview/api";
 import { clearQuotaCache } from "../features/account/webview/state";
@@ -63,17 +64,6 @@ import type { Skill } from "../features/skills/types";
 
 let activeTab: Tab = "sessions";
 let tabShellMounted = false;
-
-/**
- * Skeleton loader markup. Painted into a tab container the moment it
- * mounts so weak machines show activity instead of an empty panel
- * while the host parses data. Each feature's mount() overwrites the
- * container's innerHTML with the real shell on first data arrival —
- * no cleanup needed.
- */
-function panelLoaderHtml(text: string): string {
-  return `<div class="panel-loader" role="status" aria-live="polite"><div class="panel-loader-spinner"></div><div class="panel-loader-text">${text}</div></div>`;
-}
 
 /** All tabs in display order. */
 const ALL_TABS: Tab[] = ["sessions", "skills", "commands", "hooks", "mcp", "agents", "account", "config"];
@@ -292,7 +282,7 @@ mountTabShell();
 // arrives, so no explicit cleanup is needed.
 const initialSessionsLoader = document.getElementById("sessionsContent");
 if (initialSessionsLoader) {
-  initialSessionsLoader.innerHTML = panelLoaderHtml("Loading sessions…");
+  initialSessionsLoader.innerHTML = skeletonListHtml("Loading sessions…");
 }
 
 // Wire the cinematic intro replay trigger (triple-click the footer

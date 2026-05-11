@@ -282,6 +282,7 @@ export type WebviewMessage =
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
   | { type: "resumeMultiple"; sessionIds: string[]; projectPaths?: string[] }
   | { type: "newSession" }
+  | { type: "newTempSession" }
   | { type: "openProject"; projectPath: string }
   | { type: "forkSession"; sessionId: string }
   | { type: "pinSession"; sessionId: string }

@@ -172,6 +172,10 @@ export const ICONS: Record<string, string> = {
   "globe":
     `<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>`,
 
+  /** Ghost — temp session: launches Claude but transcript vanishes on close. */
+  "ghost":
+    `<path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2L12 19l2.5 2L17 19l3 3V10a8 8 0 0 0-8-8z"/>`,
+
   /** Package box — used for the Brain backup / import / export section */
   "package":
     `<path d="M16.5 9.4 7.5 4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" x2="12" y1="22.08" y2="12"/>`,

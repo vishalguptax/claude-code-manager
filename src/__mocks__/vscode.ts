@@ -140,6 +140,9 @@ export const window = {
   tabGroups: {
     all: [] as MockTabGroup[],
   },
+  onDidCloseTerminal: (_listener: (t: unknown) => void): MockDisposable => ({
+    dispose: () => {},
+  }),
   showInformationMessage: async (..._args: unknown[]) => undefined,
   showWarningMessage: async (..._args: unknown[]) => undefined,
   showErrorMessage: async (..._args: unknown[]) => undefined,

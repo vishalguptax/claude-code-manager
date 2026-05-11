@@ -5,6 +5,7 @@
  */
 
 import type { VSCodeAPI } from "../../../webview/types";
+import { skeletonListHtml } from "../../../webview/loader";
 import { initCommandsApi, sendGetCommands } from "./api";
 import { setCommands, setSelectedCommand, setLoading } from "./state";
 import { renderCommandsList } from "./views/listView";
@@ -22,7 +23,7 @@ let _messageHandler: ((event: MessageEvent) => void) | null = null;
  */
 export function mount(container: HTMLElement): void {
   _container = container;
-  container.innerHTML = `<div class="panel-loader" role="status" aria-live="polite"><div class="panel-loader-spinner"></div><div class="panel-loader-text">Loading commands…</div></div>`;
+  container.innerHTML = skeletonListHtml("Loading commands…");
 
   // Set up message listener for commands data
   _messageHandler = (event: MessageEvent) => {

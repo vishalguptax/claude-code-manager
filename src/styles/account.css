@@ -461,7 +461,10 @@
 
 .acct-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* auto-fit so the grid handles 3 (legacy) or 4 (with cache-hit tile)
+     stats without a layout change — narrow sidebars wrap to 2x2, wider
+     ones lay all four in a row. */
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: var(--space-sm);
 }
 
@@ -1031,4 +1034,85 @@
 }
 .acct-quota-error .btn {
   flex-shrink: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Breakdown lists — projects, tools, MCP servers
+   ──────────────────────────────────────────────────────────────────────────────
+   Shared structure for the three usage breakdowns surfaced beneath
+   the byModel table. Each is a stack of compact rows: a left-aligned
+   label that truncates, and right-aligned tabular metadata. The
+   `.acct-breakdown` modifier on `.acct-perm-group` only adjusts the
+   inner rows — the group label inherits the existing styling so the
+   visual hierarchy stays consistent across the section. */
+
+.acct-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 4px 0;
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.acct-breakdown-label {
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.acct-breakdown-meta {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  flex-shrink: 0;
+}
+
+/* Tool bars — one row per tool. Label on the left, normalised bar in
+   the middle, count on the right. Bar uses --vscode-charts-blue as a
+   neutral accent so it picks up the user's theme without us hardcoding
+   a colour. */
+.acct-toolbar {
+  display: grid;
+  grid-template-columns: minmax(80px, 1.4fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 3px 0;
+  margin-bottom: 0;
+}
+.acct-toolbar-label {
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.acct-toolbar-track {
+  display: block;
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.acct-toolbar-fill {
+  display: block;
+  height: 100%;
+  background: var(--vscode-charts-blue, var(--vscode-textLink-foreground, #4a90e2));
+  border-radius: 3px;
+  transition: width 200ms ease-out;
+}
+.acct-toolbar-count {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  min-width: 36px;
+  text-align: right;
 }
