@@ -3,6 +3,7 @@
  */
 
 import type { VSCodeAPI } from "../../../webview/types";
+import { skeletonListHtml } from "../../../webview/loader";
 import { initAccountApi, sendGetAccountData, sendFetchQuota } from "./api";
 import {
   setAccountData,
@@ -41,7 +42,7 @@ function computeAccountKey(data: AccountData): string {
  */
 export function mount(container: HTMLElement): void {
   _container = container;
-  container.innerHTML = `<div class="panel"><div class="panel-loader" role="status" aria-live="polite"><div class="panel-loader-spinner"></div><div class="panel-loader-text">Loading account…</div></div></div>`;
+  container.innerHTML = `<div class="panel">${skeletonListHtml("Loading account…")}</div>`;
 
   _messageHandler = (event: MessageEvent) => {
     const msg = event.data as Record<string, unknown>;
