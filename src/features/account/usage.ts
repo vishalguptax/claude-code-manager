@@ -23,6 +23,7 @@ import * as fs from "fs";
 import { STATS_CACHE_FILE } from "../../core/config";
 import { computeModelCost, PRICES_EFFECTIVE_DATE } from "../../core/pricing";
 import { aggregateJsonlSince, type JsonlDayAgg } from "./jsonlFallback";
+import { aggregateProjectStats } from "./projectStats";
 import type {
   DailyActivity,
   DailyTokens,
@@ -79,14 +80,26 @@ interface StatsCacheShape {
  */
 export function computeUsageStats(): UsageStats {
   const cache = readCache();
-  if (!cache) return emptyStats();
-  const projected = projectCache(cache);
+  const projected = cache ? projectCache(cache) : emptyStats();
   // Cache lags Claude CLI's actual cadence (often days). Fill the
   // gap [lastComputedDate+1, today] from raw session JSONL so the
   // heatmap and period totals reflect reality. Drift on cache-cutoff
   // day is acceptable; the alternative (showing a half-empty
   // heatmap) is a worse user experience.
-  return augmentWithJsonl(projected);
+  const augmented = augmentWithJsonl(projected);
+  // Cache totals + hit ratio derive from per-model fields populated
+  // by both the cache projection and the JSONL gap-fill. Computing
+  // them after augmentation means the gap window contributes too.
+  withCacheStats(augmented);
+  // Project / tool / MCP breakdowns can't come from stats-cache.json
+  // (the cache doesn't bucket by project) — they require a full
+  // JSONL walk. aggregateProjectStats is memoised so the second tab
+  // open is near-instant.
+  const breakdown = aggregateProjectStats();
+  augmented.byProject = breakdown.byProject;
+  augmented.byTool = breakdown.byTool;
+  augmented.byMcpServer = breakdown.byMcpServer;
+  return augmented;
 }
 
 function readCache(): StatsCacheShape | null {
@@ -440,6 +453,31 @@ function foldInto(dst: Record<string, number>, src: Record<string, number>): voi
   }
 }
 
+/**
+ * Sum the cache-read / cache-creation columns from per-model rows and
+ * derive the hit ratio. Mutates the stats in place so the helper plugs
+ * straight into the compute pipeline without an extra copy.
+ *
+ * Hit ratio definition: `cacheRead / (cacheRead + input)`. Reads what
+ * the user effectively spent on context — anything served from cache
+ * saved them a fresh-input round trip. cacheCreation isn't part of the
+ * denominator because creation writes happen regardless of hit/miss;
+ * the metric answers "how much input was reused," not "how efficient
+ * was every byte we paid for."
+ */
+function withCacheStats(stats: UsageStats): void {
+  let read = 0;
+  let create = 0;
+  for (const m of stats.byModel) {
+    read += m.cacheReadTokens;
+    create += m.cacheCreationTokens;
+  }
+  stats.totalCacheReadTokens = read;
+  stats.totalCacheCreationTokens = create;
+  const denom = read + stats.totalInputTokens;
+  stats.cacheHitRatio = denom > 0 ? read / denom : 0;
+}
+
 function emptyStats(): UsageStats {
   return {
     daily: [],
@@ -461,6 +499,12 @@ function emptyStats(): UsageStats {
     lastComputedDate: "",
     totalCostUsd: 0,
     pricesEffectiveDate: PRICES_EFFECTIVE_DATE,
+    totalCacheReadTokens: 0,
+    totalCacheCreationTokens: 0,
+    cacheHitRatio: 0,
+    byProject: [],
+    byTool: [],
+    byMcpServer: [],
   };
 }
 
@@ -474,4 +518,5 @@ export const __internals = {
   currentStreakOf,
   augmentWithJsonl,
   gapStartDate,
+  withCacheStats,
 };

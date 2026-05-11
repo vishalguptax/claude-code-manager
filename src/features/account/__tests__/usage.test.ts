@@ -24,7 +24,7 @@ vi.mock("fs", () => ({
 
 import { computeUsageStats, __internals } from "../usage";
 
-const { projectCache, longestStreakOf, currentStreakOf } = __internals;
+const { projectCache, longestStreakOf, currentStreakOf, withCacheStats } = __internals;
 
 beforeEach(() => {
   fsState.content = null;
@@ -210,6 +210,38 @@ describe("longestStreakOf", () => {
         { date: "2026-04-05", messageCount: 1, sessionCount: 1, toolCallCount: 0 },
       ]),
     ).toBe(3);
+  });
+});
+
+describe("withCacheStats", () => {
+  it("sums cache totals across models and derives hit ratio", () => {
+    const stats = projectCache({
+      modelUsage: {
+        a: {
+          inputTokens: 800,
+          outputTokens: 1_000,
+          cacheReadInputTokens: 200,
+          cacheCreationInputTokens: 50,
+        },
+        b: {
+          inputTokens: 200,
+          outputTokens: 500,
+          cacheReadInputTokens: 800,
+          cacheCreationInputTokens: 100,
+        },
+      },
+    });
+    withCacheStats(stats);
+    expect(stats.totalCacheReadTokens).toBe(1000);
+    expect(stats.totalCacheCreationTokens).toBe(150);
+    // input=1000, cacheRead=1000 → 1000 / (1000+1000) = 0.5
+    expect(stats.cacheHitRatio).toBe(0.5);
+  });
+
+  it("returns ratio 0 when no input or cache activity", () => {
+    const stats = projectCache({});
+    withCacheStats(stats);
+    expect(stats.cacheHitRatio).toBe(0);
   });
 });
 

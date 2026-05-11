@@ -64,6 +64,43 @@ export interface DailyTokens {
   total: number;
 }
 
+/** Aggregate stats for one project (one directory under ~/.claude/projects/). */
+export interface ProjectStats {
+  /** Real filesystem path of the project (from JSONL `cwd`), or the
+   * slug when no transcript exposed a cwd yet. */
+  path: string;
+  /** Directory slug under PROJECTS_DIR — stable id for keying. */
+  slug: string;
+  /** Unique sessionId count across all JSONL files in this project. */
+  sessions: number;
+  /** Non-sidechain user messages — what the user actually typed. */
+  messages: number;
+  /** Input + output tokens summed across every model used here. */
+  tokens: number;
+  /** USD cost estimate from the static price snapshot. */
+  costUsd: number;
+  /** Latest YYYY-MM-DD touched by any entry in this project. */
+  lastActiveDate: string;
+}
+
+/** Per-tool invocation count summed across every session. */
+export interface ToolStats {
+  /** Tool name as it appears in `tool_use.name` (Read, Edit, Bash, mcp__…). */
+  name: string;
+  /** Number of times this tool was invoked. */
+  count: number;
+}
+
+/** Aggregated usage of one MCP server. Built by collapsing
+ *  `mcp__<server>__<tool>` invocations back to their server. */
+export interface McpServerUsage {
+  server: string;
+  /** Total tool-call count attributed to this server. */
+  toolCount: number;
+  /** Distinct tool names from this server that were actually invoked. */
+  uniqueTools: number;
+}
+
 /** Per-model cumulative stats from stats-cache.json modelUsage. */
 export interface ModelStats {
   model: string;
@@ -142,6 +179,22 @@ export interface UsageStats {
    * stale the figure is.
    */
   pricesEffectiveDate: string;
+  /** Lifetime tokens served from prompt cache, summed across models. */
+  totalCacheReadTokens: number;
+  /** Lifetime tokens written into prompt cache, summed across models. */
+  totalCacheCreationTokens: number;
+  /**
+   * Cache hit ratio in [0, 1]: cacheRead / (cacheRead + input). Tells
+   * the user what fraction of their effective input tokens came from
+   * cache vs. paid as fresh input. 0 when no cache activity recorded.
+   */
+  cacheHitRatio: number;
+  /** Per-project breakdown sorted by total tokens desc. */
+  byProject: ProjectStats[];
+  /** Per-tool invocation counts sorted by count desc. */
+  byTool: ToolStats[];
+  /** Per-MCP-server usage sorted by call count desc. */
+  byMcpServer: McpServerUsage[];
 }
 
 // ── Settings (from settings.json) ──
