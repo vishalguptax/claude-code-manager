@@ -35,6 +35,7 @@ $WorktreeRoot = Resolve-Path (Join-Path $RepoRoot "..")
 $LogDir = Join-Path $PSScriptRoot "logs"
 $PromptDir = Join-Path $PSScriptRoot "prompts"
 $IntegrationBranch = "v2/integration-target"
+$IntegrationWorktree = Join-Path $WorktreeRoot "claude-manager-integration-target"
 $StartCommit = $null  # set after creating integration branch
 
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
@@ -150,7 +151,7 @@ function Initialize-Setup {
 
   Test-CleanTree
   $current = Get-CurrentBranch
-  Write-Info "current branch: $current"
+  Write-Info "current branch: $current (will NOT be changed)"
 
   if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     throw "claude CLI not found on PATH"
@@ -174,6 +175,18 @@ function Initialize-Setup {
     $script:StartCommit = (git rev-parse $IntegrationBranch).Trim()
     Write-Info "integration target commit: $($script:StartCommit.Substring(0,12))"
   } finally { Pop-Location }
+
+  # Create dedicated worktree for integration branch so main repo is untouched during merges
+  if (-not (Test-Path $IntegrationWorktree)) {
+    if ($DryRun) {
+      Write-Warn "DRY: would create integration worktree at $IntegrationWorktree"
+    } else {
+      Invoke-Git -Args @("worktree", "add", $IntegrationWorktree, $IntegrationBranch)
+      Write-Ok "integration worktree: $IntegrationWorktree"
+    }
+  } else {
+    Write-Info "integration worktree exists: $IntegrationWorktree"
+  }
 }
 
 # ─── Phase F1: Foundation (sequential, blocks F2) ─────────────────────────
@@ -339,9 +352,10 @@ function Invoke-F2 {
 function Merge-Branch {
   param([string]$SourceBranch, [string]$PhaseName)
 
-  Push-Location $RepoRoot
+  # Merge inside the integration worktree so main repo's current branch is never changed
+  Push-Location $IntegrationWorktree
   try {
-    & git checkout $IntegrationBranch 2>&1 | Out-Null
+    & git pull --ff-only 2>&1 | Out-Null
     & git merge --no-ff $SourceBranch -m "merge($PhaseName): $SourceBranch into $IntegrationBranch" 2>&1 | Tee-Object -Variable mergeOut | Out-Null
     if ($LASTEXITCODE -ne 0) {
       Write-Err "merge conflict on $SourceBranch"
@@ -350,7 +364,7 @@ function Merge-Branch {
       $script:MergeFailures += $SourceBranch
       return
     }
-    Write-Ok "merged $SourceBranch into $IntegrationBranch"
+    Write-Ok "merged $SourceBranch into $IntegrationBranch (in worktree)"
   } finally { Pop-Location }
 }
 

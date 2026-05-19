@@ -140,6 +140,7 @@ foreach ($branch in @("v2/feat-X", "v2/feat-Y")) {
 
 ## Safety guarantees
 
+- **Main repo's current branch is never changed.** Script does all merges inside a dedicated `../claude-manager-integration-target` worktree. Your repo at `claude-manager/` stays on whatever branch you had it on.
 - **`main` is never checked out for write.** Script reads main commit once to create `v2/integration-target`, then never touches main again.
 - **No remote push to main.** Script pushes feature branches only.
 - **No publish to marketplace.** F4 prepares a `.vsix` locally; Vishal publishes manually.
