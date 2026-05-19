@@ -24,20 +24,46 @@ vi.mock("../../../core/config", () => ({
   SESSION_META_READ_BYTES: 4096,
 }));
 
+// Mock branch + workspace so resumeSession's branch-mismatch path is reachable.
+// getWorkspace's default behavior must mirror vscode.workspace.workspaceFolders[0]
+// so existing importSessionFile tests (which set workspaceFolders) keep working.
+let mockedCurrentBranch = "main";
+let mockedWorkspaceOverride: string | undefined;
+vi.mock("../../../extension/git", () => ({
+  getCurrentBranch: () => mockedCurrentBranch,
+}));
+vi.mock("../../../extension/workspace", async () => {
+  const _vscode = await import("vscode");
+  return {
+    getWorkspace: () => {
+      if (mockedWorkspaceOverride !== undefined) return mockedWorkspaceOverride;
+      const folders = _vscode.workspace.workspaceFolders;
+      return folders && folders.length > 0 ? folders[0].uri.fsPath : "";
+    },
+  };
+});
+
 // Stub the terminal so importSessionFile does not actually try to launch one.
 const sentTextCalls: string[] = [];
-vi.mock("../../../extension/terminal", () => ({
-  createTerminal: () => ({
-    show: () => {},
-    sendText: (t: string) => {
-      sentTextCalls.push(t);
-    },
-  }),
-}));
+vi.mock("../../../extension/terminal", async () => {
+  const actual = await vi.importActual<typeof import("../../../extension/terminal")>(
+    "../../../extension/terminal",
+  );
+  return {
+    createTerminal: () => ({
+      show: () => {},
+      sendText: (t: string) => {
+        sentTextCalls.push(t);
+      },
+    }),
+    validateGitRef: actual.validateGitRef,
+  };
+});
 
 import {
   exportSessionFile,
   importSessionFile,
+  resumeSession,
   setSessionStorage,
 } from "../commands";
 import type { Session } from "../types";
@@ -95,6 +121,8 @@ beforeEach(() => {
   fs.mkdirSync(PROJECTS_DIR, { recursive: true });
   fs.mkdirSync(EXPORT_DIR, { recursive: true });
   sentTextCalls.length = 0;
+  mockedWorkspaceOverride = undefined;
+  mockedCurrentBranch = "main";
   vi.restoreAllMocks();
   // Each test gets a fresh memento by default. Tests that want to assert on
   // the storage state install their own via setSessionStorage().
@@ -517,5 +545,42 @@ describe("last-folder memory", () => {
 
     const opts = openSpy.mock.calls[0][0] as { defaultUri?: { fsPath: string } | undefined };
     expect(opts.defaultUri).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// resumeSession — branch-name security
+// ─────────────────────────────────────────────────────────────────────
+
+describe("resumeSession — malicious branch name", () => {
+  it("refuses to switch when the session branch fails ref validation and never sendTexts shell meta", async () => {
+    const malicious = 'x" && rm -rf /';
+    const sess = makeSession({
+      branch: malicious,
+      projectPath: EXPORT_DIR,
+    });
+    mockedWorkspaceOverride = EXPORT_DIR;
+    mockedCurrentBranch = "main";
+
+    // User picks "Switch & Resume" so we reach the validation gate.
+    vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue(
+      "Switch & Resume" as unknown as undefined,
+    );
+    const errSpy = vi
+      .spyOn(vscode.window, "showErrorMessage")
+      .mockResolvedValue(undefined);
+
+    await resumeSession(sess.id, false, [sess]);
+
+    // The error toast fires and no terminal command was sent.
+    expect(errSpy).toHaveBeenCalledWith(
+      expect.stringContaining("not a valid git ref name"),
+    );
+    expect(sentTextCalls).toHaveLength(0);
+    // Belt-and-suspenders: nothing we sent contained shell meta from the branch.
+    for (const t of sentTextCalls) {
+      expect(t).not.toContain('"');
+      expect(t).not.toContain("rm -rf");
+    }
   });
 });

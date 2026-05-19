@@ -9,7 +9,7 @@ import type { Session, SessionDetail } from "./types";
 import { parseSessionDetail, getSessionFile } from "./parser";
 import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
-import { createTerminal } from "../../extension/terminal";
+import { createTerminal, validateGitRef } from "../../extension/terminal";
 import { registerEphemeralTerminal } from "../../extension/ephemeralSession";
 import { getWorkspace } from "../../extension/workspace";
 import {
@@ -365,9 +365,16 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
       }
 
       if (choice === "Switch & Resume") {
+        const safe = validateGitRef(sessBranch);
+        if (!safe) {
+          vscode.window.showErrorMessage(
+            `Refusing to switch branches: "${sessBranch}" is not a valid git ref name.`,
+          );
+          return;
+        }
         const term = createTerminal(termName, cwd);
         term.show();
-        term.sendText(`git checkout "${sessBranch}" && ${cmd}`);
+        term.sendText(`git checkout '${safe}' && ${cmd}`);
         return;
       }
       // "Resume Anyway" falls through to the router below.
