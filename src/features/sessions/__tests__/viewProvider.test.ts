@@ -32,9 +32,13 @@ interface FakeWebview {
 
 interface FakeWebviewView {
   webview: FakeWebview;
+  visible: boolean;
   onDidDispose: (cb: () => void) => { dispose: () => void };
+  onDidChangeVisibility: (cb: () => void) => { dispose: () => void };
   _disposeCallbacks: Array<() => void>;
+  _visibilityCallbacks: Array<() => void>;
   _dispose: () => void;
+  _fireVisibilityChange: (visible: boolean) => void;
 }
 
 function makeFakeView(): FakeWebviewView {
@@ -51,13 +55,23 @@ function makeFakeView(): FakeWebviewView {
         return { dispose: () => {} };
       },
     },
+    visible: true,
     onDidDispose(cb: () => void) {
       view._disposeCallbacks.push(cb);
       return { dispose: () => {} };
     },
+    onDidChangeVisibility(cb: () => void) {
+      view._visibilityCallbacks.push(cb);
+      return { dispose: () => {} };
+    },
     _disposeCallbacks: [],
+    _visibilityCallbacks: [],
     _dispose() {
       for (const cb of view._disposeCallbacks) cb();
+    },
+    _fireVisibilityChange(visible: boolean) {
+      view.visible = visible;
+      for (const cb of view._visibilityCallbacks) cb();
     },
   };
   return view;
@@ -101,6 +115,8 @@ describe("ClaudeSessionViewProvider", () => {
       searchSessions: () => [],
       filterSessions: () => [],
       getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -140,6 +156,8 @@ describe("ClaudeSessionViewProvider", () => {
       searchSessions: () => [],
       filterSessions: () => [],
       getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -189,6 +207,8 @@ describe("ClaudeSessionViewProvider", () => {
       searchSessions: () => [],
       filterSessions: () => [],
       getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -228,6 +248,8 @@ describe("ClaudeSessionViewProvider", () => {
       searchSessions: () => [],
       filterSessions: () => [],
       getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -279,6 +301,8 @@ describe("ClaudeSessionViewProvider", () => {
       searchSessions: () => [],
       filterSessions: () => [],
       getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -340,6 +364,8 @@ describe("ClaudeSessionViewProvider", () => {
       searchSessions: () => [],
       filterSessions: () => [],
       getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -383,6 +409,122 @@ describe("ClaudeSessionViewProvider", () => {
     expect(view.webview.posted.some((m) => m.type === "reloadComplete")).toBe(true);
   });
 
+  it("registers a FileSystemWatcher targeting the sessions PID directory", async () => {
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    vi.doMock("../../../extension/html", () => ({
+      getWebviewHtml: () => "<html></html>",
+    }));
+
+    interface CapturedPattern {
+      basePath: string;
+      glob: string;
+    }
+    const watcherPatterns: CapturedPattern[] = [];
+    vi.spyOn(vscode.workspace, "createFileSystemWatcher").mockImplementation(
+      (pattern: unknown) => {
+        const pat = pattern as { base?: { fsPath?: string }; pattern?: string };
+        const basePath =
+          (pat?.base && typeof pat.base.fsPath === "string" ? pat.base.fsPath : "") ?? "";
+        const glob = typeof pat?.pattern === "string" ? pat.pattern : "";
+        watcherPatterns.push({ basePath, glob });
+        return {
+          onDidChange: () => ({ dispose: () => {} }),
+          onDidCreate: () => ({ dispose: () => {} }),
+          onDidDelete: () => ({ dispose: () => {} }),
+          dispose: () => {},
+          ignoreCreateEvents: false,
+          ignoreChangeEvents: false,
+          ignoreDeleteEvents: false,
+        } as unknown as vscode.FileSystemWatcher;
+      },
+    );
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+
+    // The PID-file watcher is the fix for the multi-window dot bug — its
+    // absence is what allowed sibling sessions' live state to go stale
+    // when only one session's transcript wrote JSONL. The pattern is
+    // `*.json` rooted at `<claudeDir>/sessions` rather than
+    // `sessions/*.json` rooted at `claudeDir`, so we check both the base
+    // and glob, not just a single string.
+    const pidWatcher = watcherPatterns.find(
+      (p) => /[\\/]sessions$/.test(p.basePath) && p.glob === "*.json",
+    );
+    expect(pidWatcher).toBeDefined();
+
+    view._dispose();
+  });
+
+  it("subscribes to webview visibility changes so the dot can re-sync after the panel re-opens", async () => {
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    vi.doMock("../../../extension/html", () => ({
+      getWebviewHtml: () => "<html></html>",
+    }));
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+
+    // The visibility hook is what powers the death-detection poller —
+    // it pauses CPU spend when the panel is hidden and re-fires a live
+    // refresh the moment the user re-opens the panel. Without this
+    // subscription, sessions that exited while hidden would keep
+    // showing the dot until the next FS event lands.
+    expect(view._visibilityCallbacks.length).toBeGreaterThan(0);
+
+    // Firing the hidden → visible transition must not throw, even
+    // though the dynamic-import boundary means we can't observe the
+    // downstream parser stub being hit directly.
+    expect(() => {
+      view._fireVisibilityChange(false);
+      view._fireVisibilityChange(true);
+    }).not.toThrow();
+
+    view._dispose();
+  });
+
   it("postWorkspacePath silently ignores posts after the view is disposed", async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],
@@ -393,6 +535,8 @@ describe("ClaudeSessionViewProvider", () => {
       searchSessions: () => [],
       filterSessions: () => [],
       getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),

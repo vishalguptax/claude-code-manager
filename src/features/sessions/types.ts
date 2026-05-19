@@ -49,6 +49,21 @@ export interface Session {
    * green "live" dot in the session list. Undefined / false = no signal.
    */
   isLive?: boolean;
+  /**
+   * CLI-reported lifecycle status from the PID file (e.g. "busy", "idle").
+   * Passed through verbatim — the webview maps known values to dot
+   * variants and falls back to the default style for unknown strings so
+   * new CLI states surface without an extension update. Undefined when
+   * the session is not live or the CLI did not emit a status field.
+   */
+  status?: string;
+  /**
+   * Heartbeat timestamp (ms epoch) the CLI last wrote into the PID file.
+   * 0/undefined when absent (older CLIs or non-live sessions). Used by
+   * the webview to dim the dot once the heartbeat goes stale and by the
+   * host to drive incremental UI updates without a full reparse.
+   */
+  liveUpdatedAt?: number;
 }
 
 /** A session with a page of its message transcript loaded. */

@@ -46,6 +46,8 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --link: var(--vscode-textLink-foreground);
       --green: #2ea043;
       --green-bg: rgba(46,160,67,0.15);
+      --orange: var(--vscode-notificationsWarningIcon-foreground, #f5a623);
+      --orange-bg: rgba(245,166,35,0.15);
       --red: var(--vscode-errorForeground, #f85149);
       --red-bg: rgba(248,81,73,0.15);
       --mono: var(--vscode-editor-font-family, monospace);

@@ -472,17 +472,41 @@ function isPidAlive(pid: number): boolean {
 }
 
 /**
- * Scan PID-named files in `~/.claude/sessions/` once and return:
+ * Per-session liveness signal derived from a PID file under
+ * `~/.claude/sessions/`. Captures the CLI-reported status string and
+ * heartbeat timestamp so the webview can render multi-state indicators
+ * (busy / idle / awaiting permission / …) without re-reading the file.
+ *
+ * `status` is passed through verbatim from the PID JSON so the UI is
+ * forward-compatible with new CLI states without a code change here.
+ */
+export interface LiveSessionInfo {
+  pid: number;
+  status: string;
+  /** Heartbeat timestamp (ms epoch) recorded by the CLI, or 0 if absent. */
+  updatedAt: number;
+}
+
+/**
+ * Scan PID-named files in `~/.claude/sessions/` and return:
  *   - `names`: sessionId -> user-set display name (subset that carry `name`)
- *   - `live`:  sessionId set whose recorded PID is still running
+ *   - `live`:  sessionId -> LiveSessionInfo for sessions whose recorded
+ *              PID still names a running process
  *
  * Combined so both reads happen in a single directory walk. The CLI leaves
  * these files behind on hard exits, so the PID liveness check is what
  * distinguishes a session that's actually running from a stale shell.
+ *
+ * When multiple PID files reference the same sessionId (CLI restart that
+ * didn't sweep the prior file), the entry with the most recent `updatedAt`
+ * whose process is still alive wins so the freshest signal drives the UI.
  */
-function readSessionsDir(): { names: Map<string, string>; live: Set<string> } {
+function readSessionsDir(): {
+  names: Map<string, string>;
+  live: Map<string, LiveSessionInfo>;
+} {
   const names = new Map<string, string>();
-  const live = new Set<string>();
+  const live = new Map<string, LiveSessionInfo>();
   let files: string[];
   try {
     files = fs.readdirSync(SESSIONS_DIR);
@@ -498,15 +522,64 @@ function readSessionsDir(): { names: Map<string, string>; live: Set<string> } {
       const sessionId = typeof data.sessionId === "string" ? data.sessionId : "";
       if (!sessionId) continue;
       if (typeof data.name === "string") names.set(sessionId, data.name);
-      if (typeof data.pid === "number" && isPidAlive(data.pid)) {
-        live.add(sessionId);
-      }
+      if (typeof data.pid !== "number" || !isPidAlive(data.pid)) continue;
+      const status = typeof data.status === "string" ? data.status : "";
+      const updatedAt = typeof data.updatedAt === "number" ? data.updatedAt : 0;
+      const next: LiveSessionInfo = { pid: data.pid, status, updatedAt };
+      const prev = live.get(sessionId);
+      if (!prev || next.updatedAt >= prev.updatedAt) live.set(sessionId, next);
     } catch {
-      // Skip unreadable files
+      // Skip unreadable files (partial writes during CLI heartbeat,
+      // permission errors, schema drift)
     }
   }
 
   return { names, live };
+}
+
+/**
+ * Public liveness probe. Exported so the view provider can refresh the
+ * `isLive` / `status` fields on its cached session list without redoing
+ * a full transcript parse — the watcher fires very frequently while
+ * Claude is generating, and a full reparse on every tick would re-stream
+ * megabytes of orphan transcripts.
+ */
+export function readLiveSessions(): Map<string, LiveSessionInfo> {
+  return readSessionsDir().live;
+}
+
+/**
+ * Mutate `sessions` in place to reflect a freshly read live map.
+ * Returns true when at least one session's liveness, status, or
+ * heartbeat shifted — callers use this to decide whether to push a
+ * new snapshot to the webview (no-op refreshes don't churn the UI).
+ *
+ * Sessions absent from the live map have their fields cleared so a
+ * session that just exited drops back to "not live" without a stale
+ * status hanging around.
+ */
+export function applyLiveState(
+  sessions: Session[],
+  live: Map<string, LiveSessionInfo>,
+): boolean {
+  let changed = false;
+  for (const s of sessions) {
+    const info = live.get(s.id);
+    const nextIsLive = info !== undefined;
+    const nextStatus = info?.status ?? undefined;
+    const nextUpdatedAt = info?.updatedAt ?? undefined;
+    if (
+      Boolean(s.isLive) !== nextIsLive ||
+      s.status !== nextStatus ||
+      s.liveUpdatedAt !== nextUpdatedAt
+    ) {
+      s.isLive = nextIsLive;
+      s.status = nextStatus;
+      s.liveUpdatedAt = nextUpdatedAt;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 /**
@@ -516,7 +589,7 @@ function readSessionsDir(): { names: Map<string, string>; live: Set<string> } {
  * @param userRenames - Extension-managed session rename map (takes highest priority).
  */
 export function parseSessions(userRenames: Record<string, string> = {}): Session[] {
-  const { names: sessionNames, live: liveSessionIds } = readSessionsDir();
+  const { names: sessionNames, live: liveMap } = readSessionsDir();
   const entries = parseJsonlFile<HistoryEntry>(HISTORY_FILE);
 
   // Group entries by sessionId
@@ -630,7 +703,9 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
       prompts,
       projectKey,
       searchHaystack,
-      isLive: liveSessionIds.has(sessionId),
+      isLive: liveMap.has(sessionId),
+      status: liveMap.get(sessionId)?.status,
+      liveUpdatedAt: liveMap.get(sessionId)?.updatedAt,
     });
   }
 
@@ -650,7 +725,7 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     userRenames,
     sessionNames,
     projectPathByKey,
-    liveSessionIds,
+    liveMap,
   );
   sessions.push(...orphans);
 
@@ -867,7 +942,7 @@ function discoverOrphanSessions(
   userRenames: Record<string, string>,
   sessionNames: Map<string, string>,
   projectPathByKey: Map<string, string>,
-  liveSessionIds: Set<string>,
+  liveMap: Map<string, LiveSessionInfo>,
 ): Session[] {
   const out: Session[] = [];
   let projectSlugs: string[];
@@ -947,7 +1022,9 @@ function discoverOrphanSessions(
         prompts: [data.firstPrompt],
         projectKey,
         searchHaystack,
-        isLive: liveSessionIds.has(sessionId),
+        isLive: liveMap.has(sessionId),
+        status: liveMap.get(sessionId)?.status,
+        liveUpdatedAt: liveMap.get(sessionId)?.updatedAt,
       });
     }
   }

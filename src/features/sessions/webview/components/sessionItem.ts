@@ -7,6 +7,30 @@ import { fmtRelativeTime } from "../../../../webview/utils";
 import type { Session } from "../../types";
 
 /**
+ * Map a CLI-reported lifecycle status to a tooltip string for the live
+ * dot. Known values get a friendly label; unknown strings fall back to
+ * the raw status so future CLI states surface without an extension
+ * update.
+ */
+function liveTitleForStatus(status: string | undefined): string {
+  switch (status) {
+    case "busy":
+      return "Session is busy";
+    case "idle":
+      return "Session is idle";
+    case "awaiting_permission":
+    case "waiting_permission":
+    case "permission_prompt":
+      return "Awaiting permission";
+    case undefined:
+    case "":
+      return "Session is live";
+    default:
+      return `Session: ${status}`;
+  }
+}
+
+/**
  * Create a fresh session-item DOM node. Children that change with state
  * (name, time, prompt, branch, project, pin badge) are populated by
  * `updateSessionItemNode` so the create/update paths stay in sync —
@@ -26,6 +50,7 @@ export function createSessionItemNode(s: Session): HTMLElement {
   live.className = "live-dot";
   live.title = "Session is live";
   live.style.display = "none";
+  live.setAttribute("aria-hidden", "true");
   const name = document.createElement("span");
   name.className = "item-name";
   const time = document.createElement("span");
@@ -93,6 +118,17 @@ export function updateSessionItemNode(
   const liveHidden = !s.isLive;
   const wasLiveHidden = liveEl.style.display === "none";
   if (liveHidden !== wasLiveHidden) liveEl.style.display = liveHidden ? "none" : "";
+  // Surface the CLI-reported lifecycle status as a data attribute so CSS
+  // can pick a dot variant per state. Passthrough means new CLI states
+  // get a sensible default (the same green dot as `busy`) until styles
+  // catch up — no broken UI on a CLI upgrade.
+  const nextStatus = s.isLive ? s.status ?? "" : "";
+  if (liveEl.dataset.status !== nextStatus) {
+    if (nextStatus) liveEl.dataset.status = nextStatus;
+    else delete liveEl.dataset.status;
+  }
+  const nextTitle = liveTitleForStatus(s.status);
+  if (liveEl.title !== nextTitle) liveEl.title = nextTitle;
   if (nameEl.textContent !== displayName) nameEl.textContent = displayName;
   if (nameEl.title !== displayName) nameEl.title = displayName;
   if (timeEl.textContent !== relTime) timeEl.textContent = relTime;

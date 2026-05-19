@@ -165,6 +165,24 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--green) 25%, transparent);
   animation: live-pulse 1.8s ease-in-out infinite;
 }
+/* Idle session: process alive but not generating. Solid muted dot,
+   no pulse — keeps the row visually distinct from "busy" without
+   stealing attention. */
+.live-dot[data-status="idle"] {
+  background: var(--fg-muted, #888);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fg-muted, #888) 25%, transparent);
+  animation: none;
+}
+/* Awaiting permission: blocked on a tool-use prompt. Orange + faster
+   pulse so the user notices a session that needs attention. Matches
+   the three known string variants the CLI may emit. */
+.live-dot[data-status="awaiting_permission"],
+.live-dot[data-status="waiting_permission"],
+.live-dot[data-status="permission_prompt"] {
+  background: var(--orange, #f5a623);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--orange, #f5a623) 30%, transparent);
+  animation: live-pulse 1.0s ease-in-out infinite;
+}
 @keyframes live-pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.45; }

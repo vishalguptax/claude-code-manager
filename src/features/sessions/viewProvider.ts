@@ -14,6 +14,8 @@ import {
   getLastParseWarning,
   reparseOneSession,
   getSessionFile,
+  readLiveSessions,
+  applyLiveState,
 } from "./parser";
 import { indexSession, pruneIndex, searchContent } from "./searchIndex";
 import { slugifyProjectPath } from "./portable";
@@ -170,6 +172,22 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   /** Debounce timer for session list re-parse on file changes. */
   private sessionsReparseTimer: NodeJS.Timeout | undefined;
   /**
+   * Debounce timer for live-state refresh (PID file watcher and the
+   * sibling-sync nudge that fires after a transcript change). Coalesces
+   * heartbeat-burst writes so we don't postMessage 5+ times per second
+   * while Claude is actively streaming a response.
+   */
+  private liveStateRefreshTimer: NodeJS.Timeout | undefined;
+  /**
+   * Interval handle for the process-death poller. FileSystemWatcher
+   * never fires when a CLI process dies hard (no FS event for process
+   * exit, and the CLI leaves its PID file behind), so we re-check
+   * `isPidAlive` on a slow tick to flip the dot off in finite time.
+   * Paused while the webview is hidden to avoid spending CPU on UI no
+   * one can see.
+   */
+  private livePollTimer: NodeJS.Timeout | undefined;
+  /**
    * Last observed live `userID`. Used by the file watcher to spot
    * identity changes (manual CLI `/login` / `/logout` cycles) so we
    * can nudge the user to save the new account as a profile when no
@@ -262,6 +280,26 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }),
     );
 
+    // Drive the process-death poller off webview visibility. When the
+    // panel is hidden we have no UI to update, so the poll is pure CPU
+    // waste — pause it. The PID watcher still runs because it's
+    // FS-event driven (zero cost while idle) and ensures the first
+    // refresh after the user re-opens the panel happens immediately.
+    this.startLivePoll();
+    this.viewSubscriptions.push(
+      view.onDidChangeVisibility(() => {
+        if (this.view?.visible) {
+          this.startLivePoll();
+          // Re-sync on re-show: while hidden, sessions may have died
+          // without the poller catching it. One immediate refresh
+          // closes the gap before the slow tick kicks back in.
+          this.refreshLiveState();
+        } else {
+          this.stopLivePoll();
+        }
+      }),
+    );
+
     view.onDidDispose(() => {
       // Clear `view` so any pending debounce timers find a null webview and
       // bail instead of posting to a disposed surface.
@@ -270,6 +308,72 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       for (const sub of this.viewSubscriptions) sub.dispose();
       this.viewSubscriptions = [];
     });
+  }
+
+  /**
+   * Recompute `isLive` / `status` / `liveUpdatedAt` for every cached
+   * session from a fresh PID-file scan and push a new snapshot to the
+   * webview only when something actually changed.
+   *
+   * Cheap enough to run on every PID watcher event and on the
+   * death-detection poll: one directory scan plus N `process.kill(pid, 0)`
+   * probes (microseconds on Windows + POSIX). No transcript I/O.
+   *
+   * Debounced so the CLI's heartbeat-burst writes (one PID file rewrite
+   * every few seconds across many sessions) coalesce into a single UI
+   * update instead of fanning out into per-write postMessages.
+   */
+  private refreshLiveState(): void {
+    if (this.liveStateRefreshTimer) clearTimeout(this.liveStateRefreshTimer);
+    this.liveStateRefreshTimer = setTimeout(() => {
+      this.liveStateRefreshTimer = undefined;
+      const wv = this.view?.webview;
+      if (!wv) return;
+      try {
+        const live = readLiveSessions();
+        const changed = applyLiveState(this.sessions, live);
+        if (!changed) return;
+        wv.postMessage({
+          type: "sessions",
+          data: groupSessions(this.sessions),
+          stats: getStats(this.sessions),
+        });
+      } catch (err) {
+        console.warn("[claude-manager] refreshLiveState failed:", err);
+      }
+    }, 200);
+  }
+
+  /**
+   * Poll interval (ms) for process-death detection. The CLI heartbeats
+   * its PID file every few seconds, so any death within ~one heartbeat
+   * window is caught by the FS watcher; the poller exists for the
+   * fallback case where the CLI is killed hard and the PID file is
+   * never touched again.
+   *
+   * Cost per tick: one `readdirSync` + a handful of `readFileSync` +
+   * `process.kill(pid, 0)` calls — well under a millisecond even with
+   * dozens of sessions.
+   */
+  private static readonly LIVE_POLL_INTERVAL_MS = 4000;
+
+  private startLivePoll(): void {
+    if (this.livePollTimer) return;
+    this.livePollTimer = setInterval(
+      () => this.refreshLiveState(),
+      ClaudeSessionViewProvider.LIVE_POLL_INTERVAL_MS,
+    );
+    // Don't keep the Node event loop alive solely for this tick — VS
+    // Code's extension host outlives any single feature's timers, and
+    // test harnesses that forget to dispose the view should still be
+    // able to exit cleanly.
+    this.livePollTimer.unref?.();
+  }
+
+  private stopLivePoll(): void {
+    if (!this.livePollTimer) return;
+    clearInterval(this.livePollTimer);
+    this.livePollTimer = undefined;
   }
 
   /**
@@ -587,6 +691,16 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       vscode.Uri.file(path.join(claudeDir, "projects")),
       "**/*.jsonl",
     );
+    // Watch the PID-file directory directly so session-start, heartbeat
+    // rewrites, and PID-file deletions trigger an immediate `isLive`
+    // refresh on every cached session — not just the one whose
+    // transcript happened to flush. This is the fix for the
+    // multi-window inconsistency where the green dot would only show
+    // on whichever session most recently wrote JSONL.
+    const livePidPattern = new vscode.RelativePattern(
+      vscode.Uri.file(path.join(claudeDir, "sessions")),
+      "*.json",
+    );
 
     /**
      * Threshold above which a transcript-flood falls back to full
@@ -641,7 +755,18 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
             else this.sessions.push(fresh);
             mutated = true;
           }
-          if (!mutated) return;
+          // Even if the targeted reparse didn't mutate the list,
+          // sibling sessions' live state may have shifted since the
+          // last tick (a parallel CLI started/exited without touching
+          // *this* transcript). Sync them from a fresh PID-file scan
+          // so the dot stays correct across all windows.
+          applyLiveState(this.sessions, readLiveSessions());
+          if (!mutated) {
+            // Live-state may still have changed — let refreshLiveState
+            // diff + push if needed. It debounces so chaining is safe.
+            this.refreshLiveState();
+            return;
+          }
           this.sessions.sort((a, b) => b.endTime - a.endTime);
           wv.postMessage({
             type: "sessions",
@@ -663,6 +788,10 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     const transcriptWatcher = vscode.workspace.createFileSystemWatcher(transcriptPattern);
     bindAll(transcriptWatcher, onSessionChange);
     this.watchers.push(transcriptWatcher);
+
+    const livePidWatcher = vscode.workspace.createFileSystemWatcher(livePidPattern);
+    bindAll(livePidWatcher, () => this.refreshLiveState());
+    this.watchers.push(livePidWatcher);
   }
 
   /** Full reparse path — extracted so the smart watcher can fall back to it. */
@@ -687,6 +816,9 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     this.accountReparseTimer = undefined;
     if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
     this.sessionsReparseTimer = undefined;
+    if (this.liveStateRefreshTimer) clearTimeout(this.liveStateRefreshTimer);
+    this.liveStateRefreshTimer = undefined;
+    this.stopLivePoll();
     for (const w of this.watchers) w.dispose();
     this.watchers = [];
   }
@@ -772,19 +904,26 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
   /**
    * Detect + recover from a profile switch that crashed between the
-   * two file renames. switchProfile copies live files to
-   * `~/.claude.json.bak` + `~/.claude/.credentials.json.bak` before
-   * renaming, then deletes those backups on success — so their
-   * presence on startup implies an interrupted swap.
+   * `.claude.json` rewrite and the credentials write. switchProfile
+   * copies the live `.claude.json` to `~/.claude.json.bak` before the
+   * rename and deletes the backup on success — so its presence on
+   * startup implies an interrupted swap.
    *
-   * Rather than silently rolling back or silently discarding, we
-   * prompt the user with three explicit choices:
+   * Earlier extension versions also wrote `.credentials.json.bak`
+   * alongside, but the credentials side is now routed through the
+   * credentials module (which targets the macOS Keychain when in use)
+   * and the `.bak` file for it is no longer produced. If users upgrade
+   * with a stale `.credentials.json.bak` on disk we surface it in the
+   * same prompt so they can decide whether to restore it.
+   *
+   * Rather than silently rolling back or silently discarding, prompt
+   * with three explicit choices:
    *   - Restore previous identity (copy .bak → live; they picked the
    *     wrong profile or the switch failed and they want their old
    *     account back)
-   *   - Discard backup (the live files are what they want; backups
+   *   - Discard backup (the live state is what they want; backups
    *     are stale)
-   *   - Later (leave .bak in place; prompt again next session)
+   *   - Later (leave .bak files in place; prompt again next session)
    */
   private async sweepSwitchBackups(): Promise<void> {
     const home = os.homedir();
@@ -800,7 +939,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       {
         modal: true,
         detail:
-          "Claude Manager was interrupted while swapping accounts. The previous account's credentials are still on disk as .bak files. Restore them, discard them, or decide later.",
+          "Claude Manager was interrupted while swapping accounts. The previous account's identity is still on disk as a .bak file. Restore it, discard it, or decide later.",
       },
       "Restore previous",
       "Discard backup",
@@ -1207,6 +1346,11 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "toggleHookEnabled": {
+        // Plugin-sourced hooks have no settings.json to mutate — their
+        // declaration lives in plugin.json under the plugin install dir.
+        // Bail before resolving a path so we never call resolveSettingsPath
+        // with a non-permission scope.
+        if (msg.hook.scope === "plugin") break;
         const workspace = getWorkspace();
         const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
         if (filePath) {
@@ -1218,6 +1362,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "deleteHook": {
+        if (msg.hook.scope === "plugin") break;
         const workspace = getWorkspace();
         const choice = await vscode.window.showWarningMessage(
           "Delete this hook?",
@@ -1236,6 +1381,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "updateHook": {
+        if (msg.original.scope === "plugin") break;
         const workspace = getWorkspace();
         const filePath = resolveSettingsPath(msg.original.scope, workspace || undefined);
         if (filePath) writerUpdateHook(filePath, msg.original, msg.next);
@@ -1249,7 +1395,12 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         // Each step bails on cancel so a user can dismiss without
         // persisting a partial entry.
         const workspace = getWorkspace();
-        type ScopeOption = vscode.QuickPickItem & { value: HookScope };
+        // The wizard only writes to settings.json scopes — plugin
+        // hooks are read-only, so we deliberately narrow the choice
+        // type to exclude that variant. This also keeps writerAddHook
+        // / resolveSettingsPath callable without a runtime guard.
+        type WritableHookScope = Exclude<HookScope, "plugin">;
+        type ScopeOption = vscode.QuickPickItem & { value: WritableHookScope };
         const scopeChoices: ScopeOption[] = [
           { label: "Global", description: "~/.claude/settings.json", value: "global" },
         ];
@@ -1352,7 +1503,19 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "toggleMcpServer": {
-        const { name, scope, disabled } = msg as { type: string; name: string; scope: "global" | "project"; disabled: boolean };
+        const { name, scope, disabled } = msg as {
+          type: string;
+          name: string;
+          scope: import("../mcp/types").McpServerScope;
+          disabled: boolean;
+        };
+        // Plugin-supplied servers are owned by the plugin install dir
+        // and managed via the `/plugin` CLI. Reject the message instead
+        // of silently no-op so a stale UI surface surfaces an error.
+        if (scope === "plugin") {
+          vscode.window.showErrorMessage(`"${name}" is provided by a plugin — manage it via /plugin.`);
+          break;
+        }
         const workspace = getWorkspace();
         const ok = toggleMcpServer(name, scope, disabled, workspace || undefined);
         if (ok) {
@@ -1366,7 +1529,15 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "deleteMcpServer": {
-        const { name: srvName, scope: srvScope } = msg as { type: string; name: string; scope: "global" | "project" };
+        const { name: srvName, scope: srvScope } = msg as {
+          type: string;
+          name: string;
+          scope: import("../mcp/types").McpServerScope;
+        };
+        if (srvScope === "plugin") {
+          vscode.window.showErrorMessage(`"${srvName}" is provided by a plugin — manage it via /plugin.`);
+          break;
+        }
         const choice = await vscode.window.showWarningMessage(
           `Delete MCP server "${srvName}"?`,
           {

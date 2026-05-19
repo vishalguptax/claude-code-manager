@@ -49,10 +49,14 @@ function writeSessionFile(
   fs.writeFileSync(path.join(dir, `${sessionId}.jsonl`), content);
 }
 
-function writePidFile(pid: number, sessionId: string) {
+function writePidFile(
+  pid: number,
+  sessionId: string,
+  extra: Record<string, unknown> = {},
+) {
   fs.writeFileSync(
     path.join(SESSIONS_DIR, `${pid}.json`),
-    JSON.stringify({ pid, sessionId }),
+    JSON.stringify({ pid, sessionId, ...extra }),
   );
 }
 
@@ -67,7 +71,10 @@ import {
   getLastParseWarning,
   reparseOneSession,
   invalidateSessionMetaCache,
+  readLiveSessions,
+  applyLiveState,
 } from "../parser";
+import type { Session } from "../types";
 
 describe("parseSessions", () => {
   beforeEach(setup);
@@ -309,6 +316,179 @@ describe("parseSessions", () => {
     const sessions = parseSessions();
     expect(sessions.find((s) => s.id === "sess-live")!.isLive).toBe(true);
     expect(sessions.find((s) => s.id === "sess-dead")!.isLive).toBe(false);
+  });
+
+  it("populates status and liveUpdatedAt from the PID file", () => {
+    writeHistoryEntry({
+      display: "with status",
+      timestamp: Date.now(),
+      project: "/projects/withstatus",
+      sessionId: "sess-status",
+    });
+    writePidFile(process.pid, "sess-status", {
+      status: "busy",
+      updatedAt: 1700000000000,
+    });
+
+    const sess = parseSessions().find((s) => s.id === "sess-status")!;
+    expect(sess.isLive).toBe(true);
+    expect(sess.status).toBe("busy");
+    expect(sess.liveUpdatedAt).toBe(1700000000000);
+  });
+
+  it("status and liveUpdatedAt are undefined for dead-PID and missing-field cases", () => {
+    writeHistoryEntry({
+      display: "dead",
+      timestamp: Date.now(),
+      project: "/projects/dead2",
+      sessionId: "sess-dead2",
+    });
+    writeHistoryEntry({
+      display: "no status field",
+      timestamp: Date.now(),
+      project: "/projects/nostatus",
+      sessionId: "sess-nostatus",
+    });
+    writePidFile(2147483646, "sess-dead2", {
+      status: "busy",
+      updatedAt: 1700000000000,
+    });
+    writePidFile(process.pid, "sess-nostatus");
+
+    const sessions = parseSessions();
+    const dead = sessions.find((s) => s.id === "sess-dead2")!;
+    expect(dead.isLive).toBe(false);
+    expect(dead.status).toBeUndefined();
+    expect(dead.liveUpdatedAt).toBeUndefined();
+    const noStatus = sessions.find((s) => s.id === "sess-nostatus")!;
+    expect(noStatus.isLive).toBe(true);
+    expect(noStatus.status).toBe("");
+    expect(noStatus.liveUpdatedAt).toBe(0);
+  });
+
+  it("prefers the most recent alive PID file when duplicates exist for one sessionId", () => {
+    writeHistoryEntry({
+      display: "dup",
+      timestamp: Date.now(),
+      project: "/projects/dup",
+      sessionId: "sess-dup",
+    });
+    // Older alive entry — written first.
+    writePidFile(process.pid, "sess-dup", {
+      status: "idle",
+      updatedAt: 1000,
+    });
+    // Stale dead-PID entry with a higher updatedAt. Must be ignored
+    // because its PID is no longer alive — otherwise a leftover crash
+    // file with a fresher timestamp would shadow the real session.
+    writePidFile(2147483646, "sess-dup", {
+      status: "busy",
+      updatedAt: 9999,
+    });
+
+    const sess = parseSessions().find((s) => s.id === "sess-dup")!;
+    expect(sess.isLive).toBe(true);
+    expect(sess.status).toBe("idle");
+    expect(sess.liveUpdatedAt).toBe(1000);
+  });
+
+  it("skips malformed PID files without dropping sibling entries", () => {
+    writeHistoryEntry({
+      display: "good",
+      timestamp: Date.now(),
+      project: "/projects/good",
+      sessionId: "sess-good",
+    });
+    // Truncated JSON — emulates a partial heartbeat write.
+    fs.writeFileSync(path.join(SESSIONS_DIR, "99999.json"), "{\"pid\":");
+    writePidFile(process.pid, "sess-good", { status: "busy" });
+
+    const sess = parseSessions().find((s) => s.id === "sess-good")!;
+    expect(sess.isLive).toBe(true);
+    expect(sess.status).toBe("busy");
+  });
+});
+
+describe("readLiveSessions", () => {
+  beforeEach(setup);
+
+  it("returns an empty map when the sessions dir does not exist", () => {
+    fs.rmSync(SESSIONS_DIR, { recursive: true, force: true });
+    expect(readLiveSessions().size).toBe(0);
+  });
+
+  it("returns one entry per alive sessionId with status and updatedAt", () => {
+    writePidFile(process.pid, "sess-x", {
+      status: "busy",
+      updatedAt: 12345,
+    });
+    const map = readLiveSessions();
+    expect(map.get("sess-x")).toEqual({
+      pid: process.pid,
+      status: "busy",
+      updatedAt: 12345,
+    });
+  });
+});
+
+describe("applyLiveState", () => {
+  function mkSession(id: string, isLive = false, status?: string): Session {
+    return {
+      id,
+      name: "",
+      project: "p",
+      projectPath: "/p",
+      branch: "",
+      entrypoint: "",
+      startTime: 0,
+      endTime: 0,
+      messageCount: 0,
+      summary: "",
+      prompts: [],
+      projectKey: "p",
+      searchHaystack: "",
+      isLive,
+      status,
+    };
+  }
+
+  it("flips isLive on when the session appears in the live map", () => {
+    const sessions = [mkSession("s1", false)];
+    const live = new Map([
+      ["s1", { pid: 1, status: "busy", updatedAt: 100 }],
+    ]);
+    expect(applyLiveState(sessions, live)).toBe(true);
+    expect(sessions[0].isLive).toBe(true);
+    expect(sessions[0].status).toBe("busy");
+    expect(sessions[0].liveUpdatedAt).toBe(100);
+  });
+
+  it("flips isLive off when the session leaves the live map", () => {
+    const sessions = [mkSession("s1", true, "busy")];
+    sessions[0].liveUpdatedAt = 100;
+    expect(applyLiveState(sessions, new Map())).toBe(true);
+    expect(sessions[0].isLive).toBe(false);
+    expect(sessions[0].status).toBeUndefined();
+    expect(sessions[0].liveUpdatedAt).toBeUndefined();
+  });
+
+  it("returns false when nothing changed", () => {
+    const sessions = [mkSession("s1", true, "busy")];
+    sessions[0].liveUpdatedAt = 100;
+    const live = new Map([
+      ["s1", { pid: 1, status: "busy", updatedAt: 100 }],
+    ]);
+    expect(applyLiveState(sessions, live)).toBe(false);
+  });
+
+  it("detects status-only changes", () => {
+    const sessions = [mkSession("s1", true, "busy")];
+    sessions[0].liveUpdatedAt = 100;
+    const live = new Map([
+      ["s1", { pid: 1, status: "idle", updatedAt: 100 }],
+    ]);
+    expect(applyLiveState(sessions, live)).toBe(true);
+    expect(sessions[0].status).toBe("idle");
   });
 
   it("skips orphan files that have no user messages (empty / queue-only shells)", () => {
