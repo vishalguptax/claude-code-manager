@@ -45,6 +45,17 @@ export interface AccountProfile {
    * file from the backup before Claude CLI trips its own reset prompt.
    */
   configCorrupted: boolean;
+  /**
+   * Where the OAuth credentials were read from on this read. Empty
+   * string when the user is not signed in.
+   *   - "file"            — ~/.claude/.credentials.json (Linux/Windows
+   *                          default; macOS opt-out)
+   *   - "keychain-darwin" — macOS Keychain (default on macOS)
+   * Surfacing this in the UI helps users understand why a previously-
+   * working flow needs an OS-level permission grant (e.g. allowing
+   * VS Code Helper to read the Keychain item).
+   */
+  credentialSource: "" | "file" | "keychain-darwin";
 }
 
 // ── Usage / Stats ──

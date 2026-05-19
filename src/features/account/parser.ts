@@ -20,6 +20,7 @@ import { discoverModelsFromCli } from "./models";
 import * as os from "os";
 import { CLAUDE_DIR } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
+import { readCredentials } from "./credentials";
 import { computeUsageStats } from "./usage";
 import { snapshotSettings, listSnapshots, restoreSnapshot, deleteSnapshot } from "./snapshots";
 import type { SettingsSnapshot } from "./snapshots";
@@ -33,7 +34,6 @@ import type {
 
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const CLAUDE_BACKUPS_DIR = path.join(CLAUDE_DIR, "backups");
-const CREDENTIALS_FILE = path.join(CLAUDE_DIR, ".credentials.json");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
 
 /**
@@ -110,6 +110,7 @@ function parseProfile(): AccountProfile {
     startupCount: 0,
     firstUseDate: "",
     configCorrupted: false,
+    credentialSource: "",
   };
 
   // Check primary file directly — separate from the fallback read —
@@ -157,11 +158,13 @@ function parseProfile(): AccountProfile {
     }
   }
 
-  // .credentials.json — subscription only, tokens NEVER exposed
-  try {
-    const raw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
-    const data = JSON.parse(raw) as Record<string, unknown>;
-    const oauth = data.claudeAiOauth as Record<string, unknown> | undefined;
+  // Credentials — subscription only, tokens NEVER exposed. Source
+  // could be a file or macOS Keychain; the credentials module hides
+  // the difference so this code path stays identical whichever the
+  // Claude CLI chose at install time.
+  const live = readCredentials();
+  if (live) {
+    const oauth = live.blob.claudeAiOauth;
     if (oauth) {
       profile.signedIn = true;
       if (typeof oauth.subscriptionType === "string") {
@@ -174,8 +177,7 @@ function parseProfile(): AccountProfile {
         profile.tokenExpiresAt = oauth.expiresAt;
       }
     }
-  } catch {
-    // not signed in
+    profile.credentialSource = live.source.kind;
   }
 
   return profile;

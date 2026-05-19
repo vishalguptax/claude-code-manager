@@ -48,16 +48,28 @@ import * as os from "os";
 import * as crypto from "crypto";
 import { CLAUDE_DIR } from "../../core/config";
 import { createMtimeCache } from "../../core/mtimeCache";
+import {
+  readCredentials,
+  writeCredentials,
+  hashCredentials,
+  defaultTargetSource,
+  type CredentialsSource,
+  type LiveCredentials,
+} from "./credentials";
 
 /**
  * Cache SHA-256 hashes by file path. listProfiles() can run on every
  * panel reload and re-hashing N saved-profile credential files plus
  * the live credentials file is wasted work when nothing has changed.
+ *
+ * Only used for snapshot files (always disk-resident under
+ * ~/.claude/manager-accounts/<slug>/). The live credential hash comes
+ * from the credentials module instead — it knows how to source from
+ * file or macOS Keychain interchangeably.
  */
 const hashCache = createMtimeCache<string>();
 
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
-const CREDENTIALS_FILE = path.join(CLAUDE_DIR, ".credentials.json");
 const PROFILES_DIR = path.join(CLAUDE_DIR, "manager-accounts");
 
 /** Public per-profile metadata for the webview. Never contains tokens. */
@@ -137,34 +149,40 @@ function hashFile(filePath: string): string {
 }
 
 /**
- * Read the two live identity files in a race-safe way: hash first,
- * read both, hash again. If the creds file mutated between hashes
- * (Claude CLI mid-refresh), retry once. Returns null on unrecoverable
- * error — callers treat that as "no active account".
+ * Read the live identity in a race-safe way: read credentials, read
+ * .claude.json, re-read credentials. If credentials moved between the
+ * pre- and post-read (Claude CLI mid-refresh, profile switch in flight),
+ * retry once. Returns null on unrecoverable error — callers treat that
+ * as "no active account".
+ *
+ * Credentials come through the credentials module so we transparently
+ * handle the macOS Keychain backend in addition to the file backend.
+ * `.claude.json` is always disk-resident across every supported
+ * platform, so it stays a direct `fs.readFileSync`.
  *
  * Without this, `saveProfile` could capture claude.json with one
- * token generation and credentials.json with another, producing a
+ * token generation and credentials with another, producing a
  * snapshot that never matches either identity cleanly.
  */
 function readLivePairRaceSafe(): {
   claudeJsonRaw: string;
   credsRaw: string;
+  source: CredentialsSource;
 } | null {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const preHash = hashFile(CREDENTIALS_FILE);
-    if (!preHash) return null;
+    const pre = readCredentials();
+    if (!pre) return null;
     let claudeJsonRaw: string;
-    let credsRaw: string;
     try {
       claudeJsonRaw = fs.readFileSync(CLAUDE_JSON, "utf-8");
-      credsRaw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
     } catch {
       return null;
     }
-    if (!claudeJsonRaw.trim() || !credsRaw.trim()) return null;
-    const postHash = hashFile(CREDENTIALS_FILE);
-    if (postHash === preHash) {
-      return { claudeJsonRaw, credsRaw };
+    if (!claudeJsonRaw.trim()) return null;
+    const post = readCredentials();
+    if (!post) return null;
+    if (post.hash === pre.hash) {
+      return { claudeJsonRaw, credsRaw: post.raw, source: post.source };
     }
     // Token rotated mid-read; retry once.
   }
@@ -340,19 +358,19 @@ export function listProfiles(): SavedProfile[] {
 /**
  * Read the live identity, preferring the access-token claims when the
  * token is a JWT (covers the Claude CLI `/login` window where
- * `.credentials.json` is rewritten before `.claude.json`). Falls back
- * to `.claude.json` for opaque tokens — Anthropic's current production
+ * credentials are rewritten before `.claude.json`). Falls back to
+ * `.claude.json` for opaque tokens — Anthropic's current production
  * tokens are `sk-ant-oat01-…` opaque strings, so this is the steady-
  * state path. Returns null when no identity can be derived.
+ *
+ * The credentials read goes through the source-agnostic module so
+ * macOS Keychain users get the same identity-resolution behaviour as
+ * file users.
  */
 function readLiveIdentity(): LiveIdentity | null {
-  let credsRaw: string;
-  try {
-    credsRaw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
-  } catch {
-    return null;
-  }
-  const tokenIdentity = extractIdentityFromToken(credsRaw);
+  const live = readCredentials();
+  if (!live) return null;
+  const tokenIdentity = extractIdentityFromToken(live.raw);
   if (tokenIdentity) return tokenIdentity;
   try {
     const claudeJsonRaw = fs.readFileSync(CLAUDE_JSON, "utf-8");
@@ -377,8 +395,9 @@ function readLiveIdentity(): LiveIdentity | null {
  * though the account is unchanged.
  */
 export function getActiveProfileSlug(): string | null {
-  const liveHash = hashFile(CREDENTIALS_FILE);
-  if (!liveHash) return null;
+  const live = readCredentials();
+  if (!live) return null;
+  const liveHash = live.hash;
 
   const profiles = listProfiles();
 
@@ -678,7 +697,8 @@ export function syncActiveProfile(): string | null {
   // Skip when already byte-identical: avoids spurious mtime bumps and
   // a self-triggering loop if the caller is running from a watcher.
   const slotCreds = path.join(PROFILES_DIR, slug, ".credentials.json");
-  if (hashFile(slotCreds) === hashFile(CREDENTIALS_FILE)) return slug;
+  const live = readCredentials();
+  if (live && hashFile(slotCreds) === live.hash) return slug;
   const result = updateProfile(slug);
   return result.ok ? slug : null;
 }
@@ -688,13 +708,20 @@ export function syncActiveProfile(): string | null {
  * are merged into the live `.claude.json`; every other key (projects,
  * numStartups, migration flags, caches, onboarding state, MCP config,
  * …) is preserved so switching doesn't roll back weeks of accumulated
- * state. `.credentials.json` is swapped wholesale because it's an
- * identity-only file.
+ * state. Credentials are swapped wholesale because the blob is an
+ * identity-only payload.
  *
- * Two-file writes are made crash-safe: the live files are backed up
- * before either rename. If the second rename fails mid-way the backups
- * are restored so we never leave a split state (identity from one
- * account, tokens from another).
+ * Crash-safety:
+ *   - `.claude.json` is written via tmp+rename with a `.bak` on disk —
+ *     atomic on every supported platform.
+ *   - Live credentials are captured in memory before the write so we
+ *     can restore them if the post-write step fails. The credential
+ *     write itself targets whatever source the live account currently
+ *     uses (file or macOS Keychain). Keychain writes are atomic per
+ *     item from the kernel's perspective; the file backend uses
+ *     tmp+rename inside the credentials module.
+ *   - If the credentials write fails we roll back `.claude.json` from
+ *     the backup so identity + tokens never end up out of sync.
  *
  * Caller is responsible for user confirmation and for warning about
  * running Claude processes. This function does not itself prompt.
@@ -709,9 +736,9 @@ export function switchProfile(slug: string): ProfileResult<SavedProfile> {
   }
 
   // Capture the outgoing account's freshest tokens into its slot
-  // before we replace the live files. Without this, any rotation that
-  // happened while the outgoing account was active stays only in
-  // memory of the live creds — the slot keeps the original (now
+  // before we replace the live identity. Without this, any rotation
+  // that happened while the outgoing account was active stays only
+  // in the live credentials — the slot keeps the original (now
   // server-revoked) refresh token, and switching back to it later
   // produces a 401. Best-effort: a write failure here doesn't block
   // the switch the user requested.
@@ -782,59 +809,39 @@ export function switchProfile(slug: string): ProfileResult<SavedProfile> {
     };
   }
 
-  // Two-file atomic-ish swap with rollback. Write both tmps first so
-  // disk-full aborts before any live file is touched. Back up live
-  // files, then rename in sequence; if either rename throws, restore
-  // from the backup so we never leave the pair out of sync.
-  const claudeJsonTmp = CLAUDE_JSON + ".tmp";
-  const credsTmp = CREDENTIALS_FILE + ".tmp";
-  const claudeJsonBak = CLAUDE_JSON + ".bak";
-  const credsBak = CREDENTIALS_FILE + ".bak";
+  // Capture live credentials in memory BEFORE touching anything on
+  // disk or in Keychain. This is our only rollback for the keychain
+  // backend (which has no atomic rename), and it doubles as the
+  // file-backend rollback for the credentials side. The capture also
+  // pins the source we'll write to — switching the credential store
+  // mid-flight would be a user-visible surprise.
+  const liveBefore = readCredentials();
+  const targetSource: CredentialsSource = liveBefore
+    ? liveBefore.source
+    : defaultTargetSource();
 
-  // Clean up any prior stragglers so writes below don't race with them.
-  for (const p of [claudeJsonTmp, credsTmp, claudeJsonBak, credsBak]) {
+  // .claude.json tmp+rename with .bak backup. Same crash-safety the
+  // original code provided — this side is always file-backed.
+  const claudeJsonTmp = CLAUDE_JSON + ".tmp";
+  const claudeJsonBak = CLAUDE_JSON + ".bak";
+
+  for (const p of [claudeJsonTmp, claudeJsonBak]) {
     try { fs.rmSync(p, { force: true }); } catch { /* ignore */ }
   }
 
+  let claudeJsonExistedBefore = false;
   try {
     fs.writeFileSync(claudeJsonTmp, mergedClaudeJson);
-    fs.writeFileSync(credsTmp, credsRaw);
-
-    // Back up live files before renaming. Use copyFile so we can
-    // restore even if the rename partially succeeded.
-    const claudeJsonExists = fs.existsSync(CLAUDE_JSON);
-    const credsExists = fs.existsSync(CREDENTIALS_FILE);
-    if (claudeJsonExists) fs.copyFileSync(CLAUDE_JSON, claudeJsonBak);
-    if (credsExists) fs.copyFileSync(CREDENTIALS_FILE, credsBak);
+    claudeJsonExistedBefore = fs.existsSync(CLAUDE_JSON);
+    if (claudeJsonExistedBefore) fs.copyFileSync(CLAUDE_JSON, claudeJsonBak);
 
     try {
       fs.renameSync(claudeJsonTmp, CLAUDE_JSON);
     } catch (err) {
-      // First rename failed — nothing to roll back, just clean up.
       try { fs.rmSync(claudeJsonTmp, { force: true }); } catch { /* ignore */ }
-      try { fs.rmSync(credsTmp, { force: true }); } catch { /* ignore */ }
       try { fs.rmSync(claudeJsonBak, { force: true }); } catch { /* ignore */ }
-      try { fs.rmSync(credsBak, { force: true }); } catch { /* ignore */ }
       throw err;
     }
-
-    try {
-      fs.renameSync(credsTmp, CREDENTIALS_FILE);
-    } catch (err) {
-      // Second rename failed — restore .claude.json from backup so
-      // identity + tokens don't end up out of sync.
-      if (claudeJsonExists) {
-        try { fs.copyFileSync(claudeJsonBak, CLAUDE_JSON); } catch { /* best-effort */ }
-      }
-      try { fs.rmSync(credsTmp, { force: true }); } catch { /* ignore */ }
-      try { fs.rmSync(claudeJsonBak, { force: true }); } catch { /* ignore */ }
-      try { fs.rmSync(credsBak, { force: true }); } catch { /* ignore */ }
-      throw err;
-    }
-
-    // Success — drop backups.
-    try { fs.rmSync(claudeJsonBak, { force: true }); } catch { /* ignore */ }
-    try { fs.rmSync(credsBak, { force: true }); } catch { /* ignore */ }
   } catch (err) {
     return {
       ok: false,
@@ -843,7 +850,31 @@ export function switchProfile(slug: string): ProfileResult<SavedProfile> {
     };
   }
 
+  // Write credentials to the source the live account currently uses.
+  // On macOS this is typically Keychain; everywhere else it's the
+  // file. The credentials module hides the difference.
+  const credsWritten = writeCredentials(credsRaw, targetSource);
+  if (!credsWritten) {
+    // Roll back .claude.json so the user is not left with the new
+    // identity pointing at the old account's tokens.
+    if (claudeJsonExistedBefore) {
+      try { fs.copyFileSync(claudeJsonBak, CLAUDE_JSON); } catch { /* best-effort */ }
+    } else {
+      try { fs.rmSync(CLAUDE_JSON, { force: true }); } catch { /* best-effort */ }
+    }
+    try { fs.rmSync(claudeJsonBak, { force: true }); } catch { /* ignore */ }
+    return {
+      ok: false,
+      error: "copy-failed",
+      detail: `Failed to write credentials to ${targetSource.kind}.`,
+    };
+  }
+
+  // Both writes succeeded — drop the .claude.json backup.
+  try { fs.rmSync(claudeJsonBak, { force: true }); } catch { /* ignore */ }
+
   const meta = readSnapshotMeta(slotDir);
+  const liveAfter = readCredentials();
   return {
     ok: true,
     data: {
@@ -854,7 +885,9 @@ export function switchProfile(slug: string): ProfileResult<SavedProfile> {
       subscriptionType: meta.subscriptionType ?? "",
       savedAt: meta.savedAt ?? "",
       tokenExpiresAt: meta.tokenExpiresAt ?? 0,
-      credentialsHash: hashFile(CREDENTIALS_FILE),
+      credentialsHash: liveAfter
+        ? liveAfter.hash
+        : hashCredentials(credsRaw),
       userID: meta.userID ?? "",
       accountUuid: meta.accountUuid ?? "",
     },

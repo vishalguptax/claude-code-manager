@@ -13,10 +13,14 @@ import * as path from "path";
 import * as os from "os";
 import { execSync } from "child_process";
 import { CLAUDE_DIR, STATS_CACHE_FILE } from "../../core/config";
+import {
+  readCredentials,
+  probeKeychainStatus,
+  isLoggedOut,
+} from "../account/credentials";
 import type { DiagnosticCheck, DiagnosticStatus } from "./types";
 
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
-const CREDENTIALS_FILE = path.join(CLAUDE_DIR, ".credentials.json");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
 
 /** A short-circuit constructor so each check stays a single expression. */
@@ -110,24 +114,68 @@ function checkClaudeJson(): DiagnosticCheck {
 }
 
 function checkCredentials(): DiagnosticCheck {
-  const data = safeReadJson(CREDENTIALS_FILE);
-  if (!data || typeof data !== "object") {
+  const live = readCredentials();
+  if (!live) {
+    // Distinguish "no credentials anywhere" (signed out) from a
+    // macOS-specific failure (Keychain locked, ACL denied, or
+    // unreachable over SSH). Each maps to a different fix hint.
+    if (process.platform === "darwin" && !isLoggedOut()) {
+      const status = probeKeychainStatus();
+      switch (status) {
+        case "denied":
+          return check(
+            "credentials",
+            "Keychain access",
+            "fail",
+            "Keychain refused to disclose the Claude Code credentials item (exit 51).",
+            "Open Keychain Access → search for `Claude Code-credentials` → Access Control tab → add your IDE binary, then click Allow.",
+          );
+        case "locked":
+          return check(
+            "credentials",
+            "Keychain access",
+            "fail",
+            "Default Keychain is locked.",
+            "Run `security unlock-keychain` in Terminal, or unlock from Keychain Access.app.",
+          );
+        case "unreachable":
+          return check(
+            "credentials",
+            "Keychain access",
+            "fail",
+            "Keychain is unreachable from this session (likely SSH or a headless context).",
+            "Sign in directly on the machine, or set up a file-based fallback at ~/.claude/.credentials.json.",
+          );
+        case "error":
+          return check(
+            "credentials",
+            "Keychain access",
+            "fail",
+            "`security` returned an unexpected error.",
+            "Run `security find-generic-password -s 'Claude Code-credentials' -w` in Terminal to see the exact error.",
+          );
+        default:
+          break;
+      }
+    }
     return check(
       "credentials",
       "credentials parse",
       "warn",
-      ".credentials.json missing — only matters if you've run /login.",
+      "Credentials not found — only matters if you've run /login.",
     );
   }
   // Look for an expiresAt anywhere reasonable. Claude rotates the
   // shape over CLI versions; we just sniff for the field.
-  const expiresAt = findExpiresAt(data);
+  const expiresAt = findExpiresAt(live.blob);
+  const sourceLabel =
+    live.source.kind === "keychain-darwin" ? "macOS Keychain" : "file";
   if (expiresAt === null) {
     return check(
       "credentials",
       "credentials parse",
       "pass",
-      "Parsed; no expiry stamp surfaced.",
+      `Parsed (${sourceLabel}); no expiry stamp surfaced.`,
     );
   }
   if (expiresAt < Date.now()) {
@@ -135,7 +183,7 @@ function checkCredentials(): DiagnosticCheck {
       "credentials",
       "OAuth token current",
       "warn",
-      `Access token expired at ${new Date(expiresAt).toISOString()}.`,
+      `Access token expired at ${new Date(expiresAt).toISOString()} (${sourceLabel}).`,
       "Run `claude` — the CLI will silently refresh the token on next start.",
     );
   }
@@ -143,7 +191,7 @@ function checkCredentials(): DiagnosticCheck {
     "credentials",
     "OAuth token current",
     "pass",
-    `Expires ${new Date(expiresAt).toISOString()}.`,
+    `Expires ${new Date(expiresAt).toISOString()} (${sourceLabel}).`,
   );
 }
 

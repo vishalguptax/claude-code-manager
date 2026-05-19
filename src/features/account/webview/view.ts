@@ -229,9 +229,10 @@ function renderProfileSection(data: AccountData): string {
           ${p.subscriptionType ? `<span class="acct-plan-badge plan-${esc(p.subscriptionType)}">${esc(p.subscriptionType)}</span>` : ""}
         </div>
 
-        ${expiresInDays > 0 ? `
+        ${expiresInDays > 0 || p.credentialSource ? `
         <div class="acct-meta">
-          <div class="acct-meta-row"><span class="acct-meta-k">Session expires</span><span class="acct-meta-v">in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}</span></div>
+          ${expiresInDays > 0 ? `<div class="acct-meta-row"><span class="acct-meta-k">Session expires</span><span class="acct-meta-v">in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}</span></div>` : ""}
+          ${p.credentialSource ? `<div class="acct-meta-row"><span class="acct-meta-k">Credentials</span><span class="acct-meta-v" title="${p.credentialSource === "keychain-darwin" ? "Tokens stored in macOS Keychain. First read prompts for permission per IDE." : "Tokens stored in ~/.claude/.credentials.json (file mode 0600)."}">${p.credentialSource === "keychain-darwin" ? "macOS Keychain" : "File"}</span></div>` : ""}
         </div>` : ""}
 
         <div class="acct-actions">

@@ -2,7 +2,9 @@
  * OAuth quota fetcher — the ONLY network call Claude Manager makes.
  *
  * Privacy: we contact `api.anthropic.com` exclusively, using the user's
- * own OAuth access token from `~/.claude/.credentials.json`. The
+ * own OAuth access token. The token is read from whichever store
+ * Claude CLI uses — `~/.claude/.credentials.json` on Linux/Windows,
+ * macOS Keychain on Mac — via the credentials abstraction module. The
  * response contains *their own* subscription utilization, so nothing
  * leaves the machine that wasn't already tied to their account. The
  * token itself is never forwarded to the webview.
@@ -22,12 +24,9 @@
  * 401 `authentication_error`. Field shape is community-documented and
  * stable across recent Claude releases.
  */
-import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
 import * as https from "https";
+import { readCredentialsStatus } from "./credentials";
 
-const CREDENTIALS_FILE = path.join(os.homedir(), ".claude", ".credentials.json");
 const USAGE_HOST = "api.anthropic.com";
 const USAGE_PATH = "/api/oauth/usage";
 const BETA_HEADER = "oauth-2025-04-20";
@@ -73,39 +72,31 @@ export interface QuotaError {
 export type QuotaResult = { ok: true; data: QuotaData } | { ok: false; error: QuotaError };
 
 /**
- * Pull the OAuth access token from `~/.claude/.credentials.json`.
- * Returns null (not an error) when the file is missing — that's the
- * legitimate "user hasn't logged in" state, and callers should surface
- * it with an install-Claude prompt, not an error toast.
+ * Pull the OAuth access token from whichever store Claude CLI uses.
+ * Returns "missing" (not an error) when no source yields a usable
+ * blob — that's the legitimate "user hasn't logged in" state, and
+ * callers should surface it with an install-Claude prompt, not an
+ * error toast.
  *
- * The credentials file is rewritten whenever Claude CLI rotates tokens
- * or the Claude Manager profile switcher swaps accounts. A read
- * landing mid-write returns empty or partial JSON, so we re-try once
- * after a short sleep. Without the retry, the quota card falsely
- * reported "No Claude Code credentials" whenever the user clicked
- * Refresh in the same second as a background token refresh.
+ * Credentials are rewritten whenever Claude CLI rotates tokens or
+ * the Claude Manager profile switcher swaps accounts. A read landing
+ * mid-write returns null from the credentials module (either the file
+ * was truncated or the Keychain item was being replaced). We retry
+ * after a short delay (see `readAccessToken`). Without the retry, the
+ * quota card falsely reported "No Claude Code credentials" whenever
+ * the user clicked Refresh in the same second as a background token
+ * refresh.
  */
 function readTokenOnce(): { state: "ok" | "missing" | "transient"; token: string | null } {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(CREDENTIALS_FILE, "utf-8");
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") return { state: "missing", token: null };
-    return { state: "transient", token: null };
-  }
-  if (!raw.trim()) return { state: "transient", token: null };
-  try {
-    const parsed = JSON.parse(raw) as { claudeAiOauth?: { accessToken?: string } };
-    const token = parsed.claudeAiOauth?.accessToken;
+  const status = readCredentialsStatus();
+  if (status.state === "ok") {
+    const token = status.live.blob.claudeAiOauth?.accessToken;
     if (typeof token === "string" && token.length > 0) {
       return { state: "ok", token };
     }
     return { state: "missing", token: null };
-  } catch {
-    // Mid-rewrite reads show truncated JSON — treat as transient.
-    return { state: "transient", token: null };
   }
+  return { state: status.state, token: null };
 }
 
 /**
