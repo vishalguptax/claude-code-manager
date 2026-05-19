@@ -131,15 +131,20 @@ function Start-ClaudeSession {
     Set-Location $cwd
     $env:CLAUDE_NONINTERACTIVE = "1"
 
-    & claude -p $prompt `
-      --permission-mode bypassPermissions `
-      --output-format json `
-      --model $model `
-      --max-budget-usd $budget `
-      --effort high `
-      2>&1 | Tee-Object -FilePath $logFile | Out-Null
+    # Pipe prompt via stdin so claude CLI does not parse prompt text as flags.
+    # Capture all output (stdout + stderr) to UTF-8 log file.
+    $promptBytes = [System.Text.Encoding]::UTF8.GetBytes($prompt)
+    $tmpPrompt = [System.IO.Path]::GetTempFileName()
+    [System.IO.File]::WriteAllBytes($tmpPrompt, $promptBytes)
 
-    $exit = $LASTEXITCODE
+    try {
+      $output = & cmd /c "type `"$tmpPrompt`" | claude -p --permission-mode bypassPermissions --output-format json --model $model --max-budget-usd $budget --effort high 2>&1"
+      $exit = $LASTEXITCODE
+      [System.IO.File]::WriteAllText($logFile, ($output -join "`r`n"), [System.Text.Encoding]::UTF8)
+    } finally {
+      Remove-Item $tmpPrompt -Force -ErrorAction SilentlyContinue
+    }
+
     [pscustomobject]@{ exit = $exit; cwd = $cwd; log = $logFile } |
       ConvertTo-Json | Out-File -FilePath $resultFile -Encoding utf8
 
