@@ -549,6 +549,140 @@ export function readLiveSessions(): Map<string, LiveSessionInfo> {
 }
 
 /**
+ * Synthetic status emitted when Claude is blocked on an interactive
+ * tool the user must answer (currently `AskUserQuestion` and
+ * `ExitPlanMode`). The CLI itself only reports `idle` in this case
+ * because, from its point of view, the process is waiting for input
+ * either way — but the user needs to know which idle sessions need
+ * their attention. The webview maps this string to the same orange
+ * variant used for `awaiting_permission`.
+ */
+export const AWAITING_QUESTION_STATUS = "awaiting_question";
+
+/**
+ * Set of assistant tool names whose `tool_use` blocks block the
+ * session until the user answers. Detected by tailing the transcript
+ * and looking for the most recent `tool_use` of these tools without a
+ * matching `tool_result`.
+ */
+const PENDING_USER_TOOLS = new Set(["AskUserQuestion", "ExitPlanMode"]);
+
+/**
+ * Bytes of session-file tail scanned for the pending-interaction
+ * probe. 32 KB easily covers the last several assistant turns even
+ * when individual messages carry large code blocks, while keeping the
+ * per-tick read cost bounded.
+ */
+const PENDING_TAIL_READ_BYTES = 32 * 1024;
+
+/**
+ * Mtime cache for the pending-question probe. The probe rereads the
+ * file tail only when the transcript actually changes; an unchanged
+ * file returns the cached boolean immediately so the live-state
+ * refresh tick stays sub-millisecond per session.
+ */
+const pendingCache = new Map<string, { mtimeMs: number; pending: boolean }>();
+
+function invalidatePendingCacheEntry(filePath: string): void {
+  pendingCache.delete(filePath);
+}
+
+/**
+ * Tail-scan a session transcript and return true when Claude is
+ * currently blocked on a question the user must answer. "Blocked"
+ * means: the most recent `tool_use` block whose tool is in
+ * `PENDING_USER_TOOLS` has no matching `tool_result` block later in
+ * the transcript.
+ *
+ * Tail-only by design: the answer can only flip on the very last
+ * message exchange, so we read at most `PENDING_TAIL_READ_BYTES`.
+ * mtime cache means we don't re-tail untouched files on every refresh.
+ */
+function detectPendingInteraction(filePath: string): boolean {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(filePath);
+  } catch {
+    return false;
+  }
+  const cached = pendingCache.get(filePath);
+  if (cached && cached.mtimeMs === stat.mtimeMs) return cached.pending;
+
+  let text: string;
+  try {
+    const start = Math.max(0, stat.size - PENDING_TAIL_READ_BYTES);
+    const length = stat.size - start;
+    const buf = Buffer.alloc(length);
+    const fd = fs.openSync(filePath, "r");
+    try {
+      fs.readSync(fd, buf, 0, length, start);
+    } finally {
+      fs.closeSync(fd);
+    }
+    text = buf.toString("utf-8");
+  } catch {
+    pendingCache.set(filePath, { mtimeMs: stat.mtimeMs, pending: false });
+    return false;
+  }
+
+  // Single forward pass: add ids on tool_use, remove on tool_result.
+  // Anything still in the set at the end is unanswered. The tail may
+  // start mid-line, so skip the first partial line — its loss can at
+  // most produce a false negative for a tool_use that lived right at
+  // the boundary, which the next refresh tick will catch once the
+  // file grows another line.
+  const lines = text.split("\n");
+  if (text[0] !== "{" && lines.length > 1) lines.shift();
+  const pendingIds = new Set<string>();
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let entry: { message?: { content?: unknown } };
+    try {
+      entry = JSON.parse(line) as { message?: { content?: unknown } };
+    } catch {
+      continue;
+    }
+    const content = entry?.message?.content;
+    if (!Array.isArray(content)) continue;
+    for (const block of content as Array<Record<string, unknown>>) {
+      if (
+        block?.type === "tool_use" &&
+        typeof block.name === "string" &&
+        typeof block.id === "string" &&
+        PENDING_USER_TOOLS.has(block.name)
+      ) {
+        pendingIds.add(block.id);
+      } else if (
+        block?.type === "tool_result" &&
+        typeof block.tool_use_id === "string"
+      ) {
+        pendingIds.delete(block.tool_use_id);
+      }
+    }
+  }
+
+  const pending = pendingIds.size > 0;
+  pendingCache.set(filePath, { mtimeMs: stat.mtimeMs, pending });
+  return pending;
+}
+
+/**
+ * Promote `idle` (or no-status) live sessions to the synthetic
+ * `awaiting_question` state when their transcript shows an unanswered
+ * interactive tool_use. Other statuses are returned unchanged because
+ * the CLI is already signalling something more specific (busy,
+ * awaiting_permission, …) that we should not stomp on.
+ */
+function refineStatus(sessionId: string, baseStatus: string | undefined): string | undefined {
+  if (baseStatus !== "idle" && baseStatus !== "" && baseStatus !== undefined) {
+    return baseStatus;
+  }
+  const file = getSessionFile(sessionId);
+  if (!file) return baseStatus;
+  return detectPendingInteraction(file) ? AWAITING_QUESTION_STATUS : baseStatus;
+}
+
+/**
  * Mutate `sessions` in place to reflect a freshly read live map.
  * Returns true when at least one session's liveness, status, or
  * heartbeat shifted — callers use this to decide whether to push a
@@ -566,7 +700,7 @@ export function applyLiveState(
   for (const s of sessions) {
     const info = live.get(s.id);
     const nextIsLive = info !== undefined;
-    const nextStatus = info?.status ?? undefined;
+    const nextStatus = nextIsLive ? refineStatus(s.id, info?.status) : undefined;
     const nextUpdatedAt = info?.updatedAt ?? undefined;
     if (
       Boolean(s.isLive) !== nextIsLive ||
@@ -704,7 +838,9 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
       projectKey,
       searchHaystack,
       isLive: liveMap.has(sessionId),
-      status: liveMap.get(sessionId)?.status,
+      status: liveMap.has(sessionId)
+        ? refineStatus(sessionId, liveMap.get(sessionId)?.status)
+        : undefined,
       liveUpdatedAt: liveMap.get(sessionId)?.updatedAt,
     });
   }
@@ -1023,7 +1159,9 @@ function discoverOrphanSessions(
         projectKey,
         searchHaystack,
         isLive: liveMap.has(sessionId),
-        status: liveMap.get(sessionId)?.status,
+        status: liveMap.has(sessionId)
+          ? refineStatus(sessionId, liveMap.get(sessionId)?.status)
+          : undefined,
         liveUpdatedAt: liveMap.get(sessionId)?.updatedAt,
       });
     }
@@ -1278,6 +1416,7 @@ export function reparseOneSession(
   // new mtime. Without this the cached meta from before the change wins.
   invalidateSessionMetaCache(filePath);
   invalidateOrphanCacheEntry(filePath);
+  invalidatePendingCacheEntry(filePath);
 
   // Cheapest path that produces a correct Session: re-run parseSessions
   // and pluck the matching id. parseSessions itself is now mtime-cached

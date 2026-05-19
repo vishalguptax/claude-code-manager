@@ -57,6 +57,19 @@ describe("sessionItem live-dot rendering", () => {
     expect(dot.title).toBe("Session is busy");
   });
 
+  it("renders awaiting_question with the orange tooltip", () => {
+    updateSessionItemNode(
+      node,
+      mkSession({ isLive: true, status: "awaiting_question" }),
+      false,
+      false,
+      false,
+    );
+    const dot = liveDot(node);
+    expect(dot.dataset.status).toBe("awaiting_question");
+    expect(dot.title).toBe("Awaiting your answer");
+  });
+
   it("maps known awaiting-permission strings to a friendly tooltip", () => {
     updateSessionItemNode(
       node,

@@ -22,6 +22,8 @@ function liveTitleForStatus(status: string | undefined): string {
     case "waiting_permission":
     case "permission_prompt":
       return "Awaiting permission";
+    case "awaiting_question":
+      return "Awaiting your answer";
     case undefined:
     case "":
       return "Session is live";

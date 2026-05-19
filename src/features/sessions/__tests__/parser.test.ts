@@ -521,6 +521,227 @@ describe("applyLiveState", () => {
   });
 });
 
+describe("pending-question detection (idle → awaiting_question)", () => {
+  beforeEach(setup);
+
+  function projectSlugFor(id: string): string {
+    return `-projects-pending-${id.slice(0, 4)}`;
+  }
+
+  it("promotes idle to awaiting_question when an AskUserQuestion has no tool_result", () => {
+    const id = "sess-pq-1";
+    writeHistoryEntry({
+      display: "needs answer",
+      timestamp: Date.now(),
+      project: "/projects/pending",
+      sessionId: id,
+    });
+    writeSessionFile(projectSlugFor(id), id, [
+      { type: "user", message: { role: "user", content: "do thing" } },
+      {
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tu_1",
+              name: "AskUserQuestion",
+              input: { question: "which?" },
+            },
+          ],
+        },
+      },
+    ]);
+    writePidFile(process.pid, id, { status: "idle", updatedAt: 1 });
+
+    const sess = parseSessions().find((s) => s.id === id)!;
+    expect(sess.status).toBe("awaiting_question");
+  });
+
+  it("leaves status as idle once the tool_result for the question lands", () => {
+    const id = "sess-pq-2";
+    writeHistoryEntry({
+      display: "answered",
+      timestamp: Date.now(),
+      project: "/projects/pending",
+      sessionId: id,
+    });
+    writeSessionFile(projectSlugFor(id), id, [
+      {
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tu_42",
+              name: "AskUserQuestion",
+              input: { question: "which?" },
+            },
+          ],
+        },
+      },
+      {
+        type: "user",
+        message: {
+          role: "user",
+          content: [
+            { type: "tool_result", tool_use_id: "tu_42", content: "option A" },
+          ],
+        },
+      },
+    ]);
+    writePidFile(process.pid, id, { status: "idle", updatedAt: 1 });
+
+    const sess = parseSessions().find((s) => s.id === id)!;
+    expect(sess.status).toBe("idle");
+  });
+
+  it("does not promote idle when the unanswered tool_use is a non-blocking tool", () => {
+    const id = "sess-pq-3";
+    writeHistoryEntry({
+      display: "non-blocking",
+      timestamp: Date.now(),
+      project: "/projects/pending",
+      sessionId: id,
+    });
+    writeSessionFile(projectSlugFor(id), id, [
+      {
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tu_7",
+              name: "Read",
+              input: { file_path: "/x" },
+            },
+          ],
+        },
+      },
+    ]);
+    writePidFile(process.pid, id, { status: "idle", updatedAt: 1 });
+
+    const sess = parseSessions().find((s) => s.id === id)!;
+    expect(sess.status).toBe("idle");
+  });
+
+  it("also triggers for unanswered ExitPlanMode tool_use", () => {
+    const id = "sess-pq-4";
+    writeHistoryEntry({
+      display: "plan",
+      timestamp: Date.now(),
+      project: "/projects/pending",
+      sessionId: id,
+    });
+    writeSessionFile(projectSlugFor(id), id, [
+      {
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tu_plan",
+              name: "ExitPlanMode",
+              input: { plan: "do x" },
+            },
+          ],
+        },
+      },
+    ]);
+    writePidFile(process.pid, id, { status: "idle", updatedAt: 1 });
+
+    const sess = parseSessions().find((s) => s.id === id)!;
+    expect(sess.status).toBe("awaiting_question");
+  });
+
+  it("does not override non-idle CLI statuses (busy stays)", () => {
+    const id = "sess-pq-5";
+    writeHistoryEntry({
+      display: "busy with pending",
+      timestamp: Date.now(),
+      project: "/projects/pending",
+      sessionId: id,
+    });
+    writeSessionFile(projectSlugFor(id), id, [
+      {
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tu_busy",
+              name: "AskUserQuestion",
+              input: { question: "?" },
+            },
+          ],
+        },
+      },
+    ]);
+    writePidFile(process.pid, id, { status: "busy", updatedAt: 1 });
+
+    const sess = parseSessions().find((s) => s.id === id)!;
+    expect(sess.status).toBe("busy");
+  });
+
+  it("applyLiveState refines status to awaiting_question on a cached session", () => {
+    const id = "sess-pq-6";
+    writeHistoryEntry({
+      display: "cache path",
+      timestamp: Date.now(),
+      project: "/projects/pending",
+      sessionId: id,
+    });
+    writeSessionFile(projectSlugFor(id), id, [
+      {
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "tool_use",
+              id: "tu_a",
+              name: "AskUserQuestion",
+              input: { question: "?" },
+            },
+          ],
+        },
+      },
+    ]);
+    // Seed parser caches so getSessionFile resolves the transcript path.
+    parseSessions();
+
+    const sessions: Session[] = [
+      {
+        id,
+        name: "",
+        project: "pending",
+        projectPath: "/projects/pending",
+        branch: "",
+        entrypoint: "",
+        startTime: 0,
+        endTime: 0,
+        messageCount: 0,
+        summary: "",
+        prompts: [],
+        projectKey: "pending",
+        searchHaystack: "",
+        isLive: false,
+        status: undefined,
+      },
+    ];
+    const live = new Map([
+      [id, { pid: process.pid, status: "idle", updatedAt: 2 }],
+    ]);
+    expect(applyLiveState(sessions, live)).toBe(true);
+    expect(sessions[0].status).toBe("awaiting_question");
+  });
+});
+
 describe("Session pre-computed search keys", () => {
   beforeEach(setup);
 

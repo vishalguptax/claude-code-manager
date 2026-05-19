@@ -173,12 +173,16 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--fg-muted, #888) 25%, transparent);
   animation: none;
 }
-/* Awaiting permission: blocked on a tool-use prompt. Orange + faster
-   pulse so the user notices a session that needs attention. Matches
-   the three known string variants the CLI may emit. */
+/* Awaiting permission OR a multi-option user question: both block on
+   the user, so they share the same orange + faster-pulse treatment.
+   `awaiting_question` is a synthetic status the parser raises when a
+   transcript shows an unanswered AskUserQuestion / ExitPlanMode
+   tool_use (the CLI itself just marks the session "idle" in those
+   cases). The three permission strings cover known CLI variants. */
 .live-dot[data-status="awaiting_permission"],
 .live-dot[data-status="waiting_permission"],
-.live-dot[data-status="permission_prompt"] {
+.live-dot[data-status="permission_prompt"],
+.live-dot[data-status="awaiting_question"] {
   background: var(--orange, #f5a623);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--orange, #f5a623) 30%, transparent);
   animation: live-pulse 1.0s ease-in-out infinite;
