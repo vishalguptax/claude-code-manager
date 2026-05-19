@@ -121,9 +121,13 @@ export async function continueLastSession(sessions: Session[]): Promise<void> {
     return;
   }
 
-  // Terminal path (or extension-mode with no session to continue).
+  // Terminal path (or extension-mode with no session to continue). If we
+  // located a `latest` session, surface its name (ai-title → /rename →
+  // id8 chain handled by buildTerminalName) so the tab reads like a
+  // resume tab. If not, fall back to a neutral "continue" label.
   const cwd = ws;
-  const term = createTerminal("continue", cwd || undefined);
+  const termName = latest ? buildTerminalName(latest, latest.id) : "continue";
+  const term = createTerminal(termName, cwd || undefined);
   term.show();
   term.sendText("claude --continue");
 }
