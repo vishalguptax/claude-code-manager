@@ -60,8 +60,14 @@ function Invoke-Git {
 function Test-CleanTree {
   Push-Location $RepoRoot
   try {
-    $status = git status --porcelain
-    if ($status) { throw "Working tree not clean. Commit or stash first.`n$status" }
+    # Only block on TRACKED changes (M, A, D, R, C). Untracked (??) is allowed.
+    $dirty = git status --porcelain | Where-Object { $_ -notmatch '^\?\?' }
+    if ($dirty) { throw "Tracked files have uncommitted changes. Commit or stash first.`n$($dirty -join "`n")" }
+    $untracked = git status --porcelain | Where-Object { $_ -match '^\?\?' }
+    if ($untracked) {
+      Write-Warn "untracked files present (not blocking):"
+      $untracked | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+    }
   } finally { Pop-Location }
 }
 
