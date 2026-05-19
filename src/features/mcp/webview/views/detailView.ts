@@ -77,11 +77,11 @@ export function showMcpDetail(container: HTMLElement): void {
     </div>
 
     <div class="d-actions">
-      <button class="btn primary" id="mcpToggle">${icon(server.disabled ? "play" : "x")} ${server.disabled ? "Enable" : "Disable"}</button>
+      ${server.scope !== "plugin" ? `<button class="btn primary" id="mcpToggle">${icon(server.disabled ? "play" : "x")} ${server.disabled ? "Enable" : "Disable"}</button>` : ""}
       <button class="btn" id="mcpOpenClaude">${icon("play")} Open Claude</button>
       <button class="btn" id="mcpCopyName">${icon("copy")} Copy Name</button>
-      <button class="btn" id="mcpOpenConfig">${icon("external-link")} Open Config</button>
-      <button class="btn del" id="mcpDelete">${icon("trash-2")} Delete</button>
+      ${server.scope !== "plugin" ? `<button class="btn" id="mcpOpenConfig">${icon("external-link")} Open Config</button>` : ""}
+      ${server.scope !== "plugin" ? `<button class="btn del" id="mcpDelete">${icon("trash-2")} Delete</button>` : `<span class="mcp-readonly-note">Owned by plugin ${esc(server.pluginName ?? "")} — managed by Claude Code's <code>/plugin</code> command.</span>`}
     </div>
 
     <div class="mcp-detail-section">

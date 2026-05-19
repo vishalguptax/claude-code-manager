@@ -39,14 +39,21 @@ export function mountSkillsShell(): void {
   const scope = getFilterScope();
   const projectCount = getSkillsByScope("project").length;
   const globalCount = getSkillsByScope("global").length;
+  const pluginCount = getSkillsByScope("plugin").length;
 
   let scopeFilterHtml = "";
   if (allSkills.length > 0) {
+    // Plugin tab only renders when at least one plugin skill exists,
+    // so users without plugins don't see an always-empty filter.
+    const pluginBtn = pluginCount > 0
+      ? `<button class="scope-btn ${scope === "plugin" ? "active" : ""}" data-scope="plugin">Plugin (${pluginCount})</button>`
+      : "";
     scopeFilterHtml = `
       <div class="scope-filter" id="skillsScopeFilter">
         <button class="scope-btn ${scope === "all" ? "active" : ""}" data-scope="all">All (${allSkills.length})</button>
         <button class="scope-btn ${scope === "project" ? "active" : ""}" data-scope="project">Project (${projectCount})</button>
         <button class="scope-btn ${scope === "global" ? "active" : ""}" data-scope="global">Global (${globalCount})</button>
+        ${pluginBtn}
       </div>`;
   }
 
@@ -100,7 +107,7 @@ export function mountSkillsShell(): void {
   // Scope filter binding
   document.getElementById("skillsScopeFilter")?.querySelectorAll(".scope-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const value = (btn as HTMLElement).dataset.scope as "all" | "project" | "global";
+      const value = (btn as HTMLElement).dataset.scope as "all" | "project" | "global" | "plugin";
       if (value) {
         setFilterScope(value);
         // Update active state on buttons
@@ -151,15 +158,21 @@ export function updateSkillsList(): void {
     return;
   }
 
-  // Compound grouping: first by scope (Project / Global), then by the
-  // folder `group` inside each scope. Top-level (group === "") lives
-  // under the bare scope heading; nested skills get an indented
-  // sub-heading showing the folder path. Keeps the flat-list feel
-  // for simple setups while surfacing structure when teams use it.
+  // Compound grouping: first by scope (Project / Global / per-plugin),
+  // then by the folder `group` inside each scope. Top-level
+  // (group === "") lives under the bare scope heading; nested skills
+  // get an indented sub-heading showing the folder path.
+  // Plugin-sourced skills get one group per plugin name (e.g.
+  // "Plugin: caveman@caveman") so provenance is visible.
   type ScopeBucket = { top: Skill[]; nested: Map<string, Skill[]> };
   const groups = new Map<string, ScopeBucket>();
   for (const s of filtered) {
-    const scopeLabel = s.scope === "project" ? "Project" : "Global";
+    const scopeLabel =
+      s.scope === "project"
+        ? "Project"
+        : s.scope === "plugin"
+          ? `Plugin: ${s.pluginName ?? "unknown"}`
+          : "Global";
     let bucket = groups.get(scopeLabel);
     if (!bucket) {
       bucket = { top: [], nested: new Map() };

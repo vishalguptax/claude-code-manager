@@ -19,21 +19,36 @@ export function renderHookItem(hook: Hook, index: number): string {
     ? hook.command.slice(0, 60) + "..."
     : hook.command;
 
-  const scopeLabel = hook.scope === "global" ? "Global" : hook.scope === "project" ? "Project" : "Local";
+  const scopeLabel =
+    hook.scope === "global"
+      ? "Global"
+      : hook.scope === "project"
+        ? "Project"
+        : hook.scope === "plugin"
+          ? `Plugin: ${hook.pluginName ?? "unknown"}`
+          : "Local";
   const toggleTitle = hook.disabled ? "Enable hook" : "Disable hook";
   const toggleIcon = hook.disabled ? "play" : "pin-off";
   const stateClass = hook.disabled ? "is-disabled" : "";
+
+  // Plugin hooks are owned by the plugin manifest — they cannot be
+  // toggled or deleted from this view because the writer refuses to
+  // mutate plugin scope. Hide the action buttons entirely instead of
+  // showing buttons that silently no-op on click.
+  const actionsHtml = hook.scope === "plugin"
+    ? `<span class="hook-readonly-badge" title="Owned by plugin ${esc(hook.pluginName ?? "")}">read-only</span>`
+    : `<span class="hook-item-actions">
+        <button class="hook-action-btn" data-hook-action="toggle" title="${toggleTitle}">${icon(toggleIcon, 12)}</button>
+        <button class="hook-action-btn del" data-hook-action="delete" title="Delete hook">${icon("trash-2", 12)}</button>
+      </span>`;
 
   return `
     <div class="hook-item ${stateClass}" data-hook-index="${index}" tabindex="0">
       <div class="hook-item-row1">
         ${hook.matcher ? `<span class="hook-matcher" title="Matcher: ${esc(hook.matcher)}">${esc(hook.matcher)}</span>` : `<span class="hook-matcher hook-matcher-all">*</span>`}
-        <span class="scope-badge ${hook.scope}">${scopeLabel}</span>
+        <span class="scope-badge ${hook.scope}" title="${esc(scopeLabel)}">${esc(scopeLabel)}</span>
         ${hook.disabled ? `<span class="hook-disabled-badge">disabled</span>` : ""}
-        <span class="hook-item-actions">
-          <button class="hook-action-btn" data-hook-action="toggle" title="${toggleTitle}">${icon(toggleIcon, 12)}</button>
-          <button class="hook-action-btn del" data-hook-action="delete" title="Delete hook">${icon("trash-2", 12)}</button>
-        </span>
+        ${actionsHtml}
       </div>
       <div class="hook-item-command">
         <code>${esc(commandPreview)}</code>

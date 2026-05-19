@@ -15,8 +15,12 @@ export type HookEvent =
   | "SubagentStop"
   | string;
 
-/** Where the hook is defined. */
-export type HookScope = "global" | "project" | "local";
+/**
+ * Where the hook is defined.
+ *  - `global` / `project` / `local`: from a settings.json file (editable)
+ *  - `plugin`: declared by an installed plugin's plugin.json (read-only)
+ */
+export type HookScope = "global" | "project" | "local" | "plugin";
 
 /** A single hook entry from the Claude Code settings. */
 export interface Hook {
@@ -31,9 +35,17 @@ export interface Hook {
   /**
    * True when the hook lives under `_disabled_hooks` instead of
    * `hooks` in settings.json. Disabled hooks are preserved verbatim
-   * so re-enable is a structural move, not a re-author.
+   * so re-enable is a structural move, not a re-author. Always
+   * `false` for `scope: "plugin"` hooks (plugins do not have a
+   * disabled block).
    */
   disabled: boolean;
+  /**
+   * Qualified plugin name (e.g. "caveman@caveman") when this hook
+   * was declared by a plugin's plugin.json. Undefined for hooks
+   * sourced from a settings.json file.
+   */
+  pluginName?: string;
 }
 
 // ── Extension <-> Webview Messages ──

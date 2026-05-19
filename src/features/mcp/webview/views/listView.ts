@@ -40,6 +40,7 @@ export function renderMcpList(container: HTMLElement): void {
 
   const projectCount = getServersByScope("project").length;
   const globalCount = getServersByScope("global").length;
+  const pluginCount = getServersByScope("plugin").length;
 
   let shell = `<div class="panel">
     <div class="search-row">
@@ -52,11 +53,15 @@ export function renderMcpList(container: HTMLElement): void {
     </div>`;
 
   if (servers.length > 0) {
+    const pluginBtn = pluginCount > 0
+      ? `<button class="scope-btn ${scope === "plugin" ? "active" : ""}" data-scope="plugin">Plugin (${pluginCount})</button>`
+      : "";
     shell += `
     <div class="scope-filter" id="mcpScopeFilter">
       <button class="scope-btn ${scope === "all" ? "active" : ""}" data-scope="all">All (${servers.length})</button>
       <button class="scope-btn ${scope === "project" ? "active" : ""}" data-scope="project">Project (${projectCount})</button>
       <button class="scope-btn ${scope === "global" ? "active" : ""}" data-scope="global">Global (${globalCount})</button>
+      ${pluginBtn}
     </div>`;
   }
 
@@ -98,7 +103,7 @@ export function renderMcpList(container: HTMLElement): void {
   // Bind scope filter
   container.querySelector("#mcpScopeFilter")?.querySelectorAll(".scope-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const value = (btn as HTMLElement).dataset.scope as "all" | "project" | "global";
+      const value = (btn as HTMLElement).dataset.scope as "all" | "project" | "global" | "plugin";
       if (value) {
         setFilterScope(value);
         renderMcpList(container);
@@ -152,10 +157,16 @@ function updateMcpListInner(container: HTMLElement): void {
     return;
   }
 
-  // Group by scope
+  // Group by scope. Plugin servers get one group per qualified name
+  // so the user can tell which plugin contributed what.
   const groups = new Map<string, McpServer[]>();
   for (const server of filtered) {
-    const label = server.scope === "project" ? "Project Servers" : "Global Servers";
+    const label =
+      server.scope === "project"
+        ? "Project Servers"
+        : server.scope === "plugin"
+          ? `Plugin: ${server.pluginName ?? "unknown"}`
+          : "Global Servers";
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label)!.push(server);
   }

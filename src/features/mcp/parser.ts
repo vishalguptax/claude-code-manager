@@ -7,7 +7,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { createMtimeCache } from "../../core/mtimeCache";
-import type { McpServer, McpServerType } from "./types";
+import { loadActivePlugins, findPluginMcpFile, type ActivePlugin } from "../../core/plugins";
+import type { McpServer, McpServerScope, McpServerType } from "./types";
 
 /** Cache parsed `McpServer[]` keyed by config file path. */
 const mcpCache = createMtimeCache<McpServer[]>();
@@ -23,7 +24,67 @@ const GLOBAL_MCP_FILE: string = path.join(os.homedir(), ".claude", "mcp.json");
  * @param scope - Whether these are "global" or "project" servers
  * @returns Array of parsed McpServer objects
  */
-function readMcpServersFromFile(filePath: string, scope: "global" | "project"): McpServer[] {
+interface McpReadOpts {
+  scope: McpServerScope;
+  pluginName?: string;
+}
+
+/**
+ * Convert the raw `mcpServers` object (whatever its source — a JSON
+ * file or an inline manifest block) into McpServer[] tagged with the
+ * given scope.
+ */
+function buildServersFromBlock(
+  mcpServers: unknown,
+  opts: McpReadOpts,
+): McpServer[] {
+  if (!mcpServers || typeof mcpServers !== "object" || Array.isArray(mcpServers)) {
+    return [];
+  }
+  const servers: McpServer[] = [];
+  const serversMap = mcpServers as Record<string, unknown>;
+  for (const [name, entry] of Object.entries(serversMap)) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+
+    const rec = entry as Record<string, unknown>;
+    const explicitType = typeof rec.type === "string" ? rec.type : undefined;
+    const disabled = rec.disabled === true;
+    const command = typeof rec.command === "string" ? rec.command : undefined;
+    const url = typeof rec.url === "string" ? rec.url : undefined;
+    const args = Array.isArray(rec.args)
+      ? (rec.args as unknown[]).filter((a): a is string => typeof a === "string")
+      : undefined;
+    const env = rec.env && typeof rec.env === "object" && !Array.isArray(rec.env)
+      ? Object.fromEntries(
+          Object.entries(rec.env as Record<string, unknown>)
+            .filter(([, v]) => typeof v === "string")
+            .map(([k, v]) => [k, v as string]),
+        )
+      : undefined;
+
+    let serverType: McpServerType;
+    if (explicitType === "http" || (!command && url)) {
+      serverType = "http";
+    } else {
+      serverType = "stdio";
+    }
+
+    servers.push({
+      name,
+      type: serverType,
+      command,
+      args,
+      url,
+      env: env && Object.keys(env).length > 0 ? env : undefined,
+      scope: opts.scope,
+      disabled: disabled || undefined,
+      pluginName: opts.scope === "plugin" ? opts.pluginName : undefined,
+    });
+  }
+  return servers;
+}
+
+function readMcpServersFromFile(filePath: string, opts: McpReadOpts): McpServer[] {
   return mcpCache.get(filePath, (p) => {
     let raw: string;
     try {
@@ -43,55 +104,30 @@ function readMcpServersFromFile(filePath: string, scope: "global" | "project"): 
       return [];
     }
 
-    const mcpServers = config.mcpServers;
-    if (!mcpServers || typeof mcpServers !== "object" || Array.isArray(mcpServers)) {
-      return [];
-    }
-
-    const servers: McpServer[] = [];
-    const serversMap = mcpServers as Record<string, unknown>;
-
-    for (const [name, entry] of Object.entries(serversMap)) {
-      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
-
-      const rec = entry as Record<string, unknown>;
-      const explicitType = typeof rec.type === "string" ? rec.type : undefined;
-      const disabled = rec.disabled === true;
-      const command = typeof rec.command === "string" ? rec.command : undefined;
-      const url = typeof rec.url === "string" ? rec.url : undefined;
-      const args = Array.isArray(rec.args)
-        ? (rec.args as unknown[]).filter((a): a is string => typeof a === "string")
-        : undefined;
-      const env = rec.env && typeof rec.env === "object" && !Array.isArray(rec.env)
-        ? Object.fromEntries(
-            Object.entries(rec.env as Record<string, unknown>)
-              .filter(([, v]) => typeof v === "string")
-              .map(([k, v]) => [k, v as string]),
-          )
-        : undefined;
-
-      // Determine server type: explicit type field, or infer from presence of url vs command
-      let serverType: McpServerType;
-      if (explicitType === "http" || (!command && url)) {
-        serverType = "http";
-      } else {
-        serverType = "stdio";
-      }
-
-      servers.push({
-        name,
-        type: serverType,
-        command,
-        args,
-        url,
-        env: env && Object.keys(env).length > 0 ? env : undefined,
-        scope,
-        disabled: disabled || undefined,
-      });
-    }
-
-    return servers;
+    return buildServersFromBlock(config.mcpServers, opts);
   });
+}
+
+/**
+ * Read MCP servers contributed by a single plugin.
+ *
+ * Order of precedence:
+ *  1. `manifest.mcpServers` (inline) — wins if present.
+ *  2. `<plugin>/.mcp.json` (preferred file form).
+ *  3. `<plugin>/mcp.json` (alternative file form).
+ *
+ * Only one source is used per plugin; inline + file would otherwise
+ * duplicate entries by name. The inline form mirrors what claude-code
+ * itself loads from the manifest.
+ */
+function readPluginMcpServers(plugin: ActivePlugin): McpServer[] {
+  const opts: McpReadOpts = { scope: "plugin", pluginName: plugin.qualifiedName };
+  if (plugin.manifest.mcpServers && typeof plugin.manifest.mcpServers === "object") {
+    return buildServersFromBlock(plugin.manifest.mcpServers, opts);
+  }
+  const file = findPluginMcpFile(plugin);
+  if (!file) return [];
+  return readMcpServersFromFile(file, opts);
 }
 
 /**
@@ -107,11 +143,16 @@ export function parseMcpServers(workspacePath?: string): McpServer[] {
   // Project-level MCP servers (.mcp.json in project root)
   if (workspacePath) {
     const projectMcpFile = path.join(workspacePath, ".mcp.json");
-    servers.push(...readMcpServersFromFile(projectMcpFile, "project"));
+    servers.push(...readMcpServersFromFile(projectMcpFile, { scope: "project" }));
   }
 
   // Global MCP servers (~/.claude/mcp.json)
-  servers.push(...readMcpServersFromFile(GLOBAL_MCP_FILE, "global"));
+  servers.push(...readMcpServersFromFile(GLOBAL_MCP_FILE, { scope: "global" }));
+
+  // Plugin-provided MCP servers (read-only).
+  for (const plugin of loadActivePlugins(workspacePath)) {
+    servers.push(...readPluginMcpServers(plugin));
+  }
 
   return servers;
 }
@@ -128,10 +169,13 @@ export function parseMcpServers(workspacePath?: string): McpServer[] {
  */
 export function toggleMcpServer(
   name: string,
-  scope: "global" | "project",
+  scope: McpServerScope,
   disabled: boolean,
   workspacePath?: string,
 ): boolean {
+  // Plugin-supplied MCP servers live inside a plugin's install dir
+  // (or its manifest). They are read-only from the sidebar.
+  if (scope === "plugin") return false;
   const filePath = scope === "project" && workspacePath
     ? path.join(workspacePath, ".mcp.json")
     : GLOBAL_MCP_FILE;
@@ -177,9 +221,10 @@ export function toggleMcpServer(
  */
 export function deleteMcpServer(
   name: string,
-  scope: "global" | "project",
+  scope: McpServerScope,
   workspacePath?: string,
 ): boolean {
+  if (scope === "plugin") return false;
   const filePath = scope === "project" && workspacePath
     ? path.join(workspacePath, ".mcp.json")
     : GLOBAL_MCP_FILE;

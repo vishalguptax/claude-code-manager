@@ -1,15 +1,16 @@
 /**
  * Command parsing — reads Claude Code slash command files from disk
- * and provides the catalog of built-in slash commands.
- * Pure Node.js file I/O, no VS Code dependency.
+ * (`.md` and `.toml`) and provides the catalog of built-in slash
+ * commands. Pure Node.js file I/O, no VS Code dependency.
  */
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { createMtimeCache } from "../../core/mtimeCache";
-import type { Command } from "./types";
+import { loadActivePlugins, resolvePluginContentDirs, type ActivePlugin } from "../../core/plugins";
+import type { Command, CommandScope } from "./types";
 
-/** Cache parsed Command objects by their .md path; readdir stays uncached. */
+/** Cache parsed Command objects by their source path; readdir stays uncached. */
 const commandCache = createMtimeCache<Command>();
 
 /** Global commands directory: ~/.claude/commands/ */
@@ -79,8 +80,6 @@ const BUILTIN_COMMANDS: ReadonlyArray<readonly [string, string]> = [
  * Return the catalog of built-in Claude Code slash commands as Command objects.
  * Built-ins have `scope: "builtin"`, an empty `content` and `path`, and a
  * `description` populated from the documentation.
- *
- * @returns Sorted array of built-in commands.
  */
 export function getBuiltInCommands(): Command[] {
   return BUILTIN_COMMANDS.map(
@@ -95,13 +94,57 @@ export function getBuiltInCommands(): Command[] {
 }
 
 /**
- * Read all .md files from a directory and return them as Command objects.
- * Returns an empty array if the directory does not exist or cannot be read.
+ * Best-effort extraction of a top-level `description = "..."` value
+ * from a TOML command file. Handles the three string forms commonly
+ * seen in plugin-shipped TOML commands:
+ *   - basic strings:       description = "..."
+ *   - literal strings:     description = '...'
+ *   - multi-line basic:    description = """..."""
+ * Comments (`#`) outside strings are stripped. Lines inside multi-line
+ * strings are joined with `\n`. Returns an empty string when no
+ * top-level `description` key is found.
  *
- * @param dir - Absolute path to the commands directory
- * @param scope - Whether these are "global" or "project" commands
+ * This is not a full TOML parser by design — the command surface only
+ * needs the description, and pulling a dependency just for that would
+ * cost every webview user.
  */
-function readCommandsFromDir(dir: string, scope: "global" | "project"): Command[] {
+function extractTomlDescription(raw: string): string {
+  // Strip BOM and CR for predictable matching.
+  const text = raw.replace(/^﻿/, "").replace(/\r/g, "");
+
+  // Multi-line basic string: description = """..."""
+  const multi = text.match(/^\s*description\s*=\s*"""([\s\S]*?)"""/m);
+  if (multi) return multi[1].trim();
+
+  // Basic string: description = "..."
+  const basic = text.match(/^\s*description\s*=\s*"((?:[^"\\]|\\.)*)"/m);
+  if (basic) {
+    // Decode the small set of TOML escape sequences we care about.
+    return basic[1]
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, "\\")
+      .trim();
+  }
+
+  // Literal string: description = '...'
+  const literal = text.match(/^\s*description\s*=\s*'((?:[^'\\]|\\.)*)'/m);
+  if (literal) return literal[1].trim();
+
+  return "";
+}
+
+interface ReadCommandsOpts {
+  scope: CommandScope;
+  pluginName?: string;
+}
+
+/**
+ * Read all command files (`.md` and `.toml`) from a directory.
+ * Returns an empty array if the directory does not exist or cannot be read.
+ */
+function readCommandsFromDir(dir: string, opts: ReadCommandsOpts): Command[] {
   let files: string[];
   try {
     files = fs.readdirSync(dir);
@@ -114,7 +157,9 @@ function readCommandsFromDir(dir: string, scope: "global" | "project"): Command[
 
   const commands: Command[] = [];
   for (const file of files) {
-    if (!file.endsWith(".md")) continue;
+    const isMd = file.endsWith(".md");
+    const isToml = file.endsWith(".toml");
+    if (!isMd && !isToml) continue;
 
     const filePath = path.join(dir, file);
     let stat: fs.Stats;
@@ -125,12 +170,20 @@ function readCommandsFromDir(dir: string, scope: "global" | "project"): Command[
     }
     if (!stat.isFile()) continue;
 
-    const name = file.replace(/\.md$/, "");
+    const name = file.replace(/\.(md|toml)$/, "");
     let cmd: Command;
     try {
       cmd = commandCache.get(filePath, (p) => {
         const content = fs.readFileSync(p, "utf-8");
-        return { name, scope, content, path: p };
+        const description = isToml ? extractTomlDescription(content) : undefined;
+        return {
+          name,
+          scope: opts.scope,
+          content,
+          path: p,
+          description,
+          pluginName: opts.scope === "plugin" ? opts.pluginName : undefined,
+        };
       });
     } catch (err: unknown) {
       console.warn(`[claude-manager] Failed to read command file ${filePath}:`, (err as Error).message);
@@ -142,17 +195,20 @@ function readCommandsFromDir(dir: string, scope: "global" | "project"): Command[
   return commands;
 }
 
+function readPluginCommands(plugin: ActivePlugin): Command[] {
+  const out: Command[] = [];
+  for (const dir of resolvePluginContentDirs(plugin, "commands", "commands")) {
+    out.push(...readCommandsFromDir(dir, { scope: "plugin", pluginName: plugin.qualifiedName }));
+  }
+  return out;
+}
+
 /**
- * Parse all Claude Code slash commands from built-ins, the global directory,
- * and the optional project directory.
- *
- * Built-in commands come from {@link getBuiltInCommands}, global commands
- * from ~/.claude/commands/, and project commands from .claude/commands/
- * relative to the given workspace path.
+ * Parse all Claude Code slash commands from built-ins, the global
+ * directory, the workspace directory, and every active plugin.
  *
  * @param workspacePath - Absolute path to the current workspace folder (optional).
- *   When not provided, only built-in and global commands are returned.
- * @returns Array of all known commands: built-ins first, then global, then project.
+ * @returns Built-ins first, then global, project, and plugin commands.
  */
 export function parseCommands(workspacePath?: string): Command[] {
   const commands: Command[] = [];
@@ -161,12 +217,17 @@ export function parseCommands(workspacePath?: string): Command[] {
   commands.push(...getBuiltInCommands());
 
   // Global commands
-  commands.push(...readCommandsFromDir(GLOBAL_COMMANDS_DIR, "global"));
+  commands.push(...readCommandsFromDir(GLOBAL_COMMANDS_DIR, { scope: "global" }));
 
   // Project commands
   if (workspacePath) {
     const projectCommandsDir = path.join(workspacePath, ".claude", "commands");
-    commands.push(...readCommandsFromDir(projectCommandsDir, "project"));
+    commands.push(...readCommandsFromDir(projectCommandsDir, { scope: "project" }));
+  }
+
+  // Plugin-provided commands
+  for (const plugin of loadActivePlugins(workspacePath)) {
+    commands.push(...readPluginCommands(plugin));
   }
 
   return commands;

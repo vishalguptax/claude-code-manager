@@ -13,8 +13,8 @@ export interface Skill {
   name: string;
   /** Short description from frontmatter */
   description: string;
-  /** Whether the skill is global (~/.claude/skills/) or project-level (.claude/skills/) */
-  scope: "global" | "project";
+  /** Where the skill comes from. `plugin` items are read-only. */
+  scope: "global" | "project" | "plugin";
   /** Absolute path to the skill folder */
   path: string;
   /** Full raw content of SKILL.md (frontmatter + body) */
@@ -28,6 +28,12 @@ export interface Skill {
    * the webview to group skills under collapsible folder headers.
    */
   group: string;
+  /**
+   * For plugin-sourced skills, the qualified name of the providing
+   * plugin (e.g. "caveman@caveman"). Undefined for global/project.
+   * Used by the webview to label and group plugin items.
+   */
+  pluginName?: string;
 }
 
 // ── Extension <-> Webview Messages ──

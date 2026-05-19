@@ -23,13 +23,23 @@ export function renderMcpItem(server: McpServer, isActive: boolean): string {
     ? detail.slice(0, 60) + "..."
     : detail;
 
+  // Plugin items expose their qualified plugin name so that two
+  // plugins shipping a server with the same `name` resolve to the
+  // right entry on click. Settings-scoped items don't have a plugin
+  // owner and use the empty string as a stable placeholder.
+  const pluginKey = server.pluginName ?? "";
+  const readOnlyBadge = server.scope === "plugin"
+    ? `<span class="mcp-readonly-badge" title="Owned by plugin ${esc(pluginKey)}">read-only</span>`
+    : "";
+
   return `
-    <div class="mcp-item ${isActive ? "active" : ""} ${server.disabled ? "mcp-disabled" : ""}" data-mcp-name="${esc(server.name)}" data-mcp-scope="${server.scope}">
+    <div class="mcp-item ${isActive ? "active" : ""} ${server.disabled ? "mcp-disabled" : ""}" data-mcp-name="${esc(server.name)}" data-mcp-scope="${server.scope}" data-mcp-plugin="${esc(pluginKey)}">
       <div class="mcp-item-row1">
         <span class="mcp-item-name">${esc(server.name)}</span>
         <button class="item-copy-btn" data-copy-name="${esc(server.name)}" title="Copy name">${icon("copy", 14)}</button>
         ${server.disabled ? `<span class="mcp-disabled-badge">disabled</span>` : ""}
         <span class="mcp-type-badge mcp-type-${server.type}">${server.type}</span>
+        ${readOnlyBadge}
       </div>
       <div class="mcp-item-detail">${esc(detailPreview)}</div>
     </div>`;
@@ -66,12 +76,19 @@ export function bindMcpItems(
       return;
     }
 
-    // MCP item click
+    // MCP item click — disambiguate by (name, scope, pluginName) so
+    // two plugins shipping a server with the same name resolve
+    // correctly. For non-plugin scopes pluginName is the empty
+    // string on both sides, and the original (name, scope) match
+    // still wins.
     const item = target.closest(".mcp-item") as HTMLElement | null;
     if (item) {
       const name = item.dataset.mcpName;
       const scope = item.dataset.mcpScope;
-      const server = servers.find((s) => s.name === name && s.scope === scope);
+      const plugin = item.dataset.mcpPlugin ?? "";
+      const server = servers.find(
+        (s) => s.name === name && s.scope === scope && (s.pluginName ?? "") === plugin,
+      );
       if (server) onSelect(server);
     }
   });

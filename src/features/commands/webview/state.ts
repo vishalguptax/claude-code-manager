@@ -12,7 +12,7 @@ let allCommands: Command[] = [];
 let selectedCommand: Command | null = null;
 let loading = false;
 let searchQuery = "";
-let filterScope: "all" | "project" | "global" | "builtin" = "all";
+let filterScope: "all" | "project" | "global" | "builtin" | "plugin" = "all";
 
 // ── Getters ──
 
@@ -22,7 +22,7 @@ export function getAllCommands(): Command[] {
 }
 
 /** Return commands filtered by scope. */
-export function getCommandsByScope(scope: "global" | "project" | "builtin"): Command[] {
+export function getCommandsByScope(scope: "global" | "project" | "builtin" | "plugin"): Command[] {
   return allCommands.filter((c) => c.scope === scope);
 }
 
@@ -42,7 +42,7 @@ export function getSearchQuery(): string {
 }
 
 /** Return the current scope filter value. */
-export function getFilterScope(): "all" | "project" | "global" | "builtin" {
+export function getFilterScope(): "all" | "project" | "global" | "builtin" | "plugin" {
   return filterScope;
 }
 
@@ -69,17 +69,18 @@ export function setSearchQuery(q: string): void {
 }
 
 /** Set the scope filter value. */
-export function setFilterScope(scope: "all" | "project" | "global" | "builtin"): void {
+export function setFilterScope(scope: "all" | "project" | "global" | "builtin" | "plugin"): void {
   filterScope = scope;
 }
 
 // ── Derived data ──
 
-/** Sort priority for command scopes. Built-ins come first, then project, then global. */
-const SCOPE_ORDER: Record<"builtin" | "project" | "global", number> = {
+/** Sort priority for command scopes. Built-ins → project → global → plugin. */
+const SCOPE_ORDER: Record<Command["scope"], number> = {
   builtin: 0,
   project: 1,
   global: 2,
+  plugin: 3,
 };
 
 /**
@@ -105,6 +106,10 @@ export function getFilteredCommands(): Command[] {
   list = [...list].sort((a, b) => {
     if (a.scope !== b.scope) {
       return SCOPE_ORDER[a.scope] - SCOPE_ORDER[b.scope];
+    }
+    // Within the plugin bucket, keep each plugin's commands contiguous.
+    if (a.scope === "plugin" && a.pluginName !== b.pluginName) {
+      return (a.pluginName ?? "").localeCompare(b.pluginName ?? "");
     }
     return a.name.localeCompare(b.name);
   });

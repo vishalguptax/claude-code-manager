@@ -124,6 +124,11 @@ export function toggleHookEnabled(
   hook: Hook,
   enable: boolean,
 ): boolean {
+  // Plugin-sourced hooks live in plugin.json (owned by claude-code's
+  // plugin install machinery) and have no settings.json to mutate.
+  // Refusing here keeps the rest of the writer simple — it only ever
+  // sees settings.json shapes.
+  if (hook.scope === "plugin") return false;
   const data = readSettings(filePath);
   const sourceKey = enable ? "_disabled_hooks" : "hooks";
   const targetKey = enable ? "hooks" : "_disabled_hooks";
@@ -168,6 +173,7 @@ export function toggleHookEnabled(
 
 /** Permanently delete a hook entry. Returns true on success. */
 export function deleteHook(filePath: string, hook: Hook): boolean {
+  if (hook.scope === "plugin") return false;
   const data = readSettings(filePath);
   const blockKey = hook.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
@@ -192,6 +198,7 @@ export function updateHook(
   original: Hook,
   next: { matcher: string; command: string },
 ): boolean {
+  if (original.scope === "plugin") return false;
   const data = readSettings(filePath);
   const blockKey = original.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;

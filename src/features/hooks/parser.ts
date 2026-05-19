@@ -6,6 +6,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { createMtimeCache } from "../../core/mtimeCache";
+import { loadActivePlugins, type ActivePlugin } from "../../core/plugins";
 import type { Hook, HookScope } from "./types";
 
 /**
@@ -54,18 +55,37 @@ function readHooksFromFile(filePath: string, scope: HookScope): Hook[] {
     // Active block first, then the parked `_disabled_hooks` block (if
     // any). We tag each hook with its `disabled` origin so the UI can
     // render and toggle it without re-reading the file.
-    collectFromBlock(settings.hooks, scope, false, hooks);
-    collectFromBlock(settings._disabled_hooks, scope, true, hooks);
+    collectFromBlock(settings.hooks, { scope, disabled: false }, hooks);
+    collectFromBlock(settings._disabled_hooks, { scope, disabled: true }, hooks);
     return hooks;
   });
 }
 
-function collectFromBlock(
-  block: unknown,
-  scope: HookScope,
-  disabled: boolean,
-  out: Hook[],
-): void {
+/**
+ * Extract hooks declared inline in a plugin's `plugin.json`. Plugins
+ * use the same `hooks` shape as `settings.json` but never have a
+ * disabled block — they are either present or not.
+ */
+function readPluginHooks(plugin: ActivePlugin): Hook[] {
+  const block = plugin.manifest.hooks;
+  if (!block) return [];
+  const out: Hook[] = [];
+  collectFromBlock(
+    block,
+    { scope: "plugin", disabled: false, pluginName: plugin.qualifiedName },
+    out,
+  );
+  return out;
+}
+
+interface CollectOpts {
+  scope: HookScope;
+  disabled: boolean;
+  /** Qualified plugin name to stamp on each emitted hook (plugin scope only). */
+  pluginName?: string;
+}
+
+function collectFromBlock(block: unknown, opts: CollectOpts, out: Hook[]): void {
   if (!block || typeof block !== "object" || Array.isArray(block)) return;
   const map = block as Record<string, unknown>;
 
@@ -85,14 +105,28 @@ function collectFromBlock(
           const subRec = sub as Record<string, unknown>;
           const command = typeof subRec.command === "string" ? subRec.command : "";
           if (!command) continue;
-          out.push({ event, matcher, command, scope, disabled });
+          out.push({
+            event,
+            matcher,
+            command,
+            scope: opts.scope,
+            disabled: opts.disabled,
+            pluginName: opts.pluginName,
+          });
         }
         continue;
       }
 
       const command = typeof rec.command === "string" ? rec.command : "";
       if (!command) continue;
-      out.push({ event, matcher, command, scope, disabled });
+      out.push({
+        event,
+        matcher,
+        command,
+        scope: opts.scope,
+        disabled: opts.disabled,
+        pluginName: opts.pluginName,
+      });
     }
   }
 }
@@ -120,6 +154,11 @@ export function parseHooks(workspacePath?: string): Hook[] {
     const localSettings = path.join(workspacePath, ".claude", "settings.local.json");
     hooks.push(...readHooksFromFile(projectSettings, "project"));
     hooks.push(...readHooksFromFile(localSettings, "local"));
+  }
+
+  // Plugin-declared hooks (read-only).
+  for (const plugin of loadActivePlugins(workspacePath)) {
+    hooks.push(...readPluginHooks(plugin));
   }
 
   return hooks;

@@ -48,12 +48,17 @@ export function renderHooksList(container: HTMLElement): void {
     const globalCount = getHooksByScope("global").length;
     const projectCount = getHooksByScope("project").length;
     const localCount = getHooksByScope("local").length;
+    const pluginCount = getHooksByScope("plugin").length;
+    const pluginBtn = pluginCount > 0
+      ? `<button class="scope-btn ${scope === "plugin" ? "active" : ""}" data-scope="plugin">Plugin (${pluginCount})</button>`
+      : "";
     scopeFilterHtml = `
       <div class="scope-filter" id="hookScopeFilter">
         <button class="scope-btn ${scope === "all" ? "active" : ""}" data-scope="all">All (${allHooks.length})</button>
         <button class="scope-btn ${scope === "global" ? "active" : ""}" data-scope="global">Global (${globalCount})</button>
         <button class="scope-btn ${scope === "project" ? "active" : ""}" data-scope="project">Project (${projectCount})</button>
         <button class="scope-btn ${scope === "local" ? "active" : ""}" data-scope="local">Local (${localCount})</button>
+        ${pluginBtn}
       </div>`;
   }
 

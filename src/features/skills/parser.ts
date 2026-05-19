@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { createMtimeCache } from "../../core/mtimeCache";
+import { loadActivePlugins, resolvePluginContentDirs, type ActivePlugin } from "../../core/plugins";
 import type { Skill } from "./types";
 
 /**
@@ -119,9 +120,24 @@ const MAX_SKILLS_DEPTH = 6;
  * `group` (folder segments joined by `/`) so the UI can render a
  * grouped/nested tree without re-deriving it later.
  */
-function readSkillsFromDir(root: string, scope: "global" | "project"): Skill[] {
+interface ReadSkillsOpts {
+  scope: "global" | "project" | "plugin";
+  /**
+   * For `scope: "plugin"`, the qualified plugin name carried onto
+   * each Skill and prefixed into its ID so plugin items are
+   * disambiguated from same-named global/project items.
+   */
+  pluginName?: string;
+}
+
+function readSkillsFromDir(root: string, opts: ReadSkillsOpts): Skill[] {
   const skills: Skill[] = [];
   if (!fs.existsSync(root)) return skills;
+
+  const { scope, pluginName } = opts;
+  // Plugin IDs are namespaced by qualified name so two plugins
+  // shipping a `lint` skill don't collide on their ID.
+  const idPrefix = scope === "plugin" && pluginName ? `plugin:${pluginName}` : scope;
 
   const walk = (dir: string, groupSegments: string[], depth: number): void => {
     if (depth > MAX_SKILLS_DEPTH) return;
@@ -145,7 +161,7 @@ function readSkillsFromDir(root: string, scope: "global" | "project"): Skill[] {
       if (fs.existsSync(skillFile)) {
         // IDs must stay unique across nested skills — include the
         // folder path segments so `team/lint` and `lint` don't
-        // collide when both exist. scope:segment1/segment2/name.
+        // collide when both exist.
         const idSuffix = [...groupSegments, entry].join("/");
         let skill: Skill;
         try {
@@ -153,7 +169,7 @@ function readSkillsFromDir(root: string, scope: "global" | "project"): Skill[] {
             const raw = fs.readFileSync(p, "utf-8");
             const parsed = parseFrontmatter(raw);
             return {
-              id: `${scope}:${idSuffix}`,
+              id: `${idPrefix}:${idSuffix}`,
               name: parsed.name || entry,
               description: parsed.description,
               scope,
@@ -161,6 +177,7 @@ function readSkillsFromDir(root: string, scope: "global" | "project"): Skill[] {
               content: raw,
               tags: parsed.tags,
               group: groupSegments.join("/"),
+              pluginName: scope === "plugin" ? pluginName : undefined,
             };
           });
         } catch {
@@ -194,11 +211,26 @@ export function parseSkills(workspacePath?: string): Skill[] {
   // Project-level skills
   if (workspacePath) {
     const projectSkillsDir = path.join(workspacePath, ".claude", "skills");
-    skills.push(...readSkillsFromDir(projectSkillsDir, "project"));
+    skills.push(...readSkillsFromDir(projectSkillsDir, { scope: "project" }));
   }
 
   // Global skills
-  skills.push(...readSkillsFromDir(GLOBAL_SKILLS_DIR, "global"));
+  skills.push(...readSkillsFromDir(GLOBAL_SKILLS_DIR, { scope: "global" }));
+
+  // Plugin-provided skills. Each active plugin may declare a custom
+  // skills path (manifest.skills) or fall back to the conventional
+  // `skills/` directory at its root.
+  for (const plugin of loadActivePlugins(workspacePath)) {
+    skills.push(...readPluginSkills(plugin));
+  }
 
   return skills;
+}
+
+function readPluginSkills(plugin: ActivePlugin): Skill[] {
+  const out: Skill[] = [];
+  for (const dir of resolvePluginContentDirs(plugin, "skills", "skills")) {
+    out.push(...readSkillsFromDir(dir, { scope: "plugin", pluginName: plugin.qualifiedName }));
+  }
+  return out;
 }

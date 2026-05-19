@@ -43,6 +43,7 @@ export function renderCommandsList(container: HTMLElement): void {
   const projectCount = getCommandsByScope("project").length;
   const globalCount = getCommandsByScope("global").length;
   const builtinCount = getCommandsByScope("builtin").length;
+  const pluginCount = getCommandsByScope("plugin").length;
 
   let shell = `<div class="panel">
     <div class="search-row">
@@ -54,12 +55,16 @@ export function renderCommandsList(container: HTMLElement): void {
     </div>`;
 
   if (allCommands.length > 0) {
+    const pluginBtn = pluginCount > 0
+      ? `<button class="scope-btn ${scope === "plugin" ? "active" : ""}" data-scope="plugin">Plugin (${pluginCount})</button>`
+      : "";
     shell += `
     <div class="scope-filter" id="cmdScopeFilter">
       <button class="scope-btn ${scope === "all" ? "active" : ""}" data-scope="all">All (${allCommands.length})</button>
       <button class="scope-btn ${scope === "builtin" ? "active" : ""}" data-scope="builtin">Built-in (${builtinCount})</button>
       <button class="scope-btn ${scope === "project" ? "active" : ""}" data-scope="project">Project (${projectCount})</button>
       <button class="scope-btn ${scope === "global" ? "active" : ""}" data-scope="global">Global (${globalCount})</button>
+      ${pluginBtn}
     </div>`;
   }
 
@@ -101,7 +106,12 @@ export function renderCommandsList(container: HTMLElement): void {
   // Bind scope filter
   container.querySelector("#cmdScopeFilter")?.querySelectorAll(".scope-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      const value = (btn as HTMLElement).dataset.scope as "all" | "project" | "global" | "builtin";
+      const value = (btn as HTMLElement).dataset.scope as
+        | "all"
+        | "project"
+        | "global"
+        | "builtin"
+        | "plugin";
       if (value) {
         setFilterScope(value);
         renderCommandsList(container);
@@ -149,10 +159,14 @@ function updateCommandsListInner(container: HTMLElement): void {
 
   // Group by scope (built-ins first, then project, then global)
   const groups = new Map<string, Command[]>();
-  const labelFor = (scope: Command["scope"]): string =>
-    scope === "builtin" ? "Built-in" : scope === "project" ? "Project Commands" : "Global Commands";
+  const labelFor = (cmd: Command): string => {
+    if (cmd.scope === "builtin") return "Built-in";
+    if (cmd.scope === "project") return "Project Commands";
+    if (cmd.scope === "plugin") return `Plugin: ${cmd.pluginName ?? "unknown"}`;
+    return "Global Commands";
+  };
   for (const cmd of filtered) {
-    const label = labelFor(cmd.scope);
+    const label = labelFor(cmd);
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label)!.push(cmd);
   }

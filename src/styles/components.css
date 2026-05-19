@@ -615,6 +615,45 @@
 .scope-badge.global { background: var(--badge-bg); color: var(--badge-fg); }
 .scope-badge.local { background: var(--color-purple-bg); color: var(--color-purple); }
 .scope-badge.builtin { background: var(--color-blue-bg); color: var(--color-blue); }
+/* Plugin scope reuses the blue accent + a max-width so long
+   qualified-name labels (`Plugin: <name>@<marketplace>`) truncate
+   gracefully inside narrow list rows. */
+.scope-badge.plugin {
+  background: var(--color-blue-bg);
+  color: var(--color-blue);
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+/* Inline note shown in detail panels for read-only items (plugin-
+   sourced hooks, MCP servers, etc.) — explains why the usual
+   toggle/delete controls are missing. */
+.hook-readonly-note,
+.mcp-readonly-note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+  align-self: center;
+}
+.hook-readonly-note code,
+.mcp-readonly-note code {
+  font-style: normal;
+}
+
+/* Compact badge variant for list rows where the full note is too
+   long; flags an item as not editable from the sidebar. */
+.hook-readonly-badge,
+.mcp-readonly-badge {
+  font-size: var(--fs-xs);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--badge-bg);
+  color: var(--text-muted);
+  font-weight: 500;
+}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

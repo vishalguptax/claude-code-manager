@@ -94,6 +94,55 @@ describe("parseSkills — nested discovery", () => {
     expect(skills[0].name).toBe("bundler");
   });
 
+  it("discovers skills from plugins via the manifest convention", () => {
+    const pluginRoot = path.join(HOME, ".claude", "plugins", "cache", "mkt", "p", "v1");
+    fs.mkdirSync(path.join(pluginRoot, ".claude-plugin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pluginRoot, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "p" }),
+    );
+    writeSkill(path.join(pluginRoot, "skills", "shout"), sampleFm("shout"));
+
+    fs.mkdirSync(path.join(HOME, ".claude", "plugins"), { recursive: true });
+    fs.writeFileSync(
+      path.join(HOME, ".claude", "plugins", "installed_plugins.json"),
+      JSON.stringify({
+        plugins: { "p@mkt": [{ scope: "user", installPath: pluginRoot }] },
+      }),
+    );
+
+    const skills = parseSkills();
+    const plug = skills.find((s) => s.scope === "plugin");
+    expect(plug).toBeDefined();
+    expect(plug?.name).toBe("shout");
+    expect(plug?.pluginName).toBe("p@mkt");
+    expect(plug?.id).toBe("plugin:p@mkt:shout");
+  });
+
+  it("namespaces plugin skill ids so colliding skill names don't clobber", () => {
+    for (const tag of ["a", "b"]) {
+      const root = path.join(HOME, ".claude", "plugins", "cache", "mkt", tag, "v1");
+      fs.mkdirSync(path.join(root, ".claude-plugin"), { recursive: true });
+      fs.writeFileSync(path.join(root, ".claude-plugin", "plugin.json"), "{}");
+      writeSkill(path.join(root, "skills", "lint"), sampleFm("lint"));
+    }
+    fs.writeFileSync(
+      path.join(HOME, ".claude", "plugins", "installed_plugins.json"),
+      JSON.stringify({
+        plugins: {
+          "a@mkt": [{ scope: "user", installPath: path.join(HOME, ".claude", "plugins", "cache", "mkt", "a", "v1") }],
+          "b@mkt": [{ scope: "user", installPath: path.join(HOME, ".claude", "plugins", "cache", "mkt", "b", "v1") }],
+        },
+      }),
+    );
+
+    const skills = parseSkills();
+    const ids = skills.filter((s) => s.scope === "plugin").map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain("plugin:a@mkt:lint");
+    expect(ids).toContain("plugin:b@mkt:lint");
+  });
+
   it("mixes project + global skills with correct scope + group", () => {
     const ws = path.join(HOME, "workspace");
     writeSkill(path.join(ws, ".claude", "skills", "onboarding"), sampleFm("onboarding"));

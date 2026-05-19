@@ -58,6 +58,39 @@ describe("addHook", () => {
   });
 });
 
+describe("plugin scope is read-only", () => {
+  it("toggleHookEnabled refuses to mutate plugin-sourced hooks", () => {
+    seed({ hooks: { PreToolUse: [{ matcher: "Write", command: "echo" }] } });
+    const before = fs.readFileSync(tmpFile, "utf-8");
+    const ok = toggleHookEnabled(
+      tmpFile,
+      makeHook({ scope: "plugin", pluginName: "p@mkt" }),
+      false,
+    );
+    expect(ok).toBe(false);
+    expect(fs.readFileSync(tmpFile, "utf-8")).toBe(before);
+  });
+
+  it("deleteHook refuses to mutate plugin-sourced hooks", () => {
+    seed({ hooks: { PreToolUse: [{ matcher: "Write", command: "echo" }] } });
+    const before = fs.readFileSync(tmpFile, "utf-8");
+    expect(deleteHook(tmpFile, makeHook({ scope: "plugin", pluginName: "p@mkt" }))).toBe(false);
+    expect(fs.readFileSync(tmpFile, "utf-8")).toBe(before);
+  });
+
+  it("updateHook refuses to rewrite plugin-sourced hooks", () => {
+    seed({ hooks: { PreToolUse: [{ matcher: "Write", command: "echo" }] } });
+    const before = fs.readFileSync(tmpFile, "utf-8");
+    const ok = updateHook(
+      tmpFile,
+      makeHook({ scope: "plugin", pluginName: "p@mkt" }),
+      { matcher: "Other", command: "echo new" },
+    );
+    expect(ok).toBe(false);
+    expect(fs.readFileSync(tmpFile, "utf-8")).toBe(before);
+  });
+});
+
 describe("toggleHookEnabled", () => {
   it("moves an active hook into _disabled_hooks verbatim", () => {
     seed({

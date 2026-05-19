@@ -104,3 +104,42 @@ describe("parseHooks mtime caching", () => {
     expect(second[0].matcher).toBe("z");
   });
 });
+
+describe("parseHooks — plugin discovery", () => {
+  it("surfaces hooks declared inline in a plugin manifest", () => {
+    const pluginRoot = path.join(tmp.home, ".claude", "plugins", "cache", "mkt", "p", "v1");
+    fs.mkdirSync(path.join(pluginRoot, ".claude-plugin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pluginRoot, ".claude-plugin", "plugin.json"),
+      JSON.stringify({
+        name: "p",
+        hooks: {
+          SessionStart: [
+            {
+              hooks: [{ type: "command", command: "echo hello" }],
+            },
+          ],
+        },
+      }),
+    );
+
+    fs.mkdirSync(path.join(tmp.home, ".claude", "plugins"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp.home, ".claude", "plugins", "installed_plugins.json"),
+      JSON.stringify({
+        plugins: { "p@mkt": [{ scope: "user", installPath: pluginRoot }] },
+      }),
+    );
+
+    // Empty settings.json so global hooks contribute nothing.
+    fs.writeFileSync(tmp.settings, JSON.stringify({}));
+
+    const hooks = parseHooks(undefined);
+    const plug = hooks.find((h) => h.scope === "plugin");
+    expect(plug).toBeDefined();
+    expect(plug?.event).toBe("SessionStart");
+    expect(plug?.command).toBe("echo hello");
+    expect(plug?.pluginName).toBe("p@mkt");
+    expect(plug?.disabled).toBe(false);
+  });
+});

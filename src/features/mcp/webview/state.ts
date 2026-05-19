@@ -12,7 +12,7 @@ let allServers: McpServer[] = [];
 let selectedServer: McpServer | null = null;
 let loading = false;
 let searchQuery = "";
-let filterScope: "all" | "project" | "global" = "all";
+let filterScope: "all" | "project" | "global" | "plugin" = "all";
 
 // ── Getters ──
 
@@ -22,7 +22,7 @@ export function getAllServers(): McpServer[] {
 }
 
 /** Return MCP servers filtered by scope. */
-export function getServersByScope(scope: "global" | "project"): McpServer[] {
+export function getServersByScope(scope: "global" | "project" | "plugin"): McpServer[] {
   return allServers.filter((s) => s.scope === scope);
 }
 
@@ -42,7 +42,7 @@ export function getSearchQuery(): string {
 }
 
 /** Return the current scope filter value. */
-export function getFilterScope(): "all" | "project" | "global" {
+export function getFilterScope(): "all" | "project" | "global" | "plugin" {
   return filterScope;
 }
 
@@ -69,7 +69,7 @@ export function setSearchQuery(q: string): void {
 }
 
 /** Set the scope filter value. */
-export function setFilterScope(scope: "all" | "project" | "global"): void {
+export function setFilterScope(scope: "all" | "project" | "global" | "plugin"): void {
   filterScope = scope;
 }
 
@@ -96,9 +96,14 @@ export function getFilteredServers(): McpServer[] {
     );
   }
 
+  // Stable scope priority: project → global → plugin (project owns
+  // the user's current intent; plugin items are read-only and ordered
+  // last so they don't bury editable rows).
+  const scopeOrder: Record<McpServer["scope"], number> = { project: 0, global: 1, plugin: 2 };
   list.sort((a, b) => {
-    if (a.scope !== b.scope) {
-      return a.scope === "project" ? -1 : 1;
+    if (a.scope !== b.scope) return scopeOrder[a.scope] - scopeOrder[b.scope];
+    if (a.scope === "plugin" && a.pluginName !== b.pluginName) {
+      return (a.pluginName ?? "").localeCompare(b.pluginName ?? "");
     }
     return a.name.localeCompare(b.name);
   });

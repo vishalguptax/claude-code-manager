@@ -95,7 +95,16 @@ export function getFilteredAgents(): Agent[] {
     );
   }
 
-  list.sort((a, b) => a.name.localeCompare(b.name));
+  // Stable scope ordering: project first (highest priority for the
+  // user), then global, then plugins grouped per-plugin.
+  const scopeOrder: Record<Agent["scope"], number> = { project: 0, global: 1, plugin: 2 };
+  list.sort((a, b) => {
+    if (a.scope !== b.scope) return scopeOrder[a.scope] - scopeOrder[b.scope];
+    if (a.scope === "plugin" && a.pluginName !== b.pluginName) {
+      return (a.pluginName ?? "").localeCompare(b.pluginName ?? "");
+    }
+    return a.name.localeCompare(b.name);
+  });
 
   return list;
 }

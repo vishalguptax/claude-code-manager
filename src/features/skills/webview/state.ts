@@ -11,7 +11,7 @@ import type { Skill } from "../types";
 let allSkills: Skill[] = [];
 let selectedSkill: Skill | null = null;
 let searchQuery = "";
-let filterScope: "all" | "project" | "global" = "all";
+let filterScope: "all" | "project" | "global" | "plugin" = "all";
 let skillsShellMounted = false;
 
 // ── Getters ──
@@ -59,17 +59,17 @@ export function setSkillsShellMounted(v: boolean): void {
 }
 
 /** Return the current scope filter value. */
-export function getFilterScope(): "all" | "project" | "global" {
+export function getFilterScope(): "all" | "project" | "global" | "plugin" {
   return filterScope;
 }
 
 /** Set the scope filter value. */
-export function setFilterScope(scope: "all" | "project" | "global"): void {
+export function setFilterScope(scope: "all" | "project" | "global" | "plugin"): void {
   filterScope = scope;
 }
 
 /** Return skills filtered by a specific scope. */
-export function getSkillsByScope(scope: "global" | "project"): Skill[] {
+export function getSkillsByScope(scope: "global" | "project" | "plugin"): Skill[] {
   return allSkills.filter((s) => s.scope === scope);
 }
 
@@ -95,10 +95,14 @@ export function getFilteredSkills(): Skill[] {
     );
   }
 
-  // Project skills first, then global
+  // Project skills first, then global, then plugin
+  const scopeOrder: Record<Skill["scope"], number> = { project: 0, global: 1, plugin: 2 };
   list.sort((a, b) => {
-    if (a.scope !== b.scope) {
-      return a.scope === "project" ? -1 : 1;
+    if (a.scope !== b.scope) return scopeOrder[a.scope] - scopeOrder[b.scope];
+    // Within plugin scope, group by plugin name to keep each plugin's
+    // skills contiguous in the list.
+    if (a.scope === "plugin" && a.pluginName !== b.pluginName) {
+      return (a.pluginName ?? "").localeCompare(b.pluginName ?? "");
     }
     return a.name.localeCompare(b.name);
   });

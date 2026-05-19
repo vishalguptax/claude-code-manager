@@ -1,15 +1,21 @@
 /**
- * Agent parsing — reads Claude Code agent files from .claude/agents/ in the
- * current workspace, parses YAML frontmatter for name, description, and model.
- * Pure Node.js file I/O, no VS Code dependency.
+ * Agent parsing — reads Claude Code agent files from `.claude/agents/`
+ * across global, project, and plugin scopes. Parses YAML frontmatter
+ * for name, description, and model. Pure Node.js file I/O, no VS Code
+ * dependency.
  */
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import { createMtimeCache } from "../../core/mtimeCache";
-import type { Agent } from "./types";
+import { loadActivePlugins, resolvePluginContentDirs, type ActivePlugin } from "../../core/plugins";
+import type { Agent, AgentScope } from "./types";
 
 /** Cache parsed Agent objects by their .md path. */
 const agentCache = createMtimeCache<Agent>();
+
+/** Global agents directory (~/.claude/agents/). */
+const GLOBAL_AGENTS_DIR: string = path.join(os.homedir(), ".claude", "agents");
 
 /**
  * Parse YAML frontmatter from an agent .md file content string.
@@ -47,28 +53,25 @@ function parseFrontmatter(raw: string): { name: string; description: string; mod
   return result;
 }
 
+interface ReadAgentsOpts {
+  scope: AgentScope;
+  /** Qualified plugin name when `scope === "plugin"`. */
+  pluginName?: string;
+}
+
 /**
- * Parse all agents from .claude/agents/ in the given workspace directory.
- * Each .md file in the directory is treated as an agent definition with
- * YAML frontmatter containing name, description, and model fields.
+ * Read all .md agent files from a directory.
  *
- * @param workspacePath - Absolute path to the current workspace folder (optional).
- *   When not provided, returns an empty array.
- * @returns Array of all discovered Agent objects
+ * @param dir - Absolute path to the agents directory
+ * @param opts - Scope and (for plugins) the source plugin name
  */
-export function parseAgents(workspacePath?: string): Agent[] {
-  if (!workspacePath) {
-    return [];
-  }
-
-  const agentsDir = path.join(workspacePath, ".claude", "agents");
-
+function readAgentsFromDir(dir: string, opts: ReadAgentsOpts): Agent[] {
   let files: string[];
   try {
-    files = fs.readdirSync(agentsDir);
+    files = fs.readdirSync(dir);
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
-      console.warn(`[claude-manager] Failed to read agents directory ${agentsDir}:`, (err as Error).message);
+      console.warn(`[claude-manager] Failed to read agents directory ${dir}:`, (err as Error).message);
     }
     return [];
   }
@@ -77,7 +80,7 @@ export function parseAgents(workspacePath?: string): Agent[] {
   for (const file of files) {
     if (!file.endsWith(".md")) continue;
 
-    const filePath = path.join(agentsDir, file);
+    const filePath = path.join(dir, file);
     let stat: fs.Stats;
     try {
       stat = fs.statSync(filePath);
@@ -97,6 +100,8 @@ export function parseAgents(workspacePath?: string): Agent[] {
           model: parsed.model || "sonnet",
           path: p,
           content: raw,
+          scope: opts.scope,
+          pluginName: opts.scope === "plugin" ? opts.pluginName : undefined,
         };
       });
     } catch (err: unknown) {
@@ -104,6 +109,43 @@ export function parseAgents(workspacePath?: string): Agent[] {
       continue;
     }
     agents.push(agent);
+  }
+
+  return agents;
+}
+
+function readPluginAgents(plugin: ActivePlugin): Agent[] {
+  const out: Agent[] = [];
+  for (const dir of resolvePluginContentDirs(plugin, "agents", "agents")) {
+    out.push(...readAgentsFromDir(dir, { scope: "plugin", pluginName: plugin.qualifiedName }));
+  }
+  return out;
+}
+
+/**
+ * Parse all agents available in the current context:
+ *  - global agents from `~/.claude/agents/`
+ *  - project agents from `<workspace>/.claude/agents/`
+ *  - plugin agents declared by every active plugin
+ *
+ * @param workspacePath - Absolute path to the current workspace folder (optional).
+ * @returns Array of all discovered Agent objects (global → project → plugin).
+ */
+export function parseAgents(workspacePath?: string): Agent[] {
+  const agents: Agent[] = [];
+
+  // Global
+  agents.push(...readAgentsFromDir(GLOBAL_AGENTS_DIR, { scope: "global" }));
+
+  // Project
+  if (workspacePath) {
+    const projectAgentsDir = path.join(workspacePath, ".claude", "agents");
+    agents.push(...readAgentsFromDir(projectAgentsDir, { scope: "project" }));
+  }
+
+  // Plugin-provided
+  for (const plugin of loadActivePlugins(workspacePath)) {
+    agents.push(...readPluginAgents(plugin));
   }
 
   return agents;

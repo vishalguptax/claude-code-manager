@@ -6,8 +6,12 @@
 /** Transport type for an MCP server connection. */
 export type McpServerType = "stdio" | "http";
 
-/** Scope of an MCP server configuration. */
-export type McpServerScope = "global" | "project";
+/**
+ * Scope of an MCP server configuration.
+ *  - `global` / `project`: editable, loaded from settings/.mcp.json
+ *  - `plugin`: declared by an installed plugin (read-only)
+ */
+export type McpServerScope = "global" | "project" | "plugin";
 
 /** A parsed MCP server entry from .mcp.json or ~/.claude/mcp.json. */
 export interface McpServer {
@@ -23,10 +27,15 @@ export interface McpServer {
   url?: string;
   /** Environment variables passed to the server process. */
   env?: Record<string, string>;
-  /** Whether this server is global (~/.claude/mcp.json) or project-level (.mcp.json). */
+  /** Source scope — global, project, or plugin. */
   scope: McpServerScope;
   /** Whether the server is explicitly disabled in the config. */
   disabled?: boolean;
+  /**
+   * Qualified plugin name (e.g. "caveman@caveman") when `scope` is
+   * `"plugin"`. Undefined otherwise.
+   */
+  pluginName?: string;
 }
 
 // ── Extension <-> Webview Messages ──
@@ -40,4 +49,4 @@ export type McpExtensionMessage =
 export type McpWebviewMessage =
   | { type: "getMcpServers" }
   | { type: "openMcpConfig"; scope: McpServerScope }
-  | { type: "toggleMcpServer"; name: string; scope: McpServerScope; disabled: boolean };
+  | { type: "toggleMcpServer"; name: string; scope: McpServerScope; disabled: boolean; pluginName?: string };

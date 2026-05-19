@@ -28,6 +28,7 @@ const SCOPE_LABELS: Record<string, string> = {
   global: "Global",
   project: "Project",
   local: "Local",
+  plugin: "Plugin",
 };
 
 /**
@@ -41,11 +42,22 @@ export function showHookDetail(container: HTMLElement): void {
   }
 
   const eventLabel = EVENT_LABELS[hook.event] ?? hook.event;
-  const scopeLabel = SCOPE_LABELS[hook.scope] ?? hook.scope;
+  const scopeLabel = hook.scope === "plugin"
+    ? `Plugin: ${hook.pluginName ?? "unknown"}`
+    : SCOPE_LABELS[hook.scope] ?? hook.scope;
   const matcherDisplay = hook.matcher || "* (any)";
 
   const toggleLabel = hook.disabled ? "Enable" : "Disable";
   const toggleIcon = hook.disabled ? "play" : "pin-off";
+  const isPlugin = hook.scope === "plugin";
+  // Plugin hooks live in plugin.json (claude-code's territory). The
+  // sidebar exposes copy + read-only metadata, nothing that mutates.
+  const editableActions = isPlugin
+    ? `<span class="hook-readonly-note">Owned by plugin ${esc(hook.pluginName ?? "")} — manage via Claude Code's <code>/plugin</code>.</span>`
+    : `<button class="btn" id="hookEdit">${icon("pencil")} Edit</button>
+       <button class="btn" id="hookToggle">${icon(toggleIcon)} ${toggleLabel}</button>
+       <button class="btn" id="hookOpenFile">${icon("external-link")} Open settings file</button>
+       <button class="btn del" id="hookDelete">${icon("trash-2")} Delete</button>`;
 
   container.innerHTML = `<div class="panel">
     <button class="back-btn" id="hookGoBack">${icon("arrow-left")} Back</button>
@@ -53,18 +65,15 @@ export function showHookDetail(container: HTMLElement): void {
     <div class="d-head">
       <div class="d-title">${esc(eventLabel)}</div>
       <div class="d-tags">
-        <span class="scope-badge ${esc(hook.scope)}">${esc(scopeLabel)}</span>
+        <span class="scope-badge ${esc(hook.scope)}" title="${esc(scopeLabel)}">${esc(scopeLabel)}</span>
         <span class="tag">matcher: ${esc(matcherDisplay)}</span>
         ${hook.disabled ? `<span class="hook-disabled-badge">disabled</span>` : ""}
       </div>
     </div>
 
     <div class="d-actions">
-      <button class="btn" id="hookEdit">${icon("pencil")} Edit</button>
-      <button class="btn" id="hookToggle">${icon(toggleIcon)} ${toggleLabel}</button>
       <button class="btn primary" id="hookCopy">${icon("copy")} Copy command</button>
-      <button class="btn" id="hookOpenFile">${icon("external-link")} Open settings file</button>
-      <button class="btn del" id="hookDelete">${icon("trash-2")} Delete</button>
+      ${editableActions}
     </div>
 
     <div class="d-scroll" id="hookDetailScroll">
@@ -97,21 +106,31 @@ export function showHookDetail(container: HTMLElement): void {
     }
   });
 
-  container.querySelector("#hookOpenFile")?.addEventListener("click", () => {
-    sendOpenHookSettingsFile(hook.scope);
-  });
+  // Mutation handlers are wired only for editable scopes. For plugin
+  // scope the corresponding buttons are not rendered, so the listeners
+  // would never fire anyway, but skipping the wiring keeps the type
+  // narrow at the call site (`sendOpenHookSettingsFile` does not
+  // accept the plugin scope).
+  if (hook.scope !== "plugin") {
+    // Cache the narrowed scope locally — TS does not preserve the
+    // closure-level narrowing of `hook.scope` inside the listener.
+    const editableScope = hook.scope;
+    container.querySelector("#hookOpenFile")?.addEventListener("click", () => {
+      sendOpenHookSettingsFile(editableScope);
+    });
 
-  container.querySelector("#hookToggle")?.addEventListener("click", () => {
-    sendToggleHookEnabled(hook);
-  });
+    container.querySelector("#hookToggle")?.addEventListener("click", () => {
+      sendToggleHookEnabled(hook);
+    });
 
-  container.querySelector("#hookDelete")?.addEventListener("click", () => {
-    sendDeleteHook(hook);
-  });
+    container.querySelector("#hookDelete")?.addEventListener("click", () => {
+      sendDeleteHook(hook);
+    });
 
-  container.querySelector("#hookEdit")?.addEventListener("click", () => {
-    renderEditForm(container, hook);
-  });
+    container.querySelector("#hookEdit")?.addEventListener("click", () => {
+      renderEditForm(container, hook);
+    });
+  }
 }
 
 /**

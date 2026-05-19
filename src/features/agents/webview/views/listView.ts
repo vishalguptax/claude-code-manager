@@ -142,10 +142,28 @@ function updateAgentsListInner(container: HTMLElement): void {
     return;
   }
 
-  let h = `<div class="agent-list-count">${filtered.length} agent${filtered.length !== 1 ? "s" : ""}</div>`;
+  // Group by scope (Project / Global / per-plugin) so plugin-supplied
+  // agents are visibly distinct from the user's own. Within a scope,
+  // agents stay in the alphabetical order produced by getFilteredAgents.
+  const buckets = new Map<string, Agent[]>();
+  for (const a of filtered) {
+    const label =
+      a.scope === "project"
+        ? "Project"
+        : a.scope === "plugin"
+          ? `Plugin: ${a.pluginName ?? "unknown"}`
+          : "Global";
+    const arr = buckets.get(label);
+    if (arr) arr.push(a);
+    else buckets.set(label, [a]);
+  }
 
-  for (const agent of filtered) {
-    h += renderAgentItem(agent, selected?.path === agent.path);
+  let h = `<div class="agent-list-count">${filtered.length} agent${filtered.length !== 1 ? "s" : ""}</div>`;
+  for (const [label, items] of buckets) {
+    h += `<div class="group-label">${esc(label)}</div>`;
+    for (const agent of items) {
+      h += renderAgentItem(agent, selected?.path === agent.path);
+    }
   }
 
   inner.innerHTML = h;
