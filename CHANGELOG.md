@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.10.0] - 2026-05-19
+
+Installed Claude Code plugins now surface their skills, agents, slash commands, hooks, and MCP servers alongside their user-level counterparts, and sessions waiting on `AskUserQuestion` / `ExitPlanMode` get a distinct orange live indicator so idle "needs your input" sessions stop hiding behind the green dot.
+
+See [docs/releases/v1.10.0.md](docs/releases/v1.10.0.md) for full details.
+
 ## [1.9.0] - 2026-05-12
 
 Usage analytics overhauled with per-project / per-tool / MCP-server breakdowns and JSONL-primary aggregation that keeps history past the CLI's stats-cache cutoff. New ephemeral "Temp" session button launches Claude with full skills/agents/hooks but wipes the transcript on terminal close.
