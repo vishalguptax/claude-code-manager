@@ -36,17 +36,17 @@ $LogDir = Join-Path $PSScriptRoot "logs"
 $PromptDir = Join-Path $PSScriptRoot "prompts"
 $IntegrationBranch = "v2/integration-target"
 $IntegrationWorktree = Join-Path $WorktreeRoot "claude-manager-integration-target"
-$StartCommit = $null  # set after creating integration branch
+$StartCommit = $null
 
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
 
-# ─── Helpers ──────────────────────────────────────────────────────────────
+# --- Helpers ---
 
-function Write-Stage($msg) { Write-Host ""; Write-Host "═══ $msg" -ForegroundColor Cyan }
+function Write-Stage($msg) { Write-Host ""; Write-Host "=== $msg" -ForegroundColor Cyan }
 function Write-Info($msg)  { Write-Host "  $msg" -ForegroundColor Gray }
-function Write-Ok($msg)    { Write-Host "  ✓ $msg" -ForegroundColor Green }
-function Write-Warn($msg)  { Write-Host "  ! $msg" -ForegroundColor Yellow }
-function Write-Err($msg)   { Write-Host "  ✗ $msg" -ForegroundColor Red }
+function Write-Ok($msg)    { Write-Host "  [OK] $msg" -ForegroundColor Green }
+function Write-Warn($msg)  { Write-Host "  [!] $msg" -ForegroundColor Yellow }
+function Write-Err($msg)   { Write-Host "  [X] $msg" -ForegroundColor Red }
 
 function Invoke-Git {
   param([Parameter(Mandatory)][string[]]$Args, [string]$Cwd = $RepoRoot)
@@ -95,7 +95,7 @@ function New-Worktree {
   Write-Ok "worktree: $BranchName -> $WorktreePath"
 }
 
-# ─── Session launcher (headless claude -p) ────────────────────────────────
+# --- Session launcher (headless claude -p) ---
 
 function Start-ClaudeSession {
   param(
@@ -115,7 +115,7 @@ function Start-ClaudeSession {
   Write-Info "  log: $logFile"
 
   if ($DryRun) {
-    Write-Warn "DRY RUN — skipping actual launch"
+    Write-Warn "DRY RUN - skipping actual launch"
     return $null
   }
 
@@ -125,7 +125,6 @@ function Start-ClaudeSession {
     Set-Location $cwd
     $env:CLAUDE_NONINTERACTIVE = "1"
 
-    # Stream output to log, capture final JSON result
     & claude -p $prompt `
       --permission-mode bypassPermissions `
       --output-format json `
@@ -144,7 +143,7 @@ function Start-ClaudeSession {
   return $job
 }
 
-# ─── Phase 0: Setup ───────────────────────────────────────────────────────
+# --- Phase 0: Setup ---
 
 function Initialize-Setup {
   Write-Stage "Setup"
@@ -158,7 +157,6 @@ function Initialize-Setup {
   }
   Write-Ok "claude CLI available"
 
-  # Create integration target from current commit of main (no merge to main ever)
   Push-Location $RepoRoot
   try {
     if (-not (Test-BranchExists $IntegrationBranch)) {
@@ -176,7 +174,6 @@ function Initialize-Setup {
     Write-Info "integration target commit: $($script:StartCommit.Substring(0,12))"
   } finally { Pop-Location }
 
-  # Create dedicated worktree for integration branch so main repo is untouched during merges
   if (-not (Test-Path $IntegrationWorktree)) {
     if ($DryRun) {
       Write-Warn "DRY: would create integration worktree at $IntegrationWorktree"
@@ -189,10 +186,10 @@ function Initialize-Setup {
   }
 }
 
-# ─── Phase F1: Foundation (sequential, blocks F2) ─────────────────────────
+# --- Phase F1: Foundation (sequential, blocks F2) ---
 
 function Invoke-F1 {
-  Write-Stage "Phase F1 — Foundation (blocking)"
+  Write-Stage "Phase F1 - Foundation (blocking)"
 
   $branch = "v2/foundation"
   $worktree = Join-Path $WorktreeRoot "claude-manager-foundation"
@@ -203,7 +200,7 @@ function Invoke-F1 {
     $mergedInto = git branch --contains $branch | Select-String $IntegrationBranch
     Pop-Location
     if ($mergedInto) {
-      Write-Ok "F1 already merged to $IntegrationBranch — skipping"
+      Write-Ok "F1 already merged to $IntegrationBranch - skipping"
       return
     }
   }
@@ -215,18 +212,18 @@ function Invoke-F1 {
 
   if ($DryRun) { return }
 
-  Write-Info "waiting for F1 to complete (this is the blocker; usually 1.5–2h)..."
+  Write-Info "waiting for F1 to complete (blocker; usually 1.5-2h)..."
   Wait-Job $job | Out-Null
-  $result = Receive-Job $job -ErrorAction Continue
-  Remove-Job $job
+  Receive-Job $job -ErrorAction Continue | Out-Null
 
   if ($job.State -ne "Completed") {
     Write-Err "F1 failed. Check log: $LogDir\F1-foundation.log"
+    Remove-Job $job
     throw "F1 foundation session failed"
   }
+  Remove-Job $job
   Write-Ok "F1 session completed"
 
-  # Verify F1 produced commits
   Push-Location $worktree
   try {
     $ahead = git rev-list --count "$IntegrationBranch..$branch"
@@ -236,11 +233,10 @@ function Invoke-F1 {
     Write-Ok "F1 added $ahead commit(s)"
   } finally { Pop-Location }
 
-  # Merge F1 into integration target
   Merge-Branch -SourceBranch $branch -PhaseName "F1"
 }
 
-# ─── Phase F2: Parallel feature migrations ────────────────────────────────
+# --- Phase F2: Parallel feature migrations ---
 
 function Get-F2Sessions {
   $sessions = @(
@@ -263,7 +259,7 @@ function Get-F2Sessions {
 }
 
 function Invoke-F2 {
-  Write-Stage "Phase F2 — Parallel feature migrations"
+  Write-Stage "Phase F2 - Parallel feature migrations"
 
   $sessions = Get-F2Sessions
   Write-Info "launching $($sessions.Count) parallel sessions (concurrency cap: $F2ConcurrencyLimit)"
@@ -276,7 +272,7 @@ function Invoke-F2 {
       $mergedInto = git branch --contains $s.Branch | Select-String $IntegrationBranch
       Pop-Location
       if ($mergedInto) {
-        Write-Ok "$($s.Name) already merged — skipping"
+        Write-Ok "$($s.Name) already merged - skipping"
         continue
       }
     }
@@ -286,8 +282,7 @@ function Invoke-F2 {
 
     New-Worktree -BranchName $s.Branch -WorktreePath $worktreePath -BaseBranch $IntegrationBranch
 
-    # Throttle: wait if too many running
-    while (($jobs | Where-Object { $_.State -eq "Running" }).Count -ge $F2ConcurrencyLimit) {
+    while (($jobs | Where-Object { $_.Job.State -eq "Running" }).Count -ge $F2ConcurrencyLimit) {
       Start-Sleep -Seconds 5
     }
 
@@ -304,7 +299,6 @@ function Invoke-F2 {
   Write-Info "waiting for F2 sessions to complete..."
   Write-Info "  monitor logs with: Get-Content $LogDir\*.log -Wait -Tail 10"
 
-  # Progress reporter loop
   while ($jobs | Where-Object { $_.Job.State -eq "Running" }) {
     $running = $jobs | Where-Object { $_.Job.State -eq "Running" }
     $done    = $jobs | Where-Object { $_.Job.State -ne "Running" }
@@ -312,7 +306,6 @@ function Invoke-F2 {
     Start-Sleep -Seconds 30
   }
 
-  # Collect results
   $failed = @()
   foreach ($entry in $jobs) {
     Receive-Job $entry.Job -ErrorAction Continue | Out-Null
@@ -329,7 +322,6 @@ function Invoke-F2 {
     Write-Warn "$($failed.Count) F2 session(s) failed. Merge will skip them. Inspect logs in $LogDir."
   }
 
-  # Merge each successful F2 branch into integration target
   Write-Stage "Merging F2 branches into $IntegrationBranch"
   foreach ($entry in $jobs) {
     if ($entry.Job.State -ne "Completed") { continue }
@@ -347,16 +339,15 @@ function Invoke-F2 {
   }
 }
 
-# ─── Merge logic ──────────────────────────────────────────────────────────
+# --- Merge logic ---
 
 function Merge-Branch {
   param([string]$SourceBranch, [string]$PhaseName)
 
-  # Merge inside the integration worktree so main repo's current branch is never changed
   Push-Location $IntegrationWorktree
   try {
     & git pull --ff-only 2>&1 | Out-Null
-    & git merge --no-ff $SourceBranch -m "merge($PhaseName): $SourceBranch into $IntegrationBranch" 2>&1 | Tee-Object -Variable mergeOut | Out-Null
+    & git merge --no-ff $SourceBranch -m "merge($PhaseName): $SourceBranch into $IntegrationBranch" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) {
       Write-Err "merge conflict on $SourceBranch"
       Write-Warn "aborting merge; manual resolution required"
@@ -368,10 +359,10 @@ function Merge-Branch {
   } finally { Pop-Location }
 }
 
-# ─── Phase F3: Integration (sequential, after all F2 merged) ─────────────
+# --- Phase F3: Integration ---
 
 function Invoke-F3 {
-  Write-Stage "Phase F3 — Integration"
+  Write-Stage "Phase F3 - Integration"
 
   $branch = "v2/integration"
   $worktree = Join-Path $WorktreeRoot "claude-manager-integration"
@@ -382,17 +373,16 @@ function Invoke-F3 {
     $mergedInto = git branch --contains $branch | Select-String $IntegrationBranch
     Pop-Location
     if ($mergedInto) {
-      Write-Ok "F3 already merged — skipping"
+      Write-Ok "F3 already merged - skipping"
       return
     }
   }
 
-  # Sanity check: F2 features must be merged
   Push-Location $RepoRoot
   try {
     $f2Merged = git log $IntegrationBranch --oneline | Select-String "feat\(F2/" | Measure-Object
     if ($f2Merged.Count -lt 5) {
-      Write-Warn "Only $($f2Merged.Count) F2 commits found on $IntegrationBranch. F3 may be premature."
+      Write-Warn "Only $($f2Merged.Count) F2 commits on $IntegrationBranch. F3 may be premature."
       if (-not $DryRun) {
         $confirm = Read-Host "Continue anyway? (y/N)"
         if ($confirm -ne "y") { return }
@@ -422,10 +412,10 @@ function Invoke-F3 {
   Merge-Branch -SourceBranch $branch -PhaseName "F3"
 }
 
-# ─── Phase F4: Release prep (MANUAL GATE) ─────────────────────────────────
+# --- Phase F4: Release prep (MANUAL GATE) ---
 
 function Invoke-F4 {
-  Write-Stage "Phase F4 — Release prep"
+  Write-Stage "Phase F4 - Release prep"
 
   Write-Warn "F4 prepares release artifacts but does NOT publish."
   Write-Warn "Publishing to marketplace requires manual confirmation + npm run release."
@@ -451,21 +441,21 @@ function Invoke-F4 {
     throw "F4 release prep failed"
   }
   Remove-Job $job
-  Write-Ok "F4 session completed (release artifacts prepared, NOT published)"
+  Write-Ok "F4 session completed (artifacts prepared, NOT published)"
 
   Merge-Branch -SourceBranch $branch -PhaseName "F4"
 
   Write-Host ""
-  Write-Host "  ┌─ MANUAL STEPS ────────────────────────────────────────┐" -ForegroundColor Yellow
-  Write-Host "  │ 1. Inspect $IntegrationBranch                         │" -ForegroundColor Yellow
-  Write-Host "  │ 2. Build .vsix locally: npm run release                │" -ForegroundColor Yellow
-  Write-Host "  │ 3. Install .vsix in fresh VS Code; smoke test          │" -ForegroundColor Yellow
-  Write-Host "  │ 4. When ready: open PR $IntegrationBranch -> main    │" -ForegroundColor Yellow
-  Write-Host "  │ 5. After PR merge: tag v2.0.0; CI publishes            │" -ForegroundColor Yellow
-  Write-Host "  └────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+  Write-Host "  +-- MANUAL STEPS ---------------------------------------+" -ForegroundColor Yellow
+  Write-Host "  | 1. Inspect $IntegrationBranch                          |" -ForegroundColor Yellow
+  Write-Host "  | 2. Build .vsix locally: npm run release                |" -ForegroundColor Yellow
+  Write-Host "  | 3. Install .vsix in fresh VS Code; smoke test          |" -ForegroundColor Yellow
+  Write-Host "  | 4. When ready: open PR $IntegrationBranch -> main      |" -ForegroundColor Yellow
+  Write-Host "  | 5. After PR merge: tag v2.0.0; CI publishes            |" -ForegroundColor Yellow
+  Write-Host "  +--------------------------------------------------------+" -ForegroundColor Yellow
 }
 
-# ─── Report ───────────────────────────────────────────────────────────────
+# --- Report ---
 
 function Show-FinalReport {
   Write-Stage "Final report"
@@ -492,28 +482,28 @@ function Show-FinalReport {
     Write-Host "  Next steps:" -ForegroundColor Cyan
     Write-Host "    1. Inspect $IntegrationBranch" -ForegroundColor Gray
     Write-Host "    2. Resolve merge failures if any" -ForegroundColor Gray
-    Write-Host "    3. Run npm install && npm run build && npm test in repo root" -ForegroundColor Gray
+    Write-Host "    3. Run npm install && npm run build && npm test" -ForegroundColor Gray
     Write-Host "    4. Manual QA: launch extension, click each tab" -ForegroundColor Gray
     Write-Host "    5. When ready: open PR $IntegrationBranch -> main" -ForegroundColor Gray
   } finally { Pop-Location }
 }
 
-# ─── Main ─────────────────────────────────────────────────────────────────
+# --- Main ---
 
 $script:MergeFailures = @()
 
 Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
-Write-Host "║         Claude Manager v2 Revamp Orchestrator           ║" -ForegroundColor Magenta
-Write-Host "╚══════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+Write-Host "+----------------------------------------------------------+" -ForegroundColor Magenta
+Write-Host "|         Claude Manager v2 Revamp Orchestrator            |" -ForegroundColor Magenta
+Write-Host "+----------------------------------------------------------+" -ForegroundColor Magenta
 
-if ($DryRun) { Write-Warn "DRY RUN mode — no execution" }
+if ($DryRun) { Write-Warn "DRY RUN mode - no execution" }
 
 Initialize-Setup
 
 if ($Phase -eq "All" -or $Phase -eq "F1") { Invoke-F1 }
 if ($Phase -eq "All" -or $Phase -eq "F2") { Invoke-F2 }
 if ($Phase -eq "All" -or $Phase -eq "F3") { Invoke-F3 }
-if ($Phase -eq "F4")                       { Invoke-F4 }  # release prep explicit only
+if ($Phase -eq "F4")                       { Invoke-F4 }
 
 Show-FinalReport
