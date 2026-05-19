@@ -1,0 +1,439 @@
+================================================================
+  CLAUDE MANAGER v2 REVAMP - FULL STEP-BY-STEP CHECKLIST
+================================================================
+
+You are here: setup-worktrees.ps1 already ran.
+Continue below. Check off each step as you finish.
+
+
+================================================================
+  PERMISSIONS NOTE
+================================================================
+
+Every Claude session below uses:
+    claude --dangerously-skip-permissions
+
+This bypasses all permission prompts. Required for unattended
+multi-hour sessions in isolated worktrees.
+
+Risks:
+  - Claude has full tool access (Bash, Write, etc.)
+  - Each session sandboxed to own worktree by file allowlist in prompt
+  - If anything goes wrong: git reset --hard, no production impact
+  - main branch never touched
+
+Safer alternative: omit the flag, accept permission prompts mid-run.
+You will need to babysit each session and approve every tool call.
+For 8 parallel sessions, this is impractical. Flag recommended.
+
+
+================================================================
+  PRECHECK
+================================================================
+
+[ ] 1. Verify worktrees exist
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        git worktree list
+
+    Expect 12 entries:
+        claude-manager                            (main)
+        claude-manager-integration-target         (v2/integration-target)
+        claude-manager-foundation                 (v2/foundation)
+        claude-manager-host                       (v2/host-decompose)
+        claude-manager-account                    (v2/feat-account)
+        claude-manager-hooks                      (v2/feat-hooks)
+        claude-manager-mcp                        (v2/feat-mcp)
+        claude-manager-commands                   (v2/feat-commands)
+        claude-manager-skills                     (v2/feat-skills)
+        claude-manager-agents                     (v2/feat-agents)
+        claude-manager-sessions                   (v2/feat-sessions)
+        claude-manager-integration                (v2/integration)
+        claude-manager-release                    (v2/release-prep)
+
+[ ] 2. Reset foundation worktree (clear any broken state)
+        cd ..\claude-manager-foundation
+        git fetch origin
+        git reset --hard origin/v2/integration-target
+        cd ..\claude-manager
+
+
+================================================================
+  PHASE F1 - FOUNDATION (blocking, ~2-3 hours)
+================================================================
+
+[ ] 3. Copy F1 prompt to clipboard
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\01-foundation.md -Raw | Set-Clipboard
+
+[ ] 4. Open NEW Windows Terminal tab. Go to foundation worktree:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-foundation
+
+[ ] 5. Verify on correct branch:
+        git branch --show-current
+        # Must print: v2/foundation
+
+[ ] 6. Launch Claude interactive with permission bypass (needed for unattended runs):
+        claude --dangerously-skip-permissions
+
+[ ] 7. Paste prompt (Ctrl+V or right-click). Press Enter.
+
+[ ] 8. Watch. Claude reads, plans, executes. ~2-3 hours.
+       DO NOT close window. DO NOT touch worktree files.
+
+[ ] 9. When Claude idle (no more activity), verify:
+       Type in Claude session:
+           Run npm install, npm run build, npm test, npm run check.
+           Confirm all green. If any fail, fix them.
+
+[ ] 10. Exit Claude:
+        /exit
+
+[ ] 11. Merge F1 into integration-target. NEW terminal:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration-target
+        git pull
+        git merge --no-ff v2/foundation -m "merge(F1): foundation into v2/integration-target"
+        git push
+
+[ ] 12. Verify F1 merged:
+        git log --oneline -10
+        # Should show merge commit + F1 work
+
+[ ] 13. Pull integration-target into all F2 worktrees so they pick up F1:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        foreach ($dir in @("host","account","hooks","mcp","commands","skills","agents","sessions")) {
+            $path = "..\claude-manager-$dir"
+            cd $path
+            git fetch origin
+            git reset --hard origin/v2/integration-target
+            cd ..\claude-manager
+        }
+
+
+================================================================
+  PHASE F2 - PARALLEL FEATURE MIGRATIONS (~3-8 hours wall time)
+================================================================
+
+LAUNCH HOST FIRST. Wait until host has made at least 5 commits before
+launching sessions feature (sessions depends on host decomposition).
+All others can launch immediately + run concurrently.
+
+----------------------------------------------------------------
+F2a - HOST DECOMPOSE (launch first, blocks F2-sessions)
+----------------------------------------------------------------
+
+[ ] 14. Copy host prompt:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\02-host-decompose.md -Raw | Set-Clipboard
+
+[ ] 15. New terminal:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-host
+        git branch --show-current   # must be v2/host-decompose
+        claude --dangerously-skip-permissions
+
+[ ] 16. Paste prompt. Enter. Watch progress.
+
+[ ] 17. When host has 3+ commits (check via: git log --oneline | head),
+        you may proceed to launch sessions feature in parallel.
+
+----------------------------------------------------------------
+F2b - FEATURE MIGRATIONS (launch 6 in parallel)
+----------------------------------------------------------------
+
+Open SIX new Windows Terminal tabs. Each runs concurrently.
+Do all 6 setup steps (18-23) before launching Claude in any.
+
+[ ] 18. Tab A - Account:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\03-account.md -Raw | Set-Clipboard
+        cd ..\claude-manager-account
+        claude --dangerously-skip-permissions
+        (paste, enter, leave running)
+
+[ ] 19. Tab B - Hooks:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\04-hooks.md -Raw | Set-Clipboard
+        cd ..\claude-manager-hooks
+        claude --dangerously-skip-permissions
+        (paste, enter, leave running)
+
+[ ] 20. Tab C - MCP:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\05-mcp.md -Raw | Set-Clipboard
+        cd ..\claude-manager-mcp
+        claude --dangerously-skip-permissions
+        (paste, enter, leave running)
+
+[ ] 21. Tab D - Commands:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\06-commands.md -Raw | Set-Clipboard
+        cd ..\claude-manager-commands
+        claude --dangerously-skip-permissions
+        (paste, enter, leave running)
+
+[ ] 22. Tab E - Skills:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\07-skills.md -Raw | Set-Clipboard
+        cd ..\claude-manager-skills
+        claude --dangerously-skip-permissions
+        (paste, enter, leave running)
+
+[ ] 23. Tab F - Agents:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\08-agents.md -Raw | Set-Clipboard
+        cd ..\claude-manager-agents
+        claude --dangerously-skip-permissions
+        (paste, enter, leave running)
+
+----------------------------------------------------------------
+F2c - SESSIONS FEATURE (launch after host has progress)
+----------------------------------------------------------------
+
+[ ] 24. After F2-host-decompose has 5+ commits:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\09-sessions.md -Raw | Set-Clipboard
+
+[ ] 25. Tab G - Sessions (critical path, biggest):
+        cd ..\claude-manager-sessions
+        # First pull latest host work:
+        git fetch origin
+        git merge origin/v2/host-decompose --no-ff -m "pull host decomposition"
+        claude --dangerously-skip-permissions
+        (paste, enter, leave running)
+
+----------------------------------------------------------------
+F2 MERGE LOOP (as each session finishes)
+----------------------------------------------------------------
+
+Monitor all 8 sessions. As each finishes, merge it.
+
+[ ] 26. Watch session windows. When one returns to idle prompt:
+        - Verify in that worktree: npm run build, npm test
+        - Exit claude (/exit)
+        - Merge:
+
+        # Example for account:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration-target
+        git pull
+        git merge --no-ff v2/feat-account -m "merge(F2/account): into v2/integration-target"
+        # If conflict: resolve in editor, then git add . && git commit
+        git push
+
+[ ] 27. Repeat Step 26 for each finished session. Order:
+        [ ] v2/host-decompose       (merge FIRST among F2)
+        [ ] v2/feat-account
+        [ ] v2/feat-hooks
+        [ ] v2/feat-mcp
+        [ ] v2/feat-commands
+        [ ] v2/feat-skills
+        [ ] v2/feat-agents
+        [ ] v2/feat-sessions
+
+[ ] 28. After ALL F2 merged, verify:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration-target
+        git pull
+        git log --oneline --grep="merge(F2" | wc -l
+        # Expect 8
+
+[ ] 29. Full build + test on integration-target:
+        npm install
+        npm run build
+        npm test
+        npm run check
+        npm run size
+        # All must pass.
+
+
+================================================================
+  PHASE F3 - INTEGRATION (~1-2 hours)
+================================================================
+
+[ ] 30. Reset F3 worktree to latest integration-target:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration
+        git fetch origin
+        git reset --hard origin/v2/integration-target
+
+[ ] 31. Copy F3 prompt:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\10-integration.md -Raw | Set-Clipboard
+
+[ ] 32. New terminal in F3 worktree:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration
+        claude --dangerously-skip-permissions
+
+[ ] 33. Paste prompt. Enter. Watch ~1-2 hours.
+        F3 adds integration tests, performance harness, CodeQL, README,
+        CHANGELOG, migration guide.
+
+[ ] 34. Exit Claude (/exit). Merge F3:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration-target
+        git pull
+        git merge --no-ff v2/integration -m "merge(F3): integration into v2/integration-target"
+        git push
+
+[ ] 35. Full QA:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration-target
+        git pull
+        npm install
+        npm run build
+        npm test
+        npm run test:integration   # added by F3
+        npm run size
+
+
+================================================================
+  PHASE F4 - RELEASE PREP (manual gate)
+================================================================
+
+[ ] 36. Reset F4 worktree:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-release
+        git fetch origin
+        git reset --hard origin/v2/integration-target
+
+[ ] 37. Copy F4 prompt:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        Get-Content scripts\v2-orchestration\prompts\11-release.md -Raw | Set-Clipboard
+
+[ ] 38. New terminal in F4 worktree:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-release
+        claude --dangerously-skip-permissions
+
+[ ] 39. Paste prompt. Enter. ~30-60 min.
+        F4 bumps version to 2.0.0, finalizes CHANGELOG, produces .vsix.
+        Does NOT publish.
+
+[ ] 40. Exit claude (/exit). Merge F4:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration-target
+        git pull
+        git merge --no-ff v2/release-prep -m "merge(F4): release prep"
+        git push
+
+[ ] 41. Verify .vsix exists:
+        ls dist\*.vsix
+        # Expect: claude-manager-2.0.0.vsix
+
+
+================================================================
+  MANUAL RELEASE STEPS (you do these, no Claude)
+================================================================
+
+[ ] 42. Install .vsix in fresh VS Code window:
+        code --install-extension dist\claude-manager-2.0.0.vsix --force
+
+[ ] 43. Smoke test in VS Code:
+        - Open Claude Manager sidebar
+        - Click each tab (sessions, skills, commands, hooks, mcp, agents, account)
+        - Verify each loads without errors
+        - Try resuming a session
+        - Try opening a hook file
+
+[ ] 44. If any regressions found:
+        - Decide: fix in v2.0.1 (ship anyway) or block release
+        - For block: create v2/hotfix branch off integration-target
+
+[ ] 45. Open PR to main:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager-integration-target
+        gh pr create --base main --head v2/integration-target `
+          --title "release: v2.0.0 - Preact revamp" `
+          --body-file CHANGELOG.md
+
+[ ] 46. Review PR. Merge when ready (squash recommended).
+
+[ ] 47. Tag and trigger marketplace publish:
+        git checkout main
+        git pull
+        git tag v2.0.0
+        git push --tags
+        # CI release.yml publishes to Marketplace + Open VSX
+
+[ ] 48. Monitor for 72 hours:
+        - Watch GitHub issues for user-reported regressions
+        - Monitor extension reviews
+        - If critical bug: hotfix as v2.0.1
+
+
+================================================================
+  CLEANUP (after v2.0.0 live)
+================================================================
+
+[ ] 49. Remove worktrees:
+        cd C:\Users\001ch\OneDrive\Desktop\projects\2026\claude-manager
+        git worktree list | Select-String "claude-manager-" | ForEach-Object {
+            $path = ($_ -split '\s+')[0]
+            if ($path -ne "C:/Users/001ch/OneDrive/Desktop/projects/2026/claude-manager") {
+                git worktree remove $path --force
+            }
+        }
+        git worktree prune
+
+[ ] 50. Delete v2 branches (keep v2/integration-target for archeology):
+        foreach ($b in @("v2/foundation","v2/host-decompose","v2/feat-account",
+                         "v2/feat-hooks","v2/feat-mcp","v2/feat-commands",
+                         "v2/feat-skills","v2/feat-agents","v2/feat-sessions",
+                         "v2/integration","v2/release-prep")) {
+            git branch -D $b
+            git push origin --delete $b
+        }
+
+
+================================================================
+  TROUBLESHOOTING
+================================================================
+
+Claude session goes off the rails:
+    Type in same session: "Stop. Re-read prompt file. Restart from step X."
+    Do NOT exit and restart Claude - lose context.
+
+Build fails after a phase:
+    In phase's claude session: "npm run build fails with: <error>. Fix it."
+    Claude fixes in place. Re-verify, then merge.
+
+Merge conflict:
+    cd <integration-target worktree>
+    git merge --abort
+    Inspect conflicting branch. Decide: re-run that F2 session, or
+    manually resolve. For manual:
+        git merge --no-ff <branch>
+        # Resolve conflicts in editor
+        git add .
+        git commit
+        git push
+
+Worktree stuck:
+    git worktree remove <path> --force
+    git worktree prune
+    Re-create via setup-worktrees.ps1
+
+Claude CLI session token expired:
+    Re-run: claude login
+    Then re-launch session.
+
+Lost track of which session is which:
+    Window title or run: git branch --show-current
+    Each worktree on dedicated branch.
+
+Budget exhausted in a session:
+    Claude warns before stopping. Topup credits, then "continue" in
+    same session.
+
+Out of disk space (12 worktrees take ~2 GB):
+    Remove finished worktrees as soon as their branch is merged.
+
+
+================================================================
+  EXPECTED WALL TIME
+================================================================
+
+  F1:                2-3 hours    (sequential, blocking)
+  F2 (8 parallel):   3-8 hours    (critical path = sessions feature)
+  F3:                1-2 hours
+  F4:                30-60 min
+  Merge + manual QA: 1-2 hours
+  --------------------------------
+  TOTAL:             8-16 hours active engagement
+                     spread over 2-5 days
+
+Cost estimate: $50-200 in Claude API spend.
+
+================================================================
+  END
+================================================================
