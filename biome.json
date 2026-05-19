@@ -1,0 +1,53 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "files": {
+    "includes": [
+      "src/shared/**/*.ts",
+      "src/core/lru.ts",
+      "src/extension/registry.ts",
+      "src/webview/main.tsx",
+      "src/webview/App.tsx",
+      "src/webview/tabs/**/*",
+      "src/webview/components/**/*",
+      "!src/webview/components/select.ts",
+      "src/webview/hooks/**/*",
+      "src/webview/signals/**/*",
+      "src/webview/utils/**/*",
+      "src/features/*/webview/index.tsx",
+      "scripts/build-extension.mjs",
+      "scripts/build-webview.mjs",
+      "!**/__tests__/**"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "crlf"
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "suspicious": {
+        "noDoubleEquals": "error",
+        "noDuplicateObjectKeys": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  }
+}
