@@ -23,7 +23,8 @@
     "url": "https://github.com/vishalguptax/claude-code-manager/issues"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.90.0",
+    "node": ">=20"
   },
   "categories": [
     "Other",
@@ -230,11 +231,17 @@
     }
   },
   "scripts": {
-    "build:extension": "esbuild src/extension/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
-    "build:webview": "esbuild src/webview/main.ts --bundle --outfile=dist/webview/main.js --format=iife --platform=browser",
+    "build:extension": "node scripts/build-extension.mjs",
+    "build:webview": "node scripts/build-webview.mjs",
     "build:css": "node scripts/build-css.js",
-    "build": "npm run build:extension && npm run build:webview && npm run build:css",
-    "watch": "npm run build:extension -- --watch & npm run build:webview -- --watch",
+    "build": "node scripts/build-extension.mjs && node scripts/build-webview.mjs && node scripts/build-css.js",
+    "watch:extension": "node scripts/build-extension.mjs --watch",
+    "watch:webview": "node scripts/build-webview.mjs --watch",
+    "watch": "node scripts/build-extension.mjs --watch & node scripts/build-webview.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check .",
+    "format": "biome format --write .",
+    "size": "size-limit",
     "release": "npm test && npm run build && node -e \"require('fs').readdirSync('dist').filter(f=>f.endsWith('.vsix')).forEach(f=>require('fs').unlinkSync('dist/'+f))\" && npx @vscode/vsce package --no-dependencies -o dist/",
     "release:patch": "npm version patch --no-git-tag-version && npm run release",
     "release:minor": "npm version minor --no-git-tag-version && npm run release",
@@ -243,13 +250,43 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
+  "size-limit": [
+    {
+      "path": "dist/extension.js",
+      "limit": "400 KB"
+    },
+    {
+      "path": "dist/webview/main.js",
+      "limit": "60 KB"
+    },
+    {
+      "path": "dist/webview/chunks/*.js",
+      "limit": "50 KB"
+    },
+    {
+      "path": "dist/webview/styles.css",
+      "limit": "50 KB"
+    }
+  ],
   "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "@size-limit/file": "^12.1.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/preact": "^3.2.4",
     "@types/node": "^25.5.2",
     "@types/vscode": "1.85.0",
+    "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.4",
     "happy-dom": "^20.8.9",
     "sharp": "^0.34.5",
+    "size-limit": "^12.1.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.3"
+  },
+  "dependencies": {
+    "@preact/signals": "^2.9.0",
+    "clsx": "^2.1.1",
+    "preact": "^10.29.2",
+    "valibot": "^1.4.0"
   }
 }
