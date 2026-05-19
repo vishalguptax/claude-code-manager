@@ -20,10 +20,14 @@ const OUT_FILE = path.join(OUT_DIR, "styles.css");
  * — don't use readdir(), since order would depend on filesystem.
  */
 const FILES = [
+  "tokens.css",
   "base.css",
   "components.css",
+  "tabs.css",
   "sessions.css",
   "skills.css",
+  "commands.css",
+  "hooks.css",
   "features.css",
   "mcp.css",
   "agents.css",
