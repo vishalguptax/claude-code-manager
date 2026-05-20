@@ -4,6 +4,68 @@
    ============================================================================ */
 
 
+/* New shell component styles (F1) */
+.empty-state {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--fg-muted);
+  font-size: var(--fs-base);
+}
+.empty-state-title { font-weight: 600; margin-bottom: 4px; }
+.empty-state-desc { color: var(--fg-dim); }
+
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  min-width: 320px;
+  max-width: 80vw;
+  box-shadow: 0 8px 32px var(--shadow);
+}
+.modal-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.btn-primary {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  border: none;
+  padding: 0 var(--pad-control-x);
+  height: var(--h-control);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.btn-primary:hover { background: var(--btn-hover); }
+.btn-secondary {
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-fg);
+  border: none;
+  padding: 0 var(--pad-control-x);
+  height: var(--h-control);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.btn-secondary:hover { background: var(--btn-sec-hover); }
+
+.list-item {
+  padding: 8px var(--space-xl);
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+.list-item:hover { background: var(--bg-hover); }
+.list-item.active { background: var(--bg-active); color: var(--bg-active-fg); }
+
+
 /* ──────────────────────────────────────────────────────────────────────────────
    Quick Actions Bar
    ────────────────────────────────────────────────────────────────────────────── */

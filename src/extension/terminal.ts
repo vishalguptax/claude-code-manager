@@ -4,6 +4,24 @@
  */
 import * as vscode from "vscode";
 
+/**
+ * Validate a git ref name against git's own ref-format rules.
+ * Returns the input if valid, null otherwise.
+ *
+ * Rules: no leading `-` or `/`; no `..`; no whitespace or any of `~^:?*[\`;
+ * no trailing `.lock`; no ASCII control chars. Allowed body: A-Za-z0-9._/- .
+ */
+export function validateGitRef(name: string): string | null {
+  if (typeof name !== "string" || name.length === 0) return null;
+  if (/^[-/]/.test(name)) return null;
+  if (/\.\./.test(name)) return null;
+  if (/[\s~^:?*\[\\]/.test(name)) return null;
+  if (/\.lock$/.test(name)) return null;
+  if (/[\x00-\x1f\x7f]/.test(name)) return null;
+  if (!/^[A-Za-z0-9._/-]+$/.test(name)) return null;
+  return name;
+}
+
 /** Extension root URI, captured at activation so we can resolve asset paths for terminal icons. */
 let extensionUri: vscode.Uri | undefined;
 

@@ -13,13 +13,21 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
   const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, "dist", "webview", "styles.css"));
   const nonce = getNonce();
 
+  const csp = [
+    "default-src 'none'",
+    `style-src ${webview.cspSource} 'unsafe-inline'`,
+    `script-src 'nonce-${nonce}'`,
+    `font-src ${webview.cspSource}`,
+    `img-src ${webview.cspSource} https: data:`,
+    "connect-src 'none'",
+  ].join("; ");
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy"
-    content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <meta http-equiv="Content-Security-Policy" content="${csp}">
   <link rel="stylesheet" href="${cssUri}">
   <style>
     :root {
@@ -101,7 +109,7 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
 </head>
 <body>
   <div id="root"></div>
-  <script nonce="${nonce}" src="${jsUri}"></script>
+  <script type="module" nonce="${nonce}" src="${jsUri}"></script>
 </body>
 </html>`;
 }

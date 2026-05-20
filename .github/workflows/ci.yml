@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - v2/main
+      - v2/integration-target
+      - main
+  push:
+    branches:
+      - v2/main
+      - v2/integration-target
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Biome check
+        run: npm run check
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Unit tests with coverage
+        run: npm test -- --coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Bundle size budgets
+        run: npm run size
+
+      - name: npm audit (runtime deps, high+)
+        run: npm audit --omit=dev --audit-level=high
