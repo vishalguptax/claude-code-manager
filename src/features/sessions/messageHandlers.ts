@@ -57,6 +57,9 @@ import { createTerminal } from "../../extension/terminal";
 import { handleFeatureMessage } from "./featureHandlers";
 import { handleAccountMessage } from "./accountHandlers";
 import { handleSettingsMessage } from "./settingsHandlers";
+import { handleMcpMessage, type McpHostContext } from "../mcp/messageHandlers";
+import { dispatchCommandsMessage, type CommandsHost } from "../commands/messageHandlers";
+import { getWorkspace } from "../../extension/workspace";
 import { type HostContext, DEMO_SEEN_KEY } from "./hostContext";
 import { parseMessage } from "../../shared/protocol/schemas";
 import type { WebviewMessage } from "./types";
@@ -99,7 +102,18 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
   try {
     // Ordered fall-through: the first handler that owns the message type
     // returns true and short-circuits the chain.
+    //
+    // Sessions runs first because it owns the richer, resumeIn-aware
+    // variants of the shared `openUrl` / `launchChatWithPrompt` types —
+    // the commands handler also claims those, so the ordering keeps the
+    // session behaviour authoritative for them.
     if (await handleSessionMessage(msg, ctx)) return;
+    // Commands + MCP route through their own per-feature, valibot-validated
+    // handlers (the F2 messageHandlers.ts modules) instead of the legacy
+    // featureHandlers monolith. The narrow host adapters below let those
+    // pure handlers reach the vscode surface without importing the provider.
+    if (await dispatchCommandsMessage(msg, makeCommandsHost(ctx))) return;
+    if (await handleMcpMessage(msg, makeMcpHost(ctx))) return;
     if (await handleFeatureMessage(msg, ctx)) return;
     if (await handleAccountMessage(msg, ctx)) return;
     await handleSettingsMessage(msg, ctx);
@@ -108,6 +122,56 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
     console.error(`[claude-manager] Message handler error (${msg.type}):`, message);
     wv.postMessage({ type: "error", message: `Internal error: ${message}` });
   }
+}
+
+/**
+ * Adapt the shared {@link HostContext} to the narrow {@link CommandsHost}
+ * the commands feature's handler depends on. The handler is pure (no vscode
+ * import); this adapter is the single place that bridges it to the editor.
+ *
+ * `openUrl` / `launchChatWithPrompt` are also claimed by the commands
+ * handler, but the session handler runs first in the chain and owns the
+ * richer variants — so at runtime those never reach here. The bindings are
+ * still wired faithfully (not stubbed) so the handler is correct in
+ * isolation and unit-testable.
+ */
+function makeCommandsHost(ctx: HostContext): CommandsHost {
+  return {
+    post: (m) => {
+      ctx.getWebview()?.postMessage(m);
+    },
+    openFile: async (filePath) => {
+      try {
+        const doc = await vscode.workspace.openTextDocument(filePath);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showErrorMessage(`Could not open ${filePath}`);
+      }
+    },
+    openUrl: (url) => {
+      void vscode.env.openExternal(vscode.Uri.parse(url));
+    },
+    launchChat: async (prompt) => {
+      const term = createTerminal("ask");
+      term.show();
+      term.sendText("claude");
+      setTimeout(() => term.sendText(prompt), 1800);
+    },
+    workspacePath: getWorkspace() || undefined,
+  };
+}
+
+/**
+ * Adapt the shared {@link HostContext} to the MCP feature's
+ * {@link McpHostContext}. Re-derives the workspace per call so a folder
+ * opened after the webview resolved is reflected.
+ */
+function makeMcpHost(ctx: HostContext): McpHostContext {
+  return {
+    getWebview: () => ctx.getWebview(),
+    getWorkspace: () => getWorkspace() || undefined,
+    setMcpServers: (servers) => ctx.setMcpServers(servers),
+  };
 }
 
 /**

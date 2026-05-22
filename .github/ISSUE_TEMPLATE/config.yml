@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/vishalguptax/claude-code-manager/discussions
+    about: Ask questions, share setups, or discuss ideas before filing an issue.
+  - name: Claude Code documentation
+    url: https://docs.anthropic.com/en/docs/claude-code
+    about: For questions about Claude Code itself (not this extension).

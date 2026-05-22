@@ -1,26 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setVscodeApi } from "../../../../webview/hooks/useApi";
-import {
-  initAccountApi,
-  sendDeleteSettingsSnapshot,
-  sendGetAccountData,
-  sendLaunchSlash,
-  sendOpenExtensionSettings,
-  sendOpenSettingsFile,
-  sendPromptAddDirectory,
-  sendPromptAddPermission,
-  sendPromptRemovePermission,
-  sendResetSettings,
-  sendRestoreSettingsSnapshot,
-  sendRunCommand,
-  sendSetCommitAttribution,
-  sendSetModel,
-  sendSetPrAttribution,
-  sendSetSetting,
-  sendSetVoiceEnabled,
-  useAccountApi,
-} from "../api";
+import { useAccountApi } from "../api";
 
 describe("useAccountApi (typed Preact bridge)", () => {
   let post: ReturnType<typeof vi.fn>;
@@ -59,47 +40,5 @@ describe("useAccountApi (typed Preact bridge)", () => {
       list: "deny",
     });
     expect(post).toHaveBeenCalledTimes(14);
-  });
-});
-
-describe("legacy send* senders (Config compat surface)", () => {
-  let post: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    post = vi.fn();
-    initAccountApi({ postMessage: post });
-  });
-
-  it("routes each legacy sender to a validated message", () => {
-    sendGetAccountData();
-    sendLaunchSlash("/config");
-    sendOpenSettingsFile("global");
-    sendSetModel("sonnet");
-    sendSetVoiceEnabled(false);
-    sendSetCommitAttribution("x");
-    sendSetPrAttribution("y");
-    sendSetSetting("permissions.defaultMode", "plan");
-    sendPromptAddPermission("local", "allow");
-    sendPromptAddDirectory();
-    sendOpenExtensionSettings();
-    sendRunCommand("claude.export");
-    sendPromptRemovePermission("project", "Bash(ls)", "allow");
-    sendResetSettings("global");
-    sendRestoreSettingsSnapshot("global", "snap-1");
-    sendDeleteSettingsSnapshot("global", "snap-1");
-
-    expect(post).toHaveBeenCalledWith({ type: "getAccountData" });
-    expect(post).toHaveBeenCalledWith({
-      type: "setSetting",
-      key: "permissions.defaultMode",
-      value: "plan",
-      scope: "global",
-    });
-    expect(post).toHaveBeenCalledWith({
-      type: "restoreSettingsSnapshot",
-      scope: "global",
-      snapshotId: "snap-1",
-    });
-    expect(post).toHaveBeenCalledTimes(16);
   });
 });

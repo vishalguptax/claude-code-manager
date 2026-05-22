@@ -1,5 +1,47 @@
 # Changelog
 
+## [2.0.0] - 2026-05-23
+
+Ground-up rebuild of the webview on Preact + signals with a valibot-validated
+message protocol. Migration only — every feature, setting, command, and the
+"100% local, zero telemetry" promise are preserved. See
+[docs/releases/v2.0.0.md](docs/releases/v2.0.0.md) and the
+[v1→v2 migration guide](docs/migration/v1-to-v2.md). First shipped as
+`2.0.0-beta.1`.
+
+### Added
+
+- Preact-based webview for all tabs with reactive `@preact/signals` state.
+- Shared, valibot-validated postMessage protocol (`src/shared/protocol`) parsed
+  on both the host and webview sides.
+- Code-split webview: tiny shell plus a lazy-loaded chunk per feature.
+- Windowed `<VirtualList />` so 5,000+ sessions (and any large feature list)
+  scroll in constant time.
+- `@vscode/test-electron` integration smoke suite (run under xvfb in CI).
+- Performance harness (`scripts/perf/`) with a configurable N-session fixture.
+- CodeQL workflow, PR template, and bug/feature issue forms.
+
+### Changed
+
+- Build toolchain: Biome replaces ESLint + Prettier; size-limit gates bundles.
+- Sessions host code decomposed (view provider + parser split into focused
+  modules); search index gained LRU eviction.
+- Account usage/heatmap/formatting extracted into pure, unit-tested modules.
+- Minimum VS Code bumped to `^1.90.0`; Node engine `>=20`.
+
+### Removed
+
+- Legacy vanilla DOM webview, the v1 compat shims, and dead webview modules
+  (demo intro, marketplace/uiReset/loader/icons/select helpers).
+- The v1 cinematic first-run intro.
+
+### Security
+
+- Git ref validation before any `claude --resume` shell invocation (resume /
+  fork / restore-workspace), closing a shell-injection vector.
+- CSP hardened to `default-src 'none'`, nonce-only module scripts,
+  `connect-src 'none'`.
+
 ## [1.10.0] - 2026-05-19
 
 Installed Claude Code plugins now surface their skills, agents, slash commands, hooks, and MCP servers alongside their user-level counterparts, and sessions waiting on `AskUserQuestion` / `ExitPlanMode` get a distinct orange live indicator so idle "needs your input" sessions stop hiding behind the green dot.

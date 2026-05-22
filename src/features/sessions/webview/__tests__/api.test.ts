@@ -50,9 +50,4 @@ describe("sessions api senders", () => {
     api.sendConfirmDelete("id", "cb");
     expect(post).toHaveBeenCalledWith({ type: "confirmDelete", sessionId: "id", callback: "cb" });
   });
-
-  it("sendMarkDemoSeen compat shim posts markDemoSeen", () => {
-    api.sendMarkDemoSeen();
-    expect(post).toHaveBeenCalledWith({ type: "markDemoSeen" });
-  });
 });
