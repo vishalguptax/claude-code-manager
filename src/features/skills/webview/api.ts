@@ -1,45 +1,47 @@
 /**
- * Typed wrapper around vscode.postMessage for all skills webview-to-extension messages.
- * Centralizes all message passing so callers never construct raw objects.
+ * Typed postMessage wrappers for the skills feature. Every send is a
+ * variant of the shared `WebviewMessage` union, so a typo or a payload
+ * drift is a compile error. Callers obtain `post` from the `useApi()`
+ * hook and pass it in, keeping these helpers free of singleton state.
  */
+import type { WebviewMessage } from "../../../shared/protocol/messages";
 
-import type { VSCodeAPI } from "../../../webview/types";
+export type Post = (msg: WebviewMessage) => void;
 
-let _vscode: VSCodeAPI;
-
-/**
- * Initialize the skills API module with the VS Code API instance.
- * Must be called once at startup before any other API function.
- */
-export function initSkillsApi(vscode: VSCodeAPI): void {
-  _vscode = vscode;
+/** Request the full skills list from the host. */
+export function getSkills(post: Post): void {
+  post({ type: "getSkills" });
 }
 
-/** Request the list of all skills from the extension. */
-export function sendGetSkills(): void {
-  _vscode.postMessage({ type: "getSkills" });
+/** Request full detail for one skill by id. */
+export function getSkillDetail(post: Post, skillId: string): void {
+  post({ type: "getSkillDetail", skillId });
 }
 
-/** Request full detail for a specific skill. */
-export function sendGetSkillDetail(skillId: string): void {
-  _vscode.postMessage({ type: "getSkillDetail", skillId });
+/** Open a skill's SKILL.md in the editor. */
+export function openSkillFile(post: Post, skillPath: string): void {
+  post({ type: "openSkillFile", skillPath });
 }
 
-/** Request to open a skill file in the editor. */
-export function sendOpenSkillFile(skillPath: string): void {
-  _vscode.postMessage({ type: "openSkillFile", skillPath });
-}
-
-/** Request to delete a skill folder (with extension-side confirmation). */
-export function sendDeleteSkill(skillPath: string): void {
-  _vscode.postMessage({ type: "deleteSkill", skillPath });
+/** Delete a skill folder (host shows a confirmation modal first). */
+export function deleteSkill(post: Post, skillPath: string): void {
+  post({ type: "deleteSkill", skillPath });
 }
 
 /**
- * Open the Claude Code extension's chat tab with the skill invocation
- * pre-filled as the prompt. Skills are invoked the same way as slash
- * commands in the chat, so we fire `/<name>` as the prompt body.
+ * Open the Claude Code chat with the skill invocation pre-filled. Skills
+ * are invoked like slash commands, so the prompt body is `/<name>`.
  */
-export function sendLaunchSkillInChat(name: string): void {
-  _vscode.postMessage({ type: "launchChatWithPrompt", prompt: `/${name}` });
+export function launchSkillInChat(post: Post, name: string): void {
+  post({ type: "launchChatWithPrompt", prompt: `/${name}` });
+}
+
+/** Start a new Claude Code session (used by the detail view's "Open Claude"). */
+export function newSession(post: Post): void {
+  post({ type: "newSession" });
+}
+
+/** Open an external URL (the community skills marketplace). */
+export function openUrl(post: Post, url: string): void {
+  post({ type: "openUrl", url });
 }
