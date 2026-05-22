@@ -1,0 +1,266 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import type { Session } from "../../types";
+import {
+  applyDelta,
+  clearSelection,
+  currentProjectSignal,
+  deletedSignal,
+  filterBranchSignal,
+  filterDateSignal,
+  filterProjectSignal,
+  getBranches,
+  getFiltered,
+  getLastSessionGroup,
+  getProjects,
+  pinnedSignal,
+  searchQuerySignal,
+  selectAll,
+  selectionSignal,
+  sessionsSignal,
+  setBulkMode,
+  setFullTextHits,
+  setPinned,
+  setWorkspacePath,
+  toggleSelected,
+  _resetSessionsSignals,
+} from "../signals";
+
+function session(over: Partial<Session> & { id: string }): Session {
+  const base: Session = {
+    id: over.id,
+    name: "",
+    project: "proj",
+    projectPath: "/repo/proj",
+    branch: "main",
+    entrypoint: "cli",
+    startTime: 1000,
+    endTime: 1000,
+    messageCount: 1,
+    summary: "summary",
+    prompts: ["first prompt"],
+    projectKey: "proj",
+    searchHaystack: "\nproj\nmain\nsummary",
+  };
+  return { ...base, ...over };
+}
+
+describe("sessions signals", () => {
+  beforeEach(() => _resetSessionsSignals());
+
+  describe("getFiltered", () => {
+    it("hides deleted sessions", () => {
+      sessionsSignal.value = [session({ id: "a" }), session({ id: "b" })];
+      deletedSignal.value = new Set(["a"]);
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      const ids = getFiltered().map((s) => s.id);
+      expect(ids).toEqual(["b"]);
+    });
+
+    it("narrows to current project when known", () => {
+      sessionsSignal.value = [
+        session({ id: "a", projectKey: "alpha", project: "alpha" }),
+        session({ id: "b", projectKey: "beta", project: "beta" }),
+      ];
+      currentProjectSignal.value = "alpha";
+      filterProjectSignal.value = "current";
+      filterDateSignal.value = "all";
+      expect(getFiltered().map((s) => s.id)).toEqual(["a"]);
+    });
+
+    it("shows everything when current project unresolved", () => {
+      sessionsSignal.value = [session({ id: "a" }), session({ id: "b" })];
+      currentProjectSignal.value = "";
+      filterProjectSignal.value = "current";
+      filterDateSignal.value = "all";
+      expect(getFiltered()).toHaveLength(2);
+    });
+
+    it("sorts pinned first then by most recent endTime", () => {
+      sessionsSignal.value = [
+        session({ id: "old", endTime: 100 }),
+        session({ id: "new", endTime: 900 }),
+        session({ id: "pinnedOld", endTime: 50 }),
+      ];
+      pinnedSignal.value = new Set(["pinnedOld"]);
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      expect(getFiltered().map((s) => s.id)).toEqual(["pinnedOld", "new", "old"]);
+    });
+
+    it("recent mode caps unpinned at 20 but keeps pinned", () => {
+      const many = Array.from({ length: 30 }, (_, i) =>
+        session({ id: `s${i}`, endTime: i }),
+      );
+      sessionsSignal.value = [...many, session({ id: "pin", endTime: -1 })];
+      pinnedSignal.value = new Set(["pin"]);
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "recent";
+      const out = getFiltered();
+      expect(out[0]?.id).toBe("pin");
+      // 20 unpinned + 1 pinned
+      expect(out).toHaveLength(21);
+    });
+
+    it("filters by branch with the (no branch) sentinel", () => {
+      sessionsSignal.value = [
+        session({ id: "a", branch: "feature" }),
+        session({ id: "b", branch: "" }),
+      ];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      filterBranchSignal.value = "(no branch)";
+      expect(getFiltered().map((s) => s.id)).toEqual(["b"]);
+    });
+
+    it("matches the search haystack", () => {
+      sessionsSignal.value = [
+        session({ id: "a", searchHaystack: "refactor parser" }),
+        session({ id: "b", searchHaystack: "unrelated" }),
+      ];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      searchQuerySignal.value = "parser";
+      expect(getFiltered().map((s) => s.id)).toEqual(["a"]);
+    });
+
+    it("unions full-text hits with metadata matches for the live query", () => {
+      sessionsSignal.value = [
+        session({ id: "meta", searchHaystack: "deploy script" }),
+        session({ id: "body", searchHaystack: "nothing here" }),
+      ];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      searchQuerySignal.value = "deploy";
+      setFullTextHits("deploy", ["body"]);
+      expect(getFiltered().map((s) => s.id).sort()).toEqual(["body", "meta"]);
+    });
+
+    it("ignores stale full-text hits for a superseded query", () => {
+      sessionsSignal.value = [session({ id: "body", searchHaystack: "x" })];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      searchQuerySignal.value = "current";
+      // Reply for an old query must not leak in.
+      setFullTextHits("old", ["body"]);
+      expect(getFiltered()).toHaveLength(0);
+    });
+  });
+
+  describe("getProjects / getBranches", () => {
+    it("orders projects with current first then by activity", () => {
+      sessionsSignal.value = [
+        session({ id: "a", project: "alpha", projectKey: "alpha", endTime: 10 }),
+        session({ id: "b", project: "beta", projectKey: "beta", endTime: 99 }),
+      ];
+      currentProjectSignal.value = "alpha";
+      expect(getProjects()).toEqual(["alpha", "beta"]);
+    });
+
+    it("lists distinct branches with (no branch) last", () => {
+      sessionsSignal.value = [
+        session({ id: "a", branch: "main" }),
+        session({ id: "b", branch: "" }),
+        session({ id: "c", branch: "dev" }),
+      ];
+      expect(getBranches()).toEqual(["dev", "main", "(no branch)"]);
+    });
+  });
+
+  describe("getLastSessionGroup", () => {
+    it("returns sessions within the restore window, oldest first", () => {
+      const now = Date.now();
+      sessionsSignal.value = [
+        session({ id: "recent1", endTime: now }),
+        session({ id: "recent2", endTime: now - 5 * 60_000 }),
+        session({ id: "stale", endTime: now - 60 * 60_000 }),
+      ];
+      currentProjectSignal.value = "";
+      expect(getLastSessionGroup().map((s) => s.id)).toEqual(["recent2", "recent1"]);
+    });
+
+    it("returns empty when there are no candidates", () => {
+      sessionsSignal.value = [];
+      expect(getLastSessionGroup()).toEqual([]);
+    });
+  });
+
+  describe("applyDelta", () => {
+    const base = [session({ id: "a" }), session({ id: "b" })];
+
+    it("adds new sessions", () => {
+      const out = applyDelta(base, { added: [session({ id: "c" })] });
+      expect(out.map((s) => s.id).sort()).toEqual(["a", "b", "c"]);
+    });
+
+    it("replaces updated sessions by id", () => {
+      const out = applyDelta(base, { updated: [session({ id: "a", name: "renamed" })] });
+      expect(out.find((s) => s.id === "a")?.name).toBe("renamed");
+      expect(out).toHaveLength(2);
+    });
+
+    it("removes sessions by id", () => {
+      const out = applyDelta(base, { removed: ["a"] });
+      expect(out.map((s) => s.id)).toEqual(["b"]);
+    });
+
+    it("does not mutate the input array", () => {
+      const input = [...base];
+      applyDelta(input, { added: [session({ id: "z" })], removed: ["a"] });
+      expect(input.map((s) => s.id)).toEqual(["a", "b"]);
+    });
+
+    it("treats an unknown update as an addition", () => {
+      const out = applyDelta(base, { updated: [session({ id: "new" })] });
+      expect(out.map((s) => s.id).sort()).toEqual(["a", "b", "new"]);
+    });
+  });
+
+  describe("selection helpers", () => {
+    it("toggles selection membership", () => {
+      toggleSelected("x");
+      expect(selectionSignal.value.has("x")).toBe(true);
+      toggleSelected("x");
+      expect(selectionSignal.value.has("x")).toBe(false);
+    });
+
+    it("selectAll replaces the selection set", () => {
+      selectAll(["a", "b"]);
+      expect([...selectionSignal.value].sort()).toEqual(["a", "b"]);
+    });
+
+    it("clearSelection empties selection and leaves bulk mode", () => {
+      setBulkMode(true);
+      selectAll(["a"]);
+      clearSelection();
+      expect(selectionSignal.value.size).toBe(0);
+    });
+
+    it("leaving bulk mode clears the selection", () => {
+      setBulkMode(true);
+      selectAll(["a"]);
+      setBulkMode(false);
+      expect(selectionSignal.value.size).toBe(0);
+    });
+  });
+
+  describe("setWorkspacePath", () => {
+    it("derives a lowercased project name from the tail segment", () => {
+      setWorkspacePath("C:/Users/me/Projects/MyApp");
+      expect(currentProjectSignal.value).toBe("myapp");
+    });
+
+    it("falls back to the all-projects filter when no workspace", () => {
+      filterProjectSignal.value = "current";
+      setWorkspacePath("");
+      expect(filterProjectSignal.value).toBe("all");
+    });
+  });
+
+  describe("setPinned", () => {
+    it("replaces the pinned set", () => {
+      setPinned(["a", "b"]);
+      expect([...pinnedSignal.value].sort()).toEqual(["a", "b"]);
+    });
+  });
+});
