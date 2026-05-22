@@ -4,7 +4,7 @@
  * payload is checked against the `WebviewMessage` union at compile time.
  */
 import type { WebviewMessage } from "../../../shared/protocol/messages";
-import { useApi } from "../../../webview/hooks/useApi";
+import { useApi } from "../../../webview/shared/hooks";
 
 export interface AgentsApi {
   /** Ask the host to (re)send the full agent list. */

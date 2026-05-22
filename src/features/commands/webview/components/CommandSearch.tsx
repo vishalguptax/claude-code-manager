@@ -2,8 +2,8 @@
  * Search row for the commands list: a debounced text input with an inline
  * clear button and a refresh button. Pressing Escape clears the query.
  */
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
 
 export interface CommandSearchProps {
   query: string;

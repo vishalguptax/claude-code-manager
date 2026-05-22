@@ -4,7 +4,7 @@
  * the palette. The webview just fires the commands; all file dialogs and
  * zip work run host-side.
  */
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import type { ConfigApi } from "../api";
 
 export interface BrainViewProps {

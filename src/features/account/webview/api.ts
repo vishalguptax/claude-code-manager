@@ -7,7 +7,7 @@
  */
 
 import type { WebviewMessage } from "../../../shared/protocol/messages";
-import { useApi } from "../../../webview/hooks/useApi";
+import { useApi } from "../../../webview/shared/hooks";
 import type { PermissionScope } from "../types";
 
 /** A `post` function that only accepts validated webview messages. */

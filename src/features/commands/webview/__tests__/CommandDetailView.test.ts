@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/preact";
 import { h } from "preact";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
 import type { Command } from "../../types";
 import { CommandDetailView } from "../views/CommandDetailView";
 import { resetCommandSignals, selected } from "../signals";

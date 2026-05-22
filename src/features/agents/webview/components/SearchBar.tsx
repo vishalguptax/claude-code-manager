@@ -3,8 +3,8 @@
  * and a refresh action. The input is controlled by the parent's query value;
  * Escape clears it.
  */
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
 
 export interface SearchBarProps {
   value: string;

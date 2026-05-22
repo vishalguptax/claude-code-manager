@@ -13,9 +13,9 @@
  * grouped under a "Pinned" header first, then the rest by date label.
  */
 import { useEffect, useState } from "preact/hooks";
-import { ContextMenu } from "../../../../webview/components/ContextMenu";
-import { EmptyState } from "../../../../webview/components/EmptyState";
-import { VirtualList } from "../../../../webview/components/VirtualList";
+import { ContextMenu } from "../../../../webview/shared/ui";
+import { EmptyState } from "../../../../webview/shared/ui";
+import { VirtualList } from "../../../../webview/shared/ui";
 import { dateLabel } from "../../../../webview/utils";
 import { sendGetSessionDetail, sendResumeSession } from "../api";
 import { ActionsBar } from "../components/ActionsBar";

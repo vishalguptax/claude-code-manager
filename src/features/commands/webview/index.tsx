@@ -6,9 +6,9 @@
  */
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
-import { Loading } from "../../../webview/components/Loading";
-import { useApi } from "../../../webview/hooks/useApi";
-import { registerFeatureHandler } from "../../../webview/signals/messageBus";
+import { useApi } from "../../../webview/shared/hooks";
+import { registerFeatureHandler } from "../../../webview/shared/model";
+import { Loading } from "../../../webview/shared/ui";
 import type { Command } from "../types";
 import { getCommandsMsg, type Post } from "./api";
 import { claudeCodeInstalled, commands, errorMessage, loading, selected } from "./signals";

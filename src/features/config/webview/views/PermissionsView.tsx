@@ -5,7 +5,7 @@
  * the actual allow/deny/dir mutations round-trip through the host (which
  * confirms removals natively) and come back as a fresh `accountData`.
  */
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import type { AccountData, PermissionScope, PermissionSet, PermissionList } from "../../types";
 import type { ConfigApi } from "../api";
 

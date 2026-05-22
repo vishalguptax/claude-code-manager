@@ -4,7 +4,7 @@
  * (sendOpenUrl) rather than a raw anchor, so the webview CSP's `connect-src
  * 'none'` is never involved and navigation stays under host control.
  */
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import { sendOpenUrl } from "../api";
 
 const GITHUB_URL = "https://github.com/vishalguptax/claude-code-manager";

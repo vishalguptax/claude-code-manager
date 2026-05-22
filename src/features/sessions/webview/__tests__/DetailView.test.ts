@@ -11,7 +11,8 @@ import {
   _resetSessionsSignals,
 } from "../signals";
 
-vi.mock("../../../../webview/hooks/useApi", () => ({
+vi.mock("../../../../webview/shared/hooks", async (importActual) => ({
+  ...(await importActual<typeof import("../../../../webview/shared/hooks")>()),
   useApi: () => ({ post: () => {} }),
   setVscodeApi: () => {},
 }));

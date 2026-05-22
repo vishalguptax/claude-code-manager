@@ -5,7 +5,7 @@
  * servers). Selecting "Back" clears the selection signal.
  */
 import { useState } from "preact/hooks";
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import type { McpServer } from "../../types";
 import { ScopeBadge, TypeBadge } from "../components/McpBadges";
 

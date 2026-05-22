@@ -2,7 +2,7 @@
  * Segmented control for filtering the agent list by model. Each button shows
  * a live count derived from `modelCounts`.
  */
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 import type { ModelFilter as ModelFilterValue } from "../signals";
 
 export interface ModelFilterProps {

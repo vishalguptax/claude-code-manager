@@ -5,7 +5,7 @@ import { fireEvent, render } from "@testing-library/preact";
 import { Footer } from "../components/Footer";
 
 const post = vi.fn();
-vi.mock("../../../../webview/hooks/useApi", () => ({
+vi.mock("../../../../webview/shared/hooks", () => ({
   useApi: () => ({ post: (m: unknown) => post(m) }),
   setVscodeApi: () => {},
 }));

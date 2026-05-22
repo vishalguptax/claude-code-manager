@@ -18,7 +18,8 @@ import {
 
 // useApi posts to a never-acquired bridge in tests; stub it so action
 // buttons in the view don't throw.
-vi.mock("../../../../webview/hooks/useApi", () => ({
+vi.mock("../../../../webview/shared/hooks", async (importActual) => ({
+  ...(await importActual<typeof import("../../../../webview/shared/hooks")>()),
   useApi: () => ({ post: () => {} }),
   setVscodeApi: () => {},
 }));

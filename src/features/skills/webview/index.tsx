@@ -4,8 +4,8 @@
  * default export the first time the Skills tab is activated.
  */
 import { useEffect } from "preact/hooks";
-import { useApi } from "../../../webview/hooks/useApi";
-import { registerFeatureHandler } from "../../../webview/signals/messageBus";
+import { useApi } from "../../../webview/shared/hooks";
+import { registerFeatureHandler } from "../../../webview/shared/model";
 import type { Skill } from "../types";
 import { getSkills } from "./api";
 import { claudeCodeInstalled, marketplaceSkillsUrl, selectedSkill, skills } from "./signals";

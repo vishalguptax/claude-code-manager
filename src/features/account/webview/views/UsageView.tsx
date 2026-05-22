@@ -10,7 +10,7 @@
  * thousand-session lists in the Sessions feature.
  */
 
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 import type { AccountData, UsageStats } from "../../types";
 import { isSectionCollapsed, timePeriod, toggleSection, type TimePeriod } from "../signals";
 import {

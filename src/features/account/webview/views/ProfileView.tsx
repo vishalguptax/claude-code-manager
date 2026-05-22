@@ -10,8 +10,8 @@
  * row.
  */
 
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
 import type { AccountData } from "../../types";
 import type { AccountApi } from "../api";
 import { isSectionCollapsed, toggleSection } from "../signals";

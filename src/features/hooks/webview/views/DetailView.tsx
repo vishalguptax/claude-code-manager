@@ -5,10 +5,10 @@
  * lives in plugin.json) so only copy + a read-only note are shown.
  */
 import { useState } from "preact/hooks";
-import { Button } from "../../../../webview/components/Button";
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
-import { useApi } from "../../../../webview/hooks/useApi";
+import { Button } from "../../../../webview/shared/ui";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
+import { useApi } from "../../../../webview/shared/hooks";
 import type { Hook } from "../../types";
 import * as api from "../api";
 import type { Post } from "../api";

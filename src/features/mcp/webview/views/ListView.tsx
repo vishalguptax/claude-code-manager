@@ -5,7 +5,7 @@
  * VirtualList with group-label rows interleaved into a single flat sequence.
  */
 import type { ComponentChildren } from "preact";
-import { VirtualList } from "../../../../webview/components/VirtualList";
+import { VirtualList } from "../../../../webview/shared/ui";
 import type { McpServer } from "../../types";
 import { McpEmpty } from "../components/McpEmpty";
 import { McpItem } from "../components/McpItem";

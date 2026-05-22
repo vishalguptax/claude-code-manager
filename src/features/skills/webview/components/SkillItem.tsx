@@ -4,8 +4,8 @@
  * Stateless: all interaction is delegated to the props callbacks so the
  * component stays trivially testable.
  */
-import { cx } from "../../../../webview/utils/classnames";
-import { Icon } from "../../../../webview/components/Icon";
+import { cx } from "../../../../webview/shared/lib";
+import { Icon } from "../../../../webview/shared/ui";
 import type { Skill } from "../../types";
 
 const DESC_MAX = 60;

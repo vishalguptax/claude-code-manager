@@ -4,7 +4,7 @@
  * Restore (host-confirmed) and Delete (loses only the rollback option, so
  * unconfirmed) actions. Newest first; capped per scope by the host.
  */
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import type { SettingsSnapshotInfo } from "../../types";
 import type { ConfigApi } from "../api";
 

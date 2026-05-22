@@ -3,8 +3,8 @@
  * agent, with a back action and an "open file" action that delegates to the
  * host. Renders nothing useful if no agent is selected (parent guards this).
  */
-import { Button } from "../../../../webview/components/Button";
-import { Icon } from "../../../../webview/components/Icon";
+import { Button } from "../../../../webview/shared/ui";
+import { Icon } from "../../../../webview/shared/ui";
 import type { Agent } from "../../types";
 import { ModelBadge } from "../components/ModelBadge";
 

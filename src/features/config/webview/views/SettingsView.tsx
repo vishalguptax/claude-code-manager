@@ -6,7 +6,7 @@
  * re-parses settings.json and pushes a fresh `accountData` payload, which
  * re-renders this view.
  */
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import type { AccountData, PermissionDefaultMode } from "../../types";
 import type { ConfigApi } from "../api";
 

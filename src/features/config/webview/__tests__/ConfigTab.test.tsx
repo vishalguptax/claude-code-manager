@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
-import { _resetMessageBus } from "../../../../webview/signals/messageBus";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
+import { _resetMessageBus } from "../../../../webview/shared/model";
 import ConfigTab, { handleConfigMessage } from "../index";
 import { _resetConfigState, configData, configError, loading } from "../signals";
 import { makeConfigData } from "./fixtures";

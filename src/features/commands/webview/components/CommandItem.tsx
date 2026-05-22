@@ -3,8 +3,8 @@
  * one-line preview, with copy and (when the Claude Code extension is installed)
  * launch-in-chat affordances.
  */
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
 import type { Command } from "../../types";
 
 export interface CommandItemProps {

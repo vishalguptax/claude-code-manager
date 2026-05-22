@@ -2,8 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
-import { _resetMessageBus, dispatch } from "../../../../webview/signals/messageBus";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
+import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
 import type { McpServer } from "../../types";
 import { resetMcpSignals } from "../signals";
 import McpTab from "../index";

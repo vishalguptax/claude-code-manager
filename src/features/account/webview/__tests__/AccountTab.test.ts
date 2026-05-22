@@ -2,8 +2,8 @@
 import { h } from "preact";
 import { render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
-import { _resetMessageBus } from "../../../../webview/signals/messageBus";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
+import { _resetMessageBus } from "../../../../webview/shared/model";
 import AccountTab from "../index";
 import { _resetAccountState, accountData, accountError, loading } from "../signals";
 

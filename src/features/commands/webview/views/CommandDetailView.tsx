@@ -3,8 +3,8 @@
  * the official docs; custom commands show their file path and full template.
  */
 import { useState } from "preact/hooks";
-import { Icon } from "../../../../webview/components/Icon";
-import { useApi } from "../../../../webview/hooks/useApi";
+import { Icon } from "../../../../webview/shared/ui";
+import { useApi } from "../../../../webview/shared/hooks";
 import type { Command } from "../../types";
 import { openCommandFileMsg, openUrlMsg, type Post } from "../api";
 import { selected } from "../signals";

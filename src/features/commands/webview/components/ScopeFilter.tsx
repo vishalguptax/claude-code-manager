@@ -3,7 +3,7 @@
  * scope (plus "All"); the plugin button only appears when plugin commands
  * exist. Counts come from the unfiltered command list.
  */
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 import type { ScopeFilter as ScopeFilterValue } from "../signals";
 
 export interface ScopeFilterProps {

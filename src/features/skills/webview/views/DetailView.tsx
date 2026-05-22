@@ -4,8 +4,8 @@
  * button clears the selection to return to the list.
  */
 import { useState } from "preact/hooks";
-import { Icon } from "../../../../webview/components/Icon";
-import { useApi } from "../../../../webview/hooks/useApi";
+import { Icon } from "../../../../webview/shared/ui";
+import { useApi } from "../../../../webview/shared/hooks";
 import type { Skill } from "../../types";
 import { claudeCodeInstalled, selectedSkill } from "../signals";
 import { deleteSkill, launchSkillInChat, newSession, openSkillFile } from "../api";

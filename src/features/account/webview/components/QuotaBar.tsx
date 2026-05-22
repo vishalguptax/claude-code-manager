@@ -5,7 +5,7 @@
  * reads `width: var(--fill)`.
  */
 
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 import type { QuotaWindow } from "../../quota";
 import { formatResetsIn, quotaTone } from "../format";
 

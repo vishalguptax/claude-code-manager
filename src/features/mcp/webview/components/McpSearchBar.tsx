@@ -3,8 +3,8 @@
  * clear button, plus "browse community" and "refresh" side buttons. The parent
  * owns the query value (a signal) so this stays presentational.
  */
-import { cx } from "../../../../webview/utils/classnames";
-import { Icon } from "../../../../webview/components/Icon";
+import { cx } from "../../../../webview/shared/lib";
+import { Icon } from "../../../../webview/shared/ui";
 
 export interface McpSearchBarProps {
   query: string;

@@ -9,8 +9,8 @@
  * header carries a freshness stamp + refresh button once data exists.
  */
 
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
 import type { QuotaData, QuotaError } from "../../quota";
 import type { AccountApi } from "../api";
 import {

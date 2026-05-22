@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
 import { useAgentsApi } from "../api";
 
 afterEach(() => setVscodeApi(null));

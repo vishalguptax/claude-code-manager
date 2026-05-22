@@ -3,7 +3,7 @@
  * last, restore the last working set of terminals, and import a portable
  * session file.
  */
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import {
   sendContinueLastSession,
   sendImportSession,

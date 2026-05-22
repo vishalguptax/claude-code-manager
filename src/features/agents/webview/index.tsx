@@ -4,8 +4,8 @@
  * bus), the initial data request, and switching between list and detail views.
  */
 import { useEffect } from "preact/hooks";
-import { Loading } from "../../../webview/components/Loading";
-import { registerFeatureHandler } from "../../../webview/signals/messageBus";
+import { registerFeatureHandler } from "../../../webview/shared/model";
+import { Loading } from "../../../webview/shared/ui";
 import type { Agent } from "../types";
 import { useAgentsApi } from "./api";
 import {

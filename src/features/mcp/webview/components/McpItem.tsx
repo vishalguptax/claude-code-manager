@@ -3,9 +3,9 @@
  * button, transport/scope/disabled badges, and a one-line connection preview.
  * Selection and copy are surfaced as callbacks so the row stays presentational.
  */
-import { cx } from "../../../../webview/utils/classnames";
-import { Icon } from "../../../../webview/components/Icon";
-import { ListItem } from "../../../../webview/components/ListItem";
+import { cx } from "../../../../webview/shared/lib";
+import { Icon } from "../../../../webview/shared/ui";
+import { ListItem } from "../../../../webview/shared/ui";
 import type { McpServer } from "../../types";
 import { DisabledBadge, ReadOnlyBadge, TypeBadge } from "./McpBadges";
 

@@ -3,8 +3,8 @@
  * "Select" toggle; in bulk mode it becomes a toolbar with pin/unpin, export,
  * delete, and cancel actions scoped to the current selection.
  */
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
 import { sendBulkDeleteSessions, sendBulkExportSessions, sendBulkPinSessions } from "../api";
 import {
   bulkModeSignal,

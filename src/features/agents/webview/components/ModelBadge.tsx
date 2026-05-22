@@ -2,7 +2,7 @@
  * Colored badge showing an agent's model. The model-specific class drives the
  * accent color in `agents.css`; unknown models fall back to neutral styling.
  */
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 
 /** Models that have a dedicated accent color in the stylesheet. */
 const KNOWN_MODELS = new Set(["sonnet", "opus", "haiku"]);

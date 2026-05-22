@@ -17,9 +17,8 @@
 
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
-import { EmptyState } from "../../../webview/components/EmptyState";
-import { Loading } from "../../../webview/components/Loading";
-import { registerFeatureHandler } from "../../../webview/signals/messageBus";
+import { registerFeatureHandler } from "../../../webview/shared/model";
+import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { QuotaResult } from "../quota";
 import type { AccountData } from "../types";
 import { useAccountApi } from "./api";
