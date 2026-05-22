@@ -15,7 +15,9 @@ export function App() {
     <ErrorBoundary>
       <TabBar />
       <div class="tab-content-area">
-        <TabPanel feature={current} />
+        <div class="tab-content">
+          <TabPanel feature={current} />
+        </div>
       </div>
     </ErrorBoundary>
   );

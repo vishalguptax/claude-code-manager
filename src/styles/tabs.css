@@ -24,6 +24,9 @@
 }
 .tab-icon { display: inline-flex; }
 .tab-label { font-size: var(--fs-base); }
-.tab-content-area { flex: 1; overflow: hidden; display: flex; min-height: 0; }
-.tab-content { flex: 1; overflow: auto; display: flex; flex-direction: column; min-height: 0; }
+.tab-content-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.tab-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .tab-content.hidden { display: none; }
+/* Feature panels are direct children of .tab-content; they own their own
+   vertical scroll so the sticky footer stays visible. */
+.tab-content > .panel { flex: 1; min-height: 0; overflow-y: auto; }
