@@ -157,6 +157,34 @@
 }
 
 /*
+ * Shared <Dropdown> wrapper (src/webview/components/Dropdown.tsx) around the
+ * <vscode-single-select> web component. The element itself draws the native
+ * Settings-dropdown face inside its Shadow DOM and reads the ambient
+ * --vscode-* theme vars, so we only style the light-DOM flex shell: stretch the
+ * select to fill the row and place an optional leading icon to its left.
+ */
+.filter-row > .vsc-dropdown {
+  flex: 1;
+  min-width: 0;
+}
+.vsc-dropdown {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.vsc-dropdown-select {
+  flex: 1;
+  min-width: 0;
+}
+.vsc-dropdown-leading {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg-muted);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+/*
  * Project filter dropdown — shares the .vs-select trigger + menu shell
  * with the model dropdown (see "Custom themed dropdown" section below).
  * These rules are only the project-specific option content (horizontal

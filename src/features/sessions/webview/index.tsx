@@ -18,6 +18,8 @@ import {
   currentBranchSignal,
   detailLoadingSignal,
   detailSignal,
+  initFilterPersistence,
+  loadPersistedFilters,
   type SessionsDelta,
   selectedIdSignal,
   sessionsSignal,
@@ -26,6 +28,7 @@ import {
   setPinned,
   setWorkspacePath,
   statsSignal,
+  stopFilterPersistence,
   viewSignal,
 } from "./signals";
 import { DetailView } from "./views/DetailView";
@@ -105,6 +108,12 @@ export function handleDelta(payload: {
 
 export default function SessionsTab() {
   useEffect(() => {
+    // Restore the user's last filter choices BEFORE starting the persistence
+    // writer, so the writer's first run records the restored values rather than
+    // overwriting them with the defaults. Order matters here.
+    loadPersistedFilters();
+    initFilterPersistence();
+
     // The bus matches by type prefix; an empty prefix sees every message and
     // we narrow to the ones the sessions feature owns. The bus has already
     // validated each message against the shared valibot schema.
@@ -116,7 +125,10 @@ export default function SessionsTab() {
       handleMessage(msg);
     });
     sendReady();
-    return unsub;
+    return () => {
+      unsub();
+      stopFilterPersistence();
+    };
   }, []);
 
   return viewSignal.value === "detail" ? <DetailView /> : <ListView />;

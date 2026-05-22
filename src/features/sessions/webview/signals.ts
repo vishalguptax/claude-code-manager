@@ -9,7 +9,8 @@
  * them from inside a component body subscribes that component to every
  * input signal.
  */
-import { computed, signal } from "@preact/signals";
+import { computed, effect, signal } from "@preact/signals";
+import { getPersisted, setPersisted } from "../../../webview/persistence";
 import type { DateFilter, View } from "../../../webview/types";
 import type { Session, SessionDetail, Stats } from "../types";
 
@@ -262,6 +263,98 @@ export function getBranches(): string[] {
   });
 }
 
+/** One option for the project filter dropdown: a value, its session count. */
+export interface ProjectOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+/**
+ * Project-filter options with per-project session counts — restores the v1
+ * count badges. Leads with "This Project" (count of current-project sessions)
+ * and "All Projects" (total non-deleted), then every project by recency.
+ * Single O(N) pass over sessions, mirroring v1 `updateDropdown`.
+ */
+export function getProjectOptions(): ProjectOption[] {
+  const all = sessionsSignal.value;
+  const deleted = deletedSignal.value;
+  const currentProject = currentProjectSignal.value;
+
+  const counts = new Map<string, number>();
+  let currentCount = 0;
+  let totalCount = 0;
+  for (const s of all) {
+    if (deleted.has(s.id)) continue;
+    totalCount++;
+    counts.set(s.project, (counts.get(s.project) ?? 0) + 1);
+    if (currentProject && s.projectKey === currentProject) currentCount++;
+  }
+
+  const opts: ProjectOption[] = [
+    { value: "current", label: "This Project", count: currentCount },
+    { value: "all", label: "All Projects", count: totalCount },
+  ];
+  for (const p of getProjects()) {
+    opts.push({ value: p, label: p, count: counts.get(p) ?? 0 });
+  }
+  return opts;
+}
+
+/** One option for the branch filter dropdown. `isCurrent` flags the workspace branch. */
+export interface BranchOption {
+  value: string;
+  label: string;
+  count: number;
+  isCurrent: boolean;
+}
+
+/**
+ * Branch-filter options scoped to the active project filter, with per-branch
+ * session counts and the workspace's current branch sorted first + marked —
+ * restores the v1 `branchDropdown.ts` behaviour. Leads with "All Branches"
+ * (total in scope). Single O(N) pass.
+ */
+export function getBranchOptions(): BranchOption[] {
+  const sessions = sessionsSignal.value;
+  const deleted = deletedSignal.value;
+  const currentBranch = currentBranchSignal.value;
+  const project = filterProjectSignal.value;
+  const currentProject = currentProjectSignal.value;
+
+  const inScope = (s: Session): boolean => {
+    if (project === "all") return true;
+    if (project === "current") return !currentProject || s.projectKey === currentProject;
+    return s.project === project;
+  };
+
+  const counts = new Map<string, number>();
+  const latest = new Map<string, number>();
+  let total = 0;
+  for (const s of sessions) {
+    if (deleted.has(s.id)) continue;
+    if (!inScope(s)) continue;
+    total++;
+    const key = s.branch || "(no branch)";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    if (s.endTime > (latest.get(key) ?? 0)) latest.set(key, s.endTime);
+  }
+
+  const branches = [...counts.keys()].sort((a, b) => {
+    if (a === currentBranch && b !== currentBranch) return -1;
+    if (b === currentBranch && a !== currentBranch) return 1;
+    return (latest.get(b) ?? 0) - (latest.get(a) ?? 0);
+  });
+
+  const opts: BranchOption[] = [
+    { value: "all", label: "All Branches", count: total, isCurrent: false },
+  ];
+  for (const b of branches) {
+    opts.push({ value: b, label: b, count: counts.get(b) ?? 0, isCurrent: b === currentBranch });
+  }
+  return opts;
+}
+
 /** Reactive count of the filtered list — handy for headers. */
 export const filteredCount = computed(() => getFiltered().length);
 
@@ -287,6 +380,60 @@ export function applyDelta(list: Session[], delta: SessionsDelta): Session[] {
   for (const s of delta.added ?? []) byId.set(s.id, s);
   for (const id of delta.removed ?? []) byId.delete(id);
   return [...byId.values()];
+}
+
+// ── Filter persistence ──
+//
+// The project / date / branch filter choices survive a webview reload via the
+// shared setState/getState-backed persistence bridge (initialised in main.tsx).
+// Keys are namespaced under "sessions." so other features can share the same
+// vscode.setState bag without colliding. Restoring the branch name itself (not
+// a "current-branch" flag) is deliberate: the user can deliberately park on a
+// named branch and keep that view after a checkout — the named-dropdown
+// behaviour they expect (verbatim v1 rationale).
+
+const PERSIST_KEY_FILTER_PROJECT = "sessions.filterProject";
+const PERSIST_KEY_FILTER_DATE = "sessions.filterDate";
+const PERSIST_KEY_FILTER_BRANCH = "sessions.filterBranch";
+
+/**
+ * Restore persisted filter choices into the signals. Call once during the
+ * feature's mount, after initPersistence() has run in main.tsx, so the user's
+ * last in-app selection wins over the default. Returns whether a project filter
+ * was restored so the caller can skip the workspace-derived default.
+ */
+export function loadPersistedFilters(): void {
+  const project = getPersisted<string>(PERSIST_KEY_FILTER_PROJECT);
+  if (project !== undefined) filterProjectSignal.value = project;
+
+  const date = getPersisted<DateFilter>(PERSIST_KEY_FILTER_DATE);
+  if (date !== undefined) filterDateSignal.value = date;
+
+  const branch = getPersisted<string>(PERSIST_KEY_FILTER_BRANCH);
+  if (typeof branch === "string") filterBranchSignal.value = branch;
+}
+
+let _persistDisposer: (() => void) | null = null;
+
+/**
+ * Begin persisting filter-signal changes. Wires a single `effect` that writes
+ * the three filter signals back to persisted state whenever any of them
+ * changes. Idempotent — calling twice disposes the previous subscription so a
+ * remount (e.g. tab switch) never stacks duplicate writers.
+ */
+export function initFilterPersistence(): void {
+  _persistDisposer?.();
+  _persistDisposer = effect(() => {
+    setPersisted(PERSIST_KEY_FILTER_PROJECT, filterProjectSignal.value);
+    setPersisted(PERSIST_KEY_FILTER_DATE, filterDateSignal.value);
+    setPersisted(PERSIST_KEY_FILTER_BRANCH, filterBranchSignal.value);
+  });
+}
+
+/** Stop persisting filter changes. Returns the signals to non-persisting state. */
+export function stopFilterPersistence(): void {
+  _persistDisposer?.();
+  _persistDisposer = null;
 }
 
 /** Reset all signals to defaults. Test-only helper. */

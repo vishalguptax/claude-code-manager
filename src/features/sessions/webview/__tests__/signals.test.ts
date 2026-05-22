@@ -1,17 +1,24 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Session } from "../../types";
+import { initPersistence } from "../../../../webview/persistence";
+import type { VSCodeAPI } from "../../../../webview/types";
 import {
   applyDelta,
   clearSelection,
+  currentBranchSignal,
   currentProjectSignal,
   deletedSignal,
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
   getBranches,
+  getBranchOptions,
   getFiltered,
   getLastSessionGroup,
   getProjects,
+  getProjectOptions,
+  initFilterPersistence,
+  loadPersistedFilters,
   pinnedSignal,
   searchQuerySignal,
   selectAll,
@@ -21,6 +28,7 @@ import {
   setFullTextHits,
   setPinned,
   setWorkspacePath,
+  stopFilterPersistence,
   toggleSelected,
   _resetSessionsSignals,
 } from "../signals";
@@ -261,6 +269,95 @@ describe("sessions signals", () => {
     it("replaces the pinned set", () => {
       setPinned(["a", "b"]);
       expect([...pinnedSignal.value].sort()).toEqual(["a", "b"]);
+    });
+  });
+
+  describe("getProjectOptions", () => {
+    it("leads with the two scopes and tallies per-project counts", () => {
+      sessionsSignal.value = [
+        session({ id: "a", project: "alpha", projectKey: "alpha", endTime: 100 }),
+        session({ id: "b", project: "alpha", projectKey: "alpha", endTime: 200 }),
+        session({ id: "c", project: "beta", projectKey: "beta", endTime: 300 }),
+      ];
+      currentProjectSignal.value = "alpha";
+      const opts = getProjectOptions();
+      expect(opts[0]).toMatchObject({ value: "current", count: 2 });
+      expect(opts[1]).toMatchObject({ value: "all", count: 3 });
+      const alpha = opts.find((o) => o.value === "alpha");
+      expect(alpha?.count).toBe(2);
+    });
+
+    it("excludes deleted sessions from every count", () => {
+      sessionsSignal.value = [
+        session({ id: "a", project: "alpha", projectKey: "alpha" }),
+        session({ id: "b", project: "alpha", projectKey: "alpha" }),
+      ];
+      deletedSignal.value = new Set(["b"]);
+      const all = getProjectOptions().find((o) => o.value === "all");
+      expect(all?.count).toBe(1);
+    });
+  });
+
+  describe("getBranchOptions", () => {
+    it("leads with All Branches, scopes counts, and marks the current branch", () => {
+      sessionsSignal.value = [
+        session({ id: "a", branch: "main", endTime: 100 }),
+        session({ id: "b", branch: "main", endTime: 200 }),
+        session({ id: "c", branch: "dev", endTime: 300 }),
+      ];
+      currentBranchSignal.value = "main";
+      filterProjectSignal.value = "all";
+      const opts = getBranchOptions();
+      expect(opts[0]).toMatchObject({ value: "all", count: 3 });
+      // current branch sorts ahead of the others and is flagged.
+      expect(opts[1]).toMatchObject({ value: "main", count: 2, isCurrent: true });
+      expect(opts.find((o) => o.value === "dev")?.isCurrent).toBe(false);
+    });
+
+    it("buckets empty branches under (no branch)", () => {
+      sessionsSignal.value = [session({ id: "a", branch: "" })];
+      filterProjectSignal.value = "all";
+      const opts = getBranchOptions();
+      expect(opts.some((o) => o.value === "(no branch)")).toBe(true);
+    });
+  });
+
+  describe("filter persistence", () => {
+    function makeApi(): VSCodeAPI {
+      let state: Record<string, unknown> = {};
+      return {
+        postMessage: vi.fn(),
+        getState: () => state,
+        setState: (s) => {
+          state = s as Record<string, unknown>;
+        },
+      };
+    }
+
+    it("round-trips project/date/branch across a simulated reload", () => {
+      initPersistence(makeApi());
+      initFilterPersistence();
+      // User changes filters — the effect writes them through.
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "month";
+      filterBranchSignal.value = "feature/x";
+      stopFilterPersistence();
+
+      // Simulate a reload: signals reset to defaults, then restore.
+      _resetSessionsSignals();
+      expect(filterProjectSignal.value).toBe("current");
+      loadPersistedFilters();
+      expect(filterProjectSignal.value).toBe("all");
+      expect(filterDateSignal.value).toBe("month");
+      expect(filterBranchSignal.value).toBe("feature/x");
+    });
+
+    it("loadPersistedFilters leaves defaults intact when nothing was stored", () => {
+      initPersistence(makeApi());
+      loadPersistedFilters();
+      expect(filterProjectSignal.value).toBe("current");
+      expect(filterDateSignal.value).toBe("recent");
+      expect(filterBranchSignal.value).toBe("all");
     });
   });
 });

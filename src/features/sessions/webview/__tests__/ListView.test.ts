@@ -1,14 +1,17 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { h } from "preact";
-import { render } from "@testing-library/preact";
+import { fireEvent, render } from "@testing-library/preact";
 import type { Session } from "../../types";
-import { ListView } from "../views/ListView";
+import { ListView, buildRows } from "../views/ListView";
 import {
   applyDelta,
+  bulkModeSignal,
   filterDateSignal,
   filterProjectSignal,
+  pinnedSignal,
   searchQuerySignal,
+  selectionSignal,
   sessionsSignal,
   _resetSessionsSignals,
 } from "../signals";
@@ -87,5 +90,92 @@ describe("ListView", () => {
     rerender(h(ListView, {}));
 
     expect(sessionsSignal.value).toHaveLength(2);
+  });
+
+  it("renders date-group headers in the virtualized list", () => {
+    const now = Date.now();
+    sessionsSignal.value = [
+      session("today", { endTime: now }),
+      session("old", { endTime: now - 40 * 86400000 }),
+    ];
+    const { container } = render(h(ListView, {}));
+    const headers = Array.from(container.querySelectorAll(".group-label")).map((h) =>
+      h.textContent,
+    );
+    expect(headers).toContain("Today");
+    // The 40-day-old session falls into a Month Year bucket, not Today.
+    expect(headers.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("groups pinned sessions under a leading Pinned header", () => {
+    const now = Date.now();
+    sessionsSignal.value = [session("a", { endTime: now }), session("b", { endTime: now })];
+    pinnedSignal.value = new Set(["a"]);
+    const { container } = render(h(ListView, {}));
+    const first = container.querySelector(".group-label");
+    expect(first?.textContent).toBe("Pinned");
+  });
+
+  it("opens the action menu on right-clicking a row", () => {
+    const now = Date.now();
+    sessionsSignal.value = [session("a", { endTime: now })];
+    const { container } = render(h(ListView, {}));
+    expect(container.querySelector(".ctx-menu")).toBeNull();
+    fireEvent.contextMenu(container.querySelector(".session-item") as Element, {
+      clientX: 10,
+      clientY: 10,
+    });
+    const menu = container.querySelector(".ctx-menu");
+    expect(menu).toBeTruthy();
+    // All eight v1 actions are present (7 rows incl. pin variant).
+    expect(menu?.querySelectorAll(".ctx-item").length).toBe(7);
+  });
+
+  it("Ctrl+A selects every session while in bulk mode", () => {
+    const now = Date.now();
+    sessionsSignal.value = [
+      session("a", { endTime: now }),
+      session("b", { endTime: now - 1 }),
+    ];
+    bulkModeSignal.value = true;
+    render(h(ListView, {}));
+    fireEvent.keyDown(document, { key: "a", ctrlKey: true });
+    expect([...selectionSignal.value].sort()).toEqual(["a", "b"]);
+  });
+
+  it("ignores Ctrl+A when not in bulk mode", () => {
+    const now = Date.now();
+    sessionsSignal.value = [session("a", { endTime: now })];
+    bulkModeSignal.value = false;
+    render(h(ListView, {}));
+    fireEvent.keyDown(document, { key: "a", ctrlKey: true });
+    expect(selectionSignal.value.size).toBe(0);
+  });
+});
+
+describe("buildRows", () => {
+  function s(id: string, endTime: number): Session {
+    return session(id, { endTime });
+  }
+
+  it("interleaves a header before each new date group", () => {
+    const now = Date.now();
+    const rows = buildRows([s("a", now), s("b", now - 40 * 86400000)], new Set());
+    expect(rows[0]).toMatchObject({ kind: "header", label: "Today" });
+    expect(rows[1]).toMatchObject({ kind: "session" });
+    expect(rows[2]).toMatchObject({ kind: "header" });
+  });
+
+  it("puts pinned sessions under a Pinned header first", () => {
+    const now = Date.now();
+    const rows = buildRows([s("a", now), s("b", now)], new Set(["b"]));
+    expect(rows[0]).toMatchObject({ kind: "header", label: "Pinned" });
+    expect(rows[1]).toMatchObject({ kind: "session" });
+  });
+
+  it("does not emit a Pinned header when nothing is pinned", () => {
+    const now = Date.now();
+    const rows = buildRows([s("a", now)], new Set());
+    expect(rows.some((r) => r.kind === "header" && r.label === "Pinned")).toBe(false);
   });
 });
