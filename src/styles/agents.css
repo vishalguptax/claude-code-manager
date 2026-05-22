@@ -186,3 +186,42 @@
   overflow-x: auto;
   margin: 0;
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Agents — Structural (self-contained; no reliance on sibling feature CSS)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* Scope section heading inside the agent list (Project / Global / Plugin). */
+.agent-list .group-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-muted);
+  padding: var(--space-2xl) var(--space-2xl) var(--space-sm);
+}
+
+/* Fixed-height wrapper for windowed rows. The 56px value is mirrored by
+   ROW_HEIGHT in AgentListView.tsx, which the VirtualList uses for its
+   offset math; keep the two in sync. */
+.agent-vrow {
+  height: 56px;
+  box-sizing: border-box;
+}
+
+/* Back action in the detail view. */
+.panel > .back-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.panel > .back-btn:hover { color: var(--fg); }
