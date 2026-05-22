@@ -5,7 +5,7 @@
  * recompute only when their inputs change.
  */
 import { computed, signal } from "@preact/signals";
-import type { Hook, HookEvent, HookScope } from "../types";
+import type { Hook, HookEvent, HookScope } from "../../types";
 
 /** Scope filter pill state — "all" plus the four concrete scopes. */
 export type HookScopeFilter = "all" | HookScope;

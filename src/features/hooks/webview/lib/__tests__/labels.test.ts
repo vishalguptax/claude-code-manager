@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eventLabel, matcherDisplay, scopeLabel } from "../events";
+import { eventLabel, matcherDisplay, scopeLabel } from "../labels";
 
 describe("hooks event helpers", () => {
   it("eventLabel maps known events and falls back to raw name", () => {

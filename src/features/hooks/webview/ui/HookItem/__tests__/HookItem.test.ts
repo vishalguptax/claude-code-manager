@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { h } from "preact";
 import { render, screen, fireEvent } from "@testing-library/preact";
-import type { Hook } from "../../../types";
+import type { Hook } from "../../../../types";
 import { HookItem } from "../HookItem";
 
 function hook(partial: Partial<Hook> = {}): Hook {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import type { Hook } from "../../types";
+import type { Hook } from "../../../types";
 import {
   countByScope,
   filteredHooks,

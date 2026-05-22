@@ -5,10 +5,10 @@
  * read-only — the writer refuses to mutate plugin.json — so they show a
  * "read-only" badge instead of action buttons.
  */
-import { Icon } from "../../../../webview/shared/ui";
-import { cx } from "../../../../webview/shared/lib";
-import type { Hook } from "../../types";
-import { scopeLabel } from "../events";
+import { cx } from "../../../../../webview/shared/lib";
+import { Badge, Button } from "../../../../../webview/shared/ui";
+import type { Hook } from "../../../types";
+import { scopeLabel } from "../../lib";
 
 /** Command preview length before truncating with an ellipsis. */
 const PREVIEW_MAX = 60;
@@ -48,38 +48,37 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
         ) : (
           <span class="hook-matcher hook-matcher-all">*</span>
         )}
-        <span class={cx("scope-badge", hook.scope)} title={scopeLabel(hook)}>
-          {scopeLabel(hook)}
-        </span>
-        {hook.disabled ? <span class="hook-disabled-badge">disabled</span> : null}
+        <Badge variant="scope" text={scopeLabel(hook)} title={scopeLabel(hook)} />
+        {hook.disabled ? <Badge variant="default" text="disabled" /> : null}
         {isPlugin ? (
-          <span class="hook-readonly-badge" title={`Owned by plugin ${hook.pluginName ?? ""}`}>
-            read-only
-          </span>
+          <Badge
+            variant="status"
+            text="read-only"
+            title={`Owned by plugin ${hook.pluginName ?? ""}`}
+          />
         ) : (
           <span class="hook-item-actions">
-            <button
-              type="button"
-              class="hook-action-btn"
+            <Button
+              variant="icon"
+              iconName={toggleIcon}
               title={toggleTitle}
+              ariaLabel={toggleTitle}
               onClick={(e: MouseEvent) => {
                 e.stopPropagation();
                 onToggle(hook);
               }}
-            >
-              <Icon name={toggleIcon} size={12} />
-            </button>
-            <button
-              type="button"
-              class="hook-action-btn del"
+            />
+            <Button
+              variant="icon"
+              class="del"
+              iconName="trash-2"
               title="Delete hook"
+              ariaLabel="Delete hook"
               onClick={(e: MouseEvent) => {
                 e.stopPropagation();
                 onDelete(hook);
               }}
-            >
-              <Icon name="trash-2" size={12} />
-            </button>
+            />
           </span>
         )}
       </div>

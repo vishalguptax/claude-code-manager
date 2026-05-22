@@ -3,11 +3,14 @@
  * `onSave` callback (which posts `updateHook`); the host's reply re-renders
  * the detail surface via the regular `hooks` round-trip. Save is disabled
  * while the command is empty — a hook with no command is meaningless.
+ *
+ * The matcher is a single-line field, so it uses the shared <TextField>
+ * (native VS Code input chrome). The command is multi-line and has no shared
+ * equivalent, so it stays a native <textarea> styled by hooks.css.
  */
 import { useState } from "preact/hooks";
-import { Button } from "../../../../webview/shared/ui";
-import { Icon } from "../../../../webview/shared/ui";
-import type { Hook } from "../../types";
+import { Button, Icon, TextField } from "../../../../../webview/shared/ui";
+import type { Hook } from "../../../types";
 
 export interface EditFormProps {
   hook: Hook;
@@ -26,16 +29,14 @@ export function EditForm({ hook, onSave, onCancel }: EditFormProps) {
     <div class="d-section">
       <div class="d-label">Edit hook</div>
       <div class="hook-field">
-        <label class="hook-field-label" for="hookEditMatcher">
+        <span class="hook-field-label" id="hookEditMatcherLabel">
           Matcher
-        </label>
-        <input
-          class="hook-field-input"
-          id="hookEditMatcher"
-          type="text"
+        </span>
+        <TextField
           value={matcher}
+          ariaLabel="Matcher"
           placeholder="Tool name or pattern (blank = match all)"
-          onInput={(e) => setMatcher((e.currentTarget as HTMLInputElement).value)}
+          onInput={setMatcher}
         />
       </div>
       <div class="hook-field">

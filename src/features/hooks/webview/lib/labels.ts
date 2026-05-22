@@ -3,7 +3,7 @@
  * Kept framework-agnostic so both list and detail views import the
  * same source of truth instead of duplicating the label tables.
  */
-import type { Hook, HookScope } from "../types";
+import type { Hook, HookScope } from "../../types";
 
 /** Map known event names to user-friendly display labels. */
 const EVENT_LABELS: Record<string, string> = {
