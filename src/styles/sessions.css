@@ -229,27 +229,49 @@
 }
 .item.active .item-name      { color: var(--bg-active-fg); }
 
-.item-resume {
-  display: none;
+/*
+ * Hover-revealed row actions: resume + the ⋯ action-menu trigger. The cluster
+ * is pinned to the right edge of the row; resume only appears on hover (or when
+ * the menu trigger is focused), the menu trigger is always interactive but
+ * fades in on hover/focus so the row stays calm at rest.
+ */
+.item-actions {
   position: absolute;
   right: var(--space-lg);
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.item-resume,
+.item-menu-btn {
   width: 32px;
   height: 32px;
-  font-size: var(--fs-xl);
-  line-height: 32px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
-  color: var(--green);
   cursor: pointer;
   border-radius: var(--radius-lg);
   padding: 0;
   margin: 0;
 }
-.session-item:hover .item-resume { display: block; }
+.item-resume {
+  color: var(--green);
+  visibility: hidden;
+}
+.item-menu-btn {
+  color: var(--fg-muted);
+  opacity: 0;
+}
+.session-item:hover .item-resume { visibility: visible; }
+.session-item:hover .item-menu-btn,
+.item-menu-btn:focus-visible { opacity: 1; }
 .item-resume:hover           { background: var(--green-bg); }
+.item-menu-btn:hover         { background: var(--bg-hover); color: var(--fg); }
 
 .item-time {
   font-size: var(--fs-sm);

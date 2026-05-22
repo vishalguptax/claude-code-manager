@@ -46,6 +46,8 @@ export interface SessionItemProps {
   onSelect: (id: string) => void;
   onResume: (id: string) => void;
   onToggleSelect: (id: string, range: boolean) => void;
+  /** Open the row's action menu at the given viewport point (right-click or ⋯ button). */
+  onContextMenu: (id: string, x: number, y: number) => void;
 }
 
 export function SessionItem({
@@ -57,6 +59,7 @@ export function SessionItem({
   onSelect,
   onResume,
   onToggleSelect,
+  onContextMenu,
 }: SessionItemProps) {
   const displayName = session.name || session.prompts[0] || "Untitled session";
   const branch = session.branch && session.branch !== "HEAD" ? session.branch : "";
@@ -79,11 +82,20 @@ export function SessionItem({
     onSelect(session.id);
   };
 
+  // Right-click opens the row's action menu at the cursor. Suppressed in bulk
+  // mode (clicks toggle selection there) to match v1.
+  const onRowContextMenu = (e: MouseEvent): void => {
+    if (bulkMode) return;
+    e.preventDefault();
+    onContextMenu(session.id, e.clientX, e.clientY);
+  };
+
   return (
     <div
       class={cx("item session-item", { active: isActive, "is-selected": isSelected })}
       data-id={session.id}
       onClick={onClick}
+      onContextMenu={onRowContextMenu}
     >
       <div class="item-row1">
         {session.isLive ? (
@@ -103,17 +115,34 @@ export function SessionItem({
       </div>
 
       {bulkMode ? null : (
-        <button
-          type="button"
-          class="item-resume"
-          title="Resume session"
-          onClick={(e) => {
-            e.stopPropagation();
-            onResume(session.id);
-          }}
-        >
-          <Icon name="play" />
-        </button>
+        <div class="item-actions">
+          <button
+            type="button"
+            class="item-resume"
+            title="Resume session"
+            onClick={(e) => {
+              e.stopPropagation();
+              onResume(session.id);
+            }}
+          >
+            <Icon name="play" />
+          </button>
+          <button
+            type="button"
+            class="item-menu-btn"
+            title="Session actions"
+            aria-haspopup="menu"
+            onClick={(e) => {
+              e.stopPropagation();
+              // Anchor the menu to the button's bottom-left so it drops beneath
+              // the trigger; the menu self-corrects if it would overflow.
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              onContextMenu(session.id, r.left, r.bottom);
+            }}
+          >
+            <Icon name="more-vertical" size={16} />
+          </button>
+        </div>
       )}
 
       {showSubPrompt ? (

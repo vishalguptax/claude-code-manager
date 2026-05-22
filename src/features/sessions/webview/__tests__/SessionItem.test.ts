@@ -37,6 +37,7 @@ function renderItem(s: Session, props: Partial<Parameters<typeof SessionItem>[0]
       onSelect: noop,
       onResume: noop,
       onToggleSelect: noop,
+      onContextMenu: noop,
       ...props,
     }),
   );
@@ -132,5 +133,34 @@ describe("SessionItem", () => {
   it("hides the resume button in bulk mode", () => {
     const { container } = renderItem(session({ id: "a" }), { bulkMode: true });
     expect(container.querySelector(".item-resume")).toBeNull();
+  });
+
+  it("opens the action menu from the ⋯ trigger without selecting the row", () => {
+    const onSelect = vi.fn();
+    const onContextMenu = vi.fn();
+    const { container } = renderItem(session({ id: "a" }), { onSelect, onContextMenu });
+    fireEvent.click(container.querySelector(".item-menu-btn") as Element);
+    expect(onContextMenu).toHaveBeenCalledWith("a", expect.any(Number), expect.any(Number));
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("opens the action menu on right-click at the cursor", () => {
+    const onContextMenu = vi.fn();
+    const { container } = renderItem(session({ id: "a" }), { onContextMenu });
+    const row = container.querySelector(".session-item") as Element;
+    fireEvent.contextMenu(row, { clientX: 40, clientY: 80 });
+    expect(onContextMenu).toHaveBeenCalledWith("a", 40, 80);
+  });
+
+  it("suppresses right-click menu in bulk mode", () => {
+    const onContextMenu = vi.fn();
+    const { container } = renderItem(session({ id: "a" }), { bulkMode: true, onContextMenu });
+    fireEvent.contextMenu(container.querySelector(".session-item") as Element);
+    expect(onContextMenu).not.toHaveBeenCalled();
+  });
+
+  it("hides the ⋯ trigger in bulk mode", () => {
+    const { container } = renderItem(session({ id: "a" }), { bulkMode: true });
+    expect(container.querySelector(".item-menu-btn")).toBeNull();
   });
 });
