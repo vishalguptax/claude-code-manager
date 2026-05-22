@@ -5,6 +5,7 @@
  * change from the UI.
  */
 import { useEffect, useState } from "preact/hooks";
+import { Dropdown, type DropdownOption } from "../../../../webview/components/Dropdown";
 import { Icon } from "../../../../webview/components/Icon";
 import { useDebounce } from "../../../../webview/hooks/useDebounce";
 import { cx } from "../../../../webview/utils/classnames";
@@ -15,8 +16,8 @@ import {
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
-  getBranches,
-  getProjects,
+  getBranchOptions,
+  getProjectOptions,
   searchQuerySignal,
   visibleCountSignal,
 } from "../signals";
@@ -89,50 +90,52 @@ function SearchBox() {
 
 function ProjectSelect() {
   const value = filterProjectSignal.value;
-  const projects = getProjects();
+  const options: DropdownOption[] = getProjectOptions().map((o) => ({
+    value: o.value,
+    label: o.label,
+    badge: o.count,
+  }));
   return (
-    <select
-      class="filter-select"
-      aria-label="Filter by project"
+    <Dropdown
+      ariaLabel="Filter by project"
       value={value}
-      onChange={(e) => {
+      options={options}
+      onChange={(next) => {
         // Picking a project resets the branch filter — a branch from the
         // previous project would have zero matching sessions here.
-        filterProjectSignal.value = (e.target as HTMLSelectElement).value;
+        filterProjectSignal.value = next;
         filterBranchSignal.value = "all";
+        visibleCountSignal.value = 30;
       }}
-    >
-      <option value="current">This Project</option>
-      <option value="all">All Projects</option>
-      {projects.map((p) => (
-        <option key={p} value={p}>
-          {p}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 
 function BranchSelect() {
   const value = filterBranchSignal.value;
-  const branches = getBranches();
-  if (branches.length <= 1) return null;
+  const branchOptions = getBranchOptions();
+  // branchOptions always leads with "All Branches"; with <=1 real branch after
+  // it there is nothing meaningful to filter by, so hide the control entirely
+  // (matches v1, which hid when `branches.length <= 1`).
+  if (branchOptions.length <= 2) return null;
+  const options: DropdownOption[] = branchOptions.map((o) => ({
+    value: o.value,
+    label: o.label,
+    badge: o.count,
+    marker: o.isCurrent ? "current" : undefined,
+  }));
   return (
-    <select
-      class="filter-select"
-      aria-label="Filter by branch"
+    <Dropdown
+      ariaLabel="Filter by branch"
+      title="Filter sessions by git branch"
+      icon="git-branch"
       value={value}
-      onChange={(e) => {
-        filterBranchSignal.value = (e.target as HTMLSelectElement).value;
+      options={options}
+      onChange={(next) => {
+        filterBranchSignal.value = next;
+        visibleCountSignal.value = 30;
       }}
-    >
-      <option value="all">All Branches</option>
-      {branches.map((b) => (
-        <option key={b} value={b}>
-          {b}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 

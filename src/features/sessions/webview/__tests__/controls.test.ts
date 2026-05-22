@@ -8,6 +8,7 @@ import { Filters } from "../components/Filters";
 import { ListHeader } from "../components/ListHeader";
 import {
   bulkModeSignal,
+  currentBranchSignal,
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
@@ -63,26 +64,58 @@ describe("Filters", () => {
     expect(filterDateSignal.value).toBe("month");
   });
 
-  it("changes project filter and resets the branch filter", () => {
-    filterBranchSignal.value = "main";
+  it("renders the project dropdown with one option per project", () => {
+    sessionsSignal.value = [
+      session("a", { project: "proj", projectKey: "proj", endTime: 1000 }),
+      session("b", { project: "proj", projectKey: "proj", endTime: 2000 }),
+    ];
     const { container } = render(h(Filters, {}));
-    const select = container.querySelector('select[aria-label="Filter by project"]') as HTMLSelectElement;
-    select.value = "all";
-    fireEvent.change(select);
-    expect(filterProjectSignal.value).toBe("all");
-    expect(filterBranchSignal.value).toBe("all");
+    const select = container.querySelector(
+      'vscode-single-select[aria-label="Filter by project"]',
+    ) as HTMLElement;
+    expect(select).toBeTruthy();
+    const values = Array.from(select.querySelectorAll("vscode-option")).map((o) =>
+      o.textContent?.trim(),
+    );
+    // Leads with the two synthetic scopes, then the concrete project.
+    expect(values).toContain("This Project");
+    expect(values).toContain("All Projects");
+    expect(values).toContain("proj");
   });
 
-  it("hides the branch select when there is only one branch", () => {
+  it("branch dropdown shows the leading git icon and the current-branch marker", () => {
+    sessionsSignal.value = [
+      session("a", { branch: "main" }),
+      session("b", { branch: "dev" }),
+    ];
+    currentBranchSignal.value = "main";
+    filterProjectSignal.value = "all";
+    const { container } = render(h(Filters, {}));
+    // Leading git-branch icon is rendered beside the control.
+    expect(container.querySelector('.vsc-dropdown-leading [data-icon="git-branch"]')).toBeTruthy();
+    const labels = Array.from(
+      container.querySelectorAll(
+        'vscode-single-select[aria-label="Filter by branch"] vscode-option',
+      ),
+    ).map((o) => o.textContent?.trim());
+    // The current branch's option label is annotated with "(current)".
+    expect(labels.some((l) => l === "main (current)")).toBe(true);
+  });
+
+  it("hides the branch dropdown when there is only one branch", () => {
     sessionsSignal.value = [session("a", { branch: "main" })];
     const { container } = render(h(Filters, {}));
-    expect(container.querySelector('select[aria-label="Filter by branch"]')).toBeNull();
+    expect(
+      container.querySelector('vscode-single-select[aria-label="Filter by branch"]'),
+    ).toBeNull();
   });
 
-  it("shows the branch select when multiple branches exist", () => {
+  it("shows the branch dropdown when multiple branches exist", () => {
     sessionsSignal.value = [session("a", { branch: "main" }), session("b", { branch: "dev" })];
     const { container } = render(h(Filters, {}));
-    expect(container.querySelector('select[aria-label="Filter by branch"]')).toBeTruthy();
+    expect(
+      container.querySelector('vscode-single-select[aria-label="Filter by branch"]'),
+    ).toBeTruthy();
   });
 });
 
