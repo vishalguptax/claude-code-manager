@@ -521,6 +521,23 @@
   overflow-y: auto;
 }
 
+/* Windowed list (VirtualList). It MUST be the scroll container itself: the
+   virtualizer reads scrollTop/clientHeight off this element and the inner
+   `.virtual-list-spacer` reserves the full content height. Without this rule
+   the element collapsed to a plain block, the spacer pushed the panel to
+   overflow instead, scrollTop stayed 0, and only the first window rendered —
+   leaving a tall empty gap below it. `flex: 1 1 auto; min-height: 0` fills a
+   flex parent (the `.panel`, or the `.list` wrapper which is now a flex
+   column) and lets it shrink so the inner spacer scrolls inside, not out. */
+.virtual-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.virtual-list-spacer {
+  width: 100%;
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    List Item — Copy Button (shared by skills, MCP)
