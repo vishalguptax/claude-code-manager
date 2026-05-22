@@ -16,7 +16,7 @@
  */
 
 import { useEffect, useRef } from "preact/hooks";
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 import type { DailyActivity, DailyTokens } from "../../types";
 import { buildHeatmap, type HeatmapCell } from "../heatmap";
 import { formatNumber } from "../format";

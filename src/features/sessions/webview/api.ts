@@ -7,7 +7,7 @@
  * once in main.tsx). `useApi()` contains no hooks, so calling it at module
  * scope is safe.
  */
-import { useApi } from "../../../webview/hooks/useApi";
+import { useApi } from "../../../webview/shared/hooks";
 import type { WebviewMessage } from "../../../shared/protocol/messages";
 
 /** Post a protocol-typed message to the host. */

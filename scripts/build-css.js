@@ -23,6 +23,9 @@ const FILES = [
   "tokens.css",
   "base.css",
   "components.css",
+  // Native VS Code chrome for the shared component layer (A2). Loaded after
+  // components.css so it refines the F1 primitives without editing them.
+  "components-native.css",
   "tabs.css",
   "sessions.css",
   "skills.css",

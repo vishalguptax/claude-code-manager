@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
 import { useAccountApi } from "../api";
 
 describe("useAccountApi (typed Preact bridge)", () => {

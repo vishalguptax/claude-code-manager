@@ -6,10 +6,9 @@
  */
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
-import { EmptyState } from "../../../webview/components/EmptyState";
-import { Loading } from "../../../webview/components/Loading";
-import { useApi } from "../../../webview/hooks/useApi";
-import { registerFeatureHandler } from "../../../webview/signals/messageBus";
+import { useApi } from "../../../webview/shared/hooks";
+import { registerFeatureHandler } from "../../../webview/shared/model";
+import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { Hook } from "../types";
 import type { Post } from "./api";
 import * as api from "./api";

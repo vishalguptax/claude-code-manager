@@ -3,7 +3,7 @@
  * highlights the active one. The Plugin pill only appears when at least
  * one plugin-declared hook exists, matching the v1 behaviour.
  */
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 import type { HookScopeFilter } from "../signals";
 
 export interface ScopeFilterProps {

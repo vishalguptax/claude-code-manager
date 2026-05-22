@@ -9,7 +9,7 @@ import { build, context } from "esbuild";
 const watch = process.argv.includes("--watch");
 
 const opts = {
-  entryPoints: ["src/webview/main.tsx"],
+  entryPoints: ["src/webview/app/main.tsx"],
   bundle: true,
   platform: "browser",
   target: "chrome120",

@@ -5,8 +5,8 @@
  * while the command is empty — a hook with no command is meaningless.
  */
 import { useState } from "preact/hooks";
-import { Button } from "../../../../webview/components/Button";
-import { Icon } from "../../../../webview/components/Icon";
+import { Button } from "../../../../webview/shared/ui";
+import { Icon } from "../../../../webview/shared/ui";
 import type { Hook } from "../../types";
 
 export interface EditFormProps {

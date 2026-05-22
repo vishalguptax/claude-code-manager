@@ -2,8 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render, waitFor } from "@testing-library/preact";
 import { h } from "preact";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
-import { _resetMessageBus, dispatch } from "../../../../webview/signals/messageBus";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
+import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
 import type { Message } from "../../../../shared/protocol/messages";
 import type { Command } from "../../types";
 import CommandsTab, { handleCommandsMessage } from "../index";

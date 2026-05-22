@@ -5,10 +5,9 @@
  * the validated `createMcpApi` wrapper built on the shared `useApi()` hook.
  */
 import { useEffect, useMemo } from "preact/hooks";
-import { EmptyState } from "../../../webview/components/EmptyState";
-import { Loading } from "../../../webview/components/Loading";
-import { useApi } from "../../../webview/hooks/useApi";
-import { registerFeatureHandler } from "../../../webview/signals/messageBus";
+import { useApi } from "../../../webview/shared/hooks";
+import { registerFeatureHandler } from "../../../webview/shared/model";
+import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { McpServer } from "../types";
 import { createMcpApi } from "./api";
 import { applyError, applyServers, errorMessage, loading, selected, servers } from "./signals";

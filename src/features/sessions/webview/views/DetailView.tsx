@@ -9,10 +9,10 @@
  * message the decomposed host cannot answer.
  */
 import { useEffect, useState } from "preact/hooks";
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import { isClaudeCodeExtensionInstalled } from "../../../../webview/extensionStatus";
-import { useDebounce } from "../../../../webview/hooks/useDebounce";
-import { cx } from "../../../../webview/utils/classnames";
+import { useDebounce } from "../../../../webview/shared/hooks";
+import { cx } from "../../../../webview/shared/lib";
 import { fmtDuration, fmtTime } from "../../../../webview/utils";
 import {
   sendConfirmDelete,

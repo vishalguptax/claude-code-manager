@@ -7,8 +7,8 @@
  * Preact render each as a text node or <mark> — no innerHTML, so it stays
  * XSS-safe by construction.
  */
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
 import type { Message } from "../../types";
 
 /** Compact token formatter — 980, 1.2k, 10.6k, 1.5M, 2.76B. */

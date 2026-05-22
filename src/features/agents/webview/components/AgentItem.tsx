@@ -3,7 +3,7 @@
  * truncated description. Selection state is reflected via the shared
  * `ListItem` primitive.
  */
-import { ListItem } from "../../../../webview/components/ListItem";
+import { ListItem } from "../../../../webview/shared/ui";
 import type { Agent } from "../../types";
 import { ModelBadge } from "./ModelBadge";
 

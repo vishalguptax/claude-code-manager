@@ -157,7 +157,7 @@
 }
 
 /*
- * Shared <Dropdown> wrapper (src/webview/components/Dropdown.tsx) around the
+ * Shared <Dropdown> wrapper (src/webview/shared/ui/Dropdown/Dropdown.tsx) around the
  * <vscode-single-select> web component. The element itself draws the native
  * Settings-dropdown face inside its Shadow DOM and reads the ambient
  * --vscode-* theme vars, so we only style the light-DOM flex shell: stretch the

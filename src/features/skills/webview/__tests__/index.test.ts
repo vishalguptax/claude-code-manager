@@ -2,8 +2,8 @@
 import { h } from "preact";
 import { cleanup, render } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
-import { _resetMessageBus, dispatch } from "../../../../webview/signals/messageBus";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
+import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
 import type { Message } from "../../../../shared/protocol/messages";
 import SkillsTab, { registerSkillsHandlers } from "../index";
 import {

@@ -12,10 +12,9 @@
  */
 import { useEffect, useMemo } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
-import { EmptyState } from "../../../webview/components/EmptyState";
-import { Loading } from "../../../webview/components/Loading";
-import { useApi } from "../../../webview/hooks/useApi";
-import { registerFeatureHandler } from "../../../webview/signals/messageBus";
+import { useApi } from "../../../webview/shared/hooks";
+import { registerFeatureHandler } from "../../../webview/shared/model";
+import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { AccountData, PermissionScope } from "../types";
 import { createConfigApi } from "./api";
 import { configData, configError, loading, permissionScope, permissionSearch } from "./signals";

@@ -5,9 +5,9 @@
  * so section headers stay simple.
  */
 import { useEffect, useState } from "preact/hooks";
-import { EmptyState } from "../../../../webview/components/EmptyState";
-import { VirtualList } from "../../../../webview/components/VirtualList";
-import { useDebounce } from "../../../../webview/hooks/useDebounce";
+import { EmptyState } from "../../../../webview/shared/ui";
+import { VirtualList } from "../../../../webview/shared/ui";
+import { useDebounce } from "../../../../webview/shared/hooks";
 import type { Agent } from "../../types";
 import { AgentItem } from "../components/AgentItem";
 import { ModelFilter } from "../components/ModelFilter";

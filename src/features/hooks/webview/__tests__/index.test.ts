@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { h } from "preact";
 import { render, screen, cleanup, waitFor } from "@testing-library/preact";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
-import { dispatch, _resetMessageBus } from "../../../../webview/signals/messageBus";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
+import { dispatch, _resetMessageBus } from "../../../../webview/shared/model";
 import type { Hook } from "../../types";
 import { resetHooksState } from "../signals";
 import HooksTab from "../index";

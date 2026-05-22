@@ -5,10 +5,10 @@
  * change from the UI.
  */
 import { useEffect, useState } from "preact/hooks";
-import { Dropdown, type DropdownOption } from "../../../../webview/components/Dropdown";
-import { Icon } from "../../../../webview/components/Icon";
-import { useDebounce } from "../../../../webview/hooks/useDebounce";
-import { cx } from "../../../../webview/utils/classnames";
+import { Dropdown, type DropdownOption } from "../../../../webview/shared/ui";
+import { Icon } from "../../../../webview/shared/ui";
+import { useDebounce } from "../../../../webview/shared/hooks";
+import { cx } from "../../../../webview/shared/lib";
 import type { DateFilter } from "../../../../webview/types";
 import { sendRefresh, sendSearchFullText } from "../api";
 import {

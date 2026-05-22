@@ -2,7 +2,7 @@
 import { h } from "preact";
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/hooks/useApi";
+import { setVscodeApi } from "../../../../webview/shared/hooks";
 import { DetailView, stripFrontmatter } from "../views/DetailView";
 import { claudeCodeInstalled, selectedSkill } from "../signals";
 import { makeSkill } from "./fixtures";

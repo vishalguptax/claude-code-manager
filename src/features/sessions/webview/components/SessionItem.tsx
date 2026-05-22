@@ -7,9 +7,9 @@
  * the list view owns selection / navigation logic and this stays testable in
  * isolation.
  */
-import { Icon } from "../../../../webview/components/Icon";
+import { Icon } from "../../../../webview/shared/ui";
 import { fmtRelativeTime } from "../../../../webview/utils";
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 import type { Session } from "../../types";
 
 /**

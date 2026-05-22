@@ -2,7 +2,7 @@
  * Scope filter buttons for the MCP list. The plugin button only appears when
  * at least one plugin-supplied server exists, mirroring the vanilla behaviour.
  */
-import { cx } from "../../../../webview/utils/classnames";
+import { cx } from "../../../../webview/shared/lib";
 import type { McpScopeFilter } from "../signals";
 
 export interface ScopeFilterProps {

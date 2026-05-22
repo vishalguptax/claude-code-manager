@@ -4,9 +4,9 @@
  * virtualization threshold the rows are windowed with <VirtualList />.
  */
 import { useEffect, useMemo, useState } from "preact/hooks";
-import { VirtualList } from "../../../../webview/components/VirtualList";
-import { useApi } from "../../../../webview/hooks/useApi";
-import { useDebounce } from "../../../../webview/hooks/useDebounce";
+import { VirtualList } from "../../../../webview/shared/ui";
+import { useApi } from "../../../../webview/shared/hooks";
+import { useDebounce } from "../../../../webview/shared/hooks";
 import type { Command } from "../../types";
 import { getCommandsMsg, launchCommandInChatMsg, type Post } from "../api";
 import { CommandItem } from "../components/CommandItem";

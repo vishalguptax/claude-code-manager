@@ -5,8 +5,8 @@
  * read-only — the writer refuses to mutate plugin.json — so they show a
  * "read-only" badge instead of action buttons.
  */
-import { Icon } from "../../../../webview/components/Icon";
-import { cx } from "../../../../webview/utils/classnames";
+import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
 import type { Hook } from "../../types";
 import { scopeLabel } from "../events";
 

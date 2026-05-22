@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { h } from "preact";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/preact";
-import { setVscodeApi } from "../../../../../webview/hooks/useApi";
+import { setVscodeApi } from "../../../../../webview/shared/hooks";
 import type { Hook } from "../../../types";
 import { resetHooksState, setHooks, selectedHook } from "../../signals";
 import { ListView } from "../ListView";

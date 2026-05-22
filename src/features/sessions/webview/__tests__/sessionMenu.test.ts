@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildSessionMenuItems } from "../components/sessionMenu";
 
 const post = vi.fn();
-vi.mock("../../../../webview/hooks/useApi", () => ({
+vi.mock("../../../../webview/shared/hooks", () => ({
   useApi: () => ({ post: (m: unknown) => post(m) }),
   setVscodeApi: () => {},
 }));

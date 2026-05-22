@@ -5,11 +5,11 @@
  * shared <VirtualList /> over a flattened row model.
  */
 import { useEffect, useRef, useState } from "preact/hooks";
-import { cx } from "../../../../webview/utils/classnames";
-import { Icon } from "../../../../webview/components/Icon";
-import { VirtualList } from "../../../../webview/components/VirtualList";
-import { useApi } from "../../../../webview/hooks/useApi";
-import { useDebounce } from "../../../../webview/hooks/useDebounce";
+import { cx } from "../../../../webview/shared/lib";
+import { Icon } from "../../../../webview/shared/ui";
+import { VirtualList } from "../../../../webview/shared/ui";
+import { useApi } from "../../../../webview/shared/hooks";
+import { useDebounce } from "../../../../webview/shared/hooks";
 import type { Skill } from "../../types";
 import {
   claudeCodeInstalled,

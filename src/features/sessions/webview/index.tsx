@@ -10,7 +10,7 @@
  */
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
-import { registerFeatureHandler } from "../../../webview/signals/messageBus";
+import { registerFeatureHandler } from "../../../webview/shared/model";
 import type { Session, SessionDetail, SessionGroup, Stats } from "../types";
 import { sendReady } from "./api";
 import {

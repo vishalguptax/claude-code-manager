@@ -9,11 +9,11 @@
  * common handful-of-hooks case.
  */
 import { useEffect, useState } from "preact/hooks";
-import { Icon } from "../../../../webview/components/Icon";
-import { VirtualList } from "../../../../webview/components/VirtualList";
-import { cx } from "../../../../webview/utils/classnames";
-import { useApi } from "../../../../webview/hooks/useApi";
-import { useDebounce } from "../../../../webview/hooks/useDebounce";
+import { Icon } from "../../../../webview/shared/ui";
+import { VirtualList } from "../../../../webview/shared/ui";
+import { cx } from "../../../../webview/shared/lib";
+import { useApi } from "../../../../webview/shared/hooks";
+import { useDebounce } from "../../../../webview/shared/hooks";
 import type { Hook } from "../../types";
 import * as api from "../api";
 import type { Post } from "../api";
