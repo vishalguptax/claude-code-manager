@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in Claude Manager is broken or behaves unexpectedly.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Claude Manager is 100% local — please do **not**
+        paste OAuth tokens, `.credentials.json` contents, or full session
+        transcripts. Redact anything sensitive.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        1. Opened the Sessions tab
+        2. Clicked Resume on a session
+        3. Expected a terminal to open; nothing happened
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report
+      description: >
+        Run "Claude Manager: Run Diagnostics" from the Command Palette and paste
+        the output here. Redact paths/emails as needed.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: extension-version
+    attributes:
+      label: Claude Manager version
+      placeholder: e.g. 2.0.0-beta.1
+    validations:
+      required: true
+  - type: input
+    id: editor
+    attributes:
+      label: Editor & version
+      placeholder: e.g. VS Code 1.95.0 / Cursor 0.43 / Windsurf
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Webview / Extension Host errors
+      description: >
+        From "Help → Toggle Developer Tools" (webview console) or the
+        "Claude Manager" output channel, paste any red errors.
+      render: shell
+    validations:
+      required: false
