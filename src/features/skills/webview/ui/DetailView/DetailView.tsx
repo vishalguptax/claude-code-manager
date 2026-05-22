@@ -4,11 +4,11 @@
  * button clears the selection to return to the list.
  */
 import { useState } from "preact/hooks";
-import { Icon } from "../../../../webview/shared/ui";
-import { useApi } from "../../../../webview/shared/hooks";
-import type { Skill } from "../../types";
-import { claudeCodeInstalled, selectedSkill } from "../signals";
-import { deleteSkill, launchSkillInChat, newSession, openSkillFile } from "../api";
+import { Badge, Button } from "../../../../../webview/shared/ui";
+import { useApi } from "../../../../../webview/shared/hooks";
+import type { Skill } from "../../../types";
+import { deleteSkill, launchSkillInChat, newSession, openSkillFile } from "../../api";
+import { claudeCodeInstalled, selectedSkill } from "../../model";
 
 /** Strip leading YAML frontmatter from raw SKILL.md content. */
 export function stripFrontmatter(content: string): string {
@@ -33,21 +33,17 @@ export function DetailView({ skill }: DetailViewProps) {
 
   return (
     <div class="panel" id="skillsDetailView">
-      <button
-        type="button"
-        class="back-btn"
-        onClick={() => {
-          selectedSkill.value = null;
-        }}
-      >
-        <Icon name="arrow-left" /> Back
-      </button>
+      <Button variant="icon" class="back-btn" iconName="arrow-left" onClick={() => {
+        selectedSkill.value = null;
+      }}>
+        Back
+      </Button>
 
       <div class="d-head">
         <div class="d-title">{skill.name}</div>
         {skill.description ? <div class="d-subtitle">{skill.description}</div> : null}
         <div class="d-tags">
-          <span class={`skill-scope-badge scope-${skill.scope}`}>{skill.scope}</span>
+          <Badge variant="scope" text={skill.scope} class={`skill-scope-badge scope-${skill.scope}`} />
           {skill.tags.map((t) => (
             <span key={t} class="tag">
               {t}
@@ -57,23 +53,23 @@ export function DetailView({ skill }: DetailViewProps) {
       </div>
 
       <div class="d-actions">
-        <button type="button" class="btn primary" onClick={() => newSession(post)}>
-          <Icon name="play" /> Open Claude
-        </button>
+        <Button variant="primary" iconName="play" onClick={() => newSession(post)}>
+          Open Claude
+        </Button>
         {claudeCodeInstalled.value ? (
-          <button type="button" class="btn" onClick={() => launchSkillInChat(post, skill.name)}>
-            <Icon name="message-square" /> Open in Chat
-          </button>
+          <Button iconName="message-square" onClick={() => launchSkillInChat(post, skill.name)}>
+            Open in Chat
+          </Button>
         ) : null}
-        <button type="button" class="btn" onClick={copyName}>
-          <Icon name="copy" /> {copied ? "Copied!" : `Copy /${skill.name}`}
-        </button>
-        <button type="button" class="btn" onClick={() => openSkillFile(post, skill.path)}>
-          <Icon name="external-link" /> Open File
-        </button>
-        <button type="button" class="btn del" onClick={() => deleteSkill(post, skill.path)}>
-          <Icon name="trash-2" /> Delete
-        </button>
+        <Button iconName="copy" onClick={copyName}>
+          {copied ? "Copied!" : `Copy /${skill.name}`}
+        </Button>
+        <Button iconName="external-link" onClick={() => openSkillFile(post, skill.path)}>
+          Open File
+        </Button>
+        <Button variant="danger" iconName="trash-2" onClick={() => deleteSkill(post, skill.path)}>
+          Delete
+        </Button>
       </div>
 
       <div class="d-section">

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { makeSkill } from "../../__tests__/fixtures";
 import {
   countByScope,
   filteredSkills,
@@ -7,7 +8,6 @@ import {
   selectedSkill,
   skills,
 } from "../signals";
-import { makeSkill } from "./fixtures";
 
 function reset(): void {
   skills.value = [];

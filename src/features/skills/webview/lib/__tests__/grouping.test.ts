@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { makeSkill } from "../../__tests__/fixtures";
 import { groupSkills } from "../grouping";
-import { makeSkill } from "./fixtures";
 
 describe("groupSkills", () => {
   it("returns no buckets for an empty list", () => {

@@ -4,13 +4,18 @@
  * them. Lists longer than the virtualization threshold render through the
  * shared <VirtualList /> over a flattened row model.
  */
-import { useEffect, useRef, useState } from "preact/hooks";
-import { cx } from "../../../../webview/shared/lib";
-import { Icon } from "../../../../webview/shared/ui";
-import { VirtualList } from "../../../../webview/shared/ui";
-import { useApi } from "../../../../webview/shared/hooks";
-import { useDebounce } from "../../../../webview/shared/hooks";
-import type { Skill } from "../../types";
+import { useRef } from "preact/hooks";
+import { useApi } from "../../../../../webview/shared/hooks";
+import {
+  Button,
+  ScopeFilter as ScopeFilterControl,
+  type ScopeOption,
+  SearchInput,
+  VirtualList,
+} from "../../../../../webview/shared/ui";
+import type { Skill } from "../../../types";
+import { getSkillDetail, getSkills, launchSkillInChat, openUrl } from "../../api";
+import { groupSkills } from "../../lib";
 import {
   claudeCodeInstalled,
   countByScope,
@@ -21,10 +26,8 @@ import {
   searchQuery,
   selectedSkill,
   skills,
-} from "../signals";
-import { getSkillDetail, getSkills, launchSkillInChat, openUrl } from "../api";
-import { groupSkills } from "../grouping";
-import { SkillItem } from "../components/SkillItem";
+} from "../../model";
+import { SkillItem } from "../SkillItem";
 
 /** Above this count the list switches to windowed rendering. */
 const VIRTUAL_THRESHOLD = 50;
@@ -51,25 +54,23 @@ function buildRows(list: Skill[]): Row[] {
   return rows;
 }
 
-const SCOPE_TABS: { value: ScopeFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "project", label: "Project" },
-  { value: "global", label: "Global" },
-];
+/** Build the scope-filter options, hiding the Plugin segment when empty. */
+function scopeOptions(total: number): ScopeOption<ScopeFilter>[] {
+  const opts: ScopeOption<ScopeFilter>[] = [
+    { value: "all", label: "All", count: total },
+    { value: "project", label: "Project", count: countByScope("project") },
+    { value: "global", label: "Global", count: countByScope("global") },
+  ];
+  const pluginCount = countByScope("plugin");
+  if (pluginCount > 0) opts.push({ value: "plugin", label: "Plugin", count: pluginCount });
+  return opts;
+}
 
 export function ListView() {
   const { post } = useApi();
-  const [rawQuery, setRawQuery] = useState(searchQuery.value);
-  const debounced = useDebounce(rawQuery, 150);
-
-  // Push the debounced query into the shared signal (drives filtering).
-  useEffect(() => {
-    searchQuery.value = debounced.toLowerCase();
-  }, [debounced]);
 
   const list = filteredSkills.value;
   const total = skills.value.length;
-  const pluginCount = countByScope("plugin");
   const selectedId = selectedSkill.value?.id;
   const chatEnabled = claudeCodeInstalled.value;
 
@@ -100,78 +101,46 @@ export function ListView() {
     <div class="panel" id="skillsListView">
       <div class="search-row">
         <div class="feature-search">
-          <input
-            class="input"
-            type="text"
-            placeholder="Search skills..."
-            aria-label="Search skills"
-            value={rawQuery}
-            onInput={(e) => setRawQuery((e.currentTarget as HTMLInputElement).value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setRawQuery("");
+          <SearchInput
+            value={searchQuery.value}
+            onInput={(v) => {
+              searchQuery.value = v.toLowerCase();
             }}
+            placeholder="Search skills..."
+            ariaLabel="Search skills"
+            debounceMs={150}
           />
-          {rawQuery ? (
-            <button
-              type="button"
-              class="search-btn"
-              title="Clear (Esc)"
-              onClick={() => setRawQuery("")}
-            >
-              <Icon name="x" size={14} />
-            </button>
-          ) : null}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="icon"
           class="search-side-btn"
+          iconName="globe"
           title="Browse community skills (opens externally)"
           onClick={() => openUrl(post, marketplaceSkillsUrl.value)}
-        >
-          <Icon name="globe" size={14} />
-        </button>
-        <button
-          type="button"
+        />
+        <Button
+          variant="icon"
           class="search-side-btn"
+          iconName="refresh-cw"
           title="Refresh skills list"
           onClick={() => getSkills(post)}
-        >
-          <Icon name="refresh-cw" size={14} />
-        </button>
+        />
       </div>
 
       {total > 0 ? (
-        <div class="scope-filter" id="skillsScopeFilter">
-          {SCOPE_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              class={cx("scope-btn", scopeFilter.value === tab.value && "active")}
-              onClick={() => {
-                scopeFilter.value = tab.value;
-              }}
-            >
-              {tab.label} ({tab.value === "all" ? total : countByScope(tab.value as Skill["scope"])})
-            </button>
-          ))}
-          {pluginCount > 0 ? (
-            <button
-              type="button"
-              class={cx("scope-btn", scopeFilter.value === "plugin" && "active")}
-              onClick={() => {
-                scopeFilter.value = "plugin";
-              }}
-            >
-              Plugin ({pluginCount})
-            </button>
-          ) : null}
-        </div>
+        <ScopeFilterControl
+          class="scope-filter"
+          value={scopeFilter.value}
+          options={scopeOptions(total)}
+          onChange={(v) => {
+            scopeFilter.value = v;
+          }}
+        />
       ) : null}
 
       <SkillList
         list={list}
         searching={searchQuery.value.length > 0}
-        marketplaceUrl={marketplaceSkillsUrl.value}
         renderSkill={renderSkill}
         onBrowse={() => openUrl(post, marketplaceSkillsUrl.value)}
       />
@@ -182,7 +151,6 @@ export function ListView() {
 interface SkillListProps {
   list: Skill[];
   searching: boolean;
-  marketplaceUrl: string;
   renderSkill: (skill: Skill) => preact.JSX.Element;
   onBrowse: () => void;
 }
@@ -199,9 +167,9 @@ function SkillList({ list, searching, renderSkill, onBrowse }: SkillListProps) {
         ) : (
           <div class="empty">
             <div>No skills found</div>
-            <button type="button" class="empty-link-btn" onClick={onBrowse}>
+            <Button variant="secondary" class="empty-link-btn" onClick={onBrowse}>
               Browse community skills →
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -237,7 +205,13 @@ function rowKey(row: Row, index: number): string {
   return "count";
 }
 
-function RowView({ row, renderSkill }: { row: Row; renderSkill: (skill: Skill) => preact.JSX.Element }) {
+function RowView({
+  row,
+  renderSkill,
+}: {
+  row: Row;
+  renderSkill: (skill: Skill) => preact.JSX.Element;
+}) {
   switch (row.kind) {
     case "count":
       return (

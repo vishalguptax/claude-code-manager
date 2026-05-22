@@ -8,9 +8,8 @@ import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
 import type { Skill } from "../types";
 import { getSkills } from "./api";
-import { claudeCodeInstalled, marketplaceSkillsUrl, selectedSkill, skills } from "./signals";
-import { DetailView } from "./views/DetailView";
-import { ListView } from "./views/ListView";
+import { claudeCodeInstalled, marketplaceSkillsUrl, selectedSkill, skills } from "./model";
+import { DetailView, ListView } from "./ui";
 
 /**
  * Register message-bus handlers. Returns a disposer that removes them.

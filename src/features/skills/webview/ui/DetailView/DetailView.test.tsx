@@ -2,10 +2,10 @@
 import { h } from "preact";
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { DetailView, stripFrontmatter } from "../views/DetailView";
-import { claudeCodeInstalled, selectedSkill } from "../signals";
-import { makeSkill } from "./fixtures";
+import { setVscodeApi } from "../../../../../webview/shared/hooks";
+import { makeSkill } from "../../__tests__/fixtures";
+import { claudeCodeInstalled, selectedSkill } from "../../model";
+import { DetailView, stripFrontmatter } from "./DetailView";
 
 afterEach(cleanup);
 

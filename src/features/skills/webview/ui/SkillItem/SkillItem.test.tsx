@@ -2,8 +2,8 @@
 import { h } from "preact";
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { SkillItem } from "../components/SkillItem";
-import { makeSkill } from "./fixtures";
+import { makeSkill } from "../../__tests__/fixtures";
+import { SkillItem } from "./SkillItem";
 
 afterEach(cleanup);
 
