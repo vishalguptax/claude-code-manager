@@ -35,4 +35,22 @@ export class LRU<K, V> {
   get size(): number {
     return this.map.size;
   }
+
+  /**
+   * Iterate keys in least-recently-used → most-recently-used order
+   * (the backing Map's insertion order, which `get`/`set` maintain).
+   * Additive read-only view; does not promote on iteration.
+   */
+  keys(): IterableIterator<K> {
+    return this.map.keys();
+  }
+
+  /**
+   * Iterate [key, value] pairs in LRU → MRU order. Additive read-only
+   * view; iterating does NOT promote, so a full scan (e.g. a search
+   * over every cached entry) leaves recency ordering untouched.
+   */
+  entries(): IterableIterator<[K, V]> {
+    return this.map.entries();
+  }
 }

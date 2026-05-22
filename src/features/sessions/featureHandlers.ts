@@ -1,0 +1,373 @@
+/**
+ * Webview → host message handlers for the non-session features the
+ * sessions panel also surfaces: skills, commands, hooks, MCP servers,
+ * agents. Returns `true` when the message was handled, `false` to let the
+ * caller try the next handler. Verbatim extraction from the former single
+ * dispatch switch — no logic change.
+ */
+import * as vscode from "vscode";
+import * as path from "path";
+import * as fs from "fs";
+import { parseSkills } from "../skills/parser";
+import { parseCommands } from "../commands/parser";
+import { parseHooks } from "../hooks/parser";
+import {
+  toggleHookEnabled as writerToggleHookEnabled,
+  deleteHook as writerDeleteHook,
+  updateHook as writerUpdateHook,
+  addHook as writerAddHook,
+} from "../hooks/writer";
+import { parseMcpServers, toggleMcpServer, deleteMcpServer } from "../mcp/parser";
+import { parseAgents } from "../agents/parser";
+import { resolveSettingsPath } from "../account/parser";
+import { getWorkspace } from "../../extension/workspace";
+import type { HookScope } from "../hooks/types";
+import type { WebviewMessage } from "./types";
+import type { HostContext } from "./hostContext";
+
+export async function handleFeatureMessage(
+  msg: WebviewMessage,
+  ctx: HostContext,
+): Promise<boolean> {
+  const wv = ctx.getWebview();
+  if (!wv) return true;
+
+  switch (msg.type) {
+    // ── Skills messages ──
+
+    case "getSkills": {
+      const workspace = getWorkspace();
+      const skills = parseSkills(workspace || undefined);
+      ctx.setSkills(skills);
+      wv.postMessage({ type: "skills", data: skills });
+      break;
+    }
+
+    case "getSkillDetail": {
+      const skill = ctx
+        .getSkills()
+        .find((s) => s.id === (msg as { type: string; skillId: string }).skillId);
+      if (skill) {
+        wv.postMessage({ type: "skillDetail", data: skill });
+      }
+      break;
+    }
+
+    case "openSkillFile": {
+      const skillPath = (msg as { type: string; skillPath: string }).skillPath;
+      const skillFile = path.join(skillPath, "SKILL.md");
+      try {
+        const doc = await vscode.workspace.openTextDocument(skillFile);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showErrorMessage(`Could not open ${skillFile}`);
+      }
+      break;
+    }
+
+    case "deleteSkill": {
+      const skillPath = (msg as { type: string; skillPath: string }).skillPath;
+      const choice = await vscode.window.showWarningMessage(
+        `Delete this skill folder?`,
+        {
+          modal: true,
+          detail: `This will permanently delete:\n${skillPath}`,
+        },
+        "Delete",
+      );
+      if (choice === "Delete") {
+        try {
+          fs.rmSync(skillPath, { recursive: true, force: true });
+          const workspace = getWorkspace();
+          const skills = parseSkills(workspace || undefined);
+          ctx.setSkills(skills);
+          wv.postMessage({ type: "skills", data: skills });
+        } catch (err) {
+          vscode.window.showErrorMessage(`Failed to delete: ${(err as Error).message}`);
+        }
+      }
+      break;
+    }
+
+    // ── Commands messages ──
+
+    case "getCommands": {
+      const workspace = getWorkspace();
+      const commands = parseCommands(workspace || undefined);
+      ctx.setCommands(commands);
+      wv.postMessage({ type: "commands", data: commands });
+      break;
+    }
+
+    case "openCommandFile": {
+      const cmdPath = (msg as { type: string; path: string }).path;
+      try {
+        const doc = await vscode.workspace.openTextDocument(cmdPath);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showErrorMessage(`Could not open ${cmdPath}`);
+      }
+      break;
+    }
+
+    // ── Hooks messages ──
+
+    case "getHooks": {
+      const hooks = parseHooks(getWorkspace());
+      ctx.setHooks(hooks);
+      wv.postMessage({ type: "hooks", data: hooks });
+      break;
+    }
+
+    case "toggleHookEnabled": {
+      // Plugin-sourced hooks have no settings.json to mutate — their
+      // declaration lives in plugin.json under the plugin install dir.
+      // Bail before resolving a path so we never call resolveSettingsPath
+      // with a non-permission scope.
+      if (msg.hook.scope === "plugin") break;
+      const workspace = getWorkspace();
+      const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
+      if (filePath) {
+        writerToggleHookEnabled(filePath, msg.hook, msg.hook.disabled);
+      }
+      const hooks = parseHooks(workspace);
+      ctx.setHooks(hooks);
+      wv.postMessage({ type: "hooks", data: hooks });
+      break;
+    }
+
+    case "deleteHook": {
+      if (msg.hook.scope === "plugin") break;
+      const workspace = getWorkspace();
+      const choice = await vscode.window.showWarningMessage(
+        "Delete this hook?",
+        {
+          modal: true,
+          detail: `Removes the ${msg.hook.event} hook (${msg.hook.matcher || "*"}) from ${msg.hook.scope} settings. This is reversible only by editing settings.json.`,
+        },
+        "Delete",
+      );
+      if (choice !== "Delete") break;
+      const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
+      if (filePath) writerDeleteHook(filePath, msg.hook);
+      const hooks = parseHooks(workspace);
+      ctx.setHooks(hooks);
+      wv.postMessage({ type: "hooks", data: hooks });
+      break;
+    }
+
+    case "updateHook": {
+      if (msg.original.scope === "plugin") break;
+      const workspace = getWorkspace();
+      const filePath = resolveSettingsPath(msg.original.scope, workspace || undefined);
+      if (filePath) writerUpdateHook(filePath, msg.original, msg.next);
+      const hooks = parseHooks(workspace);
+      ctx.setHooks(hooks);
+      wv.postMessage({ type: "hooks", data: hooks });
+      break;
+    }
+
+    case "promptAddHook": {
+      // Native VS Code wizard: scope → event → matcher → command.
+      // Each step bails on cancel so a user can dismiss without
+      // persisting a partial entry.
+      const workspace = getWorkspace();
+      // The wizard only writes to settings.json scopes — plugin
+      // hooks are read-only, so we deliberately narrow the choice
+      // type to exclude that variant. This also keeps writerAddHook
+      // / resolveSettingsPath callable without a runtime guard.
+      type WritableHookScope = Exclude<HookScope, "plugin">;
+      type ScopeOption = vscode.QuickPickItem & { value: WritableHookScope };
+      const scopeChoices: ScopeOption[] = [
+        { label: "Global", description: "~/.claude/settings.json", value: "global" },
+      ];
+      if (workspace) {
+        scopeChoices.push(
+          { label: "Project", description: "<workspace>/.claude/settings.json", value: "project" },
+          { label: "Local", description: "<workspace>/.claude/settings.local.json (gitignored)", value: "local" },
+        );
+      }
+      const scopePick = await vscode.window.showQuickPick(scopeChoices, {
+        title: "Add hook — scope?",
+        placeHolder: "Where should this hook live?",
+      });
+      if (!scopePick) break;
+
+      const eventChoices: vscode.QuickPickItem[] = [
+        { label: "PreToolUse", description: "Before any tool runs" },
+        { label: "PostToolUse", description: "After a tool finishes" },
+        { label: "Notification", description: "On a Claude Notification event" },
+        { label: "Stop", description: "When the user stops the run" },
+        { label: "SubagentStop", description: "When a subagent finishes" },
+        { label: "PreCompact", description: "Before context auto-compaction" },
+        { label: "Other…", description: "Type a custom event name" },
+      ];
+      const eventPick = await vscode.window.showQuickPick(eventChoices, {
+        title: "Add hook — event?",
+        placeHolder: "Which event should fire this hook?",
+      });
+      if (!eventPick) break;
+      let event = eventPick.label;
+      if (event === "Other…") {
+        const custom = await vscode.window.showInputBox({
+          title: "Add hook — custom event name",
+          placeHolder: "Event name as written in Claude CLI docs",
+          validateInput: (v) => (v.trim() ? null : "Event name cannot be empty"),
+        });
+        if (!custom) break;
+        event = custom.trim();
+      }
+
+      const matcher = await vscode.window.showInputBox({
+        title: `Add hook — matcher (optional)`,
+        placeHolder: "Tool name / pattern, e.g. Write or Bash(git:*). Leave blank to match all.",
+      });
+      if (matcher === undefined) break; // user cancelled (empty string is fine)
+
+      const command = await vscode.window.showInputBox({
+        title: `Add hook — command`,
+        placeHolder: "Shell command to run when the hook fires",
+        validateInput: (v) => (v.trim() ? null : "Command cannot be empty"),
+      });
+      if (!command) break;
+
+      const filePath = resolveSettingsPath(scopePick.value, workspace || undefined);
+      if (!filePath) {
+        vscode.window.showErrorMessage(
+          `Cannot write to ${scopePick.value} scope without a workspace open.`,
+        );
+        break;
+      }
+      const ok = writerAddHook(filePath, event, matcher.trim(), command.trim(), scopePick.value);
+      if (!ok) {
+        vscode.window.showErrorMessage("Failed to write hook to settings.json.");
+      }
+      const hooks = parseHooks(workspace);
+      ctx.setHooks(hooks);
+      wv.postMessage({ type: "hooks", data: hooks });
+      break;
+    }
+
+    // ── MCP messages ──
+
+    case "getMcpServers": {
+      const workspace = getWorkspace();
+      const servers = parseMcpServers(workspace || undefined);
+      ctx.setMcpServers(servers);
+      wv.postMessage({ type: "mcpServers", data: servers });
+      break;
+    }
+
+    case "openMcpConfig": {
+      const scope = (msg as { type: string; scope: string }).scope;
+      let configPath: string;
+      if (scope === "project") {
+        const workspace = getWorkspace();
+        if (!workspace) {
+          vscode.window.showErrorMessage("No workspace folder open");
+          break;
+        }
+        configPath = path.join(workspace, ".mcp.json");
+      } else {
+        const os = await import("os");
+        configPath = path.join(os.homedir(), ".claude", "mcp.json");
+      }
+      try {
+        const doc = await vscode.workspace.openTextDocument(configPath);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showErrorMessage(`Could not open ${configPath}`);
+      }
+      break;
+    }
+
+    case "toggleMcpServer": {
+      const { name, scope, disabled } = msg as {
+        type: string;
+        name: string;
+        scope: import("../mcp/types").McpServerScope;
+        disabled: boolean;
+      };
+      // Plugin-supplied servers are owned by the plugin install dir
+      // and managed via the `/plugin` CLI. Reject the message instead
+      // of silently no-op so a stale UI surface surfaces an error.
+      if (scope === "plugin") {
+        vscode.window.showErrorMessage(`"${name}" is provided by a plugin — manage it via /plugin.`);
+        break;
+      }
+      const workspace = getWorkspace();
+      const ok = toggleMcpServer(name, scope, disabled, workspace || undefined);
+      if (ok) {
+        // Re-parse and push updated list
+        const servers = parseMcpServers(workspace || undefined);
+        ctx.setMcpServers(servers);
+        wv.postMessage({ type: "mcpServers", data: servers });
+      } else {
+        vscode.window.showErrorMessage(`Failed to ${disabled ? "disable" : "enable"} ${name}`);
+      }
+      break;
+    }
+
+    case "deleteMcpServer": {
+      const { name: srvName, scope: srvScope } = msg as {
+        type: string;
+        name: string;
+        scope: import("../mcp/types").McpServerScope;
+      };
+      if (srvScope === "plugin") {
+        vscode.window.showErrorMessage(`"${srvName}" is provided by a plugin — manage it via /plugin.`);
+        break;
+      }
+      const choice = await vscode.window.showWarningMessage(
+        `Delete MCP server "${srvName}"?`,
+        {
+          modal: true,
+          detail: `This will remove the server entry from your ${srvScope} .mcp.json config.`,
+        },
+        "Delete",
+      );
+      if (choice === "Delete") {
+        const workspace = getWorkspace();
+        const ok = deleteMcpServer(srvName, srvScope, workspace || undefined);
+        if (ok) {
+          const servers = parseMcpServers(workspace || undefined);
+          ctx.setMcpServers(servers);
+          wv.postMessage({ type: "mcpServers", data: servers });
+        } else {
+          vscode.window.showErrorMessage(`Failed to delete ${srvName}`);
+        }
+      }
+      break;
+    }
+
+    // ── Agents messages ──
+
+    case "getAgents": {
+      const workspace = getWorkspace();
+      const agents = parseAgents(workspace || undefined);
+      ctx.setAgents(agents);
+      wv.postMessage({ type: "agents", data: agents });
+      break;
+    }
+
+    case "openAgentFile": {
+      const agentPath = (msg as { type: string; path: string }).path;
+      try {
+        const doc = await vscode.workspace.openTextDocument(agentPath);
+        await vscode.window.showTextDocument(doc);
+      } catch {
+        vscode.window.showErrorMessage(`Could not open ${agentPath}`);
+      }
+      break;
+    }
+
+    case "openExtensionSettings": {
+      vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");
+      break;
+    }
+
+    default:
+      return false;
+  }
+  return true;
+}

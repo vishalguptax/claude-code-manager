@@ -20,6 +20,7 @@
  * 100 ms even at that scale.
  */
 import * as fs from "fs";
+import { LRU } from "../../core/lru";
 import type { SessionEntry } from "./types";
 
 /** Cap per-session content to keep total memory bounded. */
@@ -29,6 +30,16 @@ const MAX_CONTENT_BYTES = 50 * 1024;
 const READ_CHUNK = 64 * 1024;
 
 /**
+ * Maximum indexed sessions held in memory at once. Each entry caps at
+ * MAX_CONTENT_BYTES (50 KB) so 2000 entries bound the index at ~100 MB
+ * worst case — a hard ceiling for users with thousands of sessions.
+ * The LRU evicts the least-recently-touched session when a 2001st is
+ * indexed; an evicted session is silently re-extracted the next time it
+ * is indexed or searched against.
+ */
+const INDEX_MAX_ENTRIES = 2000;
+
+/**
  * sessionId -> { mtimeMs of the source file, lowercased searchable
  * content }. Module-scoped singleton.
  *
@@ -36,12 +47,17 @@ const READ_CHUNK = 64 * 1024;
  * extract step when the file hasn't changed since the last build.
  * Without this, every parseSessions() tick re-streamed every JSONL
  * even when only one session had been touched.
+ *
+ * Backed by an LRU so the index can never grow past INDEX_MAX_ENTRIES.
+ * `indexSession` (set) and `searchContent` (get) both promote on access,
+ * so the hot working set survives eviction and only cold sessions are
+ * dropped under pressure.
  */
 interface IndexEntry {
   mtimeMs: number;
   content: string;
 }
-const index = new Map<string, IndexEntry>();
+const index = new LRU<string, IndexEntry>(INDEX_MAX_ENTRIES);
 
 /**
  * Extract lowercased, search-friendly text from a single session's
@@ -160,7 +176,10 @@ export function indexSession(sessionId: string, filePath: string): void {
  * sessions the user deleted from the panel.
  */
 export function pruneIndex(activeIds: Set<string>): void {
-  for (const id of index.keys()) {
+  // Snapshot the keys before mutating — deleting while iterating the
+  // backing Map's live key iterator is allowed by spec, but a snapshot
+  // keeps intent obvious and is cheap (ids only).
+  for (const id of [...index.keys()]) {
     if (!activeIds.has(id)) index.delete(id);
   }
 }
@@ -175,8 +194,13 @@ export function searchContent(query: string): string[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const hits: string[] = [];
-  for (const [id, entry] of index) {
+  // Scan via entries() (a non-promoting read view) so we don't mutate
+  // recency ordering mid-iteration. Matched ids are promoted afterwards
+  // via index.get() so a session the user keeps searching for survives
+  // eviction as part of the hot working set.
+  for (const [id, entry] of index.entries()) {
     if (entry.content.includes(q)) hits.push(id);
   }
+  for (const id of hits) index.get(id);
   return hits;
 }
