@@ -5,18 +5,16 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Scope Badge
+   Scope Badge — layers on the shared <Badge variant="scope">. The base chip
+   (display/font-size/padding/radius) comes from `.vsc-badge`; these rules add
+   the skills-specific uppercase treatment and the per-scope colours that the
+   neutral generic scope variant does not provide.
    ────────────────────────────────────────────────────────────────────────────── */
 
 .skill-scope-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 0 6px;
-  border-radius: var(--radius-sm);
   height: 18px;
   flex-shrink: 0;
 }
