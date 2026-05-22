@@ -2,7 +2,11 @@
   display: flex;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
-  flex-shrink: 0;
+  /* flex:0 0 auto so the tab strip stays its natural height. Overrides the
+     stray `.tab-bar { flex:1 }` in components.css (a v1 vertical-nav leftover)
+     that otherwise makes the strip grow to half the panel height. */
+  flex: 0 0 auto;
+  overflow-x: auto;
 }
 .tab-btn {
   background: transparent;
