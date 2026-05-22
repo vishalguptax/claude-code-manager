@@ -7,28 +7,13 @@
  * once in main.tsx). `useApi()` contains no hooks, so calling it at module
  * scope is safe.
  */
-import { setVscodeApi, useApi } from "../../../webview/hooks/useApi";
+import { useApi } from "../../../webview/hooks/useApi";
 import type { WebviewMessage } from "../../../shared/protocol/messages";
-import type { VSCodeAPI } from "../../../webview/types";
 
 /** Post a protocol-typed message to the host. */
 function post(msg: WebviewMessage): void {
   useApi().post(msg);
 }
-
-/**
- * Backward-compat shim for the not-yet-migrated v1 webview entry
- * (`src/webview/index.ts`), which still calls `initApi(vscode)` at bootstrap.
- * Forwards the handle to the shared `useApi` bridge so both the v1 graph and
- * the v2 Preact senders post through the same acquired API. Removed by F3
- * once every feature is on the Preact shell.
- */
-export function initApi(vscode: VSCodeAPI): void {
-  setVscodeApi(vscode);
-}
-
-/** Backward-compat shim: tell the host the cinematic intro has played. */
-export const sendMarkDemoSeen = (): void => post({ type: "markDemoSeen" });
 
 /** Signal the host the webview is mounted and ready for data. */
 export const sendReady = (): void => post({ type: "ready" });
