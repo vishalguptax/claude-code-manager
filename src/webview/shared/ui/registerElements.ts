@@ -20,3 +20,5 @@
  */
 import "@vscode-elements/elements/dist/vscode-single-select";
 import "@vscode-elements/elements/dist/vscode-option";
+import "@vscode-elements/elements/dist/vscode-textfield";
+import "@vscode-elements/elements/dist/vscode-checkbox";

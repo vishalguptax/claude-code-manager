@@ -1,29 +1,13 @@
 /**
- * Controlled text input wrapper with consistent styling and value semantics.
+ * @deprecated Use <TextField> instead — it is the single canonical text input.
+ *
+ * `Input` is retained as a name-compatible alias of <TextField> so existing
+ * call sites keep compiling after the A2 consolidation (one text input, not
+ * two). The old hand-styled `<input class="input">` was removed; importing
+ * `Input` now yields the native `<vscode-textfield>` wrapper. `InputProps` is
+ * an alias of `TextFieldProps`.
+ *
+ * New code should import `TextField` directly. Once all call sites are
+ * migrated (Phase B), this alias can be deleted.
  */
-import { cx } from "../../lib";
-
-export interface InputProps {
-  value: string;
-  onInput: (value: string) => void;
-  placeholder?: string;
-  type?: "text" | "search" | "email" | "password";
-  disabled?: boolean;
-  class?: string;
-  ariaLabel?: string;
-}
-
-export function Input(props: InputProps) {
-  const { value, onInput, placeholder, type = "text", disabled, ariaLabel } = props;
-  return (
-    <input
-      class={cx("input", props.class)}
-      type={type}
-      value={value}
-      placeholder={placeholder}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      onInput={(e) => onInput((e.currentTarget as HTMLInputElement).value)}
-    />
-  );
-}
+export { TextField as Input, type TextFieldProps as InputProps } from "../TextField";
