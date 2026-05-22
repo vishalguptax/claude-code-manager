@@ -1,0 +1,90 @@
+// @vitest-environment happy-dom
+import { act, fireEvent, render, screen } from "@testing-library/preact";
+import { h } from "preact";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Message } from "../../../../shared/protocol/messages";
+import { setVscodeApi } from "../../../../webview/hooks/useApi";
+import { _resetMessageBus, dispatch } from "../../../../webview/signals/messageBus";
+import type { Agent } from "../../types";
+import AgentsTab from "../index";
+import { resetAgentsState } from "../signals";
+
+function agent(overrides: Partial<Agent> = {}): Agent {
+  return {
+    name: "reviewer",
+    description: "reviews code",
+    model: "sonnet",
+    path: "/a/reviewer.md",
+    content: "---\nname: reviewer\n---\nbody",
+    scope: "global",
+    ...overrides,
+  };
+}
+
+let posted: unknown[];
+
+beforeEach(() => {
+  posted = [];
+  _resetMessageBus();
+  resetAgentsState();
+  setVscodeApi({ postMessage: (m) => posted.push(m) });
+});
+afterEach(() => {
+  setVscodeApi(null);
+  _resetMessageBus();
+});
+
+describe("AgentsTab", () => {
+  it("requests agents on mount and shows loading first", () => {
+    const { container } = render(h(AgentsTab, {}));
+    expect(posted).toContainEqual({ type: "getAgents" });
+    expect(container.querySelector(".loading")).toBeTruthy();
+  });
+
+  it("renders the list once agents arrive", () => {
+    render(h(AgentsTab, {}));
+    act(() => dispatch({ type: "agents", data: [agent()] } as Message));
+    expect(screen.getByText("reviewer")).toBeTruthy();
+  });
+
+  it("treats a null payload as an empty list", () => {
+    render(h(AgentsTab, {}));
+    act(() => dispatch({ type: "agents", data: null } as Message));
+    expect(screen.getByText(/No agents found/)).toBeTruthy();
+  });
+
+  it("shows an error message on an error message", () => {
+    render(h(AgentsTab, {}));
+    act(() => dispatch({ type: "error", message: "kaboom" } as Message));
+    expect(screen.getByText("Error: kaboom")).toBeTruthy();
+  });
+
+  it("navigates to detail on click and back again", () => {
+    render(h(AgentsTab, {}));
+    act(() => dispatch({ type: "agents", data: [agent()] } as Message));
+    fireEvent.click(screen.getByText("reviewer"));
+    // Detail view shows the path and an Open File action.
+    expect(screen.getByText("/a/reviewer.md")).toBeTruthy();
+    expect(screen.getByText("Open File")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Back"));
+    // Back on the list: search bar present again.
+    expect(screen.getByPlaceholderText("Search agents...")).toBeTruthy();
+  });
+
+  it("posts openAgentFile from the detail view", () => {
+    render(h(AgentsTab, {}));
+    act(() => dispatch({ type: "agents", data: [agent()] } as Message));
+    fireEvent.click(screen.getByText("reviewer"));
+    posted.length = 0;
+    fireEvent.click(screen.getByText("Open File"));
+    expect(posted).toContainEqual({ type: "openAgentFile", path: "/a/reviewer.md" });
+  });
+
+  it("ignores messages for other features", () => {
+    render(h(AgentsTab, {}));
+    act(() => dispatch({ type: "skills", data: [] } as Message));
+    // Still loading: no agents handler fired.
+    expect(document.querySelector(".loading")).toBeTruthy();
+  });
+});
