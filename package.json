@@ -266,8 +266,9 @@
       "limit": "60 KB"
     },
     {
+      "name": "webview feature chunks (sum; includes @vscode-elements + lit in the sessions chunk)",
       "path": "dist/webview/chunks/*.js",
-      "limit": "120 KB"
+      "limit": "200 KB"
     },
     {
       "path": "dist/webview/styles.css",
@@ -295,6 +296,7 @@
   },
   "dependencies": {
     "@preact/signals": "^2.9.0",
+    "@vscode-elements/elements": "^2.5.1",
     "clsx": "^2.1.1",
     "preact": "^10.29.2",
     "valibot": "^1.4.0"
