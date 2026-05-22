@@ -185,6 +185,29 @@ const mcpServers = v.object({ type: v.literal("mcpServers"), data: v.unknown() }
 const agents = v.object({ type: v.literal("agents"), data: v.unknown() });
 const quotaData = v.object({ type: v.literal("quotaData"), result: v.unknown() });
 
+// === SESSIONS MESSAGES ===
+// Inbound session messages appended by the F2 sessions migration. Paired
+// 1:1 with the SESSIONS MESSAGES block in messages.ts.
+const search = v.object({ type: v.literal("search"), query: v.string() });
+const filter = v.object({
+  type: v.literal("filter"),
+  project: v.optional(v.string()),
+  branch: v.optional(v.string()),
+  dateRange: v.optional(v.tuple([v.number(), v.number()])),
+});
+const deleteSession = v.object({ type: v.literal("deleteSession"), sessionId: v.string() });
+const copyMarkdown = v.object({ type: v.literal("copyMarkdown"), sessionId: v.string() });
+const openFile = v.object({ type: v.literal("openFile"), path: v.string() });
+const sessionsDelta = v.object({
+  type: v.literal("sessions.delta"),
+  payload: v.object({
+    added: v.optional(v.array(v.unknown())),
+    updated: v.optional(v.array(v.unknown())),
+    removed: v.optional(v.array(v.string())),
+  }),
+});
+// === END SESSIONS MESSAGES ===
+
 export const messageSchema = v.variant("type", [
   ready,
   markDemoSeen,
@@ -271,6 +294,14 @@ export const messageSchema = v.variant("type", [
   mcpServers,
   agents,
   quotaData,
+  // === SESSIONS MESSAGES ===
+  search,
+  filter,
+  deleteSession,
+  copyMarkdown,
+  openFile,
+  sessionsDelta,
+  // === END SESSIONS MESSAGES ===
 ]);
 
 export function parseMessage(input: unknown): Message {

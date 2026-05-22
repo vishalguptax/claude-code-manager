@@ -87,7 +87,29 @@ export type Message =
   | { type: "hooks"; data: unknown }
   | { type: "mcpServers"; data: unknown }
   | { type: "agents"; data: unknown }
-  | { type: "quotaData"; result: unknown };
+  | { type: "quotaData"; result: unknown }
+  // === SESSIONS MESSAGES ===
+  // Inbound (webview → host) session messages the sessions feature emits
+  // that were not part of the original F1 protocol extraction. Appended by
+  // the F2 sessions migration. Host already handles these in
+  // features/sessions/messageHandlers.ts.
+  | { type: "search"; query: string }
+  | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
+  | { type: "deleteSession"; sessionId: string }
+  | { type: "copyMarkdown"; sessionId: string }
+  | { type: "openFile"; path: string }
+  /**
+   * Host → webview incremental session-list update. Carries only changed
+   * rows so a file-watcher tick does not re-post the entire tree. The
+   * webview applies it via signal mutation (`applyDelta`). Sessions are
+   * passed through as `unknown[]` to keep the shared protocol free of the
+   * feature-local `Session` type; the feature narrows on receipt.
+   */
+  | {
+      type: "sessions.delta";
+      payload: { added?: unknown[]; updated?: unknown[]; removed?: string[] };
+    };
+// === END SESSIONS MESSAGES ===
 
 type WebviewMessageType =
   | "ready"
@@ -155,7 +177,14 @@ type WebviewMessageType =
   | "promptRemovePermission"
   | "resetSettings"
   | "restoreSettingsSnapshot"
-  | "deleteSettingsSnapshot";
+  | "deleteSettingsSnapshot"
+  // === SESSIONS MESSAGES ===
+  | "search"
+  | "filter"
+  | "deleteSession"
+  | "copyMarkdown"
+  | "openFile";
+// === END SESSIONS MESSAGES ===
 
 export type WebviewMessage = Extract<Message, { type: WebviewMessageType }>;
 export type HostMessage = Exclude<Message, WebviewMessage>;
@@ -180,4 +209,5 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "mcpServers",
   "agents",
   "quotaData",
+  "sessions.delta",
 ];

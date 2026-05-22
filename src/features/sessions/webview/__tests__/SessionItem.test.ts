@@ -1,0 +1,136 @@
+// @vitest-environment happy-dom
+import { describe, expect, it, vi } from "vitest";
+import { h } from "preact";
+import { fireEvent, render } from "@testing-library/preact";
+import type { Session } from "../../types";
+import { SessionItem, liveTitleForStatus } from "../components/SessionItem";
+
+function session(over: Partial<Session> & { id: string }): Session {
+  return {
+    id: over.id,
+    name: "",
+    project: "myproj",
+    projectPath: "/p",
+    branch: "main",
+    entrypoint: "cli",
+    startTime: 0,
+    endTime: Date.now(),
+    messageCount: 1,
+    summary: "the summary",
+    prompts: ["do the thing"],
+    projectKey: "myproj",
+    searchHaystack: "",
+    ...over,
+  };
+}
+
+const noop = () => {};
+
+function renderItem(s: Session, props: Partial<Parameters<typeof SessionItem>[0]> = {}) {
+  return render(
+    h(SessionItem, {
+      session: s,
+      isActive: false,
+      isPinned: false,
+      isSelected: false,
+      bulkMode: false,
+      onSelect: noop,
+      onResume: noop,
+      onToggleSelect: noop,
+      ...props,
+    }),
+  );
+}
+
+describe("liveTitleForStatus", () => {
+  it("maps known statuses", () => {
+    expect(liveTitleForStatus("busy")).toBe("Session is busy");
+    expect(liveTitleForStatus("idle")).toBe("Session is idle");
+    expect(liveTitleForStatus("awaiting_permission")).toBe("Awaiting permission");
+    expect(liveTitleForStatus("awaiting_question")).toBe("Awaiting your answer");
+  });
+
+  it("falls back to the raw status for unknown values", () => {
+    expect(liveTitleForStatus("compacting")).toBe("Session: compacting");
+  });
+
+  it("defaults to live for empty / undefined", () => {
+    expect(liveTitleForStatus(undefined)).toBe("Session is live");
+    expect(liveTitleForStatus("")).toBe("Session is live");
+  });
+});
+
+describe("SessionItem", () => {
+  it("renders the prompt as name when unnamed", () => {
+    const { getByText } = renderItem(session({ id: "a" }));
+    expect(getByText("do the thing")).toBeTruthy();
+  });
+
+  it("shows name and prompt subtitle when named", () => {
+    const { container } = renderItem(session({ id: "a", name: "My session" }));
+    expect(container.querySelector(".item-name")?.textContent).toBe("My session");
+    expect(container.querySelector(".item-prompt")?.textContent).toBe("do the thing");
+  });
+
+  it("renders a live dot with status when live", () => {
+    const { container } = renderItem(session({ id: "a", isLive: true, status: "busy" }));
+    const dot = container.querySelector(".live-dot");
+    expect(dot).toBeTruthy();
+    expect(dot?.getAttribute("data-status")).toBe("busy");
+    expect(dot?.getAttribute("title")).toBe("Session is busy");
+  });
+
+  it("omits the live dot when not live", () => {
+    const { container } = renderItem(session({ id: "a", isLive: false }));
+    expect(container.querySelector(".live-dot")).toBeNull();
+  });
+
+  it("hides the HEAD branch tag", () => {
+    const { container } = renderItem(session({ id: "a", branch: "HEAD" }));
+    expect(container.querySelector(".item-row2 .tag")).toBeNull();
+  });
+
+  it("shows a real branch tag", () => {
+    const { container } = renderItem(session({ id: "a", branch: "feature/x" }));
+    expect(container.querySelector(".tag")?.textContent).toBe("feature/x");
+  });
+
+  it("shows the pin icon when pinned", () => {
+    const { container } = renderItem(session({ id: "a" }), { isPinned: true });
+    expect(container.querySelector(".pin-icon")).toBeTruthy();
+  });
+
+  it("invokes onSelect on row click in normal mode", () => {
+    const onSelect = vi.fn();
+    const { container } = renderItem(session({ id: "a" }), { onSelect });
+    fireEvent.click(container.querySelector(".session-item") as Element);
+    expect(onSelect).toHaveBeenCalledWith("a");
+  });
+
+  it("invokes onResume on the resume button click, not onSelect", () => {
+    const onSelect = vi.fn();
+    const onResume = vi.fn();
+    const { container } = renderItem(session({ id: "a" }), { onSelect, onResume });
+    fireEvent.click(container.querySelector(".item-resume") as Element);
+    expect(onResume).toHaveBeenCalledWith("a");
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("toggles selection instead of selecting in bulk mode", () => {
+    const onSelect = vi.fn();
+    const onToggleSelect = vi.fn();
+    const { container } = renderItem(session({ id: "a" }), {
+      bulkMode: true,
+      onSelect,
+      onToggleSelect,
+    });
+    fireEvent.click(container.querySelector(".session-item") as Element);
+    expect(onToggleSelect).toHaveBeenCalledWith("a", false);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("hides the resume button in bulk mode", () => {
+    const { container } = renderItem(session({ id: "a" }), { bulkMode: true });
+    expect(container.querySelector(".item-resume")).toBeNull();
+  });
+});

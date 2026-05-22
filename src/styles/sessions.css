@@ -5,6 +5,31 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
+   Filter selects (project / branch) — native <select> styled to match the
+   feature search row. The v2 Preact list uses native dropdowns instead of the
+   v1 custom-built menus, so they get their own minimal token-driven styling.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.filter-select {
+  flex: 1;
+  min-width: 0;
+  height: var(--h-control);
+  padding: 0 var(--pad-control-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.filter-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
    Session List Items
    ────────────────────────────────────────────────────────────────────────────── */
 

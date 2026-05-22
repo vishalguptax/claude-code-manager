@@ -58,6 +58,7 @@ import { handleFeatureMessage } from "./featureHandlers";
 import { handleAccountMessage } from "./accountHandlers";
 import { handleSettingsMessage } from "./settingsHandlers";
 import { type HostContext, DEMO_SEEN_KEY } from "./hostContext";
+import { parseMessage } from "../../shared/protocol/schemas";
 import type { WebviewMessage } from "./types";
 
 export {
@@ -76,6 +77,24 @@ export {
 export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<void> {
   const wv = ctx.getWebview();
   if (!wv) return;
+
+  // Validate every inbound webview message against the shared valibot
+  // schema before dispatching. A malformed message (shape drift, a
+  // compromised webview, a protocol mismatch across an upgrade) is logged
+  // and dropped rather than fed into the handler chain. parseMessage
+  // narrows `unknown` to a `Message`; the handlers below already expect a
+  // well-formed `WebviewMessage`, so we keep the original reference once
+  // validation succeeds.
+  try {
+    parseMessage(msg);
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[claude-manager] Rejected malformed webview message (${String((msg as { type?: unknown }).type)}):`,
+      detail,
+    );
+    return;
+  }
 
   try {
     // Ordered fall-through: the first handler that owns the message type
