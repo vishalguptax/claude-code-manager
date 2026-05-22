@@ -1,37 +1,54 @@
 /**
- * Typed wrapper around vscode.postMessage for all MCP webview-to-extension messages.
- * Centralizes all message passing so callers never construct raw objects.
+ * Typed webview → host message senders for the MCP feature.
+ *
+ * Every send is validated against the shared protocol schema before it
+ * leaves the webview, so a malformed message fails loudly in tests and dev
+ * rather than silently reaching the host. Callers pass plain arguments; this
+ * module owns the message shapes (single source: shared protocol).
  */
-
-import type { VSCodeAPI } from "../../../webview/types";
+import { parseMessage } from "../../../shared/protocol/schemas";
+import type { WebviewMessage } from "../../../shared/protocol/messages";
 import type { McpServerScope } from "../types";
 
-let _vscode: VSCodeAPI;
+/** Bridge shape returned by the shared `useApi()` hook. */
+export interface McpApi {
+  getServers(): void;
+  openConfig(scope: McpServerScope): void;
+  toggle(name: string, scope: McpServerScope, disabled: boolean, pluginName?: string): void;
+  remove(name: string, scope: McpServerScope): void;
+  openUrl(url: string): void;
+  newSession(): void;
+}
+
+/** Validate then post a webview message via the host bridge. */
+function send(post: (m: unknown) => void, msg: WebviewMessage): void {
+  // parseMessage throws on shape drift — surfaces bugs in tests/dev instead
+  // of shipping a malformed message the host will silently drop.
+  post(parseMessage(msg));
+}
 
 /**
- * Initialize the MCP API module with the VS Code API instance.
- * Must be called once at startup before any other API function.
+ * Wrap the raw `post` from `useApi()` in MCP-specific typed senders.
  */
-export function initMcpApi(vscode: VSCodeAPI): void {
-  _vscode = vscode;
-}
-
-/** Request the list of MCP servers from the extension host. */
-export function sendGetMcpServers(): void {
-  _vscode.postMessage({ type: "getMcpServers" });
-}
-
-/** Request the extension host to open the MCP config file for the given scope. */
-export function sendOpenMcpConfig(scope: McpServerScope): void {
-  _vscode.postMessage({ type: "openMcpConfig", scope });
-}
-
-/** Toggle the disabled state of an MCP server. */
-export function sendToggleMcpServer(name: string, scope: McpServerScope, disabled: boolean): void {
-  _vscode.postMessage({ type: "toggleMcpServer", name, scope, disabled });
-}
-
-/** Request to delete an MCP server from its config file (with extension-side confirmation). */
-export function sendDeleteMcpServer(name: string, scope: McpServerScope): void {
-  _vscode.postMessage({ type: "deleteMcpServer", name, scope });
+export function createMcpApi(post: (m: unknown) => void): McpApi {
+  return {
+    getServers() {
+      send(post, { type: "getMcpServers" });
+    },
+    openConfig(scope) {
+      send(post, { type: "openMcpConfig", scope });
+    },
+    toggle(name, scope, disabled, pluginName) {
+      send(post, { type: "toggleMcpServer", name, scope, disabled, pluginName });
+    },
+    remove(name, scope) {
+      send(post, { type: "deleteMcpServer", name, scope });
+    },
+    openUrl(url) {
+      send(post, { type: "openUrl", url });
+    },
+    newSession() {
+      send(post, { type: "newSession" });
+    },
+  };
 }
