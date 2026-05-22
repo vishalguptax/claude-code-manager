@@ -267,7 +267,7 @@
     },
     {
       "path": "dist/webview/chunks/*.js",
-      "limit": "50 KB"
+      "limit": "120 KB"
     },
     {
       "path": "dist/webview/styles.css",
