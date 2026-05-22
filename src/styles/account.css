@@ -1116,3 +1116,28 @@
   min-width: 36px;
   text-align: right;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Preact migration helpers (v2)
+   ──────────────────────────────────────────────────────────────────────────────
+   Classes introduced when porting the account tab from vanilla DOM to
+   Preact. They replace the handful of inline `style="margin-top:…"` /
+   wrapper markup the v1 string-templates used, so the TSX components
+   stay free of inline styling (dynamic geometry — heatmap grid coords,
+   progress-bar widths — remains inline because it is data-driven and
+   has no static class equivalent). */
+
+/* Top-margin separator between consecutive breakdown groups in the
+   Usage section (By model · Projects · Tools · MCP). v1 set this via an
+   inline style on each group. */
+.acct-group-spaced {
+  margin-top: var(--space-lg);
+}
+
+/* Wrapper around the signed-in profile body. v1 emitted these children
+   directly inside `.acct-section-body`; the Preact component groups
+   them under one element so the banner + profile + meta + actions stack
+   reads as a single block. No box of its own — purely structural. */
+.acct-profile-wrap {
+  display: contents;
+}
