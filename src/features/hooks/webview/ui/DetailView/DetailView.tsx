@@ -5,16 +5,14 @@
  * lives in plugin.json) so only copy + a read-only note are shown.
  */
 import { useState } from "preact/hooks";
-import { Button } from "../../../../webview/shared/ui";
-import { Icon } from "../../../../webview/shared/ui";
-import { cx } from "../../../../webview/shared/lib";
-import { useApi } from "../../../../webview/shared/hooks";
-import type { Hook } from "../../types";
-import * as api from "../api";
-import type { Post } from "../api";
-import { eventLabel, matcherDisplay, scopeLabel } from "../events";
-import { selectedHook } from "../signals";
-import { EditForm } from "../components/EditForm";
+import { Badge, Button, Icon } from "../../../../../webview/shared/ui";
+import { useApi } from "../../../../../webview/shared/hooks";
+import type { Hook } from "../../../types";
+import * as api from "../../api";
+import type { Post } from "../../api";
+import { eventLabel, matcherDisplay, scopeLabel } from "../../lib";
+import { selectedHook } from "../../model";
+import { EditForm } from "../EditForm";
 
 export interface DetailViewProps {
   hook: Hook;
@@ -43,18 +41,16 @@ export function DetailView({ hook }: DetailViewProps) {
 
   return (
     <div class="panel hooks-panel">
-      <button type="button" class="back-btn" onClick={back}>
+      <Button class="back-btn" onClick={back}>
         <Icon name="arrow-left" /> Back
-      </button>
+      </Button>
 
       <div class="d-head">
         <div class="d-title">{eLabel}</div>
         <div class="d-tags">
-          <span class={cx("scope-badge", hook.scope)} title={sLabel}>
-            {sLabel}
-          </span>
-          <span class="tag">{`matcher: ${mDisplay}`}</span>
-          {hook.disabled ? <span class="hook-disabled-badge">disabled</span> : null}
+          <Badge variant="scope" text={sLabel} title={sLabel} />
+          <Badge variant="default" text={`matcher: ${mDisplay}`} />
+          {hook.disabled ? <Badge variant="status" text="disabled" /> : null}
         </div>
       </div>
 
@@ -85,7 +81,7 @@ export function DetailView({ hook }: DetailViewProps) {
             >
               <Icon name="external-link" /> Open settings file
             </Button>
-            <Button class="del" onClick={() => api.deleteHook(send, hook)}>
+            <Button variant="danger" onClick={() => api.deleteHook(send, hook)}>
               <Icon name="trash-2" /> Delete
             </Button>
           </>

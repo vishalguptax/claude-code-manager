@@ -5,7 +5,7 @@ import { render, screen, cleanup, waitFor } from "@testing-library/preact";
 import { setVscodeApi } from "../../../../webview/shared/hooks";
 import { dispatch, _resetMessageBus } from "../../../../webview/shared/model";
 import type { Hook } from "../../types";
-import { resetHooksState } from "../signals";
+import { resetHooksState } from "../model";
 import HooksTab from "../index";
 
 function hook(partial: Partial<Hook> = {}): Hook {

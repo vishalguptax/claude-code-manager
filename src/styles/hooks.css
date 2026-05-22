@@ -1,38 +1,16 @@
 /* ============================================================================
-   Claude Manager — Hooks feature styles (F2 Preact migration).
+   Claude Manager — Hooks feature styles.
 
-   Shared primitives (.scope-badge, .scope-btn, .search-row, .panel, .list,
-   .empty-state) come from components.css / base.css. The list-item and
-   empty-state visuals for hooks live in features.css (shared, loaded before
-   this file). This file owns:
-     - the generic text .input used by the search box
+   Search (SearchInput), scope pills (ScopeFilter), badges (Badge), and buttons
+   (Button) are shared components — their chrome lives in components.css /
+   components-native.css, not here. This file owns only the hooks-unique
+   layout that has no shared equivalent:
      - the hooks detail layout (scoped under .hooks-panel so it does not
        depend on sessions.css load order)
-     - the inline edit-form fields
-     - grouping + virtual-list wrappers introduced by the Preact migration
+     - the link-style Back button override of the shared .btn base
+     - the inline edit-form fields (the multi-line command <textarea>)
+     - grouping + virtual-list wrappers
    ============================================================================ */
-
-/* Generic text input (shared Input component + hooks search box). */
-.input {
-  width: 100%;
-  box-sizing: border-box;
-  font: inherit;
-  font-size: var(--fs-base);
-  color: var(--input-fg);
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  padding: var(--space-sm) var(--space-md);
-}
-.input:focus {
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
-}
-
-/* The hooks search box uses .input but should leave room for the clear btn. */
-.hooks-panel .feature-search .input {
-  padding-right: 26px;
-}
 
 /* Event grouping wrapper for the non-virtualized list. */
 .hook-group {
@@ -48,18 +26,20 @@
 
 /* ── Detail view (scoped to hooks so it owns its own layout) ── */
 
+/* Back is a shared <Button> styled down to a link affordance — override the
+   `.btn` base fill/height so it reads as inline navigation, not a control. */
 .hooks-panel .back-btn {
-  display: inline-flex;
-  align-items: center;
+  align-self: flex-start;
+  height: auto;
   gap: var(--space-xs);
   background: transparent;
-  border: none;
   color: var(--link);
-  cursor: pointer;
   font-size: var(--fs-base);
   padding: var(--space-md) var(--space-2xl) var(--space-sm);
 }
 .hooks-panel .back-btn:hover {
+  background: transparent;
+  color: var(--link);
   text-decoration: underline;
 }
 
@@ -130,14 +110,6 @@
 .hooks-panel .d-v.mono {
   font-family: var(--mono);
   font-size: var(--fs-sm);
-}
-
-.hooks-panel .tag {
-  font-size: var(--fs-xs);
-  color: var(--fg-dim);
-  background: var(--badge-bg);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
 }
 
 /* ── Inline edit form ── */

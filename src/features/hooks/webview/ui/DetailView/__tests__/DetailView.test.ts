@@ -2,9 +2,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { h } from "preact";
 import { render, screen, fireEvent, cleanup } from "@testing-library/preact";
-import { setVscodeApi } from "../../../../../webview/shared/hooks";
+import { setVscodeApi } from "../../../../../../webview/shared/hooks";
 import type { Hook } from "../../../types";
-import { resetHooksState, selectedHook } from "../../signals";
+import { resetHooksState, selectedHook } from "../../../model";
 import { DetailView } from "../DetailView";
 
 function hook(partial: Partial<Hook> = {}): Hook {
