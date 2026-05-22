@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
-import { h } from "preact";
 import { fireEvent, render, screen } from "@testing-library/preact";
+import { h } from "preact";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { AccountData, UsageStats } from "../../types";
-import { _resetAccountState, timePeriod } from "../signals";
-import { UsageView } from "../views/UsageView";
+import type { AccountData, UsageStats } from "../../../types";
+import { _resetAccountState, timePeriod } from "../../model";
+import { UsageView } from "./UsageView";
 
 function makeUsage(over: Partial<UsageStats> = {}): UsageStats {
   return {
@@ -76,8 +76,24 @@ describe("UsageView", () => {
   it("renders the by-model group with a cost total", () => {
     const usage = makeUsage({
       byModel: [
-        { model: "claude-opus-4-7", inputTokens: 0, outputTokens: 0, totalTokens: 9000, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 1.5 },
-        { model: "claude-sonnet-4-5", inputTokens: 0, outputTokens: 0, totalTokens: 3000, cacheReadTokens: 0, cacheCreationTokens: 0, costUsd: 0.2 },
+        {
+          model: "claude-opus-4-7",
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 9000,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          costUsd: 1.5,
+        },
+        {
+          model: "claude-sonnet-4-5",
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 3000,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          costUsd: 0.2,
+        },
       ],
       totalCostUsd: 1.7,
     });
@@ -89,8 +105,24 @@ describe("UsageView", () => {
   it("renders the projects, tools, and MCP breakdowns", () => {
     const usage = makeUsage({
       byProject: [
-        { path: "/a/proj-one", slug: "p1", sessions: 3, messages: 9, tokens: 5000, costUsd: 0.5, lastActiveDate: "2026-05-20" },
-        { path: "/a/proj-two", slug: "p2", sessions: 1, messages: 2, tokens: 1000, costUsd: 0, lastActiveDate: "2026-05-19" },
+        {
+          path: "/a/proj-one",
+          slug: "p1",
+          sessions: 3,
+          messages: 9,
+          tokens: 5000,
+          costUsd: 0.5,
+          lastActiveDate: "2026-05-20",
+        },
+        {
+          path: "/a/proj-two",
+          slug: "p2",
+          sessions: 1,
+          messages: 2,
+          tokens: 1000,
+          costUsd: 0,
+          lastActiveDate: "2026-05-19",
+        },
       ],
       byTool: [
         { name: "Read", count: 40 },

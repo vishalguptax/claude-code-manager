@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
-import { h } from "preact";
 import { fireEvent, render, screen } from "@testing-library/preact";
+import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AccountData } from "../../types";
-import type { AccountApi } from "../api";
-import { _resetAccountState } from "../signals";
-import { ProfileView } from "../views/ProfileView";
+import type { AccountData } from "../../../types";
+import type { AccountApi } from "../../api";
+import { _resetAccountState } from "../../model";
+import { ProfileView } from "./ProfileView";
 
 function stubApi(): AccountApi {
   return {
@@ -26,7 +26,10 @@ function stubApi(): AccountApi {
   };
 }
 
-function makeData(over: Partial<AccountData["profile"]> = {}, extra: Partial<AccountData> = {}): AccountData {
+function makeData(
+  over: Partial<AccountData["profile"]> = {},
+  extra: Partial<AccountData> = {},
+): AccountData {
   return {
     profile: {
       email: "user@example.com",

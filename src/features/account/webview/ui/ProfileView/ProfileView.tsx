@@ -10,13 +10,13 @@
  * row.
  */
 
-import { Icon } from "../../../../webview/shared/ui";
-import { cx } from "../../../../webview/shared/lib";
-import type { AccountData } from "../../types";
-import type { AccountApi } from "../api";
-import { isSectionCollapsed, toggleSection } from "../signals";
-import { SectionHeader } from "../components/SectionHeader";
-import { MetaRow } from "../components/MetaRow";
+import { cx } from "../../../../../webview/shared/lib";
+import { Button, Icon } from "../../../../../webview/shared/ui";
+import type { AccountData } from "../../../types";
+import type { AccountApi } from "../../api";
+import { isSectionCollapsed, toggleSection } from "../../model";
+import { MetaRow } from "../MetaRow";
+import { SectionHeader } from "../SectionHeader";
 
 export interface ProfileViewProps {
   data: AccountData;
@@ -53,22 +53,22 @@ function SignedOut({ data, api }: ProfileViewProps) {
       <div class="acct-empty-hint">{hint}</div>
       <div class="acct-actions">
         {saved.length > 0 ? (
-          <button
-            type="button"
-            class="btn primary"
+          <Button
+            variant="primary"
+            iconName="refresh-cw"
             title="Switch to a saved Claude account"
             onClick={() => api.openAccountSwitcher()}
           >
-            <Icon name="refresh-cw" size={14} /> Switch account
-          </button>
+            Switch account
+          </Button>
         ) : null}
-        <button
-          type="button"
-          class={cx("btn", saved.length === 0 && "green")}
+        <Button
+          variant={saved.length === 0 ? "primary" : "secondary"}
+          iconName="play"
           onClick={() => api.launchSlash("/login")}
         >
-          <Icon name="play" size={14} /> Log in
-        </button>
+          Log in
+        </Button>
       </div>
     </div>
   );
@@ -98,9 +98,9 @@ function SignedIn({ data, api }: ProfileViewProps) {
               re-login prompt and keep your settings.
             </span>
           </div>
-          <button type="button" class="btn" onClick={() => api.restoreClaudeConfig()}>
-            <Icon name="refresh-cw" size={12} /> Restore
-          </button>
+          <Button iconName="refresh-cw" onClick={() => api.restoreClaudeConfig()}>
+            Restore
+          </Button>
         </div>
       ) : null}
 
@@ -140,34 +140,31 @@ function SignedIn({ data, api }: ProfileViewProps) {
       ) : null}
 
       <div class="acct-actions">
-        <button
-          type="button"
-          class="btn"
+        <Button
+          iconName="refresh-cw"
           title="Switch between saved Claude accounts or log in a new one"
           onClick={() => api.openAccountSwitcher()}
         >
-          <Icon name="refresh-cw" size={14} /> Switch account
-        </button>
+          Switch account
+        </Button>
         {!data.activeProfileSlug ? (
-          <button
-            type="button"
-            class="btn"
+          <Button
+            iconName="save"
             title="Save this account as a profile so you can switch back without re-logging-in"
             onClick={() => api.promptSaveProfile()}
           >
-            <Icon name="save" size={14} /> Save profile
-          </button>
+            Save profile
+          </Button>
         ) : null}
-        <button type="button" class="btn del" onClick={() => api.launchSlash("/logout")}>
-          <Icon name="x" size={14} /> Log out
-        </button>
-        <button
-          type="button"
-          class="btn"
+        <Button variant="danger" iconName="x" onClick={() => api.launchSlash("/logout")}>
+          Log out
+        </Button>
+        <Button
+          iconName="external-link"
           onClick={() => api.openAccountUrl("https://claude.ai/settings")}
         >
-          <Icon name="external-link" size={14} /> Open claude.ai
-        </button>
+          Open claude.ai
+        </Button>
       </div>
     </div>
   );

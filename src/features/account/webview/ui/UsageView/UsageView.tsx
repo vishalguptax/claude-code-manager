@@ -8,11 +8,15 @@
  * models/MCP a handful), so they render in full — well under the
  * VirtualList threshold (>50 items) the F1 shell reserves for the
  * thousand-session lists in the Sessions feature.
+ *
+ * The period toggle is the shared `.vs-segmented` tablist primitive
+ * (not a Dropdown): three mutually-exclusive options read better as a
+ * segmented control than a closed select, and it matches the Config
+ * tab's effort row.
  */
 
-import { cx } from "../../../../webview/shared/lib";
-import type { AccountData, UsageStats } from "../../types";
-import { isSectionCollapsed, timePeriod, toggleSection, type TimePeriod } from "../signals";
+import { cx } from "../../../../../webview/shared/lib";
+import type { AccountData, UsageStats } from "../../../types";
 import {
   cacheHitTooltip,
   computeUsageTotals,
@@ -23,11 +27,12 @@ import {
   formatNumber,
   formatPct,
   shortenProjectPath,
-} from "../format";
-import { SectionHeader } from "../components/SectionHeader";
-import { StatTile } from "../components/StatTile";
-import { MetaRow } from "../components/MetaRow";
-import { Heatmap } from "../components/Heatmap";
+} from "../../lib";
+import { isSectionCollapsed, timePeriod, toggleSection, type TimePeriod } from "../../model";
+import { Heatmap } from "../Heatmap";
+import { MetaRow } from "../MetaRow";
+import { SectionHeader } from "../SectionHeader";
+import { StatTile } from "../StatTile";
 
 export interface UsageViewProps {
   data: AccountData;
@@ -133,7 +138,11 @@ function ByModelGroup({ u }: { u: UsageStats }) {
       ))}
       {u.totalCostUsd > 0 ? (
         <>
-          <MetaRow k="Total est. cost" v={formatMoney(Math.round(u.totalCostUsd * 100), "USD")} total />
+          <MetaRow
+            k="Total est. cost"
+            v={formatMoney(Math.round(u.totalCostUsd * 100), "USD")}
+            total
+          />
           <div class="acct-meta-foot">
             Cost is an estimate from the static Anthropic price snapshot dated{" "}
             {u.pricesEffectiveDate}.

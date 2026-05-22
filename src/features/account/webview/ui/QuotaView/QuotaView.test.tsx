@@ -1,17 +1,17 @@
 // @vitest-environment happy-dom
-import { h } from "preact";
 import { fireEvent, render, screen } from "@testing-library/preact";
+import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AccountApi } from "../api";
-import type { QuotaData } from "../../quota";
+import type { QuotaData } from "../../../quota";
+import type { AccountApi } from "../../api";
 import {
   _resetAccountState,
   quotaOptIn,
   setQuotaError,
   setQuotaLoading,
   setQuotaSuccess,
-} from "../signals";
-import { QuotaView } from "../views/QuotaView";
+} from "../../model";
+import { QuotaView } from "./QuotaView";
 
 function stubApi(): AccountApi {
   return {
@@ -37,7 +37,13 @@ const QUOTA: QuotaData = {
   sevenDay: { utilization: 75, resetsAt: "" },
   sevenDayOpus: { utilization: 88, resetsAt: "" },
   sevenDaySonnet: null,
-  extraUsage: { enabled: true, monthlyLimit: 5000, usedCredits: 1250, utilization: 25, currency: "USD" },
+  extraUsage: {
+    enabled: true,
+    monthlyLimit: 5000,
+    usedCredits: 1250,
+    utilization: 25,
+    currency: "USD",
+  },
   fetchedAt: new Date().toISOString(),
 };
 

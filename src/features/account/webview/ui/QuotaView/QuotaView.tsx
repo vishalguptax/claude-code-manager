@@ -9,21 +9,21 @@
  * header carries a freshness stamp + refresh button once data exists.
  */
 
-import { Icon } from "../../../../webview/shared/ui";
-import { cx } from "../../../../webview/shared/lib";
-import type { QuotaData, QuotaError } from "../../quota";
-import type { AccountApi } from "../api";
+import { cx } from "../../../../../webview/shared/lib";
+import { Button, Icon } from "../../../../../webview/shared/ui";
+import type { QuotaData, QuotaError } from "../../../quota";
+import type { AccountApi } from "../../api";
+import { formatFetchedRelative, formatMoney, quotaTone } from "../../lib";
 import {
   isSectionCollapsed,
+  quotaFetchedAtMs,
   quotaOptIn,
   quotaStatus,
-  quotaFetchedAtMs,
   setQuotaLoading,
   toggleSection,
-} from "../signals";
-import { formatFetchedRelative, formatMoney, quotaTone } from "../format";
-import { SectionHeader } from "../components/SectionHeader";
-import { QuotaBar } from "../components/QuotaBar";
+} from "../../model";
+import { QuotaBar } from "../QuotaBar";
+import { SectionHeader } from "../SectionHeader";
 
 export interface QuotaViewProps {
   api: AccountApi;
@@ -52,16 +52,14 @@ export function QuotaView({ api }: QuotaViewProps) {
 
   const refreshBtn =
     status.kind === "idle" ? null : (
-      <button
-        type="button"
-        class={cx("acct-section-head-btn", status.kind === "loading" && "is-spinning")}
+      <Button
+        variant="icon"
+        iconName="refresh-cw"
+        loading={status.kind === "loading"}
         title="Refresh quota"
-        aria-label="Refresh quota"
-        disabled={status.kind === "loading"}
+        ariaLabel="Refresh quota"
         onClick={fetch}
-      >
-        <Icon name="refresh-cw" size={12} />
-      </button>
+      />
     );
 
   return (
@@ -90,9 +88,9 @@ function QuotaBody({ onFetch }: { onFetch: (e: Event) => void }) {
           seven days. Uses your own OAuth token — the request goes to <code>api.anthropic.com</code>{" "}
           and nothing else leaves your machine.
         </p>
-        <button type="button" class="btn primary" onClick={onFetch}>
-          <Icon name="refresh-cw" size={14} /> Check quota
-        </button>
+        <Button variant="primary" iconName="refresh-cw" onClick={onFetch}>
+          Check quota
+        </Button>
       </div>
     );
   }
@@ -149,7 +147,10 @@ function ExtraUsage({ extra }: { extra: NonNullable<QuotaData["extraUsage"]> }) 
           aria-valuemax={100}
           aria-valuenow={pct}
         >
-          <div class={cx("acct-quota-bar-fill", `tone-${quotaTone(pct)}`)} style={{ width: `${pct}%` }} />
+          <div
+            class={cx("acct-quota-bar-fill", `tone-${quotaTone(pct)}`)}
+            style={{ width: `${pct}%` }}
+          />
         </div>
       ) : null}
     </div>
@@ -172,9 +173,9 @@ function QuotaErrorBody({ error, onRetry }: { error: QuotaError; onRetry: (e: Ev
         <div class="acct-quota-error-title">Couldn't fetch quota</div>
         <div class="acct-quota-error-msg">{error.message}</div>
       </div>
-      <button type="button" class="btn" onClick={onRetry}>
-        <Icon name="refresh-cw" size={12} /> Try again
-      </button>
+      <Button iconName="refresh-cw" onClick={onRetry}>
+        Try again
+      </Button>
     </div>
   );
 }
