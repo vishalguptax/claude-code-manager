@@ -175,6 +175,46 @@
   color: var(--badge-fg);
 }
 
+.mcp-scope-plugin {
+  background: var(--color-purple-bg);
+  color: var(--color-purple);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Read-only (plugin-owned) markers
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-readonly-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  height: 18px;
+  background: var(--badge-bg);
+  color: var(--fg-muted);
+}
+
+.mcp-readonly-note {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  line-height: 1.5;
+}
+
+.mcp-readonly-note code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    MCP — Detail View
@@ -257,4 +297,33 @@
   font-family: var(--mono);
   color: var(--fg-dim);
   word-break: break-all;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Search input + virtualized list
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-search-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Windowed list rows must be a fixed height so the virtualizer can place
+   them by index. 48px = the two-line .mcp-item at the standard padding. */
+.mcp-virtual {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.mcp-virtual .mcp-item,
+.mcp-virtual .mcp-group-label {
+  height: 48px;
+  box-sizing: border-box;
+}
+
+.mcp-virtual .mcp-group-label {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-md);
 }
