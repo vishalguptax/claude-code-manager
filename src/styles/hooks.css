@@ -1,1 +1,170 @@
-/* Feature: hooks — styles owned by F2 session. */
+/* ============================================================================
+   Claude Manager — Hooks feature styles (F2 Preact migration).
+
+   Shared primitives (.scope-badge, .scope-btn, .search-row, .panel, .list,
+   .empty-state) come from components.css / base.css. The list-item and
+   empty-state visuals for hooks live in features.css (shared, loaded before
+   this file). This file owns:
+     - the generic text .input used by the search box
+     - the hooks detail layout (scoped under .hooks-panel so it does not
+       depend on sessions.css load order)
+     - the inline edit-form fields
+     - grouping + virtual-list wrappers introduced by the Preact migration
+   ============================================================================ */
+
+/* Generic text input (shared Input component + hooks search box). */
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--input-fg);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+}
+.input:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* The hooks search box uses .input but should leave room for the clear btn. */
+.hooks-panel .feature-search .input {
+  padding-right: 26px;
+}
+
+/* Event grouping wrapper for the non-virtualized list. */
+.hook-group {
+  display: block;
+}
+
+/* Windowed list wrapper — fills the panel below the search + filter rows. */
+.hook-virtual-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Detail view (scoped to hooks so it owns its own layout) ── */
+
+.hooks-panel .back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: transparent;
+  border: none;
+  color: var(--link);
+  cursor: pointer;
+  font-size: var(--fs-base);
+  padding: var(--space-md) var(--space-2xl) var(--space-sm);
+}
+.hooks-panel .back-btn:hover {
+  text-decoration: underline;
+}
+
+.hooks-panel .d-head {
+  padding: 0 var(--space-2xl) var(--space-md);
+}
+
+.hooks-panel .d-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: var(--space-sm);
+}
+
+.hooks-panel .d-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.hooks-panel .d-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--space-sm);
+  padding: 0 var(--space-2xl) var(--space-lg);
+}
+.hooks-panel .d-actions > .btn {
+  justify-content: center;
+}
+
+.hooks-panel .d-scroll {
+  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
+  border-top: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.hooks-panel .d-section {
+  margin-bottom: var(--space-xl);
+}
+
+.hooks-panel .d-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--fg-muted);
+  margin-bottom: var(--space-md);
+}
+
+.hooks-panel .d-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-md);
+}
+
+.hooks-panel .d-k {
+  color: var(--fg-dim);
+}
+
+.hooks-panel .d-v {
+  color: var(--fg);
+  text-align: right;
+  word-break: break-word;
+}
+.hooks-panel .d-v.mono {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+.hooks-panel .tag {
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+  background: var(--badge-bg);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Inline edit form ── */
+
+.hook-field {
+  margin-bottom: var(--space-lg);
+}
+
+.hook-field-label {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  margin-bottom: var(--space-xs);
+}
+
+.hook-field-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--input-fg);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md);
+}
+.hook-field-input:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
