@@ -7,8 +7,17 @@ node_modules/**
 docs/**
 .gitignore
 tsconfig.json
+tsconfig.integration.json
 vitest.config.ts
+biome.json
 scripts/**
+# F3 test + coverage artifacts — dev only, never shipped.
+coverage/**
+out/**
+test/**
+.vscode-test/**
+VERIFY.md
+.nvmrc
 *.map
 *.vsix
 
