@@ -97,7 +97,18 @@ export type Message =
   | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "deleteSession"; sessionId: string }
   | { type: "copyMarkdown"; sessionId: string }
-  | { type: "openFile"; path: string };
+  | { type: "openFile"; path: string }
+  /**
+   * Host → webview incremental session-list update. Carries only changed
+   * rows so a file-watcher tick does not re-post the entire tree. The
+   * webview applies it via signal mutation (`applyDelta`). Sessions are
+   * passed through as `unknown[]` to keep the shared protocol free of the
+   * feature-local `Session` type; the feature narrows on receipt.
+   */
+  | {
+      type: "sessions.delta";
+      payload: { added?: unknown[]; updated?: unknown[]; removed?: string[] };
+    };
 // === END SESSIONS MESSAGES ===
 
 type WebviewMessageType =
@@ -198,4 +209,5 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "mcpServers",
   "agents",
   "quotaData",
+  "sessions.delta",
 ];

@@ -198,6 +198,14 @@ const filter = v.object({
 const deleteSession = v.object({ type: v.literal("deleteSession"), sessionId: v.string() });
 const copyMarkdown = v.object({ type: v.literal("copyMarkdown"), sessionId: v.string() });
 const openFile = v.object({ type: v.literal("openFile"), path: v.string() });
+const sessionsDelta = v.object({
+  type: v.literal("sessions.delta"),
+  payload: v.object({
+    added: v.optional(v.array(v.unknown())),
+    updated: v.optional(v.array(v.unknown())),
+    removed: v.optional(v.array(v.string())),
+  }),
+});
 // === END SESSIONS MESSAGES ===
 
 export const messageSchema = v.variant("type", [
@@ -292,6 +300,7 @@ export const messageSchema = v.variant("type", [
   deleteSession,
   copyMarkdown,
   openFile,
+  sessionsDelta,
   // === END SESSIONS MESSAGES ===
 ]);
 
