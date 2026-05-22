@@ -1,17 +1,17 @@
 // @vitest-environment happy-dom
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, waitFor } from "@testing-library/preact";
 import { h } from "preact";
-import { setVscodeApi } from "../../../../webview/shared/hooks";
-import type { Command } from "../../types";
-import { CommandsListView } from "../views/CommandsListView";
+import { setVscodeApi } from "../../../../../webview/shared/hooks";
+import type { Command } from "../../../types";
+import { CommandsListView } from "./CommandsListView";
 import {
   claudeCodeInstalled,
   commands,
   resetCommandSignals,
   scopeFilter,
   selected,
-} from "../signals";
+} from "../../model";
 
 function cmd(partial: Partial<Command> & Pick<Command, "name" | "scope">): Command {
   return { content: "", path: "", ...partial };
@@ -23,6 +23,13 @@ const SAMPLE: Command[] = [
   cmd({ name: "deploy", scope: "global", content: "ship" }),
 ];
 
+/** Drive the shared <SearchInput>: set the element value, then fire `input`. */
+function typeSearch(container: ParentNode, value: string): void {
+  const el = container.querySelector("vscode-textfield") as HTMLElement;
+  vi.spyOn(el as unknown as { value: string }, "value", "get").mockReturnValue(value);
+  fireEvent(el, new Event("input"));
+}
+
 let posted: unknown[];
 
 beforeEach(() => {
@@ -33,6 +40,7 @@ beforeEach(() => {
 
 afterEach(() => {
   setVscodeApi(null);
+  vi.restoreAllMocks();
 });
 
 describe("CommandsListView", () => {
@@ -56,8 +64,8 @@ describe("CommandsListView", () => {
   it("selects a command on click", () => {
     commands.value = SAMPLE;
     const { container } = render(h(CommandsListView, {}));
-    const reviewRow = Array.from(container.querySelectorAll(".cmd-item")).find((el) =>
-      el.querySelector(".cmd-item-name")?.textContent === "/review",
+    const reviewRow = Array.from(container.querySelectorAll(".cmd-item")).find(
+      (el) => el.querySelector(".cmd-item-name")?.textContent === "/review",
     ) as Element;
     fireEvent.click(reviewRow);
     expect(selected.value?.name).toBe("review");
@@ -86,7 +94,7 @@ describe("CommandsListView", () => {
   it("debounces search input into a filtered result", async () => {
     commands.value = SAMPLE;
     const { container } = render(h(CommandsListView, {}));
-    fireEvent.input(container.querySelector("input") as Element, { target: { value: "deploy" } });
+    typeSearch(container, "deploy");
     await waitFor(
       () => {
         expect(container.querySelectorAll(".cmd-item")).toHaveLength(1);
@@ -119,9 +127,7 @@ describe("CommandsListView", () => {
   it("shows a no-matching-commands message when search excludes everything", async () => {
     commands.value = SAMPLE;
     const { container } = render(h(CommandsListView, {}));
-    fireEvent.input(container.querySelector("input") as Element, {
-      target: { value: "zzzznomatch" },
-    });
+    typeSearch(container, "zzzznomatch");
     await waitFor(() => {
       expect(container.querySelector(".empty")?.textContent).toBe("No matching commands");
     });

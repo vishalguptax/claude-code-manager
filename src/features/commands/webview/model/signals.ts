@@ -4,7 +4,7 @@
  * automatically when state changes.
  */
 import { computed, signal } from "@preact/signals";
-import type { Command, CommandScope } from "../types";
+import type { Command, CommandScope } from "../../types";
 
 /** Filter values surfaced in the scope filter bar (`all` plus each scope). */
 export type ScopeFilter = "all" | CommandScope;

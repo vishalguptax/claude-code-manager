@@ -1,13 +1,14 @@
 /**
  * Command detail view. Built-in commands show their description and a link to
  * the official docs; custom commands show their file path and full template.
+ * Actions are built from the shared <Button>; the scope tag from <Badge>.
  */
 import { useState } from "preact/hooks";
-import { Icon } from "../../../../webview/shared/ui";
-import { useApi } from "../../../../webview/shared/hooks";
-import type { Command } from "../../types";
-import { openCommandFileMsg, openUrlMsg, type Post } from "../api";
-import { selected } from "../signals";
+import { Badge, Button } from "../../../../../webview/shared/ui";
+import { useApi } from "../../../../../webview/shared/hooks";
+import type { Command } from "../../../types";
+import { openCommandFileMsg, openUrlMsg, type Post } from "../../api";
+import { selected } from "../../model";
 
 /** Official Claude Code built-in commands documentation. */
 const BUILTIN_DOCS_URL = "https://code.claude.com/docs/en/commands";
@@ -32,27 +33,30 @@ export function CommandDetailView({ command }: CommandDetailViewProps) {
 
   return (
     <div class="panel">
-      <button type="button" class="back-btn" onClick={goBack}>
-        <Icon name="arrow-left" /> Back
-      </button>
+      <Button variant="icon" class="back-btn" iconName="arrow-left" onClick={goBack}>
+        Back
+      </Button>
 
       <div class="cmd-detail-head">
         <div class="cmd-detail-title">/{command.name}</div>
-        <span class={`cmd-scope-badge cmd-scope-${command.scope}`}>{command.scope}</span>
+        <Badge text={command.scope} variant="scope" class={`cmd-scope-${command.scope}`} />
       </div>
 
       <div class="cmd-detail-actions">
-        <button type="button" class="btn" onClick={copy}>
-          <Icon name="copy" /> {copied ? "Copied!" : `Copy /${command.name}`}
-        </button>
+        <Button iconName="copy" onClick={copy}>
+          {copied ? "Copied!" : `Copy /${command.name}`}
+        </Button>
         {command.scope === "builtin" ? (
-          <button type="button" class="btn" onClick={() => send(openUrlMsg(BUILTIN_DOCS_URL))}>
-            <Icon name="external-link" /> View Docs
-          </button>
+          <Button iconName="external-link" onClick={() => send(openUrlMsg(BUILTIN_DOCS_URL))}>
+            View Docs
+          </Button>
         ) : (
-          <button type="button" class="btn" onClick={() => send(openCommandFileMsg(command.path))}>
-            <Icon name="external-link" /> Open File
-          </button>
+          <Button
+            iconName="external-link"
+            onClick={() => send(openCommandFileMsg(command.path))}
+          >
+            Open File
+          </Button>
         )}
       </div>
 

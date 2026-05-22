@@ -2,8 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/preact";
 import { h } from "preact";
-import type { Command } from "../../types";
-import { CommandItem } from "../components/CommandItem";
+import type { Command } from "../../../types";
+import { CommandItem } from "./CommandItem";
 
 function cmd(partial: Partial<Command> & Pick<Command, "name" | "scope">): Command {
   return { content: "", path: "", ...partial };

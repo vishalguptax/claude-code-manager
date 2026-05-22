@@ -2,10 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/preact";
 import { h } from "preact";
-import { setVscodeApi } from "../../../../webview/shared/hooks";
-import type { Command } from "../../types";
-import { CommandDetailView } from "../views/CommandDetailView";
-import { resetCommandSignals, selected } from "../signals";
+import { setVscodeApi } from "../../../../../webview/shared/hooks";
+import type { Command } from "../../../types";
+import { CommandDetailView } from "./CommandDetailView";
+import { resetCommandSignals, selected } from "../../model";
 
 function cmd(partial: Partial<Command> & Pick<Command, "name" | "scope">): Command {
   return { content: "", path: "", ...partial };

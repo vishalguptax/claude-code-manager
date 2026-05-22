@@ -14,7 +14,7 @@ import {
   loading,
   resetCommandSignals,
   selected,
-} from "../signals";
+} from "../model";
 
 let posted: unknown[];
 
