@@ -76,4 +76,36 @@ describe("LRU", () => {
     cache.set("b", 2);
     expect(cache.size).toBe(2);
   });
+
+  it("keys iterates in LRU → MRU order without promoting", () => {
+    const cache = new LRU<string, number>(3);
+    cache.set("a", 1);
+    cache.set("b", 2);
+    cache.set("c", 3);
+    expect([...cache.keys()]).toEqual(["a", "b", "c"]);
+    // A second pass is identical — iterating must not promote.
+    expect([...cache.keys()]).toEqual(["a", "b", "c"]);
+  });
+
+  it("entries iterates [key, value] pairs in LRU → MRU order", () => {
+    const cache = new LRU<string, number>(3);
+    cache.set("a", 1);
+    cache.set("b", 2);
+    cache.get("a"); // promote "a" to most-recent
+    expect([...cache.entries()]).toEqual([
+      ["b", 2],
+      ["a", 1],
+    ]);
+  });
+
+  it("evicts exactly down to capacity for a bulk insert of 2500", () => {
+    const cache = new LRU<number, number>(2000);
+    for (let i = 0; i < 2500; i++) cache.set(i, i);
+    expect(cache.size).toBe(2000);
+    // The oldest 500 keys (0..499) were evicted.
+    expect(cache.has(0)).toBe(false);
+    expect(cache.has(499)).toBe(false);
+    expect(cache.has(500)).toBe(true);
+    expect(cache.has(2499)).toBe(true);
+  });
 });
