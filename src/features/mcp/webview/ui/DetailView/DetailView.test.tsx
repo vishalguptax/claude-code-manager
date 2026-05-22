@@ -2,8 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render, screen } from "@testing-library/preact";
-import type { McpServer } from "../../types";
-import { DetailView, maskSensitiveValue } from "../views/DetailView";
+import type { McpServer } from "../../../types";
+import { DetailView } from "./DetailView";
 
 function srv(p: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServer {
   return { type: "stdio", command: "node", ...p };
@@ -19,17 +19,6 @@ function handlers() {
     onOpenClaude: vi.fn(),
   };
 }
-
-describe("maskSensitiveValue", () => {
-  it("fully masks short values", () => {
-    expect(maskSensitiveValue("short")).toBe("****");
-    expect(maskSensitiveValue("12345678")).toBe("****");
-  });
-
-  it("keeps the first and last 4 characters of long values", () => {
-    expect(maskSensitiveValue("abcdefghijkl")).toBe("abcd****ijkl");
-  });
-});
 
 describe("DetailView", () => {
   it("renders stdio command, args, and masked env vars", () => {

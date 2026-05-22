@@ -3,22 +3,11 @@
  * button, transport/scope/disabled badges, and a one-line connection preview.
  * Selection and copy are surfaced as callbacks so the row stays presentational.
  */
-import { cx } from "../../../../webview/shared/lib";
-import { Icon } from "../../../../webview/shared/ui";
-import { ListItem } from "../../../../webview/shared/ui";
-import type { McpServer } from "../../types";
-import { DisabledBadge, ReadOnlyBadge, TypeBadge } from "./McpBadges";
-
-const PREVIEW_MAX = 60;
-
-/** Build the single-line connection preview for a server row. */
-export function connectionPreview(server: McpServer): string {
-  const detail =
-    server.type === "http"
-      ? (server.url ?? "")
-      : [server.command, ...(server.args ?? [])].filter(Boolean).join(" ");
-  return detail.length > PREVIEW_MAX ? `${detail.slice(0, PREVIEW_MAX)}...` : detail;
-}
+import { cx } from "../../../../../webview/shared/lib";
+import { Button, ListItem } from "../../../../../webview/shared/ui";
+import { connectionPreview } from "../../lib";
+import type { McpServer } from "../../../types";
+import { DisabledBadge, ReadOnlyBadge, TypeBadge } from "../McpBadges";
 
 export interface McpItemProps {
   server: McpServer;
@@ -36,17 +25,17 @@ export function McpItem({ server, active, onSelect, onCopyName }: McpItemProps) 
     >
       <div class="mcp-item-row1">
         <span class="mcp-item-name">{server.name}</span>
-        <button
-          type="button"
+        <Button
+          variant="icon"
+          iconName="copy"
           class="item-copy-btn"
           title="Copy name"
+          ariaLabel="Copy name"
           onClick={(e) => {
             e.stopPropagation();
             onCopyName(server.name);
           }}
-        >
-          <Icon name="copy" size={14} />
-        </button>
+        />
         {server.disabled ? <DisabledBadge /> : null}
         <TypeBadge type={server.type} />
         {server.scope === "plugin" ? <ReadOnlyBadge pluginName={server.pluginName} /> : null}

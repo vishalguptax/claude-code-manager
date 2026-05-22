@@ -5,7 +5,6 @@ import {
   applyServers,
   errorMessage,
   filteredServers,
-  groupLabel,
   loading,
   resetMcpSignals,
   scopeCounts,
@@ -13,7 +12,7 @@ import {
   searchQuery,
   selected,
   servers,
-} from "../signals";
+} from "./signals";
 
 function srv(partial: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServer {
   return { type: "stdio", command: "x", ...partial };
@@ -87,11 +86,16 @@ describe("filteredServers", () => {
     ]);
   });
 
-  it("filters by the active scope", () => {
+  it("orders plugin rows by plugin name then server name", () => {
     applyServers([
-      srv({ name: "a", scope: "project" }),
-      srv({ name: "b", scope: "global" }),
+      srv({ name: "b", scope: "plugin", pluginName: "zeta" }),
+      srv({ name: "a", scope: "plugin", pluginName: "alpha" }),
     ]);
+    expect(filteredServers.value.map((s) => s.pluginName)).toEqual(["alpha", "zeta"]);
+  });
+
+  it("filters by the active scope", () => {
+    applyServers([srv({ name: "a", scope: "project" }), srv({ name: "b", scope: "global" })]);
     scopeFilter.value = "global";
     expect(filteredServers.value.map((s) => s.name)).toEqual(["b"]);
   });
@@ -110,13 +114,18 @@ describe("filteredServers", () => {
   });
 });
 
-describe("groupLabel", () => {
-  it("labels by scope, naming the plugin for plugin servers", () => {
-    expect(groupLabel(srv({ name: "a", scope: "project" }))).toBe("Project Servers");
-    expect(groupLabel(srv({ name: "a", scope: "global" }))).toBe("Global Servers");
-    expect(groupLabel(srv({ name: "a", scope: "plugin", pluginName: "p@m" }))).toBe(
-      "Plugin: p@m",
-    );
-    expect(groupLabel(srv({ name: "a", scope: "plugin" }))).toBe("Plugin: unknown");
+describe("resetMcpSignals", () => {
+  it("returns every signal to its initial value", () => {
+    applyServers([srv({ name: "a", scope: "project" })]);
+    selected.value = servers.value[0];
+    searchQuery.value = "x";
+    scopeFilter.value = "global";
+    resetMcpSignals();
+    expect(servers.value).toEqual([]);
+    expect(selected.value).toBeNull();
+    expect(loading.value).toBe(true);
+    expect(errorMessage.value).toBeNull();
+    expect(searchQuery.value).toBe("");
+    expect(scopeFilter.value).toBe("all");
   });
 });
