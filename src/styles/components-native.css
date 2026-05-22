@@ -1,0 +1,332 @@
+/* ============================================================================
+   Native VS Code chrome for the shared component layer (A2)
+   ----------------------------------------------------------------------------
+   These rules tune the shared <Menu>/<ContextMenu>, <TextField>/<SearchInput>,
+   <Checkbox>, <Badge>, <Button> variants, and <ScopeFilter> so they are
+   indistinguishable from VS Code's own gear menu, Settings inputs, and
+   buttons. Everything reads the ambient --vscode-* theme vars so it stays
+   correct across light / dark / high-contrast.
+
+   Loaded AFTER components.css so it can refine/override the F1 primitives
+   without editing them. New native classes use the `vsc-` prefix.
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Menu — matches VS Code's gear / Command-Palette / right-click menu exactly.
+   The legacy `.ctx-*` class names (emitted alongside `.vsc-menu*` by <Menu>)
+   are aliased to the same rules so existing right-click call sites inherit the
+   native look without code changes.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-menu,
+.ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  /* VS Code's menu uses ~4px top/bottom padding around the item list. */
+  padding: 4px 0;
+  background: var(--vscode-menu-background, var(--menu-bg));
+  color: var(--vscode-menu-foreground, var(--menu-fg));
+  border: 1px solid var(--vscode-menu-border, var(--menu-border));
+  border-radius: var(--radius-md);
+  /* Heavier, softer shadow than a plain dropdown — matches the menu elevation. */
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.vsc-menu-item,
+.ctx-menu .ctx-item {
+  display: flex;
+  align-items: center;
+  /* 6px vertical / 22px horizontal — the native menu row metrics. The label
+     gutter (icon) is fixed-width so labels line up whether or not a row has an
+     icon, exactly like the editor context menu. */
+  padding: 6px 22px;
+  gap: 8px;
+  font-size: var(--fs-md);
+  line-height: 1.2;
+  color: var(--vscode-menu-foreground, var(--menu-fg));
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.vsc-menu-item:hover,
+.ctx-menu .ctx-item:hover {
+  background: var(--vscode-menu-selectionBackground, var(--bg-active));
+  color: var(--vscode-menu-selectionForeground, var(--bg-active-fg));
+}
+
+.vsc-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Fixed gutter so labels align across rows with and without icons. */
+  width: 16px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.vsc-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right-aligned keybinding hint, muted like VS Code's shortcut column. On the
+   hovered (selected) row it inherits the selection foreground so it stays
+   legible against the highlight. */
+.vsc-menu-hint {
+  margin-left: 24px;
+  flex-shrink: 0;
+  font-size: var(--fs-base);
+  color: var(--vscode-descriptionForeground, var(--fg-dim));
+}
+.vsc-menu-item:hover .vsc-menu-hint {
+  color: var(--vscode-menu-selectionForeground, var(--bg-active-fg));
+  opacity: 0.85;
+}
+
+/* Danger row — red label/icon, red-tinted highlight on hover. */
+.vsc-menu-item.danger,
+.vsc-menu-item.danger .vsc-menu-icon,
+.ctx-menu .ctx-item.del {
+  color: var(--red);
+}
+.vsc-menu-item.danger:hover,
+.ctx-menu .ctx-item.del:hover {
+  background: var(--red-bg);
+  color: var(--red);
+}
+.vsc-menu-item.danger:hover .vsc-menu-icon {
+  color: var(--red);
+}
+
+/* Disabled row — dimmed, no hover highlight, no pointer. */
+.vsc-menu-item.disabled {
+  color: var(--fg-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+.vsc-menu-item.disabled:hover {
+  background: none;
+  color: var(--fg-muted);
+}
+
+/* Section separator — a hairline inset from the menu edges, in the dedicated
+   menu separator colour. */
+.vsc-menu-sep,
+.ctx-menu .ctx-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--vscode-menu-separatorBackground, var(--border));
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   TextField / SearchInput — native <vscode-textfield> wrappers.
+   The element draws its own input face in Shadow DOM from --vscode-input-*;
+   here we only style the light-DOM wrapper, the slotted search icon, and the
+   slotted clear button so they sit inside the input chrome.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-textfield {
+  width: 100%;
+  /* Map the element's settings-input cssprops to the same vars VS Code's own
+     inputs use, so a bare <TextField> matches a Settings text box exactly. */
+  --vscode-settings-textInputBackground: var(--vscode-input-background);
+  --vscode-settings-textInputForeground: var(--vscode-input-foreground);
+  --vscode-settings-textInputBorder: var(--vscode-input-border, transparent);
+}
+
+/* Leading magnifier inside the search field's content-before slot. */
+.vsc-search-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 2px;
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+
+/* Trailing clear (x) button inside the content-after slot — chromeless, lights
+   up on hover like VS Code's inline input affordances. */
+.vsc-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 2px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+.vsc-search-clear:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Checkbox — native <vscode-checkbox> wrapper. The element draws the box and
+   check mark in Shadow DOM from --vscode-settings-checkbox*; align it to the
+   row baseline and let it inherit the panel foreground.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-checkbox {
+  display: inline-flex;
+  align-items: center;
+  color: var(--fg);
+  --vscode-settings-checkboxBackground: var(--vscode-checkbox-background, var(--input-bg));
+  --vscode-settings-checkboxBorder: var(--vscode-checkbox-border, var(--input-border));
+  --vscode-settings-checkboxForeground: var(--vscode-checkbox-foreground, var(--fg));
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Badge — small inline chip. The "count" variant uses VS Code's own badge
+   colours (matches tree/tab counts); the others are theme-agnostic overlays
+   that stay readable on any background.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vsc-badge--default,
+.vsc-badge--scope {
+  background: rgba(128, 128, 128, 0.18);
+  color: var(--fg);
+}
+
+.vsc-badge--count {
+  background: var(--vscode-badge-background, var(--badge-bg));
+  color: var(--vscode-badge-foreground, var(--badge-fg));
+  /* Counts read better with the digits in a tabular figure set and a pill
+     shape, matching the activity-bar / tree counters. */
+  font-variant-numeric: tabular-nums;
+  border-radius: 10px;
+  min-width: 16px;
+  justify-content: center;
+}
+
+.vsc-badge--status {
+  background: var(--color-blue-bg);
+  color: var(--color-blue);
+}
+
+.vsc-badge--danger {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Button variants (A2) — refine the shared <Button>. The base `.btn` and the
+   `.btn-primary` / `.btn-secondary` rules live in components.css; here we wire
+   them to the canonical --vscode-button-* vars and add the danger + icon
+   variants and the loading spinner.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  background: var(--vscode-button-background, var(--btn-bg));
+  color: var(--vscode-button-foreground, var(--btn-fg));
+}
+.btn-primary:hover {
+  background: var(--vscode-button-hoverBackground, var(--btn-hover));
+}
+
+.btn-secondary {
+  background: var(--vscode-button-secondaryBackground, var(--btn-sec-bg));
+  color: var(--vscode-button-secondaryForeground, var(--btn-sec-fg));
+}
+.btn-secondary:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--btn-sec-hover));
+}
+
+/* Danger — destructive accent. Aliased to the legacy `.btn.del` modifier so
+   `<Button class="del">` and `<Button variant="danger">` look identical. */
+.btn-danger,
+.btn.del {
+  background: none;
+  color: var(--red);
+}
+.btn-danger:hover,
+.btn.del:hover {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+/* Icon — square, chromeless affordance for toolbars. */
+.btn-icon {
+  width: var(--h-control);
+  padding: 0;
+  justify-content: center;
+  background: none;
+  color: var(--fg-dim);
+}
+.btn-icon:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+
+.btn:focus-visible {
+  outline: var(--focus-ring, 1px solid var(--accent));
+  outline-offset: 1px;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Loading spinner — reuses the refresh glyph, spun. Respects reduced motion. */
+.btn .btn-spinner {
+  display: inline-flex;
+  align-items: center;
+}
+.btn.is-loading .btn-spinner svg {
+  animation: vsc-btn-spin 700ms linear infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes vsc-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn.is-loading .btn-spinner svg {
+    animation: none;
+  }
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   ScopeFilter — keep the existing `.scope-filter` / `.scope-btn` look from
+   components.css (the shared <ScopeFilter> reuses those classes verbatim), and
+   add a focus ring so keyboard users see the active segment, matching VS
+   Code's segmented controls.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.scope-btn:focus-visible {
+  outline: var(--focus-ring, 1px solid var(--accent));
+  outline-offset: -1px;
+}
+.scope-btn[aria-pressed="true"] {
+  background: var(--vscode-button-background, var(--btn-bg));
+  color: var(--vscode-button-foreground, var(--btn-fg));
+  border-color: var(--vscode-button-background, var(--btn-bg));
+}
