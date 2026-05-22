@@ -1,6 +1,16 @@
 /* ============================================================================
    Claude Manager — MCP Servers Styles
-   Server list items, detail view, type badges, env var display
+   Server list items, detail view, transport/scope badge colours, env var display.
+
+   Shared chrome lives in the component layer and is NOT repeated here:
+     - badge box (display/padding/radius/font)  → .vsc-badge (components-native.css)
+     - search field + clear + side buttons       → .vsc-search / .search-side-btn
+     - segmented scope filter                     → .scope-filter / .scope-btn
+     - buttons (primary/secondary/icon/danger)    → .btn-* (components-native.css)
+     - list rows                                  → .list-item (components.css)
+   This file keeps only what is MCP-specific: row layout, the transport/scope
+   badge *colours* (the shared variants don't carry these distinct hues), the
+   detail view, env vars, and the windowed-list row sizing.
    ============================================================================ */
 
 
@@ -38,6 +48,20 @@
   border-radius: var(--radius-sm);
 }
 
+/* The browse affordance is a shared <Button> styled down to a borderless link
+   so it reads as a follow-up prompt, not a primary CTA. Loaded after the .btn
+   base, so these chrome resets win on the cascade. */
+.mcp-empty-link {
+  margin-top: var(--space-sm);
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: var(--link, var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mcp-empty-link:hover { background: none; color: var(--fg); }
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    MCP — List
@@ -61,33 +85,15 @@
   gap: var(--space-sm);
 }
 
+/* A row is a shared .list-item; these add MCP-specific padding, the divider,
+   and the disabled dimming. */
 .mcp-item {
   padding: var(--space-lg) var(--space-2xl);
-  cursor: pointer;
   border-bottom: 1px solid var(--border);
-  position: relative;
 }
 .mcp-item:last-child         { border-bottom: none; }
-.mcp-item:hover              { background: var(--bg-hover); }
-.mcp-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
 .mcp-item.mcp-disabled       { opacity: 0.5; }
 .mcp-item.mcp-disabled:hover { opacity: 0.7; }
-
-.mcp-disabled-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 7px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
-  background: var(--badge-bg);
-  color: var(--fg-muted);
-  opacity: 0.8;
-}
 
 .mcp-item-row1 {
   display: flex;
@@ -121,84 +127,21 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   MCP — Type Badge
+   MCP — Badge colours (chrome from .vsc-badge; only the hue is MCP-specific)
    ────────────────────────────────────────────────────────────────────────────── */
 
-.mcp-type-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 7px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
-}
+/* Transport type */
+.mcp-type-stdio { background: var(--badge-bg); color: var(--badge-fg); }
+.mcp-type-http  { background: var(--color-blue-bg); color: var(--color-blue); }
 
-.mcp-type-stdio {
-  background: var(--badge-bg);
-  color: var(--badge-fg);
-}
+/* Config scope */
+.mcp-scope-project { background: var(--green-bg); color: var(--green); }
+.mcp-scope-global  { background: var(--badge-bg); color: var(--badge-fg); }
+.mcp-scope-plugin  { background: var(--color-purple-bg); color: var(--color-purple); }
 
-.mcp-type-http {
-  background: var(--color-blue-bg);
-  color: var(--color-blue);
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   MCP — Scope Badge
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.mcp-scope-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 7px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
-}
-
-.mcp-scope-project {
-  background: var(--green-bg);
-  color: var(--green);
-}
-
-.mcp-scope-global {
-  background: var(--badge-bg);
-  color: var(--badge-fg);
-}
-
-.mcp-scope-plugin {
-  background: var(--color-purple-bg);
-  color: var(--color-purple);
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   MCP — Read-only (plugin-owned) markers
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.mcp-readonly-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 7px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
-  background: var(--badge-bg);
-  color: var(--fg-muted);
-}
+/* Disabled + read-only pills — muted neutral, distinct from the type/scope hues. */
+.mcp-disabled-badge { background: var(--badge-bg); color: var(--fg-muted); opacity: 0.8; }
+.mcp-readonly-badge { background: var(--badge-bg); color: var(--fg-muted); }
 
 .mcp-readonly-note {
   font-size: var(--fs-sm);
@@ -301,16 +244,11 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   MCP — Search input + virtualized list
+   MCP — Virtualized list rows
+   Windowed rows must be a fixed height so the virtualizer can place them by
+   index. 48px = the two-line .mcp-item at the standard padding.
    ────────────────────────────────────────────────────────────────────────────── */
 
-.mcp-search-input {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Windowed list rows must be a fixed height so the virtualizer can place
-   them by index. 48px = the two-line .mcp-item at the standard padding. */
 .mcp-virtual {
   flex: 1;
   min-height: 0;
