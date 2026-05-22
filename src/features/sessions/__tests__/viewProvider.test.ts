@@ -525,6 +525,65 @@ describe("ClaudeSessionViewProvider", () => {
     view._dispose();
   });
 
+  it("routes getMcpServers + getCommands through the per-feature handlers", async () => {
+    // F3 host-wiring regression guard: the commands and mcp features moved
+    // their dispatch into their own messageHandlers.ts modules. This test
+    // drives the provider's live onDidReceiveMessage handler with the two
+    // feature message types and asserts the per-feature handlers reply —
+    // proving the new chain is actually wired (not just the dead monolith).
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    vi.doMock("../../../extension/html", () => ({
+      getWebviewHtml: () => "<html></html>",
+    }));
+    vi.doMock("../../commands/parser", () => ({
+      parseCommands: () => [{ name: "review", scope: "global", path: "/x/review.md" }],
+      getBuiltInCommands: () => [],
+    }));
+    vi.doMock("../../mcp/parser", () => ({
+      parseMcpServers: () => [{ name: "srv1", scope: "global" }],
+      toggleMcpServer: () => true,
+      deleteMcpServer: () => true,
+    }));
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    view.webview.posted.length = 0;
+
+    const handler = view.webview._msgHandler;
+    expect(handler).toBeDefined();
+
+    await handler!({ type: "getCommands" });
+    const cmdReply = view.webview.posted.find((m) => m.type === "commands");
+    expect(cmdReply).toBeDefined();
+    expect(Array.isArray(cmdReply!.data)).toBe(true);
+
+    await handler!({ type: "getMcpServers" });
+    const mcpReply = view.webview.posted.find((m) => m.type === "mcpServers");
+    expect(mcpReply).toBeDefined();
+    expect(Array.isArray(mcpReply!.data)).toBe(true);
+  });
+
   it("postWorkspacePath silently ignores posts after the view is disposed", async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],

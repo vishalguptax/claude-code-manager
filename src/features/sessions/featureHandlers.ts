@@ -1,15 +1,17 @@
 /**
  * Webview → host message handlers for the non-session features the
- * sessions panel also surfaces: skills, commands, hooks, MCP servers,
- * agents. Returns `true` when the message was handled, `false` to let the
- * caller try the next handler. Verbatim extraction from the former single
- * dispatch switch — no logic change.
+ * sessions panel also surfaces: skills, hooks, agents. Returns `true` when
+ * the message was handled, `false` to let the caller try the next handler.
+ *
+ * Commands and MCP have migrated to their own per-feature
+ * `messageHandlers.ts` modules (wired ahead of this one in dispatch), so
+ * their cases were removed here — this module is the remaining legacy
+ * dispatch surface for the features that have not yet been extracted.
  */
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import { parseSkills } from "../skills/parser";
-import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
 import {
   toggleHookEnabled as writerToggleHookEnabled,
@@ -17,7 +19,6 @@ import {
   updateHook as writerUpdateHook,
   addHook as writerAddHook,
 } from "../hooks/writer";
-import { parseMcpServers, toggleMcpServer, deleteMcpServer } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
 import { resolveSettingsPath } from "../account/parser";
 import { getWorkspace } from "../../extension/workspace";
@@ -90,25 +91,8 @@ export async function handleFeatureMessage(
     }
 
     // ── Commands messages ──
-
-    case "getCommands": {
-      const workspace = getWorkspace();
-      const commands = parseCommands(workspace || undefined);
-      ctx.setCommands(commands);
-      wv.postMessage({ type: "commands", data: commands });
-      break;
-    }
-
-    case "openCommandFile": {
-      const cmdPath = (msg as { type: string; path: string }).path;
-      try {
-        const doc = await vscode.workspace.openTextDocument(cmdPath);
-        await vscode.window.showTextDocument(doc);
-      } catch {
-        vscode.window.showErrorMessage(`Could not open ${cmdPath}`);
-      }
-      break;
-    }
+    // (getCommands / openCommandFile are handled by the commands feature's
+    //  own messageHandlers.ts, wired ahead of this monolith in dispatch.)
 
     // ── Hooks messages ──
 
@@ -249,96 +233,9 @@ export async function handleFeatureMessage(
     }
 
     // ── MCP messages ──
-
-    case "getMcpServers": {
-      const workspace = getWorkspace();
-      const servers = parseMcpServers(workspace || undefined);
-      ctx.setMcpServers(servers);
-      wv.postMessage({ type: "mcpServers", data: servers });
-      break;
-    }
-
-    case "openMcpConfig": {
-      const scope = (msg as { type: string; scope: string }).scope;
-      let configPath: string;
-      if (scope === "project") {
-        const workspace = getWorkspace();
-        if (!workspace) {
-          vscode.window.showErrorMessage("No workspace folder open");
-          break;
-        }
-        configPath = path.join(workspace, ".mcp.json");
-      } else {
-        const os = await import("os");
-        configPath = path.join(os.homedir(), ".claude", "mcp.json");
-      }
-      try {
-        const doc = await vscode.workspace.openTextDocument(configPath);
-        await vscode.window.showTextDocument(doc);
-      } catch {
-        vscode.window.showErrorMessage(`Could not open ${configPath}`);
-      }
-      break;
-    }
-
-    case "toggleMcpServer": {
-      const { name, scope, disabled } = msg as {
-        type: string;
-        name: string;
-        scope: import("../mcp/types").McpServerScope;
-        disabled: boolean;
-      };
-      // Plugin-supplied servers are owned by the plugin install dir
-      // and managed via the `/plugin` CLI. Reject the message instead
-      // of silently no-op so a stale UI surface surfaces an error.
-      if (scope === "plugin") {
-        vscode.window.showErrorMessage(`"${name}" is provided by a plugin — manage it via /plugin.`);
-        break;
-      }
-      const workspace = getWorkspace();
-      const ok = toggleMcpServer(name, scope, disabled, workspace || undefined);
-      if (ok) {
-        // Re-parse and push updated list
-        const servers = parseMcpServers(workspace || undefined);
-        ctx.setMcpServers(servers);
-        wv.postMessage({ type: "mcpServers", data: servers });
-      } else {
-        vscode.window.showErrorMessage(`Failed to ${disabled ? "disable" : "enable"} ${name}`);
-      }
-      break;
-    }
-
-    case "deleteMcpServer": {
-      const { name: srvName, scope: srvScope } = msg as {
-        type: string;
-        name: string;
-        scope: import("../mcp/types").McpServerScope;
-      };
-      if (srvScope === "plugin") {
-        vscode.window.showErrorMessage(`"${srvName}" is provided by a plugin — manage it via /plugin.`);
-        break;
-      }
-      const choice = await vscode.window.showWarningMessage(
-        `Delete MCP server "${srvName}"?`,
-        {
-          modal: true,
-          detail: `This will remove the server entry from your ${srvScope} .mcp.json config.`,
-        },
-        "Delete",
-      );
-      if (choice === "Delete") {
-        const workspace = getWorkspace();
-        const ok = deleteMcpServer(srvName, srvScope, workspace || undefined);
-        if (ok) {
-          const servers = parseMcpServers(workspace || undefined);
-          ctx.setMcpServers(servers);
-          wv.postMessage({ type: "mcpServers", data: servers });
-        } else {
-          vscode.window.showErrorMessage(`Failed to delete ${srvName}`);
-        }
-      }
-      break;
-    }
+    // (getMcpServers / openMcpConfig / toggleMcpServer / deleteMcpServer are
+    //  handled by the mcp feature's own messageHandlers.ts, wired ahead of
+    //  this monolith in dispatch.)
 
     // ── Agents messages ──
 
