@@ -2,7 +2,7 @@
 import { render, screen } from "@testing-library/preact";
 import { h } from "preact";
 import { describe, expect, it } from "vitest";
-import { ModelBadge } from "../components/ModelBadge";
+import { ModelBadge } from "./ModelBadge";
 
 describe("ModelBadge", () => {
   it("renders the model label", () => {

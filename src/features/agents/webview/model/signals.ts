@@ -1,10 +1,10 @@
 /**
- * Reactive state for the agents webview, powered by @preact/signals.
- * Replaces the vanilla getter/setter `state.ts` module. Views read the
- * computed signals directly so updates re-render without manual diffing.
+ * Reactive state for the agents webview, powered by @preact/signals. Views
+ * read the computed signals directly so updates re-render without manual
+ * diffing. Lives in the FSD `model` segment: state only, no JSX.
  */
 import { computed, signal } from "@preact/signals";
-import type { Agent } from "../types";
+import type { Agent } from "../../types";
 
 /** Filter values for the model selector. */
 export type ModelFilter = "all" | "sonnet" | "opus" | "haiku";

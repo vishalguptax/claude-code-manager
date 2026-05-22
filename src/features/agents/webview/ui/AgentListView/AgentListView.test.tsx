@@ -2,9 +2,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/preact";
 import { h } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Agent } from "../../types";
-import { agents, filterModel, resetAgentsState, searchQuery, selectedAgent } from "../signals";
-import { AgentListView } from "../views/AgentListView";
+import type { Agent } from "../../../types";
+import { agents, filterModel, resetAgentsState, searchQuery, selectedAgent } from "../../model";
+import { AgentListView } from "./AgentListView";
 
 function agent(overrides: Partial<Agent> = {}): Agent {
   return {
@@ -69,9 +69,10 @@ describe("AgentListView", () => {
   it("debounces search input into the searchQuery signal", () => {
     vi.useFakeTimers();
     agents.value = [agent({ name: "reviewer" })];
-    render(h(AgentListView, { onRefresh: () => {} }));
-    const input = screen.getByPlaceholderText("Search agents...") as HTMLInputElement;
-    fireEvent.input(input, { target: { value: "REV" } });
+    const { container } = render(h(AgentListView, { onRefresh: () => {} }));
+    const el = container.querySelector("vscode-textfield") as HTMLElement;
+    vi.spyOn(el as unknown as { value: string }, "value", "get").mockReturnValue("REV");
+    fireEvent(el, new Event("input"));
     expect(searchQuery.value).toBe("");
     act(() => {
       vi.advanceTimersByTime(150);
@@ -79,11 +80,11 @@ describe("AgentListView", () => {
     expect(searchQuery.value).toBe("rev");
   });
 
-  it("fires onRefresh from the search bar", () => {
+  it("fires onRefresh from the refresh button", () => {
     const onRefresh = vi.fn();
     agents.value = [agent()];
-    const { container } = render(h(AgentListView, { onRefresh }));
-    fireEvent.click(container.querySelector(".search-side-btn") as Element);
+    render(h(AgentListView, { onRefresh }));
+    fireEvent.click(screen.getByLabelText("Refresh agents"));
     expect(onRefresh).toHaveBeenCalled();
   });
 

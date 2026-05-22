@@ -16,9 +16,8 @@ import {
   selectedAgent,
   setAgents,
   setError,
-} from "./signals";
-import { AgentDetailView } from "./views/AgentDetailView";
-import { AgentListView } from "./views/AgentListView";
+} from "./model";
+import { AgentDetailView, AgentListView } from "./ui";
 
 export default function AgentsTab() {
   const api = useAgentsApi();

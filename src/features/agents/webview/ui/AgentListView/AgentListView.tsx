@@ -1,17 +1,21 @@
 /**
- * Agent list view: search bar, model filter, and a scope-grouped list of
+ * Agent list view: search row, model filter, and a scope-grouped list of
  * agents. Large lists (> VIRTUALIZE_THRESHOLD agents) render through the
  * shared windowed `VirtualList`; smaller lists render plain grouped sections
  * so section headers stay simple.
+ *
+ * Search uses the shared <SearchInput> (debounced) and the refresh affordance
+ * is a shared icon <Button>; the model filter is the shared <ScopeFilter>
+ * segmented control. All three live in the standard `.search-row` chrome.
  */
-import { useEffect, useState } from "preact/hooks";
-import { EmptyState } from "../../../../webview/shared/ui";
-import { VirtualList } from "../../../../webview/shared/ui";
-import { useDebounce } from "../../../../webview/shared/hooks";
-import type { Agent } from "../../types";
-import { AgentItem } from "../components/AgentItem";
-import { ModelFilter } from "../components/ModelFilter";
-import { SearchBar } from "../components/SearchBar";
+import {
+  Button,
+  EmptyState,
+  ScopeFilter,
+  SearchInput,
+  VirtualList,
+} from "../../../../../webview/shared/ui";
+import type { Agent } from "../../../types";
 import {
   agents,
   filterModel,
@@ -22,12 +26,21 @@ import {
   searchQuery,
   selectAgent,
   selectedAgent,
-} from "../signals";
+} from "../../model";
+import { AgentItem } from "../AgentItem";
 
 /** Above this many filtered agents, switch to windowed rendering. */
 const VIRTUALIZE_THRESHOLD = 50;
 /** Fixed row height (px) used for virtualization; matches `agents.css`. */
 const ROW_HEIGHT = 56;
+
+/** Model filter segments (label + value); counts are injected per render. */
+const MODEL_OPTIONS: ReadonlyArray<{ value: ModelFilterValue; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "sonnet", label: "Sonnet" },
+  { value: "opus", label: "Opus" },
+  { value: "haiku", label: "Haiku" },
+];
 
 export interface AgentListViewProps {
   onRefresh: () => void;
@@ -37,35 +50,50 @@ export interface AgentListViewProps {
 type Row = { kind: "header"; label: string } | { kind: "agent"; agent: Agent };
 
 export function AgentListView({ onRefresh }: AgentListViewProps) {
-  // Local input state gives instant typing feedback; the debounced value is
-  // committed to the shared signal that drives filtering.
-  const [input, setInput] = useState(searchQuery.value);
-  const debounced = useDebounce(input, 150);
-
-  useEffect(() => {
-    searchQuery.value = debounced.toLowerCase();
-  }, [debounced]);
-
   const all = agents.value;
   const filtered = filteredAgents.value;
   const groups = groupedAgents.value;
   const selectedPath = selectedAgent.value?.path ?? null;
+  const counts = modelCounts.value;
 
   const onModelChange = (value: ModelFilterValue) => {
     filterModel.value = value;
   };
 
+  const modelOptions = MODEL_OPTIONS.map((opt) => ({ ...opt, count: counts[opt.value] }));
+
   return (
     <div class="panel">
-      <SearchBar value={input} onInput={setInput} onRefresh={onRefresh} />
+      <div class="search-row">
+        <SearchInput
+          value={searchQuery.value}
+          onInput={(v) => {
+            searchQuery.value = v.toLowerCase();
+          }}
+          placeholder="Search agents..."
+          ariaLabel="Search agents"
+          debounceMs={150}
+        />
+        <Button
+          variant="icon"
+          iconName="refresh-cw"
+          onClick={onRefresh}
+          title="Refresh agents"
+          ariaLabel="Refresh agents"
+        />
+      </div>
       {all.length > 0 ? (
-        <ModelFilter value={filterModel.value} counts={modelCounts.value} onChange={onModelChange} />
+        <ScopeFilter<ModelFilterValue>
+          value={filterModel.value}
+          options={modelOptions}
+          onChange={onModelChange}
+        />
       ) : null}
       <div class="list agent-list">
         {all.length === 0 ? (
           <EmptyAgents />
         ) : filtered.length === 0 ? (
-          <EmptyState title={input ? "No matching agents" : "No agents found"} />
+          <EmptyState title={searchQuery.value ? "No matching agents" : "No agents found"} />
         ) : filtered.length > VIRTUALIZE_THRESHOLD ? (
           <VirtualAgentRows groups={groups} count={filtered.length} selectedPath={selectedPath} />
         ) : (
