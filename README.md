@@ -59,7 +59,8 @@ Claude Manager turns all of it into a sidebar you can click and search. Same Cla
 | **Hooks** | Inspect automation hooks across global, project, and local scopes with full command preview. |
 | **MCP Servers** | Enable, disable, delete, or inspect MCP servers &mdash; no JSON editing. API keys and secrets masked automatically. |
 | **Agents** | Browse project agents with Sonnet / Opus / Haiku badges and description previews. |
-| **Account** | Profile, **multi-account switcher** (save + swap between Claude logins without full `/logout`+`/login`), activity heatmap, token usage across 7-day / 30-day / all-time, model selector, permissions editor, and an opt-in **Quota** card showing your current 5-hour / 7-day subscription utilization. |
+| **Account** | Profile, **multi-account switcher** (save + swap between Claude logins without full `/logout`+`/login`), activity heatmap, token usage across 7-day / 30-day / all-time, and an opt-in **Quota** card showing your current 5-hour / 7-day subscription utilization. |
+| **Config** | Model selector, tool-use confirmation mode, reasoning effort, commit/PR attribution, session retention, the permissions editor (allow/deny per scope), settings-history snapshots with one-click restore, and Brain backup/restore. |
 | **Status bar** | Open Claude Manager from anywhere in your editor with a single click. |
 
 <table>
@@ -155,13 +156,15 @@ In `~/.claude/` &mdash; same as Claude Code itself. The extension never copies, 
 
 Works on every VS Code-based editor: **VS Code** &bull; **Cursor** &bull; **Windsurf** &bull; **Antigravity** &bull; **VSCodium** &bull; **Theia** &bull; **Codespaces** &bull; **Gitpod**
 
-Requires VS Code 1.85+ and [Claude Code](https://claude.ai/code) installed.
+Requires VS Code 1.90+ and [Claude Code](https://claude.ai/code) installed. (On editors older than ~18 months, stay on the 1.10.x line.)
 
 <br>
 
 ## Contributing
 
 Bug reports and PRs are welcome. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local setup, build, and architecture. Browse [open issues](https://github.com/vishalguptax/claude-code-manager/issues), [open a new one](https://github.com/vishalguptax/claude-code-manager/issues/new), or check the [changelog](CHANGELOG.md).
+
+**Architecture (v2):** the webview is built with [Preact](https://preactjs.com/) + [@preact/signals](https://preactjs.com/guide/v10/signals/), bundled by esbuild as a tiny shell that lazy-loads one code-split chunk per feature tab. Every message between the extension host and the webview flows through a single shared protocol validated at runtime with [valibot](https://valibot.dev/), so malformed frames are rejected rather than acted on. Lint + format is [Biome](https://biomejs.dev/); bundle size is gated by size-limit in CI. The webview runs under a strict CSP (`default-src 'none'`, nonce-only scripts) and makes no network calls. Upgrading from v1? See the [v1→v2 migration guide](docs/migration/v1-to-v2.md) — there's nothing you need to do.
 
 <br>
 
