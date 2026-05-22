@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildHeatmap, cutoffDaysForPeriod } from "../heatmap";
+import { buildHeatmap, cutoffDaysForPeriod } from "./heatmap";
 import type { DailyActivity, DailyTokens } from "../../types";
 
 /** Mid-day local time so tests don't drift across DST boundaries. */

@@ -12,7 +12,7 @@ import {
   setQuotaLoading,
   setQuotaSuccess,
   toggleSection,
-} from "../signals";
+} from "./signals";
 
 const QUOTA: QuotaData = {
   fiveHour: { utilization: 10, resetsAt: "" },

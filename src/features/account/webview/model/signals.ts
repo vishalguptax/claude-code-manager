@@ -13,8 +13,8 @@
  */
 
 import { computed, signal } from "@preact/signals";
-import type { AccountData, PermissionScope } from "../types";
-import type { QuotaData, QuotaError } from "../quota";
+import type { AccountData } from "../../types";
+import type { QuotaData, QuotaError } from "../../quota";
 
 export type TimePeriod = "all" | "week" | "month";
 

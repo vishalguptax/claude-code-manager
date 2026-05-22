@@ -1,13 +1,13 @@
 /**
  * One quota "window" row: label, accessible progress bar, percentage,
- * and a human reset timer. Width is driven by a CSS custom property
- * (`--fill`) so no inline `style` string is needed — the stylesheet
- * reads `width: var(--fill)`.
+ * and a human reset timer. Width is driven by an inline `width` derived
+ * from the clamped utilization (data-driven, no static class equivalent);
+ * all appearance comes from `.acct-quota-*` classes.
  */
 
-import { cx } from "../../../../webview/shared/lib";
-import type { QuotaWindow } from "../../quota";
-import { formatResetsIn, quotaTone } from "../format";
+import { cx } from "../../../../../webview/shared/lib";
+import type { QuotaWindow } from "../../../quota";
+import { formatResetsIn, quotaTone } from "../../lib";
 
 export interface QuotaBarProps {
   label: string;
@@ -32,10 +32,7 @@ export function QuotaBar({ label, window }: QuotaBarProps) {
         aria-valuemax={100}
         aria-valuenow={pct}
       >
-        <div
-          class={cx("acct-quota-bar-fill", `tone-${tone}`)}
-          style={{ width: `${pct}%` }}
-        />
+        <div class={cx("acct-quota-bar-fill", `tone-${tone}`)} style={{ width: `${pct}%` }} />
       </div>
       {resetsLabel ? <div class="acct-quota-sub">{resetsLabel}</div> : null}
     </div>

@@ -1,7 +1,7 @@
 /**
  * GitHub-style activity heatmap. All date math + intensity scaling lives
- * in the pure `buildHeatmap` model builder (heatmap.ts); this component
- * only maps the resolved cells/labels to DOM.
+ * in the pure `buildHeatmap` model builder (lib/heatmap.ts); this
+ * component only maps the resolved cells/labels to DOM.
  *
  * The grid shows a fixed rolling year (52 weeks) regardless of the
  * usage period selector — a stable visual anchor lets the user compare
@@ -16,10 +16,9 @@
  */
 
 import { useEffect, useRef } from "preact/hooks";
-import { cx } from "../../../../webview/shared/lib";
-import type { DailyActivity, DailyTokens } from "../../types";
-import { buildHeatmap, type HeatmapCell } from "../heatmap";
-import { formatNumber } from "../format";
+import { cx } from "../../../../../webview/shared/lib";
+import type { DailyActivity, DailyTokens } from "../../../types";
+import { buildHeatmap, formatNumber, type HeatmapCell } from "../../lib";
 
 export interface HeatmapProps {
   daily: DailyActivity[];

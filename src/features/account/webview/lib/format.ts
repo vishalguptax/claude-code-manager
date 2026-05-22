@@ -5,7 +5,7 @@
  * components without dragging in render code.
  */
 
-import type { AccountData, UsageStats } from "../types";
+import type { AccountData, UsageStats } from "../../types";
 import { cutoffDaysForPeriod, type Period } from "./heatmap";
 
 // Note: the model-picker option builder lived here in v1 but the Account

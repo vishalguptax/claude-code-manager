@@ -6,8 +6,8 @@
  */
 
 import type { ComponentChildren } from "preact";
-import { cx } from "../../../../webview/shared/lib";
-import { Icon } from "../../../../webview/shared/ui";
+import { cx } from "../../../../../webview/shared/lib";
+import { Icon } from "../../../../../webview/shared/ui";
 
 export interface SectionHeaderProps {
   id: string;

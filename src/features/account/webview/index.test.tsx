@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
-import { h } from "preact";
 import { render, screen, waitFor } from "@testing-library/preact";
+import { h } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { _resetMessageBus } from "../../../../webview/shared/model";
-import AccountTab from "../index";
-import { _resetAccountState, accountData, accountError, loading } from "../signals";
+import { setVscodeApi } from "../../../webview/shared/hooks";
+import { _resetMessageBus } from "../../../webview/shared/model";
+import AccountTab from "./index";
+import { _resetAccountState, accountData, accountError, loading } from "./model";
 
 function makeAccount() {
   return {
@@ -76,12 +76,12 @@ function makeAccount() {
 }
 
 describe("AccountTab", () => {
-  let post: ReturnType<typeof vi.fn>;
+  let post: ReturnType<typeof vi.fn<(m: unknown) => void>>;
 
   beforeEach(() => {
     _resetAccountState();
     _resetMessageBus();
-    post = vi.fn();
+    post = vi.fn<(m: unknown) => void>();
     setVscodeApi({ postMessage: post });
   });
   afterEach(() => setVscodeApi(null));

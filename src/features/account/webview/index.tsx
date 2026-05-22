@@ -22,7 +22,7 @@ import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { QuotaResult } from "../quota";
 import type { AccountData } from "../types";
 import { useAccountApi } from "./api";
-import { accountKey } from "./format";
+import { accountKey } from "./lib";
 import {
   accountData,
   accountError,
@@ -35,10 +35,8 @@ import {
   setQuotaError,
   setQuotaLoading,
   setQuotaSuccess,
-} from "./signals";
-import { ProfileView } from "./views/ProfileView";
-import { QuotaView } from "./views/QuotaView";
-import { UsageView } from "./views/UsageView";
+} from "./model";
+import { ProfileView, QuotaView, UsageView } from "./ui";
 
 /** Identity of the account at the last render, for switch detection. */
 let lastAccountKey: string | null = null;

@@ -10,7 +10,7 @@
  * visual end of the heatmap matches the calendar.
  */
 
-import type { DailyActivity, DailyTokens } from "../types";
+import type { DailyActivity, DailyTokens } from "../../types";
 
 export type HeatmapLevel = 0 | 1 | 2 | 3 | 4;
 export type HeatmapState = "past" | "today" | "future" | "stale";

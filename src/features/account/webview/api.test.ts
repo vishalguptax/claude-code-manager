@@ -1,13 +1,13 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { useAccountApi } from "../api";
+import { setVscodeApi } from "../../../webview/shared/hooks";
+import { useAccountApi } from "./api";
 
 describe("useAccountApi (typed Preact bridge)", () => {
-  let post: ReturnType<typeof vi.fn>;
+  let post: ReturnType<typeof vi.fn<(m: unknown) => void>>;
 
   beforeEach(() => {
-    post = vi.fn();
+    post = vi.fn<(m: unknown) => void>();
     setVscodeApi({ postMessage: post });
   });
   afterEach(() => setVscodeApi(null));

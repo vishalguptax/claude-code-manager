@@ -15,7 +15,7 @@ import {
   formatResetsIn,
   quotaTone,
   shortenProjectPath,
-} from "../format";
+} from "./format";
 
 describe("formatNumber", () => {
   it("formats millions and thousands", () => {

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Message } from "../../../../shared/protocol/messages";
-import type { AccountData } from "../../types";
-import type { QuotaData } from "../../quota";
-import { handleAccountMessage } from "../index";
+import type { Message } from "../../../shared/protocol/messages";
+import type { QuotaData } from "../quota";
+import type { AccountData } from "../types";
+import { handleAccountMessage } from "./index";
 import {
   _resetAccountState,
   accountData,
@@ -12,7 +12,7 @@ import {
   quotaOptIn,
   quotaStatus,
   setQuotaSuccess,
-} from "../signals";
+} from "./model";
 
 function makeAccount(email: string, slug: string | null): AccountData {
   return {
@@ -92,11 +92,11 @@ const QUOTA: QuotaData = {
 };
 
 describe("handleAccountMessage", () => {
-  let send: { fetchQuota: ReturnType<typeof vi.fn> };
+  let send: { fetchQuota: ReturnType<typeof vi.fn<() => void>> };
 
   beforeEach(() => {
     _resetAccountState();
-    send = { fetchQuota: vi.fn() };
+    send = { fetchQuota: vi.fn<() => void>() };
     // Each test starts with a clean account identity. Apply an initial
     // payload so lastAccountKey is seeded and subsequent switches are
     // detectable.

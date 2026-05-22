@@ -4,7 +4,7 @@
  * the summary-line styling used for the cost total.
  */
 
-import { cx } from "../../../../webview/shared/lib";
+import { cx } from "../../../../../webview/shared/lib";
 
 export interface MetaRowProps {
   k: string;
