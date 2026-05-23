@@ -100,17 +100,15 @@ export function ListView() {
   return (
     <div class="panel" id="skillsListView">
       <div class="search-row">
-        <div class="feature-search">
-          <SearchInput
-            value={searchQuery.value}
-            onInput={(v) => {
-              searchQuery.value = v.toLowerCase();
-            }}
-            placeholder="Search skills..."
-            ariaLabel="Search skills"
-            debounceMs={150}
-          />
-        </div>
+        <SearchInput
+          value={searchQuery.value}
+          onInput={(v) => {
+            searchQuery.value = v.toLowerCase();
+          }}
+          placeholder="Search skills..."
+          ariaLabel="Search skills"
+          debounceMs={150}
+        />
         <Button
           variant="icon"
           class="search-side-btn"

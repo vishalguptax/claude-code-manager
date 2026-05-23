@@ -255,7 +255,7 @@
 
 .scope-btn {
   flex: 1;
-  height: 28px;
+  height: var(--h-control);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -289,7 +289,7 @@
 
 .chip {
   flex: 1;
-  height: 28px;
+  height: var(--h-control);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -664,47 +664,14 @@
   flex-shrink: 0;
 }
 
-.feature-search {
-  display: flex;
-  align-items: center;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  height: 32px;
-  flex: 1;
-  min-width: 0;
-}
-.feature-search:focus-within { border-color: var(--accent); }
-.feature-search input {
-  flex: 1;
-  min-width: 0;
-  background: none;
-  border: none;
-  color: var(--input-fg);
-  font-size: var(--fs-md);
-  padding: 0 var(--space-lg);
-  height: 100%;
-  outline: none;
-  font-family: inherit;
-}
-.feature-search input::placeholder { color: var(--fg-muted); }
-
+/* Trailing affordance beside the search box (refresh / browse). Rendered as a
+   shared icon <Button>, so the chromeless `.btn-icon` look applies; this rule
+   only pins it to the unified square control size so it lines up with the
+   search field height. */
 .search-side-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--btn-bg);
-  border: none;
-  border-radius: var(--radius);
-  color: var(--btn-fg);
-  cursor: pointer;
+  width: var(--h-control);
+  height: var(--h-control);
   flex-shrink: 0;
-  font-family: inherit;
-}
-.search-side-btn:hover {
-  background: var(--btn-hover);
 }
 
 
