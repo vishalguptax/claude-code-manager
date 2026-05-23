@@ -125,7 +125,7 @@ function renderBody({ all, filtered, groups, open, toggle, remove }: BodyProps) 
   }
 
   const count = (
-    <div class="hook-list-count">
+    <div class="list-count">
       {`${filtered.length} hook${filtered.length === 1 ? "" : "s"}`}
     </div>
   );

@@ -46,12 +46,7 @@
    Commands — List
    ────────────────────────────────────────────────────────────────────────────── */
 
-.cmd-list-count,
-.hook-list-count {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  padding: var(--space-xs) var(--space-2xl) 2px;
-}
+/* Result count captions use the shared `.list-count` (components.css). */
 
 .cmd-group-label,
 .hook-group-label {

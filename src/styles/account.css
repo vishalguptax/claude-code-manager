@@ -203,7 +203,11 @@
 
 .acct-meta-row {
   display: flex;
-  justify-content: space-between;
+  /* Label + value sit close with ONE capped gap — short identity values
+     ("Credentials: File", "Favorite model: …") read as a pair rather than being
+     flung to opposite panel edges by space-between. Numeric rows opt back into
+     edge alignment via .acct-meta-row-numeric below. */
+  justify-content: flex-start;
   align-items: baseline;
   padding: var(--space-xs) 0;
   font-size: var(--fs-base);
@@ -217,6 +221,19 @@
 
 .acct-meta-v {
   color: var(--fg);
+  /* Long identity values (a model id, a path) still ellipsize within the row
+     rather than pushing it wider. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Numeric rows: push the figure to the right edge and align a column of them. */
+.acct-meta-row-numeric {
+  justify-content: space-between;
+}
+.acct-meta-row-numeric .acct-meta-v {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -295,12 +312,11 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .acct-actions {
-  /* Grid auto-fit so multi-button rows in account sections stay even
-     when they wrap on narrow panels. Buttons here have wider labels
-     ("Open settings.json", "Open /config") so the min track is larger
-     than the sessions toolbar. */
+  /* Grid auto-fit so multi-button rows in account sections stay even when they
+     wrap on narrow panels. Uses the SHARED --action-grid-min track so account
+     and sessions action clusters pack identically (was a one-off 130px). */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(var(--action-grid-min), 1fr));
   gap: var(--space-sm);
   margin-top: var(--space-lg);
 }

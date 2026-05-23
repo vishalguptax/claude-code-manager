@@ -78,6 +78,14 @@
   --space-xl: 12px;
   --space-2xl: 14px;
 
+  /* Minimum track width for responsive action-button grids (repeat(auto-fit,
+     minmax(--action-grid-min, 1fr))). ONE token shared by the sessions detail
+     actions and the account/config action rows so multi-button clusters pack
+     and wrap identically on a narrow sidebar. 96px fits the typical action
+     label without clipping while letting a 5-button row pack two-up on narrow
+     panels instead of wrapping unevenly. */
+  --action-grid-min: 96px;
+
   /* ────────────────────────────────────────────────────────────────────────
      DESIGN-SYSTEM TOKEN ROLES (VS Code native)
 

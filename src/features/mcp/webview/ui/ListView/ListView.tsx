@@ -69,7 +69,7 @@ export function ListView({ onSelect, onCopyName, onBrowse, onRefresh }: ListView
   } else {
     const rows = buildRows(filtered);
     const count = (
-      <div class="mcp-list-count">
+      <div class="list-count">
         {filtered.length} server{filtered.length !== 1 ? "s" : ""}
       </div>
     );

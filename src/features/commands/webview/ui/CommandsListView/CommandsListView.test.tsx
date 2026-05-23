@@ -53,7 +53,7 @@ describe("CommandsListView", () => {
   it("renders grouped commands with a count and scope filter", () => {
     commands.value = SAMPLE;
     const { container } = render(h(CommandsListView, {}));
-    expect(container.querySelector(".cmd-list-count")?.textContent).toBe("3 commands");
+    expect(container.querySelector(".list-count")?.textContent).toBe("3 commands");
     const labels = Array.from(container.querySelectorAll(".cmd-group-label")).map(
       (l) => l.textContent,
     );

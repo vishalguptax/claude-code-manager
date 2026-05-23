@@ -127,7 +127,6 @@ export function ListView() {
 
       {total > 0 ? (
         <ScopeFilterControl
-          class="scope-filter"
           value={scopeFilter.value}
           options={scopeOptions(total)}
           onChange={(v) => {

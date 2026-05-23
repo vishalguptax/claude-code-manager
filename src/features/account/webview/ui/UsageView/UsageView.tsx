@@ -11,8 +11,10 @@
  *
  * The period toggle is the shared <Segmented> primitive (not a
  * Dropdown): three mutually-exclusive options read better as a
- * segmented control than a closed select. Its selected segment uses
- * the subtle design-system role token, not primary blue.
+ * segmented control than a closed select. It spans the panel full-width
+ * (default size, not the compact `sm`) to match the sessions date and
+ * scope segmenteds. Its selected segment uses the subtle design-system
+ * role token, not primary blue.
  */
 
 import { Segmented, type SegmentedOption } from "../../../../../webview/shared/ui";
@@ -79,7 +81,6 @@ function UsageBody({ u }: { u: UsageStats }) {
       <Segmented
         class="acct-period-toggle"
         ariaLabel="Usage period"
-        size="sm"
         value={period}
         options={PERIODS}
         onChange={(next) => {
@@ -100,11 +101,19 @@ function UsageBody({ u }: { u: UsageStats }) {
         {u.favoriteModel ? (
           <MetaRow k="Favorite model" v={formatModelName(u.favoriteModel)} />
         ) : null}
-        <MetaRow k="Active days" v={`${totals.activeInPeriod} / ${totals.totalInPeriod}`} />
-        <MetaRow k="Current streak" v={`${u.currentStreak} day${u.currentStreak === 1 ? "" : "s"}`} />
-        <MetaRow k="Longest streak" v={`${u.longestStreak} day${u.longestStreak === 1 ? "" : "s"}`} />
+        <MetaRow k="Active days" v={`${totals.activeInPeriod} / ${totals.totalInPeriod}`} numeric />
+        <MetaRow
+          k="Current streak"
+          v={`${u.currentStreak} day${u.currentStreak === 1 ? "" : "s"}`}
+          numeric
+        />
+        <MetaRow
+          k="Longest streak"
+          v={`${u.longestStreak} day${u.longestStreak === 1 ? "" : "s"}`}
+          numeric
+        />
         {u.longestSessionMs > 0 ? (
-          <MetaRow k="Longest session" v={formatDuration(u.longestSessionMs)} />
+          <MetaRow k="Longest session" v={formatDuration(u.longestSessionMs)} numeric />
         ) : null}
       </div>
 
@@ -128,6 +137,7 @@ function ByModelGroup({ u }: { u: UsageStats }) {
           v={`${formatNumber(m.totalTokens)}${
             m.costUsd > 0 ? ` · ${formatMoney(Math.round(m.costUsd * 100), "USD")}` : ""
           }`}
+          numeric
         />
       ))}
       {u.totalCostUsd > 0 ? (
@@ -136,6 +146,7 @@ function ByModelGroup({ u }: { u: UsageStats }) {
             k="Total est. cost"
             v={formatMoney(Math.round(u.totalCostUsd * 100), "USD")}
             total
+            numeric
           />
           <div class="acct-meta-foot">
             Cost is an estimate from the static Anthropic price snapshot dated{" "}

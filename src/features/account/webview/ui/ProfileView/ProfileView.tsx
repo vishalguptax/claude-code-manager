@@ -54,7 +54,7 @@ function SignedOut({ data, api }: ProfileViewProps) {
       <div class="acct-actions">
         {saved.length > 0 ? (
           <Button
-            variant="primary"
+            variant="secondary"
             iconName="refresh-cw"
             title="Switch to a saved Claude account"
             onClick={() => api.openAccountSwitcher()}
@@ -62,11 +62,10 @@ function SignedOut({ data, api }: ProfileViewProps) {
             Switch account
           </Button>
         ) : null}
-        <Button
-          variant={saved.length === 0 ? "primary" : "secondary"}
-          iconName="play"
-          onClick={() => api.launchSlash("/login")}
-        >
+        {/* Secondary, not primary: the Account surface keeps a single primary —
+            the Quota section's "Check quota" CTA — so the hierarchy stays clear
+            (one solid-blue button per visible surface). */}
+        <Button variant="secondary" iconName="play" onClick={() => api.launchSlash("/login")}>
           Log in
         </Button>
       </div>

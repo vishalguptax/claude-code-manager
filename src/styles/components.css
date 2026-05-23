@@ -86,6 +86,17 @@
   outline-offset: -1px;
 }
 
+/* Result-count caption shown above a feature's grouped list ("N skills",
+   "N commands", …). ONE shared class — the per-feature
+   .cmd-list-count / .hook-list-count / .agent-list-count / .mcp-list-count
+   were byte-identical, so they all collapse here. The 2xl left inset aligns
+   the caption with the list rows below it (same inset as the group labels). */
+.list-count {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  padding: var(--space-xs) var(--space-2xl) 2px;
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Quick Actions Bar

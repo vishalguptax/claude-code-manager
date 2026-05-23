@@ -56,11 +56,7 @@
    Agents — List
    ────────────────────────────────────────────────────────────────────────────── */
 
-.agent-list-count {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  padding: var(--space-xs) var(--space-2xl) 2px;
-}
+/* Result count caption uses the shared `.list-count` (components.css). */
 
 .agent-item {
   padding: var(--space-lg) var(--space-2xl);

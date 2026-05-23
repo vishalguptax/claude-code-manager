@@ -121,7 +121,7 @@ function EmptyAgents() {
 /** Result-count caption shown above the grouped list. */
 function CountCaption({ count }: { count: number }) {
   return (
-    <div class="agent-list-count">
+    <div class="list-count">
       {count} agent{count !== 1 ? "s" : ""}
     </div>
   );

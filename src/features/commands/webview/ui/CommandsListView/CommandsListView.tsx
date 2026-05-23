@@ -119,7 +119,7 @@ export function CommandsListView() {
           </div>
         ) : (
           <>
-            <div class="cmd-list-count">
+            <div class="list-count">
               {filtered.length} command{filtered.length === 1 ? "" : "s"}
             </div>
             {rows.length > VIRTUALIZE_THRESHOLD ? (
