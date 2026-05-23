@@ -65,6 +65,13 @@ export function Dropdown({
 }: DropdownProps) {
   const ref = useRef<SingleSelectEl | null>(null);
 
+  // Keep the latest onChange in a ref so the change-event bridge can read it
+  // without listing onChange in its dependency array. Parents commonly pass a
+  // fresh inline onChange each render; depending on it would detach/re-attach
+  // the native `change` listener on every parent render.
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   // Keep the element's value in sync with the controlled prop. The element may
   // resolve its value asynchronously when options are still slotting in
   // (documented in vscode-single-select), so we re-assert on every render.
@@ -73,17 +80,18 @@ export function Dropdown({
     if (el && el.value !== value) el.value = value;
   });
 
-  // Bridge the element's native `change` event to the onChange callback.
+  // Bridge the element's native `change` event to the onChange callback. The
+  // handler reads value/onChange via refs so the listener attaches once.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const handler = (): void => {
       const next = el.value;
-      if (next !== value) onChange(next);
+      if (next !== value) onChangeRef.current(next);
     };
     el.addEventListener("change", handler);
     return () => el.removeEventListener("change", handler);
-  }, [value, onChange]);
+  }, [value]);
 
   return (
     <div class={cls ? `vsc-dropdown ${cls}` : "vsc-dropdown"} title={title}>

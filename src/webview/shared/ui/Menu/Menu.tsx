@@ -42,9 +42,52 @@ export interface MenuProps {
   class?: string;
 }
 
+/**
+ * A single menu row. Hoisted to module scope so it is one stable component
+ * identity across renders rather than a closure recreated on every Menu render.
+ * Output and the legacy `.ctx-*` class aliases are identical to the inline
+ * version it replaced.
+ */
+function MenuItemRow({ item, onClose }: { item: MenuItem; onClose: () => void }) {
+  return (
+    <div
+      class={[
+        "vsc-menu-item",
+        "ctx-item",
+        item.danger ? "danger del" : "",
+        item.disabled ? "disabled" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      role="menuitem"
+      aria-disabled={item.disabled ? "true" : undefined}
+      tabIndex={item.disabled ? -1 : 0}
+      onClick={() => {
+        if (item.disabled) return;
+        item.onSelect();
+        onClose();
+      }}
+    >
+      <span class="vsc-menu-icon" aria-hidden="true">
+        {item.icon ? <Icon name={item.icon} size={16} /> : null}
+      </span>
+      <span class="vsc-menu-label">{item.label}</span>
+      {item.hint ? <span class="vsc-menu-hint">{item.hint}</span> : null}
+    </div>
+  );
+}
+
 export function Menu({ open, x, y, items, onClose, class: cls }: MenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x, top: y });
+
+  // Keep the latest onClose in a ref so the outside-click/Escape effect can read
+  // it without listing onClose in its dependency array. Parents commonly pass a
+  // fresh inline onClose each render; depending on it would re-attach the
+  // document listeners on every parent render. Updating the ref each render and
+  // reading ref.current inside the effect keeps a single stable subscription.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   // Reset to the requested coordinate whenever the menu (re)opens.
   useEffect(() => {
@@ -67,25 +110,30 @@ export function Menu({ open, x, y, items, onClose, class: cls }: MenuProps) {
     setPos((prev) => (prev.left === left && prev.top === top ? prev : { left, top }));
   }, [open, x, y]);
 
-  // Close on outside click or Escape while open.
+  // Close on outside click or Escape while open. Reads onClose via the ref so
+  // the listeners attach once per open (not on every parent render).
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (ref.current && !ref.current.contains(e.target as Node)) onCloseRef.current();
     };
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     // Defer the outside-click listener a tick so the same click that opened the
-    // menu does not immediately close it.
-    const id = setTimeout(() => document.addEventListener("mousedown", onDown), 0);
+    // menu does not immediately close it. The mousedown listener only ever calls
+    // onClose (never preventDefault), so it is passive.
+    const id = setTimeout(
+      () => document.addEventListener("mousedown", onDown, { passive: true }),
+      0,
+    );
     document.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(id);
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -102,31 +150,7 @@ export function Menu({ open, x, y, items, onClose, class: cls }: MenuProps) {
       {items.map((item, i) => (
         <>
           {item.separatorBefore ? <div class="vsc-menu-sep ctx-sep" key={`sep-${i}`} /> : null}
-          <div
-            key={item.label}
-            class={[
-              "vsc-menu-item",
-              "ctx-item",
-              item.danger ? "danger del" : "",
-              item.disabled ? "disabled" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            role="menuitem"
-            aria-disabled={item.disabled ? "true" : undefined}
-            tabIndex={item.disabled ? -1 : 0}
-            onClick={() => {
-              if (item.disabled) return;
-              item.onSelect();
-              onClose();
-            }}
-          >
-            <span class="vsc-menu-icon" aria-hidden="true">
-              {item.icon ? <Icon name={item.icon} size={16} /> : null}
-            </span>
-            <span class="vsc-menu-label">{item.label}</span>
-            {item.hint ? <span class="vsc-menu-hint">{item.hint}</span> : null}
-          </div>
+          <MenuItemRow key={item.label} item={item} onClose={onClose} />
         </>
       ))}
     </div>
