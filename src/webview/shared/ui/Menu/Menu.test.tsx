@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/preact";
-import { Menu, type MenuItem } from "../Menu";
+import { clampMenuPosition, Menu, type MenuItem } from "../Menu";
 
 function items(onSelect = vi.fn()): MenuItem[] {
   return [
@@ -68,5 +68,41 @@ describe("Menu", () => {
     render(<Menu open={true} x={0} y={0} items={items()} onClose={onClose} />);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  describe("clampMenuPosition", () => {
+    const GUTTER = 8;
+
+    it("leaves a menu that already fits untouched", () => {
+      expect(clampMenuPosition(20, 30, 180, 100, 1024, 768)).toEqual({ left: 20, top: 30 });
+    });
+
+    it("flips left when the right edge overflows the viewport", () => {
+      // Anchor at x=900, 200px-wide menu → 1100 > 1024, so it opens to the left
+      // of the anchor (900 - 200 = 700), still inside the gutter band.
+      const { left } = clampMenuPosition(900, 0, 200, 100, 1024, 768);
+      expect(left).toBe(700);
+    });
+
+    it("clamps into a narrow sidebar so the whole menu stays on-screen", () => {
+      // 300px panel, 240px menu opened near the right edge. After the left flip
+      // it must still sit within [GUTTER, vw - w - GUTTER].
+      const w = 240;
+      const vw = 300;
+      const { left } = clampMenuPosition(280, 0, w, 100, vw, 800);
+      expect(left).toBeGreaterThanOrEqual(GUTTER);
+      expect(left + w).toBeLessThanOrEqual(vw - GUTTER);
+    });
+
+    it("pins to the left gutter when the menu is wider than the panel can hold", () => {
+      // 200px panel, 240px menu — cannot fully fit; clamp wins at the left edge.
+      const { left } = clampMenuPosition(150, 0, 240, 100, 200, 800);
+      expect(left).toBe(GUTTER);
+    });
+
+    it("flips above the anchor when the bottom overflows", () => {
+      const { top } = clampMenuPosition(0, 700, 180, 200, 1024, 768);
+      expect(top).toBe(500); // 700 - 200
+    });
   });
 });

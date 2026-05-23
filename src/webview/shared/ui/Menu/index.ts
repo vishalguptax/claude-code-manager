@@ -1,1 +1,1 @@
-export { Menu, type MenuItem, type MenuProps } from "./Menu";
+export { clampMenuPosition, Menu, type MenuItem, type MenuProps } from "./Menu";

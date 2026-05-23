@@ -42,6 +42,36 @@ export interface MenuProps {
   class?: string;
 }
 
+/** Gap kept between a corrected menu edge and the viewport edge (px). */
+const VIEWPORT_GUTTER = 8;
+
+/**
+ * Position a menu of size {w, h} opened at {x, y} so it stays fully inside a
+ * {vw, vh} viewport. Pure so the overflow/clamp behaviour is unit-testable
+ * without a layout pass (jsdom/happy-dom don't flush layout-effect re-renders).
+ *
+ * Horizontal: flip left of the anchor if the right edge overflows, then HARD
+ * clamp into [GUTTER, vw - w - GUTTER] so a menu wider than expected still can't
+ * spill off a narrow sidebar. Math.max wins when the menu is too wide to fully
+ * fit, pinning it to the left gutter. Vertical: flip above the anchor if the
+ * bottom overflows, never going above 0.
+ */
+export function clampMenuPosition(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  vw: number,
+  vh: number,
+): { left: number; top: number } {
+  let left = x;
+  let top = y;
+  if (x + w > vw) left = x - w;
+  if (y + h > vh) top = Math.max(0, y - h);
+  left = Math.max(VIEWPORT_GUTTER, Math.min(left, vw - w - VIEWPORT_GUTTER));
+  return { left, top };
+}
+
 /**
  * A single menu row. Hoisted to module scope so it is one stable component
  * identity across renders rather than a closure recreated on every Menu render.
@@ -98,15 +128,27 @@ export function Menu({ open, x, y, items, onClose, class: cls }: MenuProps) {
   // right/bottom edges. We always recompute from the requested {x,y} (not the
   // already-corrected value) and only set state when the corrected coordinate
   // differs, so there is no setState feedback loop.
+  //
+  // Narrow sidebar: a menu wider than the panel (the Dropdown popup widened to
+  // the trigger, or a long branch path) would otherwise spill off the right edge
+  // when opened near it. We first flip it left of the anchor if it overflows
+  // right, then HARD-CLAMP the left edge into [GUTTER, innerWidth - width -
+  // GUTTER] so the whole menu stays on-screen even if neither the anchor nor the
+  // flipped position fits. The CSS caps menu width at calc(100vw - 16px) so the
+  // clamp range is never negative.
   useLayoutEffect(() => {
     if (!open) return;
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    let left = x;
-    let top = y;
-    if (r.right > window.innerWidth) left = Math.max(0, x - r.width);
-    if (r.bottom > window.innerHeight) top = Math.max(0, y - r.height);
+    const { left, top } = clampMenuPosition(
+      x,
+      y,
+      r.width,
+      r.height,
+      window.innerWidth,
+      window.innerHeight,
+    );
     setPos((prev) => (prev.left === left && prev.top === top ? prev : { left, top }));
   }, [open, x, y]);
 

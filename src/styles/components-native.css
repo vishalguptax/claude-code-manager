@@ -24,6 +24,10 @@
   position: fixed;
   z-index: 1000;
   min-width: 180px;
+  /* Never let a menu grow wider than the panel — the JS clamp in Menu.tsx
+     keeps it on-screen, and this cap keeps the clamp range non-negative on a
+     narrow sidebar (a long menu row would otherwise force overflow). */
+  max-width: calc(100vw - 16px);
   /* VS Code's menu uses ~4px top/bottom padding around the item list. */
   padding: 4px 0;
   background: var(--vscode-menu-background, var(--menu-bg));
@@ -222,7 +226,10 @@
   width: 100%;
   height: var(--h-control);
   box-sizing: border-box;
-  padding: 0 var(--space-md);
+  /* 9px horizontal inset matches the <vscode-textfield>'s intrinsic input
+     padding so a Dropdown and a TextField stacked in the same config column
+     align on their left text edge (was --space-md / 8px, a 1px mismatch). */
+  padding: 0 9px;
   background: var(--role-control-bg);
   color: var(--role-control-fg);
   border: 1px solid var(--role-control-border);
@@ -262,9 +269,11 @@
 
 /* The open popup is the native <Menu>; widen its min-width to the trigger so it
    never opens narrower than the closed control. The Menu's own max-content
-   growth still lets long rows expand it further. */
+   growth still lets long rows expand it further. The min-width is clamped to the
+   viewport (min-width would otherwise override the menu's max-width on a narrow
+   sidebar, forcing horizontal overflow). */
 .vsc-dropdown-menu {
-  min-width: var(--dropdown-trigger-width, 180px);
+  min-width: min(var(--dropdown-trigger-width, 180px), calc(100vw - 16px));
 }
 
 
