@@ -28,4 +28,32 @@ describe("Checkbox", () => {
     const el = container.querySelector("vscode-checkbox") as HTMLElement & { disabled: boolean };
     expect(el.disabled).toBe(true);
   });
+
+  it("toggles optimistically: fires onChange and the element reflects checked without a prop update", () => {
+    // Mirror the real <vscode-checkbox>: clicking flips its own `checked` and
+    // then dispatches `change`. The wrapper must surface that new value and NOT
+    // snap the box back while the controlled prop still holds the old value
+    // (the host echo arrives asynchronously).
+    const onChange = vi.fn();
+    const { container } = render(<Checkbox checked={false} onChange={onChange} label="Voice" />);
+    const el = container.querySelector("vscode-checkbox") as HTMLElement & { checked: boolean };
+
+    el.checked = true; // element's own optimistic flip on click
+    fireEvent(el, new Event("change"));
+
+    expect(onChange).toHaveBeenCalledWith(true);
+    // The prop is still false (host hasn't echoed yet) but the element keeps the
+    // user's value — the controlled-sync effect must not revert it.
+    expect(el.checked).toBe(true);
+  });
+
+  it("re-syncs to the prop when an external change disagrees with the element", () => {
+    const { container, rerender } = render(<Checkbox checked={true} onChange={() => {}} />);
+    const el = container.querySelector("vscode-checkbox") as HTMLElement & { checked: boolean };
+    expect(el.checked).toBe(true);
+    // A genuine external flip (e.g. switching accounts) updates the prop; the
+    // element must follow.
+    rerender(<Checkbox checked={false} onChange={() => {}} />);
+    expect(el.checked).toBe(false);
+  });
 });
