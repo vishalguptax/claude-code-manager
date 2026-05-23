@@ -5,6 +5,19 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
+   Agents — Search Row
+   The shared <SearchInput> (native <vscode-textfield>) must fill the row so the
+   trailing refresh icon-button sits flush at 32px. The element is width:100% but
+   needs flex-grow inside the shared `.search-row` flex container.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.panel > .search-row .vsc-search {
+  flex: 1;
+  min-width: 0;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
    Agents — Empty State
    ────────────────────────────────────────────────────────────────────────────── */
 

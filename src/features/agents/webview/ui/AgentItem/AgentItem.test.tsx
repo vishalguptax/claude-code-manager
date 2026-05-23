@@ -2,8 +2,8 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
-import type { Agent } from "../../types";
-import { AgentItem } from "../components/AgentItem";
+import type { Agent } from "../../../types";
+import { AgentItem } from "./AgentItem";
 
 function agent(overrides: Partial<Agent> = {}): Agent {
   return {

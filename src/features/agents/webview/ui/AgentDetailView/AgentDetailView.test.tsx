@@ -2,8 +2,8 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { h } from "preact";
 import { describe, expect, it, vi } from "vitest";
-import type { Agent } from "../../types";
-import { AgentDetailView } from "../views/AgentDetailView";
+import type { Agent } from "../../../types";
+import { AgentDetailView } from "./AgentDetailView";
 
 function agent(overrides: Partial<Agent> = {}): Agent {
   return {
@@ -59,9 +59,7 @@ describe("AgentDetailView", () => {
   it("fires onBack and onOpenFile", () => {
     const onBack = vi.fn();
     const onOpenFile = vi.fn();
-    const { container } = render(
-      h(AgentDetailView, { agent: agent(), onBack, onOpenFile }),
-    );
+    const { container } = render(h(AgentDetailView, { agent: agent(), onBack, onOpenFile }));
     fireEvent.click(container.querySelector(".back-btn") as Element);
     expect(onBack).toHaveBeenCalled();
     fireEvent.click(screen.getByText("Open File"));

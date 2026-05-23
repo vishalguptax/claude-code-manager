@@ -15,7 +15,7 @@ import {
   selectedAgent,
   setAgents,
   setError,
-} from "../signals";
+} from "./signals";
 
 function agent(overrides: Partial<Agent> = {}): Agent {
   return {

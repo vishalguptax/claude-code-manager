@@ -3,9 +3,9 @@
  * truncated description. Selection state is reflected via the shared
  * `ListItem` primitive.
  */
-import { ListItem } from "../../../../webview/shared/ui";
-import type { Agent } from "../../types";
-import { ModelBadge } from "./ModelBadge";
+import { ListItem } from "../../../../../webview/shared/ui";
+import type { Agent } from "../../../types";
+import { ModelBadge } from "../ModelBadge";
 
 /** Maximum description characters before truncation. */
 const DESC_MAX = 80;

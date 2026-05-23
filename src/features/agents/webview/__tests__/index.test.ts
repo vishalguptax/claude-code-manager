@@ -7,7 +7,7 @@ import { setVscodeApi } from "../../../../webview/shared/hooks";
 import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
 import type { Agent } from "../../types";
 import AgentsTab from "../index";
-import { resetAgentsState } from "../signals";
+import { resetAgentsState } from "../model";
 
 function agent(overrides: Partial<Agent> = {}): Agent {
   return {
@@ -60,7 +60,7 @@ describe("AgentsTab", () => {
   });
 
   it("navigates to detail on click and back again", () => {
-    render(h(AgentsTab, {}));
+    const { container } = render(h(AgentsTab, {}));
     act(() => dispatch({ type: "agents", data: [agent()] } as Message));
     fireEvent.click(screen.getByText("reviewer"));
     // Detail view shows the path and an Open File action.
@@ -68,8 +68,8 @@ describe("AgentsTab", () => {
     expect(screen.getByText("Open File")).toBeTruthy();
 
     fireEvent.click(screen.getByText("Back"));
-    // Back on the list: search bar present again.
-    expect(screen.getByPlaceholderText("Search agents...")).toBeTruthy();
+    // Back on the list: the search row (shared SearchInput) is present again.
+    expect(container.querySelector(".search-row vscode-textfield")).toBeTruthy();
   });
 
   it("posts openAgentFile from the detail view", () => {
