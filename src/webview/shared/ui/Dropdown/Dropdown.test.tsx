@@ -9,25 +9,26 @@ const OPTS: DropdownOption[] = [
 ];
 
 describe("Dropdown", () => {
-  it("registers and renders a vscode-single-select with one option per entry", () => {
+  it("renders a full-width trigger button showing the selected option's label and a chevron", () => {
     const { container } = render(
       <Dropdown value="a" options={OPTS} onChange={() => {}} ariaLabel="Pick" />,
     );
-    const select = container.querySelector('vscode-single-select[aria-label="Pick"]');
-    expect(select).toBeTruthy();
-    const opts = container.querySelectorAll("vscode-option");
-    expect(opts.length).toBe(2);
+    const trigger = container.querySelector(
+      '.vsc-dropdown-trigger[aria-label="Pick"]',
+    ) as HTMLButtonElement;
+    expect(trigger).toBeTruthy();
+    expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(container.querySelector(".vsc-dropdown-label")?.textContent).toBe("Alpha");
+    expect(container.querySelector('.vsc-dropdown-chevron [data-icon="chevron-down"]')).toBeTruthy();
   });
 
-  it("appends the marker to the option label", () => {
-    const { container } = render(<Dropdown value="a" options={OPTS} onChange={() => {}} />);
-    const labels = Array.from(container.querySelectorAll("vscode-option")).map((o) =>
-      o.textContent?.trim(),
-    );
-    expect(labels).toContain("Beta (current)");
+  it("appends the marker to the selected trigger label", () => {
+    const { container } = render(<Dropdown value="b" options={OPTS} onChange={() => {}} />);
+    expect(container.querySelector(".vsc-dropdown-label")?.textContent).toBe("Beta (current)");
   });
 
-  it("renders a leading icon when `icon` is given", () => {
+  it("renders a leading icon on the trigger when `icon` is given", () => {
     const { container } = render(
       <Dropdown value="a" options={OPTS} onChange={() => {}} icon="git-branch" />,
     );
@@ -39,33 +40,64 @@ describe("Dropdown", () => {
     expect(container.querySelector(".vsc-dropdown-leading")).toBeNull();
   });
 
-  it("bridges the element's native change event to onChange with the new value", () => {
-    const onChange = vi.fn();
-    const { container } = render(
-      <Dropdown value="a" options={OPTS} onChange={onChange} ariaLabel="Pick" />,
-    );
-    const select = container.querySelector(
-      'vscode-single-select[aria-label="Pick"]',
-    ) as HTMLElement;
-    // Simulate a real selection: the element resolves `value` to the chosen
-    // option before emitting `change`. We spy the existing accessor (rather
-    // than redefining the field, which would trip lit's class-field warning)
-    // since happy-dom does not run lit's reactive value cycle.
-    vi.spyOn(select as unknown as { value: string }, "value", "get").mockReturnValue("b");
-    fireEvent(select, new Event("change"));
-    expect(onChange).toHaveBeenCalledWith("b");
+  it("keeps the menu closed until the trigger is activated", () => {
+    const { container } = render(<Dropdown value="a" options={OPTS} onChange={() => {}} />);
+    expect(container.querySelector(".vsc-dropdown-menu")).toBeNull();
   });
 
-  it("does not call onChange when the element value matches the controlled value", () => {
-    const onChange = vi.fn();
+  it("opens the Menu on trigger click, listing one row per option with the selected one checked", () => {
     const { container } = render(
-      <Dropdown value="a" options={OPTS} onChange={onChange} ariaLabel="Pick" />,
+      <Dropdown value="a" options={OPTS} onChange={() => {}} ariaLabel="Pick" />,
     );
-    const select = container.querySelector(
-      'vscode-single-select[aria-label="Pick"]',
+    const trigger = container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement;
+    fireEvent.click(trigger);
+    const menu = container.querySelector(".vsc-dropdown-menu");
+    expect(menu).toBeTruthy();
+    const rows = menu?.querySelectorAll(".vsc-menu-item") ?? [];
+    expect(rows.length).toBe(2);
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    // Selected row ("Alpha") carries the check glyph; the other does not.
+    const checkRow = Array.from(rows).find((r) => r.querySelector('[data-icon="check"]'));
+    expect(checkRow?.textContent).toContain("Alpha");
+  });
+
+  it("renders the badge as a trailing hint and the marker in the option label", () => {
+    const { container } = render(<Dropdown value="a" options={OPTS} onChange={() => {}} />);
+    fireEvent.click(container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement);
+    const hints = Array.from(container.querySelectorAll(".vsc-menu-hint")).map((h) => h.textContent);
+    expect(hints).toContain("3");
+    const labels = Array.from(container.querySelectorAll(".vsc-menu-label")).map((l) => l.textContent);
+    expect(labels).toContain("Beta (current)");
+  });
+
+  it("calls onChange with the chosen value and closes the menu", () => {
+    const onChange = vi.fn();
+    const { container, getByText } = render(
+      <Dropdown value="a" options={OPTS} onChange={onChange} />,
+    );
+    fireEvent.click(container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement);
+    fireEvent.click(getByText("Beta (current)"));
+    expect(onChange).toHaveBeenCalledWith("b");
+    // Menu closes after a selection.
+    expect(container.querySelector(".vsc-dropdown-menu")).toBeNull();
+  });
+
+  it("does not call onChange when the already-selected option is chosen", () => {
+    const onChange = vi.fn();
+    const { container } = render(<Dropdown value="a" options={OPTS} onChange={onChange} />);
+    fireEvent.click(container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement);
+    // Scope to the menu row (the trigger label also reads "Alpha").
+    const alphaRow = Array.from(container.querySelectorAll(".vsc-menu-label")).find(
+      (l) => l.textContent === "Alpha",
     ) as HTMLElement;
-    vi.spyOn(select as unknown as { value: string }, "value", "get").mockReturnValue("a");
-    fireEvent(select, new Event("change"));
+    fireEvent.click(alphaRow);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("opens the menu via keyboard (ArrowDown / Enter / Space)", () => {
+    const { container } = render(<Dropdown value="a" options={OPTS} onChange={() => {}} />);
+    const trigger = container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement;
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    expect(container.querySelector(".vsc-dropdown-menu")).toBeTruthy();
   });
 });
