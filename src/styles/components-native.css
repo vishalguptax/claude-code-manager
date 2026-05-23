@@ -245,25 +245,42 @@
 .btn-primary {
   background: var(--vscode-button-background, var(--btn-bg));
   color: var(--vscode-button-foreground, var(--btn-fg));
+  /* Primary keeps a transparent 1px border so it lands on the SAME pixel row
+     as the bordered secondary buttons beside it (border-box sizing). */
+  border: 1px solid var(--vscode-button-border, transparent);
 }
 .btn-primary:hover {
   background: var(--vscode-button-hoverBackground, var(--btn-hover));
 }
 
+/* Secondary — in the sidebar, --vscode-button-secondaryBackground frequently
+   resolves to the panel background, so a fill-only button is invisible and
+   reads as plain text (the observed bug). Give it an explicit visible edge:
+   prefer the theme's button border, fall back to the high-contrast border, then
+   to the input border — every theme defines at least one. The fill stays the
+   native secondary background so it still reads as a button, not an outline-only
+   ghost. */
 .btn-secondary {
   background: var(--vscode-button-secondaryBackground, var(--btn-sec-bg));
   color: var(--vscode-button-secondaryForeground, var(--btn-sec-fg));
+  border: 1px solid
+    var(--vscode-button-border,
+      var(--vscode-contrastBorder,
+        var(--vscode-input-border, var(--border))));
 }
 .btn-secondary:hover {
   background: var(--vscode-button-secondaryHoverBackground, var(--btn-sec-hover));
+  border-color: var(--vscode-button-border, var(--vscode-contrastBorder, var(--vscode-input-border, var(--border))));
 }
 
 /* Danger — destructive accent. Aliased to the legacy `.btn.del` modifier so
-   `<Button class="del">` and `<Button variant="danger">` look identical. */
+   `<Button class="del">` and `<Button variant="danger">` look identical. The
+   transparent border keeps it on the same pixel row as bordered neighbours. */
 .btn-danger,
 .btn.del {
   background: none;
   color: var(--red);
+  border: 1px solid transparent;
 }
 .btn-danger:hover,
 .btn.del:hover {
@@ -271,13 +288,15 @@
   color: var(--red);
 }
 
-/* Icon — square, chromeless affordance for toolbars. */
+/* Icon — square, chromeless affordance for toolbars. Transparent border so its
+   border-box height equals the bordered controls in the same row. */
 .btn-icon {
   width: var(--h-control);
   padding: 0;
   justify-content: center;
   background: none;
   color: var(--fg-dim);
+  border: 1px solid transparent;
 }
 .btn-icon:hover {
   background: var(--bg-hover);
