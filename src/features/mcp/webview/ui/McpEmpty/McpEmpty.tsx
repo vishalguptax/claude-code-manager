@@ -1,7 +1,9 @@
 /**
  * Empty state shown when no MCP servers are configured at all. Explains where
- * config files live and offers a "browse community" link.
+ * config files live and offers a "browse community" link via the shared Button.
  */
+import { Button } from "../../../../../webview/shared/ui";
+
 export interface McpEmptyProps {
   onBrowse: () => void;
 }
@@ -20,9 +22,9 @@ export function McpEmpty({ onBrowse }: McpEmptyProps) {
         <br />
         Each server has a <code>command</code> (stdio) or <code>url</code> (http) transport.
       </div>
-      <button type="button" class="empty-link-btn" onClick={onBrowse}>
+      <Button variant="secondary" class="mcp-empty-link" onClick={onBrowse}>
         Browse MCP servers →
-      </button>
+      </Button>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { setVscodeApi } from "../../../../webview/shared/hooks";
 import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
 import type { McpServer } from "../../types";
-import { resetMcpSignals } from "../signals";
+import { resetMcpSignals } from "../model";
 import McpTab from "../index";
 
 function srv(p: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServer {

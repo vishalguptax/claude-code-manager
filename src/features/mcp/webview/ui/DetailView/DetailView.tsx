@@ -5,18 +5,10 @@
  * servers). Selecting "Back" clears the selection signal.
  */
 import { useState } from "preact/hooks";
-import { Icon } from "../../../../webview/shared/ui";
-import type { McpServer } from "../../types";
-import { ScopeBadge, TypeBadge } from "../components/McpBadges";
-
-/**
- * Mask a sensitive value, keeping the first 4 and last 4 characters. Values
- * of 8 characters or fewer are fully masked. Exported for unit testing.
- */
-export function maskSensitiveValue(value: string): string {
-  if (value.length <= 8) return "****";
-  return `${value.slice(0, 4)}****${value.slice(-4)}`;
-}
+import { Button } from "../../../../../webview/shared/ui";
+import { maskSensitiveValue } from "../../lib";
+import type { McpServer } from "../../../types";
+import { ScopeBadge, TypeBadge } from "../McpBadges";
 
 export interface DetailViewProps {
   server: McpServer;
@@ -36,9 +28,9 @@ export function DetailView(props: DetailViewProps) {
 
   return (
     <div class="panel">
-      <button type="button" class="back-btn" onClick={onBack}>
-        <Icon name="arrow-left" /> Back
-      </button>
+      <Button variant="secondary" class="back-btn" iconName="arrow-left" onClick={onBack}>
+        Back
+      </Button>
 
       <div class="mcp-detail-head">
         <div class="mcp-detail-title">{server.name}</div>
@@ -48,34 +40,36 @@ export function DetailView(props: DetailViewProps) {
 
       <div class="d-actions">
         {!isPlugin ? (
-          <button type="button" class="btn primary" onClick={() => onToggle(server)}>
-            <Icon name={server.disabled ? "play" : "x"} />{" "}
+          <Button
+            variant="primary"
+            iconName={server.disabled ? "play" : "x"}
+            onClick={() => onToggle(server)}
+          >
             {server.disabled ? "Enable" : "Disable"}
-          </button>
+          </Button>
         ) : null}
-        <button type="button" class="btn" onClick={onOpenClaude}>
-          <Icon name="play" /> Open Claude
-        </button>
-        <button
-          type="button"
-          class="btn"
+        <Button iconName="play" onClick={onOpenClaude}>
+          Open Claude
+        </Button>
+        <Button
+          iconName="copy"
           onClick={() => {
             onCopyName(server.name);
             setCopied(true);
             setTimeout(() => setCopied(false), 1000);
           }}
         >
-          <Icon name="copy" /> {copied ? "Copied!" : "Copy Name"}
-        </button>
+          {copied ? "Copied!" : "Copy Name"}
+        </Button>
         {!isPlugin ? (
-          <button type="button" class="btn" onClick={() => onOpenConfig(server)}>
-            <Icon name="external-link" /> Open Config
-          </button>
+          <Button iconName="external-link" onClick={() => onOpenConfig(server)}>
+            Open Config
+          </Button>
         ) : null}
         {!isPlugin ? (
-          <button type="button" class="btn del" onClick={() => onDelete(server)}>
-            <Icon name="trash-2" /> Delete
-          </button>
+          <Button variant="danger" iconName="trash-2" onClick={() => onDelete(server)}>
+            Delete
+          </Button>
         ) : (
           <span class="mcp-readonly-note">
             Owned by plugin {server.pluginName ?? ""} — managed by Claude Code's{" "}

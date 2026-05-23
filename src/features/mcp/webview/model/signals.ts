@@ -8,7 +8,7 @@
  * recompute filtering inline.
  */
 import { computed, signal } from "@preact/signals";
-import type { McpServer, McpServerScope } from "../types";
+import type { McpServer, McpServerScope } from "../../types";
 
 /** Scope filter value — "all" plus the three real scopes. */
 export type McpScopeFilter = "all" | McpServerScope;
@@ -69,13 +69,6 @@ export const filteredServers = computed<McpServer[]>(() => {
     return a.name.localeCompare(b.name);
   });
 });
-
-/** Group label for a server in the list view. */
-export function groupLabel(server: McpServer): string {
-  if (server.scope === "project") return "Project Servers";
-  if (server.scope === "plugin") return `Plugin: ${server.pluginName ?? "unknown"}`;
-  return "Global Servers";
-}
 
 /**
  * Replace the server list, clear loading, and reconcile the current

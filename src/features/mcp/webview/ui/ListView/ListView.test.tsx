@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render, screen } from "@testing-library/preact";
-import type { McpServer } from "../../types";
-import { applyServers, resetMcpSignals, searchQuery, selected } from "../signals";
-import { ListView, buildRows } from "../views/ListView";
+import type { McpServer } from "../../../types";
+import { applyServers, resetMcpSignals, searchQuery, selected } from "../../model";
+import { ListView } from "./ListView";
 
 function srv(p: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServer {
   return { type: "stdio", command: "node", ...p };
@@ -20,23 +20,6 @@ function props() {
 }
 
 afterEach(() => resetMcpSignals());
-
-describe("buildRows", () => {
-  it("interleaves a group-label row before each new scope group", () => {
-    const rows = buildRows([
-      srv({ name: "a", scope: "project" }),
-      srv({ name: "b", scope: "global" }),
-      srv({ name: "c", scope: "global" }),
-    ]);
-    expect(rows.map((r) => (r.kind === "label" ? `L:${r.label}` : `I:${r.server.name}`))).toEqual([
-      "L:Project Servers",
-      "I:a",
-      "L:Global Servers",
-      "I:b",
-      "I:c",
-    ]);
-  });
-});
 
 describe("ListView", () => {
   it("renders the full empty state when no servers exist", () => {
@@ -67,17 +50,28 @@ describe("ListView", () => {
     expect(p.onSelect).toHaveBeenCalledOnce();
   });
 
-  it("updating the search input narrows the visible list via the signal", () => {
-    applyServers([
-      srv({ name: "alpha", scope: "project" }),
-      srv({ name: "beta", scope: "global" }),
-    ]);
+  it("fires browse and refresh from the side actions", () => {
+    const p = props();
+    applyServers([srv({ name: "alpha", scope: "project" })]);
+    render(h(ListView, p));
+    fireEvent.click(screen.getByLabelText("Browse MCP servers"));
+    fireEvent.click(screen.getByLabelText("Refresh MCP servers"));
+    expect(p.onBrowse).toHaveBeenCalledOnce();
+    expect(p.onRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("filters the visible list by the scope filter", () => {
+    applyServers([srv({ name: "alpha", scope: "project" }), srv({ name: "beta", scope: "global" })]);
     render(h(ListView, props()));
-    fireEvent.input(screen.getByLabelText("Search MCP servers"), {
-      target: { value: "alp" },
-    });
-    expect(screen.getByText("alpha")).toBeTruthy();
-    expect(screen.queryByText("beta")).toBeNull();
+    fireEvent.click(screen.getByText("Global (1)"));
+    expect(screen.getByText("beta")).toBeTruthy();
+    expect(screen.queryByText("alpha")).toBeNull();
+  });
+
+  it("omits the plugin scope segment when no plugin servers exist", () => {
+    applyServers([srv({ name: "alpha", scope: "project" })]);
+    render(h(ListView, props()));
+    expect(screen.queryByText(/Plugin/)).toBeNull();
   });
 
   it("virtualizes when more than 50 servers are present", () => {
@@ -96,5 +90,26 @@ describe("ListView", () => {
     selected.value = target;
     const { container } = render(h(ListView, props()));
     expect(container.querySelector(".mcp-item.active")).toBeTruthy();
+  });
+});
+
+describe("ListView search", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    vi.useRealTimers();
+    resetMcpSignals();
+  });
+
+  it("writes the lowercased query to the signal after the debounce window", () => {
+    applyServers([srv({ name: "alpha", scope: "project" }), srv({ name: "beta", scope: "global" })]);
+    const { container } = render(h(ListView, props()));
+    const field = container.querySelector("vscode-textfield") as HTMLElement;
+    vi.spyOn(field as unknown as { value: string }, "value", "get").mockReturnValue("ALP");
+    fireEvent(field, new Event("input"));
+    // Within the debounce window the signal has not been written yet.
+    expect(searchQuery.value).toBe("");
+    vi.advanceTimersByTime(200);
+    // The filter signal is lowercased so search is case-insensitive.
+    expect(searchQuery.value).toBe("alp");
   });
 });

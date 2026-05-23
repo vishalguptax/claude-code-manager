@@ -10,16 +10,9 @@ import { registerFeatureHandler } from "../../../webview/shared/model";
 import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { McpServer } from "../types";
 import { createMcpApi } from "./api";
-import { applyError, applyServers, errorMessage, loading, selected, servers } from "./signals";
-import { DetailView } from "./views/DetailView";
-import { ListView } from "./views/ListView";
-
-/**
- * Default community MCP directory. The v1 host could override this from
- * settings, but that plumbing lives in the sessions monolith; until F3
- * rewires it, the tab opens the default directory.
- */
-const MCP_BROWSE_URL = "https://mcp.so";
+import { MCP_BROWSE_URL } from "./lib";
+import { applyError, applyServers, errorMessage, loading, selected, servers } from "./model";
+import { DetailView, ListView } from "./ui";
 
 /** Copy text to the clipboard, ignoring environments without the API. */
 function copyToClipboard(text: string): void {
