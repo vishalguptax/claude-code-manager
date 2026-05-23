@@ -75,6 +75,7 @@ export function ListView() {
           }}
         />
         <Button
+          variant="icon"
           class="search-side-btn"
           iconName="plus"
           title="Add a new hook"
@@ -82,6 +83,7 @@ export function ListView() {
           onClick={() => api.promptAddHook(send)}
         />
         <Button
+          variant="icon"
           class="search-side-btn"
           iconName="refresh-cw"
           title="Refresh hooks"

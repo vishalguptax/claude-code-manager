@@ -53,6 +53,15 @@ describe("ListView", () => {
     expect(post).toHaveBeenCalledWith({ type: "promptAddHook" });
   });
 
+  it("renders the add/refresh side actions as chromeless icon buttons", () => {
+    // Design-system parity: every tab's search-row side actions use the
+    // chromeless `btn-icon` variant. Hooks previously omitted variant="icon",
+    // rendering bordered secondary boxes — guard against that regressing.
+    render(h(ListView, {}));
+    expect(screen.getByLabelText("Refresh hooks").classList.contains("btn-icon")).toBe(true);
+    expect(screen.getByLabelText("Add a new hook").classList.contains("btn-icon")).toBe(true);
+  });
+
   it("filters by the debounced search query", async () => {
     setHooks([
       hook({ command: "alpha", matcher: "Write" }),
