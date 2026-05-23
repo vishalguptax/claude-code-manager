@@ -46,7 +46,7 @@ export interface SessionItemProps {
   onSelect: (id: string) => void;
   onResume: (id: string) => void;
   onToggleSelect: (id: string, range: boolean) => void;
-  /** Open the row's action menu at the given viewport point (right-click or ⋯ button). */
+  /** Open the row's action menu at the given viewport point (right-click). */
   onContextMenu: (id: string, x: number, y: number) => void;
 }
 
@@ -126,21 +126,6 @@ export function SessionItem({
               onResume(session.id);
             }}
           />
-          <button
-            type="button"
-            class="item-menu-btn"
-            title="Session actions"
-            aria-haspopup="menu"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Anchor the menu to the button's bottom-left so it drops beneath
-              // the trigger; the menu self-corrects if it would overflow.
-              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-              onContextMenu(session.id, r.left, r.bottom);
-            }}
-          >
-            <Icon name="more-vertical" size={16} />
-          </button>
         </div>
       )}
 

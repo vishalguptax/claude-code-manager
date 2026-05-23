@@ -135,21 +135,19 @@ describe("SessionItem", () => {
     expect(container.querySelector(".item-resume")).toBeNull();
   });
 
-  it("opens the action menu from the ⋯ trigger without selecting the row", () => {
+  it("opens the action menu on right-click at the cursor without selecting the row", () => {
     const onSelect = vi.fn();
     const onContextMenu = vi.fn();
     const { container } = renderItem(session({ id: "a" }), { onSelect, onContextMenu });
-    fireEvent.click(container.querySelector(".item-menu-btn") as Element);
-    expect(onContextMenu).toHaveBeenCalledWith("a", expect.any(Number), expect.any(Number));
-    expect(onSelect).not.toHaveBeenCalled();
-  });
-
-  it("opens the action menu on right-click at the cursor", () => {
-    const onContextMenu = vi.fn();
-    const { container } = renderItem(session({ id: "a" }), { onContextMenu });
     const row = container.querySelector(".session-item") as Element;
     fireEvent.contextMenu(row, { clientX: 40, clientY: 80 });
     expect(onContextMenu).toHaveBeenCalledWith("a", 40, 80);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("does not render a ⋯ overflow trigger — right-click is the single menu path", () => {
+    const { container } = renderItem(session({ id: "a" }));
+    expect(container.querySelector(".item-menu-btn")).toBeNull();
   });
 
   it("suppresses right-click menu in bulk mode", () => {
@@ -157,10 +155,5 @@ describe("SessionItem", () => {
     const { container } = renderItem(session({ id: "a" }), { bulkMode: true, onContextMenu });
     fireEvent.contextMenu(container.querySelector(".session-item") as Element);
     expect(onContextMenu).not.toHaveBeenCalled();
-  });
-
-  it("hides the ⋯ trigger in bulk mode", () => {
-    const { container } = renderItem(session({ id: "a" }), { bulkMode: true });
-    expect(container.querySelector(".item-menu-btn")).toBeNull();
   });
 });

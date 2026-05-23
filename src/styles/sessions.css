@@ -48,13 +48,15 @@
   outline-offset: -1px;
 }
 /* Reserve room on the right for the absolutely-positioned action cluster
-   (resume + ⋯, two 32px hit targets) so the name / relative-time in row1 and
-   the prompt subtitle never sit UNDERNEATH the buttons. The cluster is pinned
-   at right: var(--space-lg); 72px clears both buttons plus their gap. This is
-   the v1 non-overlapping behaviour — the actions occupy dedicated space rather
-   than floating over the text. */
+   (just the Resume affordance, a single 32px hit target) so the name /
+   relative-time in row1 and the prompt subtitle never sit UNDERNEATH it. The
+   cluster is pinned at right: var(--space-lg) (10px); 46px clears the 32px
+   button plus its inset with a hair of breathing room. This is the v1
+   non-overlapping behaviour — the action occupies dedicated space rather than
+   floating over the text. Narrower than the old 72px now that the redundant ⋯
+   overflow trigger is gone, so text reclaims the freed space. */
 .session-item {
-  padding-right: 72px;
+  padding-right: 46px;
 }
 
 /* Selected row indicator — left border accent + subtle background.
@@ -219,10 +221,11 @@
 .item.active .item-name      { color: var(--bg-active-fg); }
 
 /*
- * Hover-revealed row actions: resume + the ⋯ action-menu trigger. The cluster
- * is pinned to the right edge of the row; resume only appears on hover (or when
- * the menu trigger is focused), the menu trigger is always interactive but
- * fades in on hover/focus so the row stays calm at rest.
+ * Hover-revealed row action: the Resume affordance. The cluster is pinned to
+ * the right edge of the row; Resume only appears on hover (or when focused via
+ * keyboard) so the row stays calm at rest, mirroring v1. The redundant ⋯
+ * overflow trigger was removed — the right-click context menu is the single
+ * action-menu path now.
  */
 .item-actions {
   position: absolute;
@@ -234,37 +237,17 @@
   gap: var(--space-xs);
 }
 
-.item-resume,
-.item-menu-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  border-radius: var(--radius-lg);
-  padding: 0;
-  margin: 0;
-}
+/* Resume is a shared icon <Button>, so the chromeless `.btn-icon` look (native
+   ghost + toolbar hover/active fill) applies. Here we only own the row-level
+   reveal-on-hover and the play-green tint; the hover/active/focus affordance
+   comes from `.btn-icon` in components-native.css so it matches every other
+   toolbar icon button. */
 .item-resume {
   color: var(--green);
   visibility: hidden;
 }
-.item-menu-btn {
-  color: var(--fg-muted);
-  opacity: 0;
-  transition: opacity var(--transition-control), background var(--transition-control), color var(--transition-control);
-}
-.item-resume { transition: background var(--transition-control); }
 .session-item:hover .item-resume { visibility: visible; }
-.session-item:hover .item-menu-btn,
-.item-menu-btn:focus-visible { opacity: 1; }
-.item-resume:hover           { background: var(--green-bg); }
-.item-resume:focus-visible   { opacity: 1; visibility: visible; outline: var(--focus-ring); outline-offset: -1px; }
-.item-menu-btn:hover         { background: var(--bg-hover); color: var(--fg); }
-.item-menu-btn:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
+.item-resume:focus-visible       { visibility: visible; }
 
 .item-time {
   font-size: var(--fs-sm);
