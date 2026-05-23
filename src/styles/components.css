@@ -15,7 +15,10 @@
   justify-content: center;
   text-align: center;
   gap: var(--space-sm);
-  padding: 40px var(--space-2xl);
+  /* Centered empty state: one shared vertical breathing value (28px =
+     2×--space-2xl) across .empty / .empty-state / .state-empty / .loading so
+     every "no content" surface sits at the same rhythm with the standard inset. */
+  padding: calc(var(--space-2xl) * 2) var(--space-2xl);
   color: var(--fg-muted);
   font-size: var(--fs-base);
 }
@@ -47,7 +50,7 @@
   color: var(--fg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: var(--space-xl);
   min-width: 320px;
   max-width: 80vw;
   box-shadow: 0 8px 32px var(--shadow);
@@ -55,7 +58,7 @@
 .modal-title {
   font-size: var(--fs-lg);
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-xl);
 }
 
 /* Base box for the primary/secondary variants; role colours + borders are
@@ -69,7 +72,7 @@
 }
 
 .list-item {
-  padding: 8px var(--space-xl);
+  padding: var(--space-md) var(--space-xl);
   cursor: pointer;
   border-radius: var(--radius);
   /* Subtle, native hover fade — VS Code rows ease their highlight in
@@ -94,7 +97,7 @@
 .list-count {
   font-size: var(--fs-sm);
   color: var(--fg-muted);
-  padding: var(--space-xs) var(--space-2xl) 2px;
+  padding: var(--space-xs) var(--space-2xl) var(--space-xs);
 }
 
 
@@ -125,7 +128,7 @@
      its natural content (orphaned-row case) the contents stay balanced
      instead of left-aligning into empty space. */
   justify-content: center;
-  gap: 5px;
+  gap: var(--space-sm);
   height: var(--h-control);
   padding: 0 var(--pad-control-x);
   background: var(--bg-hover);
@@ -140,7 +143,7 @@
 }
 .action-btn:hover         { color: var(--fg); background: var(--input-bg); }
 .action-btn:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
-.action-btn.icon-only     { padding: 5px 7px; margin-left: auto; }
+.action-btn.icon-only     { padding: var(--space-xs) var(--space-sm); margin-left: auto; }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -230,7 +233,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
+  padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-sm);
   font-size: var(--fs-md);
   color: var(--fg);
@@ -261,8 +264,8 @@
  */
 .dropdown-tag {
   display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
+  margin-left: var(--space-sm);
+  padding: 1px var(--space-sm);
   border-radius: 8px;
   background: rgba(128, 128, 128, 0.18);
   color: var(--fg-muted);
@@ -290,7 +293,10 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .scope-filter {
-  margin: var(--space-xs) var(--space-2xl) 0;
+  /* Same --space-sm vertical rhythm as the sibling control rows (search-row /
+     filter-row / date-chips / list-header) so the scope segmented sits on the
+     unified control-row spacing on every feature tab. */
+  margin: var(--space-sm) var(--space-2xl) 0;
   flex-shrink: 0;
 }
 
@@ -319,7 +325,7 @@
   font-family: var(--mono);
   background: rgba(128, 128, 128, 0.18);
   color: var(--fg);
-  padding: 0 6px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);
   max-width: 120px;
   overflow: hidden;
@@ -357,7 +363,7 @@
   text-overflow: ellipsis;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-sm);
   /* Subtle native hover/active fade on colour + fill. Global
      reduced-motion rule neutralises it for users who opt out. */
   transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
@@ -413,7 +419,7 @@
 .ctx-sep {
   height: 1px;
   background: var(--border);
-  margin: 2px var(--space-lg);
+  margin: var(--space-xs) var(--space-lg);
 }
 
 
@@ -505,7 +511,7 @@
   border-bottom-color: var(--accent);
   font-weight: 600;
   width: auto;
-  padding: 0 10px;
+  padding: 0 var(--space-lg);
 }
 .tab-icon {
   display: flex;
@@ -747,7 +753,7 @@
 /* Compact variant for inline toggles (smaller font + padding) */
 .vs-segmented.vs-segmented--sm .vs-segmented-btn {
   height: calc(var(--h-control-sm) - 6px);
-  padding: 0 8px;
+  padding: 0 var(--space-md);
   font-size: var(--fs-xs);
 }
 
@@ -818,7 +824,7 @@
 .vs-select-leading {
   display: inline-flex;
   align-items: center;
-  margin-right: 6px;
+  margin-right: var(--space-sm);
   color: var(--fg-muted);
   pointer-events: none;
   flex-shrink: 0;
@@ -840,7 +846,7 @@
   box-shadow: var(--shadow, 0 2px 8px rgba(0, 0, 0, 0.2));
   max-height: 280px;
   overflow-y: auto;
-  padding: 2px;
+  padding: var(--space-xs);
 }
 
 .vs-select-option {
@@ -848,7 +854,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
-  padding: 6px 10px;
+  padding: var(--space-sm) var(--space-lg);
   border-radius: var(--radius-sm);
   cursor: pointer;
   outline: none;

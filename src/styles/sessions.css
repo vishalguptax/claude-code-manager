@@ -14,7 +14,11 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-section);
-  padding: var(--space-xl) var(--space-2xl) var(--space-sm);
+  /* Section-header rhythm: --space-lg above (matches the account/config
+     .acct-section-header top inset) and --space-sm below to the first row.
+     Shared by every list group-label (sessions/commands/hooks/mcp/agents) so
+     the uppercase group titles sit on one cross-tab rhythm. */
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
 }
 
 /*
@@ -96,7 +100,7 @@
   margin-right: var(--space-xs);
 }
 .list-header .bulk-btn {
-  padding: 4px 10px;
+  padding: var(--space-xs) var(--space-lg);
   font-size: var(--fs-sm);
   flex: 0 0 auto;
   white-space: nowrap;
@@ -104,11 +108,11 @@
 .list-count-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   background: transparent;
   border: 1px solid var(--border);
   color: var(--fg-muted);
-  padding: 2px 8px;
+  padding: 2px var(--space-md);
   border-radius: var(--radius-sm);
   font-size: var(--fs-xs);
   font-family: inherit;
@@ -120,11 +124,11 @@
 .bulk-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--bg-active-fg) 35%, transparent);
   color: var(--bg-active-fg);
-  padding: 2px 8px;
+  padding: 2px var(--space-md);
   border-radius: var(--radius-sm);
   font-size: var(--fs-xs);
   font-family: inherit;
@@ -227,7 +231,7 @@
   transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-xs);
 }
 
 .item-resume,
@@ -327,7 +331,7 @@
 .item.active .item-proj      { color: var(--bg-active-fg); opacity: 0.7; }
 
 .show-more-row {
-  padding: var(--space-xl) var(--space-2xl) 20px;
+  padding: var(--space-xl) var(--space-2xl);
 }
 .show-more-btn {
   width: 100%;
@@ -352,7 +356,7 @@
 .back-btn {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-sm);
   background: none;
   border: none;
   color: var(--fg-dim);
@@ -393,7 +397,7 @@
 }
 .d-tags {
   display: flex;
-  gap: 5px;
+  gap: var(--space-sm);
   margin-bottom: var(--space-sm);
   flex-wrap: wrap;
 }
@@ -407,7 +411,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   margin-top: var(--space-xs);
@@ -416,8 +420,8 @@
 .d-meta-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 7px;
+  gap: var(--space-xs);
+  padding: 1px var(--space-sm);
   border-radius: 10px;
   background: rgba(128, 128, 128, 0.15);
   color: var(--fg-dim);
@@ -617,14 +621,14 @@
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-xs);
   pointer-events: none; /* default — only the clear button re-enables */
 }
 .d-msg-search-count {
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
-  padding: 0 4px;
+  padding: 0 var(--space-xs);
 }
 .d-msg-search-clear {
   width: 22px;
@@ -678,7 +682,7 @@
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--fg-muted);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 .d-msg-user .d-msg-role { color: var(--accent); }
 .d-msg-content {
@@ -700,13 +704,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 .d-msg-head .d-msg-role { margin-bottom: 0; flex: 1; }
 
 .d-msg-actions {
   display: inline-flex;
-  gap: 2px;
+  gap: var(--space-xs);
   opacity: 0;
   transition: opacity var(--transition-control);
 }
@@ -752,15 +756,15 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-xs);
 }
 .d-msg-tool {
   display: flex;
-  gap: 8px;
+  gap: var(--space-md);
   align-items: baseline;
   font-size: var(--fs-sm);
   line-height: 1.45;
-  padding: 2px 0;
+  padding: var(--space-xs) 0;
 }
 .d-msg-tool-name {
   flex: 0 0 auto;
@@ -790,13 +794,13 @@
   cursor: pointer;
   color: var(--fg-muted);
   list-style: revert;
-  padding: 2px 0;
+  padding: var(--space-xs) 0;
   user-select: none;
 }
 .d-msg-thinking > summary:hover { color: var(--fg-dim); }
 .d-msg-thinking[open] > summary { color: var(--fg-dim); }
 .d-msg-thinking-body {
-  margin-top: 4px;
+  margin-top: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   border-left: 2px solid var(--border);
   color: var(--fg-muted);
@@ -814,7 +818,7 @@
  * often scan down the thread to compare.
  */
 .d-msg-usage {
-  margin-top: 6px;
+  margin-top: var(--space-sm);
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;

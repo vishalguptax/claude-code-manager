@@ -122,7 +122,10 @@ body {
    label. */
 .loading {
   text-align: center;
-  padding: 24px;
+  /* Shared centered-state vertical inset (28px = 2×--space-2xl), matching
+     .empty / .empty-state / .state-empty so every "no content" / "loading"
+     surface sits at one rhythm. */
+  padding: calc(var(--space-2xl) * 2) var(--space-2xl);
   font-size: var(--fs-base);
   color: var(--fg-dim);
   animation: loading-pulse 1.4s ease-in-out infinite;
@@ -134,7 +137,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .loading { animation: none; }
 }
-.empty   { text-align: center; padding: 28px var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
+.empty   { text-align: center; padding: calc(var(--space-2xl) * 2) var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
 
 /* Initial-paint loader for tab containers — shows immediately while
    the host parses data so users see activity instead of an empty
@@ -219,7 +222,7 @@ body {
   margin-top: var(--space-sm);
   background: none;
   border: none;
-  padding: 4px 8px;
+  padding: var(--space-xs) var(--space-md);
   color: var(--link, var(--accent));
   font-size: var(--fs-base);
   font-family: inherit;
@@ -237,7 +240,8 @@ body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 40px var(--space-2xl);
+  /* Shared centered-state inset — see .loading / .empty-state. */
+  padding: calc(var(--space-2xl) * 2) var(--space-2xl);
   gap: var(--space-sm);
 }
 .state-empty-icon {

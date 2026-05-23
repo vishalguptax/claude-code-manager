@@ -155,7 +155,7 @@
 .acct-plan-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius);
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -342,10 +342,10 @@
    + resize so the right edge is always in view by default. */
 .acct-heatmap-wrap {
   overflow-x: auto;
-  margin: var(--space-md) 0 var(--space-md);
+  margin: var(--space-md) 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle, rgba(127,127,127,0.3)) transparent;
-  padding-bottom: 4px;
+  padding-bottom: var(--space-xs);
 }
 .acct-heatmap-wrap::-webkit-scrollbar { height: 6px; }
 .acct-heatmap-wrap::-webkit-scrollbar-track { background: transparent; }
@@ -535,7 +535,7 @@
   display: block;
   font-size: var(--fs-sm);
   color: var(--fg-dim);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 
 /*
@@ -668,10 +668,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 6px 8px;
+  padding: var(--space-sm) var(--space-md);
   background: var(--bg-hover);
   border-radius: var(--radius-sm);
-  margin-bottom: 3px;
+  margin-bottom: var(--space-xs);
 }
 
 .acct-perm-name {
@@ -713,7 +713,7 @@
   font-size: var(--fs-md);
   font-weight: 600;
   color: var(--fg);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 
 .acct-empty-hint {
@@ -726,7 +726,7 @@
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   font-style: italic;
-  padding: 4px 0;
+  padding: var(--space-xs) 0;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -746,7 +746,7 @@
  * the dropdown options themselves to be multi-line.
  */
 .acct-field-hint {
-  margin-top: 4px;
+  margin-top: var(--space-xs);
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   line-height: 1.4;
@@ -768,7 +768,7 @@
 .cfg-effort-row .vs-segmented-btn {
   flex: 1 1 auto;
   min-width: 48px;
-  padding: 4px 6px;
+  padding: var(--space-xs) var(--space-sm);
   font-size: var(--fs-xs);
 }
 
@@ -779,17 +779,17 @@
 .cfg-radio-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-xs);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 4px;
+  padding: var(--space-xs);
   background: var(--bg);
 }
 .cfg-radio {
   display: flex;
   align-items: flex-start;
   gap: var(--space-sm);
-  padding: 6px 8px;
+  padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 120ms ease;
@@ -823,7 +823,7 @@
 .acct-section-body p code,
 .acct-section-body code:not(.acct-code) {
   display: inline-block;
-  padding: 0 6px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);
   background: var(--bg-hover);
   color: var(--fg);
@@ -858,7 +858,7 @@
 .acct-quota-intro-text code {
   font-family: var(--font-mono, monospace);
   background: var(--bg-hover);
-  padding: 1px 6px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   font-size: 0.92em;
   color: var(--fg);
@@ -873,7 +873,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-lg);
   min-height: 120px;
   color: var(--fg-muted);
   font-size: var(--fs-sm);
@@ -905,7 +905,7 @@
 .acct-quota-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 .acct-quota-row-head {
   display: flex;
@@ -1037,7 +1037,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 4px 0;
+  padding: var(--space-xs) 0;
   margin-bottom: 0;
   min-width: 0;
 }
@@ -1069,7 +1069,7 @@
   grid-template-columns: minmax(80px, 1.4fr) minmax(0, 2fr) auto;
   align-items: center;
   gap: var(--space-sm);
-  padding: 3px 0;
+  padding: var(--space-xs) 0;
   margin-bottom: 0;
 }
 .acct-toolbar-label {

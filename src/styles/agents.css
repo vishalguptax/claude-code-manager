@@ -47,7 +47,7 @@
   font-size: var(--fs-sm);
   background: var(--badge-bg);
   color: var(--badge-fg);
-  padding: 1px 5px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
 }
 
@@ -110,7 +110,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 1px 6px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   flex-shrink: 0;
   height: 18px;
@@ -210,7 +210,8 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-section);
-  padding: var(--space-xl) var(--space-2xl) var(--space-sm);
+  /* Unified section-header rhythm — see .group-label (sessions.css). */
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
 }
 
 /* Fixed-height wrapper for windowed rows. The 56px value is mirrored by
@@ -225,7 +226,7 @@
 .panel > .back-btn {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-sm);
   background: none;
   border: none;
   color: var(--fg-dim);

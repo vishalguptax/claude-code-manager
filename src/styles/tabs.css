@@ -12,10 +12,10 @@
   background: transparent;
   border: none;
   color: var(--fg-dim);
-  padding: 8px 12px;
+  padding: var(--space-md) var(--space-xl);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
   cursor: pointer;
   font-size: var(--fs-base);
   border-bottom: 2px solid transparent;

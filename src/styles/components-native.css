@@ -29,7 +29,7 @@
      narrow sidebar (a long menu row would otherwise force overflow). */
   max-width: calc(100vw - 16px);
   /* VS Code's menu uses ~4px top/bottom padding around the item list. */
-  padding: 4px 0;
+  padding: var(--space-xs) 0;
   background: var(--vscode-menu-background, var(--menu-bg));
   color: var(--vscode-menu-foreground, var(--menu-fg));
   border: 1px solid var(--vscode-menu-border, var(--menu-border));
@@ -44,9 +44,10 @@
   align-items: center;
   /* 6px vertical / 22px horizontal — the native menu row metrics. The label
      gutter (icon) is fixed-width so labels line up whether or not a row has an
-     icon, exactly like the editor context menu. */
-  padding: 6px 22px;
-  gap: 8px;
+     icon, exactly like the editor context menu. 22px is the native horizontal
+     gutter (no scale token at that step); the vertical pad rides --space-sm. */
+  padding: var(--space-sm) 22px;
+  gap: var(--space-md);
   font-size: var(--fs-md);
   line-height: 1.2;
   color: var(--vscode-menu-foreground, var(--menu-fg));
@@ -122,7 +123,7 @@
 .vsc-menu-sep,
 .ctx-menu .ctx-sep {
   height: 1px;
-  margin: 4px 0;
+  margin: var(--space-xs) 0;
   background: var(--vscode-menu-separatorBackground, var(--border));
 }
 
@@ -191,7 +192,7 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin: 0 3px;
+  margin: 0 var(--space-xs);
   padding: 0;
   background: none;
   border: none;
@@ -305,7 +306,7 @@
   font-size: var(--fs-xs);
   font-weight: 500;
   line-height: 1.4;
-  padding: 1px 6px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   white-space: nowrap;
   max-width: 16ch;

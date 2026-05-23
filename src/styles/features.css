@@ -37,7 +37,7 @@
   font-size: var(--fs-sm);
   background: var(--badge-bg);
   color: var(--badge-fg);
-  padding: 1px 5px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
 }
 
@@ -55,7 +55,8 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-section);
-  padding: var(--space-xl) var(--space-2xl) var(--space-sm);
+  /* Unified section-header rhythm — see .group-label (sessions.css). */
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -252,7 +253,7 @@
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   background: var(--badge-bg);
-  padding: 1px 6px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -261,7 +262,7 @@
 .hook-item-actions {
   margin-left: auto;
   display: inline-flex;
-  gap: 2px;
+  gap: var(--space-xs);
   opacity: 0;
   transition: opacity var(--transition-control);
 }
@@ -301,7 +302,7 @@
   font-family: var(--mono);
   background: var(--badge-bg);
   color: var(--badge-fg);
-  padding: 1px 6px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   height: 18px;
 }
@@ -321,7 +322,7 @@
   font-size: var(--fs-sm);
   color: var(--fg);
   background: var(--input-bg);
-  padding: 2px 6px;
+  padding: 2px var(--space-sm);
   border-radius: var(--radius-sm);
 }
 
