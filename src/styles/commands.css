@@ -1,13 +1,17 @@
 /*
- * Feature: commands — styles owned by the F2 commands session.
+ * Feature: commands — styles owned by the commands feature.
  *
- * Shared command styles (cmd-item, cmd-detail-*, the global/project/builtin
- * scope badges) are defined in the legacy aggregate features.css and reused
- * by the Preact components, which deliberately keep the same class names so
- * there is no visual regression during the migration. This file holds only
- * the styling the Preact migration newly introduced:
- *   - the plugin scope badge (legacy code never reached this branch)
- *   - a spacing modifier that replaces an inline style removed during the port
+ * The shared component library now supplies the search field (.vsc-search*),
+ * scope filter (.scope-filter/.scope-btn), buttons (.btn*), and scope badge
+ * base (.vsc-badge*) — those rules live in components.css / components-native.css
+ * and are NOT duplicated here. The list/detail layout classes (cmd-item,
+ * cmd-detail-*, cmd-group-label) and the global/project/builtin scope-colour
+ * tags still live in the legacy aggregate features.css and are reused by the
+ * FSD ui/ components under the same class names, so they are not re-declared
+ * here to avoid duplication. This file holds only the command-specific styling
+ * that has no home in either shared layer:
+ *   - the plugin scope badge colour (the only scope colour features.css omits)
+ *   - a spacing modifier replacing an inline style removed during the port
  */
 
 .cmd-scope-plugin {

@@ -11,9 +11,8 @@ import { registerFeatureHandler } from "../../../webview/shared/model";
 import { Loading } from "../../../webview/shared/ui";
 import type { Command } from "../types";
 import { getCommandsMsg, type Post } from "./api";
-import { claudeCodeInstalled, commands, errorMessage, loading, selected } from "./signals";
-import { CommandDetailView } from "./views/CommandDetailView";
-import { CommandsListView } from "./views/CommandsListView";
+import { claudeCodeInstalled, commands, errorMessage, loading, selected } from "./model";
+import { CommandDetailView, CommandsListView } from "./ui";
 
 /** Apply an inbound, already-validated host message to feature signals. */
 export function handleCommandsMessage(msg: Message): void {

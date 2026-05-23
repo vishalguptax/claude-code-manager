@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Command } from "../../types";
+import type { Command } from "../../../types";
 import {
   claudeCodeInstalled,
   commands,

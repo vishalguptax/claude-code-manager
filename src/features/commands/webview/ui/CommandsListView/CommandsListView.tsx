@@ -1,17 +1,14 @@
 /**
- * Commands list view. Renders the search row, scope filter, and the
- * scope-grouped command rows. When the flattened row count exceeds the
+ * Commands list view. Renders the shared search field and scope filter, then
+ * the scope-grouped command rows. When the flattened row count exceeds the
  * virtualization threshold the rows are windowed with <VirtualList />.
  */
-import { useEffect, useMemo, useState } from "preact/hooks";
-import { VirtualList } from "../../../../webview/shared/ui";
-import { useApi } from "../../../../webview/shared/hooks";
-import { useDebounce } from "../../../../webview/shared/hooks";
-import type { Command } from "../../types";
-import { getCommandsMsg, launchCommandInChatMsg, type Post } from "../api";
-import { CommandItem } from "../components/CommandItem";
-import { CommandSearch } from "../components/CommandSearch";
-import { ScopeFilter } from "../components/ScopeFilter";
+import { useMemo } from "preact/hooks";
+import { Button, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
+import { useApi } from "../../../../../webview/shared/hooks";
+import type { Command } from "../../../types";
+import { getCommandsMsg, launchCommandInChatMsg, type Post } from "../../api";
+import { buildRows, copyCommand, type Row } from "../../lib";
 import {
   type ScopeFilter as ScopeFilterValue,
   claudeCodeInstalled,
@@ -21,55 +18,17 @@ import {
   scopeFilter,
   searchQuery,
   selected,
-} from "../signals";
+} from "../../model";
+import { CommandItem } from "../CommandItem";
 
 /** Above this flattened row count, the list is windowed for scroll perf. */
 const VIRTUALIZE_THRESHOLD = 50;
 /** Fixed row height (px) shared by header and item rows for virtualization. */
 const ROW_HEIGHT = 56;
 
-/** A row in the flattened, group-labelled list. */
-type Row = { kind: "header"; label: string } | { kind: "item"; command: Command };
-
-/** Human-readable group label for a command's scope. */
-function groupLabel(command: Command): string {
-  if (command.scope === "builtin") return "Built-in";
-  if (command.scope === "project") return "Project Commands";
-  if (command.scope === "plugin") return `Plugin: ${command.pluginName ?? "unknown"}`;
-  return "Global Commands";
-}
-
-/** Flatten the sorted command list into header + item rows, grouped by scope. */
-function buildRows(list: Command[]): Row[] {
-  const rows: Row[] = [];
-  let lastLabel: string | null = null;
-  for (const command of list) {
-    const label = groupLabel(command);
-    if (label !== lastLabel) {
-      rows.push({ kind: "header", label });
-      lastLabel = label;
-    }
-    rows.push({ kind: "item", command });
-  }
-  return rows;
-}
-
-/** Copy a slash command to the clipboard. */
-function copyCommand(command: Command): void {
-  navigator.clipboard?.writeText(`/${command.name}`);
-}
-
 export function CommandsListView() {
   const { post } = useApi();
   const send = post as Post;
-
-  // Search is debounced locally before it touches the shared signal so typing
-  // does not thrash the computed filter on every keystroke.
-  const [draftQuery, setDraftQuery] = useState(searchQuery.value);
-  const debouncedQuery = useDebounce(draftQuery, 150);
-  useEffect(() => {
-    searchQuery.value = debouncedQuery.toLowerCase();
-  }, [debouncedQuery]);
 
   const filtered = filteredCommands.value;
   const total = commands.value.length;
@@ -80,10 +39,23 @@ export function CommandsListView() {
     selected.value = command;
   };
   const onLaunchChat = (command: Command): void => send(launchCommandInChatMsg(command.name));
-  const clearSearch = (): void => {
-    setDraftQuery("");
-    searchQuery.value = "";
+
+  // The shared <SearchInput> debounces internally; it emits the resolved query
+  // which we lowercase into the shared signal that drives `filteredCommands`.
+  const onSearch = (value: string): void => {
+    searchQuery.value = value.toLowerCase();
   };
+
+  const scopeOptions: { value: ScopeFilterValue; label: string; count: number }[] = [
+    { value: "all", label: "All", count: total },
+    { value: "builtin", label: "Built-in", count: countByScope("builtin") },
+    { value: "project", label: "Project", count: countByScope("project") },
+    { value: "global", label: "Global", count: countByScope("global") },
+  ];
+  const pluginCount = countByScope("plugin");
+  if (pluginCount > 0) {
+    scopeOptions.push({ value: "plugin", label: "Plugin", count: pluginCount });
+  }
 
   const renderItem = (row: Row): preact.JSX.Element => {
     if (row.kind === "header") {
@@ -111,21 +83,27 @@ export function CommandsListView() {
 
   return (
     <div class="panel">
-      <CommandSearch
-        query={draftQuery}
-        onQueryChange={setDraftQuery}
-        onClear={clearSearch}
-        onRefresh={() => send(getCommandsMsg())}
-      />
+      <div class="search-row">
+        <SearchInput
+          value={searchQuery.value}
+          onInput={onSearch}
+          placeholder="Search commands..."
+          ariaLabel="Search commands"
+        />
+        <Button
+          variant="icon"
+          class="search-side-btn"
+          iconName="refresh-cw"
+          title="Refresh commands"
+          ariaLabel="Refresh commands"
+          onClick={() => send(getCommandsMsg())}
+        />
+      </div>
 
       {total > 0 ? (
         <ScopeFilter
-          active={scopeFilter.value}
-          total={total}
-          builtinCount={countByScope("builtin")}
-          projectCount={countByScope("project")}
-          globalCount={countByScope("global")}
-          pluginCount={countByScope("plugin")}
+          value={scopeFilter.value}
+          options={scopeOptions}
           onChange={(value: ScopeFilterValue) => {
             scopeFilter.value = value;
           }}

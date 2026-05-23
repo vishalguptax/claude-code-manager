@@ -1,11 +1,12 @@
 /**
  * A single command row in the list. Shows the command name, scope badge, and a
  * one-line preview, with copy and (when the Claude Code extension is installed)
- * launch-in-chat affordances.
+ * launch-in-chat affordances built from the shared <Button> and <Badge>.
  */
-import { Icon } from "../../../../webview/shared/ui";
-import { cx } from "../../../../webview/shared/lib";
-import type { Command } from "../../types";
+import { Badge, Button } from "../../../../../webview/shared/ui";
+import { cx } from "../../../../../webview/shared/lib";
+import type { Command } from "../../../types";
+import { previewText } from "../../lib";
 
 export interface CommandItemProps {
   command: Command;
@@ -14,13 +15,6 @@ export interface CommandItemProps {
   onSelect: (command: Command) => void;
   onCopy: (command: Command) => void;
   onLaunchChat: (command: Command) => void;
-}
-
-/** Build the truncated, single-line preview for a command row. */
-function previewText(command: Command): string {
-  const source = command.scope === "builtin" ? (command.description ?? "") : command.content;
-  const oneLine = source.replace(/\n/g, " ");
-  return oneLine.length > 80 ? `${oneLine.slice(0, 80)}...` : oneLine;
 }
 
 export function CommandItem({
@@ -41,30 +35,30 @@ export function CommandItem({
       <div class="cmd-item-row1">
         <span class="cmd-item-name">/{command.name}</span>
         {showChatButton ? (
-          <button
-            type="button"
+          <Button
+            variant="icon"
             class="item-chat-btn"
+            iconName="message-square"
             title={`Launch /${command.name} in Claude Code chat`}
+            ariaLabel={`Launch /${command.name} in Claude Code chat`}
             onClick={(e) => {
               e.stopPropagation();
               onLaunchChat(command);
             }}
-          >
-            <Icon name="message-square" size={14} />
-          </button>
+          />
         ) : null}
-        <button
-          type="button"
+        <Button
+          variant="icon"
           class="item-copy-btn"
+          iconName="copy"
           title={`Copy /${command.name}`}
+          ariaLabel={`Copy /${command.name}`}
           onClick={(e) => {
             e.stopPropagation();
             onCopy(command);
           }}
-        >
-          <Icon name="copy" size={14} />
-        </button>
-        <span class={cx("cmd-scope-badge", `cmd-scope-${command.scope}`)}>{command.scope}</span>
+        />
+        <Badge text={command.scope} variant="scope" class={`cmd-scope-${command.scope}`} />
       </div>
       <div class="cmd-item-preview">{previewText(command)}</div>
     </div>
