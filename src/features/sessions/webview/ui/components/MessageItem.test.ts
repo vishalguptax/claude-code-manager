@@ -2,8 +2,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render } from "@testing-library/preact";
-import type { Message } from "../../types";
-import { MessageItem, fmtTokens, splitHighlight } from "../components/MessageItem";
+import type { Message } from "../../../types";
+import { MessageItem, fmtTokens, splitHighlight } from "./MessageItem";
 
 function message(over: Partial<Message> = {}): Message {
   return { role: "user", content: "hello world", timestamp: "", ...over };

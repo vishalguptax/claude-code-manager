@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Message } from "../../../../shared/protocol/messages";
 import type { Session, SessionDetail, SessionGroup } from "../../types";
-import { handleDelta, handleMessage } from "../index";
+import { handleDelta, handleMessage } from "./messages";
 import {
   currentBranchSignal,
   deletedSignal,
@@ -16,7 +16,7 @@ import {
   statsSignal,
   viewSignal,
   _resetSessionsSignals,
-} from "../signals";
+} from "./signals";
 
 function session(id: string, over: Partial<Session> = {}): Session {
   return {

@@ -2,10 +2,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render } from "@testing-library/preact";
-import type { Session } from "../../types";
-import { ActionsBar } from "../components/ActionsBar";
-import { Filters } from "../components/Filters";
-import { ListHeader } from "../components/ListHeader";
+import type { Session } from "../../../types";
+import { ActionsBar } from "./ActionsBar";
+import { Filters } from "./Filters";
+import { ListHeader } from "./ListHeader";
 import {
   bulkModeSignal,
   currentBranchSignal,
@@ -18,11 +18,11 @@ import {
   sessionsSignal,
   setBulkMode,
   _resetSessionsSignals,
-} from "../signals";
+} from "../../model";
 
 const post = vi.fn();
-vi.mock("../../../../webview/shared/hooks", async (importActual) => ({
-  ...(await importActual<typeof import("../../../../webview/shared/hooks")>()),
+vi.mock("../../../../../webview/shared/hooks", async (importActual) => ({
+  ...(await importActual<typeof import("../../../../../webview/shared/hooks")>()),
   useApi: () => ({ post: (m: unknown) => post(m) }),
   setVscodeApi: () => {},
 }));

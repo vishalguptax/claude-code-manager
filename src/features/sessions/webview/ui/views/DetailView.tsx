@@ -9,11 +9,11 @@
  * message the decomposed host cannot answer.
  */
 import { useEffect, useState } from "preact/hooks";
-import { Icon } from "../../../../webview/shared/ui";
-import { isClaudeCodeExtensionInstalled } from "../../../../webview/extensionStatus";
-import { useDebounce } from "../../../../webview/shared/hooks";
-import { cx } from "../../../../webview/shared/lib";
-import { fmtDuration, fmtTime } from "../../../../webview/utils";
+import { Button, Icon } from "../../../../../webview/shared/ui";
+import { isClaudeCodeExtensionInstalled } from "../../../../../webview/extensionStatus";
+import { useDebounce } from "../../../../../webview/shared/hooks";
+import { cx } from "../../../../../webview/shared/lib";
+import { fmtDuration, fmtTime } from "../../../../../webview/utils";
 import {
   sendConfirmDelete,
   sendCopyCommand,
@@ -27,8 +27,7 @@ import {
   sendRenameSession,
   sendResumeSession,
   sendUnpinSession,
-} from "../api";
-import { MessageItem, fmtTokens } from "../components/MessageItem";
+} from "../../api";
 import {
   clearSelection,
   currentProjectSignal,
@@ -37,8 +36,9 @@ import {
   pinnedSignal,
   selectedIdSignal,
   viewSignal,
-} from "../signals";
-import type { SessionDetail } from "../../types";
+} from "../../model";
+import { MessageItem, fmtTokens } from "../components/MessageItem";
+import type { SessionDetail } from "../../../types";
 
 /** Matches DETAIL_PAGE_SIZE in parser.ts — toggle only meaningful past this. */
 const PAGE_SIZE_FOR_TOGGLE = 50;
@@ -97,66 +97,75 @@ function Actions({ d, isPinned, isDiffProject }: { d: SessionDetail; isPinned: b
           </span>
         </div>
         <div class="d-actions">
-          <button type="button" class="btn primary" onClick={() => sendOpenProject(d.projectPath)}>
-            <Icon name="external-link" /> Open {d.project}
-          </button>
+          <Button variant="primary" iconName="external-link" onClick={() => sendOpenProject(d.projectPath)}>
+            Open {d.project}
+          </Button>
           {isClaudeCodeExtensionInstalled() ? (
-            <button
-              type="button"
-              class="btn"
+            <Button
+              iconName="message-square"
               title="Open the project in a new window and start a Claude Code chat there"
               onClick={() => sendOpenProjectAndChat(d.projectPath)}
             >
-              <Icon name="message-square" /> Open &amp; Chat
-            </button>
+              Open &amp; Chat
+            </Button>
           ) : null}
-          <button type="button" class="btn" onClick={() => sendRenameSession(d.id)}>
-            <Icon name="pencil" /> Rename
-          </button>
-          <button
-            type="button"
-            class="btn"
+          <Button iconName="pencil" onClick={() => sendRenameSession(d.id)}>
+            Rename
+          </Button>
+          <Button
+            iconName={isPinned ? "pin-off" : "pin"}
             onClick={() => (isPinned ? sendUnpinSession(d.id) : sendPinSession(d.id))}
           >
-            <Icon name={isPinned ? "pin-off" : "pin"} /> {isPinned ? "Unpin" : "Pin"}
-          </button>
-          <button type="button" class="btn" title="Save this session as a portable .jsonl" onClick={() => sendExportSession(d.id)}>
-            <Icon name="upload" /> Export
-          </button>
-          <button type="button" class="btn del" onClick={() => sendConfirmDelete(d.id)}>
-            <Icon name="trash-2" /> Delete
-          </button>
+            {isPinned ? "Unpin" : "Pin"}
+          </Button>
+          <Button
+            iconName="upload"
+            title="Save this session as a portable .jsonl"
+            onClick={() => sendExportSession(d.id)}
+          >
+            Export
+          </Button>
+          <Button class="del" iconName="trash-2" onClick={() => sendConfirmDelete(d.id)}>
+            Delete
+          </Button>
         </div>
       </>
     );
   }
   return (
     <div class="d-actions">
-      <button type="button" class="btn primary" onClick={() => sendResumeSession(d.id, d.entrypoint, d.projectPath)}>
-        <Icon name="play" /> Resume
-      </button>
-      <button type="button" class="btn" onClick={() => sendRenameSession(d.id)}>
-        <Icon name="pencil" /> Rename
-      </button>
-      <button type="button" class="btn" onClick={() => sendForkSession(d.id)}>
-        <Icon name="git-fork" /> Fork
-      </button>
-      <button
-        type="button"
-        class="btn"
+      <Button
+        variant="primary"
+        iconName="play"
+        onClick={() => sendResumeSession(d.id, d.entrypoint, d.projectPath)}
+      >
+        Resume
+      </Button>
+      <Button iconName="pencil" onClick={() => sendRenameSession(d.id)}>
+        Rename
+      </Button>
+      <Button iconName="git-fork" onClick={() => sendForkSession(d.id)}>
+        Fork
+      </Button>
+      <Button
+        iconName={isPinned ? "pin-off" : "pin"}
         onClick={() => (isPinned ? sendUnpinSession(d.id) : sendPinSession(d.id))}
       >
-        <Icon name={isPinned ? "pin-off" : "pin"} /> {isPinned ? "Unpin" : "Pin"}
-      </button>
-      <button type="button" class="btn" onClick={() => sendCopyCommand(d.id)}>
-        <Icon name="terminal" /> Copy Cmd
-      </button>
-      <button type="button" class="btn" title="Save this session as a portable .jsonl" onClick={() => sendExportSession(d.id)}>
-        <Icon name="upload" /> Export
-      </button>
-      <button type="button" class="btn del" onClick={() => sendConfirmDelete(d.id)}>
-        <Icon name="trash-2" /> Delete
-      </button>
+        {isPinned ? "Unpin" : "Pin"}
+      </Button>
+      <Button iconName="terminal" onClick={() => sendCopyCommand(d.id)}>
+        Copy Cmd
+      </Button>
+      <Button
+        iconName="upload"
+        title="Save this session as a portable .jsonl"
+        onClick={() => sendExportSession(d.id)}
+      >
+        Export
+      </Button>
+      <Button class="del" iconName="trash-2" onClick={() => sendConfirmDelete(d.id)}>
+        Delete
+      </Button>
     </div>
   );
 }

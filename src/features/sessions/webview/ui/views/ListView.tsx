@@ -6,24 +6,16 @@
  * The list is virtualized (special-consideration B) so 5,000+ sessions scroll
  * in constant time. Date-group headers (Today / Yesterday / This Week / older)
  * are restored by interleaving header rows into the same flat, fixed-height
- * row array the virtualizer renders — see `buildRows`. Keeping every row a
- * uniform `ITEM_HEIGHT` lets us reuse the shared fixed-height VirtualList
- * untouched (no variable-height rewrite that would ripple into the other
- * features' lists) while preserving pinned-first ordering: pinned sessions are
- * grouped under a "Pinned" header first, then the rest by date label.
+ * row array the virtualizer renders — see `buildRows` (sessions `lib`). Keeping
+ * every row a uniform `ITEM_HEIGHT` lets us reuse the shared fixed-height
+ * VirtualList untouched (no variable-height rewrite that would ripple into the
+ * other features' lists) while preserving pinned-first ordering: pinned
+ * sessions are grouped under a "Pinned" header first, then the rest by date
+ * label.
  */
 import { useEffect, useState } from "preact/hooks";
-import { ContextMenu } from "../../../../webview/shared/ui";
-import { EmptyState } from "../../../../webview/shared/ui";
-import { VirtualList } from "../../../../webview/shared/ui";
-import { dateLabel } from "../../../../webview/utils";
-import { sendGetSessionDetail, sendResumeSession } from "../api";
-import { ActionsBar } from "../components/ActionsBar";
-import { Filters } from "../components/Filters";
-import { Footer } from "../components/Footer";
-import { ListHeader } from "../components/ListHeader";
-import { SessionItem } from "../components/SessionItem";
-import { buildSessionMenuItems } from "../components/sessionMenu";
+import { Button, ContextMenu, EmptyState, VirtualList } from "../../../../../webview/shared/ui";
+import { buildRows } from "../../lib";
 import {
   bulkModeSignal,
   clearFullTextHits,
@@ -37,44 +29,17 @@ import {
   sessionsSignal,
   toggleSelected,
   viewSignal,
-} from "../signals";
-import type { Session } from "../../types";
+} from "../../model";
+import { sendGetSessionDetail, sendResumeSession } from "../../api";
+import { ActionsBar } from "../components/ActionsBar";
+import { Filters } from "../components/Filters";
+import { Footer } from "../components/Footer";
+import { ListHeader } from "../components/ListHeader";
+import { SessionItem } from "../components/SessionItem";
+import { buildSessionMenuItems } from "../components/sessionMenu";
 
 /** Fixed row height used by the virtualizer; matches the .session-item box. */
 const ITEM_HEIGHT = 64;
-
-/** A virtualized row is either a date-group header or a session. */
-type Row =
-  | { kind: "header"; label: string }
-  | { kind: "session"; session: Session };
-
-/**
- * Flatten the filtered, pinned-first session list into header + session rows.
- * Pinned sessions are collected under a leading "Pinned" group; the remaining
- * sessions are bucketed by their `dateLabel` in their existing (recency) order.
- * Group order follows first appearance, which mirrors the recency sort.
- */
-export function buildRows(sessions: Session[], pinned: Set<string>): Row[] {
-  const rows: Row[] = [];
-  const pinnedRows = sessions.filter((s) => pinned.has(s.id));
-  const rest = sessions.filter((s) => !pinned.has(s.id));
-
-  if (pinnedRows.length > 0) {
-    rows.push({ kind: "header", label: "Pinned" });
-    for (const s of pinnedRows) rows.push({ kind: "session", session: s });
-  }
-
-  let currentLabel: string | null = null;
-  for (const s of rest) {
-    const label = dateLabel(s.endTime);
-    if (label !== currentLabel) {
-      rows.push({ kind: "header", label });
-      currentLabel = label;
-    }
-    rows.push({ kind: "session", session: s });
-  }
-  return rows;
-}
 
 interface MenuState {
   sessionId: string;
@@ -142,21 +107,16 @@ export function ListView() {
             title="No matching sessions"
             description="Try a different keyword or clear the search to see all sessions."
           >
-            <button
-              type="button"
-              class="btn"
+            <Button
               onClick={() => {
+                // The search box is controlled by searchQuerySignal, so clearing
+                // the signal re-syncs the shared <SearchInput> mirror to empty.
                 searchQuerySignal.value = "";
                 clearFullTextHits();
-                const input = document.getElementById("search") as HTMLInputElement | null;
-                if (input) {
-                  input.value = "";
-                  input.focus();
-                }
               }}
             >
               Clear search
-            </button>
+            </Button>
           </EmptyState>
         ) : (
           <EmptyState
