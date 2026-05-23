@@ -26,19 +26,20 @@ export const filterModel = signal<ModelFilter>("all");
 
 // ── Derived counts (drive filter button labels) ──
 
-/** Count of agents whose model name contains the given substring. */
-function countByModel(list: Agent[], model: string): number {
-  return list.filter((a) => a.model.toLowerCase().includes(model)).length;
-}
-
 export const modelCounts = computed(() => {
   const list = agents.value;
-  return {
-    all: list.length,
-    sonnet: countByModel(list, "sonnet"),
-    opus: countByModel(list, "opus"),
-    haiku: countByModel(list, "haiku"),
-  };
+  // Single pass: lowercase each model name once and increment every matching
+  // bucket, instead of three separate filter passes over the whole list.
+  let sonnet = 0;
+  let opus = 0;
+  let haiku = 0;
+  for (const a of list) {
+    const model = a.model.toLowerCase();
+    if (model.includes("sonnet")) sonnet++;
+    if (model.includes("opus")) opus++;
+    if (model.includes("haiku")) haiku++;
+  }
+  return { all: list.length, sonnet, opus, haiku };
 });
 
 // ── Derived filtered + sorted list ──

@@ -31,8 +31,13 @@ export type Row =
  */
 export function buildRows(sessions: Session[], pinned: Set<string>): Row[] {
   const rows: Row[] = [];
-  const pinnedRows = sessions.filter((s) => pinned.has(s.id));
-  const rest = sessions.filter((s) => !pinned.has(s.id));
+  // Single partition pass over the sessions instead of two filter passes.
+  const pinnedRows: Session[] = [];
+  const rest: Session[] = [];
+  for (const s of sessions) {
+    if (pinned.has(s.id)) pinnedRows.push(s);
+    else rest.push(s);
+  }
 
   if (pinnedRows.length > 0) {
     rows.push({ kind: "header", label: "Pinned" });
