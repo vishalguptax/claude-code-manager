@@ -6,7 +6,7 @@ import {
   loading,
   permissionScope,
   permissionSearch,
-} from "../signals";
+} from "../model";
 import { makeConfigData } from "./fixtures";
 
 describe("config signals", () => {

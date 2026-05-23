@@ -17,11 +17,8 @@ import { registerFeatureHandler } from "../../../webview/shared/model";
 import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { AccountData, PermissionScope } from "../types";
 import { createConfigApi } from "./api";
-import { configData, configError, loading, permissionScope, permissionSearch } from "./signals";
-import { BrainView } from "./views/BrainView";
-import { PermissionsView } from "./views/PermissionsView";
-import { SettingsView } from "./views/SettingsView";
-import { SnapshotsView } from "./views/SnapshotsView";
+import { configData, configError, loading, permissionScope, permissionSearch } from "./model";
+import { BrainView, PermissionsView, SettingsView, SnapshotsView } from "./ui";
 
 /**
  * Apply an inbound host message to the config signals. Exported for unit

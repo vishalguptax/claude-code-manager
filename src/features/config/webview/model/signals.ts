@@ -9,7 +9,7 @@
  * for a settings surface the user is actively interacting with.
  */
 import { signal } from "@preact/signals";
-import type { AccountData, PermissionScope } from "../types";
+import type { AccountData, PermissionScope } from "../../types";
 
 /** Latest account/settings payload from the host, or null until first load. */
 export const configData = signal<AccountData | null>(null);
