@@ -2,11 +2,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render } from "@testing-library/preact";
-import type { Session } from "../../types";
-import { SessionItem, liveTitleForStatus } from "../components/SessionItem";
+import type { Session } from "../../../types";
+import { SessionItem, liveTitleForStatus } from "./SessionItem";
 
 function session(over: Partial<Session> & { id: string }): Session {
-  return {
+  const base: Session = {
     id: over.id,
     name: "",
     project: "myproj",
@@ -20,8 +20,8 @@ function session(over: Partial<Session> & { id: string }): Session {
     prompts: ["do the thing"],
     projectKey: "myproj",
     searchHaystack: "",
-    ...over,
   };
+  return { ...base, ...over };
 }
 
 const noop = () => {};

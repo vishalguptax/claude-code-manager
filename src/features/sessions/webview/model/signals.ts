@@ -10,9 +10,21 @@
  * input signal.
  */
 import { computed, effect, signal } from "@preact/signals";
-import { getPersisted, setPersisted } from "../../../webview/persistence";
-import type { DateFilter, View } from "../../../webview/types";
-import type { Session, SessionDetail, Stats } from "../types";
+import { getPersisted, setPersisted } from "../../../../webview/persistence";
+import type { DateFilter, View } from "../../../../webview/types";
+import type { Session, SessionDetail, Stats } from "../../types";
+import {
+  type BranchOption,
+  type ProjectOption,
+  buildBranchOptions,
+  buildProjectOptions,
+  listBranches,
+  orderProjects,
+} from "../lib";
+
+// Re-export the option types so consumers can keep importing them from the
+// model surface alongside the selectors that produce them.
+export type { BranchOption, ProjectOption };
 
 const EMPTY_STATS: Stats = { totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 };
 
@@ -221,138 +233,45 @@ export function getLastSessionGroup(): Session[] {
 
 /**
  * All project names, current project first, then by most recent activity.
- * Used to populate the project filter dropdown.
+ * Thin signal-reading wrapper over the pure `orderProjects` lib helper.
  */
 export function getProjects(): string[] {
-  const all = sessionsSignal.value;
-  const deleted = deletedSignal.value;
-  const currentProject = currentProjectSignal.value;
-
-  const latestActivity = new Map<string, number>();
-  const keyByProject = new Map<string, string>();
-  for (const s of all) {
-    if (!keyByProject.has(s.project)) keyByProject.set(s.project, s.projectKey);
-    if (deleted.has(s.id)) continue;
-    const prev = latestActivity.get(s.project) || 0;
-    if (s.endTime > prev) latestActivity.set(s.project, s.endTime);
-  }
-
-  return [...latestActivity.keys()].sort((a, b) => {
-    if (keyByProject.get(a) === currentProject) return -1;
-    if (keyByProject.get(b) === currentProject) return 1;
-    return (latestActivity.get(b) || 0) - (latestActivity.get(a) || 0);
-  });
+  return orderProjects(sessionsSignal.value, deletedSignal.value, currentProjectSignal.value);
 }
 
 /**
  * Distinct branch names present in the (deletion-filtered) session list,
- * sorted alphabetically with the "(no branch)" sentinel last. Drives the
- * branch filter dropdown.
+ * sorted alphabetically with the "(no branch)" sentinel last. Thin
+ * signal-reading wrapper over the pure `listBranches` lib helper.
  */
 export function getBranches(): string[] {
-  const deleted = deletedSignal.value;
-  const set = new Set<string>();
-  for (const s of sessionsSignal.value) {
-    if (deleted.has(s.id)) continue;
-    set.add(s.branch || "(no branch)");
-  }
-  return [...set].sort((a, b) => {
-    if (a === "(no branch)") return 1;
-    if (b === "(no branch)") return -1;
-    return a.localeCompare(b);
-  });
-}
-
-/** One option for the project filter dropdown: a value, its session count. */
-export interface ProjectOption {
-  value: string;
-  label: string;
-  count: number;
+  return listBranches(sessionsSignal.value, deletedSignal.value);
 }
 
 /**
- * Project-filter options with per-project session counts — restores the v1
- * count badges. Leads with "This Project" (count of current-project sessions)
- * and "All Projects" (total non-deleted), then every project by recency.
- * Single O(N) pass over sessions, mirroring v1 `updateDropdown`.
+ * Project-filter options with per-project session counts. Thin signal-reading
+ * wrapper over the pure `buildProjectOptions` lib helper.
  */
 export function getProjectOptions(): ProjectOption[] {
-  const all = sessionsSignal.value;
-  const deleted = deletedSignal.value;
-  const currentProject = currentProjectSignal.value;
-
-  const counts = new Map<string, number>();
-  let currentCount = 0;
-  let totalCount = 0;
-  for (const s of all) {
-    if (deleted.has(s.id)) continue;
-    totalCount++;
-    counts.set(s.project, (counts.get(s.project) ?? 0) + 1);
-    if (currentProject && s.projectKey === currentProject) currentCount++;
-  }
-
-  const opts: ProjectOption[] = [
-    { value: "current", label: "This Project", count: currentCount },
-    { value: "all", label: "All Projects", count: totalCount },
-  ];
-  for (const p of getProjects()) {
-    opts.push({ value: p, label: p, count: counts.get(p) ?? 0 });
-  }
-  return opts;
-}
-
-/** One option for the branch filter dropdown. `isCurrent` flags the workspace branch. */
-export interface BranchOption {
-  value: string;
-  label: string;
-  count: number;
-  isCurrent: boolean;
+  return buildProjectOptions(
+    sessionsSignal.value,
+    deletedSignal.value,
+    currentProjectSignal.value,
+  );
 }
 
 /**
- * Branch-filter options scoped to the active project filter, with per-branch
- * session counts and the workspace's current branch sorted first + marked —
- * restores the v1 `branchDropdown.ts` behaviour. Leads with "All Branches"
- * (total in scope). Single O(N) pass.
+ * Branch-filter options scoped to the active project filter. Thin
+ * signal-reading wrapper over the pure `buildBranchOptions` lib helper.
  */
 export function getBranchOptions(): BranchOption[] {
-  const sessions = sessionsSignal.value;
-  const deleted = deletedSignal.value;
-  const currentBranch = currentBranchSignal.value;
-  const project = filterProjectSignal.value;
-  const currentProject = currentProjectSignal.value;
-
-  const inScope = (s: Session): boolean => {
-    if (project === "all") return true;
-    if (project === "current") return !currentProject || s.projectKey === currentProject;
-    return s.project === project;
-  };
-
-  const counts = new Map<string, number>();
-  const latest = new Map<string, number>();
-  let total = 0;
-  for (const s of sessions) {
-    if (deleted.has(s.id)) continue;
-    if (!inScope(s)) continue;
-    total++;
-    const key = s.branch || "(no branch)";
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-    if (s.endTime > (latest.get(key) ?? 0)) latest.set(key, s.endTime);
-  }
-
-  const branches = [...counts.keys()].sort((a, b) => {
-    if (a === currentBranch && b !== currentBranch) return -1;
-    if (b === currentBranch && a !== currentBranch) return 1;
-    return (latest.get(b) ?? 0) - (latest.get(a) ?? 0);
-  });
-
-  const opts: BranchOption[] = [
-    { value: "all", label: "All Branches", count: total, isCurrent: false },
-  ];
-  for (const b of branches) {
-    opts.push({ value: b, label: b, count: counts.get(b) ?? 0, isCurrent: b === currentBranch });
-  }
-  return opts;
+  return buildBranchOptions(
+    sessionsSignal.value,
+    deletedSignal.value,
+    currentBranchSignal.value,
+    filterProjectSignal.value,
+    currentProjectSignal.value,
+  );
 }
 
 /** Reactive count of the filtered list — handy for headers. */

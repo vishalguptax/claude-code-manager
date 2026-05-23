@@ -13,7 +13,7 @@
  * Kept separate from the row component so the action wiring is unit-testable
  * without rendering DOM, and so the ListView only deals with menu placement.
  */
-import type { ContextMenuItem } from "../../../../webview/shared/ui";
+import type { ContextMenuItem } from "../../../../../webview/shared/ui";
 import {
   sendConfirmDelete,
   sendCopyCommand,
@@ -22,7 +22,7 @@ import {
   sendPinSession,
   sendRenameSession,
   sendUnpinSession,
-} from "../api";
+} from "../../api";
 
 /**
  * Construct the ordered menu items for one session. `isPinned` flips the

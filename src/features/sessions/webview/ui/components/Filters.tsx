@@ -3,14 +3,16 @@
  * branch dropdowns, and the date-range chip row. Reads and writes the feature
  * signals directly — these controls are the single place those filter signals
  * change from the UI.
+ *
+ * The search field is the shared <SearchInput> (debounced, leading magnifier,
+ * built-in clear); the refresh affordance beside it is an icon <Button>. The
+ * project / branch selects are the shared themed <Dropdown>. Date ranges stay a
+ * native tablist of `.chip` toggles (an interactive control, not a Badge).
  */
-import { useEffect, useState } from "preact/hooks";
-import { Dropdown, type DropdownOption } from "../../../../webview/shared/ui";
-import { Icon } from "../../../../webview/shared/ui";
-import { useDebounce } from "../../../../webview/shared/hooks";
-import { cx } from "../../../../webview/shared/lib";
-import type { DateFilter } from "../../../../webview/types";
-import { sendRefresh, sendSearchFullText } from "../api";
+import { Button, Dropdown, type DropdownOption, SearchInput } from "../../../../../webview/shared/ui";
+import { cx } from "../../../../../webview/shared/lib";
+import type { DateFilter } from "../../../../../webview/types";
+import { sendRefresh, sendSearchFullText } from "../../api";
 import {
   clearFullTextHits,
   filterBranchSignal,
@@ -20,7 +22,7 @@ import {
   getProjectOptions,
   searchQuerySignal,
   visibleCountSignal,
-} from "../signals";
+} from "../../model";
 
 /**
  * Minimum query length before asking the host for a transcript scan. Below
@@ -39,51 +41,32 @@ const DATE_OPTIONS: { value: DateFilter; label: string }[] = [
 ];
 
 function SearchBox() {
-  const [raw, setRaw] = useState(searchQuerySignal.value);
-  const debounced = useDebounce(raw, SEARCH_DEBOUNCE_MS);
-
-  useEffect(() => {
-    const q = debounced.toLowerCase();
+  // SearchInput owns the responsive local mirror + debounce; this fires once
+  // per pause (or immediately on clear) with the resolved query.
+  const onQuery = (raw: string): void => {
+    const q = raw.toLowerCase();
     searchQuerySignal.value = q;
     visibleCountSignal.value = 30;
     if (q.length >= FULLTEXT_MIN_CHARS) sendSearchFullText(q);
     else clearFullTextHits();
-  }, [debounced]);
+  };
 
   return (
     <div class="search-row">
-      <div class="feature-search">
-        <input
-          id="search"
-          type="text"
-          placeholder="Search sessions..."
-          value={raw}
-          onInput={(e) => setRaw((e.target as HTMLInputElement).value)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setRaw("");
-          }}
-        />
-        {raw ? (
-          <button
-            type="button"
-            class="search-btn"
-            id="searchClear"
-            title="Clear (Esc)"
-            onClick={() => setRaw("")}
-          >
-            <Icon name="x" />
-          </button>
-        ) : null}
-      </div>
-      <button
-        type="button"
+      <SearchInput
+        value={searchQuerySignal.value}
+        onInput={onQuery}
+        debounceMs={SEARCH_DEBOUNCE_MS}
+        placeholder="Search sessions..."
+        ariaLabel="Search sessions"
+      />
+      <Button
+        variant="icon"
         class="search-side-btn"
-        id="sessionsRefresh"
+        iconName="refresh-cw"
         title="Refresh sessions"
         onClick={() => sendRefresh()}
-      >
-        <Icon name="refresh-cw" size={14} />
-      </button>
+      />
     </div>
   );
 }

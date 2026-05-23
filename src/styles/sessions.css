@@ -5,39 +5,8 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Filter selects (project / branch) — native <select> styled to match the
-   feature search row. The v2 Preact list uses native dropdowns instead of the
-   v1 custom-built menus, so they get their own minimal token-driven styling.
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.filter-select {
-  flex: 1;
-  min-width: 0;
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--fg);
-  font-family: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.filter-select:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
    Session List Items
    ────────────────────────────────────────────────────────────────────────────── */
-
-.list-count {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  padding: var(--space-xs) var(--space-2xl) 2px;
-}
 
 .group-label {
   font-size: var(--fs-sm);
@@ -511,7 +480,10 @@
      widths. Setting it to 0 lets the grid distribute width evenly. */
   min-width: 0;
 }
-.d-actions > .btn.primary {
+/* `.btn.primary` is the legacy modifier; `.btn-primary` is the shared
+   <Button variant="primary"> class — both span the full top row. */
+.d-actions > .btn.primary,
+.d-actions > .btn-primary {
   /* Primary action always spans the full top row — it's the call to
      action, not just one of the options. Delete flows with the rest. */
   grid-column: 1 / -1;

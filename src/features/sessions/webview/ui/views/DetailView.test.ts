@@ -2,17 +2,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { render } from "@testing-library/preact";
-import type { Message, SessionDetail } from "../../types";
-import { DetailView } from "../views/DetailView";
+import type { Message, SessionDetail } from "../../../types";
+import { DetailView } from "./DetailView";
 import {
   currentProjectSignal,
   detailLoadingSignal,
   detailSignal,
   _resetSessionsSignals,
-} from "../signals";
+} from "../../model";
 
-vi.mock("../../../../webview/shared/hooks", async (importActual) => ({
-  ...(await importActual<typeof import("../../../../webview/shared/hooks")>()),
+vi.mock("../../../../../webview/shared/hooks", async (importActual) => ({
+  ...(await importActual<typeof import("../../../../../webview/shared/hooks")>()),
   useApi: () => ({ post: () => {} }),
   setVscodeApi: () => {},
 }));

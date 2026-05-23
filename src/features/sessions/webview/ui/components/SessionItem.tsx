@@ -7,10 +7,10 @@
  * the list view owns selection / navigation logic and this stays testable in
  * isolation.
  */
-import { Icon } from "../../../../webview/shared/ui";
-import { fmtRelativeTime } from "../../../../webview/utils";
-import { cx } from "../../../../webview/shared/lib";
-import type { Session } from "../../types";
+import { Badge, Button, Icon } from "../../../../../webview/shared/ui";
+import { fmtRelativeTime } from "../../../../../webview/utils";
+import { cx } from "../../../../../webview/shared/lib";
+import type { Session } from "../../../types";
 
 /**
  * Map a CLI-reported lifecycle status to a tooltip. Known values get a
@@ -116,17 +116,16 @@ export function SessionItem({
 
       {bulkMode ? null : (
         <div class="item-actions">
-          <button
-            type="button"
+          <Button
+            variant="icon"
             class="item-resume"
+            iconName="play"
             title="Resume session"
             onClick={(e) => {
               e.stopPropagation();
               onResume(session.id);
             }}
-          >
-            <Icon name="play" />
-          </button>
+          />
           <button
             type="button"
             class="item-menu-btn"
@@ -152,11 +151,7 @@ export function SessionItem({
       ) : null}
 
       <div class="item-row2">
-        {branch ? (
-          <span class="tag" title={branch}>
-            {branch}
-          </span>
-        ) : null}
+        {branch ? <Badge text={branch} title={branch} class="tag" /> : null}
         <span class="item-proj" title={session.project}>
           {session.project}
         </span>

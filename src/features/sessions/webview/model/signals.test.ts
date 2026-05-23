@@ -31,7 +31,7 @@ import {
   stopFilterPersistence,
   toggleSelected,
   _resetSessionsSignals,
-} from "../signals";
+} from "./signals";
 
 function session(over: Partial<Session> & { id: string }): Session {
   const base: Session = {

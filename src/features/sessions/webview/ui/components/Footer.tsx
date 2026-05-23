@@ -3,9 +3,12 @@
  * `footer.ts` footer. Links open externally via the host `openUrl` message
  * (sendOpenUrl) rather than a raw anchor, so the webview CSP's `connect-src
  * 'none'` is never involved and navigation stays under host control.
+ *
+ * The two links are shared icon-variant <Button>s; the `.footer-link` class is
+ * kept so the footer's bespoke sizing/colour (sessions-unique) still applies.
  */
-import { Icon } from "../../../../webview/shared/ui";
-import { sendOpenUrl } from "../api";
+import { Button } from "../../../../../webview/shared/ui";
+import { sendOpenUrl } from "../../api";
 
 const GITHUB_URL = "https://github.com/vishalguptax/claude-code-manager";
 const LINKEDIN_URL = "https://www.linkedin.com/in/vishalgupta26/";
@@ -15,24 +18,22 @@ export function Footer() {
     <div class="app-footer">
       <span class="footer-name">Claude Manager</span>
       <span class="footer-links">
-        <button
-          type="button"
+        <Button
+          variant="icon"
           class="footer-link"
+          iconName="github"
           title="GitHub"
-          aria-label="Open the project on GitHub"
+          ariaLabel="Open the project on GitHub"
           onClick={() => sendOpenUrl(GITHUB_URL)}
-        >
-          <Icon name="github" size={14} />
-        </button>
-        <button
-          type="button"
+        />
+        <Button
+          variant="icon"
           class="footer-link"
+          iconName="linkedin"
           title="LinkedIn"
-          aria-label="Open the author's LinkedIn"
+          ariaLabel="Open the author's LinkedIn"
           onClick={() => sendOpenUrl(LINKEDIN_URL)}
-        >
-          <Icon name="linkedin" size={14} />
-        </button>
+        />
       </span>
     </div>
   );

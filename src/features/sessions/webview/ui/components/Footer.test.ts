@@ -2,10 +2,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render } from "@testing-library/preact";
-import { Footer } from "../components/Footer";
+import { Footer } from "./Footer";
 
 const post = vi.fn();
-vi.mock("../../../../webview/shared/hooks", () => ({
+vi.mock("../../../../../webview/shared/hooks", () => ({
   useApi: () => ({ post: (m: unknown) => post(m) }),
   setVscodeApi: () => {},
 }));

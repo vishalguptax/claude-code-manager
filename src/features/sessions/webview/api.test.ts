@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const post = vi.fn();
-vi.mock("../../../../webview/shared/hooks", () => ({
+vi.mock("../../../webview/shared/hooks", () => ({
   useApi: () => ({ post: (m: unknown) => post(m) }),
   setVscodeApi: vi.fn(),
 }));
 
-import * as api from "../api";
+import * as api from "./api";
 
 afterEach(() => post.mockClear());
 
