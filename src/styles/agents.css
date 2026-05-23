@@ -66,10 +66,12 @@
   padding: var(--space-lg) var(--space-2xl);
   cursor: pointer;
   border-bottom: 1px solid var(--border);
+  transition: background var(--transition-control);
 }
 .agent-item:last-child         { border-bottom: none; }
 .agent-item:hover              { background: var(--bg-hover); }
 .agent-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
+.agent-item:focus-visible      { outline: 1px solid var(--list-focus); outline-offset: -1px; }
 
 .agent-item-row1 {
   display: flex;
@@ -112,7 +114,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 1px 7px;
+  padding: 1px 6px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
   height: 18px;

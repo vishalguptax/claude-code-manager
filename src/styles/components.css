@@ -61,9 +61,19 @@
   padding: 8px var(--space-xl);
   cursor: pointer;
   border-radius: var(--radius);
+  /* Subtle, native hover fade — VS Code rows ease their highlight in
+     rather than snapping. Background only; respects reduced-motion via
+     the global rule in base.css. */
+  transition: background var(--transition-control);
 }
 .list-item:hover { background: var(--bg-hover); }
 .list-item.active { background: var(--bg-active); color: var(--bg-active-fg); }
+/* Keyboard focus on a focusable row — inset ring in VS Code's list focus
+   colour so it lands inside the row edge like the native tree. */
+.list-item:focus-visible {
+  outline: 1px solid var(--list-focus);
+  outline-offset: -1px;
+}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -104,8 +114,10 @@
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
+  transition: background var(--transition-control), color var(--transition-control);
 }
 .action-btn:hover         { color: var(--fg); background: var(--input-bg); }
+.action-btn:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
 .action-btn.icon-only     { padding: 5px 7px; margin-left: auto; }
 
 
@@ -271,6 +283,7 @@
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
+  transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
 }
 .scope-btn:hover  { color: var(--fg); background: var(--bg-hover); }
 .scope-btn.active {
@@ -304,8 +317,10 @@
   font-size: var(--fs-base);
   font-family: inherit;
   cursor: pointer;
+  transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
 }
 .chip:hover  { color: var(--fg); background: var(--bg-hover); }
+.chip:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
 .chip.active {
   background: var(--btn-bg);
   color: var(--btn-fg);

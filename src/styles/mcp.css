@@ -90,8 +90,10 @@
 .mcp-item {
   padding: var(--space-lg) var(--space-2xl);
   border-bottom: 1px solid var(--border);
+  transition: background var(--transition-control), opacity var(--transition-control);
 }
 .mcp-item:last-child         { border-bottom: none; }
+.mcp-item:focus-visible      { outline: 1px solid var(--list-focus); outline-offset: -1px; }
 .mcp-item.mcp-disabled       { opacity: 0.5; }
 .mcp-item.mcp-disabled:hover { opacity: 0.7; }
 

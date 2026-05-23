@@ -71,10 +71,12 @@
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   position: relative;
+  transition: background var(--transition-control);
 }
 .cmd-item:last-child         { border-bottom: none; }
 .cmd-item:hover              { background: var(--bg-hover); }
 .cmd-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
+.cmd-item:focus-visible      { outline: 1px solid var(--list-focus); outline-offset: -1px; }
 
 .cmd-item-row1 {
   display: flex;
@@ -117,7 +119,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 1px 7px;
+  padding: 1px 6px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
   height: 18px;
@@ -224,9 +226,11 @@
   padding: var(--space-lg) var(--space-2xl);
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+  transition: background var(--transition-control);
 }
 .hook-item:last-child        { border-bottom: none; }
 .hook-item:hover             { background: var(--bg-hover); }
+.hook-item:focus-visible     { outline: 1px solid var(--list-focus); outline-offset: -1px; }
 
 .hook-command-block {
   background: var(--bg-hover);
@@ -311,7 +315,7 @@
   font-family: var(--mono);
   background: var(--badge-bg);
   color: var(--badge-fg);
-  padding: 1px 7px;
+  padding: 1px 6px;
   border-radius: var(--radius-sm);
   height: 18px;
 }

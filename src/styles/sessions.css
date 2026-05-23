@@ -36,6 +36,12 @@
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   position: relative;
+  /* Native-feeling hover: ease the row highlight in rather than snapping. */
+  transition: background var(--transition-control);
+}
+.item:focus-visible {
+  outline: 1px solid var(--list-focus);
+  outline-offset: -1px;
 }
 /* Selected row indicator — left border accent + subtle background.
    Active (detail-open) takes precedence so the resume-target highlight
@@ -235,12 +241,16 @@
 .item-menu-btn {
   color: var(--fg-muted);
   opacity: 0;
+  transition: opacity var(--transition-control), background var(--transition-control), color var(--transition-control);
 }
+.item-resume { transition: background var(--transition-control); }
 .session-item:hover .item-resume { visibility: visible; }
 .session-item:hover .item-menu-btn,
 .item-menu-btn:focus-visible { opacity: 1; }
 .item-resume:hover           { background: var(--green-bg); }
+.item-resume:focus-visible   { opacity: 1; visibility: visible; outline: var(--focus-ring); outline-offset: -1px; }
 .item-menu-btn:hover         { background: var(--bg-hover); color: var(--fg); }
+.item-menu-btn:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
 
 .item-time {
   font-size: var(--fs-sm);
@@ -317,8 +327,10 @@
   font-size: var(--fs-base);
   font-family: inherit;
   cursor: pointer;
+  transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
 }
-.show-more-btn:hover         { color: var(--fg); background: var(--bg-hover); }
+.show-more-btn:hover         { color: var(--fg); background: var(--bg-hover); border-color: var(--accent); }
+.show-more-btn:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

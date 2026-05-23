@@ -32,7 +32,9 @@
 }
 
 
+.skill-item { transition: background var(--transition-control); }
 .skill-item:hover { background: var(--bg-hover); }
+.skill-item:focus-visible { outline: 1px solid var(--list-focus); outline-offset: -1px; }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
