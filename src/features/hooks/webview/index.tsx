@@ -12,9 +12,8 @@ import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { Hook } from "../types";
 import type { Post } from "./api";
 import * as api from "./api";
-import { errorMessage, loading, selectedHook, setHooks } from "./signals";
-import { DetailView } from "./views/DetailView";
-import { ListView } from "./views/ListView";
+import { errorMessage, loading, selectedHook, setHooks } from "./model";
+import { DetailView, ListView } from "./ui";
 
 export default function HooksTab() {
   const { post } = useApi();

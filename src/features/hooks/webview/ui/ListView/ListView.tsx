@@ -8,16 +8,14 @@
  * smaller sets keep the event-grouped layout that reads better for the
  * common handful-of-hooks case.
  */
-import { useEffect, useState } from "preact/hooks";
-import { Icon } from "../../../../webview/shared/ui";
-import { VirtualList } from "../../../../webview/shared/ui";
-import { cx } from "../../../../webview/shared/lib";
-import { useApi } from "../../../../webview/shared/hooks";
-import { useDebounce } from "../../../../webview/shared/hooks";
-import type { Hook } from "../../types";
-import * as api from "../api";
-import type { Post } from "../api";
-import { eventLabel } from "../events";
+import { Button, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
+import type { ScopeOption } from "../../../../../webview/shared/ui";
+import { cx } from "../../../../../webview/shared/lib";
+import { useApi } from "../../../../../webview/shared/hooks";
+import type { Hook } from "../../../types";
+import * as api from "../../api";
+import type { Post } from "../../api";
+import { eventLabel } from "../../lib";
 import {
   countByScope,
   filteredHooks,
@@ -27,10 +25,9 @@ import {
   searchQuery,
   selectedHook,
   type HookScopeFilter,
-} from "../signals";
-import { HookItem } from "../components/HookItem";
-import { HooksEmpty } from "../components/HooksEmpty";
-import { ScopeFilter } from "../components/ScopeFilter";
+} from "../../model";
+import { HookItem } from "../HookItem";
+import { HooksEmpty } from "../HooksEmpty";
 
 /** Above this many filtered rows, switch to the windowed flat list. */
 const VIRTUALIZE_THRESHOLD = 50;
@@ -40,14 +37,6 @@ const ITEM_HEIGHT = 64;
 export function ListView() {
   const { post } = useApi();
   const send = post as Post;
-  const [draft, setDraft] = useState(searchQuery.value);
-  const debounced = useDebounce(draft, 150);
-
-  // Push the debounced search term into the feature signal so the computed
-  // `filteredHooks` recomputes. Lowercased to match the signal's contract.
-  useEffect(() => {
-    searchQuery.value = debounced.toLowerCase();
-  }, [debounced]);
 
   const open = (hook: Hook): void => {
     selectedHook.value = hook;
@@ -59,62 +48,53 @@ export function ListView() {
   const filtered = filteredHooks.value;
   const groups = groupedHooks.value;
 
+  // The Plugin segment only appears when at least one plugin hook exists,
+  // matching the per-scope counts so empty scopes still read as "(0)".
+  const pluginCount = countByScope("plugin");
+  const scopeOptions: ScopeOption<HookScopeFilter>[] = [
+    { value: "all", label: "All", count: all.length },
+    { value: "global", label: "Global", count: countByScope("global") },
+    { value: "project", label: "Project", count: countByScope("project") },
+    { value: "local", label: "Local", count: countByScope("local") },
+    ...(pluginCount > 0
+      ? [{ value: "plugin" as HookScopeFilter, label: "Plugin", count: pluginCount }]
+      : []),
+  ];
+
   return (
     <div class="panel hooks-panel">
       <div class="search-row">
-        <div class="feature-search">
-          <input
-            class="input"
-            type="text"
-            placeholder="Search hooks..."
-            aria-label="Search hooks"
-            value={draft}
-            onInput={(e) => setDraft((e.currentTarget as HTMLInputElement).value)}
-            onKeyDown={(e: KeyboardEvent) => {
-              if (e.key === "Escape") setDraft("");
-            }}
-          />
-          {draft ? (
-            <button
-              type="button"
-              class="search-btn"
-              title="Clear (Esc)"
-              aria-label="Clear search"
-              onClick={() => setDraft("")}
-            >
-              <Icon name="x" size={14} />
-            </button>
-          ) : null}
-        </div>
-        <button
-          type="button"
+        <SearchInput
+          value={searchQuery.value}
+          ariaLabel="Search hooks"
+          placeholder="Search hooks..."
+          debounceMs={150}
+          onInput={(v) => {
+            // Lowercased to match the signal's case-insensitive contract.
+            searchQuery.value = v.toLowerCase();
+          }}
+        />
+        <Button
           class="search-side-btn"
+          iconName="plus"
           title="Add a new hook"
-          aria-label="Add a new hook"
+          ariaLabel="Add a new hook"
           onClick={() => api.promptAddHook(send)}
-        >
-          <Icon name="plus" size={14} />
-        </button>
-        <button
-          type="button"
+        />
+        <Button
           class="search-side-btn"
+          iconName="refresh-cw"
           title="Refresh hooks"
-          aria-label="Refresh hooks"
+          ariaLabel="Refresh hooks"
           onClick={() => api.getHooks(send)}
-        >
-          <Icon name="refresh-cw" size={14} />
-        </button>
+        />
       </div>
 
       {all.length > 0 ? (
         <ScopeFilter
-          active={scopeFilter.value}
-          total={all.length}
-          globalCount={countByScope("global")}
-          projectCount={countByScope("project")}
-          localCount={countByScope("local")}
-          pluginCount={countByScope("plugin")}
-          onChange={(s: HookScopeFilter) => {
+          value={scopeFilter.value}
+          options={scopeOptions}
+          onChange={(s) => {
             scopeFilter.value = s;
           }}
         />
