@@ -6,16 +6,15 @@
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Scope Badge — layers on the shared <Badge variant="scope">. The base chip
-   (display/font-size/padding/radius) comes from `.vsc-badge`; these rules add
-   the skills-specific uppercase treatment and the per-scope colours that the
-   neutral generic scope variant does not provide.
+   (display/font-size/weight/padding/radius/height) comes from `.vsc-badge`, so
+   skills scope badges read identically to the commands / MCP scope badges. These
+   rules add ONLY the per-scope colours the neutral generic scope variant does
+   not provide. (The previous uppercase + 18px height override made skills the
+   lone outlier — "PROJECT" against the lowercase native chips on every other
+   tab; removed so all five feature tabs share one badge shape.)
    ────────────────────────────────────────────────────────────────────────────── */
 
 .skill-scope-badge {
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  height: 18px;
   flex-shrink: 0;
 }
 .scope-project {

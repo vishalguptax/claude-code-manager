@@ -109,21 +109,12 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Commands — Scope Badge
+   Commands — Scope Badge colours. The chip shape (display/font/padding/radius/
+   height) comes from the shared `.vsc-badge` that CommandItem renders; only the
+   per-scope colour modifiers live here so commands badges match the skills / MCP
+   scope chips exactly. (The former `.cmd-scope-badge` base block duplicated the
+   shared chrome with an uppercase 18px override that nothing rendered — removed.)
    ────────────────────────────────────────────────────────────────────────────── */
-
-.cmd-scope-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
-}
 
 .cmd-scope-global {
   background: var(--badge-bg);
