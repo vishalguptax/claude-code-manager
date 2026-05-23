@@ -9,13 +9,13 @@
  * VirtualList threshold (>50 items) the F1 shell reserves for the
  * thousand-session lists in the Sessions feature.
  *
- * The period toggle is the shared `.vs-segmented` tablist primitive
- * (not a Dropdown): three mutually-exclusive options read better as a
- * segmented control than a closed select, and it matches the Config
- * tab's effort row.
+ * The period toggle is the shared <Segmented> primitive (not a
+ * Dropdown): three mutually-exclusive options read better as a
+ * segmented control than a closed select. Its selected segment uses
+ * the subtle design-system role token, not primary blue.
  */
 
-import { cx } from "../../../../../webview/shared/lib";
+import { Segmented, type SegmentedOption } from "../../../../../webview/shared/ui";
 import type { AccountData, UsageStats } from "../../../types";
 import {
   cacheHitTooltip,
@@ -38,10 +38,10 @@ export interface UsageViewProps {
   data: AccountData;
 }
 
-const PERIODS: ReadonlyArray<{ id: TimePeriod; label: string }> = [
-  { id: "week", label: "7 days" },
-  { id: "month", label: "30 days" },
-  { id: "all", label: "All time" },
+const PERIODS: SegmentedOption<TimePeriod>[] = [
+  { value: "week", label: "7 days" },
+  { value: "month", label: "30 days" },
+  { value: "all", label: "All time" },
 ];
 
 export function UsageView({ data }: UsageViewProps) {
@@ -76,22 +76,16 @@ function UsageBody({ u }: { u: UsageStats }) {
 
   return (
     <>
-      <div class="vs-segmented acct-period-toggle" role="tablist">
-        {PERIODS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            class={cx("vs-segmented-btn", period === p.id && "active")}
-            role="tab"
-            aria-selected={period === p.id}
-            onClick={() => {
-              timePeriod.value = p.id;
-            }}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        class="acct-period-toggle"
+        ariaLabel="Usage period"
+        size="sm"
+        value={period}
+        options={PERIODS}
+        onChange={(next) => {
+          timePeriod.value = next;
+        }}
+      />
 
       <Heatmap daily={u.daily} dailyTokens={u.dailyTokens} lastComputedDate={u.lastComputedDate} />
 

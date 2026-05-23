@@ -52,30 +52,32 @@ beforeEach(() => {
 });
 
 describe("Filters", () => {
-  it("renders the date chips with the active one selected", () => {
+  it("renders the date range as a Segmented control with the active one selected", () => {
     filterDateSignal.value = "week";
     const { getByText } = render(h(Filters, {}));
-    const chip = getByText("Week") as HTMLButtonElement;
-    expect(chip.getAttribute("aria-selected")).toBe("true");
+    const seg = getByText("Week").closest(".vsc-segmented-seg") as HTMLButtonElement;
+    expect(seg.getAttribute("aria-checked")).toBe("true");
+    expect(seg.classList.contains("active")).toBe(true);
   });
 
-  it("changes the date filter on chip click", () => {
+  it("changes the date filter on segment click", () => {
     const { getByText } = render(h(Filters, {}));
     fireEvent.click(getByText("Month"));
     expect(filterDateSignal.value).toBe("month");
   });
 
-  it("renders the project dropdown with one option per project", () => {
+  it("renders the project dropdown trigger and lists one option per project when open", () => {
     sessionsSignal.value = [
       session("a", { project: "proj", projectKey: "proj", endTime: 1000 }),
       session("b", { project: "proj", projectKey: "proj", endTime: 2000 }),
     ];
     const { container } = render(h(Filters, {}));
-    const select = container.querySelector(
-      'vscode-single-select[aria-label="Filter by project"]',
-    ) as HTMLElement;
-    expect(select).toBeTruthy();
-    const values = Array.from(select.querySelectorAll("vscode-option")).map((o) =>
+    const trigger = container.querySelector(
+      '.vsc-dropdown-trigger[aria-label="Filter by project"]',
+    ) as HTMLButtonElement;
+    expect(trigger).toBeTruthy();
+    fireEvent.click(trigger);
+    const values = Array.from(container.querySelectorAll(".vsc-menu-label")).map((o) =>
       o.textContent?.trim(),
     );
     // Leads with the two synthetic scopes, then the concrete project.
@@ -92,13 +94,15 @@ describe("Filters", () => {
     currentBranchSignal.value = "main";
     filterProjectSignal.value = "all";
     const { container } = render(h(Filters, {}));
-    // Leading git-branch icon is rendered beside the control.
+    // Leading git-branch icon is rendered on the closed trigger.
     expect(container.querySelector('.vsc-dropdown-leading [data-icon="git-branch"]')).toBeTruthy();
-    const labels = Array.from(
-      container.querySelectorAll(
-        'vscode-single-select[aria-label="Filter by branch"] vscode-option',
-      ),
-    ).map((o) => o.textContent?.trim());
+    const trigger = container.querySelector(
+      '.vsc-dropdown-trigger[aria-label="Filter by branch"]',
+    ) as HTMLButtonElement;
+    fireEvent.click(trigger);
+    const labels = Array.from(container.querySelectorAll(".vsc-menu-label")).map((o) =>
+      o.textContent?.trim(),
+    );
     // The current branch's option label is annotated with "(current)".
     expect(labels.some((l) => l === "main (current)")).toBe(true);
   });
@@ -107,7 +111,7 @@ describe("Filters", () => {
     sessionsSignal.value = [session("a", { branch: "main" })];
     const { container } = render(h(Filters, {}));
     expect(
-      container.querySelector('vscode-single-select[aria-label="Filter by branch"]'),
+      container.querySelector('.vsc-dropdown-trigger[aria-label="Filter by branch"]'),
     ).toBeNull();
   });
 
@@ -115,7 +119,7 @@ describe("Filters", () => {
     sessionsSignal.value = [session("a", { branch: "main" }), session("b", { branch: "dev" })];
     const { container } = render(h(Filters, {}));
     expect(
-      container.querySelector('vscode-single-select[aria-label="Filter by branch"]'),
+      container.querySelector('.vsc-dropdown-trigger[aria-label="Filter by branch"]'),
     ).toBeTruthy();
   });
 });

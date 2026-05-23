@@ -6,11 +6,18 @@
  *
  * The search field is the shared <SearchInput> (debounced, leading magnifier,
  * built-in clear); the refresh affordance beside it is an icon <Button>. The
- * project / branch selects are the shared themed <Dropdown>. Date ranges stay a
- * native tablist of `.chip` toggles (an interactive control, not a Badge).
+ * project / branch selects are the shared themed <Dropdown>. The date range is
+ * the shared <Segmented> control (selected segment is the subtle role token, not
+ * primary blue).
  */
-import { Button, Dropdown, type DropdownOption, SearchInput } from "../../../../../webview/shared/ui";
-import { cx } from "../../../../../webview/shared/lib";
+import {
+  Button,
+  Dropdown,
+  type DropdownOption,
+  SearchInput,
+  Segmented,
+  type SegmentedOption,
+} from "../../../../../webview/shared/ui";
 import type { DateFilter } from "../../../../../webview/types";
 import { sendRefresh, sendSearchFullText } from "../../api";
 import {
@@ -33,7 +40,7 @@ const FULLTEXT_MIN_CHARS = 2;
 /** Debounce window for search input, per sessions special-consideration F. */
 const SEARCH_DEBOUNCE_MS = 250;
 
-const DATE_OPTIONS: { value: DateFilter; label: string }[] = [
+const DATE_OPTIONS: SegmentedOption<DateFilter>[] = [
   { value: "recent", label: "Recent" },
   { value: "week", label: "Week" },
   { value: "month", label: "Month" },
@@ -123,23 +130,17 @@ function BranchSelect() {
 }
 
 function DateChips() {
-  const active = filterDateSignal.value;
   return (
-    <div class="date-chips" role="tablist" aria-label="Date range">
-      {DATE_OPTIONS.map((o) => (
-        <button
-          type="button"
-          key={o.value}
-          class={cx("chip", { active: active === o.value })}
-          aria-selected={active === o.value}
-          onClick={() => {
-            filterDateSignal.value = o.value;
-            visibleCountSignal.value = 30;
-          }}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div class="date-chips">
+      <Segmented
+        ariaLabel="Date range"
+        value={filterDateSignal.value}
+        options={DATE_OPTIONS}
+        onChange={(next) => {
+          filterDateSignal.value = next;
+          visibleCountSignal.value = 30;
+        }}
+      />
     </div>
   );
 }

@@ -12,12 +12,15 @@ const OPTS: ScopeOption<Scope>[] = [
 ];
 
 describe("ScopeFilter", () => {
-  it("renders one button per option in order", () => {
+  it("renders one segment per option in order via the shared Segmented primitive", () => {
     const { container } = render(<ScopeFilter value="all" options={OPTS} onChange={() => {}} />);
-    const btns = container.querySelectorAll(".scope-btn");
-    expect(btns.length).toBe(3);
-    expect(btns[0].textContent).toBe("All (10)");
-    expect(btns[1].textContent).toBe("Project (4)");
+    // Delegates to Segmented: rendered as a radiogroup carrying the scope-filter class.
+    expect(container.querySelector('[role="radiogroup"].scope-filter')).toBeTruthy();
+    const segs = container.querySelectorAll(".vsc-segmented-seg");
+    expect(segs.length).toBe(3);
+    expect(segs[0].textContent).toContain("All");
+    expect(segs[0].textContent).toContain("10");
+    expect(segs[1].textContent).toContain("Project");
   });
 
   it("omits the count when an option has none", () => {
@@ -29,9 +32,9 @@ describe("ScopeFilter", () => {
     const { container } = render(
       <ScopeFilter value="project" options={OPTS} onChange={() => {}} />,
     );
-    const active = container.querySelector(".scope-btn.active") as HTMLButtonElement;
-    expect(active.textContent).toBe("Project (4)");
-    expect(active.getAttribute("aria-pressed")).toBe("true");
+    const active = container.querySelector(".vsc-segmented-seg.active") as HTMLButtonElement;
+    expect(active.textContent).toContain("Project");
+    expect(active.getAttribute("aria-checked")).toBe("true");
   });
 
   it("calls onChange with the clicked option's value", () => {

@@ -1,70 +1,44 @@
 /**
- * Segmented scope/category filter — a row of mutually-exclusive buttons where
- * exactly one is active (e.g. All / Project / Global / Plugin, or the agent
- * model toggle). Generalises the four near-identical per-feature copies
- * (sessions, mcp, hooks, commands, agents) into one shared control.
+ * Segmented scope/category filter — a row of mutually-exclusive segments where
+ * exactly one is active (e.g. All / Project / Global / Plugin). This is now a
+ * thin alias over the shared <Segmented> primitive so there is ONE segmented
+ * control in the webview: ScopeFilter keeps its named call-site ergonomics and
+ * its count display, but the rendering, native look (subtle selected state, not
+ * primary blue), and keyboard behaviour all come from Segmented.
  *
- * Each option may carry a `count` rendered as a trailing number; callers that
- * don't want counts simply omit it. The caller decides which options appear
- * (e.g. hiding the Plugin segment when no plugin items exist) — this component
- * renders exactly what it is given, in order.
+ * The option type is re-exported as `ScopeOption` so existing call sites keep
+ * their import; it is structurally `SegmentedOption`.
  *
- * Generic over the option value type so feature unions (`"all" | "project" |
- * …`) flow through `onChange` without a cast.
+ * Generic over the option value type so feature unions (`"all" | "project" | …`)
+ * flow through `onChange` without a cast.
  */
-import { cx } from "../../lib";
+import { Segmented, type SegmentedOption } from "../Segmented";
 
-export interface ScopeOption<V extends string = string> {
-  value: V;
-  label: string;
-  /** Optional trailing count shown after the label. */
-  count?: number;
-}
+export type ScopeOption<V extends string = string> = SegmentedOption<V>;
 
 export interface ScopeFilterProps<V extends string = string> {
   value: V;
   options: ScopeOption<V>[];
   onChange: (value: V) => void;
+  /** Accessible label for the group. */
+  ariaLabel?: string;
   class?: string;
-}
-
-/**
- * One segment button. Hoisted to module scope so it is a single stable
- * component identity rather than a closure recreated inside the map on every
- * ScopeFilter render. Markup is identical to the inline version it replaced.
- */
-function ScopeButton<V extends string>({
-  opt,
-  active,
-  onChange,
-}: {
-  opt: ScopeOption<V>;
-  active: boolean;
-  onChange: (value: V) => void;
-}) {
-  return (
-    <button
-      type="button"
-      class={cx("scope-btn", active && "active")}
-      aria-pressed={active}
-      onClick={() => onChange(opt.value)}
-    >
-      {opt.count === undefined ? opt.label : `${opt.label} (${opt.count})`}
-    </button>
-  );
 }
 
 export function ScopeFilter<V extends string = string>({
   value,
   options,
   onChange,
+  ariaLabel,
   class: cls,
 }: ScopeFilterProps<V>) {
   return (
-    <div class={cx("scope-filter", cls)} role="group">
-      {options.map((opt) => (
-        <ScopeButton key={opt.value} opt={opt} active={value === opt.value} onChange={onChange} />
-      ))}
-    </div>
+    <Segmented
+      value={value}
+      options={options}
+      onChange={onChange}
+      ariaLabel={ariaLabel ?? "Filter by scope"}
+      class={cls ? `scope-filter ${cls}` : "scope-filter"}
+    />
   );
 }

@@ -74,7 +74,7 @@ describe("CommandsListView", () => {
   it("filters by scope when a scope button is clicked", async () => {
     commands.value = SAMPLE;
     const { container } = render(h(CommandsListView, {}));
-    const projectBtn = Array.from(container.querySelectorAll(".scope-btn")).find((b) =>
+    const projectBtn = Array.from(container.querySelectorAll(".vsc-segmented-seg")).find((b) =>
       b.textContent?.startsWith("Project"),
     ) as Element;
     fireEvent.click(projectBtn);
