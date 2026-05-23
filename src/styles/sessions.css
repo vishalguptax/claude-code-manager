@@ -43,6 +43,16 @@
   outline: 1px solid var(--list-focus);
   outline-offset: -1px;
 }
+/* Reserve room on the right for the absolutely-positioned action cluster
+   (resume + ⋯, two 32px hit targets) so the name / relative-time in row1 and
+   the prompt subtitle never sit UNDERNEATH the buttons. The cluster is pinned
+   at right: var(--space-lg); 72px clears both buttons plus their gap. This is
+   the v1 non-overlapping behaviour — the actions occupy dedicated space rather
+   than floating over the text. */
+.session-item {
+  padding-right: 72px;
+}
+
 /* Selected row indicator — left border accent + subtle background.
    Active (detail-open) takes precedence so the resume-target highlight
    keeps reading as the dominant signal. */
@@ -278,7 +288,9 @@
   text-overflow: ellipsis;
   margin-top: 2px;
 }
-.session-item:hover .item-prompt { margin-right: 36px; }
+/* The row reserves a fixed right inset for the action cluster (see
+   .session-item), so the prompt no longer needs a hover-only margin to dodge
+   the buttons — it clears them at rest and on hover alike. */
 .item.active .item-prompt    { color: var(--bg-active-fg); opacity: 0.65; }
 
 .item-row2 {
@@ -477,10 +489,11 @@
  */
 .d-actions {
   display: grid;
-  /* 110px min so typical action labels (Open in Chat, Copy /name)
-     fit without clipping at common sidebar widths. Narrower panels
-     fall back to fewer columns — the auto-fit repeat handles it. */
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  /* Shared --action-grid-min track (96px) so the 5-button detail cluster packs
+     cleanly — two-up on narrow panels — instead of wrapping unevenly, and so it
+     matches the account action rows. Narrower panels fall back to fewer columns
+     via the auto-fit repeat. */
+  grid-template-columns: repeat(auto-fit, minmax(var(--action-grid-min), 1fr));
   gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-xl);
 }
