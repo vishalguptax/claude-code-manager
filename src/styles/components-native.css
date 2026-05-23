@@ -402,19 +402,41 @@
 }
 
 /* GHOST / ICON ROLE — square, chromeless toolbar affordance. Transparent border
-   so its border-box height equals the bordered controls in the same row; hover
-   uses VS Code's toolbar hover fill. */
+   so its border-box height equals the bordered controls in the same row.
+   Resting is fully transparent (native VS Code), but a CLEAR interactive
+   affordance reveals on interaction:
+     hover  → VS Code's toolbar hover fill
+     active → toolbar active (pressed) fill
+     focus  → the focus-ring outline, inset so it never clips
+   The subtle radius and a >=24px min square keep it an easy, native-feeling
+   target. Applied uniformly so refresh / globe / back / resume and every
+   feature toolbar icon share one affordance. NO permanent resting border or
+   background — that would read as non-native. */
 .btn-icon {
   width: var(--h-control);
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
   justify-content: center;
   background: none;
   color: var(--role-text-secondary);
   border: 1px solid transparent;
+  border-radius: var(--radius);
 }
 .btn-icon:hover {
   background: var(--role-ghost-hover-bg);
   color: var(--role-text-primary);
+}
+.btn-icon:active {
+  background: var(--role-ghost-active-bg);
+  color: var(--role-text-primary);
+}
+/* Higher specificity (.btn.btn-icon) so the inset offset wins over the generic
+   `.btn:focus-visible` rule below regardless of source order — an icon button's
+   square is tight, so the ring sits INSIDE the box rather than 1px outside. */
+.btn.btn-icon:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
 }
 
 .btn:focus-visible {

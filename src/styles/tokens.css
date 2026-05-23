@@ -144,8 +144,11 @@
   --role-selected-hover-bg: var(--vscode-list-hoverBackground, var(--bg-hover));
 
   /* GHOST / ICON — chromeless toolbar affordance. Transparent until hover,
-     then VS Code's toolbar hover fill. */
+     then VS Code's toolbar hover fill; the pressed (active) state deepens to
+     the toolbar active fill, falling back to the list active-selection bg. */
   --role-ghost-hover-bg: var(--vscode-toolbar-hoverBackground, var(--bg-hover));
+  --role-ghost-active-bg: var(--vscode-toolbar-activeBackground,
+    var(--vscode-list-activeSelectionBackground, var(--bg-active)));
 
   /* TEXT HIERARCHY — primary body text, secondary/meta text, and section
      headers. Never use disabledForeground for structural text (it reads as
