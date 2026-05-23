@@ -150,17 +150,31 @@
   --vscode-settings-textInputBorder: var(--vscode-input-border, transparent);
 }
 
-/* Leading magnifier inside the search field's content-before slot. The slot is
-   `display:flex; align-items:center` (element default) and `.root` is now full
-   height, so the icon sits dead-centre vertically. A small left inset gives the
-   glyph the same 6px gutter VS Code's search fields use. */
+/* Slot wrappers — the light-DOM `<span slot="content-before|after">` spans that
+   carry the leading magnifier and trailing clear button. The element slots them
+   beside its full-height inner input, but the spans are inline by default, so a
+   short glyph would baseline-align rather than centre. Force each slot wrapper
+   to be a full-height flex box that centres its child vertically; the gutter
+   inset lives here (as padding) so the icon itself carries NO stray margin that
+   would knock it off-centre. */
+.vsc-textfield > [slot="content-before"],
+.vsc-textfield > [slot="content-after"] {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+.vsc-textfield > [slot="content-before"] {
+  padding-left: var(--space-sm);
+}
+
+/* Leading magnifier — centred by the full-height flex slot wrapper above; the
+   icon carries no margin/padding of its own so it sits dead-centre. */
 .vsc-search-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 16px;
-  margin-left: 4px;
-  color: var(--fg-muted);
+  color: var(--role-text-secondary);
   pointer-events: none;
 }
 
@@ -192,26 +206,65 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Dropdown / single-select — native <vscode-single-select> wrapper.
-   The element draws its Settings-dropdown face in Shadow DOM from
-   --vscode-settings-dropdown*; like the textfield it has no ::part or height
-   prop and renders at an intrinsic ~26px. Lift the SELECT element to a flex box
-   at the unified control height so its single shadow child (`.select-face`)
-   stretches to fill — keeping the closed control flush with the search box and
-   buttons beside it.
+   Dropdown — custom trigger button + shared <Menu> popup. Replaces the old
+   <vscode-single-select> wrapper, which rendered at an un-resizable ~26px and
+   could not be widened to match the search field. The trigger owns the box
+   exactly: full-width, --h-control tall, settings-dropdown chrome; the open
+   list reuses the native <Menu>. Width parity: the trigger fills its container,
+   and the popup is at least the trigger width via --dropdown-trigger-width
+   (set inline on the wrapper when the menu opens).
    ────────────────────────────────────────────────────────────────────────── */
 
-.vsc-dropdown-select {
+.vsc-dropdown-trigger {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
   height: var(--h-control);
-  /* Match the dropdown face to VS Code's Settings dropdown chrome explicitly,
-     so light/dark/HC all render the native border + fill even on themes that
-     leave the bare --vscode-settings-dropdown* vars unset. */
-  --vscode-settings-dropdownBackground: var(--vscode-dropdown-background, var(--vscode-input-background));
-  --vscode-settings-dropdownForeground: var(--vscode-dropdown-foreground, var(--vscode-input-foreground));
-  --vscode-settings-dropdownBorder: var(--vscode-dropdown-border, var(--vscode-input-border, var(--vscode-contrastBorder, transparent)));
-  --vscode-settings-dropdownListBorder: var(--vscode-dropdown-border, var(--vscode-input-border, var(--vscode-contrastBorder, transparent)));
+  box-sizing: border-box;
+  padding: 0 var(--space-md);
+  background: var(--role-control-bg);
+  color: var(--role-control-fg);
+  border: 1px solid var(--role-control-border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition-control);
+}
+.vsc-dropdown-trigger:hover {
+  border-color: var(--vscode-focusBorder, var(--role-control-border));
+}
+.vsc-dropdown-trigger:focus-visible {
+  outline: var(--focus-ring, 1px solid var(--accent));
+  outline-offset: -1px;
+}
+
+/* Selected-option label — fills the trigger and ellipsizes long values
+   (e.g. long project paths or branch names). */
+.vsc-dropdown-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Trailing chevron — muted, never shrinks. */
+.vsc-dropdown-chevron {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--role-text-secondary);
+  pointer-events: none;
+}
+
+/* The open popup is the native <Menu>; widen its min-width to the trigger so it
+   never opens narrower than the closed control. The Menu's own max-content
+   growth still lets long rows expand it further. */
+.vsc-dropdown-menu {
+  min-width: var(--dropdown-trigger-width, 180px);
 }
 
 
@@ -286,65 +339,72 @@
    variants and the loading spinner.
    ────────────────────────────────────────────────────────────────────────── */
 
+/* PRIMARY ROLE — the single main create action per view. Solid accent fill.
+   Keeps a transparent 1px border so it lands on the SAME pixel row as the
+   bordered secondary buttons beside it (border-box sizing). */
 .btn-primary {
-  background: var(--vscode-button-background, var(--btn-bg));
-  color: var(--vscode-button-foreground, var(--btn-fg));
-  /* Primary keeps a transparent 1px border so it lands on the SAME pixel row
-     as the bordered secondary buttons beside it (border-box sizing). */
-  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--role-primary-bg);
+  color: var(--role-primary-fg);
+  border: 1px solid var(--role-primary-border);
 }
 .btn-primary:hover {
-  background: var(--vscode-button-hoverBackground, var(--btn-hover));
+  background: var(--role-primary-hover-bg);
 }
 
-/* Secondary — in the sidebar, --vscode-button-secondaryBackground frequently
-   resolves to the panel background, so a fill-only button is invisible and
-   reads as plain text (the observed bug). Give it an explicit visible edge:
-   prefer the theme's button border, fall back to the high-contrast border, then
-   to the input border — every theme defines at least one. The fill stays the
-   native secondary background so it still reads as a button, not an outline-only
-   ghost. */
+/* SECONDARY ROLE — every non-primary button. In the sidebar
+   --vscode-button-secondaryBackground frequently resolves to the panel
+   background, so a fill-only button reads as plain text (the observed bug). The
+   role token gives it an explicit visible edge (button border → contrast border
+   → input border, whichever the theme defines) over the native secondary fill,
+   so it still reads as a button, not an outline-only ghost. */
 .btn-secondary {
-  background: var(--vscode-button-secondaryBackground, var(--btn-sec-bg));
-  color: var(--vscode-button-secondaryForeground, var(--btn-sec-fg));
-  border: 1px solid
-    var(--vscode-button-border,
-      var(--vscode-contrastBorder,
-        var(--vscode-input-border, var(--border))));
+  background: var(--role-secondary-bg);
+  color: var(--role-secondary-fg);
+  border: 1px solid var(--role-secondary-border);
 }
 .btn-secondary:hover {
-  background: var(--vscode-button-secondaryHoverBackground, var(--btn-sec-hover));
-  border-color: var(--vscode-button-border, var(--vscode-contrastBorder, var(--vscode-input-border, var(--border))));
+  background: var(--role-secondary-hover-bg);
+  border-color: var(--role-secondary-border);
 }
 
-/* Danger — destructive accent. Aliased to the legacy `.btn.del` modifier so
-   `<Button class="del">` and `<Button variant="danger">` look identical. The
-   transparent border keeps it on the same pixel row as bordered neighbours. */
+/* DANGER ROLE — Log out, Delete. NOT bare red text: a bordered secondary button
+   whose label/icon uses errorForeground, sharing the secondary border / height /
+   padding so it ALIGNS in a button row. The hover fill is a faint error-tinted
+   overlay, never a solid red block. Aliased to the legacy `.btn.del` modifier so
+   `<Button class="del">` and `<Button variant="danger">` are identical. */
 .btn-danger,
 .btn.del {
-  background: none;
-  color: var(--red);
-  border: 1px solid transparent;
+  background: var(--role-secondary-bg);
+  color: var(--role-danger-fg);
+  border: 1px solid var(--role-danger-border);
 }
 .btn-danger:hover,
 .btn.del:hover {
-  background: var(--red-bg);
-  color: var(--red);
+  background: var(--role-danger-hover-bg);
+  color: var(--role-danger-fg);
+  border-color: var(--role-danger-border);
+}
+/* Keep the leading icon on the error colour too (it inherits, but be explicit
+   so an <Icon> with its own colour rule can't override it). */
+.btn-danger > svg,
+.btn.del > svg {
+  color: var(--role-danger-fg);
 }
 
-/* Icon — square, chromeless affordance for toolbars. Transparent border so its
-   border-box height equals the bordered controls in the same row. */
+/* GHOST / ICON ROLE — square, chromeless toolbar affordance. Transparent border
+   so its border-box height equals the bordered controls in the same row; hover
+   uses VS Code's toolbar hover fill. */
 .btn-icon {
   width: var(--h-control);
   padding: 0;
   justify-content: center;
   background: none;
-  color: var(--fg-dim);
+  color: var(--role-text-secondary);
   border: 1px solid transparent;
 }
 .btn-icon:hover {
-  background: var(--bg-hover);
-  color: var(--fg);
+  background: var(--role-ghost-hover-bg);
+  color: var(--role-text-primary);
 }
 
 .btn:focus-visible {
@@ -378,18 +438,73 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────
-   ScopeFilter — keep the existing `.scope-filter` / `.scope-btn` look from
-   components.css (the shared <ScopeFilter> reuses those classes verbatim), and
-   add a focus ring so keyboard users see the active segment, matching VS
-   Code's segmented controls.
+   Segmented — the single segmented-control primitive (date range, scope filter,
+   usage period). The whole control is a recessed TRACK with a subtle border;
+   the SELECTED segment gets a subtle raised fill (--role-selected-*), NOT
+   primary blue, with the normal foreground; UNSELECTED segments are transparent
+   with the muted description colour. This is the core design-system fix for the
+   "everything is blue" hierarchy problem — the selected state is visually
+   distinct from the solid-blue primary button, matching VS Code's own segmented
+   toggles (Settings table/JSON switch, search filters).
    ────────────────────────────────────────────────────────────────────────── */
 
-.scope-btn:focus-visible {
+.vsc-segmented {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  /* The recessed channel the segments sit in. */
+  padding: 2px;
+  background: var(--role-track-bg);
+  border: 1px solid var(--role-track-border);
+  border-radius: var(--radius);
+  height: var(--h-control);
+  box-sizing: border-box;
+}
+
+.vsc-segmented-seg {
+  /* Full-width segments by default (date range / scope filter span the panel);
+     the compact `--sm` variant below makes them content-sized instead. */
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: 0 var(--space-md);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--role-unselected-fg);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background var(--transition-control), color var(--transition-control);
+}
+.vsc-segmented-seg:hover:not(.active) {
+  color: var(--role-text-primary);
+  background: var(--role-selected-hover-bg);
+}
+.vsc-segmented-seg.active {
+  background: var(--role-selected-bg);
+  color: var(--role-selected-fg);
+  font-weight: 500;
+}
+.vsc-segmented-seg:focus-visible {
   outline: var(--focus-ring, 1px solid var(--accent));
   outline-offset: -1px;
 }
-.scope-btn[aria-pressed="true"] {
-  background: var(--vscode-button-background, var(--btn-bg));
-  color: var(--vscode-button-foreground, var(--btn-fg));
-  border-color: var(--vscode-button-background, var(--btn-bg));
+
+/* Compact variant — inline toggles (account usage period). Content-sized
+   segments at a shorter height. */
+.vsc-segmented--sm {
+  height: var(--h-control-sm);
+  width: fit-content;
+}
+.vsc-segmented--sm .vsc-segmented-seg {
+  flex: 0 0 auto;
+  padding: 0 var(--space-md);
+  font-size: var(--fs-sm);
 }

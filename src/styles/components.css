@@ -58,26 +58,15 @@
   margin-bottom: 12px;
 }
 
-.btn-primary {
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  border: none;
-  padding: 0 var(--pad-control-x);
-  height: var(--h-control);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-.btn-primary:hover { background: var(--btn-hover); }
+/* Base box for the primary/secondary variants; role colours + borders are
+   applied in components-native.css (the Button-variant section). */
+.btn-primary,
 .btn-secondary {
-  background: var(--btn-sec-bg);
-  color: var(--btn-sec-fg);
-  border: none;
   padding: 0 var(--pad-control-x);
   height: var(--h-control);
   border-radius: var(--radius);
   cursor: pointer;
 }
-.btn-secondary:hover { background: var(--btn-sec-hover); }
 
 .list-item {
   padding: 8px var(--space-xl);
@@ -195,29 +184,26 @@
 }
 
 /*
- * Shared <Dropdown> wrapper (src/webview/shared/ui/Dropdown/Dropdown.tsx) around the
- * <vscode-single-select> web component. The element itself draws the native
- * Settings-dropdown face inside its Shadow DOM and reads the ambient
- * --vscode-* theme vars, so we only style the light-DOM flex shell: stretch the
- * select to fill the row and place an optional leading icon to its left.
+ * Shared <Dropdown> (src/webview/shared/ui/Dropdown/Dropdown.tsx) — a custom
+ * trigger button + the shared <Menu> popup. The wrapper is a full-width block so
+ * the trigger fills its container (matching the search field); the trigger box,
+ * label, chevron, and popup width parity are styled in components-native.css.
  */
 .filter-row > .vsc-dropdown {
   flex: 1;
   min-width: 0;
 }
 .vsc-dropdown {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-.vsc-dropdown-select {
-  flex: 1;
+  display: block;
+  width: 100%;
   min-width: 0;
 }
+/* Optional leading glyph on the closed trigger (e.g. the branch git-branch
+   icon). Muted, non-interactive. */
 .vsc-dropdown-leading {
   display: inline-flex;
   align-items: center;
-  color: var(--fg-muted);
+  color: var(--role-text-secondary);
   flex-shrink: 0;
   pointer-events: none;
 }
@@ -281,72 +267,25 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Scope Filter
+   Scope Filter / Date range — panel-edge placement only.
+
+   Both are now the shared <Segmented> control (the `.vsc-segmented` track look
+   lives in components-native.css). `.scope-filter` is applied DIRECTLY to the
+   `.vsc-segmented` element, so its edge insets use MARGIN (not padding, which
+   would fight the track's internal padding) to align the control with the
+   search box and list rows. `.date-chips` is a wrapper element, so it can use
+   padding. The selected-state visuals (no longer primary blue) come entirely
+   from `.vsc-segmented`.
    ────────────────────────────────────────────────────────────────────────────── */
 
 .scope-filter {
-  display: flex;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-2xl) 0;
+  margin: var(--space-xs) var(--space-2xl) 0;
   flex-shrink: 0;
 }
-
-.scope-btn {
-  flex: 1;
-  height: var(--h-control);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: none;
-  color: var(--fg-dim);
-  font-size: var(--fs-base);
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
-}
-.scope-btn:hover  { color: var(--fg); background: var(--bg-hover); }
-.scope-btn.active {
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  border-color: var(--btn-bg);
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Date Chips
-   ────────────────────────────────────────────────────────────────────────────── */
 
 .date-chips {
-  display: flex;
-  gap: var(--space-xs);
   padding: var(--space-sm) var(--space-2xl);
   flex-shrink: 0;
-}
-
-.chip {
-  flex: 1;
-  height: var(--h-control);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: none;
-  color: var(--fg-dim);
-  font-size: var(--fs-base);
-  font-family: inherit;
-  cursor: pointer;
-  transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
-}
-.chip:hover  { color: var(--fg); background: var(--bg-hover); }
-.chip:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
-.chip.active {
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  border-color: var(--btn-bg);
 }
 
 
@@ -416,12 +355,12 @@
    the icon visible next to whatever label text survives. */
 .btn > svg { flex-shrink: 0; }
 .btn:hover                   { color: var(--fg); }
-.btn.primary                 { background: var(--btn-bg); color: var(--btn-fg); }
-.btn.primary:hover           { background: var(--btn-hover); }
+.btn.primary                 { background: var(--role-primary-bg); color: var(--role-primary-fg); }
+.btn.primary:hover           { background: var(--role-primary-hover-bg); }
 .btn.green                   { color: var(--green); }
 .btn.green:hover             { background: var(--green-bg); }
-.btn.del                     { color: var(--red); }
-.btn.del:hover               { background: var(--red-bg); color: var(--red); }
+/* `.btn.del` is the legacy danger modifier — wired to the danger role in
+   components-native.css alongside `.btn-danger` so both look identical. */
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
