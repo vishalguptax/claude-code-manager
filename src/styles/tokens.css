@@ -39,7 +39,16 @@
   --red: var(--vscode-errorForeground, #f85149);
   --red-bg: rgba(248,81,73,0.15);
   --mono: var(--vscode-editor-font-family, monospace);
+  /* Alias kept for call sites that reference --font-mono (sessions session-id,
+     account quota code chips). Without this definition those fell through to
+     bare `monospace`, ignoring the user's editor font; aliasing to --mono makes
+     every monospace surface resolve to the same theme-correct family. */
+  --font-mono: var(--mono);
   --shadow: rgba(0,0,0,0.25);
+  /* Faint hairline used by heatmap empty/future cells and account scrollbars.
+     Aliased to a low-alpha neutral so it stays subtle on light + dark; call
+     sites already pass this exact fallback inline. */
+  --border-subtle: rgba(127,127,127,0.3);
   --overlay-hover: rgba(255,255,255,0.08);
   --dropdown-bg: var(--vscode-dropdown-background, var(--input-bg));
   --dropdown-border: var(--vscode-dropdown-border, var(--border));
