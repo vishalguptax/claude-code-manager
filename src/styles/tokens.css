@@ -8,8 +8,18 @@
   --fg: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground));
   --fg-dim: var(--vscode-descriptionForeground);
   --fg-muted: var(--vscode-disabledForeground);
+  /* Section-header foreground — VS Code's own SOURCE CONTROL / EXPLORER
+     group titles use this dedicated token (falls back to the panel
+     foreground on themes that leave it unset). Keeping section labels on
+     this var instead of --fg-muted matches the native sidebar hierarchy:
+     headers read as quiet structural labels, not disabled text. */
+  --fg-section: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
   --border: var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border));
   --accent: var(--vscode-focusBorder);
+  /* Keyboard-focus outline for list rows — VS Code's tree/list uses a
+     dedicated colour (list.focusOutline) that falls back to focusBorder.
+     Used by every focusable row so keyboard nav reads native. */
+  --list-focus: var(--vscode-list-focusOutline, var(--vscode-focusBorder));
   --badge-bg: var(--vscode-badge-background);
   --badge-fg: var(--vscode-badge-foreground);
   --input-bg: var(--vscode-input-background);

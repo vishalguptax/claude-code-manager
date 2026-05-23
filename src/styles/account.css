@@ -46,10 +46,10 @@
 
 .acct-section-title {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: var(--fg-muted);
+  color: var(--fg-section);
   margin: 0;
   flex: 1; /* push header-action buttons to the far right */
 }

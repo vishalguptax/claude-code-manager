@@ -79,7 +79,10 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   gap: var(--space-xs);
-  padding: var(--space-md) var(--space-xl) var(--space-xs);
+  /* Align the toolbar's left/right edge to the list rows + search box so the
+     panel reads as one column, and use the same vertical rhythm as the
+     filter rows below it. */
+  padding: var(--space-sm) var(--space-2xl) var(--space-xs);
   flex-shrink: 0;
 }
 
@@ -147,7 +150,8 @@
 .filter-row {
   display: flex;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-xl);
+  /* Match the list-row inset so the dropdowns line up with rows + search. */
+  padding: var(--space-sm) var(--space-2xl);
   position: relative;
   flex-shrink: 0;
 }
@@ -248,8 +252,8 @@
 
 .scope-filter {
   display: flex;
-  gap: 4px;
-  padding: var(--space-xs) var(--space-xl) 0;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-2xl) 0;
   flex-shrink: 0;
 }
 
@@ -283,7 +287,7 @@
 .date-chips {
   display: flex;
   gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-xl);
+  padding: var(--space-sm) var(--space-2xl);
   flex-shrink: 0;
 }
 
@@ -659,8 +663,11 @@
 .search-row {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  margin: var(--space-xs) var(--space-xl);
+  gap: var(--space-sm);
+  /* Inset to --space-2xl so the search field's left edge lines up with the
+     list-row text below it (rows use the same inset), the way VS Code's
+     filter box aligns to its tree. */
+  margin: var(--space-sm) var(--space-2xl);
   flex-shrink: 0;
 }
 

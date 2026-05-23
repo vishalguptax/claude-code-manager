@@ -83,10 +83,10 @@
 
 .hooks-panel .d-label {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: var(--fg-muted);
+  color: var(--fg-section);
   margin-bottom: var(--space-md);
 }
 

@@ -56,11 +56,11 @@
 .cmd-group-label,
 .hook-group-label {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--fg-muted);
-  padding: var(--space-2xl) var(--space-2xl) var(--space-sm);
+  color: var(--fg-section);
+  padding: var(--space-xl) var(--space-2xl) var(--space-sm);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -160,7 +160,7 @@
 .cmd-detail-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 6px;
+  gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-lg);
 }
 .cmd-detail-actions > .btn { justify-content: center; }
@@ -177,10 +177,10 @@
 
 .cmd-detail-label {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: var(--fg-muted);
+  color: var(--fg-section);
   margin-bottom: var(--space-md);
 }
 
