@@ -116,7 +116,24 @@ body {
    Misc (Loading, Empty)
    ────────────────────────────────────────────────────────────────────────────── */
 
-.loading { text-align: center; padding: 24px; font-size: var(--fs-base); color: var(--fg-muted); }
+/* Subtle text loader — VS Code shows a quiet, gently-pulsing label rather
+   than a heavyweight spinner for view content. The pulse uses opacity only
+   (no colour shift) so it stays calm; reduced-motion users get a static
+   label. */
+.loading {
+  text-align: center;
+  padding: 24px;
+  font-size: var(--fs-base);
+  color: var(--fg-dim);
+  animation: loading-pulse 1.4s ease-in-out infinite;
+}
+@keyframes loading-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading { animation: none; }
+}
 .empty   { text-align: center; padding: 28px var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
 
 /* Initial-paint loader for tab containers — shows immediately while

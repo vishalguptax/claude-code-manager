@@ -4,15 +4,37 @@
    ============================================================================ */
 
 
-/* New shell component styles (F1) */
+/* Shared <EmptyState> — centred icon + title + description, matching VS
+   Code's own "No results" / empty-view treatment (muted glyph, quiet
+   copy, generous vertical breathing room). The icon is dimmed so it
+   reads as decorative structure, not a control. */
 .empty-state {
-  padding: 32px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  gap: var(--space-sm);
+  padding: 40px var(--space-2xl);
   color: var(--fg-muted);
   font-size: var(--fs-base);
 }
-.empty-state-title { font-weight: 600; margin-bottom: 4px; }
-.empty-state-desc { color: var(--fg-dim); }
+.empty-state > svg,
+.empty-state > .icon {
+  color: var(--fg-muted);
+  opacity: 0.55;
+  margin-bottom: var(--space-xs);
+}
+.empty-state-title {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  color: var(--fg);
+}
+.empty-state-desc {
+  color: var(--fg-dim);
+  line-height: 1.5;
+  max-width: 280px;
+}
 
 .modal-backdrop {
   position: fixed; inset: 0;
@@ -386,6 +408,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  /* Subtle native hover/active fade on colour + fill. Global
+     reduced-motion rule neutralises it for users who opt out. */
+  transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
 }
 /* Inline SVG icons shouldn't shrink when text ellipsizes — keeps
    the icon visible next to whatever label text survives. */
