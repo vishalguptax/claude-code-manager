@@ -50,7 +50,8 @@ describe("DetailView", () => {
     detailLoadingSignal.value = true;
     detailSignal.value = null;
     const { container } = render(h(DetailView, {}));
-    expect(container.querySelector(".loading")).toBeTruthy();
+    // The bare "Loading…" text was replaced by the shared shimmer skeleton.
+    expect(container.querySelector(".skeleton-list")).toBeTruthy();
   });
 
   it("renders the title, project and messages", () => {

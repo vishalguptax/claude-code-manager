@@ -19,9 +19,9 @@ describe("ConfigTab", () => {
   afterEach(() => setVscodeApi(null));
 
   it("requests data on mount and shows loading", () => {
-    render(<ConfigTab />);
+    const { container } = render(<ConfigTab />);
     expect(post).toHaveBeenCalledWith({ type: "getAccountData" });
-    expect(screen.getByText(/Loading/)).toBeTruthy();
+    expect(container.querySelector(".skeleton-list")).toBeTruthy();
   });
 
   it("renders all four sections once data arrives", async () => {

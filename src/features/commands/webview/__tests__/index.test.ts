@@ -68,14 +68,14 @@ describe("CommandsTab", () => {
 
   it("shows a loading indicator before data arrives", () => {
     const { container } = render(h(CommandsTab, {}));
-    expect(container.querySelector(".loading")).toBeTruthy();
+    expect(container.querySelector(".skeleton-list")).toBeTruthy();
   });
 
   it("renders the list once commands are present", async () => {
     commands.value = [{ name: "a", scope: "global", content: "x", path: "" }];
     loading.value = false;
     const { container } = render(h(CommandsTab, {}));
-    await waitFor(() => expect(container.querySelector(".cmd-list-count")).toBeTruthy());
+    await waitFor(() => expect(container.querySelector(".list-count")).toBeTruthy());
   });
 
   it("renders the detail view when a command is selected", async () => {

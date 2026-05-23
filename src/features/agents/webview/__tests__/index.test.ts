@@ -38,7 +38,7 @@ describe("AgentsTab", () => {
   it("requests agents on mount and shows loading first", () => {
     const { container } = render(h(AgentsTab, {}));
     expect(posted).toContainEqual({ type: "getAgents" });
-    expect(container.querySelector(".loading")).toBeTruthy();
+    expect(container.querySelector(".skeleton-list")).toBeTruthy();
   });
 
   it("renders the list once agents arrive", () => {
@@ -85,6 +85,6 @@ describe("AgentsTab", () => {
     render(h(AgentsTab, {}));
     act(() => dispatch({ type: "skills", data: [] } as Message));
     // Still loading: no agents handler fired.
-    expect(document.querySelector(".loading")).toBeTruthy();
+    expect(document.querySelector(".skeleton-list")).toBeTruthy();
   });
 });

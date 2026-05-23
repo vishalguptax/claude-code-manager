@@ -23,5 +23,11 @@ export { Modal, type ModalProps } from "./Modal";
 export { ScopeFilter, type ScopeFilterProps, type ScopeOption } from "./ScopeFilter";
 export { SearchInput, type SearchInputProps } from "./SearchInput";
 export { Segmented, type SegmentedOption, type SegmentedProps } from "./Segmented";
+export {
+  Skeleton,
+  SkeletonList,
+  type SkeletonListProps,
+  type SkeletonProps,
+} from "./Skeleton";
 export { TextField, type TextFieldProps, type TextFieldType } from "./TextField";
 export { VirtualList, type VirtualListProps } from "./VirtualList";

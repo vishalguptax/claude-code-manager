@@ -9,7 +9,7 @@
  * message the decomposed host cannot answer.
  */
 import { useEffect, useState } from "preact/hooks";
-import { Button, Icon } from "../../../../../webview/shared/ui";
+import { Button, Icon, Loading } from "../../../../../webview/shared/ui";
 import { isClaudeCodeExtensionInstalled } from "../../../../../webview/extensionStatus";
 import { useDebounce } from "../../../../../webview/shared/hooks";
 import { cx } from "../../../../../webview/shared/lib";
@@ -201,7 +201,7 @@ export function DetailView() {
         <button type="button" class="back-btn" onClick={backToList}>
           <Icon name="arrow-left" /> Back
         </button>
-        <div class="loading">Loading…</div>
+        <Loading />
       </div>
     );
   }

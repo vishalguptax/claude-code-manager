@@ -1,1 +1,1 @@
-export { Loading } from "./Loading";
+export { Loading, type LoadingProps } from "./Loading";
