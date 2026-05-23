@@ -11,7 +11,7 @@ import {
   marketplaceSkillsUrl,
   selectedSkill,
   skills,
-} from "../signals";
+} from "../model";
 import { makeSkill } from "./fixtures";
 
 afterEach(cleanup);

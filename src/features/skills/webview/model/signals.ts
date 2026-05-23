@@ -4,7 +4,7 @@
  * re-render automatically; the message bus and event handlers write.
  */
 import { computed, signal } from "@preact/signals";
-import type { Skill } from "../types";
+import type { Skill } from "../../types";
 
 export type ScopeFilter = "all" | "project" | "global" | "plugin";
 

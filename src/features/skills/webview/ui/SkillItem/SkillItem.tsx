@@ -4,9 +4,9 @@
  * Stateless: all interaction is delegated to the props callbacks so the
  * component stays trivially testable.
  */
-import { cx } from "../../../../webview/shared/lib";
-import { Icon } from "../../../../webview/shared/ui";
-import type { Skill } from "../../types";
+import { Badge, Button } from "../../../../../webview/shared/ui";
+import { cx } from "../../../../../webview/shared/lib";
+import type { Skill } from "../../../types";
 
 const DESC_MAX = 60;
 
@@ -46,30 +46,28 @@ export function SkillItem(props: SkillItemProps) {
           {skill.name}
         </span>
         {chatEnabled ? (
-          <button
-            type="button"
+          <Button
+            variant="icon"
             class="item-chat-btn"
+            iconName="message-square"
             title={`Launch /${skill.name} in Claude Code chat`}
             onClick={(e) => {
               e.stopPropagation();
               onLaunchChat(skill.name);
             }}
-          >
-            <Icon name="message-square" size={14} />
-          </button>
+          />
         ) : null}
-        <button
-          type="button"
+        <Button
+          variant="icon"
           class="item-copy-btn"
+          iconName="copy"
           title={`Copy /${skill.name}`}
           onClick={(e) => {
             e.stopPropagation();
             onCopy(skill.name);
           }}
-        >
-          <Icon name="copy" size={14} />
-        </button>
-        <span class={cx("skill-scope-badge", `scope-${skill.scope}`)}>{skill.scope}</span>
+        />
+        <Badge variant="scope" text={skill.scope} class={`skill-scope-badge scope-${skill.scope}`} />
       </div>
       {desc ? <div class="item-prompt">{desc}</div> : null}
       {skill.tags.length ? (

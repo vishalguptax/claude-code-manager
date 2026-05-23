@@ -4,7 +4,7 @@
  * within each bucket separates top-level skills from nested folder groups.
  * Extracted from the view so it can be unit-tested without a DOM.
  */
-import type { Skill } from "../types";
+import type { Skill } from "../../types";
 
 /** A scope bucket: top-level skills plus nested folder groups. */
 export interface ScopeBucket {

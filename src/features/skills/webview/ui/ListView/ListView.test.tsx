@@ -2,8 +2,8 @@
 import { h } from "preact";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { ListView } from "../views/ListView";
+import { setVscodeApi } from "../../../../../webview/shared/hooks";
+import { makeSkill } from "../../__tests__/fixtures";
 import {
   claudeCodeInstalled,
   marketplaceSkillsUrl,
@@ -11,8 +11,8 @@ import {
   searchQuery,
   selectedSkill,
   skills,
-} from "../signals";
-import { makeSkill } from "./fixtures";
+} from "../../model";
+import { ListView } from "./ListView";
 
 afterEach(cleanup);
 
@@ -88,9 +88,10 @@ describe("ListView", () => {
       makeSkill({ id: "1", name: "alpha" }),
       makeSkill({ id: "2", name: "beta" }),
     ];
-    render(h(ListView, {}));
-    const input = screen.getByLabelText("Search skills") as HTMLInputElement;
-    fireEvent.input(input, { target: { value: "zzz" } });
+    const { container } = render(h(ListView, {}));
+    const field = container.querySelector("vscode-textfield") as HTMLElement;
+    vi.spyOn(field as unknown as { value: string }, "value", "get").mockReturnValue("zzz");
+    fireEvent(field, new Event("input"));
     await waitFor(() => expect(screen.getByText("No matching skills")).toBeTruthy());
   });
 
