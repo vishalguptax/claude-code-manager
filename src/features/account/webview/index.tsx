@@ -28,6 +28,7 @@ import {
   accountError,
   clearQuota,
   loading,
+  loadPersistedQuotaOptIn,
   QUOTA_CACHE_TTL_MS,
   quotaCacheAgeMs,
   quotaOptIn,
@@ -75,13 +76,18 @@ export function handleAccountMessage(msg: Message, send: { fetchQuota: () => voi
 }
 
 /**
- * Quota auto-fetch policy, run once on mount:
+ * Quota auto-fetch policy, run once on mount. The opt-in is loaded from
+ * persisted state first (a previous session's "Check quota" click), so the
+ * 100%-local default only blocks the very first time:
  *   1. Not opted in        → idle; user clicks the CTA.
- *   2. Opted in + no cache  → fetch now.
+ *   2. Opted in + no cache  → fetch now (a fresh reload has no cached numbers,
+ *                             so a persisted opt-in auto-fetches here).
  *   3. Opted in + stale     → keep painted value, refetch silently.
  *   4. Opted in + fresh     → no-op.
  */
 function applyQuotaPolicy(send: { fetchQuota: () => void }): void {
+  // Honor a remembered opt-in from a prior session before deciding.
+  loadPersistedQuotaOptIn();
   if (!quotaOptIn.value) return;
   const age = quotaCacheAgeMs();
   if (age === null) {

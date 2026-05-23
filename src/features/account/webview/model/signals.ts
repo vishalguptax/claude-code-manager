@@ -3,18 +3,22 @@
  * `state.ts` getter/setter module with @preact/signals so views
  * re-render automatically when any of these change.
  *
- * Scope note: collapse + quota state is session-scoped (lives only for
- * the lifetime of the webview). The v1 module persisted these via the
- * shared `persistence` helper, but the F1 webview shell (`main.tsx`,
- * read-only here) does not call `initPersistence`, so that store is
- * unwired. Rather than reach outside the feature boundary, we keep the
- * state in-memory; the cost is that collapse + quota-opt-in reset on a
- * full webview reload, which is acceptable for identity-only state.
+ * Persistence scope: collapse state is session-scoped (in-memory only).
+ * The quota opt-in IS persisted via the shared `persistence` bridge
+ * (`main.tsx` calls `initPersistence`, so the setState/getState store is
+ * live) — once a user clicks "Check quota" we remember the consent across
+ * reloads so the 100%-local default only has to be cleared once. The cached
+ * quota numbers themselves are NOT persisted; they're refetched on demand,
+ * gated by that remembered opt-in (see index.tsx applyQuotaPolicy).
  */
 
 import { computed, signal } from "@preact/signals";
+import { getPersisted, setPersisted } from "../../../../webview/persistence";
 import type { AccountData } from "../../types";
 import type { QuotaData, QuotaError } from "../../quota";
+
+/** Persistence key for the remembered quota network opt-in. */
+const QUOTA_OPT_IN_KEY = "account.quotaOptIn";
 
 export type TimePeriod = "all" | "week" | "month";
 
@@ -49,7 +53,11 @@ export const timePeriod = signal<TimePeriod>("month");
 /** Set of collapsed section ids ("profile", "quota", "usage"). */
 export const collapsedSections = signal<ReadonlySet<string>>(new Set());
 
-/** Whether the user opted into the (network) quota fetch. */
+/**
+ * Whether the user opted into the (network) quota fetch. Default stays
+ * `false` (100%-local until the user acts), but a persisted opt-in from a
+ * previous session is loaded on mount via {@link loadPersistedQuotaOptIn}.
+ */
 export const quotaOptIn = signal<boolean>(false);
 /** Current quota card state. */
 export const quotaStatus = signal<QuotaStatus>({ kind: "idle" });
@@ -105,6 +113,26 @@ export function clearQuota(): void {
 export function quotaCacheAgeMs(): number | null {
   const at = quotaFetchedAtMs.value;
   return at === null ? null : Math.max(0, Date.now() - at);
+}
+
+/**
+ * Record the user's quota opt-in and remember it across reloads. Called
+ * the first (and every) time the user clicks "Check quota" / refresh, so a
+ * subsequent Account open can auto-fetch without re-prompting.
+ */
+export function setQuotaOptIn(value: boolean): void {
+  quotaOptIn.value = value;
+  setPersisted(QUOTA_OPT_IN_KEY, value);
+}
+
+/**
+ * Load the remembered opt-in into the signal on mount. No-ops when nothing
+ * was persisted (stays the 100%-local `false` default) or when the
+ * persistence bridge is unavailable (returns undefined).
+ */
+export function loadPersistedQuotaOptIn(): void {
+  const stored = getPersisted<boolean>(QUOTA_OPT_IN_KEY);
+  if (stored === true) quotaOptIn.value = true;
 }
 
 /** Test-only: reset every signal to its initial value. */

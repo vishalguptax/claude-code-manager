@@ -87,9 +87,10 @@ describe("AccountTab", () => {
   afterEach(() => setVscodeApi(null));
 
   it("requests account data on mount and shows the loading state", () => {
-    render(h(AccountTab, {}));
+    const { container } = render(h(AccountTab, {}));
     expect(post).toHaveBeenCalledWith({ type: "getAccountData" });
-    expect(screen.getByText(/Loading/)).toBeTruthy();
+    // The shared <Loading> now renders the shimmer skeleton.
+    expect(container.querySelector(".skeleton-list")).toBeTruthy();
   });
 
   it("renders the three sections once data arrives", async () => {

@@ -1,18 +1,35 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { initPersistence } from "../../../../webview/persistence";
+import type { VSCodeAPI } from "../../../../webview/types";
 import type { QuotaData, QuotaError } from "../../quota";
 import {
   _resetAccountState,
   clearQuota,
   collapsedSections,
   isSectionCollapsed,
+  loadPersistedQuotaOptIn,
   quotaCacheAgeMs,
   quotaFetchedAtMs,
+  quotaOptIn,
   quotaStatus,
   setQuotaError,
   setQuotaLoading,
+  setQuotaOptIn,
   setQuotaSuccess,
   toggleSection,
 } from "./signals";
+
+/** Minimal in-memory setState/getState bridge for persistence round-trips. */
+function fakePersistence(): VSCodeAPI {
+  let store: unknown;
+  return {
+    postMessage: () => {},
+    getState: () => store,
+    setState: (s: unknown) => {
+      store = s;
+    },
+  } as VSCodeAPI;
+}
 
 const QUOTA: QuotaData = {
   fiveHour: { utilization: 10, resetsAt: "" },
@@ -69,5 +86,28 @@ describe("account signals", () => {
     clearQuota();
     expect(quotaStatus.value.kind).toBe("idle");
     expect(quotaFetchedAtMs.value).toBeNull();
+  });
+
+  it("persists the quota opt-in and reloads it across a state reset", () => {
+    initPersistence(fakePersistence());
+    expect(quotaOptIn.value).toBe(false);
+
+    setQuotaOptIn(true);
+    expect(quotaOptIn.value).toBe(true);
+
+    // Simulate a fresh webview load: signals reset to defaults...
+    _resetAccountState();
+    expect(quotaOptIn.value).toBe(false);
+
+    // ...but the remembered opt-in is restored from persisted state.
+    loadPersistedQuotaOptIn();
+    expect(quotaOptIn.value).toBe(true);
+  });
+
+  it("loadPersistedQuotaOptIn leaves the local default when nothing was opted in", () => {
+    initPersistence(fakePersistence());
+    expect(quotaOptIn.value).toBe(false);
+    loadPersistedQuotaOptIn();
+    expect(quotaOptIn.value).toBe(false);
   });
 });

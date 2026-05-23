@@ -17,9 +17,9 @@ import { formatFetchedRelative, formatMoney, quotaTone } from "../../lib";
 import {
   isSectionCollapsed,
   quotaFetchedAtMs,
-  quotaOptIn,
   quotaStatus,
   setQuotaLoading,
+  setQuotaOptIn,
   toggleSection,
 } from "../../model";
 import { QuotaBar } from "../QuotaBar";
@@ -37,7 +37,8 @@ export function QuotaView({ api }: QuotaViewProps) {
     // The refresh button lives inside the header for layout; stop the
     // click bubbling so it doesn't toggle the section collapse.
     e.stopPropagation();
-    quotaOptIn.value = true;
+    // Remember the opt-in across reloads so future Account opens auto-refresh.
+    setQuotaOptIn(true);
     setQuotaLoading();
     api.fetchQuota();
   };
