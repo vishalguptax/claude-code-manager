@@ -28,6 +28,32 @@ export interface ScopeFilterProps<V extends string = string> {
   class?: string;
 }
 
+/**
+ * One segment button. Hoisted to module scope so it is a single stable
+ * component identity rather than a closure recreated inside the map on every
+ * ScopeFilter render. Markup is identical to the inline version it replaced.
+ */
+function ScopeButton<V extends string>({
+  opt,
+  active,
+  onChange,
+}: {
+  opt: ScopeOption<V>;
+  active: boolean;
+  onChange: (value: V) => void;
+}) {
+  return (
+    <button
+      type="button"
+      class={cx("scope-btn", active && "active")}
+      aria-pressed={active}
+      onClick={() => onChange(opt.value)}
+    >
+      {opt.count === undefined ? opt.label : `${opt.label} (${opt.count})`}
+    </button>
+  );
+}
+
 export function ScopeFilter<V extends string = string>({
   value,
   options,
@@ -37,15 +63,7 @@ export function ScopeFilter<V extends string = string>({
   return (
     <div class={cx("scope-filter", cls)} role="group">
       {options.map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          class={cx("scope-btn", value === opt.value && "active")}
-          aria-pressed={value === opt.value}
-          onClick={() => onChange(opt.value)}
-        >
-          {opt.count === undefined ? opt.label : `${opt.label} (${opt.count})`}
-        </button>
+        <ScopeButton key={opt.value} opt={opt} active={value === opt.value} onChange={onChange} />
       ))}
     </div>
   );
