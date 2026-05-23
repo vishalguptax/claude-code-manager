@@ -131,7 +131,18 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 .vsc-textfield {
+  /* The element is `display:inline-block` by default and its inner `.root`
+     (Shadow DOM) has no height — it renders at the input's intrinsic ~26px,
+     SHORTER than our 32px buttons/dropdowns. The element exposes no ::part or
+     height custom prop, so we lift the host to a flex box at the unified
+     control height: its single shadow child (`.root`) becomes a flex item and
+     stretches to fill via the default `align-items: stretch`, dragging the
+     centred `<input>` to the vertical middle. This is the only external lever
+     that resizes the field without piercing the (un-parted) shadow tree. */
+  display: flex;
+  align-items: stretch;
   width: 100%;
+  height: var(--h-control);
   /* Map the element's settings-input cssprops to the same vars VS Code's own
      inputs use, so a bare <TextField> matches a Settings text box exactly. */
   --vscode-settings-textInputBackground: var(--vscode-input-background);
@@ -139,25 +150,30 @@
   --vscode-settings-textInputBorder: var(--vscode-input-border, transparent);
 }
 
-/* Leading magnifier inside the search field's content-before slot. */
+/* Leading magnifier inside the search field's content-before slot. The slot is
+   `display:flex; align-items:center` (element default) and `.root` is now full
+   height, so the icon sits dead-centre vertically. A small left inset gives the
+   glyph the same 6px gutter VS Code's search fields use. */
 .vsc-search-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding-left: 2px;
+  width: 16px;
+  margin-left: 4px;
   color: var(--fg-muted);
   pointer-events: none;
 }
 
 /* Trailing clear (x) button inside the content-after slot — chromeless, lights
-   up on hover like VS Code's inline input affordances. */
+   up on hover like VS Code's inline input affordances. Centred in the field via
+   the full-height flex slot. */
 .vsc-search-clear {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin-right: 2px;
+  margin: 0 3px;
   padding: 0;
   background: none;
   border: none;
@@ -168,6 +184,34 @@
 .vsc-search-clear:hover {
   color: var(--fg);
   background: var(--bg-hover);
+}
+.vsc-search-clear:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Dropdown / single-select — native <vscode-single-select> wrapper.
+   The element draws its Settings-dropdown face in Shadow DOM from
+   --vscode-settings-dropdown*; like the textfield it has no ::part or height
+   prop and renders at an intrinsic ~26px. Lift the SELECT element to a flex box
+   at the unified control height so its single shadow child (`.select-face`)
+   stretches to fill — keeping the closed control flush with the search box and
+   buttons beside it.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-dropdown-select {
+  display: flex;
+  align-items: stretch;
+  height: var(--h-control);
+  /* Match the dropdown face to VS Code's Settings dropdown chrome explicitly,
+     so light/dark/HC all render the native border + fill even on themes that
+     leave the bare --vscode-settings-dropdown* vars unset. */
+  --vscode-settings-dropdownBackground: var(--vscode-dropdown-background, var(--vscode-input-background));
+  --vscode-settings-dropdownForeground: var(--vscode-dropdown-foreground, var(--vscode-input-foreground));
+  --vscode-settings-dropdownBorder: var(--vscode-dropdown-border, var(--vscode-input-border, var(--vscode-contrastBorder, transparent)));
+  --vscode-settings-dropdownListBorder: var(--vscode-dropdown-border, var(--vscode-input-border, var(--vscode-contrastBorder, transparent)));
 }
 
 
