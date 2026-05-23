@@ -9,7 +9,11 @@
 
 .acct-section {
   border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
+  /* Breathing room between stacked sections (Profile / Quota / Usage) so the
+     dividers separate clearly grouped content rather than cramped rows. */
+  padding: var(--space-lg) 0;
 }
+.acct-section:first-child { padding-top: var(--space-md); }
 .acct-section:last-child { border-bottom: none; }
 
 .acct-section-header {
