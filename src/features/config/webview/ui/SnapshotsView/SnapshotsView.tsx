@@ -3,25 +3,15 @@
  * prior state host-side; this view lists those snapshots with per-entry
  * Restore (host-confirmed) and Delete (loses only the rollback option, so
  * unconfirmed) actions. Newest first; capped per scope by the host.
+ *
+ * Shared components: the scope chip is a <Badge>, and the restore/delete
+ * actions are <Button>s (delete uses the destructive `danger` variant).
+ * Timestamp/size formatting comes from the slice's JSX-free lib segment.
  */
-import { Icon } from "../../../../webview/shared/ui";
-import type { SettingsSnapshotInfo } from "../../types";
-import type { ConfigApi } from "../api";
-
-function formatTime(ms: number): string {
-  if (!Number.isFinite(ms) || ms <= 0) return "";
-  try {
-    return new Date(ms).toLocaleString();
-  } catch {
-    return new Date(ms).toISOString();
-  }
-}
-
-function formatKb(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
-}
+import { Badge, Button, Icon } from "../../../../../webview/shared/ui";
+import type { SettingsSnapshotInfo } from "../../../types";
+import type { ConfigApi } from "../../api";
+import { formatKb, formatTime } from "../../lib";
 
 export interface SnapshotsViewProps {
   snapshots: SettingsSnapshotInfo[];
@@ -72,26 +62,28 @@ export function SnapshotsView({ snapshots, api }: SnapshotsViewProps) {
                 <div class="cfg-snap-meta">
                   <div class="cfg-snap-when">{formatTime(s.takenAtMs)}</div>
                   <div class="cfg-snap-detail">
-                    <span class="cfg-snap-scope">{s.scope}</span>
+                    <Badge text={s.scope} variant="scope" />
                     <span class="cfg-snap-diff">{keysLabel}</span>
                     {s.sizeBytes > 0 ? <span class="cfg-snap-size">{formatKb(s.sizeBytes)}</span> : null}
                   </div>
                 </div>
                 <div class="cfg-snap-actions">
-                  <button
-                    class="btn cfg-snap-restore"
+                  <Button
+                    iconName="history"
+                    class="cfg-snap-restore"
                     title="Replace live settings.json with this snapshot"
                     onClick={() => api.restoreSnapshot(s.scope, s.id)}
                   >
-                    <Icon name="history" size={12} /> Restore
-                  </button>
-                  <button
-                    class="btn del cfg-snap-delete"
+                    Restore
+                  </Button>
+                  <Button
+                    variant="danger"
+                    iconName="trash-2"
+                    class="cfg-snap-delete"
                     title="Delete this snapshot"
+                    ariaLabel="Delete snapshot"
                     onClick={() => api.deleteSnapshot(s.scope, s.id)}
-                  >
-                    <Icon name="trash-2" size={12} />
-                  </button>
+                  />
                 </div>
               </div>
             );

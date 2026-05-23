@@ -1,13 +1,28 @@
 /**
- * Permissions section of the Config tab — the scope toggle (global /
+ * Permissions section of the Config tab — the scope filter (global /
  * project / local), a live search box, the allow/deny tool lists, and the
  * additional-directories list. Scope + search are config-local signals;
  * the actual allow/deny/dir mutations round-trip through the host (which
  * confirms removals natively) and come back as a fresh `accountData`.
+ *
+ * Shared components: the scope segments use <ScopeFilter>, the live filter
+ * uses <SearchInput>, group counts render as <Badge>, the action row uses
+ * <Button>, and per-row removals use an icon <Button>.
  */
-import { Icon } from "../../../../webview/shared/ui";
-import type { AccountData, PermissionScope, PermissionSet, PermissionList } from "../../types";
-import type { ConfigApi } from "../api";
+import {
+  Badge,
+  Button,
+  Icon,
+  ScopeFilter,
+  SearchInput,
+} from "../../../../../webview/shared/ui";
+import type {
+  AccountData,
+  PermissionList,
+  PermissionScope,
+  PermissionSet,
+} from "../../../types";
+import type { ConfigApi } from "../../api";
 
 export interface PermissionsViewProps {
   data: AccountData;
@@ -30,6 +45,14 @@ export function PermissionsView({
   const hasProjectScope = data.permissions.some((p) => p.scope === "project");
   const query = search.trim().toLowerCase();
 
+  const scopeOptions: Array<{ value: PermissionScope; label: string }> = [
+    { value: "global", label: "Global" },
+  ];
+  if (hasProjectScope) {
+    scopeOptions.push({ value: "project", label: "Project" });
+    scopeOptions.push({ value: "local", label: "Local" });
+  }
+
   return (
     <section class="acct-section">
       <header class="acct-section-header" data-section="permissions">
@@ -38,42 +61,19 @@ export function PermissionsView({
         </h2>
       </header>
       <div class="acct-section-body">
-        <div class="vs-segmented acct-scope-toggle" role="tablist">
-          <button
-            class={`vs-segmented-btn ${scope === "global" ? "active" : ""}`}
-            role="tab"
-            onClick={() => onScopeChange("global")}
-          >
-            Global
-          </button>
-          {hasProjectScope ? (
-            <button
-              class={`vs-segmented-btn ${scope === "project" ? "active" : ""}`}
-              role="tab"
-              onClick={() => onScopeChange("project")}
-            >
-              Project
-            </button>
-          ) : null}
-          {hasProjectScope ? (
-            <button
-              class={`vs-segmented-btn ${scope === "local" ? "active" : ""}`}
-              role="tab"
-              onClick={() => onScopeChange("local")}
-            >
-              Local
-            </button>
-          ) : null}
-        </div>
+        <ScopeFilter<PermissionScope>
+          class="acct-scope-toggle"
+          value={scope}
+          options={scopeOptions}
+          onChange={onScopeChange}
+        />
 
         <div class="acct-field">
-          <input
-            type="text"
-            class="acct-input"
-            id="cfg-perm-search"
+          <SearchInput
             value={search}
             placeholder="Search tools..."
-            onInput={(e) => onSearchChange((e.currentTarget as HTMLInputElement).value)}
+            ariaLabel="Search tools"
+            onInput={onSearchChange}
           />
         </div>
 
@@ -89,15 +89,15 @@ export function PermissionsView({
         </div>
 
         <div class="acct-actions">
-          <button class="btn" id="cfg-add-allow" onClick={() => api.promptAddPermission(scope, "allow")}>
-            <Icon name="plus" size={14} /> Add allowed
-          </button>
-          <button class="btn" id="cfg-add-deny" onClick={() => api.promptAddPermission(scope, "deny")}>
-            <Icon name="x" size={14} /> Add denied
-          </button>
-          <button class="btn" id="cfg-open-perms" onClick={() => api.openSettingsFile(scope)}>
-            <Icon name="external-link" size={14} /> Edit in file
-          </button>
+          <Button iconName="plus" onClick={() => api.promptAddPermission(scope, "allow")}>
+            Add allowed
+          </Button>
+          <Button iconName="x" onClick={() => api.promptAddPermission(scope, "deny")}>
+            Add denied
+          </Button>
+          <Button iconName="external-link" onClick={() => api.openSettingsFile(scope)}>
+            Edit in file
+          </Button>
         </div>
       </div>
     </section>
@@ -127,7 +127,7 @@ function PermissionList({ set, scope, list, label, query, api }: PermissionListP
       <div class="acct-perm-group">
         <div class="acct-perm-group-label">
           {label}
-          {total > 0 ? ` (0 / ${total})` : ""}
+          {total > 0 ? <Badge text={`0 / ${total}`} variant="count" /> : null}
         </div>
         <div class="acct-empty-small">{empty}</div>
       </div>
@@ -138,18 +138,19 @@ function PermissionList({ set, scope, list, label, query, api }: PermissionListP
   return (
     <div class="acct-perm-group">
       <div class="acct-perm-group-label">
-        {label} ({countLabel})
+        {label} <Badge text={countLabel} variant="count" />
       </div>
       {items.map((t) => (
         <div class="acct-perm-row" key={t}>
           <span class="acct-perm-name">{t}</span>
-          <button
+          <Button
+            variant="icon"
+            iconName="x"
             class="acct-perm-remove"
             title="Remove"
+            ariaLabel={`Remove ${t}`}
             onClick={() => api.promptRemovePermission(scope, t, list)}
-          >
-            <Icon name="x" size={12} />
-          </button>
+          />
         </div>
       ))}
     </div>
@@ -165,7 +166,7 @@ function AdditionalDirectories({ dirs, api }: AdditionalDirectoriesProps) {
   return (
     <div class="acct-perm-group">
       <div class="acct-perm-group-label">
-        Additional directories{dirs.length > 0 ? ` (${dirs.length})` : ""}
+        Additional directories{dirs.length > 0 ? <Badge text={String(dirs.length)} variant="count" /> : null}
       </div>
       {dirs.length === 0 ? (
         <div class="acct-empty-small">None — Claude can only read the workspace.</div>
@@ -173,25 +174,26 @@ function AdditionalDirectories({ dirs, api }: AdditionalDirectoriesProps) {
         dirs.map((d) => (
           <div class="acct-perm-row" key={d}>
             <span class="acct-perm-name">{d}</span>
-            <button
+            <Button
+              variant="icon"
+              iconName="x"
               class="acct-perm-remove"
               title="Remove"
+              ariaLabel={`Remove ${d}`}
               onClick={() =>
                 api.setSetting(
                   "permissions.additionalDirectories",
                   dirs.filter((x) => x !== d),
                 )
               }
-            >
-              <Icon name="x" size={12} />
-            </button>
+            />
           </div>
         ))
       )}
       <div class="acct-actions">
-        <button class="btn" id="cfg-add-dir" onClick={() => api.promptAddDirectory()}>
-          <Icon name="plus" size={14} /> Add directory
-        </button>
+        <Button iconName="plus" onClick={() => api.promptAddDirectory()}>
+          Add directory
+        </Button>
       </div>
     </div>
   );
