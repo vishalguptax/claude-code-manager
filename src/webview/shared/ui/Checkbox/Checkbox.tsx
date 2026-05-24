@@ -16,6 +16,7 @@
  */
 
 import type { JSX } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { cx } from "../../lib";
 
 export interface CheckboxProps {
@@ -27,8 +28,29 @@ export interface CheckboxProps {
 }
 
 export function Checkbox({ checked, onChange, label, disabled, class: cls }: CheckboxProps) {
+  // Local mirror + pending-guard: config checkboxes get `checked` back via a
+  // host round-trip (click -> setSetting -> echo), which lags. A pure
+  // `checked={checked}` box reverts during that window (toggle -> snap back ->
+  // re-toggle flicker). After a click we record the emitted value as `pending`
+  // and ignore incoming `checked` until it matches (our echo); only then resume
+  // applying external changes.
+  const [local, setLocal] = useState(checked);
+  const pending = useRef<boolean | null>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sync keyed on the incoming prop only.
+  useEffect(() => {
+    if (pending.current !== null) {
+      if (checked === pending.current) pending.current = null;
+      return;
+    }
+    setLocal(checked);
+  }, [checked]);
+
   const handleChange = (e: JSX.TargetedEvent<HTMLInputElement>): void => {
-    onChange(e.currentTarget.checked);
+    const next = e.currentTarget.checked;
+    pending.current = next;
+    setLocal(next);
+    onChange(next);
   };
 
   return (
@@ -36,7 +58,7 @@ export function Checkbox({ checked, onChange, label, disabled, class: cls }: Che
       <input
         type="checkbox"
         class="cb-input"
-        checked={checked}
+        checked={local}
         onChange={handleChange}
         disabled={disabled}
         aria-label={label}

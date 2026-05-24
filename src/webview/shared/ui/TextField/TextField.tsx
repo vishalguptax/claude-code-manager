@@ -26,6 +26,7 @@
  * shadow slots. <SearchInput> uses these for its magnifier + clear button.
  */
 import type { ComponentChildren, JSX } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { cx } from "../../lib";
 
 /** Text input types this field forwards to the native `<input>`. */
@@ -48,8 +49,31 @@ export interface TextFieldProps {
 export function TextField(props: TextFieldProps) {
   const { value, onInput, placeholder, type = "text", disabled, ariaLabel, class: cls } = props;
 
+  // Local mirror so the field shows keystrokes instantly. Config inputs get
+  // their `value` back via a host round-trip (type -> setSetting -> file write
+  // -> echo), which lags AND echoes per keystroke. A pure `value={value}`
+  // input therefore reverts in-flight text; a naive mirror loses chars to a
+  // STALE echo of an earlier keystroke. So: after a user edit we record the
+  // emitted value as `pending` and ignore incoming `value` until it catches up
+  // to that exact value (our own echo) — only then do we resume applying
+  // genuinely-external changes (resets, programmatic updates).
+  const [local, setLocal] = useState(value);
+  const pending = useRef<string | null>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sync is keyed on the incoming prop only.
+  useEffect(() => {
+    if (pending.current !== null) {
+      if (value === pending.current) pending.current = null; // our echo arrived
+      return; // ignore lagging/stale echoes until then
+    }
+    setLocal(value); // external change
+  }, [value]);
+
   const handleInput = (e: JSX.TargetedEvent<HTMLInputElement>): void => {
-    onInput(e.currentTarget.value);
+    const next = e.currentTarget.value;
+    pending.current = next;
+    setLocal(next);
+    onInput(next);
   };
 
   return (
@@ -58,7 +82,7 @@ export function TextField(props: TextFieldProps) {
       <input
         class="tf-input"
         type={type}
-        value={value}
+        value={local}
         onInput={handleInput}
         placeholder={placeholder}
         disabled={disabled}
