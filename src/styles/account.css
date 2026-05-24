@@ -319,9 +319,6 @@
   color: var(--fg-muted);
   margin-top: 2px;
 }
-.cfg-snap-scope {
-  text-transform: capitalize;
-}
 .cfg-snap-diff {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -494,34 +491,6 @@
   gap: var(--space-sm);
 }
 
-/*
- * Freshness caption under the stats grid. Sits a touch below the
- * cards and a touch above the meta rows; tooltip carries the
- * cadence explanation so the timestamp itself stays scanable.
- */
-.acct-usage-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding-top: var(--space-xs);
-  margin-bottom: var(--space-md);
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-}
-
-/*
- * "Period totals approximate" caption. Italic + slightly dimmer
- * so it reads as a clarification rather than a primary line, but
- * the underline on hover (via the title attribute) still makes
- * the tooltip discoverable.
- */
-.acct-usage-footer-note {
-  font-style: italic;
-  opacity: 0.75;
-  cursor: help;
-}
-
 .acct-stat {
   padding: var(--space-md);
   background: var(--bg-hover);
@@ -553,126 +522,12 @@
   margin-bottom: var(--space-md);
   position: relative;
 }
-.acct-field-saved::after {
-  content: "✓ Saved";
-  position: absolute;
-  top: 0;
-  right: 0;
-  font-size: var(--fs-xs);
-  color: var(--green);
-  font-weight: 500;
-  animation: acct-fade-out 1.2s ease-out forwards;
-  pointer-events: none;
-}
-@keyframes acct-fade-out {
-  0% { opacity: 0; transform: translateY(-2px); }
-  15% { opacity: 1; transform: translateY(0); }
-  80% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-2px); }
-}
 
 .acct-label {
   display: block;
   font-size: var(--fs-sm);
   color: var(--fg-dim);
   margin-bottom: var(--space-xs);
-}
-
-/*
- * Toggle switch — replaces the native checkbox for binary settings that
- * apply immediately (no Save button). The real <input type="checkbox"> is
- * kept inside the label so semantics, keyboard nav, and screen readers
- * still work; the visual track + thumb is rendered by sibling spans.
- */
-.acct-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: 0;
-  cursor: pointer;
-  user-select: none;
-}
-.acct-toggle input[type="checkbox"] {
-  /* Keep the input in the accessibility tree but hide it visually. */
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-.acct-toggle-track {
-  position: relative;
-  display: inline-block;
-  flex-shrink: 0;
-  /* Compact size — Linear/GitHub-style instead of iOS-style. */
-  width: 24px;
-  height: 14px;
-  background: rgba(127, 127, 127, 0.35);
-  border-radius: 7px;
-  transition: background var(--transition-control);
-}
-.acct-toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 10px;
-  height: 10px;
-  /* OFF state: dim thumb so it does not steal attention. The state
-     change comes from BOTH track color AND thumb brightness, which
-     makes "on" much more visible than just shifting the track. */
-  background: rgba(255, 255, 255, 0.65);
-  border-radius: 50%;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
-  transition: transform var(--transition-control), background var(--transition-control);
-}
-/* ON state: use the saturated VS Code button background (a true accent
-   color, not the focus-border which can be a thin outline). Falls back
-   to --accent if the theme does not define button-background. The thumb
-   simultaneously snaps to full white for maximum contrast against the
-   colored track. */
-.acct-toggle input:checked ~ .acct-toggle-track {
-  background: var(--vscode-button-background, var(--accent));
-}
-.acct-toggle input:checked ~ .acct-toggle-track .acct-toggle-thumb {
-  transform: translateX(10px);
-  /* Off-white even when on — full #fff blows out against the saturated
-     accent track. 0.88 keeps the thumb readable without screaming. */
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-}
-.acct-toggle:hover .acct-toggle-track {
-  filter: brightness(1.15);
-}
-.acct-toggle input:focus-visible ~ .acct-toggle-track {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.acct-toggle-text {
-  font-size: var(--fs-sm);
-  color: var(--fg);
-}
-
-.acct-input,
-.acct-select {
-  width: 100%;
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  background: var(--input-bg);
-  color: var(--input-fg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  font-size: var(--fs-base);
-  font-family: inherit;
-  transition: border-color var(--transition-control);
-}
-.acct-input:focus,
-.acct-select:focus {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
 }
 
 /* Status-line command etc. — a READ-ONLY code display, not an editable field.
@@ -804,66 +659,6 @@
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   line-height: 1.4;
-}
-
-/*
- * Effort segmented row in Config tab. 7 pills (Default · Low · Med ·
- * High · XHigh · Max · Auto). Flex-wraps when the sidebar is too
- * narrow for one row so nothing overflows; pills share remaining
- * width evenly.
- */
-.cfg-effort-row {
-  display: flex !important;
-  flex-wrap: wrap;
-  gap: 2px;
-  width: 100%;
-  box-sizing: border-box;
-}
-.cfg-effort-row .vs-segmented-btn {
-  flex: 1 1 auto;
-  min-width: 48px;
-  padding: var(--space-xs) var(--space-sm);
-  font-size: var(--fs-xs);
-}
-
-/*
- * Radio group (legacy — superseded by segmented row above; kept in
- * case future settings benefit from the stacked-with-desc layout).
- */
-.cfg-radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: var(--space-xs);
-  background: var(--bg);
-}
-.cfg-radio {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 120ms ease;
-}
-.cfg-radio:hover { background: var(--bg-hover); }
-.cfg-radio input[type="radio"] { margin-top: 3px; accent-color: var(--accent); }
-.cfg-radio-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-.cfg-radio-label {
-  font-size: var(--fs-sm);
-  color: var(--fg);
-}
-.cfg-radio-desc {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  line-height: 1.3;
 }
 
 /*

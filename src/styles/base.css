@@ -79,12 +79,8 @@ body {
    Reusable Utility Classes
    ────────────────────────────────────────────────────────────────────────────── */
 
-.text-xs   { font-size: var(--fs-xs); }
 .text-sm   { font-size: var(--fs-sm); }
-.text-base { font-size: var(--fs-base); }
-.text-md   { font-size: var(--fs-md); }
 .text-muted { color: var(--fg-muted); }
-.text-dim  { color: var(--fg-dim); }
 .mono      { font-family: var(--mono); font-size: var(--fs-sm); }
 .label     { font-size: var(--fs-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); }
 .icon      { display: inline-block; vertical-align: middle; flex-shrink: 0; }
@@ -288,13 +284,11 @@ button,
 .tab-btn, .tab-btn *,
 .vsc-segmented-seg,
 .acct-section-header, .acct-section-header *,
-.acct-toggle, .acct-toggle *,
 .acct-actions .btn, .acct-actions .btn *,
 .acct-perm-remove,
 .acct-quota-row-head, .acct-quota-row-head *,
 .acct-empty-title,
 .acct-empty-hint,
-.cfg-radio, .cfg-radio *,
 .footer-link,
 .footer-name,
 .app-footer,

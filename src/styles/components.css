@@ -90,10 +90,8 @@
 }
 
 /* Result-count caption shown above a feature's grouped list ("N skills",
-   "N commands", …). ONE shared class — the per-feature
-   .cmd-list-count / .hook-list-count / .agent-list-count / .mcp-list-count
-   were byte-identical, so they all collapse here. The 2xl left inset aligns
-   the caption with the list rows below it (same inset as the group labels). */
+   "N commands", …). One shared class across all features. The 2xl left inset
+   aligns the caption with the list rows below it (same inset as group labels). */
 .list-count {
   font-size: var(--fs-sm);
   color: var(--fg-muted);
@@ -121,64 +119,6 @@
   flex-shrink: 0;
 }
 
-.action-btn {
-  display: flex;
-  align-items: center;
-  /* Center icon+label so when the grid stretches a button wider than
-     its natural content (orphaned-row case) the contents stay balanced
-     instead of left-aligning into empty space. */
-  justify-content: center;
-  gap: var(--space-sm);
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  background: var(--bg-hover);
-  border: none;
-  border-radius: var(--radius);
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-  transition: background var(--transition-control), color var(--transition-control);
-}
-.action-btn:hover         { color: var(--fg); background: var(--input-bg); }
-.action-btn:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
-.action-btn.icon-only     { padding: var(--space-xs) var(--space-sm); margin-left: auto; }
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Search
-   ────────────────────────────────────────────────────────────────────────────── */
-
-#search {
-  flex: 1;
-  background: none;
-  border: none;
-  color: var(--input-fg);
-  font-size: var(--fs-md);
-  padding: 0 var(--space-lg);
-  height: 100%;
-  outline: none;
-  font-family: inherit;
-}
-#search::placeholder                  { color: var(--fg-muted); }
-#search::-webkit-search-cancel-button { display: none; }
-
-.search-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--fg-dim);
-  cursor: pointer;
-}
-.search-btn:hover         { background: var(--bg-hover); color: var(--fg); }
-.search-btn.is-hidden     { visibility: hidden; pointer-events: none; }
-
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Dropdown
@@ -192,11 +132,6 @@
   position: relative;
   flex-shrink: 0;
 }
-.filter-row > .vs-select {
-  flex: 1;
-  min-width: 0;
-}
-
 /*
  * Shared <Dropdown> (src/webview/shared/ui/Dropdown/Dropdown.tsx) — a custom
  * trigger button + the shared <Menu> popup. The wrapper is a full-width block so
@@ -220,63 +155,6 @@
   color: var(--role-text-secondary);
   flex-shrink: 0;
   pointer-events: none;
-}
-
-/*
- * Project filter dropdown — shares the .vs-select trigger + menu shell
- * with the model dropdown (see "Custom themed dropdown" section below).
- * These rules are only the project-specific option content (horizontal
- * row with count badges) and section separator. The trigger / menu
- * styling lives with .vs-select-* so both dropdowns evolve together.
- */
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-sm) var(--space-lg);
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-md);
-  color: var(--fg);
-  cursor: pointer;
-}
-.dropdown-item:hover                    { background: var(--bg-hover); }
-.dropdown-item.active                   { background: var(--bg-active); color: var(--bg-active-fg); }
-.dropdown-item.active:hover             { background: var(--bg-active); opacity: 0.85; }
-.dropdown-item.active .dropdown-count   { color: var(--bg-active-fg); opacity: 0.7; }
-
-.dropdown-count {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.dropdown-sep {
-  height: 1px;
-  background: var(--border);
-  margin: var(--space-xs) var(--space-lg);
-}
-
-/*
- * "current" badge on the branch dropdown row that matches the workspace
- * branch. Low-contrast fill so it annotates without competing with the
- * branch name; inherits foreground on the active row automatically via
- * the .dropdown-item.active rule above.
- */
-.dropdown-tag {
-  display: inline-block;
-  margin-left: var(--space-sm);
-  padding: 1px var(--space-sm);
-  border-radius: 8px;
-  background: rgba(128, 128, 128, 0.18);
-  color: var(--fg-muted);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  line-height: 1.4;
-  vertical-align: baseline;
-}
-.dropdown-item.active .dropdown-tag {
-  background: rgba(255, 255, 255, 0.2);
-  color: var(--bg-active-fg);
 }
 
 
@@ -460,14 +338,6 @@
 .ctx-item.del                { color: var(--red); }
 .ctx-item.del:hover          { background: var(--red-bg); color: var(--red); }
 
-.ctx-icon {
-  display: flex;
-  align-items: center;
-  color: var(--fg-dim);
-  flex-shrink: 0;
-}
-.ctx-item.del .ctx-icon      { color: var(--red); }
-
 .ctx-sep {
   height: 1px;
   background: var(--border);
@@ -479,17 +349,6 @@
    Tab Bar (shared)
    ────────────────────────────────────────────────────────────────────────────── */
 
-/* Wrapper keeps the scrollable tab bar on the left and the settings gear
-   pinned to the right. Top and bottom borders frame the whole tab bar. */
-.tab-bar-wrap {
-  display: flex;
-  align-items: stretch;
-  border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
-  border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
-  flex-shrink: 0;
-  min-height: 34px;
-}
-
 .tab-bar {
   display: flex;
   flex: 1;
@@ -499,34 +358,6 @@
   -webkit-overflow-scrolling: touch;
 }
 .tab-bar::-webkit-scrollbar { display: none; }
-
-.tab-settings-btn {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-}
-.tab-settings-btn:hover  { color: var(--fg); background: var(--bg-hover); }
-.tab-settings-btn:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-}
-.tab-settings-btn.spinning svg {
-  animation: tab-settings-spin 700ms linear infinite;
-  transform-origin: 50% 50%;
-}
-@keyframes tab-settings-spin {
-  to { transform: rotate(360deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tab-settings-btn.spinning svg { animation: none; }
-}
 
 .tab-btn {
   flex: 0 0 auto;
@@ -665,46 +496,6 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Feature Empty State (shared)
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.feature-empty {
-  text-align: center;
-  padding: var(--space-2xl) var(--space-2xl);
-  color: var(--fg-muted);
-}
-.feature-empty-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-md);
-}
-.feature-empty-hint {
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  line-height: 1.5;
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Detail Pre / Code Block (shared)
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.detail-pre {
-  background: rgba(0,0,0,0.15);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-xl);
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-x: auto;
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
    Feature Search (shared)
    ────────────────────────────────────────────────────────────────────────────── */
 
@@ -747,7 +538,6 @@
 
 /* Compact badge variant for list rows where the full note is too
    long; flags an item as not editable from the sidebar. */
-.hook-readonly-badge,
 .mcp-readonly-badge {
   font-size: var(--fs-xs);
   padding: 1px 6px;
@@ -757,133 +547,3 @@
   font-weight: 500;
 }
 
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Custom themed dropdown (vs-select) — replacement for native <select>
-   so the open panel respects VS Code theme instead of the OS system picker.
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.vs-select {
-  position: relative;
-  width: 100%;
-}
-
-/* Trigger — mirrors native <select> closed state but fully themeable. */
-.vs-select-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  padding-right: 28px;
-  background: var(--input-bg);
-  color: var(--input-fg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  font-family: inherit;
-  font-size: var(--fs-base);
-  cursor: pointer;
-  text-align: left;
-}
-.vs-select-trigger {
-  transition: border-color var(--transition-control);
-}
-.vs-select-trigger:hover { border-color: var(--accent); }
-.vs-select-trigger:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-  border-color: var(--accent);
-}
-.vs-select-value {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.vs-select-arrow {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--fg-muted);
-  display: inline-flex;
-  pointer-events: none;
-}
-.vs-select-trigger[aria-expanded="true"] .vs-select-arrow {
-  transform: translateY(-50%) rotate(180deg);
-}
-/*
- * Leading icon that sits to the left of the trigger label. Unlike
- * `.vs-select-arrow` (which is absolutely pinned to the right and
- * rotates when the menu opens), the leading icon flows as a normal
- * flex child so the value text truncates beside it without overlap.
- * Right padding reserved on .vs-select-value keeps the text from
- * running into the trailing chevron.
- */
-.vs-select-leading {
-  display: inline-flex;
-  align-items: center;
-  margin-right: var(--space-sm);
-  color: var(--fg-muted);
-  pointer-events: none;
-  flex-shrink: 0;
-}
-.vs-select-trigger:has(.vs-select-leading) .vs-select-value {
-  padding-right: 18px;
-}
-
-/* Menu — absolutely positioned below the trigger, themed like Settings. */
-.vs-select-menu {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: var(--dropdown-bg, var(--input-bg));
-  border: 1px solid var(--dropdown-border, var(--input-border));
-  border-radius: var(--radius);
-  box-shadow: var(--shadow, 0 2px 8px rgba(0, 0, 0, 0.2));
-  max-height: 280px;
-  overflow-y: auto;
-  padding: var(--space-xs);
-}
-
-.vs-select-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-lg);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  outline: none;
-}
-.vs-select-option:hover,
-.vs-select-option:focus {
-  background: var(--bg-hover);
-}
-.vs-select-option.selected {
-  background: var(--bg-active);
-  color: var(--bg-active-fg);
-}
-.vs-select-option-label {
-  font-size: var(--fs-base);
-  color: inherit;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.vs-select-option-desc {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  line-height: 1.3;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-.vs-select-option.selected .vs-select-option-desc {
-  color: var(--bg-active-fg);
-  opacity: 0.75;
-}

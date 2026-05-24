@@ -256,16 +256,6 @@
   text-decoration: line-through;
 }
 
-.hook-disabled-badge {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  background: var(--badge-bg);
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
 .hook-item-actions {
   margin-left: auto;
   display: inline-flex;
@@ -277,23 +267,6 @@
 .hook-item:focus-within .hook-item-actions {
   opacity: 1;
 }
-
-.hook-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--fg-muted);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.hook-action-btn:hover { color: var(--fg); background: var(--bg-hover); border-color: var(--border); }
-.hook-action-btn.del:hover { color: var(--red, #d04444); border-color: color-mix(in srgb, var(--red, #d04444) 50%, transparent); }
-.hook-action-btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 
 .hook-edit-command {
   font-family: var(--mono);

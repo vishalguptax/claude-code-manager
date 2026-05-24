@@ -806,38 +806,6 @@
   text-align: right;
 }
 
-/* Legacy prompt styles (kept for backward compat) */
-.d-prompt {
-  display: flex;
-  gap: var(--space-md);
-  padding: var(--space-md) 0;
-  font-size: var(--fs-base);
-  line-height: 1.55;
-  color: var(--fg);
-  border-bottom: 1px solid var(--border);
-  align-items: flex-start;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-.d-prompt:last-child         { border-bottom: none; }
-
-.d-pn {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--badge-fg);
-  background: var(--badge-bg);
-  min-width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-
 /* ──────────────────────────────────────────────────────────────────────────────
    Footer
    ────────────────────────────────────────────────────────────────────────────── */
