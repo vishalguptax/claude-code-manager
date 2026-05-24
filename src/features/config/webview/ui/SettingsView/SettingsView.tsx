@@ -13,6 +13,7 @@
  * Option lists and their hint descriptions come from the JSX-free builders
  * in the slice's lib segment.
  */
+import { useDebouncedCallback } from "../../../../../webview/shared/hooks";
 import { Button, Checkbox, Dropdown, Icon, TextField } from "../../../../../webview/shared/ui";
 import type { AccountData } from "../../../types";
 import type { ConfigApi } from "../../api";
@@ -22,6 +23,13 @@ export interface SettingsViewProps {
   data: AccountData;
   api: ConfigApi;
 }
+
+/**
+ * Debounce window for free-text setting writes. Long enough to coalesce a burst
+ * of typing into one host write, short enough that a save feels immediate after
+ * the user pauses.
+ */
+const SETTING_WRITE_DEBOUNCE_MS = 350;
 
 export function SettingsView({ data, api }: SettingsViewProps) {
   const s = data.settings;
@@ -34,6 +42,18 @@ export function SettingsView({ data, api }: SettingsViewProps) {
   const currentEffortDesc =
     effortOptions.find((o) => o.value === s.effortLevel)?.desc ?? effortOptions[0].desc;
   const retentionValue = s.cleanupPeriodDays > 0 ? String(s.cleanupPeriodDays) : "";
+
+  // Free-text fields write to the host on a debounce: the <TextField> mirror
+  // already shows keystrokes instantly, so coalescing the host write to one
+  // call ~350 ms after the user pauses removes the per-keystroke round trip
+  // (postMessage → file write → echo) without any visible latency. A pending
+  // write is flushed on unmount, so switching tabs mid-pause never drops it.
+  const setCommitAttribution = useDebouncedCallback(api.setCommitAttribution, SETTING_WRITE_DEBOUNCE_MS);
+  const setPrAttribution = useDebouncedCallback(api.setPrAttribution, SETTING_WRITE_DEBOUNCE_MS);
+  const setRetention = useDebouncedCallback(
+    (value: number | "") => api.setSetting("cleanupPeriodDays", value),
+    SETTING_WRITE_DEBOUNCE_MS,
+  );
 
   return (
     <section class="acct-section">
@@ -106,7 +126,7 @@ export function SettingsView({ data, api }: SettingsViewProps) {
             ariaLabel="Commit attribution"
             value={s.commitAttribution}
             placeholder="e.g., Co-authored-by: Claude"
-            onInput={(v) => api.setCommitAttribution(v)}
+            onInput={(v) => setCommitAttribution(v)}
           />
         </div>
 
@@ -116,7 +136,7 @@ export function SettingsView({ data, api }: SettingsViewProps) {
             ariaLabel="PR attribution"
             value={s.prAttribution}
             placeholder="e.g., Generated with Claude Code"
-            onInput={(v) => api.setPrAttribution(v)}
+            onInput={(v) => setPrAttribution(v)}
           />
         </div>
 
@@ -129,7 +149,7 @@ export function SettingsView({ data, api }: SettingsViewProps) {
             onInput={(v) => {
               const val = v.trim();
               const n = val === "" ? 0 : Number.parseInt(val, 10);
-              api.setSetting("cleanupPeriodDays", Number.isFinite(n) && n > 0 ? n : "");
+              setRetention(Number.isFinite(n) && n > 0 ? n : "");
             }}
           />
           <div class="acct-field-hint">Transcripts older than this auto-delete. Blank = no expiry.</div>

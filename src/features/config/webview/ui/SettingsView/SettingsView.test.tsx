@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { fireEvent, render, screen } from "@testing-library/preact";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/preact";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfigApi } from "../../api";
 import { makeConfigData } from "../../__tests__/fixtures";
 import { SettingsView } from "./SettingsView";
@@ -41,18 +41,64 @@ describe("SettingsView", () => {
     });
   });
 
-  it("posts setSetting for retention via the shared text field", () => {
-    const { api, post } = setup();
-    const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
-    const field = container.querySelector(
-      'input[aria-label="Session retention in days"]',
-    ) as HTMLInputElement;
-    fireEvent.input(field, { target: { value: "30" } });
-    expect(post).toHaveBeenCalledWith({
-      type: "setSetting",
-      key: "cleanupPeriodDays",
-      value: 30,
-      scope: "global",
+  describe("free-text fields debounce the host write", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("posts setSetting for retention once, after the debounce, parsed as a number", () => {
+      const { api, post } = setup();
+      const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
+      const field = container.querySelector(
+        'input[aria-label="Session retention in days"]',
+      ) as HTMLInputElement;
+      fireEvent.input(field, { target: { value: "30" } });
+      // Still within the debounce window — host untouched.
+      expect(post).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(post).toHaveBeenCalledWith({
+        type: "setSetting",
+        key: "cleanupPeriodDays",
+        value: 30,
+        scope: "global",
+      });
+    });
+
+    it("coalesces a burst of attribution keystrokes into a single host write", () => {
+      const { api, post } = setup();
+      const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
+      const field = container.querySelector(
+        'input[aria-label="Commit attribution"]',
+      ) as HTMLInputElement;
+      // Three quick keystrokes inside one debounce window.
+      fireEvent.input(field, { target: { value: "C" } });
+      fireEvent.input(field, { target: { value: "Co" } });
+      fireEvent.input(field, { target: { value: "Co-" } });
+      expect(post).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+      // One write, with the latest value — not three per-keystroke round trips.
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(post).toHaveBeenCalledWith({ type: "setCommitAttribution", value: "Co-" });
+    });
+
+    it("flushes a pending write on unmount so a mid-pause edit is not lost", () => {
+      const { api, post } = setup();
+      const { container, unmount } = render(<SettingsView data={makeConfigData()} api={api} />);
+      const field = container.querySelector(
+        'input[aria-label="PR attribution"]',
+      ) as HTMLInputElement;
+      fireEvent.input(field, { target: { value: "Generated" } });
+      expect(post).not.toHaveBeenCalled();
+      // Navigate away before the debounce fires.
+      act(() => {
+        unmount();
+      });
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(post).toHaveBeenCalledWith({ type: "setPrAttribution", value: "Generated" });
     });
   });
 
