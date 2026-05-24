@@ -56,4 +56,43 @@ describe("Checkbox", () => {
     rerender(<Checkbox checked={false} onChange={() => {}} />);
     expect(el.checked).toBe(false);
   });
+
+  it("does not flicker: click then a delayed prop echo never reverts the box", () => {
+    // Reproduces the real host round-trip: the controlled prop stays at the OLD
+    // value for a window (the host re-parses settings.json asynchronously),
+    // possibly causing intermediate re-renders, and only LATER echoes the new
+    // value back. Throughout, the box must stay on the user's clicked value —
+    // no toggle → revert → re-toggle. We record every value the element's
+    // `checked` is set to and assert it never dips back to false after the
+    // click.
+    const writes: boolean[] = [];
+    const { container, rerender } = render(<Checkbox checked={false} onChange={() => {}} />);
+    const raw = container.querySelector("vscode-checkbox") as HTMLElement & { checked: boolean };
+    // Wrap the `checked` setter so we capture every write the wrapper makes.
+    let value = raw.checked;
+    Object.defineProperty(raw, "checked", {
+      configurable: true,
+      get: () => value,
+      set: (v: boolean) => {
+        value = v;
+        writes.push(v);
+      },
+    });
+
+    // User clicks: element flips its own checked, dispatches change.
+    raw.checked = true;
+    writes.length = 0; // ignore the click's own optimistic write; watch what follows
+    fireEvent(raw, new Event("change"));
+
+    // A stray re-render arrives while the prop is STILL the old value (host
+    // hasn't echoed). This is the exact moment the old code reverted the box.
+    rerender(<Checkbox checked={false} onChange={() => {}} />);
+    expect(raw.checked).toBe(true); // box held the user's value
+    expect(writes).not.toContain(false); // never written back to false
+
+    // Host finally echoes the new value — a no-op, box already correct.
+    rerender(<Checkbox checked={true} onChange={() => {}} />);
+    expect(raw.checked).toBe(true);
+    expect(writes).not.toContain(false);
+  });
 });

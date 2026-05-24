@@ -11,14 +11,18 @@
  * prop still holds the OLD value; a naive controlled-sync effect would snap the
  * box back, swallowing the toggle.
  *
- * Controlled-sync without fighting the user: we only push the prop into the
- * element when it actually DIFFERS from what the element currently shows. Once
- * the host echo arrives the prop equals the optimistic value, so the sync is a
- * no-op; if the host rejects/normalizes the write the prop differs and the sync
- * corrects the box. We read `el.checked` back off the element (the synthetic
- * event target is the host, not an inner input). The element draws its own
- * `label` text, so passing `label` keeps the hit target and the caption a single
- * accessible control.
+ * No flicker: the element's `checked` is owned IMPERATIVELY, not via a declared
+ * JSX `checked` prop. Preact rewrites every declared prop to the DOM on each
+ * render; with `checked` bound, any render landing in the host-echo window
+ * (prop still OLD) would stomp the optimistic state back and produce a visible
+ * toggle → revert → re-toggle flicker. Instead we seed `checked` once on mount
+ * (in the ref callback) and thereafter only write it from a guarded effect that
+ * compares the incoming prop against the user's last clicked value (held in a
+ * ref). The matching host echo is a no-op; a genuine external change (account
+ * switch, host normalization/rejection) differs and is applied. We read
+ * `el.checked` back off the element (the synthetic event target is the host,
+ * not an inner input). The element draws its own `label` text, so passing
+ * `label` keeps the hit target and the caption a single accessible control.
  */
 
 import type { JSX } from "preact";
@@ -46,34 +50,74 @@ export function Checkbox({ checked, onChange, label, disabled, class: cls }: Che
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Controlled sync — only when the prop and the element actually disagree.
-  // After an optimistic toggle the element already shows the new value, so the
-  // host echo (prop === el.checked) is a no-op and the user's click is never
-  // reverted. A genuine external change (different account, host normalization)
-  // still flows in because the prop then differs from the element.
+  // The value the USER last drove the element to via a click. We hold it in a
+  // ref (not state — it must never trigger a render) so the controlled-sync
+  // effect can tell "the prop hasn't caught up to my click yet" (suppress) from
+  // "an external source genuinely changed the value" (apply). Seeded with the
+  // initial prop so the first sync is a no-op.
+  const userValueRef = useRef(checked);
+
+  // Stable ref setter, created once. A fresh inline `ref={el => …}` gets a new
+  // identity every render, so Preact tears it down (calls it with null) and
+  // re-invokes it on each re-render — churn we don't want on a custom element.
+  // Capturing it in a ref keeps one identity for the element's lifetime. It
+  // only stores the node; seeding `checked` happens in the mount effect.
+  const storeRef = useRef((el: HTMLElement | null): void => {
+    ref.current = el as CheckboxEl | null;
+  }).current;
+
+  // NOTE: `checked` is intentionally NOT bound as a JSX prop on the element
+  // below. Preact writes every JSX prop to the DOM on each render, so binding
+  // `checked={checked}` would let a render that fires DURING the host-echo
+  // window (prop still the OLD value) stomp the element's optimistic state back
+  // — the observed flicker (toggle → snap back → echo re-toggles). Instead we
+  // own `el.checked` entirely through the effects below. The ref setter is the
+  // stable `storeRef` (declared once) so it does NOT re-run — and re-seed a
+  // stale value — on every render; seeding happens in the mount effect.
+
+  // Seed the element's initial state once on mount. Empty deps so it never
+  // re-runs with a later (possibly mid-echo) prop value — the mount-time
+  // `checked` is exactly the initial state we want and subsequent changes flow
+  // through the controlled-sync effect below.
   useEffect(() => {
     const el = ref.current;
     if (el && el.checked !== checked) el.checked = checked;
+  }, []);
+
+  // Controlled sync — runs only when the `checked` prop actually changes.
+  // Apply the incoming prop ONLY when it disagrees with what the user last
+  // drove the box to. After an optimistic click the prop eventually echoes
+  // back EQUAL to userValueRef → no write, no flicker. A true external change
+  // (account switch, host normalization/rejection) differs from the user's
+  // intent → we apply it and re-baseline the user value to match.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (checked === userValueRef.current) return; // echo of the user's own click — ignore
+    userValueRef.current = checked;
+    if (el.checked !== checked) el.checked = checked;
   }, [checked]);
 
   // Bridge the native `change` event to onChange with the resolved state. The
   // element flips its own `checked` before dispatching `change`, so reading it
-  // back here is already the optimistic post-click value.
+  // back here is already the optimistic post-click value. Record it as the
+  // user's intent so the controlled-sync effect treats the matching echo as a
+  // no-op instead of a revert.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const handler = (): void => onChangeRef.current(el.checked);
+    const handler = (): void => {
+      userValueRef.current = el.checked;
+      onChangeRef.current(el.checked);
+    };
     el.addEventListener("change", handler);
     return () => el.removeEventListener("change", handler);
   }, []);
 
   return (
     <vscode-checkbox
-      ref={(el: HTMLElement | null) => {
-        ref.current = el as CheckboxEl | null;
-      }}
+      ref={storeRef}
       class={cx("vsc-checkbox", cls)}
-      checked={checked}
       label={label}
       disabled={disabled}
     />
