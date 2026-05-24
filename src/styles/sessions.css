@@ -47,17 +47,13 @@
   outline: 1px solid var(--list-focus);
   outline-offset: -1px;
 }
-/* Reserve room on the right for the absolutely-positioned action cluster
-   (just the Resume affordance, a single 32px hit target) so the name /
-   relative-time in row1 and the prompt subtitle never sit UNDERNEATH it. The
-   cluster is pinned at right: var(--space-lg) (10px); 46px clears the 32px
-   button plus its inset with a hair of breathing room. This is the v1
-   non-overlapping behaviour — the action occupies dedicated space rather than
-   floating over the text. Narrower than the old 72px now that the redundant ⋯
-   overflow trigger is gone, so text reclaims the freed space. */
-.session-item {
-  padding-right: 46px;
-}
+/* No permanent right inset. The action cluster (Resume + the rest) is an
+   absolutely-positioned OVERLAY that only appears on hover/focus, so at rest
+   the name / relative-time in row1 and the prompt subtitle use the row's FULL
+   width — no ~46px gap wasted on a button that isn't visible. On hover the
+   cluster fades in over the text tail on a matching-bg overlay (see
+   `.item-actions` below), the standard VS Code list-action pattern, so the
+   Resume button never overlaps the text illegibly. */
 
 /* Selected row indicator — left border accent + subtle background.
    Active (detail-open) takes precedence so the resume-target highlight
@@ -226,28 +222,68 @@
  * keyboard) so the row stays calm at rest, mirroring v1. The redundant ⋯
  * overflow trigger was removed — the right-click context menu is the single
  * action-menu path now.
+ *
+ * Overlay pattern (VS Code list actions): the row reserves NO permanent space
+ * for this cluster, so the title/prompt run full-width at rest. On hover the
+ * cluster appears ON TOP of the text tail, riding a background that matches the
+ * row's hover background (--bg-hover) with a short left-to-right gradient fade
+ * so the text disappears cleanly UNDER the actions instead of colliding with
+ * them. `padding-left` + the gradient give the fade its run-up; the solid tail
+ * sits behind the button itself. The selected/active variants below swap the
+ * matching bg so the overlay blends on those rows too.
  */
 .item-actions {
   position: absolute;
-  right: var(--space-lg);
-  top: 50%;
-  transform: translateY(-50%);
+  right: 0;
+  top: 0;
+  bottom: 0;
+  padding-right: var(--space-lg);
+  padding-left: var(--space-2xl);
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  /* Solid tail (right) behind the buttons, fading to transparent on the left so
+     the covered text edge dissolves rather than hard-clipping. Only shown while
+     the cluster is visible (hover/focus); a hidden Resume keeps the row clean. */
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--bg-hover) var(--space-2xl)
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-control);
+}
+/* Reveal the overlay (and re-enable its hit targets) on row hover or when the
+   Resume button inside it is focused via keyboard (:focus-within). */
+.session-item:hover .item-actions,
+.item-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* Match the overlay tail to the selected / active row backgrounds so it blends
+   on those rows instead of flashing the resting hover colour over a darker
+   selection. Active (detail-open) wins, mirroring the row bg precedence. */
+.session-item.is-selected .item-actions {
+  background: linear-gradient(to right, transparent, var(--bg-hover) var(--space-2xl));
+}
+.session-item.is-selected.active .item-actions,
+.item.active .item-actions {
+  background: linear-gradient(to right, transparent, var(--bg-active) var(--space-2xl));
+}
+@media (prefers-reduced-motion: reduce) {
+  .item-actions { transition: none; }
 }
 
 /* Resume is a shared icon <Button>, so the chromeless `.btn-icon` look (native
-   ghost + toolbar hover/active fill) applies. Here we only own the row-level
-   reveal-on-hover and the play-green tint; the hover/active/focus affordance
-   comes from `.btn-icon` in components-native.css so it matches every other
-   toolbar icon button. */
+   ghost + toolbar hover/active fill) applies. Here we only own the play-green
+   tint; the reveal-on-hover now lives on the `.item-actions` overlay (opacity)
+   so the button visibility no longer needs its own toggle. The hover/active/
+   focus affordance comes from `.btn-icon` in components-native.css so it
+   matches every other toolbar icon button. */
 .item-resume {
   color: var(--green);
-  visibility: hidden;
 }
-.session-item:hover .item-resume { visibility: visible; }
-.item-resume:focus-visible       { visibility: visible; }
 
 .item-time {
   font-size: var(--fs-sm);
@@ -275,9 +311,10 @@
   text-overflow: ellipsis;
   margin-top: 2px;
 }
-/* The row reserves a fixed right inset for the action cluster (see
-   .session-item), so the prompt no longer needs a hover-only margin to dodge
-   the buttons — it clears them at rest and on hover alike. */
+/* At rest the prompt runs the row's full width (no reserved action inset). On
+   hover the `.item-actions` overlay simply fades in over the prompt's tail with
+   a matching-bg gradient, so the prompt needs no dodge margin — it ellipsizes
+   under the overlay cleanly. */
 .item.active .item-prompt    { color: var(--bg-active-fg); opacity: 0.65; }
 
 .item-row2 {
