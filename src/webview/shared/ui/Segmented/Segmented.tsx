@@ -2,9 +2,8 @@
  * Segmented — the single segmented-control primitive for the webview. A row of
  * mutually-exclusive segments where exactly one is active: date ranges
  * (Recent/Week/Month/All), scope filters (All/Project/Global/Plugin), usage
- * periods (7 days/30 days/All time). Replaces the three ad-hoc implementations
- * (sessions `.date-chips`, account `.vs-segmented`, and the older `.scope-btn`
- * look) with one control wired to the design-system role tokens.
+ * periods (7 days/30 days/All time). One control wired to the design-system
+ * role tokens, used wherever a row of toggle segments is needed.
  *
  * Native VS Code look (see `.vsc-segmented` in components-native.css): the whole
  * control is a recessed TRACK with a subtle border; the selected segment gets a

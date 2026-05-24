@@ -89,10 +89,11 @@ export type Message =
   | { type: "agents"; data: unknown }
   | { type: "quotaData"; result: unknown }
   // === SESSIONS MESSAGES ===
-  // Inbound (webview → host) session messages the sessions feature emits
-  // that were not part of the original F1 protocol extraction. Appended by
-  // the F2 sessions migration. Host already handles these in
-  // features/sessions/messageHandlers.ts.
+  // Inbound (webview → host) session messages handled in
+  // features/sessions/messageHandlers.ts. `search`/`filter` ask the host to
+  // re-group the session list server-side; the webview currently filters
+  // client-side instead, so these are a retained host capability rather than
+  // an actively-sent message (kept so the host stays able to serve them).
   | { type: "search"; query: string }
   | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "deleteSession"; sessionId: string }
@@ -104,6 +105,10 @@ export type Message =
    * webview applies it via signal mutation (`applyDelta`). Sessions are
    * passed through as `unknown[]` to keep the shared protocol free of the
    * feature-local `Session` type; the feature narrows on receipt.
+   *
+   * Receive side only today: the webview handles this, but the host still
+   * re-posts the full `sessions` list on each watcher tick, so nothing emits
+   * a delta yet. Kept wired so an incremental emitter can drop in later.
    */
   | {
       type: "sessions.delta";

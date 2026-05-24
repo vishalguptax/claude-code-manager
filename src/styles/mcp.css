@@ -5,7 +5,7 @@
    Shared chrome lives in the component layer and is NOT repeated here:
      - badge box (display/padding/radius/font)  → .vsc-badge (components-native.css)
      - search field + clear + side buttons       → .vsc-search / .search-side-btn
-     - segmented scope filter                     → .scope-filter / .scope-btn
+     - segmented scope filter                     → .scope-filter / .vsc-segmented
      - buttons (primary/secondary/icon/danger)    → .btn-* (components-native.css)
      - list rows                                  → .list-item (components.css)
    This file keeps only what is MCP-specific: row layout, the transport/scope

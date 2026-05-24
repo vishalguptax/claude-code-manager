@@ -2,8 +2,7 @@
  * Typed postMessage wrappers for the account webview. Every send is
  * narrowed to a `WebviewMessage` variant from the shared protocol, so
  * a typo or shape drift fails at compile time. Messages flow through
- * the F1 `useApi()` bridge, which owns the single acquired VS Code API
- * handle.
+ * the `useApi()` bridge, which owns the single acquired VS Code API handle.
  */
 
 import type { WebviewMessage } from "../../../shared/protocol/messages";

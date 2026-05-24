@@ -31,7 +31,6 @@ export interface AccountSwitcherContext {
  * modal confirmation before any destructive credential overwrite.
  */
 export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<void> {
-  const wv = ctx.getWebview();
   const workspace = getWorkspace();
   const current = parseAccountData(workspace || undefined);
   // Overlay the active profile's displayed email with the live profile
@@ -263,7 +262,4 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
 
   picker.onDidHide(() => picker.dispose());
   picker.show();
-  // Keep the wv reference referenced for future ports where the switcher
-  // needs to post something pre-accept (unused today).
-  void wv;
 }

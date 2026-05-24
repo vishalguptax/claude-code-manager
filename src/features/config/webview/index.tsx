@@ -1,7 +1,7 @@
 /**
  * Config feature tab — Preact entry point. Owns the Settings + Permissions
  * + Settings-history + Brain-backup surfaces (the Account tab is
- * identity / quota / usage only). Mounted lazily by the F1 TabPanel the
+ * identity / quota / usage only). Mounted lazily by the TabPanel the
  * first time the Config tab is activated.
  *
  * The tab consumes the same `accountData` payload the host already produces

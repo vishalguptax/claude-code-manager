@@ -3,8 +3,7 @@
  * model / voice / attribution writes, permission allow-deny edits,
  * directory grants, settings reset, config restore, and the slash-command
  * launcher. Returns `true` when the message was handled, `false` to let
- * the caller try the next handler. Verbatim extraction from the former
- * single dispatch switch — no logic change.
+ * the caller try the next handler.
  */
 import * as vscode from "vscode";
 import * as path from "path";

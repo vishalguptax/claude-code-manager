@@ -186,8 +186,8 @@ const agents = v.object({ type: v.literal("agents"), data: v.unknown() });
 const quotaData = v.object({ type: v.literal("quotaData"), result: v.unknown() });
 
 // === SESSIONS MESSAGES ===
-// Inbound session messages appended by the F2 sessions migration. Paired
-// 1:1 with the SESSIONS MESSAGES block in messages.ts.
+// Inbound session messages, paired 1:1 with the SESSIONS MESSAGES block in
+// messages.ts.
 const search = v.object({ type: v.literal("search"), query: v.string() });
 const filter = v.object({
   type: v.literal("filter"),

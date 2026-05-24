@@ -1,14 +1,12 @@
 /**
- * Host-side message dispatch for the MCP feature.
- *
- * Extracted from the legacy monolithic dispatch switch so the feature owns
- * its own handler logic. Every inbound message is validated against the
- * shared valibot schema before it is acted on; malformed messages are logged
- * and rejected (the handler returns without side effects).
+ * Host-side message dispatch for the MCP feature. The feature owns its own
+ * handler logic; every inbound message is validated against the shared
+ * valibot schema before it is acted on (malformed messages are logged and
+ * rejected, the handler returns without side effects).
  *
  * The handler depends only on a narrow {@link McpHostContext} so it never
- * reaches into another feature's provider. The sessions panel (F3 wiring)
- * will construct a context and delegate MCP messages here.
+ * reaches into another feature's provider — the sessions panel builds that
+ * context and delegates MCP messages here.
  */
 import * as vscode from "vscode";
 import * as path from "path";

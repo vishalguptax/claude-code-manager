@@ -6,8 +6,8 @@
  *
  * The breakdown lists are capped small (projects top 10, tools top 12,
  * models/MCP a handful), so they render in full — well under the
- * VirtualList threshold (>50 items) the F1 shell reserves for the
- * thousand-session lists in the Sessions feature.
+ * VirtualList threshold (>50 items) reserved for the thousand-session
+ * lists in the Sessions feature.
  *
  * The period toggle is the shared <Segmented> primitive (not a
  * Dropdown): three mutually-exclusive options read better as a

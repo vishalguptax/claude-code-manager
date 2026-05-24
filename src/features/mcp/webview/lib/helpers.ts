@@ -5,11 +5,7 @@
  */
 import type { McpServer } from "../../types";
 
-/**
- * Default community MCP directory. The v1 host could override this from
- * settings, but that plumbing lives in the sessions monolith; until F3
- * rewires it, the tab opens the default directory.
- */
+/** Default community MCP directory the "Browse" action opens. */
 export const MCP_BROWSE_URL = "https://mcp.so";
 
 /** Max characters shown in a row's single-line connection preview. */

@@ -3,10 +3,9 @@
  * sessions panel also surfaces: skills, hooks, agents. Returns `true` when
  * the message was handled, `false` to let the caller try the next handler.
  *
- * Commands and MCP have migrated to their own per-feature
- * `messageHandlers.ts` modules (wired ahead of this one in dispatch), so
- * their cases were removed here — this module is the remaining legacy
- * dispatch surface for the features that have not yet been extracted.
+ * Commands and MCP own their dispatch in per-feature `messageHandlers.ts`
+ * modules (wired ahead of this one); skills/hooks/agents are still handled
+ * here until they get the same treatment.
  */
 import * as vscode from "vscode";
 import * as path from "path";

@@ -1,4 +1,6 @@
-/* Design tokens — single source of truth for CSS variables. Mirrored in src/extension/html.ts inline block during F1; html.ts cleanup happens in F3. */
+/* Design tokens — single source of truth for CSS variables. The base values
+   here are mirrored in the inline <style> block of src/extension/html.ts
+   (the CSP shell paints before this stylesheet loads); keep the two in sync. */
 
 :root {
   --bg: var(--vscode-sideBar-background, var(--vscode-editor-background));

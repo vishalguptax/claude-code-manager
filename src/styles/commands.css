@@ -1,15 +1,15 @@
 /*
  * Feature: commands — styles owned by the commands feature.
  *
- * The shared component library now supplies the search field (.vsc-search*),
- * scope filter (.scope-filter/.scope-btn), buttons (.btn*), and scope badge
- * base (.vsc-badge*) — those rules live in components.css / components-native.css
- * and are NOT duplicated here. The list/detail layout classes (cmd-item,
- * cmd-detail-*, cmd-group-label) and the global/project/builtin scope-colour
- * tags still live in the legacy aggregate features.css and are reused by the
- * FSD ui/ components under the same class names, so they are not re-declared
- * here to avoid duplication. This file holds only the command-specific styling
- * that has no home in either shared layer:
+ * The shared component library supplies the search field (.vsc-search*),
+ * scope filter (.scope-filter/.vsc-segmented), buttons (.btn*), and scope
+ * badge base (.vsc-badge*) — those rules live in components.css /
+ * components-native.css and are NOT duplicated here. The list/detail layout
+ * classes (cmd-item, cmd-detail-*, cmd-group-label) and the
+ * global/project/builtin scope-colour tags live in the shared features.css
+ * and are reused under the same class names, so they are not re-declared here.
+ * This file holds only the command-specific styling that has no home in
+ * either shared layer:
  *   - the plugin scope badge colour (the only scope colour features.css omits)
  *   - a spacing modifier replacing an inline style removed during the port
  */

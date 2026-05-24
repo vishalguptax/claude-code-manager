@@ -5,8 +5,7 @@
  * which wraps a single try/catch and chains feature-scoped handlers:
  * sessions (this file) → features (skills/commands/hooks/mcp/agents) →
  * account → settings. Each handler returns `true` when it owns the
- * message type and `false` to fall through to the next. Behaviour is a
- * verbatim extraction of the former 1000-line switch — no logic change.
+ * message type and `false` to fall through to the next.
  *
  * `HostContext` and the shared account helpers live in `hostContext.ts`
  * and are re-exported here so existing imports (`./messageHandlers`)
@@ -108,10 +107,9 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
     // the commands handler also claims those, so the ordering keeps the
     // session behaviour authoritative for them.
     if (await handleSessionMessage(msg, ctx)) return;
-    // Commands + MCP route through their own per-feature, valibot-validated
-    // handlers (the F2 messageHandlers.ts modules) instead of the legacy
-    // featureHandlers monolith. The narrow host adapters below let those
-    // pure handlers reach the vscode surface without importing the provider.
+    // Commands + MCP route through their own per-feature handlers. The narrow
+    // host adapters below let those pure handlers reach the vscode surface
+    // without importing the provider.
     if (await dispatchCommandsMessage(msg, makeCommandsHost(ctx))) return;
     if (await handleMcpMessage(msg, makeMcpHost(ctx))) return;
     if (await handleFeatureMessage(msg, ctx)) return;

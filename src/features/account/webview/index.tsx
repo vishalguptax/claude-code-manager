@@ -1,5 +1,5 @@
 /**
- * Account feature tab — Preact entry point. Mounted lazily by the F1
+ * Account feature tab — Preact entry point. Mounted lazily by the
  * TabPanel the first time the Account tab is activated.
  *
  * Responsibilities:

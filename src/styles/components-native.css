@@ -1,5 +1,5 @@
 /* ============================================================================
-   Native VS Code chrome for the shared component layer (A2)
+   Native VS Code chrome for the shared component layer
    ----------------------------------------------------------------------------
    These rules tune the shared <Menu>/<ContextMenu>, <TextField>/<SearchInput>,
    <Checkbox>, <Badge>, <Button> variants, and <ScopeFilter> so they are
@@ -7,8 +7,8 @@
    buttons. Everything reads the ambient --vscode-* theme vars so it stays
    correct across light / dark / high-contrast.
 
-   Loaded AFTER components.css so it can refine/override the F1 primitives
-   without editing them. New native classes use the `vsc-` prefix.
+   Loaded AFTER components.css so it can refine/override the base primitives
+   without editing them. Native classes use the `vsc-` prefix.
    ============================================================================ */
 
 
@@ -438,7 +438,7 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Button variants (A2) — refine the shared <Button>. The base `.btn` and the
+   Button variants — refine the shared <Button>. The base `.btn` and the
    `.btn-primary` / `.btn-secondary` rules live in components.css; here we wire
    them to the canonical --vscode-button-* vars and add the danger + icon
    variants and the loading spinner.
