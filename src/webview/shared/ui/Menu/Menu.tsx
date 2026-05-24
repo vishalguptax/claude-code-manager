@@ -12,17 +12,20 @@
  * Behaviour (mirrors v1 contextMenu.ts):
  *   - opens at the given {x, y}, then flips left/up if it would overflow the
  *     viewport (measured after mount),
- *   - closes on outside press, Escape, or after a (non-disabled) item is chosen,
+ *   - closes on outside press / Escape / webview blur (via the shared
+ *     `useDismiss` hook), or after a (non-disabled) item is chosen,
  *   - one menu open at a time — the owner controls `open`.
  *
  * Anchor-aware dismissal: callers that open the menu from a toggle (a Dropdown
- * trigger) pass `anchorRef`. The outside-press handler then excludes BOTH the
- * menu and the anchor, so the trigger's own onClick is the only thing that
- * toggles open state — re-clicking an open trigger closes it cleanly instead of
- * the document listener closing it on pointerdown and the click reopening it.
+ * trigger) pass `anchorRef`, forwarded to useDismiss as an `ignore` element so
+ * an outside press on the trigger is excluded — the trigger's own onClick is the
+ * only thing that toggles open state, so re-clicking an open trigger closes it
+ * cleanly instead of the document listener closing on pointerdown and the click
+ * reopening it.
  */
 import type { RefObject } from "preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useDismiss } from "../../hooks";
 import { Icon } from "../Icon";
 
 /** A single menu row. `separatorBefore` draws a divider above it. */
@@ -143,20 +146,6 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
     maxWidth: Number.POSITIVE_INFINITY,
   });
 
-  // Keep the latest onClose in a ref so the outside-click/Escape effect can read
-  // it without listing onClose in its dependency array. Parents commonly pass a
-  // fresh inline onClose each render; depending on it would re-attach the
-  // document listeners on every parent render. Updating the ref each render and
-  // reading ref.current inside the effect keeps a single stable subscription.
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  // Same treatment for the anchor ref: read it through a stable holder so the
-  // outside-press effect can exclude the trigger without listing it (a fresh
-  // RefObject each parent render) in the dependency array.
-  const anchorHolder = useRef(anchorRef);
-  anchorHolder.current = anchorRef;
-
   // Position + viewport clamp in a SINGLE layout effect (before paint). A prior
   // version also had a passive useEffect that reset pos to the raw {x,y} on
   // open — it ran AFTER this clamp and, because the deps never changed again,
@@ -205,53 +194,19 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
     );
   }, [open, x, y]);
 
-  // Close on outside press or Escape while open. Reads onClose/anchor via refs
-  // so the listeners attach once per open (not on every parent render).
-  //
-  // Anchor-aware dismissal: an outside press closes the menu UNLESS it lands on
-  // the menu itself OR on the anchor (the trigger that toggles it). Excluding
-  // the anchor is what makes the trigger's own onClick the single source of
-  // toggle truth: re-clicking an open trigger must not have this handler fire
-  // onClose on `pointerdown` only for the trigger's `click` to immediately
-  // reopen it (the close-then-reopen flicker). With the anchor excluded, the
-  // pointerdown is ignored and the trigger's click cleanly toggles to closed.
-  //
-  // pointerdown (capture) fires before the trigger's click for both mouse and
-  // touch, so dismissal is decided before any toggle runs.
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: Event): void => {
-      const target = e.target as Node | null;
-      if (ref.current && target && ref.current.contains(target)) return;
-      const anchor = anchorHolder.current?.current ?? null;
-      if (anchor && target && anchor.contains(target)) return;
-      onCloseRef.current();
-    };
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === "Escape") onCloseRef.current();
-    };
-    // Close when the webview itself loses focus — a pointerdown inside the
-    // webview iframe never fires for clicks elsewhere in VS Code (the editor,
-    // another panel), so without this the menu would stay open when the user
-    // clicks outside the extension entirely. `blur` on the webview window fires
-    // when focus leaves the iframe.
-    const onBlur = (): void => onCloseRef.current();
-    // Defer attaching the outside-press listener a tick so the same press that
-    // opened the menu does not immediately close it. The listener only ever
-    // calls onClose (never preventDefault), so it is passive.
-    const id = setTimeout(
-      () => document.addEventListener("pointerdown", onDown, { capture: true, passive: true }),
-      0,
-    );
-    document.addEventListener("keydown", onKey);
-    window.addEventListener("blur", onBlur);
-    return () => {
-      clearTimeout(id);
-      document.removeEventListener("pointerdown", onDown, { capture: true });
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("blur", onBlur);
-    };
-  }, [open]);
+  // Close on outside press / Escape / webview blur via the shared hook. The
+  // anchor (a Dropdown trigger) is passed as an `ignore` element so an outside
+  // press on it is NOT treated as a dismissal — the trigger's own onClick is the
+  // single source of toggle truth, so re-clicking an open trigger closes it
+  // cleanly instead of the document listener closing on pointerdown only for the
+  // click to immediately reopen (the close-then-reopen flicker). Right-click
+  // context menus open at a bare coordinate with no anchor and pass none.
+  useDismiss({
+    open,
+    onDismiss: onClose,
+    contentRef: ref,
+    ignore: anchorRef ? [anchorRef] : undefined,
+  });
 
   if (!open) return null;
 
