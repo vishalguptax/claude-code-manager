@@ -12,10 +12,12 @@ import type { Session, SessionDetail, SessionGroup, Stats } from "../../types";
 import { flattenGroups } from "../lib";
 import {
   type SessionsDelta,
+  applyDefaultFilters,
   applyDelta,
   currentBranchSignal,
   detailLoadingSignal,
   detailSignal,
+  restoreWindowMinutesSignal,
   selectedIdSignal,
   sessionsSignal,
   setDeleted,
@@ -63,6 +65,23 @@ export function handleMessage(msg: Message): void {
     case "fullTextResults":
       setFullTextHits(msg.query, msg.ids);
       break;
+    case "settings": {
+      // Host-pushed sessions config: apply the configured restore-workspace
+      // window, and seed the initial date/project filters from the user's
+      // defaults (persisted selections still win — see applyDefaultFilters).
+      // v1 handled this in main.ts; the v2 sessions handler had dropped it, so
+      // restoreWindowMinutes/defaultFilter/defaultProject settings did nothing.
+      const m = msg as {
+        restoreWindowMinutes?: number;
+        defaultFilter?: string;
+        defaultProject?: string;
+      };
+      if (typeof m.restoreWindowMinutes === "number") {
+        restoreWindowMinutesSignal.value = m.restoreWindowMinutes;
+      }
+      applyDefaultFilters(m.defaultFilter, m.defaultProject);
+      break;
+    }
     default:
       break;
   }

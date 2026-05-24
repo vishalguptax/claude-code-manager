@@ -332,6 +332,23 @@ export function loadPersistedFilters(): void {
   if (typeof branch === "string") filterBranchSignal.value = branch;
 }
 
+/**
+ * Apply the host's configured `sessions.defaultFilter` / `defaultProject` as the
+ * INITIAL filter values — but only for a dimension the user has not already
+ * persisted an explicit choice for (a persisted selection always wins). Mirrors
+ * v1 main.ts's `if (!hasPersistedFilterDate()) setFilterDate(defaultFilter)`.
+ * Safe regardless of arrival order vs loadPersistedFilters: the guard checks
+ * persisted state, not the live signal.
+ */
+export function applyDefaultFilters(defaultFilter?: string, defaultProject?: string): void {
+  if (defaultFilter && getPersisted<DateFilter>(PERSIST_KEY_FILTER_DATE) === undefined) {
+    filterDateSignal.value = defaultFilter as DateFilter;
+  }
+  if (defaultProject && getPersisted<string>(PERSIST_KEY_FILTER_PROJECT) === undefined) {
+    filterProjectSignal.value = defaultProject;
+  }
+}
+
 let _persistDisposer: (() => void) | null = null;
 
 /**
