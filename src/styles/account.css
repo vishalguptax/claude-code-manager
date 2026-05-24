@@ -349,8 +349,9 @@
   margin-top: var(--space-lg);
 }
 
-/* Period/scope toggles now use the shared .vs-segmented primitive from
-   components.css. Only the layout spacing stays local.
+/* Period/scope toggles now use the shared <Segmented> primitive
+   (.vsc-segmented in components-native.css). Only the layout spacing stays
+   local.
 
    The scope toggle also carries the shared `.scope-filter` class, whose
    panel-edge rule (components.css) adds `margin: … var(--space-2xl) …` to

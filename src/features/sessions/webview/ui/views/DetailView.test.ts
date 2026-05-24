@@ -87,17 +87,22 @@ describe("DetailView", () => {
     expect(getByText("Resume")).toBeTruthy();
   });
 
-  it("shows the latest/earliest toggle only for long transcripts", () => {
+  it("shows the latest/earliest toggle (shared Segmented) only for long transcripts", () => {
     currentProjectSignal.value = "proj";
     detailSignal.value = detail({ totalMessages: 200 });
-    const { container } = render(h(DetailView, {}));
-    expect(container.querySelector(".vs-segmented")).toBeTruthy();
+    const { container, getByText } = render(h(DetailView, {}));
+    // Migrated from the legacy .vs-segmented pill to the shared <Segmented>
+    // (native .vsc-segmented track look), so the selected-state matches every
+    // other segmented control in the app.
+    expect(container.querySelector(".vsc-segmented")).toBeTruthy();
+    expect(getByText("Latest")).toBeTruthy();
+    expect(getByText("Earliest")).toBeTruthy();
   });
 
   it("hides the toggle for short transcripts", () => {
     currentProjectSignal.value = "proj";
     detailSignal.value = detail({ totalMessages: 2 });
     const { container } = render(h(DetailView, {}));
-    expect(container.querySelector(".vs-segmented")).toBeNull();
+    expect(container.querySelector(".vsc-segmented")).toBeNull();
   });
 });

@@ -9,7 +9,13 @@
  * message the decomposed host cannot answer.
  */
 import { useEffect, useState } from "preact/hooks";
-import { Button, Icon, Loading } from "../../../../../webview/shared/ui";
+import {
+  Button,
+  Icon,
+  Loading,
+  Segmented,
+  type SegmentedOption,
+} from "../../../../../webview/shared/ui";
 import { isClaudeCodeExtensionInstalled } from "../../../../../webview/extensionStatus";
 import { useDebounce } from "../../../../../webview/shared/hooks";
 import { cx } from "../../../../../webview/shared/lib";
@@ -46,6 +52,11 @@ const PAGE_SIZE_FOR_TOGGLE = 50;
 const MESSAGE_WINDOW = 200;
 /** Debounce for the transcript search box. */
 const DETAIL_SEARCH_DEBOUNCE_MS = 250;
+/** Transcript order toggle — newest-first ("Latest") vs chronological ("Earliest"). */
+const MESSAGE_ORDER_OPTIONS: SegmentedOption<"last" | "first">[] = [
+  { value: "last", label: "Latest" },
+  { value: "first", label: "Earliest" },
+];
 
 /** Navigate from detail back to the list, resetting transient detail state. */
 function backToList(): void {
@@ -280,24 +291,16 @@ export function DetailView() {
             <div class="d-label-row">
               <span class="d-label">Messages ({total})</span>
               {showToggle ? (
-                <div class={cx("vs-segmented", "vs-segmented--sm", { "is-disabled": isSearching })}>
-                  <button
-                    type="button"
-                    class={cx("vs-segmented-btn", { active: mode === "last" })}
-                    disabled={isSearching}
-                    onClick={() => sessionId && sendGetSessionDetail(sessionId, "last", activeQuery)}
-                  >
-                    Latest
-                  </button>
-                  <button
-                    type="button"
-                    class={cx("vs-segmented-btn", { active: mode === "first" })}
-                    disabled={isSearching}
-                    onClick={() => sessionId && sendGetSessionDetail(sessionId, "first", activeQuery)}
-                  >
-                    Earliest
-                  </button>
-                </div>
+                <Segmented<"last" | "first">
+                  size="sm"
+                  ariaLabel="Message order"
+                  value={mode}
+                  disabled={isSearching}
+                  options={MESSAGE_ORDER_OPTIONS}
+                  onChange={(next) => {
+                    if (sessionId) sendGetSessionDetail(sessionId, next, activeQuery);
+                  }}
+                />
               ) : null}
             </div>
             <div class={cx("d-msg-search", { "has-value": isSearching })}>

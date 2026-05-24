@@ -528,7 +528,7 @@
 }
 .d-label-row .d-label { margin-bottom: 0; }
 
-/* Message toggle now uses .vs-segmented / .vs-segmented--sm */
+/* Message order toggle now uses the shared <Segmented size="sm"> (.vsc-segmented). */
 
 .d-msg-hint {
   font-size: var(--fs-xs);

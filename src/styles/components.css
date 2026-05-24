@@ -759,58 +759,6 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Segmented control (vs-segmented) — pill-style button group where one
-   option is selected. Shared primitive for the period toggle, permission
-   scope toggle, message-view toggle, etc. Same visual language as VS
-   Code's settings tabs.
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.vs-segmented {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--bg-hover);
-  border-radius: var(--radius);
-}
-
-.vs-segmented-btn {
-  height: calc(var(--h-control) - 8px);
-  padding: 0 var(--pad-control-x);
-  font-size: var(--fs-sm);
-  background: none;
-  border: none;
-  color: var(--fg-dim);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  transition: background var(--transition-control), color var(--transition-control);
-}
-.vs-segmented-btn:hover:not(.active) { color: var(--fg); }
-.vs-segmented-btn.active {
-  background: var(--bg, var(--input-bg));
-  color: var(--fg);
-  font-weight: 500;
-}
-/* Dimmed + non-interactive. Kept in the DOM so the surrounding
-   header doesn't reflow when the toggle becomes contextually
-   meaningless (e.g. search active). */
-.vs-segmented.is-disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-.vs-segmented-btn[disabled] {
-  cursor: default;
-}
-
-/* Compact variant for inline toggles (smaller font + padding) */
-.vs-segmented.vs-segmented--sm .vs-segmented-btn {
-  height: calc(var(--h-control-sm) - 6px);
-  padding: 0 var(--space-md);
-  font-size: var(--fs-xs);
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
    Custom themed dropdown (vs-select) — replacement for native <select>
    so the open panel respects VS Code theme instead of the OS system picker.
    ────────────────────────────────────────────────────────────────────────────── */
