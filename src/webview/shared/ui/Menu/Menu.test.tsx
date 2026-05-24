@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "@testing-library/preact";
+import { useRef } from "preact/hooks";
 import { clampMenuPosition, Menu, type MenuItem } from "../Menu";
 
 function items(onSelect = vi.fn()): MenuItem[] {
@@ -68,6 +69,72 @@ describe("Menu", () => {
     render(<Menu open={true} x={0} y={0} items={items()} onClose={onClose} />);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  describe("outside-press dismissal", () => {
+    it("closes on a pointerdown outside the menu (after the open-tick defer)", () => {
+      vi.useFakeTimers();
+      try {
+        const onClose = vi.fn();
+        render(<Menu open={true} x={0} y={0} items={items()} onClose={onClose} />);
+        // The outside-press listener attaches one tick after open, so the same
+        // press that opened the menu cannot immediately close it.
+        vi.advanceTimersByTime(1);
+        fireEvent.pointerDown(document.body);
+        expect(onClose).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does NOT close on a pointerdown inside the menu", () => {
+      vi.useFakeTimers();
+      try {
+        const onClose = vi.fn();
+        const { container } = render(
+          <Menu open={true} x={0} y={0} items={items()} onClose={onClose} />,
+        );
+        vi.advanceTimersByTime(1);
+        const menu = container.querySelector(".vsc-menu") as HTMLElement;
+        fireEvent.pointerDown(menu);
+        expect(onClose).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does NOT close on a pointerdown on the anchor element (trigger excluded)", () => {
+      vi.useFakeTimers();
+      try {
+        const onClose = vi.fn();
+        // Render a button as the anchor and pass its ref to the Menu; pressing
+        // it must be ignored so the trigger's own click owns the toggle.
+        function Harness() {
+          const anchorRef = useRef<HTMLButtonElement | null>(null);
+          return (
+            <>
+              <button type="button" ref={anchorRef} data-testid="anchor">
+                trigger
+              </button>
+              <Menu
+                open={true}
+                x={0}
+                y={0}
+                items={items()}
+                onClose={onClose}
+                anchorRef={anchorRef}
+              />
+            </>
+          );
+        }
+        const { getByTestId } = render(<Harness />);
+        vi.advanceTimersByTime(1);
+        fireEvent.pointerDown(getByTestId("anchor"));
+        expect(onClose).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("clampMenuPosition", () => {

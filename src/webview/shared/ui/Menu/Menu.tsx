@@ -12,9 +12,16 @@
  * Behaviour (mirrors v1 contextMenu.ts):
  *   - opens at the given {x, y}, then flips left/up if it would overflow the
  *     viewport (measured after mount),
- *   - closes on outside click, Escape, or after a (non-disabled) item is chosen,
+ *   - closes on outside press, Escape, or after a (non-disabled) item is chosen,
  *   - one menu open at a time — the owner controls `open`.
+ *
+ * Anchor-aware dismissal: callers that open the menu from a toggle (a Dropdown
+ * trigger) pass `anchorRef`. The outside-press handler then excludes BOTH the
+ * menu and the anchor, so the trigger's own onClick is the only thing that
+ * toggles open state — re-clicking an open trigger closes it cleanly instead of
+ * the document listener closing it on pointerdown and the click reopening it.
  */
+import type { RefObject } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { Icon } from "../Icon";
 
@@ -40,6 +47,14 @@ export interface MenuProps {
   onClose: () => void;
   /** Extra class on the menu container (e.g. to widen a specific menu). */
   class?: string;
+  /**
+   * The element that toggles this menu (e.g. a Dropdown trigger). When given,
+   * the outside-press handler IGNORES presses on it, so the anchor's own click
+   * handler is the single source of toggle truth and the document listener
+   * never fights it (no close-then-reopen flicker on re-click). Right-click
+   * context menus open at a bare coordinate with no anchor and omit this.
+   */
+  anchorRef?: RefObject<HTMLElement | null>;
 }
 
 /** Gap kept between a corrected menu edge and the viewport edge (px). */
@@ -107,7 +122,7 @@ function MenuItemRow({ item, onClose }: { item: MenuItem; onClose: () => void })
   );
 }
 
-export function Menu({ open, x, y, items, onClose, class: cls }: MenuProps) {
+export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: MenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: x, top: y });
 
@@ -118,6 +133,12 @@ export function Menu({ open, x, y, items, onClose, class: cls }: MenuProps) {
   // reading ref.current inside the effect keeps a single stable subscription.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+
+  // Same treatment for the anchor ref: read it through a stable holder so the
+  // outside-press effect can exclude the trigger without listing it (a fresh
+  // RefObject each parent render) in the dependency array.
+  const anchorHolder = useRef(anchorRef);
+  anchorHolder.current = anchorRef;
 
   // Reset to the requested coordinate whenever the menu (re)opens.
   useEffect(() => {
@@ -152,27 +173,42 @@ export function Menu({ open, x, y, items, onClose, class: cls }: MenuProps) {
     setPos((prev) => (prev.left === left && prev.top === top ? prev : { left, top }));
   }, [open, x, y]);
 
-  // Close on outside click or Escape while open. Reads onClose via the ref so
-  // the listeners attach once per open (not on every parent render).
+  // Close on outside press or Escape while open. Reads onClose/anchor via refs
+  // so the listeners attach once per open (not on every parent render).
+  //
+  // Anchor-aware dismissal: an outside press closes the menu UNLESS it lands on
+  // the menu itself OR on the anchor (the trigger that toggles it). Excluding
+  // the anchor is what makes the trigger's own onClick the single source of
+  // toggle truth: re-clicking an open trigger must not have this handler fire
+  // onClose on `pointerdown` only for the trigger's `click` to immediately
+  // reopen it (the close-then-reopen flicker). With the anchor excluded, the
+  // pointerdown is ignored and the trigger's click cleanly toggles to closed.
+  //
+  // pointerdown (capture) fires before the trigger's click for both mouse and
+  // touch, so dismissal is decided before any toggle runs.
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent): void => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onCloseRef.current();
+    const onDown = (e: Event): void => {
+      const target = e.target as Node | null;
+      if (ref.current && target && ref.current.contains(target)) return;
+      const anchor = anchorHolder.current?.current ?? null;
+      if (anchor && target && anchor.contains(target)) return;
+      onCloseRef.current();
     };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") onCloseRef.current();
     };
-    // Defer the outside-click listener a tick so the same click that opened the
-    // menu does not immediately close it. The mousedown listener only ever calls
-    // onClose (never preventDefault), so it is passive.
+    // Defer attaching the outside-press listener a tick so the same press that
+    // opened the menu does not immediately close it. The listener only ever
+    // calls onClose (never preventDefault), so it is passive.
     const id = setTimeout(
-      () => document.addEventListener("mousedown", onDown, { passive: true }),
+      () => document.addEventListener("pointerdown", onDown, { capture: true, passive: true }),
       0,
     );
     document.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(id);
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onDown, { capture: true });
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);

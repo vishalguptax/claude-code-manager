@@ -100,4 +100,59 @@ describe("Dropdown", () => {
     fireEvent.keyDown(trigger, { key: "ArrowDown" });
     expect(container.querySelector(".vsc-dropdown-menu")).toBeTruthy();
   });
+
+  describe("open/close behaviour (Bug 1)", () => {
+    it("re-clicking the OPEN trigger closes it cleanly (no close-then-reopen)", () => {
+      vi.useFakeTimers();
+      try {
+        const { container } = render(<Dropdown value="a" options={OPTS} onChange={() => {}} />);
+        const trigger = container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement;
+
+        // First click opens.
+        fireEvent.click(trigger);
+        expect(container.querySelector(".vsc-dropdown-menu")).toBeTruthy();
+        expect(trigger.getAttribute("aria-expanded")).toBe("true");
+
+        // Let the Menu's outside-press listener attach.
+        vi.advanceTimersByTime(1);
+
+        // A real re-click is pointerdown (ignored — anchor excluded) then click
+        // (toggles closed). The menu must end CLOSED, not flicker back open.
+        fireEvent.pointerDown(trigger);
+        fireEvent.click(trigger);
+        expect(container.querySelector(".vsc-dropdown-menu")).toBeNull();
+        expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("a pointerdown anywhere outside closes the open menu", () => {
+      vi.useFakeTimers();
+      try {
+        const { container } = render(<Dropdown value="a" options={OPTS} onChange={() => {}} />);
+        const trigger = container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement;
+        fireEvent.click(trigger);
+        expect(container.querySelector(".vsc-dropdown-menu")).toBeTruthy();
+
+        vi.advanceTimersByTime(1);
+        fireEvent.pointerDown(document.body);
+        expect(container.querySelector(".vsc-dropdown-menu")).toBeNull();
+        expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("selecting an option closes the menu", () => {
+      const onChange = vi.fn();
+      const { container, getByText } = render(
+        <Dropdown value="a" options={OPTS} onChange={onChange} />,
+      );
+      fireEvent.click(container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement);
+      fireEvent.click(getByText("Beta (current)"));
+      expect(onChange).toHaveBeenCalledWith("b");
+      expect(container.querySelector(".vsc-dropdown-menu")).toBeNull();
+    });
+  });
 });

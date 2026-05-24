@@ -140,6 +140,11 @@ export function Dropdown({
         items={items}
         onClose={() => setOpen(false)}
         class="vsc-dropdown-menu"
+        // Exclude the trigger from outside-press dismissal so re-clicking it
+        // toggles closed cleanly (the trigger's onClick owns the open state);
+        // without this the document listener would close on pointerdown and the
+        // click would immediately reopen — the reported close/reopen flicker.
+        anchorRef={triggerRef}
       />
     </div>
   );
