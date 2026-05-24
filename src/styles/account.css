@@ -348,10 +348,25 @@
 }
 
 /* Period/scope toggles now use the shared .vs-segmented primitive from
-   components.css. Only the layout spacing stays local. */
+   components.css. Only the layout spacing stays local.
+
+   The scope toggle also carries the shared `.scope-filter` class, whose
+   panel-edge rule (components.css) adds `margin: … var(--space-2xl) …` to
+   inset the control from the bare panel edge on the sessions/skills tabs.
+   Inside the Config/Account tab the control sits in `.acct-section-body`,
+   which ALREADY applies that same `--space-2xl` horizontal padding — so the
+   inherited margin double-insets the segmented, leaving it narrower than the
+   sibling search box and permission rows. Zero the horizontal margin here so
+   the scope toggle spans the full section-body width like every other row. */
 .acct-period-toggle,
 .acct-scope-toggle {
   margin-bottom: var(--space-lg);
+}
+.acct-scope-toggle.scope-filter,
+.acct-period-toggle.scope-filter {
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
