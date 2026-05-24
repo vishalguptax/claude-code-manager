@@ -107,4 +107,48 @@ describe("Segmented", () => {
     );
     expect(container.querySelector(".vsc-segmented--sm")).toBeTruthy();
   });
+
+  describe("disabled", () => {
+    it("marks the group disabled, drops every segment from the tab order, and disables the buttons", () => {
+      const { container } = render(
+        <Segmented value="all" options={OPTS} onChange={() => {}} disabled />,
+      );
+      const group = container.querySelector(".vsc-segmented") as HTMLElement;
+      expect(group.classList.contains("is-disabled")).toBe(true);
+      expect(group.getAttribute("aria-disabled")).toBe("true");
+      const segs = Array.from(
+        container.querySelectorAll<HTMLButtonElement>(".vsc-segmented-seg"),
+      );
+      // Even the active segment leaves the tab order while disabled.
+      expect(segs.every((b) => b.getAttribute("tabindex") === "-1")).toBe(true);
+      expect(segs.every((b) => b.disabled)).toBe(true);
+    });
+
+    it("does not call onChange when a disabled segment is clicked", () => {
+      const onChange = vi.fn();
+      const { getByText } = render(
+        <Segmented value="all" options={OPTS} onChange={onChange} disabled />,
+      );
+      fireEvent.click(getByText("Project (4)"));
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("ignores arrow-key navigation while disabled", () => {
+      const onChange = vi.fn();
+      const { container } = render(
+        <Segmented value="all" options={OPTS} onChange={onChange} disabled />,
+      );
+      const first = container.querySelector(".vsc-segmented-seg") as HTMLButtonElement;
+      fireEvent.keyDown(first, { key: "ArrowRight" });
+      fireEvent.keyDown(first, { key: "End" });
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("omits aria-disabled and is-disabled when enabled (the default)", () => {
+      const { container } = render(<Segmented value="all" options={OPTS} onChange={() => {}} />);
+      const group = container.querySelector(".vsc-segmented") as HTMLElement;
+      expect(group.classList.contains("is-disabled")).toBe(false);
+      expect(group.getAttribute("aria-disabled")).toBeNull();
+    });
+  });
 });

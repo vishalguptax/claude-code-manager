@@ -598,6 +598,16 @@
   outline-offset: -1px;
 }
 
+/* Dimmed + non-interactive while still occupying layout — kept in the DOM so
+   the surrounding header doesn't reflow when the toggle becomes contextually
+   meaningless (e.g. the sessions Latest/Earliest toggle while search is
+   active). The buttons are already `disabled`; this also blocks pointer
+   interaction on the track and mutes the whole control. */
+.vsc-segmented.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 /* Compact variant — inline toggles (account usage period). Content-sized
    segments at a shorter height. */
 .vsc-segmented--sm {

@@ -43,6 +43,14 @@ export interface SegmentedProps<V extends string = string> {
   ariaLabel?: string;
   /** Compact variant — smaller height/padding for inline toggles. */
   size?: "default" | "sm";
+  /**
+   * Dimmed + non-interactive while still occupying layout. Used where the
+   * toggle is contextually meaningless for a moment (e.g. the sessions
+   * Latest/Earliest mode toggle while a transcript search is active) but
+   * removing it from the DOM would reflow the surrounding header. Keystrokes
+   * and clicks are suppressed and the group leaves the tab order.
+   */
+  disabled?: boolean;
   class?: string;
 }
 
@@ -51,14 +59,19 @@ export interface SegmentedProps<V extends string = string> {
  * component identity rather than a closure recreated inside the map on every
  * Segmented render.
  */
+/** Stable no-op so the keydown handler has one identity when disabled. */
+function noop(): void {}
+
 function Segment<V extends string>({
   opt,
   active,
+  disabled,
   onSelect,
   onKeyDown,
 }: {
   opt: SegmentedOption<V>;
   active: boolean;
+  disabled: boolean;
   onSelect: () => void;
   onKeyDown: (e: KeyboardEvent) => void;
 }) {
@@ -68,9 +81,11 @@ function Segment<V extends string>({
       class={cx("vsc-segmented-seg", active && "active")}
       role="radio"
       aria-checked={active}
+      disabled={disabled}
       // Roving tabindex: only the selected segment is in the tab order; arrows
       // move between segments once the group has focus (WAI-ARIA radio group).
-      tabIndex={active ? 0 : -1}
+      // When disabled the whole group leaves the tab order (-1 on every seg).
+      tabIndex={disabled ? -1 : active ? 0 : -1}
       onClick={onSelect}
       onKeyDown={onKeyDown}
     >
@@ -90,6 +105,7 @@ export function Segmented<V extends string = string>({
   onChange,
   ariaLabel,
   size = "default",
+  disabled = false,
   class: cls,
 }: SegmentedProps<V>) {
   const move = (delta: number): void => {
@@ -126,19 +142,27 @@ export function Segmented<V extends string = string>({
 
   return (
     <div
-      class={cx("vsc-segmented", size === "sm" && "vsc-segmented--sm", cls)}
+      class={cx(
+        "vsc-segmented",
+        size === "sm" && "vsc-segmented--sm",
+        disabled && "is-disabled",
+        cls,
+      )}
       role="radiogroup"
       aria-label={ariaLabel}
+      aria-disabled={disabled ? "true" : undefined}
     >
       {options.map((opt) => (
         <Segment
           key={opt.value}
           opt={opt}
           active={value === opt.value}
+          disabled={disabled}
           onSelect={() => {
-            if (opt.value !== value) onChange(opt.value);
+            if (disabled || opt.value === value) return;
+            onChange(opt.value);
           }}
-          onKeyDown={onKeyDown}
+          onKeyDown={disabled ? noop : onKeyDown}
         />
       ))}
     </div>
