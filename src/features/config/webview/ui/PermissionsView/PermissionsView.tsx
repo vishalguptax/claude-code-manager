@@ -41,8 +41,16 @@ export function PermissionsView({
   onScopeChange,
   onSearchChange,
 }: PermissionsViewProps) {
-  const set = data.permissions.find((p) => p.scope === scope);
-  const hasProjectScope = data.permissions.some((p) => p.scope === "project");
+  // Defensive defaults: `accountData` crosses the host boundary as `unknown`
+  // and is cast to AccountData, so a partial/legacy payload (or an early render
+  // before the full parse) could omit `permissions`. Reading `.find` straight
+  // off an undefined array throws, which makes Preact blank the ENTIRE
+  // Permissions section — i.e. the view renders empty even though the scope
+  // genuinely has data. Falling back to an empty array keeps the section alive
+  // and lets the per-list empty states render correctly instead.
+  const permissions = data.permissions ?? [];
+  const set = permissions.find((p) => p.scope === scope);
+  const hasProjectScope = permissions.some((p) => p.scope === "project");
   const query = search.trim().toLowerCase();
 
   const scopeOptions: Array<{ value: PermissionScope; label: string }> = [
@@ -80,7 +88,7 @@ export function PermissionsView({
         <PermissionList set={set} scope={scope} list="allow" label="Allowed" query={query} api={api} />
         <PermissionList set={set} scope={scope} list="deny" label="Denied" query={query} api={api} />
 
-        <AdditionalDirectories dirs={data.settings.additionalDirectories} api={api} />
+        <AdditionalDirectories dirs={data.settings?.additionalDirectories ?? []} api={api} />
 
         <div class="acct-field-hint">
           Pattern format: <code>Bash(command:*)</code>, <code>Read(path/**)</code>,{" "}

@@ -70,6 +70,33 @@ describe("PermissionsView", () => {
     expect(container.querySelector('vscode-textfield[aria-label="Search tools"]')).toBeTruthy();
   });
 
+  it("renders the empty state (no crash) when the payload omits permissions", () => {
+    // A partial/legacy accountData payload could arrive without a permissions
+    // array (it crosses the host boundary as `unknown`). The view must default
+    // to empty and render the "No … tools" states rather than throwing on
+    // `.find` of undefined, which would blank the whole section and look like a
+    // genuinely-empty permissions list.
+    const data = makeConfigData();
+    // Force the degraded shape the runtime guard protects against.
+    (data as unknown as { permissions?: unknown }).permissions = undefined;
+    const { api } = setup();
+    const { container } = render(
+      <PermissionsView
+        data={data}
+        api={api}
+        scope="global"
+        search=""
+        onScopeChange={vi.fn()}
+        onSearchChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Permissions")).toBeTruthy();
+    expect(screen.getByText("No allowed tools")).toBeTruthy();
+    expect(screen.getByText("No denied tools")).toBeTruthy();
+    // The scope segmented still renders (Global only — no project scope present).
+    expect(container.querySelector(".acct-scope-toggle")).toBeTruthy();
+  });
+
   it("removing a tool posts promptRemovePermission", () => {
     const data = makeConfigData({
       permissions: [{ scope: "global", allow: ["Bash(git:*)"], deny: [] }],
