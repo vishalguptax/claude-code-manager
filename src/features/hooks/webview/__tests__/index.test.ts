@@ -53,4 +53,13 @@ describe("HooksTab", () => {
     dispatch({ type: "hooks", data: [] });
     await waitFor(() => expect(screen.getByText("No hooks configured")).toBeTruthy());
   });
+
+  it("clears the loader and surfaces a host error message", async () => {
+    render(h(HooksTab, {}));
+    dispatch({ type: "error", message: "parse blew up" });
+    // Without the error handler the skeleton loader would spin forever; the
+    // error branch must replace it with the failure EmptyState.
+    await waitFor(() => expect(screen.getByText("parse blew up")).toBeTruthy());
+    expect(screen.getByText("Couldn't load hooks")).toBeTruthy();
+  });
 });

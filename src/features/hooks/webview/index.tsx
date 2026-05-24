@@ -12,7 +12,7 @@ import { EmptyState, Loading } from "../../../webview/shared/ui";
 import type { Hook } from "../types";
 import type { Post } from "./api";
 import * as api from "./api";
-import { errorMessage, loading, selectedHook, setHooks } from "./model";
+import { errorMessage, loading, selectedHook, setError, setHooks } from "./model";
 import { DetailView, ListView } from "./ui";
 
 export default function HooksTab() {
@@ -27,9 +27,17 @@ export default function HooksTab() {
         setHooks((msg.data as Hook[]) ?? []);
       }
     });
+    // A host parse failure surfaces as a generic `error` message; without this
+    // the loading shell would spin forever (setError is what clears it).
+    const unsubscribeError = registerFeatureHandler("error", (msg: Message) => {
+      if (msg.type === "error") setError(msg.message);
+    });
     // Request the initial list once mounted.
     api.getHooks(post as Post);
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      unsubscribeError();
+    };
   }, [post]);
 
   if (loading.value) return <Loading />;
