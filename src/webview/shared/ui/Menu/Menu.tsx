@@ -230,6 +230,12 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") onCloseRef.current();
     };
+    // Close when the webview itself loses focus — a pointerdown inside the
+    // webview iframe never fires for clicks elsewhere in VS Code (the editor,
+    // another panel), so without this the menu would stay open when the user
+    // clicks outside the extension entirely. `blur` on the webview window fires
+    // when focus leaves the iframe.
+    const onBlur = (): void => onCloseRef.current();
     // Defer attaching the outside-press listener a tick so the same press that
     // opened the menu does not immediately close it. The listener only ever
     // calls onClose (never preventDefault), so it is passive.
@@ -238,10 +244,12 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
       0,
     );
     document.addEventListener("keydown", onKey);
+    window.addEventListener("blur", onBlur);
     return () => {
       clearTimeout(id);
       document.removeEventListener("pointerdown", onDown, { capture: true });
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("blur", onBlur);
     };
   }, [open]);
 
