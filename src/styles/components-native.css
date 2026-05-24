@@ -153,29 +153,44 @@
   --vscode-settings-textInputBackground: var(--vscode-input-background);
   --vscode-settings-textInputForeground: var(--vscode-input-foreground);
   --vscode-settings-textInputBorder: var(--vscode-input-border, transparent);
-  /* Inner-input horizontal inset. The element exposes NO horizontal-padding
-     custom property — its shadow `<input>` is hardcoded to `padding: 4px` left
-     and right (see @vscode-elements/elements vscode-textfield.styles.js), which
-     is already symmetric for a plain field. We pin the SAME token to both slot
-     gutters below so an icon'd field stays symmetric too; this var is the one
-     knob both gutters read so left == right by construction. */
-  --vsc-field-inset: var(--space-md);
+
+  /* ── Canonical horizontal text inset ────────────────────────────────────
+     `--vsc-field-text-inset` (9px) is the SINGLE source of truth for where
+     text/icons start, measured from the control's box edge. It is VS Code's
+     native Settings field inset and the value the Dropdown trigger uses
+     directly. Both controls read it so a stacked TextField and Dropdown in the
+     Config column share an identical left AND right text start.
+
+     A plain <vscode-textfield>'s shadow `<input>` is hardcoded to `padding: 4px`
+     left/right (see @vscode-elements/elements vscode-textfield.styles.js) and
+     exposes no padding prop. So the host adds the REMAINDER (9 - 4 = 5px) to
+     reach the canonical inset — derived below as a calc so the two numbers stay
+     in lockstep if the canonical value ever changes.
+     `--vsc-field-slot-inset` is what the SearchInput's slot gutters use (host
+     padding is reset to 0 for that variant; the slots own the inset instead). */
+  --vsc-field-text-inset: 9px;
+  --vsc-field-shadow-pad: 4px;
+  --vsc-field-host-pad: calc(var(--vsc-field-text-inset) - var(--vsc-field-shadow-pad));
+  --vsc-field-slot-inset: var(--vsc-field-text-inset);
+
+  /* Plain field: host padding lifts the 4px shadow input to the 9px canonical
+     inset on both edges. SearchInput overrides this to 0 below (its slot
+     gutters own the inset; adding host padding would compound and shove the
+     magnifier inward). */
+  padding-left: var(--vsc-field-host-pad);
+  padding-right: var(--vsc-field-host-pad);
 }
 
-/* Text-start parity with <Dropdown>. A plain TextField and a Dropdown trigger
-   stacked in the same Config column must have IDENTICAL text insets. The
-   trigger pads its label to 9px (see .vsc-dropdown-trigger below); the
-   textfield's shadow <input> is hardcoded to 4px and exposes no padding prop.
-   Host padding insets the (flex-stretched) shadow input, so adding 5px on each
-   side lands the text at 4 + 5 = 9px — matching the trigger exactly on both
-   edges. Scoped with :has() to plain fields only: a SearchInput owns
-   content-before/after slots whose own --vsc-field-inset gutters already
-   position the icon + clear button, so it must NOT receive this extra host pad
-   (that would compound and shove the magnifier inward). Chromium 105+ (VS Code
-   1.85 ships far newer) supports :has(), so the guard is reliable in-webview. */
-.vsc-textfield:not(:has([slot])) {
-  padding-left: 5px;
-  padding-right: 5px;
+/* SearchInput variant (the TextField carries class "vsc-search"). The leading
+   magnifier / trailing clear ride in the content-before/after slots, whose own
+   gutters position them at the canonical inset; the host padding must be 0 so
+   it does not compound. This class discriminator replaces the former
+   `:not(:has([slot]))` guard, which depended on `:has()` + slot detection in
+   the Electron webview and could mis-target (the reported left-inset mismatch
+   between a plain input and a dropdown trigger). The class is deterministic. */
+.vsc-textfield.vsc-search {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /* Slot wrappers — the light-DOM `<span slot="content-before|after">` spans that
@@ -192,15 +207,16 @@
   height: 100%;
 }
 /* Leading-icon gutter == trailing-clear gutter. Both slots read the same
-   `--vsc-field-inset` token so the magnifier's distance from the left edge
-   mirrors the clear (x) button's distance from the right edge — a symmetric
-   field whether or not the trailing slot is occupied. The shadow `::slotted`
-   adds a fixed 2px on each side equally, so it doesn't break the balance. */
+   `--vsc-field-slot-inset` (the canonical 9px text inset) so the magnifier's
+   distance from the left edge mirrors the clear (x) button's distance from the
+   right edge — and mirrors a plain field's and the Dropdown trigger's text
+   start. The shadow `::slotted` adds a fixed 2px on each side equally, so it
+   doesn't break the balance. */
 .vsc-textfield > [slot="content-before"] {
-  padding-left: var(--vsc-field-inset);
+  padding-left: var(--vsc-field-slot-inset);
 }
 .vsc-textfield > [slot="content-after"] {
-  padding-right: var(--vsc-field-inset);
+  padding-right: var(--vsc-field-slot-inset);
 }
 
 /* Leading magnifier — centred by the full-height flex slot wrapper above; the
@@ -224,8 +240,8 @@
   width: 20px;
   height: 20px;
   /* No horizontal margin — the right gutter is owned by the content-after
-     slot's `padding-right: var(--vsc-field-inset)` so the x sits at the same
-     inset from the right edge as the magnifier is from the left. */
+     slot's `padding-right: var(--vsc-field-slot-inset)` so the x sits at the
+     same inset from the right edge as the magnifier is from the left. */
   margin: 0;
   padding: 0;
   background: none;
@@ -261,11 +277,14 @@
   width: 100%;
   height: var(--h-control);
   box-sizing: border-box;
-  /* 9px horizontal inset is the canonical control text-start. A plain
-     <vscode-textfield>'s shadow input sits at only 4px intrinsically, so the
-     `.vsc-textfield:not(:has([slot]))` rule above adds 5px host padding to lift
-     it to this same 9px — a Dropdown trigger and a TextField stacked in the
-     same config column then align on BOTH text edges. */
+  /* 9px is the canonical control text-start (the same value the TextField host
+     resolves to via --vsc-field-text-inset). The trigger applies it directly
+     because it has no shadow `<input>` offset to compensate for; a plain
+     <vscode-textfield>'s shadow input sits at 4px intrinsically, so the
+     `.vsc-textfield` rule above adds 5px host padding to reach this same 9px —
+     a Dropdown trigger and a TextField stacked in the same config column then
+     align on BOTH text edges. Keep this literal in sync with
+     --vsc-field-text-inset. */
   padding: 0 9px;
   background: var(--role-control-bg);
   color: var(--role-control-fg);
