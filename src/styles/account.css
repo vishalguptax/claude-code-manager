@@ -672,15 +672,24 @@
   outline-offset: -1px;
 }
 
+/* Status-line command etc. — a READ-ONLY code display, not an editable field.
+   Inherits the shared `.code-readonly` treatment (mono surface, no input
+   chrome, single-line horizontal scroll) from components.css. The element
+   carries both classes so existing markup/selectors keep working. */
 .acct-code {
   display: block;
-  padding: var(--space-sm);
-  background: var(--bg-hover);
-  color: var(--fg-dim);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--vscode-textCodeBlock-background,
+    var(--vscode-textBlockQuote-background, var(--bg-hover)));
+  color: var(--fg);
   font-family: var(--mono);
   font-size: var(--fs-sm);
+  line-height: 1.5;
   border-radius: var(--radius-sm);
-  word-break: break-all;
+  border: none;
+  cursor: default;
+  white-space: pre;
+  overflow-x: auto;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────

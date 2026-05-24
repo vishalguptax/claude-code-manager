@@ -70,13 +70,24 @@ describe("SettingsView", () => {
     });
   });
 
-  it("renders statusLineCommand read-only when present", () => {
+  it("renders statusLineCommand as a read-only code block, not an editable input", () => {
     const { api } = setup();
+    const cmd = "bash ~/.claude/statusline-command.sh";
     const data = makeConfigData({
-      settings: { ...makeConfigData().settings, statusLineCommand: "echo hi" },
+      settings: { ...makeConfigData().settings, statusLineCommand: cmd },
     });
-    render(<SettingsView data={data} api={api} />);
-    expect(screen.getByText("echo hi")).toBeTruthy();
+    const { container } = render(<SettingsView data={data} api={api} />);
+    const code = container.querySelector("code.acct-code");
+    expect(code).toBeTruthy();
+    // Read-only code-block treatment (shared reusable class), not a TextField.
+    expect(code?.classList.contains("code-readonly")).toBe(true);
+    expect(code?.textContent).toBe(cmd);
+    // Full value exposed via title for hover discovery when it scrolls.
+    expect(code?.getAttribute("title")).toBe(cmd);
+    // It is NOT rendered as an editable field.
+    expect(
+      container.querySelector('vscode-textfield[aria-label="Status line command"]'),
+    ).toBeNull();
   });
 
   it("reset posts resetSettings via the danger button", () => {

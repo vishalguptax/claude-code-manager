@@ -138,7 +138,13 @@ export function SettingsView({ data, api }: SettingsViewProps) {
         {s.statusLineCommand ? (
           <div class="acct-field">
             <label class="acct-label">Status line command</label>
-            <code class="acct-code">{s.statusLineCommand}</code>
+            {/* Read-only display of the configured command, NOT an editable
+                field — rendered as a code block so users don't mistake it for
+                an input. `title` carries the full value for hover discovery
+                when a long command scrolls horizontally. */}
+            <code class="acct-code code-readonly" title={s.statusLineCommand}>
+              {s.statusLineCommand}
+            </code>
           </div>
         ) : null}
 
