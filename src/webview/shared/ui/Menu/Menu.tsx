@@ -157,12 +157,12 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
   const anchorHolder = useRef(anchorRef);
   anchorHolder.current = anchorRef;
 
-  // Reset to the requested coordinate (and drop any width cap) whenever the menu
-  // (re)opens, so the post-paint measure sees the content's natural width.
-  useEffect(() => {
-    if (open) setPos({ left: x, top: y, maxWidth: Number.POSITIVE_INFINITY });
-  }, [open, x, y]);
-
+  // Position + viewport clamp in a SINGLE layout effect (before paint). A prior
+  // version also had a passive useEffect that reset pos to the raw {x,y} on
+  // open — it ran AFTER this clamp and, because the deps never changed again,
+  // left the menu pinned at the unclamped click point (it spilled off the right
+  // edge). That reset is gone; this effect is the sole source of position.
+  //
   // After paint, nudge the menu back inside the viewport if it overflows the
   // right/bottom edges. We always recompute from the requested {x,y} (not the
   // already-corrected value) and only set state when the corrected coordinate
@@ -182,7 +182,14 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
     if (!open) return;
     const el = ref.current;
     if (!el) return;
+    // Measure the menu's NATURAL width: temporarily lift any inline width cap
+    // (left over from a previous open) so the clamp sizes against real content,
+    // not a stale cap. The browser hasn't painted between this write and read,
+    // so there is no visible flash.
+    const prevMax = el.style.maxWidth;
+    el.style.maxWidth = "none";
     const r = el.getBoundingClientRect();
+    el.style.maxWidth = prevMax;
     const { left, top, maxWidth } = clampMenuPosition(
       x,
       y,
