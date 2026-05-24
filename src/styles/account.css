@@ -338,14 +338,13 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .acct-actions {
-  /* Flex-wrap so each button sizes to its OWN label and wraps to the next line
-     when the row is full — never cropping. The previous auto-fit grid
-     (minmax(96px, 1fr)) forced equal narrow columns that, combined with `.btn`'s
-     ellipsis clip, truncated longer labels ("Open settings.js…",
-     "Extension setting…"). The shared `… > .btn` override (components.css)
-     re-enables full labels; uneven button widths are native and fine. */
-  display: flex;
-  flex-wrap: wrap;
+  /* Uniform grid: equal-width columns wide enough for the longest label
+     (min 150px so "Open settings.json" / "Extension settings" never crop),
+     packing 2-up when the panel is wide and collapsing to 1-up only when truly
+     narrow. The shared `… > .btn` override (components.css) disables the
+     ellipsis clip so labels show in full; equal columns keep the row tidy. */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-sm);
   margin-top: var(--space-lg);
 }

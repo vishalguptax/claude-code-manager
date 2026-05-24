@@ -168,7 +168,10 @@
      in lockstep if the canonical value ever changes.
      `--vsc-field-slot-inset` is what the SearchInput's slot gutters use (host
      padding is reset to 0 for that variant; the slots own the inset instead). */
-  --vsc-field-text-inset: 9px;
+  /* 4px == the shadow input's hardcoded floor: host-pad resolves to 0 so the
+     text sits as close to the box's left edge (and the label above) as the
+     un-pierceable shadow DOM allows. The Dropdown trigger matches this value. */
+  --vsc-field-text-inset: 4px;
   --vsc-field-shadow-pad: 4px;
   --vsc-field-host-pad: calc(var(--vsc-field-text-inset) - var(--vsc-field-shadow-pad));
   --vsc-field-slot-inset: var(--vsc-field-text-inset);
@@ -283,9 +286,10 @@
      <vscode-textfield>'s shadow input sits at 4px intrinsically, so the
      `.vsc-textfield` rule above adds 5px host padding to reach this same 9px —
      a Dropdown trigger and a TextField stacked in the same config column then
-     align on BOTH text edges. Keep this literal in sync with
-     --vsc-field-text-inset. */
-  padding: 0 9px;
+     align on BOTH text edges. 4px == the textfield's shadow-input floor (see
+     --vsc-field-text-inset) so both controls put text the same minimal distance
+     from the box edge. */
+  padding: 0 4px;
   background: var(--role-control-bg);
   color: var(--role-control-fg);
   border: 1px solid var(--role-control-border);
