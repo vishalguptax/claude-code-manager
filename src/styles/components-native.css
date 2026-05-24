@@ -454,13 +454,15 @@
   min-height: 24px;
   padding: 0;
   justify-content: center;
-  background: none;
+  /* Visible resting affordance (product call): icon buttons read as buttons
+     with a subtle secondary fill + border, not a transparent ghost. */
+  background: var(--vscode-button-secondaryBackground, var(--bg-hover));
   color: var(--role-text-secondary);
-  border: 1px solid transparent;
+  border: 1px solid var(--vscode-button-border, var(--vscode-input-border, var(--border)));
   border-radius: var(--radius);
 }
 .btn-icon:hover {
-  background: var(--role-ghost-hover-bg);
+  background: var(--vscode-button-secondaryHoverBackground, var(--role-ghost-hover-bg));
   color: var(--role-text-primary);
 }
 .btn-icon:active {
