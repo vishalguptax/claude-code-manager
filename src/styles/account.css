@@ -650,8 +650,11 @@
    Permissions
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* Each labelled group (ALLOWED / DENIED / ADDITIONAL DIRECTORIES) reads as its
+   own block — the larger inter-group gap separates them clearly from the dense
+   rows packed inside each one. */
 .acct-perm-group {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .acct-perm-group-label {
@@ -660,14 +663,16 @@
   text-transform: uppercase;
   letter-spacing: 0.4px;
   color: var(--fg-muted);
-  margin-bottom: var(--space-xs);
+  /* Heading → first row breathing room so the label isn't glued to its list. */
+  margin-bottom: var(--space-sm);
 }
 
 .acct-perm-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
+  /* Wide name→× gap so the remove button never crowds the ellipsized command. */
+  gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
   background: var(--bg-hover);
   border-radius: var(--radius-sm);
@@ -677,6 +682,9 @@
 .acct-perm-name {
   font-family: var(--mono);
   font-size: var(--fs-sm);
+  /* Mono `$`, descenders and parens clip when the line box is exactly the
+     font size; 1.6 gives the glyphs vertical room so nothing is cropped. */
+  line-height: 1.6;
   color: var(--fg);
   white-space: nowrap;
   overflow: hidden;
@@ -685,20 +693,14 @@
   min-width: 0;
 }
 
+/* The remove control is the shared icon <Button>, so it already carries the
+   `.btn-icon` affordance (>=24px hit area, --toolbar-hoverBackground hover,
+   inset --focus-ring). We only pin it from growing in the flex row and keep it
+   centred against the taller (line-height 1.6) name. */
 .acct-perm-remove {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
   flex-shrink: 0;
+  align-self: center;
 }
-.acct-perm-remove:hover { color: var(--red); background: var(--red-bg); }
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Empty states
