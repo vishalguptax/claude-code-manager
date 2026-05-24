@@ -367,7 +367,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-sm);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -540,7 +540,7 @@
    long; flags an item as not editable from the sidebar. */
 .mcp-readonly-badge {
   font-size: var(--fs-xs);
-  padding: 1px 6px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   background: var(--badge-bg);
   color: var(--text-muted);
