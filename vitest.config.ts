@@ -5,7 +5,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
-    setupFiles: ["src/test/setup.ts"],
     // Collect both legacy __tests__/ suites and CDD co-located *.test.* files
     // that live next to the component they cover (FSD/CDD layout).
     include: ["src/**/*.test.{ts,tsx}"],

@@ -296,7 +296,6 @@
   },
   "dependencies": {
     "@preact/signals": "^2.9.0",
-    "@vscode-elements/elements": "^2.5.1",
     "clsx": "^2.1.1",
     "preact": "^10.29.2",
     "valibot": "^1.4.0"

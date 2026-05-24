@@ -1,8 +1,8 @@
 /**
  * Barrel for the shared UI component library. Each component is a CDD folder
- * with a co-located test and its own index. `registerElements.ts` is infra
- * (custom-element registration, side-effect import) and is intentionally not
- * re-exported here — it is imported directly where its side effect is needed.
+ * with a co-located test and its own index. All components are plain Preact
+ * over native HTML elements styled by --vscode-* theme vars — no web-component
+ * registration, no third-party element library.
  */
 export { Badge, type BadgeProps, type BadgeVariant } from "./Badge";
 export { Button, type ButtonProps, type ButtonVariant } from "./Button";
