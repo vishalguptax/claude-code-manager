@@ -44,4 +44,27 @@ describe("SnapshotsView", () => {
     render(<SnapshotsView api={api} snapshots={[]} />);
     expect(screen.getByText(/No snapshots yet/)).toBeTruthy();
   });
+
+  it("wraps the rows in the .cfg-snap-list scroll container (inner scroll target)", () => {
+    // The list grows with history (up to 20 per scope); its `.cfg-snap-list`
+    // container carries the max-height + overflow-y:auto so it scrolls
+    // internally instead of stretching the Config page. Pin the container so a
+    // refactor that drops the class doesn't silently remove the scroll cap.
+    const { api } = setup();
+    const { container } = render(
+      <SnapshotsView
+        api={api}
+        snapshots={Array.from({ length: 5 }, (_, i) => ({
+          id: `snap-${i}`,
+          takenAtMs: Date.now() - i * 1000,
+          scope: "global" as const,
+          changedKeys: ["model"],
+          sizeBytes: 1024,
+        }))}
+      />,
+    );
+    const list = container.querySelector(".cfg-snap-list");
+    expect(list).toBeTruthy();
+    expect(list?.querySelectorAll(".cfg-snap-row").length).toBe(5);
+  });
 });

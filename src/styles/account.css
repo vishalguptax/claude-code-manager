@@ -274,6 +274,28 @@
   flex-direction: column;
   gap: var(--space-xs);
   margin-top: var(--space-sm);
+  /* Cap the height so a long history (up to 20 snapshots per scope × 3 scopes)
+     scrolls WITHIN its own area instead of stretching the Config page and
+     pushing the Brain-backup section far below the fold. 40vh keeps a useful
+     number of rows visible while staying a minority of the viewport. The
+     section's intro hint stays put above; only the row list scrolls. Native
+     thin scrollbar matching the heatmap wrap so it reads as VS Code chrome. */
+  max-height: 40vh;
+  overflow-y: auto;
+  /* Inner padding-right gives the rows a hair of breathing room from the
+     scrollbar gutter when it appears; -inline keeps left rows flush. */
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle, rgba(127, 127, 127, 0.3)) transparent;
+}
+.cfg-snap-list::-webkit-scrollbar { width: 6px; }
+.cfg-snap-list::-webkit-scrollbar-track { background: transparent; }
+.cfg-snap-list::-webkit-scrollbar-thumb {
+  background: var(--border-subtle, rgba(127, 127, 127, 0.3));
+  border-radius: 3px;
+}
+.cfg-snap-list::-webkit-scrollbar-thumb:hover {
+  background: var(--border, rgba(127, 127, 127, 0.5));
 }
 .cfg-snap-row {
   display: flex;
