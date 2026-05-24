@@ -153,6 +153,13 @@
   --vscode-settings-textInputBackground: var(--vscode-input-background);
   --vscode-settings-textInputForeground: var(--vscode-input-foreground);
   --vscode-settings-textInputBorder: var(--vscode-input-border, transparent);
+  /* Inner-input horizontal inset. The element exposes NO horizontal-padding
+     custom property — its shadow `<input>` is hardcoded to `padding: 4px` left
+     and right (see @vscode-elements/elements vscode-textfield.styles.js), which
+     is already symmetric for a plain field. We pin the SAME token to both slot
+     gutters below so an icon'd field stays symmetric too; this var is the one
+     knob both gutters read so left == right by construction. */
+  --vsc-field-inset: var(--space-md);
 }
 
 /* Slot wrappers — the light-DOM `<span slot="content-before|after">` spans that
@@ -168,8 +175,16 @@
   align-items: center;
   height: 100%;
 }
+/* Leading-icon gutter == trailing-clear gutter. Both slots read the same
+   `--vsc-field-inset` token so the magnifier's distance from the left edge
+   mirrors the clear (x) button's distance from the right edge — a symmetric
+   field whether or not the trailing slot is occupied. The shadow `::slotted`
+   adds a fixed 2px on each side equally, so it doesn't break the balance. */
 .vsc-textfield > [slot="content-before"] {
-  padding-left: var(--space-sm);
+  padding-left: var(--vsc-field-inset);
+}
+.vsc-textfield > [slot="content-after"] {
+  padding-right: var(--vsc-field-inset);
 }
 
 /* Leading magnifier — centred by the full-height flex slot wrapper above; the
@@ -192,7 +207,10 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin: 0 var(--space-xs);
+  /* No horizontal margin — the right gutter is owned by the content-after
+     slot's `padding-right: var(--vsc-field-inset)` so the x sits at the same
+     inset from the right edge as the magnifier is from the left. */
+  margin: 0;
   padding: 0;
   background: none;
   border: none;
