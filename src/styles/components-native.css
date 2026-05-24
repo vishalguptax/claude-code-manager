@@ -193,7 +193,9 @@
    inset would double them up. Drop the input's horizontal padding and let the
    slot gutters own the inset symmetrically (left magnifier ↔ right clear). */
 .tf.vsc-search .tf-input {
-  padding-left: 0;
+  /* Gap so the placeholder/text doesn't touch the leading magnifier (the icon
+     already supplies the left box inset via its margin). */
+  padding-left: var(--space-sm);
   padding-right: 0;
 }
 
