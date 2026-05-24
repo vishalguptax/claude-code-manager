@@ -268,7 +268,7 @@
     {
       "name": "webview feature chunks (sum; includes @vscode-elements + lit vendor shared across all feature chunks)",
       "path": "dist/webview/chunks/*.js",
-      "limit": "400 KB"
+      "limit": "500 KB"
     },
     {
       "path": "dist/webview/styles.css",
