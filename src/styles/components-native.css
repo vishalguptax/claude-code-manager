@@ -313,18 +313,77 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Checkbox — native <vscode-checkbox> wrapper. The element draws the box and
-   check mark in Shadow DOM from --vscode-settings-checkbox*; align it to the
-   row baseline and let it inherit the panel foreground.
+   Checkbox — native <input type="checkbox"> inside a clickable <label>.
+
+   The native input is the source of truth (Preact drives `checked`, so no
+   flicker); it is visually hidden and a sibling `.cb-box` paints VS Code's
+   small bordered square + the check mark on the selected state, reading the
+   --vscode-checkbox-* / --vscode-settings-checkbox* theme vars so it matches
+   VS Code's own Settings checkbox across light/dark/high-contrast.
    ────────────────────────────────────────────────────────────────────────── */
 
-.vsc-checkbox {
+.cb {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-sm);
   color: var(--fg);
-  --vscode-settings-checkboxBackground: var(--vscode-checkbox-background, var(--input-bg));
-  --vscode-settings-checkboxBorder: var(--vscode-checkbox-border, var(--input-border));
-  --vscode-settings-checkboxForeground: var(--vscode-checkbox-foreground, var(--fg));
+  cursor: pointer;
+}
+
+/* Hide the real input but keep it in the layout flow for the focus ring + a
+   reliable hit target (the surrounding label forwards clicks to it). */
+.cb-input {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* The drawn box — VS Code's 16px square with the checkbox border/background. */
+.cb-box {
+  position: relative;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  background: var(--vscode-checkbox-background, var(--vscode-settings-checkboxBackground, var(--input-bg)));
+  border: 1px solid var(--vscode-checkbox-border, var(--vscode-settings-checkboxBorder, var(--input-border)));
+  border-radius: var(--radius-sm);
+}
+
+/* The check mark — a CSS tick drawn with two borders, in the checkbox
+   foreground colour, shown only when the (preceding) input is checked. */
+.cb-input:checked + .cb-box::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--vscode-checkbox-foreground, var(--vscode-settings-checkboxForeground, var(--fg)));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Focus ring on the box when the hidden input is focused via keyboard. */
+.cb-input:focus-visible + .cb-box {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.cb-input:disabled ~ * {
+  opacity: 0.5;
+}
+.cb-input:disabled,
+.cb:has(.cb-input:disabled) {
+  cursor: default;
+}
+
+.cb-label {
+  font-size: var(--fs-base);
+  line-height: 1.2;
 }
 
 
