@@ -1,0 +1,98 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#241a3a"/>
+      <stop offset="0.55" stop-color="#16121f"/>
+      <stop offset="1" stop-color="#0d0b14"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFB07A"/>
+      <stop offset="1" stop-color="#E0662A"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFD9C2"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FF8A4C" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#FF8A4C" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7C3AED" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#7C3AED" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+
+  <!-- background + ambient glows -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1050" cy="120" r="420" fill="url(#glow)"/>
+  <circle cx="120" cy="600" r="340" fill="url(#glow2)"/>
+  <rect x="0" y="0" width="1200" height="7" fill="url(#accent)"/>
+
+  <!-- right-side sidebar mockup -->
+  <g transform="translate(820,118)">
+    <rect x="-14" y="-14" width="392" height="424" rx="22" fill="#FF8A4C" opacity="0.18" filter="url(#soft)"/>
+    <rect x="0" y="0" width="360" height="396" rx="18" fill="#1c1830" stroke="url(#accent)" stroke-opacity="0.55" stroke-width="2"/>
+    <!-- tab bar -->
+    <rect x="22" y="24" width="74" height="26" rx="13" fill="url(#accent)"/>
+    <rect x="106" y="24" width="62" height="26" rx="13" fill="#FFFFFF" fill-opacity="0.08"/>
+    <rect x="178" y="24" width="84" height="26" rx="13" fill="#FFFFFF" fill-opacity="0.08"/>
+    <!-- rows -->
+    <g>
+      <rect x="22" y="72"  width="316" height="52" rx="11" fill="#FFFFFF" fill-opacity="0.05"/>
+      <circle cx="46" cy="98" r="9" fill="url(#accent)"/>
+      <rect x="66" y="88"  width="150" height="9" rx="4.5" fill="#FFFFFF" fill-opacity="0.55"/>
+      <rect x="66" y="104" width="96"  height="7" rx="3.5" fill="#FFFFFF" fill-opacity="0.22"/>
+    </g>
+    <g>
+      <rect x="22" y="136" width="316" height="52" rx="11" fill="#FFFFFF" fill-opacity="0.05"/>
+      <circle cx="46" cy="162" r="9" fill="#FFFFFF" fill-opacity="0.3"/>
+      <rect x="66" y="152" width="180" height="9" rx="4.5" fill="#FFFFFF" fill-opacity="0.5"/>
+      <rect x="66" y="168" width="72"  height="7" rx="3.5" fill="#FFFFFF" fill-opacity="0.2"/>
+    </g>
+    <g>
+      <rect x="22" y="200" width="316" height="52" rx="11" fill="#FFFFFF" fill-opacity="0.05"/>
+      <circle cx="46" cy="226" r="9" fill="#FFFFFF" fill-opacity="0.3"/>
+      <rect x="66" y="216" width="128" height="9" rx="4.5" fill="#FFFFFF" fill-opacity="0.5"/>
+      <rect x="66" y="232" width="110" height="7" rx="3.5" fill="#FFFFFF" fill-opacity="0.2"/>
+    </g>
+    <g>
+      <rect x="22" y="264" width="316" height="52" rx="11" fill="#FFFFFF" fill-opacity="0.05"/>
+      <circle cx="46" cy="290" r="9" fill="#FFFFFF" fill-opacity="0.3"/>
+      <rect x="66" y="280" width="160" height="9" rx="4.5" fill="#FFFFFF" fill-opacity="0.5"/>
+      <rect x="66" y="296" width="86"  height="7" rx="3.5" fill="#FFFFFF" fill-opacity="0.2"/>
+    </g>
+    <!-- resume button -->
+    <rect x="22" y="336" width="316" height="40" rx="10" fill="url(#accent)"/>
+    <rect x="150" y="352" width="60" height="9" rx="4.5" fill="#1c1830" fill-opacity="0.85"/>
+  </g>
+
+  <!-- logo mark + wordmark -->
+  <g transform="translate(80,66)">
+    <rect x="22" y="0" width="64" height="47" rx="7" stroke="url(#accent)" stroke-width="2.5" opacity="0.32"/>
+    <rect x="13" y="9" width="64" height="47" rx="7" stroke="url(#accent)" stroke-width="3.4" fill="none"/>
+    <polyline points="25,41 37,32 25,23" stroke="url(#accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="43" y1="41" x2="66" y2="41" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+  </g>
+  <text x="172" y="108" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="700" fill="#FFFFFF" letter-spacing="0.4">Claude Manager</text>
+  <text x="172" y="136" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" fill="#a59ec2">VS Code extension &#183; Open source &#183; Apache&#160;2.0</text>
+
+  <!-- headline -->
+  <text x="80" y="288" font-family="Segoe UI, Arial, sans-serif" font-size="66" font-weight="800" fill="url(#title)">Claude Code,</text>
+  <text x="80" y="362" font-family="Segoe UI, Arial, sans-serif" font-size="66" font-weight="800" fill="url(#accent)">one click closer.</text>
+
+  <text x="80" y="424" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="400" fill="#cdd0e0">Manage Claude Code sessions, skills, commands,</text>
+  <text x="80" y="456" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="400" fill="#cdd0e0">hooks, MCP servers &amp; agents &#8212; one click away.</text>
+
+  <!-- privacy badge -->
+  <g transform="translate(80,486)">
+    <rect x="0" y="0" width="340" height="48" rx="24" fill="url(#accent)"/>
+    <text x="170" y="31" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700" fill="#1a1018" text-anchor="middle">Local-first &#183; Zero telemetry</text>
+  </g>
+
+  <!-- footer -->
+  <text x="80" y="592" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="500" fill="#8a83a6">VS Code &#183; Cursor &#183; Windsurf &#183; VSCodium &#160;&#8212;&#160; search &#8220;Claude Manager&#8221;</text>
+</svg>

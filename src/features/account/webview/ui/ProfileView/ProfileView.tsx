@@ -78,7 +78,7 @@ function SignedIn({ data, api }: ProfileViewProps) {
   const initial = (p.displayName || p.email || "?").charAt(0).toUpperCase();
   const expiresInDays =
     p.tokenExpiresAt > 0 ? Math.round((p.tokenExpiresAt - Date.now()) / 86400000) : 0;
-  const credLabel = p.credentialSource === "keychain-darwin" ? "macOS Keychain" : "File";
+  const credLabel = p.credentialSource === "keychain-darwin" ? "macOS Keychain" : "Local file";
   const credTitle =
     p.credentialSource === "keychain-darwin"
       ? "Tokens stored in macOS Keychain. First read prompts for permission per IDE."
@@ -133,7 +133,7 @@ function SignedIn({ data, api }: ProfileViewProps) {
             />
           ) : null}
           {p.credentialSource ? (
-            <MetaRow k="Credentials" v={credLabel} title={credTitle} />
+            <MetaRow k="Credentials stored in" v={credLabel} title={credTitle} />
           ) : null}
         </div>
       ) : null}
