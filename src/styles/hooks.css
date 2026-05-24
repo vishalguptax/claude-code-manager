@@ -134,7 +134,12 @@
   background: var(--input-bg);
   border: 1px solid var(--input-border);
   border-radius: var(--radius);
-  padding: var(--space-sm) var(--space-md);
+  /* Horizontal text inset == the shared <TextField>'s canonical 4px
+     (--vsc-field-text-inset). The matcher field above this textarea is a
+     <TextField>, so matching the inset keeps both fields' text start on one
+     left x — the box edges already align (both border-box, width:100%, flush
+     under the label). Vertical padding stays roomier for the multiline area. */
+  padding: var(--space-sm) 4px;
 }
 .hook-field-input:focus {
   outline: 1px solid var(--accent);
