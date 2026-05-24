@@ -19,6 +19,7 @@ import { buildRows } from "../../lib";
 import {
   bulkModeSignal,
   clearFullTextHits,
+  clearSelection,
   detailLoadingSignal,
   getFiltered,
   pinnedSignal,
@@ -59,17 +60,26 @@ export function ListView() {
 
   const rows = buildRows(filtered, pinned);
 
-  // Ctrl/Cmd+A selects every visible session while in bulk mode. Scoped to bulk
-  // mode so a user typing in the search box still gets native select-all, and
-  // ignored when focus is in an input/textarea (verbatim v1 listView guard).
+  // Bulk-mode keyboard shortcuts, scoped to bulk mode so they're inert
+  // otherwise. Ignored when focus is in an input/textarea (verbatim v1 listView
+  // guard) so the search field keeps native behaviour:
+  //   - Ctrl/Cmd+A selects every visible session (native select-all elsewhere);
+  //   - Escape exits bulk mode (clearing the selection) — the same dismiss-on-
+  //     Escape gesture every other transient surface uses, applied to this
+  //     transient mode for consistency.
   useEffect(() => {
     if (!bulk) return;
     const onKey = (e: KeyboardEvent): void => {
-      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "a") return;
       const tag = (e.target as HTMLElement | null)?.tagName ?? "";
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      e.preventDefault();
-      selectAll(getFiltered().map((s) => s.id));
+      const inField = tag === "INPUT" || tag === "TEXTAREA";
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        if (inField) return;
+        e.preventDefault();
+        selectAll(getFiltered().map((s) => s.id));
+      } else if (e.key === "Escape") {
+        if (inField) return;
+        clearSelection();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);

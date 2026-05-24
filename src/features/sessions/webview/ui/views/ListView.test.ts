@@ -152,4 +152,25 @@ describe("ListView", () => {
     fireEvent.keyDown(document, { key: "a", ctrlKey: true });
     expect(selectionSignal.value.size).toBe(0);
   });
+
+  it("Escape exits bulk mode and clears the selection", () => {
+    sessionsSignal.value = [session("a", { endTime: Date.now() })];
+    bulkModeSignal.value = true;
+    selectionSignal.value = new Set(["a"]);
+    render(h(ListView, {}));
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(bulkModeSignal.value).toBe(false);
+    expect(selectionSignal.value.size).toBe(0);
+  });
+
+  it("ignores Escape while focus is in an input (search field keeps native behaviour)", () => {
+    sessionsSignal.value = [session("a", { endTime: Date.now() })];
+    bulkModeSignal.value = true;
+    render(h(ListView, {}));
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(bulkModeSignal.value).toBe(true);
+    input.remove();
+  });
 });

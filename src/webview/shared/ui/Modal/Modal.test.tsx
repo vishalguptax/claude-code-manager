@@ -76,4 +76,33 @@ describe("Modal", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("closes when the webview loses focus (window blur)", () => {
+    // A click elsewhere in VS Code blurs the webview iframe; the modal must
+    // dismiss rather than stay open behind the editor. Routed through useDismiss.
+    const onClose = vi.fn();
+    render(
+      <Modal open={true} onClose={onClose}>
+        body
+      </Modal>,
+    );
+    // The hook listens on `window`; dispatch directly (fireEvent.blur targets
+    // element focus semantics, not the window-level blur event).
+    window.dispatchEvent(new Event("blur"));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT dismiss on an outside pointerdown (backdrop owns its press gesture)", () => {
+    // useDismiss runs with outsidePress:false here; a bare pointerdown outside
+    // the dialog must not close — only a true backdrop press+release does.
+    const onClose = vi.fn();
+    const { container } = render(
+      <Modal open={true} onClose={onClose}>
+        body
+      </Modal>,
+    );
+    const dialog = container.querySelector(".modal") as HTMLElement;
+    fireEvent.pointerDown(dialog);
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
