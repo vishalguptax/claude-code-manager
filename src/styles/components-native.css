@@ -154,32 +154,41 @@
   --vscode-settings-textInputForeground: var(--vscode-input-foreground);
   --vscode-settings-textInputBorder: var(--vscode-input-border, transparent);
 
-  /* ── Canonical horizontal text inset ────────────────────────────────────
-     `--vsc-field-text-inset` (9px) is the SINGLE source of truth for where
-     text/icons start, measured from the control's box edge. It is VS Code's
-     native Settings field inset and the value the Dropdown trigger uses
-     directly. Both controls read it so a stacked TextField and Dropdown in the
-     Config column share an identical left AND right text start.
+  /* ── Box alignment + canonical horizontal text inset ────────────────────
+     CRITICAL — why host padding is 0 on a plain field:
 
-     A plain <vscode-textfield>'s shadow `<input>` is hardcoded to `padding: 4px`
-     left/right (see @vscode-elements/elements vscode-textfield.styles.js) and
-     exposes no padding prop. So the host adds the REMAINDER (9 - 4 = 5px) to
-     reach the canonical inset — derived below as a calc so the two numbers stay
-     in lockstep if the canonical value ever changes.
-     `--vsc-field-slot-inset` is what the SearchInput's slot gutters use (host
-     padding is reset to 0 for that variant; the slots own the inset instead). */
-  /* 9px == VS Code's native Settings field inset (comfortable breathing room).
-     The shadow input sits at 4px, so host-pad adds 5px to reach 9px; the
-     Dropdown trigger uses 9px directly so both align on both text edges. */
-  --vsc-field-text-inset: 9px;
+     The element draws NO border itself; the visible bordered/filled input box
+     is its Shadow-DOM `.root`, which is `width: 100%` of the HOST's CONTENT box
+     (see vscode-textfield.styles.js — `.root { width: 100% }`). So any
+     padding-left on the host shifts `.root` — i.e. the whole VISIBLE BOX —
+     rightward by that amount. The host's outer edge is where the field `label`
+     and the sibling Dropdown box sit (the section-body inset); a 5px host
+     padding therefore parked the input box 5px to the RIGHT of its label and
+     the dropdown — the repeatedly-reported OUTER offset. It looked like "text
+     padding" but it was the entire box being inset, because padding on the host
+     lives OUTSIDE the border that `.root` paints.
+
+     Fix: zero the host's horizontal padding so `.root` is flush with the host
+     edge → the input box, the dropdown box, and the label all share one left x.
+     The text inset is then the shadow `<input>`'s own hardcoded 4px padding
+     (the un-pierceable floor; the element exposes no padding prop). The
+     Dropdown trigger uses the SAME 4px directly (it has no shadow-input offset
+     to compensate), so a stacked TextField and Dropdown align on BOTH the box
+     edge AND the text start.
+
+     `--vsc-field-text-inset` (4px) stays the single source of truth so the
+     Dropdown and the SearchInput slot gutters track the same value. Host-pad
+     resolves to 0 (4 − 4), keeping the box flush. */
+  --vsc-field-text-inset: 4px;
   --vsc-field-shadow-pad: 4px;
   --vsc-field-host-pad: calc(var(--vsc-field-text-inset) - var(--vsc-field-shadow-pad));
   --vsc-field-slot-inset: var(--vsc-field-text-inset);
 
-  /* Plain field: host padding lifts the 4px shadow input to the 9px canonical
-     inset on both edges. SearchInput overrides this to 0 below (its slot
-     gutters own the inset; adding host padding would compound and shove the
-     magnifier inward). */
+  /* Box-sizing so width:100% + any future inset never overflows the column. */
+  box-sizing: border-box;
+  /* Plain field: host-pad is 0 (inset == shadow floor), so the bordered `.root`
+     sits flush under the label. SearchInput keeps this 0 too (below) and lets
+     its slot gutters own the magnifier/clear inset. */
   padding-left: var(--vsc-field-host-pad);
   padding-right: var(--vsc-field-host-pad);
 }
@@ -210,7 +219,7 @@
   height: 100%;
 }
 /* Leading-icon gutter == trailing-clear gutter. Both slots read the same
-   `--vsc-field-slot-inset` (the canonical 9px text inset) so the magnifier's
+   `--vsc-field-slot-inset` (== the canonical 4px text inset) so the magnifier's
    distance from the left edge mirrors the clear (x) button's distance from the
    right edge — and mirrors a plain field's and the Dropdown trigger's text
    start. The shadow `::slotted` adds a fixed 2px on each side equally, so it
@@ -280,15 +289,15 @@
   width: 100%;
   height: var(--h-control);
   box-sizing: border-box;
-  /* 9px is the canonical control text-start (the same value the TextField host
-     resolves to via --vsc-field-text-inset). The trigger applies it directly
-     because it has no shadow `<input>` offset to compensate for; a plain
-     <vscode-textfield>'s shadow input sits at 4px intrinsically, so the
-     `.vsc-textfield` rule above adds 5px host padding to reach this same 9px —
-     a Dropdown trigger and a TextField stacked in the same config column then
-     align on BOTH text edges. Keep this literal in sync with
-     --vsc-field-text-inset (9px). */
-  padding: 0 9px;
+  /* 4px is the canonical control text-start (== --vsc-field-text-inset). The
+     trigger draws its OWN border on the button box (unlike the TextField, whose
+     border is the Shadow-DOM `.root`), so its border-box is already flush under
+     the field label; this padding is a pure TEXT inset inside that flush box. A
+     plain <vscode-textfield>'s shadow input sits at the same 4px floor and its
+     host padding is 0, so a stacked Dropdown and TextField align on BOTH the box
+     edge AND the text start. Keep this literal in sync with
+     --vsc-field-text-inset (4px). */
+  padding: 0 4px;
   background: var(--role-control-bg);
   color: var(--role-control-fg);
   border: 1px solid var(--role-control-border);
