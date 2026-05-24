@@ -129,132 +129,102 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────
-   TextField / SearchInput — native <vscode-textfield> wrappers.
-   The element draws its own input face in Shadow DOM from --vscode-input-*;
-   here we only style the light-DOM wrapper, the slotted search icon, and the
-   slotted clear button so they sit inside the input chrome.
+   TextField / SearchInput — native controlled <input>.
+
+   No Shadow DOM: the `.tf` container is the flex box (leading slot, the input,
+   trailing slot), and the `<input>` paints the VS Code input face directly from
+   --vscode-input-*. Because the input has no shadow `.root` indirection, the
+   box edge IS the element edge IS the label edge (flush, no offset), and the
+   only text inset is the input's own padding (fully ours — the 9px comfortable
+   inset). Both the box-flush-to-label and the comfortable text inset are won at
+   once, and there is no controlled-sync flicker because Preact drives the
+   native input's `value` directly.
    ────────────────────────────────────────────────────────────────────────── */
 
-.vsc-textfield {
-  /* The element is `display:inline-block` by default and its inner `.root`
-     (Shadow DOM) has no height — it renders at the input's intrinsic ~26px,
-     SHORTER than our 32px buttons/dropdowns. The element exposes no ::part or
-     height custom prop, so we lift the host to a flex box at the unified
-     control height: its single shadow child (`.root`) becomes a flex item and
-     stretches to fill via the default `align-items: stretch`, dragging the
-     centred `<input>` to the vertical middle. This is the only external lever
-     that resizes the field without piercing the (un-parted) shadow tree. */
+/* Canonical horizontal text inset, single source of truth. The Dropdown trigger
+   and the SearchInput slot gutters track this so a stacked TextField, Dropdown,
+   and search field share one text-start x. */
+.tf {
+  --tf-inset: 9px;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   width: 100%;
   height: var(--h-control);
-  /* Map the element's settings-input cssprops to the same vars VS Code's own
-     inputs use, so a bare <TextField> matches a Settings text box exactly. */
-  --vscode-settings-textInputBackground: var(--vscode-input-background);
-  --vscode-settings-textInputForeground: var(--vscode-input-foreground);
-  --vscode-settings-textInputBorder: var(--vscode-input-border, transparent);
-
-  /* ── Box alignment + canonical horizontal text inset ────────────────────
-     CRITICAL — why host padding is 0 on a plain field:
-
-     The element draws NO border itself; the visible bordered/filled input box
-     is its Shadow-DOM `.root`, which is `width: 100%` of the HOST's CONTENT box
-     (see vscode-textfield.styles.js — `.root { width: 100% }`). So any
-     padding-left on the host shifts `.root` — i.e. the whole VISIBLE BOX —
-     rightward by that amount. The host's outer edge is where the field `label`
-     and the sibling Dropdown box sit (the section-body inset); a 5px host
-     padding therefore parked the input box 5px to the RIGHT of its label and
-     the dropdown — the repeatedly-reported OUTER offset. It looked like "text
-     padding" but it was the entire box being inset, because padding on the host
-     lives OUTSIDE the border that `.root` paints.
-
-     Fix: zero the host's horizontal padding so `.root` is flush with the host
-     edge → the input box, the dropdown box, and the label all share one left x.
-     The text inset is then the shadow `<input>`'s own hardcoded 4px padding
-     (the un-pierceable floor; the element exposes no padding prop). The
-     Dropdown trigger uses the SAME 4px directly (it has no shadow-input offset
-     to compensate), so a stacked TextField and Dropdown align on BOTH the box
-     edge AND the text start.
-
-     `--vsc-field-text-inset` (4px) stays the single source of truth so the
-     Dropdown and the SearchInput slot gutters track the same value. Host-pad
-     resolves to 0 (4 − 4), keeping the box flush. */
-  --vsc-field-text-inset: 4px;
-  --vsc-field-shadow-pad: 4px;
-  --vsc-field-host-pad: calc(var(--vsc-field-text-inset) - var(--vsc-field-shadow-pad));
-  --vsc-field-slot-inset: var(--vsc-field-text-inset);
-
-  /* Box-sizing so width:100% + any future inset never overflows the column. */
   box-sizing: border-box;
-  /* Plain field: host-pad is 0 (inset == shadow floor), so the bordered `.root`
-     sits flush under the label. SearchInput keeps this 0 too (below) and lets
-     its slot gutters own the magnifier/clear inset. */
-  padding-left: var(--vsc-field-host-pad);
-  padding-right: var(--vsc-field-host-pad);
+  background: var(--vscode-input-background, var(--input-bg));
+  color: var(--vscode-input-foreground, var(--fg));
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: var(--radius);
+}
+.tf:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+  border-color: var(--vscode-focusBorder, var(--accent));
 }
 
-/* SearchInput variant (the TextField carries class "vsc-search"). The leading
-   magnifier / trailing clear ride in the content-before/after slots, whose own
-   gutters position them at the canonical inset; the host padding must be 0 so
-   it does not compound. This class discriminator replaces the former
-   `:not(:has([slot]))` guard, which depended on `:has()` + slot detection in
-   the Electron webview and could mis-target (the reported left-inset mismatch
-   between a plain input and a dropdown trigger). The class is deterministic. */
-.vsc-textfield.vsc-search {
+/* The editable area fills the row between the (optional) leading/trailing slots.
+   It is chromeless — the `.tf` container paints the box — so the input only
+   owns the text inset and the placeholder colour. */
+.tf-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0 var(--tf-inset);
+  background: none;
+  color: inherit;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: var(--fs-base);
+  line-height: 1.2;
+}
+.tf-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--fg-dim));
+  opacity: 1;
+}
+.tf-input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* SearchInput variant (the TextField carries class "vsc-search"): the leading
+   magnifier and trailing clear sit inside the box, so the input's own text
+   inset would double them up. Drop the input's horizontal padding and let the
+   slot gutters own the inset symmetrically (left magnifier ↔ right clear). */
+.tf.vsc-search .tf-input {
   padding-left: 0;
   padding-right: 0;
 }
 
-/* Slot wrappers — the light-DOM `<span slot="content-before|after">` spans that
-   carry the leading magnifier and trailing clear button. The element slots them
-   beside its full-height inner input, but the spans are inline by default, so a
-   short glyph would baseline-align rather than centre. Force each slot wrapper
-   to be a full-height flex box that centres its child vertically; the gutter
-   inset lives here (as padding) so the icon itself carries NO stray margin that
-   would knock it off-centre. */
-.vsc-textfield > [slot="content-before"],
-.vsc-textfield > [slot="content-after"] {
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-/* Leading-icon gutter == trailing-clear gutter. Both slots read the same
-   `--vsc-field-slot-inset` (== the canonical 4px text inset) so the magnifier's
-   distance from the left edge mirrors the clear (x) button's distance from the
-   right edge — and mirrors a plain field's and the Dropdown trigger's text
-   start. The shadow `::slotted` adds a fixed 2px on each side equally, so it
-   doesn't break the balance. */
-.vsc-textfield > [slot="content-before"] {
-  padding-left: var(--vsc-field-slot-inset);
-}
-.vsc-textfield > [slot="content-after"] {
-  padding-right: var(--vsc-field-slot-inset);
-}
-
-/* Leading magnifier — centred by the full-height flex slot wrapper above; the
-   icon carries no margin/padding of its own so it sits dead-centre. */
+/* Leading magnifier — centred in the box, sits at the canonical inset from the
+   left edge (mirroring a plain field's text start and the clear button's inset
+   from the right edge). */
 .vsc-search-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 16px;
+  /* Gutter from the left box edge == the input's text inset, so the magnifier
+     starts where a plain field's text would. */
+  margin-left: var(--tf-inset);
   color: var(--role-text-secondary);
   pointer-events: none;
 }
 
-/* Trailing clear (x) button inside the content-after slot — chromeless, lights
-   up on hover like VS Code's inline input affordances. Centred in the field via
-   the full-height flex slot. */
+/* Trailing clear (x) button — chromeless, lights up on hover like VS Code's
+   inline input affordances. Centred in the field by the `.tf` flex row. */
 .vsc-search-clear {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 20px;
   height: 20px;
-  /* No horizontal margin — the right gutter is owned by the content-after
-     slot's `padding-right: var(--vsc-field-slot-inset)` so the x sits at the
-     same inset from the right edge as the magnifier is from the left. */
-  margin: 0;
+  /* Right gutter mirrors the magnifier's left gutter so the x sits at the same
+     inset from the right edge as the magnifier is from the left. */
+  margin: 0 var(--tf-inset) 0 0;
   padding: 0;
   background: none;
   border: none;
@@ -289,15 +259,12 @@
   width: 100%;
   height: var(--h-control);
   box-sizing: border-box;
-  /* 4px is the canonical control text-start (== --vsc-field-text-inset). The
-     trigger draws its OWN border on the button box (unlike the TextField, whose
-     border is the Shadow-DOM `.root`), so its border-box is already flush under
-     the field label; this padding is a pure TEXT inset inside that flush box. A
-     plain <vscode-textfield>'s shadow input sits at the same 4px floor and its
-     host padding is 0, so a stacked Dropdown and TextField align on BOTH the box
-     edge AND the text start. Keep this literal in sync with
-     --vsc-field-text-inset (4px). */
-  padding: 0 4px;
+  /* 9px is the canonical control text-start (== the TextField's --tf-inset).
+     The trigger and the TextField both draw their own border on a flush
+     border-box (no shadow indirection), so a stacked Dropdown and TextField
+     align on BOTH the box edge AND the text start. Keep this literal in sync
+     with --tf-inset (9px). */
+  padding: 0 9px;
   background: var(--role-control-bg);
   color: var(--role-control-fg);
   border: 1px solid var(--role-control-border);

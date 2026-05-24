@@ -23,11 +23,10 @@ const SAMPLE: Command[] = [
   cmd({ name: "deploy", scope: "global", content: "ship" }),
 ];
 
-/** Drive the shared <SearchInput>: set the element value, then fire `input`. */
+/** Drive the shared <SearchInput>: set the input value, then fire `input`. */
 function typeSearch(container: ParentNode, value: string): void {
-  const el = container.querySelector("vscode-textfield") as HTMLElement;
-  vi.spyOn(el as unknown as { value: string }, "value", "get").mockReturnValue(value);
-  fireEvent(el, new Event("input"));
+  const el = container.querySelector("input") as HTMLInputElement;
+  fireEvent.input(el, { target: { value } });
 }
 
 let posted: unknown[];

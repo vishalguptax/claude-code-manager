@@ -13,12 +13,10 @@ const baseHook: Hook = {
   disabled: false,
 };
 
-/** The matcher field is a <vscode-textfield>; its value lives on the element
- * property. Spy the getter and fire `input` to simulate typing, matching the
- * shared TextField test convention. */
-function setMatcher(el: HTMLElement, value: string): void {
-  vi.spyOn(el as unknown as { value: string }, "value", "get").mockReturnValue(value);
-  fireEvent(el, new Event("input"));
+/** The matcher field is the shared <TextField> (native <input>). Fire `input`
+ * with the new value to simulate typing. */
+function setMatcher(el: HTMLInputElement, value: string): void {
+  fireEvent.input(el, { target: { value } });
 }
 
 describe("EditForm", () => {
@@ -26,7 +24,7 @@ describe("EditForm", () => {
     const { container } = render(
       h(EditForm, { hook: baseHook, onSave: vi.fn(), onCancel: vi.fn() }),
     );
-    const matcher = container.querySelector("vscode-textfield") as HTMLElement & { value: string };
+    const matcher = container.querySelector("input") as HTMLInputElement;
     expect(matcher.value).toBe("Write");
     expect((screen.getByLabelText("Command") as HTMLTextAreaElement).value).toBe("echo hi");
   });
@@ -34,7 +32,7 @@ describe("EditForm", () => {
   it("saves trimmed matcher + command", () => {
     const onSave = vi.fn();
     const { container } = render(h(EditForm, { hook: baseHook, onSave, onCancel: vi.fn() }));
-    setMatcher(container.querySelector("vscode-textfield") as HTMLElement, "  Bash  ");
+    setMatcher(container.querySelector("input") as HTMLInputElement, "  Bash  ");
     fireEvent.input(screen.getByLabelText("Command"), { target: { value: "  ls -la  " } });
     fireEvent.click(screen.getByText("Save"));
     expect(onSave).toHaveBeenCalledWith({ matcher: "Bash", command: "ls -la" });

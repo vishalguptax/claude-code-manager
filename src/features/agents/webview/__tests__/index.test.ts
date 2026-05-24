@@ -69,7 +69,7 @@ describe("AgentsTab", () => {
 
     fireEvent.click(screen.getByText("Back"));
     // Back on the list: the search row (shared SearchInput) is present again.
-    expect(container.querySelector(".search-row vscode-textfield")).toBeTruthy();
+    expect(container.querySelector(".search-row input")).toBeTruthy();
   });
 
   it("posts openAgentFile from the detail view", () => {

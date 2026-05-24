@@ -70,9 +70,8 @@ describe("AgentListView", () => {
     vi.useFakeTimers();
     agents.value = [agent({ name: "reviewer" })];
     const { container } = render(h(AgentListView, { onRefresh: () => {} }));
-    const el = container.querySelector("vscode-textfield") as HTMLElement;
-    vi.spyOn(el as unknown as { value: string }, "value", "get").mockReturnValue("REV");
-    fireEvent(el, new Event("input"));
+    const el = container.querySelector("input") as HTMLInputElement;
+    fireEvent.input(el, { target: { value: "REV" } });
     expect(searchQuery.value).toBe("");
     act(() => {
       vi.advanceTimersByTime(150);

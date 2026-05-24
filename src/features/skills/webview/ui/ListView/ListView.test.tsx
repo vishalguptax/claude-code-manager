@@ -89,9 +89,8 @@ describe("ListView", () => {
       makeSkill({ id: "2", name: "beta" }),
     ];
     const { container } = render(h(ListView, {}));
-    const field = container.querySelector("vscode-textfield") as HTMLElement;
-    vi.spyOn(field as unknown as { value: string }, "value", "get").mockReturnValue("zzz");
-    fireEvent(field, new Event("input"));
+    const field = container.querySelector("input") as HTMLInputElement;
+    fireEvent.input(field, { target: { value: "zzz" } });
     await waitFor(() => expect(screen.getByText("No matching skills")).toBeTruthy());
   });
 

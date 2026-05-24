@@ -9,14 +9,6 @@ function setup(post = vi.fn()) {
   return { api: createConfigApi(post), post };
 }
 
-/** vscode-checkbox/textfield expose state as PROPERTIES. */
-interface ValueEl extends HTMLElement {
-  value: string;
-}
-interface CheckedEl extends HTMLElement {
-  checked: boolean;
-}
-
 describe("SettingsView", () => {
   it("renders the three pickers as native-look Dropdown triggers (no raw <select>)", () => {
     const { api } = setup();
@@ -35,17 +27,12 @@ describe("SettingsView", () => {
   it("posts setSetting for the co-author toggle via the shared checkbox", () => {
     const { api, post } = setup();
     const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
-    // vscode-checkbox carries its caption on the `label` property (Shadow DOM).
-    const coauthor = Array.from(
-      container.querySelectorAll("vscode-checkbox"),
-    ).find(
-      (el) =>
-        (el as HTMLElement & { label?: string }).label ===
-        'Include "Co-authored-by: Claude" trailer in commits',
-    ) as CheckedEl;
+    // The shared <Checkbox> mirrors its caption onto the native input's aria-label.
+    const coauthor = container.querySelector(
+      'input[type="checkbox"][aria-label=\'Include "Co-authored-by: Claude" trailer in commits\']',
+    ) as HTMLInputElement;
     expect(coauthor).toBeTruthy();
-    vi.spyOn(coauthor, "checked", "get").mockReturnValue(true);
-    fireEvent(coauthor, new Event("change"));
+    fireEvent.click(coauthor);
     expect(post).toHaveBeenCalledWith({
       type: "setSetting",
       key: "includeCoAuthoredBy",
@@ -58,10 +45,9 @@ describe("SettingsView", () => {
     const { api, post } = setup();
     const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
     const field = container.querySelector(
-      'vscode-textfield[aria-label="Session retention in days"]',
-    ) as ValueEl;
-    vi.spyOn(field, "value", "get").mockReturnValue("30");
-    fireEvent(field, new Event("input"));
+      'input[aria-label="Session retention in days"]',
+    ) as HTMLInputElement;
+    fireEvent.input(field, { target: { value: "30" } });
     expect(post).toHaveBeenCalledWith({
       type: "setSetting",
       key: "cleanupPeriodDays",
@@ -86,7 +72,7 @@ describe("SettingsView", () => {
     expect(code?.getAttribute("title")).toBe(cmd);
     // It is NOT rendered as an editable field.
     expect(
-      container.querySelector('vscode-textfield[aria-label="Status line command"]'),
+      container.querySelector('input[aria-label="Status line command"]'),
     ).toBeNull();
   });
 

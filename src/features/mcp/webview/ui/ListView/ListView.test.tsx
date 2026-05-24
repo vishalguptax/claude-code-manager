@@ -103,9 +103,8 @@ describe("ListView search", () => {
   it("writes the lowercased query to the signal after the debounce window", () => {
     applyServers([srv({ name: "alpha", scope: "project" }), srv({ name: "beta", scope: "global" })]);
     const { container } = render(h(ListView, props()));
-    const field = container.querySelector("vscode-textfield") as HTMLElement;
-    vi.spyOn(field as unknown as { value: string }, "value", "get").mockReturnValue("ALP");
-    fireEvent(field, new Event("input"));
+    const field = container.querySelector("input") as HTMLInputElement;
+    fireEvent.input(field, { target: { value: "ALP" } });
     // Within the debounce window the signal has not been written yet.
     expect(searchQuery.value).toBe("");
     vi.advanceTimersByTime(200);

@@ -55,7 +55,7 @@ describe("PermissionsView", () => {
     expect(screen.queryByText("Write")).toBeNull();
   });
 
-  it("the search box is the shared SearchInput (vscode-textfield), not a raw input", () => {
+  it("the search box is the shared SearchInput (native input), labelled for tools", () => {
     const { api } = setup();
     const { container } = render(
       <PermissionsView
@@ -67,7 +67,7 @@ describe("PermissionsView", () => {
         onSearchChange={vi.fn()}
       />,
     );
-    expect(container.querySelector('vscode-textfield[aria-label="Search tools"]')).toBeTruthy();
+    expect(container.querySelector('input[aria-label="Search tools"]')).toBeTruthy();
   });
 
   it("renders the empty state (no crash) when the payload omits permissions", () => {

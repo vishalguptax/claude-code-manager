@@ -24,9 +24,8 @@ describe("SearchInput", () => {
     const { container } = render(
       <SearchInput value="" onInput={onInput} debounceMs={200} />,
     );
-    const el = container.querySelector("vscode-textfield") as HTMLElement;
-    vi.spyOn(el as unknown as { value: string }, "value", "get").mockReturnValue("ab");
-    fireEvent(el, new Event("input"));
+    const el = container.querySelector("input") as HTMLInputElement;
+    fireEvent.input(el, { target: { value: "ab" } });
     // Not fired yet — still within the debounce window.
     expect(onInput).not.toHaveBeenCalled();
     vi.advanceTimersByTime(200);
@@ -46,9 +45,8 @@ describe("SearchInput", () => {
   it("emits synchronously when debounceMs is 0", () => {
     const onInput = vi.fn();
     const { container } = render(<SearchInput value="" onInput={onInput} debounceMs={0} />);
-    const el = container.querySelector("vscode-textfield") as HTMLElement;
-    vi.spyOn(el as unknown as { value: string }, "value", "get").mockReturnValue("z");
-    fireEvent(el, new Event("input"));
+    const el = container.querySelector("input") as HTMLInputElement;
+    fireEvent.input(el, { target: { value: "z" } });
     expect(onInput).toHaveBeenCalledExactlyOnceWith("z");
   });
 });
