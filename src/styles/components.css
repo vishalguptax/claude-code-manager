@@ -379,6 +379,58 @@
 /* `.btn.del` is the legacy danger modifier — wired to the danger role in
    components-native.css alongside `.btn-danger` so both look identical. */
 
+/* Action-button rows that size to CONTENT and wrap, never crop.
+   ────────────────────────────────────────────────────────────────────────────
+   Clusters of <Button> actions (config/account/detail views) lay out with
+   `display: flex; flex-wrap: wrap` and content-width buttons, each row class
+   adding only its own padding/margin. A previous iteration used
+   `display: grid; minmax(N, 1fr)` to pack buttons two-up on narrow panels — but
+   the equal 1fr columns plus `.btn`'s `overflow: hidden; text-overflow: ellipsis`
+   cropped longer labels ("Open settings.js…", "Extension setting…") whenever the
+   column was narrower than the label. A cropped action label is unacceptable.
+
+   Each row therefore re-enables full labels on its buttons with the shared
+   `> .btn` override below: flex-wrap content-width packing keeps full labels,
+   buttons end up different widths (native + fine), and a button too wide for the
+   panel even alone takes the full row. The `.btn` base keeps its ellipsis clip
+   for OTHER layouts (list rows, grid columns elsewhere).
+
+   The selector list groups every action-row cluster so the override lives once. */
+.acct-actions > .btn,
+.d-actions > .btn,
+.agent-detail-actions > .btn,
+.cmd-detail-actions > .btn {
+  overflow: visible;
+  text-overflow: clip;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Read-only command / path display rendered as a code block, NOT a fake input.
+   ────────────────────────────────────────────────────────────────────────────
+   Used for values the user can SEE but does not EDIT in place (e.g. the Config
+   status-line command). Visually distinct from <TextField>: a subtle code
+   surface, monospace, no input border / focus ring, default cursor. Long values
+   stay on one line and scroll horizontally so a path never wraps mid-token; pair
+   with a `title` attribute carrying the full value for hover discovery. */
+.code-readonly {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--vscode-textCodeBlock-background,
+    var(--vscode-textBlockQuote-background, var(--bg-hover)));
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  /* No input border/focus chrome; reading text, not editing. */
+  border: none;
+  cursor: default;
+  /* One line; scroll long commands instead of wrapping mid-path. */
+  white-space: pre;
+  overflow-x: auto;
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Context Menu

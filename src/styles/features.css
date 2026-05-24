@@ -147,12 +147,19 @@
 }
 
 .cmd-detail-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  /* Flex-wrap content-width so labels are never cropped (was an auto-fit grid
+     with minmax(110px, 1fr); the "Copy /<long-name>" label could exceed a
+     narrow column and clip under `.btn`'s ellipsis chrome). */
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-lg);
 }
-.cmd-detail-actions > .btn { justify-content: center; }
+.cmd-detail-actions > .btn {
+  /* Shared `… > .btn` override (components.css) resets the ellipsis clip and
+     sizes to content; only the centring stays local. */
+  justify-content: center;
+}
 
 .cmd-detail-path {
   padding: 0 var(--space-2xl) var(--space-lg);

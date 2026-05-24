@@ -157,12 +157,18 @@
 }
 
 .agent-detail-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+  /* Flex-wrap content-width so labels are never cropped (was an auto-fit grid
+     with minmax(95px, 1fr) which, with `.btn`'s ellipsis clip, could truncate). */
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-lg);
 }
-.agent-detail-actions > .btn { justify-content: center; }
+.agent-detail-actions > .btn {
+  /* Shared `… > .btn` override (components.css) resets the ellipsis clip and
+     sizes to content; only the centring stays local. */
+  justify-content: center;
+}
 
 .agent-detail-path {
   padding: 0 var(--space-2xl) var(--space-lg);

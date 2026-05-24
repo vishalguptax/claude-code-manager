@@ -475,30 +475,27 @@
  * of label length, eliminating uneven wraps.
  */
 .d-actions {
-  display: grid;
-  /* Shared --action-grid-min track (96px) so the 5-button detail cluster packs
-     cleanly — two-up on narrow panels — instead of wrapping unevenly, and so it
-     matches the account action rows. Narrower panels fall back to fewer columns
-     via the auto-fit repeat. */
-  grid-template-columns: repeat(auto-fit, minmax(var(--action-grid-min), 1fr));
+  /* Flex-wrap so each button sizes to its content and wraps cleanly — never
+     cropping. (Was an auto-fit grid with minmax(96px, 1fr); those equal narrow
+     columns combined with `.btn`'s ellipsis clip truncated longer labels.) */
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-xl);
 }
 .d-actions > .btn {
+  /* Centre icon+label; the shared `… > .btn` override (components.css) handles
+     the ellipsis-clip reset + content-width sizing so labels never crop. */
   justify-content: center;
-  /* Allow buttons to shrink below their content width if needed. The
-     min-width on grid items defaults to auto (= content size), which
-     prevents the 1fr columns from becoming truly equal at narrow
-     widths. Setting it to 0 lets the grid distribute width evenly. */
-  min-width: 0;
 }
 /* `.btn.primary` is the legacy modifier; `.btn-primary` is the shared
    <Button variant="primary"> class — both span the full top row. */
 .d-actions > .btn.primary,
 .d-actions > .btn-primary {
   /* Primary action always spans the full top row — it's the call to
-     action, not just one of the options. Delete flows with the rest. */
-  grid-column: 1 / -1;
+     action, not just one of the options. flex-basis: 100% forces a wrap
+     after it so the remaining actions flow on the next line. */
+  flex: 1 0 100%;
 }
 
 .d-section {
