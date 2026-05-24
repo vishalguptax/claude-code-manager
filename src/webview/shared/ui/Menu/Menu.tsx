@@ -70,6 +70,15 @@ const VIEWPORT_GUTTER = 8;
  * spill off a narrow sidebar. Math.max wins when the menu is too wide to fully
  * fit, pinning it to the left gutter. Vertical: flip above the anchor if the
  * bottom overflows, never going above 0.
+ *
+ * Width cap: the clamp alone is not enough on a narrow sidebar. The CSS only
+ * caps the box at `calc(100vw - 16px)` — a viewport-relative width that ignores
+ * `left`, so when the menu is pinned at left > GUTTER the right edge can still
+ * land at `left + (vw - 16)` and spill off-screen, cutting labels ("Ren…",
+ * "Del…"). So we also return `maxWidth` = the space actually available from the
+ * clamped `left` to the right gutter (`vw - left - GUTTER`). Applied inline it
+ * guarantees the box can NEVER exceed the viewport regardless of content; the
+ * row labels then ellipsize inside that hard cap.
  */
 export function clampMenuPosition(
   x: number,
@@ -78,13 +87,15 @@ export function clampMenuPosition(
   h: number,
   vw: number,
   vh: number,
-): { left: number; top: number } {
+): { left: number; top: number; maxWidth: number } {
   let left = x;
   let top = y;
   if (x + w > vw) left = x - w;
   if (y + h > vh) top = Math.max(0, y - h);
   left = Math.max(VIEWPORT_GUTTER, Math.min(left, vw - w - VIEWPORT_GUTTER));
-  return { left, top };
+  // Never wider than the gap from the (clamped) left edge to the right gutter.
+  const maxWidth = vw - left - VIEWPORT_GUTTER;
+  return { left, top, maxWidth };
 }
 
 /**
@@ -124,7 +135,13 @@ function MenuItemRow({ item, onClose }: { item: MenuItem; onClose: () => void })
 
 export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: MenuProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ left: x, top: y });
+  // `maxWidth` starts unconstrained (Infinity → no inline cap) and is set once
+  // the post-paint measure knows the viewport gap from the clamped left edge.
+  const [pos, setPos] = useState<{ left: number; top: number; maxWidth: number }>({
+    left: x,
+    top: y,
+    maxWidth: Number.POSITIVE_INFINITY,
+  });
 
   // Keep the latest onClose in a ref so the outside-click/Escape effect can read
   // it without listing onClose in its dependency array. Parents commonly pass a
@@ -140,9 +157,10 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
   const anchorHolder = useRef(anchorRef);
   anchorHolder.current = anchorRef;
 
-  // Reset to the requested coordinate whenever the menu (re)opens.
+  // Reset to the requested coordinate (and drop any width cap) whenever the menu
+  // (re)opens, so the post-paint measure sees the content's natural width.
   useEffect(() => {
-    if (open) setPos({ left: x, top: y });
+    if (open) setPos({ left: x, top: y, maxWidth: Number.POSITIVE_INFINITY });
   }, [open, x, y]);
 
   // After paint, nudge the menu back inside the viewport if it overflows the
@@ -155,14 +173,17 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
   // when opened near it. We first flip it left of the anchor if it overflows
   // right, then HARD-CLAMP the left edge into [GUTTER, innerWidth - width -
   // GUTTER] so the whole menu stays on-screen even if neither the anchor nor the
-  // flipped position fits. The CSS caps menu width at calc(100vw - 16px) so the
-  // clamp range is never negative.
+  // flipped position fits, AND cap the box width to the gap from that clamped
+  // left edge to the right gutter (`maxWidth`) so the box can never exceed the
+  // viewport regardless of content — long labels then ellipsize inside the cap.
+  // The CSS `max-width: calc(100vw - 16px)` is a coarse backstop; this inline cap
+  // is the precise one (it accounts for `left`).
   useLayoutEffect(() => {
     if (!open) return;
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    const { left, top } = clampMenuPosition(
+    const { left, top, maxWidth } = clampMenuPosition(
       x,
       y,
       r.width,
@@ -170,7 +191,11 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
       window.innerWidth,
       window.innerHeight,
     );
-    setPos((prev) => (prev.left === left && prev.top === top ? prev : { left, top }));
+    setPos((prev) =>
+      prev.left === left && prev.top === top && prev.maxWidth === maxWidth
+        ? prev
+        : { left, top, maxWidth },
+    );
   }, [open, x, y]);
 
   // Close on outside press or Escape while open. Reads onClose/anchor via refs
@@ -223,7 +248,14 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
       ref={ref}
       class={cls ? `vsc-menu ctx-menu ${cls}` : "vsc-menu ctx-menu"}
       role="menu"
-      style={{ left: `${pos.left}px`, top: `${pos.top}px` }}
+      style={{
+        left: `${pos.left}px`,
+        top: `${pos.top}px`,
+        // Inline width cap from the post-paint measure. Omitted on the first
+        // paint (Infinity) so the box renders at its natural/CSS-capped width,
+        // then tightened to the on-screen gap once measured.
+        maxWidth: Number.isFinite(pos.maxWidth) ? `${pos.maxWidth}px` : undefined,
+      }}
     >
       {items.map((item, i) => (
         <>

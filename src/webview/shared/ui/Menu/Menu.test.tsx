@@ -140,8 +140,11 @@ describe("Menu", () => {
   describe("clampMenuPosition", () => {
     const GUTTER = 8;
 
-    it("leaves a menu that already fits untouched", () => {
-      expect(clampMenuPosition(20, 30, 180, 100, 1024, 768)).toEqual({ left: 20, top: 30 });
+    it("leaves a menu that already fits untouched (position), capping width to the on-screen gap", () => {
+      const { left, top, maxWidth } = clampMenuPosition(20, 30, 180, 100, 1024, 768);
+      expect({ left, top }).toEqual({ left: 20, top: 30 });
+      // maxWidth = vw - left - GUTTER = 1024 - 20 - 8.
+      expect(maxWidth).toBe(1024 - 20 - GUTTER);
     });
 
     it("flips left when the right edge overflows the viewport", () => {
@@ -165,6 +168,31 @@ describe("Menu", () => {
       // 200px panel, 240px menu — cannot fully fit; clamp wins at the left edge.
       const { left } = clampMenuPosition(150, 0, 240, 100, 200, 800);
       expect(left).toBe(GUTTER);
+    });
+
+    it("keeps a 200px menu fully on-screen when opened near the right edge of a 300px viewport", () => {
+      // Regression for the cut-label overflow ("Ren…", "Del…"): a right-click at
+      // x=290 on a 300px sidebar with a 200px-wide menu. The flip-left lands it
+      // at 90, but the box (200px) would still end at 290 > vw-GUTTER(292)? No —
+      // the cap is what guarantees safety regardless: left + maxWidth must fit.
+      const vw = 300;
+      const w = 200;
+      const { left, maxWidth } = clampMenuPosition(290, 0, w, 100, vw, 800);
+      // Fully inside the gutter band on the left.
+      expect(left).toBeGreaterThanOrEqual(GUTTER);
+      // The width cap can NEVER let the box pass the right gutter.
+      expect(left + maxWidth).toBe(vw - GUTTER);
+      expect(left + maxWidth).toBeLessThanOrEqual(vw - GUTTER);
+    });
+
+    it("caps width so the box never exceeds the viewport even when the menu is too wide", () => {
+      // 200px panel, 240px menu pinned to the left gutter — the cap shrinks the
+      // visible box to the available gap so content ellipsizes instead of
+      // spilling off the right edge.
+      const vw = 200;
+      const { left, maxWidth } = clampMenuPosition(150, 0, 240, 100, vw, 800);
+      expect(left).toBe(GUTTER);
+      expect(left + maxWidth).toBe(vw - GUTTER); // 8 + 184 = 192 ≤ 200-8
     });
 
     it("flips above the anchor when the bottom overflows", () => {
