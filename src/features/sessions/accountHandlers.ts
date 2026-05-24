@@ -1,9 +1,10 @@
 /**
- * Webview → host message handlers for the Account tab: live account
- * data, quota, saved-profile snapshot/switch/update/remove, and settings
- * snapshot restore/delete. Returns `true` when the message was handled,
- * `false` to let the caller try the next handler. Verbatim extraction
- * from the former single dispatch switch — no logic change.
+ * Webview → host message handlers for the Account tab: live account data,
+ * quota, saving a profile (prompt + snapshot), opening the account switcher,
+ * and settings snapshot restore/delete. Switch/Update/Remove of saved
+ * profiles run inside the QuickPick switcher (accountSwitcher.ts), not here.
+ * Returns `true` when the message was handled, `false` to let the caller try
+ * the next handler.
  */
 import * as vscode from "vscode";
 import {
@@ -13,14 +14,12 @@ import {
 } from "../account/parser";
 import {
   saveProfile as saveProfileSnapshot,
-  switchProfile as switchProfileSnapshot,
   updateProfile as updateProfileSnapshot,
-  removeProfile as removeProfileSnapshot,
   listProfiles as listProfilesSnapshot,
 } from "../account/profiles";
 import { getWorkspace } from "../../extension/workspace";
 import type { WebviewMessage } from "./types";
-import { type HostContext, buildSwitchConfirmDetail } from "./hostContext";
+import type { HostContext } from "./hostContext";
 
 export async function handleAccountMessage(
   msg: WebviewMessage,
@@ -46,56 +45,6 @@ export async function handleAccountMessage(
       const { fetchQuota } = await import("../account/quota");
       const result = await fetchQuota();
       wv.postMessage({ type: "quotaData", result });
-      break;
-    }
-
-    case "saveProfile": {
-      // Snapshot current creds into a new slot. Label already
-      // validated by the caller (host's promptSaveProfile path or a
-      // future programmatic caller).
-      const result = saveProfileSnapshot(msg.label);
-      if (!result.ok) {
-        if (result.error === "already-saved" && result.detail) {
-          // A slot already exists for this identity — happens when
-          // Claude CLI's token rotation desynced the active-profile
-          // hash match and the UI re-surfaced "Save profile". Offer
-          // to Update the existing slot so tokens get re-captured,
-          // which is almost always the user's actual intent.
-          const existingSlug = result.detail;
-          const existing = listProfilesSnapshot().find((p) => p.slug === existingSlug);
-          const label = existing?.label ?? existingSlug;
-          const choice = await vscode.window.showInformationMessage(
-            `A profile already exists for this account (${label}).`,
-            {
-              modal: true,
-              detail:
-                "Refresh its saved tokens with the current login so it picks up Claude CLI's latest rotated token.",
-            },
-            "Update existing",
-          );
-          if (choice === "Update existing") {
-            const upd = updateProfileSnapshot(existingSlug);
-            if (!upd.ok) {
-              vscode.window.showErrorMessage(
-                `Couldn't update profile: ${upd.detail ?? upd.error}.`,
-              );
-            } else {
-              vscode.window.showInformationMessage(
-                `Profile "${upd.data.label}" refreshed.`,
-              );
-            }
-          }
-        } else {
-          vscode.window.showErrorMessage(
-            `Couldn't save profile: ${result.detail ?? result.error}.`,
-          );
-        }
-      }
-      const workspace = getWorkspace();
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
       break;
     }
 
@@ -145,7 +94,10 @@ export async function handleAccountMessage(
       const result = saveProfileSnapshot(label);
       if (!result.ok) {
         if (result.error === "already-saved" && result.detail) {
-          // Same dedupe path as the `saveProfile` case — see there.
+          // A slot already exists for this identity — happens when Claude
+          // CLI's token rotation desynced the active-profile hash match and
+          // the UI re-surfaced "Save profile". Offer to Update the existing
+          // slot so tokens get re-captured, which is almost always intended.
           const existingSlug = result.detail;
           const existing = listProfilesSnapshot().find((pp) => pp.slug === existingSlug);
           const existingLabel = existing?.label ?? existingSlug;
@@ -186,81 +138,6 @@ export async function handleAccountMessage(
     case "openAccountSwitcher":
       await ctx.openAccountSwitcher();
       break;
-
-    case "switchProfile": {
-      // Destructive-ish: overwrites ~/.claude.json + credentials.
-      // Require modal confirmation so a mis-click doesn't yank the
-      // user's login out from under a running Claude session.
-      const targetProfile = listProfilesSnapshot().find((p) => p.slug === msg.slug);
-      const confirm = await vscode.window.showWarningMessage(
-        "Switch Claude account?",
-        {
-          modal: true,
-          detail: buildSwitchConfirmDetail(targetProfile),
-        },
-        "Switch",
-      );
-      if (confirm !== "Switch") break;
-      const result = switchProfileSnapshot(msg.slug);
-      if (!result.ok) {
-        vscode.window.showErrorMessage(
-          `Switch failed: ${result.detail ?? result.error}.`,
-        );
-      } else {
-        vscode.window.showInformationMessage(
-          `Switched to ${result.data.email || result.data.label}.`,
-        );
-      }
-      const workspace = getWorkspace();
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
-      break;
-    }
-
-    case "updateProfile": {
-      // Re-snapshot live creds into an existing slot — used after
-      // Claude CLI rotates the access token so the saved profile
-      // stays current. No confirmation; it's strictly additive.
-      const result = updateProfileSnapshot(msg.slug);
-      if (!result.ok) {
-        vscode.window.showErrorMessage(
-          `Couldn't update profile: ${result.detail ?? result.error}.`,
-        );
-      }
-      const workspace = getWorkspace();
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
-      break;
-    }
-
-    case "removeProfile": {
-      const confirm = await vscode.window.showWarningMessage(
-        "Delete saved profile?",
-        {
-          modal: true,
-          detail:
-            "The snapshot (including its OAuth token copy) will be permanently removed from ~/.claude/manager-accounts. The live Claude account isn't affected.",
-        },
-        "Delete",
-      );
-      if (confirm !== "Delete") break;
-      const result = removeProfileSnapshot(msg.slug);
-      if (!result.ok) {
-        vscode.window.showErrorMessage(
-          `Couldn't delete profile: ${result.detail ?? result.error}.`,
-        );
-      }
-      const workspace = getWorkspace();
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
-      break;
-    }
 
     case "openAccountUrl": {
       vscode.env.openExternal(vscode.Uri.parse(msg.url));
