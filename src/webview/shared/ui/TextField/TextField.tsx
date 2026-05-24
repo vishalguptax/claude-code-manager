@@ -12,9 +12,7 @@
  * the input's own `padding` is the only text inset (fully ours), and the input
  * box edge IS the element edge IS the label edge (flush, no shadow indirection).
  *
- * Consolidation: this is the ONE text input in the shared layer. The legacy
- * <Input> is a re-export of <TextField> (see ../Input/index.ts), so both import
- * names resolve here.
+ * Consolidation: this is the ONE text input in the shared layer.
  *
  * Controlled, no flicker: `value` drives the input and `onInput` fires with the
  * current string on every input event. Preact reconciles the controlled
@@ -60,7 +58,8 @@ export function TextField(props: TextFieldProps) {
   const [local, setLocal] = useState(value);
   const pending = useRef<string | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sync is keyed on the incoming prop only.
+  // Sync is keyed on the incoming `value` prop only; the ref and setter are
+  // stable, so `[value]` is the complete dependency list.
   useEffect(() => {
     if (pending.current !== null) {
       if (value === pending.current) pending.current = null; // our echo arrived

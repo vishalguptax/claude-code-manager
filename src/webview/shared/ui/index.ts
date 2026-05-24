@@ -15,7 +15,6 @@ export {
 export { Dropdown, type DropdownOption, type DropdownProps } from "./Dropdown";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { Icon, type IconProps } from "./Icon";
-export { Input, type InputProps } from "./Input";
 export { ListItem, type ListItemProps } from "./ListItem";
 export { Loading } from "./Loading";
 export { Menu, type MenuItem, type MenuProps } from "./Menu";

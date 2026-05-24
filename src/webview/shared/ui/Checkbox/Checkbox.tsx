@@ -37,7 +37,8 @@ export function Checkbox({ checked, onChange, label, disabled, class: cls }: Che
   const [local, setLocal] = useState(checked);
   const pending = useRef<boolean | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sync keyed on the incoming prop only.
+  // Sync is keyed on the incoming `checked` prop only; the ref and setter are
+  // stable, so `[checked]` is the complete dependency list.
   useEffect(() => {
     if (pending.current !== null) {
       if (checked === pending.current) pending.current = null;
