@@ -162,6 +162,22 @@
   --vsc-field-inset: var(--space-md);
 }
 
+/* Text-start parity with <Dropdown>. A plain TextField and a Dropdown trigger
+   stacked in the same Config column must have IDENTICAL text insets. The
+   trigger pads its label to 9px (see .vsc-dropdown-trigger below); the
+   textfield's shadow <input> is hardcoded to 4px and exposes no padding prop.
+   Host padding insets the (flex-stretched) shadow input, so adding 5px on each
+   side lands the text at 4 + 5 = 9px — matching the trigger exactly on both
+   edges. Scoped with :has() to plain fields only: a SearchInput owns
+   content-before/after slots whose own --vsc-field-inset gutters already
+   position the icon + clear button, so it must NOT receive this extra host pad
+   (that would compound and shove the magnifier inward). Chromium 105+ (VS Code
+   1.85 ships far newer) supports :has(), so the guard is reliable in-webview. */
+.vsc-textfield:not(:has([slot])) {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
 /* Slot wrappers — the light-DOM `<span slot="content-before|after">` spans that
    carry the leading magnifier and trailing clear button. The element slots them
    beside its full-height inner input, but the spans are inline by default, so a
@@ -245,9 +261,11 @@
   width: 100%;
   height: var(--h-control);
   box-sizing: border-box;
-  /* 9px horizontal inset matches the <vscode-textfield>'s intrinsic input
-     padding so a Dropdown and a TextField stacked in the same config column
-     align on their left text edge (was --space-md / 8px, a 1px mismatch). */
+  /* 9px horizontal inset is the canonical control text-start. A plain
+     <vscode-textfield>'s shadow input sits at only 4px intrinsically, so the
+     `.vsc-textfield:not(:has([slot]))` rule above adds 5px host padding to lift
+     it to this same 9px — a Dropdown trigger and a TextField stacked in the
+     same config column then align on BOTH text edges. */
   padding: 0 9px;
   background: var(--role-control-bg);
   color: var(--role-control-fg);
