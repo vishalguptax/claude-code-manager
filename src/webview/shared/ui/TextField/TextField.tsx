@@ -55,24 +55,32 @@ export function TextField(props: TextFieldProps) {
   // emitted value as `pending` and ignore incoming `value` until it catches up
   // to that exact value (our own echo) — only then do we resume applying
   // genuinely-external changes (resets, programmatic updates).
+  // Local mirror so keystrokes show instantly. Writes are debounced upstream
+  // (one host round-trip per pause), so there is no per-keystroke echo stream
+  // to race — a focus guard is enough: while the field is focused (user
+  // typing) we ignore incoming `value` so the authoritative-but-lagging echo
+  // can't stomp in-flight text; when NOT focused we accept `value` verbatim, so
+  // a host-normalized echo (e.g. retention 0 -> "") and external resets are
+  // reflected correctly. (An equality-based "pending" guard froze the field
+  // whenever the host transformed the written value and the echo never matched.)
   const [local, setLocal] = useState(value);
-  const pending = useRef<string | null>(null);
+  const focused = useRef(false);
 
-  // Sync is keyed on the incoming `value` prop only; the ref and setter are
-  // stable, so `[value]` is the complete dependency list.
   useEffect(() => {
-    if (pending.current !== null) {
-      if (value === pending.current) pending.current = null; // our echo arrived
-      return; // ignore lagging/stale echoes until then
-    }
-    setLocal(value); // external change
+    if (!focused.current) setLocal(value);
   }, [value]);
 
   const handleInput = (e: JSX.TargetedEvent<HTMLInputElement>): void => {
     const next = e.currentTarget.value;
-    pending.current = next;
     setLocal(next);
     onInput(next);
+  };
+  const handleFocus = (): void => {
+    focused.current = true;
+  };
+  const handleBlur = (): void => {
+    focused.current = false;
+    setLocal(value); // reconcile to the authoritative host value on blur
   };
 
   return (
@@ -83,6 +91,8 @@ export function TextField(props: TextFieldProps) {
         type={type}
         value={local}
         onInput={handleInput}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         placeholder={placeholder}
         disabled={disabled}
         aria-label={ariaLabel}
