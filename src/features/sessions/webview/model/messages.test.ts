@@ -8,6 +8,7 @@ import {
   deletedSignal,
   detailLoadingSignal,
   detailSignal,
+  loadedSignal,
   pinnedSignal,
   searchQuerySignal,
   selectedIdSignal,
@@ -100,5 +101,17 @@ describe("sessions message handling", () => {
     sessionsSignal.value = [session("a")];
     handleMessage({ type: "skills", data: [] } as Message);
     expect(sessionsSignal.value).toHaveLength(1);
+  });
+
+  it("flips the loaded gate when the first sessions message arrives (even if empty)", () => {
+    expect(loadedSignal.value).toBe(false);
+    handleMessage({ type: "sessions", data: [] } as Message);
+    expect(loadedSignal.value).toBe(true);
+  });
+
+  it("flips the loaded gate on a host error", () => {
+    expect(loadedSignal.value).toBe(false);
+    handleMessage({ type: "error", message: "boom" } as Message);
+    expect(loadedSignal.value).toBe(true);
   });
 });

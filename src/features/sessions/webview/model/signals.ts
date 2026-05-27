@@ -30,6 +30,14 @@ const EMPTY_STATS: Stats = { totalSessions: 0, totalProjects: 0, thisWeek: 0, to
 
 // ── Raw signals ──
 
+/**
+ * Whether the first `sessions` (or terminating `error`) message has arrived.
+ * Starts false so the tab shows the full-panel <Loading /> placeholder instead
+ * of the "No sessions yet" empty-state during the cold-start round trip — an
+ * empty list only reads as "no sessions" once we know the host has answered.
+ */
+export const loadedSignal = signal<boolean>(false);
+
 /** Every session received from the host, unfiltered. */
 export const sessionsSignal = signal<Session[]>([]);
 /** Aggregate stats echoed by the host alongside the list. */
@@ -374,6 +382,7 @@ export function stopFilterPersistence(): void {
 
 /** Reset all signals to defaults. Test-only helper. */
 export function _resetSessionsSignals(): void {
+  loadedSignal.value = false;
   sessionsSignal.value = [];
   statsSignal.value = EMPTY_STATS;
   pinnedSignal.value = new Set();

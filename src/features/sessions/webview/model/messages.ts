@@ -17,6 +17,7 @@ import {
   currentBranchSignal,
   detailLoadingSignal,
   detailSignal,
+  loadedSignal,
   restoreWindowMinutesSignal,
   selectedIdSignal,
   sessionsSignal,
@@ -38,6 +39,16 @@ export function handleMessage(msg: Message): void {
       const groups = (msg.data as SessionGroup[]) ?? [];
       sessionsSignal.value = flattenGroups(groups);
       if (msg.stats) statsSignal.value = msg.stats as Stats;
+      // First list (even an empty one) ends the cold-start loading gate so the
+      // list/empty-state can render. Subsequent pushes keep it loaded.
+      loadedSignal.value = true;
+      break;
+    }
+    case "error": {
+      // A host parse/read failure also ends loading — otherwise the panel would
+      // sit on the <Loading /> placeholder forever. The list's own empty-state
+      // covers the "loaded but zero sessions" case.
+      loadedSignal.value = true;
       break;
     }
     case "sessionDetail": {

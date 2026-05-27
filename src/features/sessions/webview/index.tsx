@@ -11,11 +11,13 @@
  */
 import { useEffect } from "preact/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
+import { Loading } from "../../../webview/shared/ui";
 import { sendReady } from "./api";
 import {
   handleDelta,
   handleMessage,
   initFilterPersistence,
+  loadedSignal,
   loadPersistedFilters,
   stopFilterPersistence,
   viewSignal,
@@ -52,5 +54,11 @@ export default function SessionsTab() {
     };
   }, []);
 
-  return viewSignal.value === "detail" ? <DetailView /> : <ListView />;
+  // Detail carries its own transcript loader (detailLoadingSignal), so only the
+  // list path gates on the first-data signal: until the host's first `sessions`
+  // message arrives, show the full-panel <Loading /> rather than the empty list
+  // (which would read as "No sessions yet").
+  if (viewSignal.value === "detail") return <DetailView />;
+  if (!loadedSignal.value) return <Loading />;
+  return <ListView />;
 }
