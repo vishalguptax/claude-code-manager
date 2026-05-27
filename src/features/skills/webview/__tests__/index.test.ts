@@ -95,11 +95,13 @@ describe("registerSkillsHandlers", () => {
 describe("SkillsTab", () => {
   afterEach(() => setVscodeApi(null));
 
-  it("shows the full-panel loader before the first skills message arrives", () => {
+  it("shows the content-shaped list skeleton before the first skills message arrives", () => {
     setVscodeApi({ postMessage: vi.fn() });
     const { container } = render(h(SkillsTab, {}));
-    // The shared <Loading> renders the shimmer skeleton list, not the empty list.
-    expect(container.querySelector(".skeleton-list")).toBeTruthy();
+    // The <ListSkeleton> mirrors the list shell (search + scope + rows), not
+    // the empty list.
+    expect(container.querySelector(".skeleton-panel")).toBeTruthy();
+    expect(container.querySelector(".skeleton-item")).toBeTruthy();
     expect(document.getElementById("skillsListView")).toBeNull();
   });
 
@@ -117,7 +119,7 @@ describe("SkillsTab", () => {
     loaded.value = true;
     skills.value = [];
     const { container } = render(h(SkillsTab, {}));
-    expect(container.querySelector(".skeleton-list")).toBeNull();
+    expect(container.querySelector(".skeleton-panel")).toBeNull();
     expect(container.textContent).toContain("No skills found");
   });
 

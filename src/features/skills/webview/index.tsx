@@ -6,7 +6,7 @@
 import { useEffect } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { Loading } from "../../../webview/shared/ui";
+import { ListSkeleton } from "../../../webview/shared/ui";
 import type { Skill } from "../types";
 import { getSkills } from "./api";
 import { claudeCodeInstalled, loaded, marketplaceSkillsUrl, selectedSkill, skills } from "./model";
@@ -72,12 +72,12 @@ export default function SkillsTab() {
     return dispose;
   }, [post]);
 
-  // Before the host's first `skills` message, show the full-panel <Loading />
-  // rather than the list's "No skills found" empty-state. The detail view
-  // renders synchronously from the already-loaded list skill, so it needs no
-  // gate of its own.
+  // Before the host's first `skills` message, show the content-shaped
+  // <ListSkeleton /> (search row + scope filter + list rows) rather than the
+  // list's "No skills found" empty-state. The detail view renders synchronously
+  // from the already-loaded list skill, so it needs no gate of its own.
   const selected = selectedSkill.value;
   if (selected) return <DetailView skill={selected} />;
-  if (!loaded.value) return <Loading />;
+  if (!loaded.value) return <ListSkeleton />;
   return <ListView />;
 }

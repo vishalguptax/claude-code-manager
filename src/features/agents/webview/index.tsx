@@ -5,7 +5,7 @@
  */
 import { useEffect } from "preact/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { Loading } from "../../../webview/shared/ui";
+import { ListSkeleton } from "../../../webview/shared/ui";
 import type { Agent } from "../types";
 import { useAgentsApi } from "./api";
 import {
@@ -49,7 +49,7 @@ export default function AgentsTab() {
   }
 
   if (loading.value) {
-    return <Loading />;
+    return <ListSkeleton />;
   }
 
   const selected = selectedAgent.value;

@@ -7,7 +7,7 @@
 import { useEffect, useMemo } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { EmptyState, Loading } from "../../../webview/shared/ui";
+import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { McpServer } from "../types";
 import { createMcpApi } from "./api";
 import { MCP_BROWSE_URL } from "./lib";
@@ -43,7 +43,7 @@ export default function McpTab() {
   const err = errorMessage.value;
 
   if (loading.value && sel === null) {
-    return <Loading />;
+    return <ListSkeleton />;
   }
 
   // A host error with no data loaded replaces the view; once servers exist we

@@ -8,7 +8,7 @@ import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { Loading } from "../../../webview/shared/ui";
+import { ListSkeleton } from "../../../webview/shared/ui";
 import type { Command } from "../types";
 import { getCommandsMsg, type Post } from "./api";
 import { claudeCodeInstalled, commands, errorMessage, loading, selected } from "./model";
@@ -45,7 +45,7 @@ export default function CommandsTab() {
   }, [post]);
 
   if (loading.value && commands.value.length === 0) {
-    return <Loading />;
+    return <ListSkeleton />;
   }
   if (errorMessage.value) {
     return <div class="empty">Error: {errorMessage.value}</div>;

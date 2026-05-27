@@ -66,9 +66,10 @@ describe("CommandsTab", () => {
     await waitFor(() => expect(posted).toContainEqual({ type: "getCommands" }));
   });
 
-  it("shows a loading indicator before data arrives", () => {
+  it("shows the content-shaped list skeleton before data arrives", () => {
     const { container } = render(h(CommandsTab, {}));
-    expect(container.querySelector(".skeleton-list")).toBeTruthy();
+    expect(container.querySelector(".skeleton-panel")).toBeTruthy();
+    expect(container.querySelector(".skeleton-item")).toBeTruthy();
   });
 
   it("renders the list once commands are present", async () => {

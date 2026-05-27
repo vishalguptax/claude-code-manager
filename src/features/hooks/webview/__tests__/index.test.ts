@@ -38,7 +38,7 @@ describe("HooksTab", () => {
   it("requests hooks on mount and shows the loader first", () => {
     const { container } = render(h(HooksTab, {}));
     expect(post).toHaveBeenCalledWith({ type: "getHooks" });
-    expect(container.querySelector(".skeleton-list")).toBeTruthy();
+    expect(container.querySelector(".skeleton-panel")).toBeTruthy();
   });
 
   it("renders the list once a hooks message arrives via the bus", async () => {

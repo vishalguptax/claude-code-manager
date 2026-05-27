@@ -23,6 +23,8 @@ export { ScopeFilter, type ScopeFilterProps, type ScopeOption } from "./ScopeFil
 export { SearchInput, type SearchInputProps } from "./SearchInput";
 export { Segmented, type SegmentedOption, type SegmentedProps } from "./Segmented";
 export {
+  ListSkeleton,
+  type ListSkeletonProps,
   Skeleton,
   SkeletonBlock,
   type SkeletonBlockProps,

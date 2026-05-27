@@ -8,7 +8,7 @@ import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { EmptyState, Loading } from "../../../webview/shared/ui";
+import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { Hook } from "../types";
 import type { Post } from "./api";
 import * as api from "./api";
@@ -40,7 +40,7 @@ export default function HooksTab() {
     };
   }, [post]);
 
-  if (loading.value) return <Loading />;
+  if (loading.value) return <ListSkeleton />;
   if (errorMessage.value) {
     return <EmptyState title="Couldn't load hooks" description={errorMessage.value} />;
   }

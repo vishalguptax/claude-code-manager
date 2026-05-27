@@ -26,6 +26,10 @@ const FILES = [
   // Native VS Code chrome for the shared component layer (A2). Loaded after
   // components.css so it refines the F1 primitives without editing them.
   "components-native.css",
+  // Layout-only rules for the content-aware loading skeletons. After the
+  // component layers so it can sit on the shared --space-* / --h-control
+  // tokens; the atom shimmer itself lives in base.css.
+  "skeleton.css",
   "tabs.css",
   "sessions.css",
   "skills.css",
