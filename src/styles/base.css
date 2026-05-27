@@ -154,32 +154,33 @@ body {
   gap: var(--space-xs);
   padding: var(--space-xs) var(--space-sm);
 }
-.skeleton-bar {
-  height: 10px;
-  border-radius: var(--radius-sm);
+
+/* Skeleton atoms (<SkeletonLine /> / <SkeletonBlock /> / <SkeletonCircle />).
+   `.skeleton-el` is the shared recessed-bar base + shimmer host; the variant
+   classes only differ in default shape. Width / height / size / radius come
+   from the component's inline style (data-driven, no static class equivalent),
+   matching QuotaBar's width-from-utilization pattern. */
+.skeleton-el {
   background: var(--bg-hover);
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
 }
-.skeleton-bar-title { width: 70%; }
-.skeleton-bar-sub   { width: 40%; height: 8px; }
-
-/* Varied widths so the placeholder doesn't look like a stamped grid. */
-.skeleton-row:nth-child(2) .skeleton-bar-title { width: 85%; }
-.skeleton-row:nth-child(2) .skeleton-bar-sub   { width: 30%; }
-.skeleton-row:nth-child(3) .skeleton-bar-title { width: 60%; }
-.skeleton-row:nth-child(3) .skeleton-bar-sub   { width: 50%; }
-.skeleton-row:nth-child(4) .skeleton-bar-title { width: 78%; }
-.skeleton-row:nth-child(4) .skeleton-bar-sub   { width: 35%; }
-.skeleton-row:nth-child(5) .skeleton-bar-title { width: 65%; }
-.skeleton-row:nth-child(5) .skeleton-bar-sub   { width: 45%; }
-.skeleton-row:nth-child(6) .skeleton-bar-title { width: 80%; }
-.skeleton-row:nth-child(6) .skeleton-bar-sub   { width: 28%; }
+.skeleton-line {
+  height: 10px;
+  border-radius: var(--radius-sm);
+}
+.skeleton-block {
+  border-radius: var(--radius);
+}
+.skeleton-circle {
+  border-radius: 50%;
+}
 
 /* Shimmer overlay: a low-alpha gradient slides left→right across each
-   bar. Pure white at low opacity reads on both light and dark themes
+   element. Pure white at low opacity reads on both light and dark themes
    without theme branching. */
-.skeleton-bar::after {
+.skeleton-el::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -192,13 +193,13 @@ body {
   transform: translateX(-100%);
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
-/* Stagger so the sweep cascades down the list instead of pulsing in
-   lockstep across all bars. */
-.skeleton-row:nth-child(2) .skeleton-bar::after { animation-delay: 0.08s; }
-.skeleton-row:nth-child(3) .skeleton-bar::after { animation-delay: 0.16s; }
-.skeleton-row:nth-child(4) .skeleton-bar::after { animation-delay: 0.24s; }
-.skeleton-row:nth-child(5) .skeleton-bar::after { animation-delay: 0.32s; }
-.skeleton-row:nth-child(6) .skeleton-bar::after { animation-delay: 0.40s; }
+/* Stagger so the sweep cascades down a column of placeholders instead of
+   pulsing in lockstep. Applies to the generic <SkeletonList /> rows. */
+.skeleton-row:nth-child(2) .skeleton-el::after { animation-delay: 0.08s; }
+.skeleton-row:nth-child(3) .skeleton-el::after { animation-delay: 0.16s; }
+.skeleton-row:nth-child(4) .skeleton-el::after { animation-delay: 0.24s; }
+.skeleton-row:nth-child(5) .skeleton-el::after { animation-delay: 0.32s; }
+.skeleton-row:nth-child(6) .skeleton-el::after { animation-delay: 0.40s; }
 
 @keyframes skeleton-shimmer {
   100% { transform: translateX(100%); }
@@ -207,7 +208,7 @@ body {
 /* Reduced-motion: drop the sweep, keep static placeholder so users
    still see structure. */
 @media (prefers-reduced-motion: reduce) {
-  .skeleton-bar::after { animation: none; display: none; }
+  .skeleton-el::after { animation: none; display: none; }
 }
 
 /* Inline link button rendered inside an .empty / .mcp-empty block.

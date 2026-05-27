@@ -24,9 +24,16 @@ export { SearchInput, type SearchInputProps } from "./SearchInput";
 export { Segmented, type SegmentedOption, type SegmentedProps } from "./Segmented";
 export {
   Skeleton,
+  SkeletonBlock,
+  type SkeletonBlockProps,
+  SkeletonCircle,
+  type SkeletonCircleProps,
+  SkeletonLine,
+  type SkeletonLineProps,
   SkeletonList,
   type SkeletonListProps,
   type SkeletonProps,
+  SkeletonRect,
 } from "./Skeleton";
 export { TextField, type TextFieldProps, type TextFieldType } from "./TextField";
 export { VirtualList, type VirtualListProps } from "./VirtualList";
