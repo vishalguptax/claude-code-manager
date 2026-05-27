@@ -18,7 +18,7 @@
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { EmptyState, Loading } from "../../../webview/shared/ui";
+import { EmptyState } from "../../../webview/shared/ui";
 import type { QuotaResult } from "../quota";
 import type { AccountData } from "../types";
 import { useAccountApi } from "./api";
@@ -37,7 +37,7 @@ import {
   setQuotaLoading,
   setQuotaSuccess,
 } from "./model";
-import { ProfileView, QuotaView, UsageView } from "./ui";
+import { AccountSkeleton, ProfileView, QuotaView, UsageView } from "./ui";
 
 /** Identity of the account at the last render, for switch detection. */
 let lastAccountKey: string | null = null;
@@ -125,7 +125,7 @@ export default function AccountTab() {
     return <EmptyState title="Couldn't load account" description={accountError.value} />;
   }
   if (loading.value && !data) {
-    return <Loading />;
+    return <AccountSkeleton />;
   }
   if (!data) {
     return (

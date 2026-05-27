@@ -3,6 +3,7 @@
  * (Profile / Quota / Usage) and the leaf components they compose from.
  * Each is a CDD folder (`<Name>/{<Name>.tsx,<Name>.test.tsx,index.ts}`).
  */
+export { AccountSkeleton } from "./AccountSkeleton";
 export { Heatmap, type HeatmapProps } from "./Heatmap";
 export { MetaRow, type MetaRowProps } from "./MetaRow";
 export { ProfileView, type ProfileViewProps } from "./ProfileView";

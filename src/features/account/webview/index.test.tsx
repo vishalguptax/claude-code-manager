@@ -89,8 +89,8 @@ describe("AccountTab", () => {
   it("requests account data on mount and shows the loading state", () => {
     const { container } = render(h(AccountTab, {}));
     expect(post).toHaveBeenCalledWith({ type: "getAccountData" });
-    // The shared <Loading> now renders the shimmer skeleton.
-    expect(container.querySelector(".skeleton-list")).toBeTruthy();
+    // The content-shaped <AccountSkeleton> mirrors the profile/quota/usage stack.
+    expect(container.querySelector(".skeleton-profile")).toBeTruthy();
   });
 
   it("renders the three sections once data arrives", async () => {
