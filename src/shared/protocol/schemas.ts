@@ -123,6 +123,8 @@ const promptAddPermission = v.object({
 const promptCustomModel = v.object({ type: v.literal("promptCustomModel") });
 const restoreClaudeConfig = v.object({ type: v.literal("restoreClaudeConfig") });
 const fetchQuota = v.object({ type: v.literal("fetchQuota") });
+const installStatusline = v.object({ type: v.literal("installStatusline") });
+const uninstallStatusline = v.object({ type: v.literal("uninstallStatusline") });
 const promptSaveProfile = v.object({ type: v.literal("promptSaveProfile") });
 const openAccountSwitcher = v.object({ type: v.literal("openAccountSwitcher") });
 const setSetting = v.object({
@@ -265,6 +267,8 @@ export const messageSchema = v.variant("type", [
   promptCustomModel,
   restoreClaudeConfig,
   fetchQuota,
+  installStatusline,
+  uninstallStatusline,
   promptSaveProfile,
   openAccountSwitcher,
   setSetting,
