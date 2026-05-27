@@ -16,10 +16,21 @@
   overflow-x: auto;
 }
 .tab-list::-webkit-scrollbar { display: none; }
-/* Global reload affordance — pinned right, never scrolls with the tabs. */
-.tab-reload-btn {
+/* Global reload affordance — pinned right, never scrolls with the tabs.
+   Ghost toolbar chrome: transparent at rest (no border/fill — unlike the
+   bordered inline icon buttons in feature rows), hover-only background, like
+   VS Code's own view-title toolbar icons. */
+.tab-reload-btn.btn-icon {
   flex: 0 0 auto;
   margin: 0 var(--space-sm);
+  background: none;
+  border-color: transparent;
+}
+.tab-reload-btn.btn-icon:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--bg-hover));
+}
+.tab-reload-btn.btn-icon:active {
+  background: var(--vscode-toolbar-activeBackground, var(--bg-active));
 }
 .tab-btn {
   background: transparent;
