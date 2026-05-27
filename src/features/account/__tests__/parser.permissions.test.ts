@@ -34,6 +34,7 @@ vi.mock("../../../core/config", () => ({
   SESSIONS_DIR: path.join(tmp.root, "sessions"),
   STATE_FILE: path.join(tmp.root, ".csm-state.json"),
   STATS_CACHE_FILE: path.join(tmp.root, "stats-cache.json"),
+  SETTINGS_FILE: path.join(tmp.root, "settings.json"),
   SESSION_META_READ_BYTES: 4096,
   SETTINGS_SNAPSHOTS_DIR: path.join(tmp.root, "snapshots"),
 }));

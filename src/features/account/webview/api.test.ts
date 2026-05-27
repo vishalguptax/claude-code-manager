@@ -16,6 +16,8 @@ describe("useAccountApi (typed Preact bridge)", () => {
     const api = useAccountApi();
     api.getAccountData();
     api.fetchQuota();
+    api.installStatusline();
+    api.uninstallStatusline();
     api.setModel("opus");
     api.setVoiceEnabled(true);
     api.removePermission("global", "Bash(rm)", "deny");
@@ -31,6 +33,8 @@ describe("useAccountApi (typed Preact bridge)", () => {
 
     expect(post).toHaveBeenCalledWith({ type: "getAccountData" });
     expect(post).toHaveBeenCalledWith({ type: "fetchQuota" });
+    expect(post).toHaveBeenCalledWith({ type: "installStatusline" });
+    expect(post).toHaveBeenCalledWith({ type: "uninstallStatusline" });
     expect(post).toHaveBeenCalledWith({ type: "setModel", model: "opus" });
     expect(post).toHaveBeenCalledWith({ type: "setVoiceEnabled", value: true });
     expect(post).toHaveBeenCalledWith({
@@ -39,6 +43,6 @@ describe("useAccountApi (typed Preact bridge)", () => {
       tool: "Bash(rm)",
       list: "deny",
     });
-    expect(post).toHaveBeenCalledTimes(14);
+    expect(post).toHaveBeenCalledTimes(16);
   });
 });

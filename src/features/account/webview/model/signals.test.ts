@@ -1,46 +1,37 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { initPersistence } from "../../../../webview/persistence";
-import type { VSCodeAPI } from "../../../../webview/types";
-import type { QuotaData, QuotaError } from "../../quota";
+import type { QuotaError, QuotaSuccess } from "../../quota";
 import {
   _resetAccountState,
   clearQuota,
   collapsedSections,
   isSectionCollapsed,
-  loadPersistedQuotaOptIn,
-  quotaCacheAgeMs,
-  quotaFetchedAtMs,
-  quotaOptIn,
   quotaStatus,
   setQuotaError,
   setQuotaLoading,
-  setQuotaOptIn,
   setQuotaSuccess,
   toggleSection,
 } from "./signals";
 
-/** Minimal in-memory setState/getState bridge for persistence round-trips. */
-function fakePersistence(): VSCodeAPI {
-  let store: unknown;
-  return {
-    postMessage: () => {},
-    getState: () => store,
-    setState: (s: unknown) => {
-      store = s;
-    },
-  } as VSCodeAPI;
-}
-
-const QUOTA: QuotaData = {
-  fiveHour: { utilization: 10, resetsAt: "" },
-  sevenDay: { utilization: 20, resetsAt: "" },
-  sevenDaySonnet: null,
-  sevenDayOpus: null,
-  extraUsage: null,
-  fetchedAt: new Date().toISOString(),
+const SUCCESS: QuotaSuccess = {
+  quota: {
+    fiveHour: { utilization: 10, resetsAt: "" },
+    sevenDay: { utilization: 20, resetsAt: "" },
+    capturedAt: new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
+  },
+  live: {
+    model: "Opus 4.6",
+    contextUsedPercent: 3,
+    contextSize: 1_000_000,
+    sessionCostUsd: 0.97,
+    linesAdded: 214,
+    linesRemoved: 179,
+    version: "2.1.86",
+    capturedAt: new Date().toISOString(),
+  },
 };
 
-const ERR: QuotaError = { kind: "network", message: "offline" };
+const ERR: QuotaError = { kind: "not-installed", message: "enable it" };
 
 describe("account signals", () => {
   beforeEach(() => {
@@ -62,18 +53,14 @@ describe("account signals", () => {
     expect(collapsedSections.value).not.toBe(before);
   });
 
-  it("records a successful quota fetch with a timestamp", () => {
-    setQuotaSuccess(QUOTA);
-    expect(quotaStatus.value.kind).toBe("success");
-    expect(quotaFetchedAtMs.value).not.toBeNull();
-    expect(quotaCacheAgeMs()).toBeGreaterThanOrEqual(0);
+  it("stores a successful quota read", () => {
+    setQuotaSuccess(SUCCESS);
+    expect(quotaStatus.value).toEqual({ kind: "success", data: SUCCESS });
   });
 
-  it("sets an error without touching the fetch timestamp", () => {
+  it("sets a typed error", () => {
     setQuotaError(ERR);
     expect(quotaStatus.value).toEqual({ kind: "error", error: ERR });
-    expect(quotaFetchedAtMs.value).toBeNull();
-    expect(quotaCacheAgeMs()).toBeNull();
   });
 
   it("flips to loading", () => {
@@ -81,33 +68,17 @@ describe("account signals", () => {
     expect(quotaStatus.value.kind).toBe("loading");
   });
 
-  it("clears the quota cache back to idle", () => {
-    setQuotaSuccess(QUOTA);
+  it("clears back to idle on account switch", () => {
+    setQuotaSuccess(SUCCESS);
     clearQuota();
     expect(quotaStatus.value.kind).toBe("idle");
-    expect(quotaFetchedAtMs.value).toBeNull();
   });
 
-  it("persists the quota opt-in and reloads it across a state reset", () => {
-    initPersistence(fakePersistence());
-    expect(quotaOptIn.value).toBe(false);
-
-    setQuotaOptIn(true);
-    expect(quotaOptIn.value).toBe(true);
-
-    // Simulate a fresh webview load: signals reset to defaults...
+  it("resets all state", () => {
+    setQuotaSuccess(SUCCESS);
+    toggleSection("quota");
     _resetAccountState();
-    expect(quotaOptIn.value).toBe(false);
-
-    // ...but the remembered opt-in is restored from persisted state.
-    loadPersistedQuotaOptIn();
-    expect(quotaOptIn.value).toBe(true);
-  });
-
-  it("loadPersistedQuotaOptIn leaves the local default when nothing was opted in", () => {
-    initPersistence(fakePersistence());
-    expect(quotaOptIn.value).toBe(false);
-    loadPersistedQuotaOptIn();
-    expect(quotaOptIn.value).toBe(false);
+    expect(quotaStatus.value.kind).toBe("idle");
+    expect(collapsedSections.value.size).toBe(0);
   });
 });

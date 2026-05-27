@@ -1,38 +1,28 @@
 /**
- * OAuth quota fetcher — the ONLY network call Claude Manager makes.
+ * Quota + live-session data — read from the statusline cache, with NO
+ * network call and NO access to the OAuth token.
  *
- * Privacy: we contact `api.anthropic.com` exclusively, using the user's
- * own OAuth access token. The token is read from whichever store
- * Claude CLI uses — `~/.claude/.credentials.json` on Linux/Windows,
- * macOS Keychain on Mac — via the credentials abstraction module. The
- * response contains *their own* subscription utilization, so nothing
- * leaves the machine that wasn't already tied to their account. The
- * token itself is never forwarded to the webview.
+ * Background: Anthropic restricts the subscription OAuth credential to
+ * the official Claude Code client. A tool calling the usage endpoint
+ * with that token (as earlier versions did) violates the Consumer Terms
+ * and risks the user's account. The compliant path is to let Claude
+ * Code — the authorized client — fetch the data and expose it through
+ * its statusline, which our tap caches locally. This module just reads
+ * that cache, so it's pure local IO in the same category as reading
+ * stats-cache.json or session transcripts.
  *
- * This is an opt-in fetch — triggered only when the user clicks
- * "Refresh" on the Quota card. No auto-polling, no background ping.
- * Keeps the extension's "100% local by default" promise intact while
- * providing the one piece of data users can't derive from local files
- * (quota utilization is server-computed, cross-platform).
- *
- * Based on [anthropics/claude-code#13585 community findings]:
- *   GET https://api.anthropic.com/api/oauth/usage
- *   Authorization: Bearer <accessToken>
- *   anthropic-beta: oauth-2025-04-20
- *
- * The `anthropic-beta` header is required; requests without it get a
- * 401 `authentication_error`. Field shape is community-documented and
- * stable across recent Claude releases.
+ * Freshness: the cache is only as current as Claude Code's last
+ * statusline render. While a session is active it updates every turn
+ * (effectively live); when idle it holds the last-seen values. Callers
+ * surface `capturedAt` so the UI can show "as of HH:MM" rather than
+ * implying a fresh server reading.
  */
-import * as https from "https";
-import { readCredentialsStatus } from "./credentials";
+import * as fs from "fs";
+import { STATUSLINE_CACHE_FILE } from "../../core/config";
+import { isStatuslineInstalled } from "./statuslineInstall";
+import type { RateWindow, StatuslineCache } from "./statuslineCore";
 
-const USAGE_HOST = "api.anthropic.com";
-const USAGE_PATH = "/api/oauth/usage";
-const BETA_HEADER = "oauth-2025-04-20";
-const NETWORK_TIMEOUT_MS = 10_000;
-
-/** A single quota window as displayed to the user. */
+/** One rate-limit window as the UI renders it. */
 export interface QuotaWindow {
   /** Percentage 0–100 of the window's cap consumed. */
   utilization: number;
@@ -40,282 +30,139 @@ export interface QuotaWindow {
   resetsAt: string;
 }
 
-/** Full quota snapshot returned to the webview. */
+/** Rolling rate-limit snapshot. Either window is null when Claude omitted it. */
 export interface QuotaData {
-  /** Rolling 5-hour window — the rate-limit that bites first. */
-  fiveHour: QuotaWindow;
+  /** Rolling 5-hour window — the limit that bites first. */
+  fiveHour: QuotaWindow | null;
   /** Rolling 7-day window — the weekly overall cap. */
-  sevenDay: QuotaWindow;
-  /** Per-model 7-day windows. Null fields from the API are omitted. */
-  sevenDaySonnet: QuotaWindow | null;
-  sevenDayOpus: QuotaWindow | null;
-  /** Pay-as-you-go overflow. Only present when the user has it enabled. */
-  extraUsage: {
-    enabled: boolean;
-    monthlyLimit: number | null;
-    usedCredits: number | null;
-    utilization: number | null;
-    currency: string | null;
-  } | null;
-  /** ISO timestamp for when we fetched this data (local). */
+  sevenDay: QuotaWindow | null;
+  /** ISO time Claude Code last rendered the statusline (cache write). */
+  capturedAt: string;
+  /** ISO time we read the cache (local). */
   fetchedAt: string;
 }
 
-/** Error shape surfaced to the webview so the UI can render a helpful message. */
+/** Current-session live metrics from the same cache. */
+export interface LiveSession {
+  /** Active model display name, or "" when unknown. */
+  model: string;
+  /** Context-window usage percentage 0–100, or null. */
+  contextUsedPercent: number | null;
+  /** Context-window size in tokens, or null. */
+  contextSize: number | null;
+  /** Current-session cost in USD, or null. */
+  sessionCostUsd: number | null;
+  /** Lines added this session, or null. */
+  linesAdded: number | null;
+  /** Lines removed this session, or null. */
+  linesRemoved: number | null;
+  /** Claude Code version string, or "". */
+  version: string;
+  /** ISO time Claude Code last rendered the statusline. */
+  capturedAt: string;
+}
+
+/** Combined payload — quota + live session, both from one cache read. */
+export interface QuotaSuccess {
+  quota: QuotaData;
+  live: LiveSession;
+}
+
+/**
+ * Error categories map to distinct UI states:
+ *   - not-installed → show the "Enable live quota" install CTA
+ *   - no-data       → installed, but no usable cache yet. Missing, empty,
+ *                     and corrupt all resolve the same way: run a Claude
+ *                     session (the tap rewrites the cache), then refresh.
+ */
 export interface QuotaError {
-  /** Machine-friendly category — lets the UI pick an icon + action. */
-  kind: "no-credentials" | "unauthorized" | "network" | "parse" | "unknown";
-  /** Short human sentence. Safe to render verbatim. */
+  kind: "not-installed" | "no-data";
   message: string;
 }
 
-export type QuotaResult = { ok: true; data: QuotaData } | { ok: false; error: QuotaError };
+export type QuotaResult =
+  | { ok: true; data: QuotaSuccess }
+  | { ok: false; error: QuotaError };
 
-/**
- * Pull the OAuth access token from whichever store Claude CLI uses.
- * Returns "missing" (not an error) when no source yields a usable
- * blob — that's the legitimate "user hasn't logged in" state, and
- * callers should surface it with an install-Claude prompt, not an
- * error toast.
- *
- * Credentials are rewritten whenever Claude CLI rotates tokens or
- * the Claude Manager profile switcher swaps accounts. A read landing
- * mid-write returns null from the credentials module (either the file
- * was truncated or the Keychain item was being replaced). We retry
- * after a short delay (see `readAccessToken`). Without the retry, the
- * quota card falsely reported "No Claude Code credentials" whenever
- * the user clicked Refresh in the same second as a background token
- * refresh.
- */
-function readTokenOnce(): { state: "ok" | "missing" | "transient"; token: string | null } {
-  const status = readCredentialsStatus();
-  if (status.state === "ok") {
-    const token = status.live.blob.claudeAiOauth?.accessToken;
-    if (typeof token === "string" && token.length > 0) {
-      return { state: "ok", token };
-    }
-    return { state: "missing", token: null };
+/** Read + parse the tap's cache file. Null when absent or malformed. */
+export function readStatuslineCache(): StatuslineCache | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(STATUSLINE_CACHE_FILE, "utf-8");
+  } catch {
+    return null;
   }
-  return { state: status.state, token: null };
-}
-
-/**
- * Three-stage read with exponential backoff. 80ms → 250ms → 600ms
- * covers the typical disk-flush window for a CLI token refresh
- * (<100ms on SSD, occasionally spiky on Windows FS filters or slow
- * antivirus scans). If every attempt observes a transient state, we
- * return `{ kind: "transient" }` so callers can surface a distinct
- * "try again in a moment" error instead of the misleading
- * "no credentials" message.
- */
-async function readAccessToken(): Promise<
-  | { kind: "ok"; token: string }
-  | { kind: "missing" }
-  | { kind: "transient" }
-> {
-  const delays = [80, 250, 600];
-  let sawTransient = false;
-  for (let attempt = 0; attempt <= delays.length; attempt++) {
-    const r = readTokenOnce();
-    if (r.state === "ok" && r.token) return { kind: "ok", token: r.token };
-    if (r.state === "missing") return { kind: "missing" };
-    sawTransient = true;
-    if (attempt < delays.length) {
-      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
-    }
+  try {
+    const parsed = JSON.parse(raw) as StatuslineCache;
+    return typeof parsed === "object" && parsed !== null ? parsed : null;
+  } catch {
+    return null;
   }
-  return sawTransient ? { kind: "transient" } : { kind: "missing" };
 }
 
-/**
- * Shape of the OAuth /usage response. Fields null out when a
- * subscription doesn't have that window (e.g. the Pro tier has no
- * per-model 7-day breakdown).
- */
-interface OAuthUsageResponse {
-  five_hour?: { utilization?: number; resets_at?: string | null } | null;
-  seven_day?: { utilization?: number; resets_at?: string | null } | null;
-  seven_day_sonnet?: { utilization?: number; resets_at?: string | null } | null;
-  seven_day_opus?: { utilization?: number; resets_at?: string | null } | null;
-  extra_usage?: {
-    is_enabled?: boolean;
-    monthly_limit?: number | null;
-    used_credits?: number | null;
-    utilization?: number | null;
-    currency?: string | null;
-  } | null;
-}
-
-/**
- * Normalise a raw `{utilization, resets_at}` OAuth block into the UI
- * shape. Safe to call on `null` or partially-populated objects — that
- * path returns null so the caller can omit the row entirely instead of
- * rendering a bogus "0%" entry.
- */
-function normaliseWindow(
-  raw: { utilization?: number; resets_at?: string | null } | null | undefined,
-): QuotaWindow | null {
-  if (!raw) return null;
-  const util = typeof raw.utilization === "number" ? raw.utilization : null;
-  if (util === null) return null;
+/** Convert epoch-seconds reset to ISO; resets_at of 0/unknown → "". */
+function toWindow(w: RateWindow | null): QuotaWindow | null {
+  if (!w) return null;
   return {
-    utilization: util,
-    resetsAt: typeof raw.resets_at === "string" ? raw.resets_at : "",
+    utilization: w.usedPercent,
+    resetsAt: w.resetsAt > 0 ? new Date(w.resetsAt * 1000).toISOString() : "",
   };
 }
 
+/** Safe ISO from an epoch-ms value; "" when not a finite timestamp. */
+function isoFromMs(ms: number): string {
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : "";
+}
+
 /**
- * Fetch the current quota snapshot from the OAuth endpoint.
- *
- * Returns a tagged result rather than throwing so the message handler
- * can forward a typed error to the webview without a try/catch layer
- * in between. Each error kind maps to a distinct UI state:
- *   - no-credentials → "Log in to Claude Code first"
- *   - unauthorized   → "Your token expired. Run `claude` once to refresh."
- *   - network        → "Couldn't reach api.anthropic.com — check connectivity."
- *   - parse          → "Unexpected response; if this keeps happening, report it."
- *   - unknown        → generic fallback with the raw message.
+ * Read the latest quota + live-session snapshot from the local cache.
+ * Distinguishes "tap not installed" from "installed but no render yet"
+ * so the webview can show the right call-to-action. Named `readQuota`
+ * (not "fetch") because it performs no network request.
  */
-export async function fetchQuota(): Promise<QuotaResult> {
-  const read = await readAccessToken();
-  return new Promise((resolve) => {
-    if (read.kind === "missing") {
-      resolve({
-        ok: false,
-        error: {
-          kind: "no-credentials",
-          message:
-            "No Claude Code credentials found. Run `claude` once to log in, then try again.",
-        },
-      });
-      return;
-    }
-    if (read.kind === "transient") {
-      // Credentials file was mid-rewrite across every retry window —
-      // usually means Claude CLI or our own profile switcher is
-      // actively rotating tokens. Tell the user to try again in a
-      // moment rather than falsely reporting "no credentials".
-      resolve({
-        ok: false,
-        error: {
-          kind: "network",
-          message:
-            "Credentials file is being updated (token rotation or account switch in progress). Try Refresh again in a moment.",
-        },
-      });
-      return;
-    }
-    const token = read.token;
+export function readQuota(): QuotaResult {
+  const cache = readStatuslineCache();
+  if (!cache) {
+    return isStatuslineInstalled()
+      ? {
+          ok: false,
+          error: {
+            kind: "no-data",
+            message:
+              "No data yet. Open a Claude Code session once — the statusline fills this in — then Refresh.",
+          },
+        }
+      : {
+          ok: false,
+          error: {
+            kind: "not-installed",
+            message: "Enable live quota to read it from Claude Code locally.",
+          },
+        };
+  }
 
-    const req = https.request(
-      {
-        host: USAGE_HOST,
-        path: USAGE_PATH,
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "anthropic-beta": BETA_HEADER,
-          Accept: "application/json",
-          "User-Agent": "claude-manager (vscode extension)",
-        },
-        timeout: NETWORK_TIMEOUT_MS,
+  const captured = isoFromMs(cache.capturedAt);
+  const fetchedAt = new Date().toISOString();
+
+  return {
+    ok: true,
+    data: {
+      quota: {
+        fiveHour: toWindow(cache.rateLimits.fiveHour),
+        sevenDay: toWindow(cache.rateLimits.sevenDay),
+        capturedAt: captured,
+        fetchedAt,
       },
-      (res) => {
-        let body = "";
-        res.setEncoding("utf-8");
-        res.on("data", (chunk: string) => {
-          body += chunk;
-        });
-        res.on("end", () => {
-          if (res.statusCode === 401) {
-            resolve({
-              ok: false,
-              error: {
-                kind: "unauthorized",
-                message:
-                  "Your Claude Code token is no longer valid. Run `claude` once to refresh it.",
-              },
-            });
-            return;
-          }
-          if (!res.statusCode || res.statusCode >= 400) {
-            resolve({
-              ok: false,
-              error: {
-                kind: "network",
-                message: `Quota endpoint returned HTTP ${res.statusCode ?? "??"}.`,
-              },
-            });
-            return;
-          }
-          let parsed: OAuthUsageResponse;
-          try {
-            parsed = JSON.parse(body) as OAuthUsageResponse;
-          } catch {
-            resolve({
-              ok: false,
-              error: {
-                kind: "parse",
-                message:
-                  "Quota response wasn't valid JSON. The API format may have changed.",
-              },
-            });
-            return;
-          }
-
-          const fiveHour = normaliseWindow(parsed.five_hour);
-          const sevenDay = normaliseWindow(parsed.seven_day);
-          if (!fiveHour || !sevenDay) {
-            resolve({
-              ok: false,
-              error: {
-                kind: "parse",
-                message:
-                  "Quota response was missing the expected five-hour / seven-day fields.",
-              },
-            });
-            return;
-          }
-
-          const eu = parsed.extra_usage;
-          const extraUsage: QuotaData["extraUsage"] = eu
-            ? {
-                enabled: Boolean(eu.is_enabled),
-                monthlyLimit: typeof eu.monthly_limit === "number" ? eu.monthly_limit : null,
-                usedCredits: typeof eu.used_credits === "number" ? eu.used_credits : null,
-                utilization: typeof eu.utilization === "number" ? eu.utilization : null,
-                currency: typeof eu.currency === "string" ? eu.currency : null,
-              }
-            : null;
-
-          resolve({
-            ok: true,
-            data: {
-              fiveHour,
-              sevenDay,
-              sevenDaySonnet: normaliseWindow(parsed.seven_day_sonnet),
-              sevenDayOpus: normaliseWindow(parsed.seven_day_opus),
-              extraUsage,
-              fetchedAt: new Date().toISOString(),
-            },
-          });
-        });
+      live: {
+        model: cache.model?.displayName ?? "",
+        contextUsedPercent: cache.context?.usedPercent ?? null,
+        contextSize: cache.context?.size ?? null,
+        sessionCostUsd: cache.cost?.totalUsd ?? null,
+        linesAdded: cache.cost?.linesAdded ?? null,
+        linesRemoved: cache.cost?.linesRemoved ?? null,
+        version: cache.version,
+        capturedAt: captured,
       },
-    );
-
-    req.on("timeout", () => {
-      req.destroy(new Error("request-timeout"));
-    });
-    req.on("error", (err) => {
-      const message = err instanceof Error ? err.message : String(err);
-      resolve({
-        ok: false,
-        error: {
-          kind: "network",
-          message: `Couldn't reach api.anthropic.com (${message}).`,
-        },
-      });
-    });
-    req.end();
-  });
+    },
+  };
 }

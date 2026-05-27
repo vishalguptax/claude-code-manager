@@ -23,6 +23,8 @@ export interface AccountApi {
   promptAddPermission(scope: PermissionScope, list: "allow" | "deny"): void;
   restoreClaudeConfig(): void;
   fetchQuota(): void;
+  installStatusline(): void;
+  uninstallStatusline(): void;
   promptSaveProfile(): void;
   openAccountSwitcher(): void;
 }
@@ -50,6 +52,8 @@ export function useAccountApi(): AccountApi {
       send({ type: "promptAddPermission", scope, list }),
     restoreClaudeConfig: () => send({ type: "restoreClaudeConfig" }),
     fetchQuota: () => send({ type: "fetchQuota" }),
+    installStatusline: () => send({ type: "installStatusline" }),
+    uninstallStatusline: () => send({ type: "uninstallStatusline" }),
     promptSaveProfile: () => send({ type: "promptSaveProfile" }),
     openAccountSwitcher: () => send({ type: "openAccountSwitcher" }),
   };

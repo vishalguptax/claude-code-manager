@@ -2,15 +2,9 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { QuotaData } from "../../../quota";
+import type { QuotaSuccess } from "../../../quota";
 import type { AccountApi } from "../../api";
-import {
-  _resetAccountState,
-  quotaOptIn,
-  setQuotaError,
-  setQuotaLoading,
-  setQuotaSuccess,
-} from "../../model";
+import { _resetAccountState, setQuotaError, setQuotaLoading, setQuotaSuccess } from "../../model";
 import { QuotaView } from "./QuotaView";
 
 function stubApi(): AccountApi {
@@ -27,74 +21,75 @@ function stubApi(): AccountApi {
     promptAddPermission: vi.fn(),
     restoreClaudeConfig: vi.fn(),
     fetchQuota: vi.fn(),
+    installStatusline: vi.fn(),
+    uninstallStatusline: vi.fn(),
     promptSaveProfile: vi.fn(),
     openAccountSwitcher: vi.fn(),
   };
 }
 
-const QUOTA: QuotaData = {
-  fiveHour: { utilization: 42, resetsAt: "" },
-  sevenDay: { utilization: 75, resetsAt: "" },
-  sevenDayOpus: { utilization: 88, resetsAt: "" },
-  sevenDaySonnet: null,
-  extraUsage: {
-    enabled: true,
-    monthlyLimit: 5000,
-    usedCredits: 1250,
-    utilization: 25,
-    currency: "USD",
+const SUCCESS: QuotaSuccess = {
+  quota: {
+    fiveHour: { utilization: 42, resetsAt: "" },
+    sevenDay: { utilization: 75, resetsAt: "" },
+    capturedAt: new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
   },
-  fetchedAt: new Date().toISOString(),
+  live: {
+    model: "Opus 4.6",
+    contextUsedPercent: 3,
+    contextSize: 1_000_000,
+    sessionCostUsd: 0.97,
+    linesAdded: 1,
+    linesRemoved: 2,
+    version: "2.1.86",
+    capturedAt: new Date().toISOString(),
+  },
 };
 
 describe("QuotaView", () => {
   beforeEach(() => _resetAccountState());
 
-  it("idle state shows the opt-in CTA and fetches on click", () => {
+  it("not-installed state shows the enable CTA and installs on click", () => {
+    setQuotaError({ kind: "not-installed", message: "enable it" });
     const api = stubApi();
     render(h(QuotaView, { api }));
-    const cta = screen.getByText(/Check quota/);
-    fireEvent.click(cta);
-    expect(api.fetchQuota).toHaveBeenCalled();
-    expect(quotaOptIn.value).toBe(true);
+    fireEvent.click(screen.getByText(/Enable live quota/));
+    expect(api.installStatusline).toHaveBeenCalled();
   });
 
   it("loading state shows the spinner label", () => {
     setQuotaLoading();
     render(h(QuotaView, { api: stubApi() }));
-    expect(screen.getByText(/Checking your quota/)).toBeTruthy();
+    expect(screen.getByText(/Reading quota/)).toBeTruthy();
   });
 
-  it("success state renders one bar per window plus extra usage", () => {
-    setQuotaSuccess(QUOTA);
+  it("success state renders only the 5h and 7d bars", () => {
+    setQuotaSuccess(SUCCESS);
     render(h(QuotaView, { api: stubApi() }));
     expect(screen.getByText("5-hour window")).toBeTruthy();
     expect(screen.getByText("7-day window")).toBeTruthy();
-    expect(screen.getByText("7-day Opus")).toBeTruthy();
+    expect(screen.queryByText("7-day Opus")).toBeNull();
     expect(screen.queryByText("7-day Sonnet")).toBeNull();
-    expect(screen.getByText(/Extra usage/)).toBeTruthy();
-    // progressbars: 5h, 7d, opus, extra = 4
-    expect(screen.getAllByRole("progressbar").length).toBe(4);
+    expect(screen.getAllByRole("progressbar").length).toBe(2);
   });
 
-  it("error state renders the message and retries", () => {
-    setQuotaError({ kind: "network", message: "you are offline" });
+  it("no-data state shows the hint and refreshes on click", () => {
+    setQuotaError({ kind: "no-data", message: "open a session first" });
     const api = stubApi();
     render(h(QuotaView, { api }));
-    expect(screen.getByText("you are offline")).toBeTruthy();
-    fireEvent.click(screen.getByText(/Try again/));
+    expect(screen.getByText("open a session first")).toBeTruthy();
+    fireEvent.click(screen.getByText(/Refresh/));
     expect(api.fetchQuota).toHaveBeenCalled();
   });
 
-  it("the header refresh button fetches without collapsing the section", () => {
-    setQuotaSuccess(QUOTA);
+  it("the header refresh button re-reads without collapsing the section", () => {
+    setQuotaSuccess(SUCCESS);
     const api = stubApi();
     render(h(QuotaView, { api }));
-    // Clicking Refresh fetches and flips to loading (it does NOT bubble
-    // to the header, which would collapse the section and hide the
-    // body entirely). The loading body proves the section stayed open.
-    fireEvent.click(screen.getByLabelText("Refresh quota"));
+    fireEvent.click(screen.getByLabelText("Re-read latest quota"));
     expect(api.fetchQuota).toHaveBeenCalled();
-    expect(screen.getByText(/Checking your quota/)).toBeTruthy();
+    // Flipped to loading in-place — the body stayed mounted (section open).
+    expect(screen.getByText(/Reading quota/)).toBeTruthy();
   });
 });

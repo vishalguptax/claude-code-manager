@@ -21,6 +21,8 @@ function stubApi(): AccountApi {
     promptAddPermission: vi.fn(),
     restoreClaudeConfig: vi.fn(),
     fetchQuota: vi.fn(),
+    installStatusline: vi.fn(),
+    uninstallStatusline: vi.fn(),
     promptSaveProfile: vi.fn(),
     openAccountSwitcher: vi.fn(),
   };

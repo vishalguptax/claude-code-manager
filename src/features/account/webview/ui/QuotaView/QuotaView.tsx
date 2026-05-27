@@ -1,27 +1,25 @@
 /**
- * Quota section — live subscription utilization. The ONLY network call
- * the extension makes, so it's explicitly opt-in: the idle state shows
- * a "Check quota" CTA rather than auto-loading. Once the user opts in,
- * subsequent tab opens auto-refresh up to the cache TTL (handled in
- * index.tsx).
+ * Quota section — rolling 5-hour / 7-day subscription utilization, read
+ * from the local statusline cache (NO network call, NO OAuth token; see
+ * ../../../quota). The data originates from Claude Code itself, the
+ * authorized client, so this stays inside Anthropic's terms.
  *
- * Four states drive the body: idle / loading / success / error. The
- * header carries a freshness stamp + refresh button once data exists.
+ * States: loading / success / error. The errors are call-to-action
+ * states, not failures:
+ *   - not-installed → "Enable live quota" wires the statusline tap
+ *   - no-data       → installed, but Claude hasn't rendered yet
+ *   - parse         → cache unreadable
+ *
+ * "Refresh" re-reads the cache; it never forces a server fetch, so it's
+ * only as current as Claude Code's last statusline render. The header
+ * shows that capture time so the freshness is never misrepresented.
  */
 
-import { cx } from "../../../../../webview/shared/lib";
 import { Button, Icon } from "../../../../../webview/shared/ui";
-import type { QuotaData, QuotaError } from "../../../quota";
+import type { QuotaError, QuotaSuccess } from "../../../quota";
 import type { AccountApi } from "../../api";
-import { formatFetchedRelative, formatMoney, quotaTone } from "../../lib";
-import {
-  isSectionCollapsed,
-  quotaFetchedAtMs,
-  quotaStatus,
-  setQuotaLoading,
-  setQuotaOptIn,
-  toggleSection,
-} from "../../model";
+import { formatFetchedRelative } from "../../lib";
+import { isSectionCollapsed, quotaStatus, setQuotaLoading, toggleSection } from "../../model";
 import { QuotaBar } from "../QuotaBar";
 import { SectionHeader } from "../SectionHeader";
 
@@ -33,33 +31,37 @@ export function QuotaView({ api }: QuotaViewProps) {
   const collapsed = isSectionCollapsed("quota");
   const status = quotaStatus.value;
 
-  const fetch = (e: Event): void => {
-    // The refresh button lives inside the header for layout; stop the
-    // click bubbling so it doesn't toggle the section collapse.
+  // Re-read the cache. Stop propagation so the header button doesn't
+  // also toggle the section collapse.
+  const refresh = (e: Event): void => {
     e.stopPropagation();
-    // Remember the opt-in across reloads so future Account opens auto-refresh.
-    setQuotaOptIn(true);
     setQuotaLoading();
     api.fetchQuota();
   };
 
-  const fetchedAt = quotaFetchedAtMs.value;
-  const stamp =
-    status.kind === "success" && fetchedAt !== null ? (
-      <span class="acct-quota-timestamp" title={status.data.fetchedAt}>
-        {formatFetchedRelative(status.data.fetchedAt)}
-      </span>
-    ) : null;
+  const install = (e: Event): void => {
+    e.stopPropagation();
+    setQuotaLoading();
+    api.installStatusline();
+  };
+
+  // Header freshness reflects when Claude Code last rendered (captured),
+  // not when we read the file — that's the figure users care about.
+  const captured = status.kind === "success" ? status.data.quota.capturedAt : "";
+  const stamp = captured ? (
+    <span class="acct-quota-timestamp" title={captured}>
+      {formatFetchedRelative(captured)}
+    </span>
+  ) : null;
 
   const refreshBtn =
-    status.kind === "idle" ? null : (
+    status.kind === "idle" || status.kind === "loading" ? null : (
       <Button
         variant="icon"
         iconName="refresh-cw"
-        loading={status.kind === "loading"}
-        title="Refresh quota"
-        ariaLabel="Refresh quota"
-        onClick={fetch}
+        title="Re-read latest"
+        ariaLabel="Re-read latest quota"
+        onClick={refresh}
       />
     );
 
@@ -71,111 +73,92 @@ export function QuotaView({ api }: QuotaViewProps) {
       </SectionHeader>
       {collapsed ? null : (
         <div class="acct-section-body">
-          <QuotaBody onFetch={fetch} />
+          <QuotaBody onInstall={install} onRefresh={refresh} />
         </div>
       )}
     </section>
   );
 }
 
-function QuotaBody({ onFetch }: { onFetch: (e: Event) => void }) {
+function QuotaBody({
+  onInstall,
+  onRefresh,
+}: {
+  onInstall: (e: Event) => void;
+  onRefresh: (e: Event) => void;
+}) {
   const status = quotaStatus.value;
 
-  if (status.kind === "idle") {
-    return (
-      <div class="acct-quota-intro">
-        <p class="acct-quota-intro-text">
-          See how much of your Claude subscription you've used in the last five hours and the last
-          seven days. Uses your own OAuth token — the request goes to <code>api.anthropic.com</code>{" "}
-          and nothing else leaves your machine.
-        </p>
-        <Button variant="primary" iconName="refresh-cw" onClick={onFetch}>
-          Check quota
-        </Button>
-      </div>
-    );
-  }
-
-  if (status.kind === "loading") {
+  if (status.kind === "idle" || status.kind === "loading") {
     return (
       <div class="acct-quota-loading" aria-live="polite">
         <span class="acct-quota-spinner" aria-hidden="true" />
-        <span>Checking your quota…</span>
+        <span>Reading quota…</span>
       </div>
     );
   }
 
   if (status.kind === "error") {
-    return <QuotaErrorBody error={status.error} onRetry={onFetch} />;
+    return status.error.kind === "not-installed" ? (
+      <NotInstalled onInstall={onInstall} message={status.error.message} />
+    ) : (
+      <QuotaNotice error={status.error} onRetry={onRefresh} />
+    );
   }
 
   return <QuotaSuccessBody data={status.data} />;
 }
 
-function QuotaSuccessBody({ data }: { data: QuotaData }) {
+function NotInstalled({
+  onInstall,
+  message,
+}: {
+  onInstall: (e: Event) => void;
+  message: string;
+}) {
+  return (
+    <div class="acct-quota-intro">
+      <p class="acct-quota-intro-text">
+        Show how much of your 5-hour and 7-day limits you've used — read locally from Claude Code,
+        with no network call. Enabling wires Claude Code's statusline to a small tap that caches the
+        figures; your existing statusline is preserved, and you can disable it anytime.
+      </p>
+      <Button variant="primary" iconName="terminal-square" onClick={onInstall}>
+        Enable live quota
+      </Button>
+    </div>
+  );
+}
+
+function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
+  const { fiveHour, sevenDay } = data.quota;
+  if (!fiveHour && !sevenDay) {
+    return (
+      <p class="acct-quota-intro-text">
+        No rate-limit data in the last statusline render. Open a Claude Code session, then refresh.
+      </p>
+    );
+  }
   return (
     <div class="acct-quota-bars">
-      <QuotaBar label="5-hour window" window={data.fiveHour} />
-      <QuotaBar label="7-day window" window={data.sevenDay} />
-      {data.sevenDayOpus ? <QuotaBar label="7-day Opus" window={data.sevenDayOpus} /> : null}
-      {data.sevenDaySonnet ? (
-        <QuotaBar label="7-day Sonnet" window={data.sevenDaySonnet} />
-      ) : null}
-      {data.extraUsage?.enabled ? <ExtraUsage extra={data.extraUsage} /> : null}
+      {fiveHour ? <QuotaBar label="5-hour window" window={fiveHour} /> : null}
+      {sevenDay ? <QuotaBar label="7-day window" window={sevenDay} /> : null}
     </div>
   );
 }
 
-function ExtraUsage({ extra }: { extra: NonNullable<QuotaData["extraUsage"]> }) {
-  const used = extra.usedCredits ?? 0;
-  const limit = extra.monthlyLimit ?? 0;
-  const currency = extra.currency ?? "USD";
-  const pct = typeof extra.utilization === "number" ? Math.round(extra.utilization) : null;
+function QuotaNotice({ error, onRetry }: { error: QuotaError; onRetry: (e: Event) => void }) {
   return (
-    <div class="acct-quota-row acct-quota-extra">
-      <div class="acct-quota-row-head">
-        <span class="acct-quota-label">Extra usage (monthly)</span>
-        <span class="acct-quota-pct">
-          {formatMoney(used, currency)} / {formatMoney(limit, currency)}
-        </span>
-      </div>
-      {pct !== null ? (
-        <div
-          class="acct-quota-bar"
-          role="progressbar"
-          aria-label="Extra usage utilization"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={pct}
-        >
-          <div
-            class={cx("acct-quota-bar-fill", `tone-${quotaTone(pct)}`)}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function QuotaErrorBody({ error, onRetry }: { error: QuotaError; onRetry: (e: Event) => void }) {
-  const iconName =
-    error.kind === "no-credentials" || error.kind === "unauthorized"
-      ? "log-in"
-      : error.kind === "network"
-        ? "wifi-off"
-        : "circle-alert";
-  return (
-    <div class="acct-quota-error" role="alert">
+    <div class="acct-quota-error" role="status">
       <span class="acct-quota-error-icon">
-        <Icon name={iconName} size={16} />
+        <Icon name="refresh-cw" size={16} />
       </span>
       <div class="acct-quota-error-body">
-        <div class="acct-quota-error-title">Couldn't fetch quota</div>
+        <div class="acct-quota-error-title">Waiting for Claude Code</div>
         <div class="acct-quota-error-msg">{error.message}</div>
       </div>
       <Button iconName="refresh-cw" onClick={onRetry}>
-        Try again
+        Refresh
       </Button>
     </div>
   );

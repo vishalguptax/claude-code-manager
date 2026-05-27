@@ -7,12 +7,14 @@
  *     via the shared message bus. Inbound messages are already validated
  *     against the shared valibot schema in `initMessageBus` before they
  *     reach this handler, so we can trust the shapes here.
- *   - Drive the quota auto-fetch policy (opt-in + cache TTL).
- *   - Render Profile / Quota / Usage sections, or loading / error /
- *     empty states.
+ *   - Read quota from the local statusline cache on mount and on account
+ *     switch. Reading is free (no network), so there is no opt-in gate;
+ *     the one explicit action is installing the tap, driven from QuotaView.
+ *   - Render Profile / Quota / Session / Usage sections, or loading /
+ *     error / empty states.
  *
- * The Account tab is identity-only — Profile, Quota, Usage. Settings +
- * Permissions live in the separate Config tab.
+ * The Account tab is identity-only — Profile, Quota, Session, Usage.
+ * Settings + Permissions live in the separate Config tab.
  */
 
 import { useEffect } from "preact/hooks";
@@ -28,16 +30,11 @@ import {
   accountError,
   clearQuota,
   loading,
-  loadPersistedQuotaOptIn,
-  QUOTA_CACHE_TTL_MS,
-  quotaCacheAgeMs,
-  quotaOptIn,
-  quotaStatus,
   setQuotaError,
   setQuotaLoading,
   setQuotaSuccess,
 } from "./model";
-import { AccountSkeleton, ProfileView, QuotaView, UsageView } from "./ui";
+import { AccountSkeleton, LiveView, ProfileView, QuotaView, UsageView } from "./ui";
 
 /** Identity of the account at the last render, for switch detection. */
 let lastAccountKey: string | null = null;
@@ -53,15 +50,18 @@ export function handleAccountMessage(msg: Message, send: { fetchQuota: () => voi
     const freshKey = accountKey(fresh);
     // Account switch: identity changed since last render. Drop the
     // stale quota cache so we never show the previous user's numbers.
-    if (lastAccountKey !== null && lastAccountKey !== freshKey) {
+    const switched = lastAccountKey !== null && lastAccountKey !== freshKey;
+    if (switched) {
       clearQuota();
     }
     lastAccountKey = freshKey;
     accountData.value = fresh;
     accountError.value = "";
     loading.value = false;
-    // Still opted in → refresh for the new account right away.
-    if (quotaOptIn.value && quotaStatus.value.kind !== "loading" && quotaCacheAgeMs() === null) {
+    // On a detected switch, re-read so we never show the previous
+    // account's numbers. The first load is handled by the mount effect,
+    // so only act when the identity actually changed.
+    if (switched) {
       setQuotaLoading();
       send.fetchQuota();
     }
@@ -72,29 +72,6 @@ export function handleAccountMessage(msg: Message, send: { fetchQuota: () => voi
   } else if (msg.type === "error") {
     loading.value = false;
     accountError.value = msg.message;
-  }
-}
-
-/**
- * Quota auto-fetch policy, run once on mount. The opt-in is loaded from
- * persisted state first (a previous session's "Check quota" click), so the
- * 100%-local default only blocks the very first time:
- *   1. Not opted in        → idle; user clicks the CTA.
- *   2. Opted in + no cache  → fetch now (a fresh reload has no cached numbers,
- *                             so a persisted opt-in auto-fetches here).
- *   3. Opted in + stale     → keep painted value, refetch silently.
- *   4. Opted in + fresh     → no-op.
- */
-function applyQuotaPolicy(send: { fetchQuota: () => void }): void {
-  // Honor a remembered opt-in from a prior session before deciding.
-  loadPersistedQuotaOptIn();
-  if (!quotaOptIn.value) return;
-  const age = quotaCacheAgeMs();
-  if (age === null) {
-    setQuotaLoading();
-    send.fetchQuota();
-  } else if (age > QUOTA_CACHE_TTL_MS) {
-    send.fetchQuota();
   }
 }
 
@@ -109,7 +86,11 @@ export default function AccountTab() {
 
     loading.value = true;
     api.getAccountData();
-    applyQuotaPolicy(api);
+    // Quota comes from the local statusline cache — a free read, so we
+    // always pull it on mount (no opt-in). The host replies with the
+    // not-installed state when the tap isn't wired yet.
+    setQuotaLoading();
+    api.fetchQuota();
 
     return () => {
       unsubscribe();
@@ -140,6 +121,7 @@ export default function AccountTab() {
     <div class="panel">
       <ProfileView data={data} api={api} />
       <QuotaView api={api} />
+      <LiveView />
       <UsageView data={data} />
     </div>
   );

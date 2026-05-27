@@ -63,8 +63,8 @@ function SignedOut({ data, api }: ProfileViewProps) {
           </Button>
         ) : null}
         {/* Secondary, not primary: the Account surface keeps a single primary —
-            the Quota section's "Check quota" CTA — so the hierarchy stays clear
-            (one solid-blue button per visible surface). */}
+            the Quota section's "Enable live quota" CTA — so the hierarchy stays
+            clear (one solid-blue button per visible surface). */}
         <Button variant="secondary" iconName="play" onClick={() => api.launchSlash("/login")}>
           Log in
         </Button>

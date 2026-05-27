@@ -59,6 +59,8 @@ export type Message =
   | { type: "promptCustomModel" }
   | { type: "restoreClaudeConfig" }
   | { type: "fetchQuota" }
+  | { type: "installStatusline" }
+  | { type: "uninstallStatusline" }
   | { type: "promptSaveProfile" }
   | { type: "openAccountSwitcher" }
   | { type: "setSetting"; key: string; value: unknown; scope?: SettingsScope }
@@ -173,6 +175,8 @@ type WebviewMessageType =
   | "promptCustomModel"
   | "restoreClaudeConfig"
   | "fetchQuota"
+  | "installStatusline"
+  | "uninstallStatusline"
   | "promptSaveProfile"
   | "openAccountSwitcher"
   | "setSetting"

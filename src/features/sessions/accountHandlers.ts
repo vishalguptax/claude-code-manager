@@ -7,11 +7,14 @@
  * the next handler.
  */
 import * as vscode from "vscode";
+import * as path from "path";
 import {
   parseAccountData,
   restoreSettingsSnapshot as restoreSettingsSnapshotFile,
   deleteSettingsSnapshot as deleteSettingsSnapshotFile,
 } from "../account/parser";
+import { readQuota } from "../account/quota";
+import { installStatusline, uninstallStatusline } from "../account/statuslineInstall";
 import {
   saveProfile as saveProfileSnapshot,
   updateProfile as updateProfileSnapshot,
@@ -37,14 +40,48 @@ export async function handleAccountMessage(
     }
 
     case "fetchQuota": {
-      // The only network call in Claude Manager — opt-in, triggered
-      // only by the user clicking Refresh on the Quota card. The
-      // result carries either `data` or an `error` shape so the
-      // webview can render a precise UI state instead of a generic
-      // "something went wrong" message.
-      const { fetchQuota } = await import("../account/quota");
-      const result = await fetchQuota();
-      wv.postMessage({ type: "quotaData", result });
+      // No network call: re-read the local statusline cache the tap
+      // wrote. "Refresh" means "re-read the latest the authorized
+      // client (Claude Code) last reported", never a fresh server hit.
+      // The result carries either `data` or a typed `error` so the
+      // webview can render a precise state (not-installed / no-data).
+      wv.postMessage({ type: "quotaData", result: readQuota() });
+      break;
+    }
+
+    case "installStatusline": {
+      // Opt-in: wire Claude Code's statusLine.command to our tap so it
+      // caches the server-computed quota locally. The bundled script
+      // sits beside extension.js in dist/; __dirname resolves there.
+      const tapSource = path.join(__dirname, "statusline-tap.js");
+      const res = installStatusline(tapSource);
+      if (!res.ok) {
+        vscode.window.showErrorMessage(
+          `Couldn't enable live quota: ${res.error}.`,
+        );
+      }
+      // Re-read quota (now "no-data" until Claude renders) and refresh
+      // account data so the statusline setting reflects the change.
+      wv.postMessage({ type: "quotaData", result: readQuota() });
+      wv.postMessage({
+        type: "accountData",
+        data: parseAccountData(getWorkspace() || undefined),
+      });
+      break;
+    }
+
+    case "uninstallStatusline": {
+      const res = uninstallStatusline();
+      if (!res.ok) {
+        vscode.window.showErrorMessage(
+          `Couldn't disable live quota: ${res.error}.`,
+        );
+      }
+      wv.postMessage({ type: "quotaData", result: readQuota() });
+      wv.postMessage({
+        type: "accountData",
+        data: parseAccountData(getWorkspace() || undefined),
+      });
       break;
     }
 

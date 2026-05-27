@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "../../../shared/protocol/messages";
-import type { QuotaData } from "../quota";
+import type { QuotaSuccess } from "../quota";
 import type { AccountData } from "../types";
 import { handleAccountMessage } from "./index";
 import {
@@ -8,8 +8,6 @@ import {
   accountData,
   accountError,
   loading,
-  quotaFetchedAtMs,
-  quotaOptIn,
   quotaStatus,
   setQuotaSuccess,
 } from "./model";
@@ -82,13 +80,23 @@ function makeAccount(email: string, slug: string | null): AccountData {
   };
 }
 
-const QUOTA: QuotaData = {
-  fiveHour: { utilization: 5, resetsAt: "" },
-  sevenDay: { utilization: 6, resetsAt: "" },
-  sevenDaySonnet: null,
-  sevenDayOpus: null,
-  extraUsage: null,
-  fetchedAt: new Date().toISOString(),
+const SUCCESS: QuotaSuccess = {
+  quota: {
+    fiveHour: { utilization: 5, resetsAt: "" },
+    sevenDay: { utilization: 6, resetsAt: "" },
+    capturedAt: new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
+  },
+  live: {
+    model: "Opus 4.6",
+    contextUsedPercent: 3,
+    contextSize: 1_000_000,
+    sessionCostUsd: 0.5,
+    linesAdded: 1,
+    linesRemoved: 2,
+    version: "2.1.86",
+    capturedAt: new Date().toISOString(),
+  },
 };
 
 describe("handleAccountMessage", () => {
@@ -97,9 +105,8 @@ describe("handleAccountMessage", () => {
   beforeEach(() => {
     _resetAccountState();
     send = { fetchQuota: vi.fn<() => void>() };
-    // Each test starts with a clean account identity. Apply an initial
-    // payload so lastAccountKey is seeded and subsequent switches are
-    // detectable.
+    // Seed an initial account so lastAccountKey is set and later switches
+    // are detectable. The first payload is not a switch → no refetch.
     handleAccountMessage({ type: "accountData", data: makeAccount("first@x.com", "a") }, send);
   });
 
@@ -109,31 +116,31 @@ describe("handleAccountMessage", () => {
     expect(accountError.value).toBe("");
   });
 
-  it("ignores quota refresh when not opted in on an account switch", () => {
+  it("does not refetch when the same account is re-sent", () => {
     send.fetchQuota.mockClear();
-    handleAccountMessage({ type: "accountData", data: makeAccount("second@x.com", "b") }, send);
+    handleAccountMessage({ type: "accountData", data: makeAccount("first@x.com", "a") }, send);
     expect(send.fetchQuota).not.toHaveBeenCalled();
   });
 
-  it("clears stale quota and refetches on account switch when opted in", () => {
-    setQuotaSuccess(QUOTA);
-    quotaOptIn.value = true;
+  it("clears stale quota and refetches on an account switch", () => {
+    setQuotaSuccess(SUCCESS);
     send.fetchQuota.mockClear();
-    handleAccountMessage({ type: "accountData", data: makeAccount("switch@x.com", "c") }, send);
-    // clearQuota reset the cache → age null → policy refetches.
-    expect(quotaFetchedAtMs.value).toBeNull();
+    handleAccountMessage({ type: "accountData", data: makeAccount("second@x.com", "b") }, send);
     expect(send.fetchQuota).toHaveBeenCalledTimes(1);
     expect(quotaStatus.value.kind).toBe("loading");
   });
 
   it("applies a successful quotaData result", () => {
-    handleAccountMessage({ type: "quotaData", result: { ok: true, data: QUOTA } }, send);
-    expect(quotaStatus.value).toEqual({ kind: "success", data: QUOTA });
+    handleAccountMessage({ type: "quotaData", result: { ok: true, data: SUCCESS } }, send);
+    expect(quotaStatus.value).toEqual({ kind: "success", data: SUCCESS });
   });
 
   it("applies a failed quotaData result", () => {
     handleAccountMessage(
-      { type: "quotaData", result: { ok: false, error: { kind: "network", message: "down" } } },
+      {
+        type: "quotaData",
+        result: { ok: false, error: { kind: "not-installed", message: "enable" } },
+      },
       send,
     );
     expect(quotaStatus.value.kind).toBe("error");

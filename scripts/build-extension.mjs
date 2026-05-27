@@ -20,10 +20,30 @@ const opts = {
   logLevel: "info",
 };
 
+/**
+ * The statusline tap is a separate, self-contained Node script that
+ * Claude Code spawns once per statusline render. It runs outside the
+ * extension host, so it gets its own bundle (no `vscode`, no shared
+ * runtime). The installer copies dist/statusline-tap.js to a stable
+ * path under ~/.claude/ — see src/features/account/statuslineInstall.ts.
+ */
+const tapOpts = {
+  entryPoints: ["src/features/account/statuslineTap.ts"],
+  bundle: true,
+  platform: "node",
+  target: "node20",
+  format: "cjs",
+  outfile: "dist/statusline-tap.js",
+  minify: true,
+  sourcemap: false,
+  logLevel: "info",
+};
+
 if (watch) {
   const ctx = await context(opts);
-  await ctx.watch();
+  const tapCtx = await context(tapOpts);
+  await Promise.all([ctx.watch(), tapCtx.watch()]);
   console.log("build-extension: watching for changes…");
 } else {
-  await build(opts);
+  await Promise.all([build(opts), build(tapOpts)]);
 }
