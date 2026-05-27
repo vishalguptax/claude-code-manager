@@ -23,6 +23,13 @@
 .tab-reload-btn.btn-icon {
   flex: 0 0 auto;
   margin: 0 var(--space-sm);
+  /* Smaller than the full --h-control control box so the hover fill stays a
+     tidy square contained inside the tab strip rather than looking taller than
+     the tab cells beside it. */
+  width: 26px;
+  height: 26px;
+  min-width: 0;
+  min-height: 0;
   background: none;
   border-color: transparent;
 }
