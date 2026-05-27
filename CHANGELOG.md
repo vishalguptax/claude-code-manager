@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.11.0] - 2026-05-28
+
+Quota is now read entirely locally. Earlier versions sent your subscription OAuth token to `api.anthropic.com` from outside Claude Code — prohibited under Anthropic's 2026 terms and a risk to your account. An opt-in statusline tap lets Claude Code cache the 5h / 7d figures locally and the panel reads that file: no network call, no token. A new Current session card shows live model, context usage, and session cost from the same cache.
+
+See [docs/releases/v1.11.0.md](docs/releases/v1.11.0.md) for full details.
+
 ## [1.10.0] - 2026-05-19
 
 Installed Claude Code plugins now surface their skills, agents, slash commands, hooks, and MCP servers alongside their user-level counterparts, and sessions waiting on `AskUserQuestion` / `ExitPlanMode` get a distinct orange live indicator so idle "needs your input" sessions stop hiding behind the green dot.
