@@ -6,6 +6,7 @@ import {
   indexSession,
   pruneIndex,
   searchContent,
+  clearIndex,
 } from "../searchIndex";
 
 const TMP = path.join(os.tmpdir(), ".claude-test-searchindex");
@@ -241,6 +242,17 @@ describe("searchIndex", () => {
     // The oldest 500 (s0000..s0499) were evicted — no content remains.
     expect(searchContent("token-s0000")).toEqual([]);
     expect(searchContent("token-s0499")).toEqual([]);
+  });
+
+  it("clearIndex drops every entry so a stale id no longer matches", () => {
+    const file = writeJsonl("clr.jsonl", [
+      { message: { role: "user", content: "find me before the clear" } },
+    ]);
+    indexSession("clr1", file);
+    expect(searchContent("find me")).toEqual(["clr1"]);
+
+    clearIndex();
+    expect(searchContent("find me")).toEqual([]);
   });
 
   it("returns every matching id when multiple sessions match", () => {

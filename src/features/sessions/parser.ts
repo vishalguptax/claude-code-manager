@@ -20,12 +20,14 @@
 export {
   getSessionFile,
   invalidateSessionMetaCache,
+  clearMetaCaches,
 } from "./metaParser";
 
 export {
   AWAITING_QUESTION_STATUS,
   applyLiveState,
   readLiveSessions,
+  clearPendingCache,
 } from "./liveSessions";
 export type { LiveSessionInfo } from "./liveSessions";
 
@@ -33,6 +35,7 @@ export {
   getLastParseWarning,
   parseSessions,
   reparseOneSession,
+  clearOrphanCache,
 } from "./historyParser";
 
 export { parseSessionDetail } from "./detailParser";

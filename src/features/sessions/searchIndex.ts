@@ -169,6 +169,16 @@ export function indexSession(sessionId: string, filePath: string): void {
 }
 
 /**
+ * Drop every indexed entry. Used by the global reload so the next
+ * `buildSearchIndex` re-extracts content for every session from scratch
+ * (the routine mtime gate is bypassed because there is nothing to gate
+ * against). Targeted refreshes still go through {@link pruneIndex}.
+ */
+export function clearIndex(): void {
+  index.clear();
+}
+
+/**
  * Drop entries whose ids are not in `activeIds`. Replaces the previous
  * `clearIndex()` semantics: a full rebuild now keeps unchanged-file
  * entries (so indexSession can skip them on the mtime check) and only

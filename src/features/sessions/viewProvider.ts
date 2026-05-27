@@ -90,6 +90,16 @@ export class ClaudeSessionViewProvider
   isDisposed(): boolean {
     return this.view === undefined;
   }
+  /**
+   * Regenerate the webview document so the Preact app re-mounts from
+   * scratch. Reuses the shared html builder, so the CSP + a fresh nonce
+   * are reapplied on every reset. Called by the global reloadAll.
+   */
+  resetWebviewHtml(): void {
+    const view = this.view;
+    if (!view) return;
+    view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
+  }
   getSessions(): Session[] {
     return this.sessions;
   }

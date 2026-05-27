@@ -22,8 +22,11 @@ import {
   getSessionFile,
   readLiveSessions,
   applyLiveState,
+  clearMetaCaches,
+  clearOrphanCache,
+  clearPendingCache,
 } from "./parser";
-import { indexSession, pruneIndex } from "./searchIndex";
+import { indexSession, pruneIndex, clearIndex } from "./searchIndex";
 import { slugifyProjectPath } from "./portable";
 import { PROJECTS_DIR } from "../../core/config";
 import { loadState } from "./state";
@@ -53,6 +56,14 @@ export interface ProviderActionsContext {
   readonly globalState?: vscode.Memento;
   getWebview(): vscode.Webview | undefined;
   isDisposed(): boolean;
+
+  /**
+   * Regenerate the webview document from the html builder (fresh nonce +
+   * CSP). Re-mounts the Preact app from scratch so in-memory webview state
+   * is discarded and the skeletons reappear before the fresh data lands.
+   * The global reload calls this last; targeted refreshes never do.
+   */
+  resetWebviewHtml(): void;
 
   getSessions(): Session[];
   setSessions(sessions: Session[]): void;
@@ -200,13 +211,40 @@ export function refreshSettings(ctx: ProviderActionsContext): void {
 }
 
 /**
- * Re-parse every feature's data and push a fresh snapshot without
- * recreating the webview. Tab state + scroll position are preserved
- * because only the data messages are republished.
+ * Global "full reload". This is the single path shared by the
+ * `claudeManager.reload` command, its keybinding, and the shell's reload
+ * button — they all funnel here so behaviour is identical. It does three
+ * things, in order:
+ *
+ *   (a) DATA — clear every module-level parse cache (session meta + file
+ *       index, orphan-transcript cache, pending-question probe, full-text
+ *       search index) so the re-parse re-reads from disk cold instead of
+ *       trusting stale mtime gates, then re-parse all six features and
+ *       push fresh snapshots.
+ *   (b) EXTENSION STATE — the fresh parse results replace the provider's
+ *       cached arrays via the setters, and the search index is rebuilt
+ *       from the cleared baseline.
+ *   (c) WEBVIEW — regenerate `webview.html` (fresh nonce + CSP) so the
+ *       Preact app re-mounts from scratch, discarding all in-memory
+ *       webview state. The re-mount shows the skeletons and replays the
+ *       `ready` handshake, which re-pulls the now-fresh data; persisted
+ *       filters restore through the normal handshake path.
+ *
+ * The immediate data push (before the html reset) keeps the live-webview
+ * path instant and gives the webview its data even on hosts where the
+ * post-reset handshake is delayed; the html reset then supersedes the
+ * button's spinner with the fresh skeleton mount. `reloadComplete` is the
+ * last wire event before the reset so the webview can settle its spinner.
  */
 export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   const wv = ctx.getWebview();
   if (!wv) return;
+
+  // (a) DATA — drop every module-level cache so the re-parse is cold.
+  clearMetaCaches();
+  clearOrphanCache();
+  clearPendingCache();
+  clearIndex();
 
   const workspace = getWorkspace();
   const ws = workspace || undefined;
@@ -291,6 +329,12 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   ctx.refreshSettings();
   ctx.postWorkspacePath();
   wv.postMessage({ type: "reloadComplete" });
+
+  // (c) WEBVIEW — re-mount the Preact app from a freshly generated
+  // document. This discards in-memory webview state and replays the
+  // `ready` handshake against the now-cold caches. Done last so the
+  // immediate push above isn't thrown away by the re-mount.
+  ctx.resetWebviewHtml();
 }
 
 /**

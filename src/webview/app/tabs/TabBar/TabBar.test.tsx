@@ -16,6 +16,15 @@ describe("TabBar", () => {
     expect(container.querySelectorAll('[role="tab"]').length).toBe(TABS.length);
   });
 
+  it("renders the global reload button outside the tablist", () => {
+    const { container } = render(<TabBar />);
+    const reload = container.querySelector("button.tab-reload-btn");
+    expect(reload).toBeTruthy();
+    // The reload affordance is global chrome, not a tab — it must not sit
+    // inside the role=tablist (that would break the ARIA pattern).
+    expect(reload?.closest('[role="tablist"]')).toBeNull();
+  });
+
   it("marks the active tab selected and gives only it tabindex 0 (roving)", () => {
     const { container } = render(<TabBar />);
     const tabs = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));

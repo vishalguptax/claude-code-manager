@@ -155,6 +155,11 @@ export function invalidatePendingCacheEntry(filePath: string): void {
   pendingCache.delete(filePath);
 }
 
+/** Drop every pending-question cache entry. Used by the global reload. */
+export function clearPendingCache(): void {
+  pendingCache.clear();
+}
+
 /**
  * Tail-scan a session transcript and return true when Claude is
  * currently blocked on a question the user must answer. "Blocked"

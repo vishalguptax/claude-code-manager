@@ -255,6 +255,11 @@ function invalidateOrphanCacheEntry(filePath: string): void {
   orphanCache.delete(filePath);
 }
 
+/** Drop every orphan-cache entry. Used by the global reload to force a cold re-stream. */
+export function clearOrphanCache(): void {
+  orphanCache.clear();
+}
+
 /**
  * Extract the bits of metadata we need to synthesize a Session object
  * from a transcript .jsonl that has no history.jsonl entries.

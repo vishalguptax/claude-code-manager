@@ -287,6 +287,18 @@ export function invalidateSessionMetaCache(filePath: string): void {
   sessionMetaCache.delete(filePath);
 }
 
+/**
+ * Drop both module-level meta caches: the per-file metadata LRU and the
+ * `sessionId -> path` directory index. Used by the global reload so a
+ * full re-parse rebuilds everything from disk rather than trusting the
+ * mtime gates. Targeted file-watcher refreshes still use
+ * {@link invalidateSessionMetaCache} for the single changed file.
+ */
+export function clearMetaCaches(): void {
+  sessionMetaCache.clear();
+  sessionFileIndex = null;
+}
+
 function computeSessionMeta(filePath: string): SessionMeta {
   const result = { branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "" };
   let fd: number;

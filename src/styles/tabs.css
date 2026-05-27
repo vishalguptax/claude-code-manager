@@ -1,12 +1,25 @@
 .tab-bar {
   display: flex;
+  align-items: center;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   /* flex:0 0 auto so the tab strip stays its natural height. Overrides the
      stray `.tab-bar { flex:1 }` in components.css (a v1 vertical-nav leftover)
      that otherwise makes the strip grow to half the panel height. */
   flex: 0 0 auto;
+}
+/* The scrollable tab list. The global reload button is a flex sibling pinned
+   to the right, so only the tabs scroll when the strip overflows. */
+.tab-list {
+  display: flex;
+  flex: 1 1 auto;
   overflow-x: auto;
+}
+.tab-list::-webkit-scrollbar { display: none; }
+/* Global reload affordance — pinned right, never scrolls with the tabs. */
+.tab-reload-btn {
+  flex: 0 0 auto;
+  margin: 0 var(--space-sm);
 }
 .tab-btn {
   background: transparent;
