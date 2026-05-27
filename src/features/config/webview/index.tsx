@@ -14,11 +14,11 @@ import { useEffect, useMemo } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { EmptyState, Loading } from "../../../webview/shared/ui";
+import { EmptyState } from "../../../webview/shared/ui";
 import type { AccountData, PermissionScope } from "../types";
 import { createConfigApi } from "./api";
 import { configData, configError, loading, permissionScope, permissionSearch } from "./model";
-import { BrainView, PermissionsView, SettingsView, SnapshotsView } from "./ui";
+import { BrainView, ConfigSkeleton, PermissionsView, SettingsView, SnapshotsView } from "./ui";
 
 /**
  * Apply an inbound host message to the config signals. Exported for unit
@@ -58,7 +58,7 @@ export default function ConfigTab() {
     return <EmptyState title="Couldn't load config" description={configError.value} />;
   }
   if (loading.value && !data) {
-    return <Loading />;
+    return <ConfigSkeleton />;
   }
   if (!data) {
     return (

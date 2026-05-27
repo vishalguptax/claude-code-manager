@@ -21,7 +21,7 @@ describe("ConfigTab", () => {
   it("requests data on mount and shows loading", () => {
     const { container } = render(<ConfigTab />);
     expect(post).toHaveBeenCalledWith({ type: "getAccountData" });
-    expect(container.querySelector(".skeleton-list")).toBeTruthy();
+    expect(container.querySelector(".skeleton-field")).toBeTruthy();
   });
 
   it("renders all four sections once data arrives", async () => {
