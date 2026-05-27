@@ -26,7 +26,7 @@ describe("SessionsTab", () => {
     // filters + session rows) — not the "No sessions yet" empty-state and not
     // a half-rendered list.
     expect(container.querySelector(".skeleton-panel")).toBeTruthy();
-    expect(container.querySelector(".skeleton-session")).toBeTruthy();
+    expect(container.querySelector(".skeleton-list-rows > .session-item")).toBeTruthy();
     expect(container.querySelector("#listView")).toBeNull();
   });
 

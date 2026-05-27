@@ -14,7 +14,8 @@
 import { SkeletonBlock, SkeletonLine } from "./Skeleton";
 
 export interface ListSkeletonProps {
-  /** Number of placeholder rows (default 8). */
+  /** Number of placeholder rows (default 14 — enough to fill a tall panel; the
+   *  scrollable `.list` clips the overflow). */
   rows?: number;
   /** Render the scope-filter segmented placeholder (default true). */
   scopeFilter?: boolean;
@@ -32,7 +33,7 @@ const ROW_WIDTHS: ReadonlyArray<readonly [string, string]> = [
   ["42%", "78%"],
 ];
 
-export function ListSkeleton({ rows = 8, scopeFilter = true }: ListSkeletonProps) {
+export function ListSkeleton({ rows = 14, scopeFilter = true }: ListSkeletonProps) {
   return (
     <div class="panel skeleton-panel" aria-busy="true" aria-live="polite">
       <div class="search-row">

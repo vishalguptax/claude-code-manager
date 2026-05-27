@@ -17,8 +17,8 @@ import { SkeletonBlock, SkeletonLine } from "../../../../../webview/shared/ui";
 /** Action buttons in the real ActionsBar, by width hint (px). */
 const ACTION_WIDTHS = [60, 64, 84, 132, 72];
 
-/** Title / prompt / project widths per row so it doesn't read as a grid. */
-const SESSION_ROWS: ReadonlyArray<readonly [string, string, string]> = [
+/** Title / prompt / project widths cycled per row so it doesn't read as a grid. */
+const ROW_WIDTHS: ReadonlyArray<readonly [string, string, string]> = [
   ["58%", "90%", "40%"],
   ["46%", "78%", "32%"],
   ["62%", "86%", "44%"],
@@ -26,6 +26,9 @@ const SESSION_ROWS: ReadonlyArray<readonly [string, string, string]> = [
   ["54%", "88%", "38%"],
   ["44%", "70%", "34%"],
 ];
+
+/** Enough rows to fill the list on a tall panel; `.list` clips the overflow. */
+const ROW_COUNT = 14;
 
 export function SessionsSkeleton() {
   return (
@@ -51,19 +54,27 @@ export function SessionsSkeleton() {
       </div>
 
       <div class="list skeleton-list-rows">
-        {SESSION_ROWS.map(([title, prompt, proj], i) => (
-          <div class="item session-item skeleton-session" key={i} aria-hidden="true">
-            <div class="skeleton-session-row1">
-              <SkeletonLine width={title} />
-              <SkeletonLine width={36} height={8} />
+        {Array.from({ length: ROW_COUNT }, (_, i) => {
+          const [title, prompt, proj] = ROW_WIDTHS[i % ROW_WIDTHS.length];
+          return (
+            // Reuse the REAL row structure (.item-row1 / .item-prompt / .item-row2)
+            // so internal spacing matches the loaded row exactly — even boxes,
+            // zero layout shift when data swaps in.
+            <div class="item session-item" key={i} aria-hidden="true">
+              <div class="item-row1">
+                <SkeletonLine width={title} />
+                <SkeletonLine width={36} height={8} />
+              </div>
+              <div class="item-prompt">
+                <SkeletonLine width={prompt} height={8} />
+              </div>
+              <div class="item-row2">
+                <SkeletonBlock width={48} height={14} radius={8} />
+                <SkeletonLine width={proj} height={8} />
+              </div>
             </div>
-            <SkeletonLine width={prompt} height={8} />
-            <div class="skeleton-session-row1">
-              <SkeletonBlock width={48} height={14} radius={8} />
-              <SkeletonLine width={proj} height={8} />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -10,13 +10,17 @@ describe("SessionsSkeleton", () => {
     expect(container.querySelector(".search-row")).toBeTruthy();
     expect(container.querySelector(".skeleton-filter-row")).toBeTruthy();
     expect(container.querySelector(".skeleton-chips-row")).toBeTruthy();
-    // Rows reuse `.session-item` so they sit at the virtualizer's row height.
-    expect(container.querySelector(".item.session-item.skeleton-session")).toBeTruthy();
+    // Rows reuse the real `.session-item` + `.item-row1/.item-prompt/.item-row2`
+    // structure so spacing matches the loaded row.
+    expect(container.querySelector(".skeleton-list-rows > .item.session-item")).toBeTruthy();
+    expect(container.querySelector(".session-item .item-row1")).toBeTruthy();
+    expect(container.querySelector(".session-item .item-prompt")).toBeTruthy();
+    expect(container.querySelector(".session-item .item-row2")).toBeTruthy();
   });
 
-  it("renders six placeholder rows and is marked busy", () => {
+  it("renders enough placeholder rows to fill the panel and is marked busy", () => {
     const { container } = render(<SessionsSkeleton />);
-    expect(container.querySelectorAll(".skeleton-session").length).toBe(6);
+    expect(container.querySelectorAll(".skeleton-list-rows > .session-item").length).toBe(14);
     expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
   });
 });
