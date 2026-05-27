@@ -20,11 +20,13 @@ beforeEach(() => {
 });
 
 describe("SessionsTab", () => {
-  it("shows the full-panel loader before the first sessions message arrives", () => {
+  it("shows the content-shaped sessions skeleton before the first sessions message arrives", () => {
     const { container } = render(h(SessionsTab, {}));
-    // The shared <Loading> renders the shimmer skeleton list — not the
-    // "No sessions yet" empty-state and not a half-rendered list.
-    expect(container.querySelector(".skeleton-list")).toBeTruthy();
+    // The <SessionsSkeleton> mirrors the list shell (actions + search +
+    // filters + session rows) — not the "No sessions yet" empty-state and not
+    // a half-rendered list.
+    expect(container.querySelector(".skeleton-panel")).toBeTruthy();
+    expect(container.querySelector(".skeleton-session")).toBeTruthy();
     expect(container.querySelector("#listView")).toBeNull();
   });
 
@@ -39,7 +41,7 @@ describe("SessionsTab", () => {
     const { container } = render(h(SessionsTab, {}));
     dispatch({ type: "sessions", data: [] } as Message);
     await waitFor(() => {
-      expect(container.querySelector(".skeleton-list")).toBeNull();
+      expect(container.querySelector(".skeleton-panel")).toBeNull();
     });
     expect(container.querySelector("#listView")).toBeTruthy();
     expect(container.textContent).toContain("No sessions yet");
@@ -73,19 +75,19 @@ describe("SessionsTab", () => {
       ],
     } as Message);
     await waitFor(() => {
-      expect(container.querySelector(".skeleton-list")).toBeNull();
+      expect(container.querySelector(".skeleton-panel")).toBeNull();
     });
     expect(container.querySelector("#listView")).toBeTruthy();
   });
 
-  it("shows the detail-panel loader while a transcript is in flight", () => {
+  it("shows the detail-panel skeleton while a transcript is in flight", () => {
     // Simulate clicking a row: detail view open, transcript request pending.
     viewSignal.value = "detail";
     detailLoadingSignal.value = true;
     const { container } = render(h(SessionsTab, {}));
     expect(container.querySelector("#detailView")).toBeTruthy();
-    // Full detail-panel loader (shared shimmer), with the Back affordance.
-    expect(container.querySelector(".skeleton-list")).toBeTruthy();
+    // Content-shaped detail skeleton (message blocks), with the Back affordance.
+    expect(container.querySelector(".skeleton-detail-body")).toBeTruthy();
     expect(container.querySelector(".back-btn")).toBeTruthy();
   });
 });

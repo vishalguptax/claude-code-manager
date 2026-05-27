@@ -11,7 +11,6 @@
  */
 import { useEffect } from "preact/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { Loading } from "../../../webview/shared/ui";
 import { sendReady } from "./api";
 import {
   handleDelta,
@@ -24,6 +23,7 @@ import {
 } from "./model";
 import { DetailView } from "./ui/views/DetailView";
 import { ListView } from "./ui/views/ListView";
+import { SessionsSkeleton } from "./ui/views/SessionsSkeleton";
 
 // Re-export the host-message handlers from the model so existing tests that
 // import them from the slice entry keep resolving.
@@ -56,9 +56,10 @@ export default function SessionsTab() {
 
   // Detail carries its own transcript loader (detailLoadingSignal), so only the
   // list path gates on the first-data signal: until the host's first `sessions`
-  // message arrives, show the full-panel <Loading /> rather than the empty list
-  // (which would read as "No sessions yet").
+  // message arrives, show the content-shaped <SessionsSkeleton /> (actions +
+  // search + filters + session rows) rather than the empty list (which would
+  // read as "No sessions yet").
   if (viewSignal.value === "detail") return <DetailView />;
-  if (!loadedSignal.value) return <Loading />;
+  if (!loadedSignal.value) return <SessionsSkeleton />;
   return <ListView />;
 }

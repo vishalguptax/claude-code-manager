@@ -12,7 +12,6 @@ import { useEffect, useState } from "preact/hooks";
 import {
   Button,
   Icon,
-  Loading,
   Segmented,
   type SegmentedOption,
 } from "../../../../../webview/shared/ui";
@@ -44,6 +43,7 @@ import {
   viewSignal,
 } from "../../model";
 import { MessageItem, fmtTokens } from "../components/MessageItem";
+import { DetailSkeleton } from "./DetailSkeleton";
 import type { SessionDetail } from "../../../types";
 
 /** Matches DETAIL_PAGE_SIZE in parser.ts — toggle only meaningful past this. */
@@ -212,7 +212,7 @@ export function DetailView() {
         <button type="button" class="back-btn" onClick={backToList}>
           <Icon name="arrow-left" /> Back
         </button>
-        <Loading />
+        <DetailSkeleton />
       </div>
     );
   }
