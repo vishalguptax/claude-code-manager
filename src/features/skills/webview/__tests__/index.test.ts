@@ -8,6 +8,7 @@ import type { Message } from "../../../../shared/protocol/messages";
 import SkillsTab, { registerSkillsHandlers } from "../index";
 import {
   claudeCodeInstalled,
+  loaded,
   marketplaceSkillsUrl,
   selectedSkill,
   skills,
@@ -20,6 +21,7 @@ beforeEach(() => {
   _resetMessageBus();
   skills.value = [];
   selectedSkill.value = null;
+  loaded.value = false;
   claudeCodeInstalled.value = false;
   marketplaceSkillsUrl.value = "default";
 });
@@ -51,6 +53,20 @@ describe("registerSkillsHandlers", () => {
     expect(selectedSkill.value?.name).toBe("detail");
   });
 
+  it("flips the loaded gate when the first skills message arrives (even if empty)", () => {
+    registerSkillsHandlers();
+    expect(loaded.value).toBe(false);
+    dispatch({ type: "skills", data: [] } as Message);
+    expect(loaded.value).toBe(true);
+  });
+
+  it("flips the loaded gate on a host error", () => {
+    registerSkillsHandlers();
+    expect(loaded.value).toBe(false);
+    dispatch({ type: "error", message: "boom" } as Message);
+    expect(loaded.value).toBe(true);
+  });
+
   it("reads marketplace url + install flag from settings", () => {
     registerSkillsHandlers();
     dispatch({
@@ -77,12 +93,32 @@ describe("registerSkillsHandlers", () => {
 });
 
 describe("SkillsTab", () => {
-  it("requests the skills list on mount and renders the list view", () => {
+  afterEach(() => setVscodeApi(null));
+
+  it("shows the full-panel loader before the first skills message arrives", () => {
+    setVscodeApi({ postMessage: vi.fn() });
+    const { container } = render(h(SkillsTab, {}));
+    // The shared <Loading> renders the shimmer skeleton list, not the empty list.
+    expect(container.querySelector(".skeleton-list")).toBeTruthy();
+    expect(document.getElementById("skillsListView")).toBeNull();
+  });
+
+  it("requests the skills list on mount and renders the list view once loaded", () => {
     const post = vi.fn();
     setVscodeApi({ postMessage: post });
+    loaded.value = true;
     render(h(SkillsTab, {}));
     expect(post).toHaveBeenCalledWith({ type: "getSkills" });
     expect(document.getElementById("skillsListView")).toBeTruthy();
+  });
+
+  it("shows the real empty-state (not the loader) after an empty skills list loads", () => {
+    setVscodeApi({ postMessage: vi.fn() });
+    loaded.value = true;
+    skills.value = [];
+    const { container } = render(h(SkillsTab, {}));
+    expect(container.querySelector(".skeleton-list")).toBeNull();
+    expect(container.textContent).toContain("No skills found");
   });
 
   it("renders the detail view when a skill is selected", () => {

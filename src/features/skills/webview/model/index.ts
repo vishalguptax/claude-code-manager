@@ -3,6 +3,7 @@ export {
   claudeCodeInstalled,
   countByScope,
   filteredSkills,
+  loaded,
   marketplaceSkillsUrl,
   type ScopeFilter,
   scopeFilter,

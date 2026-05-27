@@ -6,9 +6,10 @@
 import { useEffect } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
+import { Loading } from "../../../webview/shared/ui";
 import type { Skill } from "../types";
 import { getSkills } from "./api";
-import { claudeCodeInstalled, marketplaceSkillsUrl, selectedSkill, skills } from "./model";
+import { claudeCodeInstalled, loaded, marketplaceSkillsUrl, selectedSkill, skills } from "./model";
 import { DetailView, ListView } from "./ui";
 
 /**
@@ -23,6 +24,10 @@ export function registerSkillsHandlers(): () => void {
   const offSkills = registerFeatureHandler("skill", (msg) => {
     if (msg.type === "skills") {
       skills.value = (msg.data as Skill[]) ?? [];
+      // First list (even empty) ends the cold-start loading gate so the list /
+      // empty-state can render; an empty array only reads as "no skills" once
+      // the host has actually answered.
+      loaded.value = true;
       // Re-resolve the selection against the fresh list so a delete or
       // rename on the host doesn't leave a stale detail panel open.
       const sel = selectedSkill.value;
@@ -30,6 +35,12 @@ export function registerSkillsHandlers(): () => void {
     } else if (msg.type === "skillDetail") {
       selectedSkill.value = msg.data as Skill;
     }
+  });
+
+  // A host parse/read failure also ends loading — otherwise the panel would sit
+  // on the <Loading /> placeholder forever.
+  const offError = registerFeatureHandler("error", (msg) => {
+    if (msg.type === "error") loaded.value = true;
   });
 
   // Marketplace URL + Claude Code install flag ride in on the host's
@@ -48,6 +59,7 @@ export function registerSkillsHandlers(): () => void {
   return () => {
     offSkills();
     offSettings();
+    offError();
   };
 }
 
@@ -60,6 +72,12 @@ export default function SkillsTab() {
     return dispose;
   }, [post]);
 
+  // Before the host's first `skills` message, show the full-panel <Loading />
+  // rather than the list's "No skills found" empty-state. The detail view
+  // renders synchronously from the already-loaded list skill, so it needs no
+  // gate of its own.
   const selected = selectedSkill.value;
-  return selected ? <DetailView skill={selected} /> : <ListView />;
+  if (selected) return <DetailView skill={selected} />;
+  if (!loaded.value) return <Loading />;
+  return <ListView />;
 }

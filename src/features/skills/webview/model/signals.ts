@@ -11,6 +11,14 @@ export type ScopeFilter = "all" | "project" | "global" | "plugin";
 /** Default marketplace URL, mirrored from the host's `claudeManager.marketplaceSkillsUrl` setting. */
 const DEFAULT_SKILLS_URL = "https://github.com/anthropics/claude-code/wiki/Skills";
 
+/**
+ * Whether the first `skills` (or terminating `error`) message has arrived.
+ * Starts false so the tab shows the full-panel <Loading /> placeholder during
+ * the cold-start round trip rather than the "No skills found" empty-state — an
+ * empty list only reads as "no skills" once the host has actually answered.
+ */
+export const loaded = signal<boolean>(false);
+
 /** Full skill list as last received from the host. */
 export const skills = signal<Skill[]>([]);
 
