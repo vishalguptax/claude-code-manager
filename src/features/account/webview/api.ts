@@ -60,12 +60,22 @@ export function sendRestoreClaudeConfig(): void {
 }
 
 /**
- * Kick off the (opt-in) network call that fetches current quota
- * utilization from Anthropic. The extension host replies with a
- * `quotaData` message; the webview shows a loading state until then.
+ * Ask the host to re-read the local statusline cache (no network call).
+ * The host replies with a `quotaData` message; the webview shows a
+ * loading state until then.
  */
 export function sendFetchQuota(): void {
   _vscode.postMessage({ type: "fetchQuota" });
+}
+
+/** Opt in: wire Claude Code's statusline to the tap so quota is cached locally. */
+export function sendInstallStatusline(): void {
+  _vscode.postMessage({ type: "installStatusline" });
+}
+
+/** Opt out: restore the user's previous statusline and remove the tap. */
+export function sendUninstallStatusline(): void {
+  _vscode.postMessage({ type: "uninstallStatusline" });
 }
 
 /** Ask the host to pop a native input box for the profile label. */

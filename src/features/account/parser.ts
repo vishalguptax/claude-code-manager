@@ -18,7 +18,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { discoverModelsFromCli } from "./models";
 import * as os from "os";
-import { CLAUDE_DIR } from "../../core/config";
+import { CLAUDE_DIR, SETTINGS_FILE } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
 import { readCredentials } from "./credentials";
 import { computeUsageStats } from "./usage";
@@ -34,7 +34,6 @@ import type {
 
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const CLAUDE_BACKUPS_DIR = path.join(CLAUDE_DIR, "backups");
-const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
 
 /**
  * Read and parse .claude.json, falling back to the most recent backup

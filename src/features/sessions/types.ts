@@ -374,11 +374,19 @@ export type WebviewMessage =
   | { type: "promptCustomModel" }
   | { type: "restoreClaudeConfig" }
   /**
-   * Opt-in network call to the Anthropic OAuth quota endpoint.
-   * Triggered only by the user clicking "Refresh" on the Quota card,
-   * never automatically. Extension replies with a `quotaData` message.
+   * Read the latest quota + live-session snapshot from the local
+   * statusline cache (no network call). Sent on mount, on account
+   * switch, and on the user's Refresh. Extension replies with a
+   * `quotaData` message carrying either data or a typed error.
    */
   | { type: "fetchQuota" }
+  /**
+   * Wire / unwire Claude Code's `statusLine.command` to our tap so it
+   * caches the server-computed quota locally. Opt-in (the user clicks
+   * "Enable live quota"); uninstall restores their prior statusline.
+   */
+  | { type: "installStatusline" }
+  | { type: "uninstallStatusline" }
   /**
    * Accounts section — manage saved profile snapshots under
    * ~/.claude/manager-accounts/<slug>/. Each command sends a

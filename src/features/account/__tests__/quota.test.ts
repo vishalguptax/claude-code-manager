@@ -1,230 +1,128 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { EventEmitter } from "events";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Module mocks must be hoisted by vitest. `vi.hoisted` lets the mock
- * factories reach the shared test-controlled values without triggering
- * "Cannot access X before initialization" at import time.
+ * State the mocks read. `cache` is the raw statusline.json contents (or
+ * null to simulate a missing file); `installed` drives the mocked
+ * install check that distinguishes not-installed from no-data.
  */
-const { credsState, requestState } = vi.hoisted(() => ({
-  credsState: { token: "test-token-xyz", missing: false } as {
-    token: string;
-    missing: boolean;
-  },
-  requestState: {
-    lastOptions: null as unknown as Record<string, unknown> | null,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler: null as null | ((req: any, cb: any) => void),
-  },
+const state = vi.hoisted(() => ({
+  cache: null as string | null,
+  installed: true,
 }));
 
 vi.mock("fs", () => ({
   readFileSync: (p: string): string => {
-    if (typeof p === "string" && p.endsWith(".credentials.json")) {
-      if (credsState.missing) {
+    if (typeof p === "string" && p.endsWith("statusline.json")) {
+      if (state.cache === null) {
         const err = new Error("ENOENT") as NodeJS.ErrnoException;
         err.code = "ENOENT";
         throw err;
       }
-      return JSON.stringify({
-        claudeAiOauth: { accessToken: credsState.token },
-      });
+      return state.cache;
     }
     return "";
   },
 }));
 
-vi.mock("https", () => ({
-  request: (options: Record<string, unknown>, cb: (res: EventEmitter) => void) => {
-    requestState.lastOptions = options;
-    const req = new EventEmitter() as EventEmitter & {
-      end: () => void;
-      destroy: (err?: Error) => void;
-    };
-    req.end = () => {
-      if (requestState.handler) {
-        requestState.handler(req, cb);
-      }
-    };
-    req.destroy = () => {};
-    return req;
-  },
+vi.mock("../statuslineInstall", () => ({
+  isStatuslineInstalled: () => state.installed,
 }));
 
-// Module under test — imported AFTER mocks so its require() picks up
-// our stubs instead of the real fs / https.
-import { fetchQuota } from "../quota";
+import { readQuota } from "../quota";
 
-/** Drive the mocked `https.request` to emit a response with the given status + body. */
-function whenHttps(statusCode: number, body: string): void {
-  requestState.handler = (_req, cb) => {
-    setImmediate(() => {
-      const res = new EventEmitter() as EventEmitter & {
-        statusCode?: number;
-        setEncoding?: (e: string) => void;
-      };
-      res.statusCode = statusCode;
-      res.setEncoding = () => {};
-      cb(res);
-      res.emit("data", body);
-      res.emit("end");
-    });
-  };
-}
-
-/** Drive the mocked `https.request` to emit a connection error. */
-function whenHttpsError(msg: string): void {
-  requestState.handler = (req) => {
-    setImmediate(() => req.emit("error", new Error(msg)));
-  };
-}
-
-beforeEach(() => {
-  credsState.token = "test-token-xyz";
-  credsState.missing = false;
-  requestState.lastOptions = null;
-  requestState.handler = null;
+/** A StatuslineCache as the tap would have written it. */
+const CACHE = JSON.stringify({
+  capturedAt: 1_700_000_000_000,
+  version: "2.1.86",
+  model: { id: "claude-opus-4-6", displayName: "Opus 4.6 (1M context)" },
+  context: { usedPercent: 3, size: 1_000_000 },
+  cost: { totalUsd: 0.97, durationMs: 1, linesAdded: 214, linesRemoved: 179 },
+  rateLimits: {
+    fiveHour: { usedPercent: 6, resetsAt: 1_774_731_600 },
+    sevenDay: { usedPercent: 12, resetsAt: 1_775_199_600 },
+  },
 });
 
-describe("fetchQuota", () => {
-  it("returns no-credentials error when the creds file is missing", async () => {
-    credsState.missing = true;
-    const result = await fetchQuota();
+beforeEach(() => {
+  state.cache = null;
+  state.installed = true;
+});
+
+describe("readQuota", () => {
+  it("reports not-installed when the cache is absent and the tap isn't wired", () => {
+    state.cache = null;
+    state.installed = false;
+    const result = readQuota();
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.kind).toBe("no-credentials");
-      expect(result.error.message).toMatch(/log in/i);
-    }
+    if (!result.ok) expect(result.error.kind).toBe("not-installed");
   });
 
-  it("returns no-credentials error when the token field is empty", async () => {
-    credsState.token = "";
-    const result = await fetchQuota();
+  it("reports no-data when installed but the cache hasn't been written", () => {
+    state.cache = null;
+    state.installed = true;
+    const result = readQuota();
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.kind).toBe("no-credentials");
+    if (!result.ok) expect(result.error.kind).toBe("no-data");
   });
 
-  it("returns unauthorized when the API replies with 401", async () => {
-    whenHttps(401, '{"error":"expired"}');
-    const result = await fetchQuota();
+  it("treats a corrupt cache as no-data (a rerun rewrites it)", () => {
+    state.cache = "{ not valid json";
+    state.installed = true;
+    const result = readQuota();
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.kind).toBe("unauthorized");
-      expect(result.error.message).toMatch(/no longer valid|expired|refresh/i);
-    }
+    if (!result.ok) expect(result.error.kind).toBe("no-data");
   });
 
-  it("returns network error for non-401 HTTP failures", async () => {
-    whenHttps(503, "service unavailable");
-    const result = await fetchQuota();
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.kind).toBe("network");
-      expect(result.error.message).toContain("503");
-    }
-  });
-
-  it("returns network error when the request errors before a response", async () => {
-    whenHttpsError("ECONNRESET");
-    const result = await fetchQuota();
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.kind).toBe("network");
-      expect(result.error.message).toContain("ECONNRESET");
-    }
-  });
-
-  it("returns parse error when the response isn't JSON", async () => {
-    whenHttps(200, "<html>oops</html>");
-    const result = await fetchQuota();
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.kind).toBe("parse");
-      expect(result.error.message).toMatch(/JSON/i);
-    }
-  });
-
-  it("returns parse error when expected fields are missing", async () => {
-    whenHttps(200, JSON.stringify({ extra_usage: null }));
-    const result = await fetchQuota();
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.kind).toBe("parse");
-  });
-
-  it("normalises a fully-populated quota response", async () => {
-    whenHttps(
-      200,
-      JSON.stringify({
-        five_hour: { utilization: 11.5, resets_at: "2026-04-21T01:00:00Z" },
-        seven_day: { utilization: 46, resets_at: "2026-04-24T05:00:00Z" },
-        seven_day_sonnet: { utilization: 0, resets_at: "2026-04-24T10:00:00Z" },
-        seven_day_opus: null,
-        extra_usage: {
-          is_enabled: true,
-          monthly_limit: 20,
-          used_credits: 3.5,
-          utilization: 17.5,
-          currency: "USD",
-        },
-      }),
-    );
-    const result = await fetchQuota();
+  it("maps a full cache to quota windows + live session", () => {
+    state.cache = CACHE;
+    const result = readQuota();
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.fiveHour.utilization).toBe(11.5);
-    expect(result.data.sevenDay.resetsAt).toBe("2026-04-24T05:00:00Z");
-    expect(result.data.sevenDaySonnet).toEqual({
-      utilization: 0,
-      resetsAt: "2026-04-24T10:00:00Z",
+
+    expect(result.data.quota.fiveHour).toEqual({
+      utilization: 6,
+      resetsAt: new Date(1_774_731_600 * 1000).toISOString(),
     });
-    expect(result.data.sevenDayOpus).toBeNull();
-    expect(result.data.extraUsage).toEqual({
-      enabled: true,
-      monthlyLimit: 20,
-      usedCredits: 3.5,
-      utilization: 17.5,
-      currency: "USD",
-    });
-    expect(typeof result.data.fetchedAt).toBe("string");
+    expect(result.data.quota.sevenDay?.utilization).toBe(12);
+    expect(result.data.quota.capturedAt).toBe(new Date(1_700_000_000_000).toISOString());
+
+    expect(result.data.live.model).toBe("Opus 4.6 (1M context)");
+    expect(result.data.live.contextUsedPercent).toBe(3);
+    expect(result.data.live.sessionCostUsd).toBe(0.97);
+    expect(result.data.live.linesAdded).toBe(214);
+    expect(result.data.live.version).toBe("2.1.86");
   });
 
-  it("drops optional windows when the API reports them as null", async () => {
-    whenHttps(
-      200,
-      JSON.stringify({
-        five_hour: { utilization: 5, resets_at: null },
-        seven_day: { utilization: 12, resets_at: null },
-        seven_day_sonnet: null,
-        seven_day_opus: null,
-        extra_usage: null,
-      }),
-    );
-    const result = await fetchQuota();
+  it("yields null windows + null live fields when the cache omits them", () => {
+    state.cache = JSON.stringify({
+      capturedAt: 1_700_000_000_000,
+      version: "",
+      model: null,
+      context: null,
+      cost: null,
+      rateLimits: { fiveHour: null, sevenDay: null },
+    });
+    const result = readQuota();
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.sevenDaySonnet).toBeNull();
-    expect(result.data.sevenDayOpus).toBeNull();
-    expect(result.data.extraUsage).toBeNull();
-    expect(result.data.fiveHour.resetsAt).toBe("");
+    expect(result.data.quota.fiveHour).toBeNull();
+    expect(result.data.quota.sevenDay).toBeNull();
+    expect(result.data.live.model).toBe("");
+    expect(result.data.live.contextUsedPercent).toBeNull();
+    expect(result.data.live.sessionCostUsd).toBeNull();
   });
 
-  it("sends the required Authorization and anthropic-beta headers", async () => {
-    whenHttps(
-      200,
-      JSON.stringify({
-        five_hour: { utilization: 1, resets_at: "" },
-        seven_day: { utilization: 1, resets_at: "" },
-      }),
-    );
-    await fetchQuota();
-    const opts = requestState.lastOptions as {
-      host: string;
-      path: string;
-      headers: Record<string, string>;
-    };
-    expect(opts.host).toBe("api.anthropic.com");
-    expect(opts.path).toBe("/api/oauth/usage");
-    expect(opts.headers.Authorization).toBe("Bearer test-token-xyz");
-    expect(opts.headers["anthropic-beta"]).toBe("oauth-2025-04-20");
+  it("blanks a reset time of 0", () => {
+    state.cache = JSON.stringify({
+      capturedAt: 1_700_000_000_000,
+      version: "",
+      model: null,
+      context: null,
+      cost: null,
+      rateLimits: { fiveHour: { usedPercent: 5, resetsAt: 0 }, sevenDay: null },
+    });
+    const result = readQuota();
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.quota.fiveHour).toEqual({ utilization: 5, resetsAt: "" });
   });
 });

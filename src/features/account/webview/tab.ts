@@ -9,12 +9,8 @@ import {
   setAccountData,
   setLoading,
   setQuotaStatus,
-  getQuotaStatus,
-  hasQuotaOptIn,
-  getQuotaCacheAgeMs,
   clearQuotaCache,
   hydrateFromPersistence,
-  QUOTA_CACHE_TTL_MS,
 } from "./state";
 import { renderAccount } from "./view";
 import type { AccountData } from "../types";
@@ -50,27 +46,20 @@ export function mount(container: HTMLElement): void {
       const fresh = msg.data as AccountData;
       const freshKey = computeAccountKey(fresh);
       // Account switch detected: identity changed since last render.
-      // Drop the stale quota cache so we don't display previous
-      // user's numbers. Re-fetch below if still opted in.
-      if (_lastAccountKey !== null && _lastAccountKey !== freshKey) {
-        clearQuotaCache();
-      }
+      // Drop the stale quota and re-read for the new account so we
+      // never display the previous user's numbers.
+      const switched = _lastAccountKey !== null && _lastAccountKey !== freshKey;
       _lastAccountKey = freshKey;
       setAccountData(fresh);
       setLoading(false);
-      if (_container) renderAccount(_container);
-      // Opt-in still live → refresh for the new account right away.
-      if (
-        hasQuotaOptIn() &&
-        getQuotaStatus().kind !== "loading" &&
-        getQuotaCacheAgeMs() === null
-      ) {
+      if (switched) {
+        clearQuotaCache();
         setQuotaStatus({ kind: "loading" });
-        if (_container) renderAccount(_container);
-        sendFetchQuota();
       }
+      if (_container) renderAccount(_container);
+      if (switched) sendFetchQuota();
     } else if (msg.type === "quotaData") {
-      // Network call completed — success or error, either way we
+      // Local cache read completed — success or error, either way we
       // re-render so the card shows the resolved state.
       const result = msg.result as QuotaResult;
       if (result.ok) {
@@ -97,27 +86,12 @@ export function mount(container: HTMLElement): void {
   setLoading(true);
   sendGetAccountData();
 
-  // Quota auto-fetch policy:
-  //   1. User hasn't opted in yet → stay idle, user clicks the CTA.
-  //   2. Opted in + no cache       → fetch immediately (first run
-  //      after opt-in survived a reload with cache cleared).
-  //   3. Opted in + cache stale    → fetch in the background; cached
-  //      value is already painted so UI stays snappy.
-  //   4. Opted in + cache fresh    → do nothing. Tab-switch cost zero.
-  if (hasQuotaOptIn()) {
-    const age = getQuotaCacheAgeMs();
-    if (age === null) {
-      // Brand-new cache miss but opted in — reach out now.
-      setQuotaStatus({ kind: "loading" });
-      sendFetchQuota();
-    } else if (age > QUOTA_CACHE_TTL_MS) {
-      // Stale cache — keep the painted value, fetch fresh silently.
-      // getQuotaStatus already reflects the cached success from the
-      // module-load bootstrap, so we don't flip to loading here.
-      sendFetchQuota();
-    }
-    // Fresh cache: no-op; the existing success status already paints.
-  }
+  // Quota is a free local read (the host reads the statusline cache),
+  // so always pull it on mount — no opt-in gate. The host replies with
+  // the not-installed state when the tap isn't wired yet, which the
+  // view renders as the "Enable live quota" CTA.
+  setQuotaStatus({ kind: "loading" });
+  sendFetchQuota();
 }
 
 /**

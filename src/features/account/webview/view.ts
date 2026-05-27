@@ -19,6 +19,7 @@ import {
   sendPromptCustomModel,
   sendRestoreClaudeConfig,
   sendFetchQuota,
+  sendInstallStatusline,
   sendPromptSaveProfile,
   sendOpenAccountSwitcher,
 } from "./api";
@@ -31,7 +32,6 @@ import {
   isSectionCollapsed,
   setPermissionScope,
   setQuotaStatus,
-  setQuotaOptIn,
   setTimePeriod,
   toggleSection,
 } from "./state";
@@ -42,7 +42,7 @@ import type {
   PermissionScope,
   UsageStats,
 } from "../types";
-import type { QuotaData, QuotaWindow, QuotaError } from "../quota";
+import type { LiveSession, QuotaSuccess, QuotaWindow, QuotaError } from "../quota";
 import {
   buildHeatmap,
   cutoffDaysForPeriod,
@@ -157,6 +157,7 @@ export function renderAccount(container: HTMLElement): void {
     <div class="panel">
       ${renderProfileSection(data)}
       ${renderQuotaSection()}
+      ${renderLiveSection()}
       ${renderUsageSection(data)}
     </div>`;
 
@@ -383,114 +384,70 @@ function renderQuotaBar(label: string, win: QuotaWindow): string {
 function renderQuotaBody(): string {
   const status = getQuotaStatus();
 
-  if (status.kind === "idle") {
-    return `
-      <div class="acct-quota-intro">
-        <p class="acct-quota-intro-text">
-          See how much of your Claude subscription you've used in the last
-          five hours and the last seven days. Uses your own OAuth token —
-          the request goes to <code>api.anthropic.com</code> and nothing
-          else leaves your machine.
-        </p>
-        <button class="btn primary" id="acct-quota-fetch">
-          ${icon("refresh-cw", 14)} Check quota
-        </button>
-      </div>`;
-  }
-
-  if (status.kind === "loading") {
+  if (status.kind === "idle" || status.kind === "loading") {
     return `
       <div class="acct-quota-loading" aria-live="polite">
         <span class="acct-quota-spinner" aria-hidden="true"></span>
-        <span>Checking your quota…</span>
+        <span>Reading quota…</span>
       </div>`;
   }
 
   if (status.kind === "error") {
-    return renderQuotaError(status.error);
+    return status.error.kind === "not-installed"
+      ? renderQuotaInstall(status.error)
+      : renderQuotaNotice(status.error);
   }
 
   return renderQuotaSuccess(status.data);
 }
 
-/** Render the populated quota card — bars + optional extras + footer. */
-function renderQuotaSuccess(data: QuotaData): string {
-  const rows: string[] = [];
-  rows.push(renderQuotaBar("5-hour window", data.fiveHour));
-  rows.push(renderQuotaBar("7-day window", data.sevenDay));
-  if (data.sevenDayOpus) {
-    rows.push(renderQuotaBar("7-day Opus", data.sevenDayOpus));
-  }
-  if (data.sevenDaySonnet) {
-    rows.push(renderQuotaBar("7-day Sonnet", data.sevenDaySonnet));
-  }
-
-  // Pay-as-you-go overflow, if the user has it enabled. Formats
-  // monthly_limit/used_credits as currency when present.
-  //
-  // The OAuth /usage endpoint returns these fields in the currency's
-  // MINOR unit (cents for USD/AUD/EUR, fils for BHD, etc.) — same
-  // convention Stripe uses. Rendering the raw integer gave users
-  // "23346.00 AUD" for a $233.46 spend. We convert to the major unit
-  // using the ISO 4217 fraction-digit count for the currency, then
-  // format via Intl.NumberFormat so locale + symbol are handled for
-  // every region, not just USD.
-  let extraBlock = "";
-  if (data.extraUsage?.enabled) {
-    const used = data.extraUsage.usedCredits ?? 0;
-    const limit = data.extraUsage.monthlyLimit ?? 0;
-    const currency = data.extraUsage.currency ?? "USD";
-    const pct =
-      typeof data.extraUsage.utilization === "number"
-        ? Math.round(data.extraUsage.utilization)
-        : null;
-    extraBlock = `
-      <div class="acct-quota-row acct-quota-extra">
-        <div class="acct-quota-row-head">
-          <span class="acct-quota-label">Extra usage (monthly)</span>
-          <span class="acct-quota-pct">${esc(formatMoney(used, currency))} / ${esc(formatMoney(limit, currency))}</span>
-        </div>
-        ${pct !== null ? `
-        <div class="acct-quota-bar" role="progressbar"
-          aria-label="Extra usage utilization"
-          aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
-          <div class="acct-quota-bar-fill tone-${quotaTone(pct)}" style="width: ${pct}%;"></div>
-        </div>` : ""}
-      </div>`;
-  }
-
-  // Timestamp moved into the section header (next to Refresh) in
-  // renderQuotaSection — no footer here anymore. Keeps the card
-  // visually bottom-flush with other sections (Profile, Usage) and
-  // drops the extra horizontal divider.
+/** Not-installed state — the opt-in CTA that wires the statusline tap. */
+function renderQuotaInstall(err: QuotaError): string {
   return `
-    <div class="acct-quota-bars">
-      ${rows.join("")}
-      ${extraBlock}
+    <div class="acct-quota-intro">
+      <p class="acct-quota-intro-text">
+        Show how much of your 5-hour and 7-day limits you've used — read locally
+        from Claude Code, with no network call. ${esc(err.message)} Enabling wires
+        Claude Code's statusline to a small tap that caches the figures; your
+        existing statusline is preserved, and you can disable it anytime.
+      </p>
+      <button class="btn primary" id="acct-quota-install">
+        ${icon("terminal-square", 14)} Enable live quota
+      </button>
     </div>`;
 }
 
+/** Render the populated quota card — the 5h + 7d bars. */
+function renderQuotaSuccess(data: QuotaSuccess): string {
+  const { fiveHour, sevenDay } = data.quota;
+  if (!fiveHour && !sevenDay) {
+    return `
+      <p class="acct-quota-intro-text">
+        No rate-limit data in the last statusline render. Open a Claude Code
+        session, then refresh.
+      </p>`;
+  }
+  const rows: string[] = [];
+  if (fiveHour) rows.push(renderQuotaBar("5-hour window", fiveHour));
+  if (sevenDay) rows.push(renderQuotaBar("7-day window", sevenDay));
+  return `<div class="acct-quota-bars">${rows.join("")}</div>`;
+}
+
 /**
- * Render an error state that's specific enough for the user to act
- * on. The error kind drives the icon; the `message` is human-crafted
- * in quota.ts so we can surface it verbatim.
+ * "No data yet" notice — installed, but Claude Code hasn't rendered its
+ * statusline since (or the cache was missing/corrupt). The message is
+ * human-crafted in quota.ts so we surface it verbatim.
  */
-function renderQuotaError(err: QuotaError): string {
-  const iconName =
-    err.kind === "no-credentials" || err.kind === "unauthorized"
-      ? "log-in"
-      : err.kind === "network"
-      ? "wifi-off"
-      : "circle-alert";
+function renderQuotaNotice(err: QuotaError): string {
   return `
-    <div class="acct-quota-error" role="alert">
-      <span class="acct-quota-error-icon">${icon(iconName, 16)}</span>
+    <div class="acct-quota-error" role="status">
+      <span class="acct-quota-error-icon">${icon("refresh-cw", 16)}</span>
       <div class="acct-quota-error-body">
-        <div class="acct-quota-error-title">Couldn't fetch quota</div>
+        <div class="acct-quota-error-title">Waiting for Claude Code</div>
         <div class="acct-quota-error-msg">${esc(err.message)}</div>
       </div>
       <button class="btn" id="acct-quota-fetch">
-        ${icon("refresh-cw", 12)} Try again
+        ${icon("refresh-cw", 12)} Refresh
       </button>
     </div>`;
 }
@@ -511,13 +468,13 @@ function formatFetchedRelative(iso: string): string {
 function renderQuotaSection(): string {
   const collapsed = isSectionCollapsed("quota");
   const status = getQuotaStatus();
-  // "Fetched Xm ago" stamp lives in the header, immediately before
-  // the Refresh button — so freshness + action sit together at the
-  // top of the card, no bottom footer needed.
-  const timestamp =
-    status.kind === "success"
-      ? `<span class="acct-quota-timestamp" title="${esc(status.data.fetchedAt)}">${esc(formatFetchedRelative(status.data.fetchedAt))}</span>`
-      : "";
+  // Stamp shows when Claude Code last rendered its statusline (capture
+  // time) — the figure users care about, not when we read the file.
+  // Sits in the header beside Refresh; no bottom footer needed.
+  const captured = status.kind === "success" ? status.data.quota.capturedAt : "";
+  const timestamp = captured
+    ? `<span class="acct-quota-timestamp" title="${esc(captured)}">${esc(formatFetchedRelative(captured))}</span>`
+    : "";
   const refreshBtn =
     status.kind === "idle"
       ? ""
@@ -541,6 +498,50 @@ function renderQuotaSection(): string {
       <div class="acct-section-body">
         ${renderQuotaBody()}
       </div>`}
+    </section>`;
+}
+
+// ── Section: Current session ──
+
+/**
+ * Live session metrics from the same statusline cache as Quota: active
+ * model, context-window usage, and cost. Reflects the most recently
+ * active Claude Code session. Hidden entirely when the cache holds no
+ * session metrics, so it never shows an empty shell.
+ */
+function renderLiveSection(): string {
+  const status = getQuotaStatus();
+  if (status.kind !== "success") return "";
+  const live = status.data.live;
+  const hasLive =
+    live.model !== "" || live.contextUsedPercent !== null || live.sessionCostUsd !== null;
+  if (!hasLive) return "";
+
+  const metaRow = (k: string, v: string): string =>
+    `<div class="acct-meta-row"><span class="acct-meta-k">${esc(k)}</span><span class="acct-meta-v">${esc(v)}</span></div>`;
+
+  const rows: string[] = [];
+  if (live.model) rows.push(metaRow("Model", live.model));
+  if (live.contextUsedPercent !== null) {
+    const pct = `${Math.round(live.contextUsedPercent)}%`;
+    rows.push(metaRow("Context", live.contextSize ? `${pct} of ${formatNumber(live.contextSize)}` : pct));
+  }
+  if (live.sessionCostUsd !== null) {
+    rows.push(metaRow("Session cost", `$${live.sessionCostUsd.toFixed(2)}`));
+  }
+  if (live.linesAdded !== null || live.linesRemoved !== null) {
+    rows.push(metaRow("Edits", `+${live.linesAdded ?? 0} / −${live.linesRemoved ?? 0}`));
+  }
+
+  const collapsed = isSectionCollapsed("session");
+  return `
+    <section class="acct-section">
+      <header class="acct-section-header" data-section="session"
+        role="button" tabindex="0" aria-expanded="${!collapsed}">
+        <span class="acct-section-chevron ${collapsed ? "collapsed" : ""}">${icon("chevron-down", 14)}</span>
+        <h2 class="acct-section-title">Current session</h2>
+      </header>
+      ${collapsed ? "" : `<div class="acct-section-body"><div class="acct-meta">${rows.join("")}</div></div>`}
     </section>`;
 }
 
@@ -1044,22 +1045,27 @@ function bindHandlers(container: HTMLElement, data: AccountData): void {
     sendRestoreClaudeConfig();
   });
 
-  // Quota fetch / retry. Same element id across idle / error / success
-  // states so one handler covers every Refresh/Try-again click. We
-  // flip to the loading status optimistically so the UI reacts
-  // immediately and the spinner appears without waiting for the
-  // network round-trip.
+  // Quota refresh. Same element id in the no-data notice + success
+  // header so one handler covers every Refresh click. Flip to loading
+  // optimistically so the spinner appears immediately.
   container.querySelector<HTMLElement>("#acct-quota-fetch")?.addEventListener("click", (e: Event) => {
     // Prevent the click from bubbling to the section header (the
     // button lives inside `.acct-section-header` for layout) — a
     // bubble would collapse the section on every refresh.
     e.stopPropagation();
-    // Flip opt-in on first user-initiated fetch so subsequent tab
-    // opens auto-refresh (up to the TTL) without re-asking.
-    setQuotaOptIn(true);
     setQuotaStatus({ kind: "loading" });
     renderAccount(container);
     sendFetchQuota();
+  });
+
+  // Enable live quota — installs the statusline tap (opt-in). The host
+  // wires settings.json then replies with quotaData (no-data until
+  // Claude renders). Flip to loading so the CTA doesn't sit unresponsive.
+  container.querySelector<HTMLElement>("#acct-quota-install")?.addEventListener("click", (e: Event) => {
+    e.stopPropagation();
+    setQuotaStatus({ kind: "loading" });
+    renderAccount(container);
+    sendInstallStatusline();
   });
 
   // Profile section — Save profile + Switch account buttons. Save

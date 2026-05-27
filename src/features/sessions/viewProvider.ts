@@ -74,7 +74,8 @@ import {
   deleteSettingsSnapshot as deleteSettingsSnapshotFile,
 } from "../account/parser";
 import type { AccountData } from "../account/types";
-import { fetchQuota } from "../account/quota";
+import { readQuota } from "../account/quota";
+import { installStatusline, uninstallStatusline } from "../account/statuslineInstall";
 import {
   saveProfile as saveProfileSnapshot,
   switchProfile as switchProfileSnapshot,
@@ -1594,13 +1595,36 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       }
 
       case "fetchQuota": {
-        // The only network call in Claude Manager — opt-in, triggered
-        // only by the user clicking Refresh on the Quota card. The
-        // result carries either `data` or an `error` shape so the
-        // webview can render a precise UI state instead of a generic
-        // "something went wrong" message.
-        const result = await fetchQuota();
-        wv.postMessage({ type: "quotaData", result });
+        // No network call: re-read the local statusline cache the tap
+        // wrote. "Refresh" re-reads what the authorized client (Claude
+        // Code) last reported — never a fresh server hit. The result
+        // carries `data` or a typed `error` (not-installed / no-data).
+        wv.postMessage({ type: "quotaData", result: readQuota() });
+        break;
+      }
+
+      case "installStatusline": {
+        // Opt-in: wire Claude Code's statusLine.command to our tap so it
+        // caches the server-computed quota locally. The bundled script
+        // sits beside extension.js in dist/; __dirname resolves there.
+        const res = installStatusline(path.join(__dirname, "statusline-tap.js"));
+        if (!res.ok) {
+          vscode.window.showErrorMessage(`Couldn't enable live quota: ${res.error}.`);
+        }
+        wv.postMessage({ type: "quotaData", result: readQuota() });
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        break;
+      }
+
+      case "uninstallStatusline": {
+        const res = uninstallStatusline();
+        if (!res.ok) {
+          vscode.window.showErrorMessage(`Couldn't disable live quota: ${res.error}.`);
+        }
+        wv.postMessage({ type: "quotaData", result: readQuota() });
+        const workspace = getWorkspace();
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
         break;
       }
 
