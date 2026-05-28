@@ -9,7 +9,10 @@
  *     would be noisier than the content it stands in for).
  *
  * Reuses the real `.acct-section` / `.acct-section-body` insets and the 40px
- * avatar size so the placeholder sits in the live section footprint.
+ * avatar size so the placeholder sits in the live section footprint. A
+ * trailing `.skeleton-fill` spacer takes the remaining flex room so the panel
+ * reads as loading edge-to-edge on a tall sidebar instead of leaving an
+ * empty gap below the last section.
  *
  * Lives in the SHELL bundle (alongside TabPanel) so the lazy-tab fallback can
  * render this content-aware shape from frame 1 — before the Account feature
@@ -68,6 +71,13 @@ export function AccountSkeleton() {
           <SkeletonBlock height={120} radius={4} />
         </div>
       </section>
+
+      {/* Flex-grow filler so the skeleton fills the full panel height on a
+          tall sidebar (the live Account tab grows via its scroll area; the
+          skeleton has no scrolling content, so without this it leaves a
+          visible gap below the last section). aria-hidden because it's
+          pure layout — nothing for AT to announce. */}
+      <div class="skeleton-fill" aria-hidden="true" />
     </div>
   );
 }

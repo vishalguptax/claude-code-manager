@@ -7,6 +7,9 @@
  *
  * Reuses the real `.acct-section` / `.acct-section-body` / `.acct-field` insets
  * and `--h-control` field height so the placeholder sits in the live footprint.
+ * A trailing `.skeleton-fill` spacer takes the remaining flex room so the
+ * panel reads as loading edge-to-edge on a tall sidebar instead of leaving
+ * an empty gap below the section.
  *
  * Lives in the SHELL bundle (alongside TabPanel) so the lazy-tab fallback can
  * render this content-aware shape from frame 1 — before the Config feature
@@ -35,6 +38,13 @@ export function ConfigSkeleton() {
           ))}
         </div>
       </section>
+
+      {/* Flex-grow filler so the skeleton fills the full panel height on a
+          tall sidebar (the live Config tab grows via its scroll area; the
+          skeleton has no scrolling content, so without this it leaves a
+          visible gap below the section). aria-hidden because it's pure
+          layout. */}
+      <div class="skeleton-fill" aria-hidden="true" />
     </div>
   );
 }

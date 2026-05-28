@@ -115,6 +115,19 @@
   margin-bottom: var(--space-xl);
 }
 
+/* Flex-grow filler ---------------------------------------------------------- */
+
+/* Spacer placed at the END of a `.panel` skeleton whose sections have a fixed
+   intrinsic height (Account, Config). The live tab fills the viewport via its
+   scroll area; the skeleton has no scrolling content, so without this filler
+   it leaves visible empty room below the last section on a tall sidebar.
+   Reads as part of the panel column — no border, no background — purely a
+   layout fill. */
+.skeleton-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 /* Detail-view skeleton ------------------------------------------------------ */
 
 /* Paragraph / message-block stack inside a detail panel — same 2xl inset as
