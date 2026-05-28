@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.11.2] - 2026-05-28
+
+Scope-aware statusline install + live cache watcher. The 1.11.0 install only wrote at global scope, so any repo with its own `.claude/settings.json` statusline silently shadowed our tap. Now the installer detects which scope Claude actually reads (local › project › global) and writes there; uninstall reverses at the same scope. The Quota + Current Session cards now auto-refresh the instant Claude re-renders. Plus an absolute-node-path resolve at install time so nvm setups work, and a clearer label when a cached window has rolled over.
+
+See [docs/releases/v1.11.2.md](docs/releases/v1.11.2.md) for full details.
+
 ## [1.11.0] - 2026-05-28
 
 Quota is now read entirely locally. Earlier versions sent your subscription OAuth token to `api.anthropic.com` from outside Claude Code — prohibited under Anthropic's 2026 terms and a risk to your account. An opt-in statusline tap lets Claude Code cache the 5h / 7d figures locally and the panel reads that file: no network call, no token. A new Current session card shows live model, context usage, and session cost from the same cache.

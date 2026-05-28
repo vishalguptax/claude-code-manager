@@ -170,6 +170,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
   private viewSubscriptions: vscode.Disposable[] = [];
   /** Debounce timer for account data re-parse on file changes. */
   private accountReparseTimer: NodeJS.Timeout | undefined;
+  private quotaCacheTimer: NodeJS.Timeout | undefined;
   /** Debounce timer for session list re-parse on file changes. */
   private sessionsReparseTimer: NodeJS.Timeout | undefined;
   /**
@@ -471,6 +472,8 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     this.accountReparseTimer = undefined;
     if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
     this.sessionsReparseTimer = undefined;
+    if (this.quotaCacheTimer) clearTimeout(this.quotaCacheTimer);
+    this.quotaCacheTimer = undefined;
 
     const workspace = getWorkspace();
     const ws = workspace || undefined;
@@ -678,6 +681,33 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       this.watchers.push(watcher);
     }
 
+    // ── Quota cache watcher ──
+    // The statusline tap rewrites ~/.claude/.claude-manager/statusline.json
+    // on every Claude Code render. Watching it lets the Quota + Current
+    // Session cards update live (no manual Refresh, no polling) — purely
+    // reacting to the cache the authorized client wrote. Debounced to
+    // coalesce the tmp/rename burst.
+    const quotaCachePattern = new vscode.RelativePattern(
+      vscode.Uri.file(claudeDir),
+      ".claude-manager/statusline.json",
+    );
+    const onQuotaCacheChange = (): void => {
+      if (this.quotaCacheTimer) clearTimeout(this.quotaCacheTimer);
+      this.quotaCacheTimer = setTimeout(() => {
+        const wv = this.view?.webview;
+        if (!wv) return;
+        try {
+          const ws = getWorkspace() || undefined;
+          wv.postMessage({ type: "quotaData", result: readQuota(ws) });
+        } catch (err) {
+          console.warn("[claude-manager] quota cache push failed:", err);
+        }
+      }, 150);
+    };
+    const quotaWatcher = vscode.workspace.createFileSystemWatcher(quotaCachePattern);
+    bindAll(quotaWatcher, onQuotaCacheChange);
+    this.watchers.push(quotaWatcher);
+
     // ── Session data watchers ──
     // history.jsonl is split out from the projects watcher so the
     // dispatch logic can pick the cheap path (single-session reparse)
@@ -817,6 +847,8 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     this.accountReparseTimer = undefined;
     if (this.sessionsReparseTimer) clearTimeout(this.sessionsReparseTimer);
     this.sessionsReparseTimer = undefined;
+    if (this.quotaCacheTimer) clearTimeout(this.quotaCacheTimer);
+    this.quotaCacheTimer = undefined;
     if (this.liveStateRefreshTimer) clearTimeout(this.liveStateRefreshTimer);
     this.liveStateRefreshTimer = undefined;
     this.stopLivePoll();
@@ -1596,35 +1628,37 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
 
       case "fetchQuota": {
         // No network call: re-read the local statusline cache the tap
-        // wrote. "Refresh" re-reads what the authorized client (Claude
-        // Code) last reported — never a fresh server hit. The result
-        // carries `data` or a typed `error` (not-installed / no-data).
-        wv.postMessage({ type: "quotaData", result: readQuota() });
+        // wrote. Workspace threaded so the installed-check considers
+        // project/local statusLine scopes (precedence: local › project
+        // › global).
+        const workspace = getWorkspace() || undefined;
+        wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
         break;
       }
 
       case "installStatusline": {
-        // Opt-in: wire Claude Code's statusLine.command to our tap so it
-        // caches the server-computed quota locally. The bundled script
-        // sits beside extension.js in dist/; __dirname resolves there.
-        const res = installStatusline(path.join(__dirname, "statusline-tap.js"));
+        // Opt-in: wire Claude Code's statusLine.command to our tap so
+        // it caches the server-computed quota locally. Installs at the
+        // EFFECTIVE scope so a project/local statusline doesn't shadow
+        // us. The bundled tap sits beside extension.js in dist/.
+        const workspace = getWorkspace() || undefined;
+        const res = installStatusline(path.join(__dirname, "statusline-tap.js"), workspace);
         if (!res.ok) {
           vscode.window.showErrorMessage(`Couldn't enable live quota: ${res.error}.`);
         }
-        wv.postMessage({ type: "quotaData", result: readQuota() });
-        const workspace = getWorkspace();
-        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace) });
         break;
       }
 
       case "uninstallStatusline": {
-        const res = uninstallStatusline();
+        const workspace = getWorkspace() || undefined;
+        const res = uninstallStatusline(workspace);
         if (!res.ok) {
           vscode.window.showErrorMessage(`Couldn't disable live quota: ${res.error}.`);
         }
-        wv.postMessage({ type: "quotaData", result: readQuota() });
-        const workspace = getWorkspace();
-        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
+        wv.postMessage({ type: "accountData", data: parseAccountData(workspace) });
         break;
       }
 

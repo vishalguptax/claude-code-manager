@@ -264,12 +264,15 @@ function renderProfileSection(data: AccountData): string {
  * Avoids showing tiny "resets in 42m" at the wrong scale — rounds to
  * days when >=24h, hours when >=1h, otherwise shows minutes.
  */
+// A reset time in the past means the cached window already rolled over
+// since Claude Code last rendered — the figure is stale, not "resetting
+// now". Surface staleness instead of a misleading countdown.
 function formatResetsIn(isoResetsAt: string): string {
   if (!isoResetsAt) return "";
   const resetMs = Date.parse(isoResetsAt);
   if (Number.isNaN(resetMs)) return "";
   const diffMs = resetMs - Date.now();
-  if (diffMs <= 0) return "resets now";
+  if (diffMs <= 0) return "outdated · open Claude to refresh";
   const mins = Math.floor(diffMs / 60_000);
   if (mins < 60) return `resets in ${mins}m`;
   const hours = Math.floor(mins / 60);
