@@ -4,15 +4,20 @@
  *   - the `.actions-bar` button row (New / Temp / Continue / Restore / Import);
  *   - the `.search-row` (search field + refresh button);
  *   - the `.filter-row` (project + branch dropdowns) and the date-chip row;
- *   - ~6 session rows, each a title + relative-time line, a prompt line, and a
+ *   - ~14 session rows, each a title + relative-time line, a prompt line, and a
  *     branch-badge + project meta line, sized to the virtualizer's 64px row.
  *
  * Reuses the same `.actions-bar` / `.search-row` / `.filter-row` / `.date-chips`
  * insets and `--h-control` field height the real controls use, plus the fixed
  * session-row height, so the placeholder occupies the live layout's footprint.
+ *
+ * Lives in the SHELL bundle (alongside TabPanel) so the lazy-tab fallback can
+ * render this content-aware shape from frame 1 — before the Sessions feature
+ * chunk has finished downloading. The feature's own loading branch
+ * re-imports from here so there's no duplicate copy.
  */
 
-import { SkeletonBlock, SkeletonLine } from "../../../../../webview/shared/ui";
+import { SkeletonBlock, SkeletonLine } from "../../../../shared/ui";
 
 /** Action buttons in the real ActionsBar, by width hint (px). */
 const ACTION_WIDTHS = [60, 64, 84, 132, 72];

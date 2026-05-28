@@ -10,6 +10,7 @@
  * validated by the time the handlers run.
  */
 import { useEffect } from "preact/hooks";
+import { SessionsSkeleton } from "../../../webview/app/tabs/skeletons";
 import { registerFeatureHandler } from "../../../webview/shared/model";
 import { sendReady } from "./api";
 import {
@@ -23,7 +24,6 @@ import {
 } from "./model";
 import { DetailView } from "./ui/views/DetailView";
 import { ListView } from "./ui/views/ListView";
-import { SessionsSkeleton } from "./ui/views/SessionsSkeleton";
 
 // Re-export the host-message handlers from the model so existing tests that
 // import them from the slice entry keep resolving.

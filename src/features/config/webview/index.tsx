@@ -12,13 +12,14 @@
  */
 import { useEffect, useMemo } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
+import { ConfigSkeleton } from "../../../webview/app/tabs/skeletons";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
 import { EmptyState } from "../../../webview/shared/ui";
 import type { AccountData, PermissionScope } from "../types";
 import { createConfigApi } from "./api";
 import { configData, configError, loading, permissionScope, permissionSearch } from "./model";
-import { BrainView, ConfigSkeleton, PermissionsView, SettingsView, SnapshotsView } from "./ui";
+import { BrainView, PermissionsView, SettingsView, SnapshotsView } from "./ui";
 
 /**
  * Apply an inbound host message to the config signals. Exported for unit

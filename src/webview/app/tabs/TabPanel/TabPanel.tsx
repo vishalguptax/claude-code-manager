@@ -2,12 +2,18 @@
  * Lazy loader for feature webview modules. Each feature ships a default-exported
  * Preact component at `src/features/{feature}/webview/index.tsx`. We import it
  * dynamically the first time the tab is activated and cache the result.
+ *
+ * While the chunk is in flight we render the feature's CONTENT-AWARE skeleton
+ * (resolved from the per-tab registry, which lives in the shell bundle so the
+ * shape is available from frame 1). This avoids the brief flash of a generic
+ * loader that the user used to see on every first tab activation before the
+ * feature's own loading branch could mount.
  */
 
 import type { ComponentType } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { EmptyState } from "../../../shared/ui/EmptyState";
-import { Loading } from "../../../shared/ui/Loading";
+import { resolveTabSkeleton } from "../skeletons";
 
 export interface TabPanelProps {
   feature: string;
@@ -67,7 +73,14 @@ export function TabPanel({ feature }: TabPanelProps) {
     };
   }, [feature]);
 
-  if (state.status === "loading") return <Loading />;
+  if (state.status === "loading") {
+    // Per-tab skeleton shaped like the feature's loaded layout — same shell,
+    // same insets — so the activation feels instant and there's no layout
+    // shift when the chunk lands. Resolved from the shell-side registry, so
+    // this paints from frame 1 even before the feature chunk arrives.
+    const Skeleton = resolveTabSkeleton(feature);
+    return <Skeleton />;
+  }
   if (state.status === "error") return <EmptyState title="Failed to load tab" />;
   const { Component } = state;
   return <Component />;

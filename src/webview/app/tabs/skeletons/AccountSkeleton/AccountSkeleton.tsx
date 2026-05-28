@@ -10,9 +10,14 @@
  *
  * Reuses the real `.acct-section` / `.acct-section-body` insets and the 40px
  * avatar size so the placeholder sits in the live section footprint.
+ *
+ * Lives in the SHELL bundle (alongside TabPanel) so the lazy-tab fallback can
+ * render this content-aware shape from frame 1 — before the Account feature
+ * chunk has finished downloading. The feature's own loading branch re-imports
+ * from here so there's no duplicate copy.
  */
 
-import { SkeletonBlock, SkeletonCircle, SkeletonLine } from "../../../../../webview/shared/ui";
+import { SkeletonBlock, SkeletonCircle, SkeletonLine } from "../../../../shared/ui";
 
 function SectionHeaderLine() {
   return (
@@ -24,7 +29,7 @@ function SectionHeaderLine() {
 
 export function AccountSkeleton() {
   return (
-    <div class="panel" aria-busy="true" aria-live="polite">
+    <div class="panel skeleton-panel" aria-busy="true" aria-live="polite">
       {/* Profile */}
       <section class="acct-section">
         <SectionHeaderLine />

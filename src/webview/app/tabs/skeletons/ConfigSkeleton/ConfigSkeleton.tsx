@@ -7,16 +7,21 @@
  *
  * Reuses the real `.acct-section` / `.acct-section-body` / `.acct-field` insets
  * and `--h-control` field height so the placeholder sits in the live footprint.
+ *
+ * Lives in the SHELL bundle (alongside TabPanel) so the lazy-tab fallback can
+ * render this content-aware shape from frame 1 — before the Config feature
+ * chunk has finished downloading. The feature's own loading branch re-imports
+ * from here so there's no duplicate copy.
  */
 
-import { SkeletonBlock, SkeletonLine } from "../../../../../webview/shared/ui";
+import { SkeletonBlock, SkeletonLine } from "../../../../shared/ui";
 
 /** Label widths per field so they don't read as a stamped column. */
 const FIELD_LABELS = ["38%", "46%", "42%", "52%", "34%"];
 
 export function ConfigSkeleton() {
   return (
-    <div class="panel" aria-busy="true" aria-live="polite">
+    <div class="panel skeleton-panel" aria-busy="true" aria-live="polite">
       <section class="acct-section">
         <div class="acct-section-header">
           <SkeletonLine width={88} height={9} />

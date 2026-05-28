@@ -19,6 +19,7 @@
 
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
+import { AccountSkeleton } from "../../../webview/app/tabs/skeletons";
 import { registerFeatureHandler } from "../../../webview/shared/model";
 import { EmptyState } from "../../../webview/shared/ui";
 import type { QuotaResult } from "../quota";
@@ -34,7 +35,7 @@ import {
   setQuotaLoading,
   setQuotaSuccess,
 } from "./model";
-import { AccountSkeleton, LiveView, ProfileView, QuotaView, UsageView } from "./ui";
+import { LiveView, ProfileView, QuotaView, UsageView } from "./ui";
 
 /** Identity of the account at the last render, for switch detection. */
 let lastAccountKey: string | null = null;

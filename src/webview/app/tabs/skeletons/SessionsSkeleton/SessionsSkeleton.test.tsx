@@ -23,4 +23,12 @@ describe("SessionsSkeleton", () => {
     expect(container.querySelectorAll(".skeleton-list-rows > .session-item").length).toBe(14);
     expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
   });
+
+  it("uses .panel so the column grows to the full sidebar height", () => {
+    // The .panel rule (base.css) is height:100% + flex column; combined with the
+    // .list flex:1 child, the skeleton fills the panel top to bottom — no empty
+    // gap below the last row on a tall sidebar.
+    const { container } = render(<SessionsSkeleton />);
+    expect(container.querySelector(".panel.skeleton-panel")).toBeTruthy();
+  });
 });
