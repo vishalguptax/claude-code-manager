@@ -26,6 +26,18 @@ export const STATS_CACHE_FILE: string = path.join(CLAUDE_DIR, "stats-cache.json"
 /** Global Claude CLI settings file (~/.claude/settings.json). */
 export const SETTINGS_FILE: string = path.join(CLAUDE_DIR, "settings.json");
 
+/**
+ * Cache Claude Code writes when an MCP server needs (re-)authentication.
+ * Keys are connector display names (e.g. "claude.ai Gmail"); presence
+ * means Claude flagged an auth prompt for that server. We use it to
+ * badge the MCP tab so users see which connectors need re-auth without
+ * opening Claude.
+ */
+export const MCP_AUTH_CACHE_FILE: string = path.join(
+  CLAUDE_DIR,
+  "mcp-needs-auth-cache.json",
+);
+
 /** Number of bytes to read from a session file for metadata extraction */
 export const SESSION_META_READ_BYTES: number = 4096;
 

@@ -13,7 +13,7 @@ vi.mock("os", async () => {
   return { ...actual, homedir: () => HOME };
 });
 
-import { parseMcpServers, toggleMcpServer, deleteMcpServer } from "../parser";
+import { parseMcpServers, toggleMcpServer, deleteMcpServer, readMcpAuthNeeds } from "../parser";
 
 beforeEach(() => {
   fs.rmSync(HOME, { recursive: true, force: true });
@@ -119,5 +119,37 @@ describe("toggle/delete reject plugin scope", () => {
 
   it("deleteMcpServer returns false for plugin scope", () => {
     expect(deleteMcpServer("docs", "plugin")).toBe(false);
+  });
+});
+
+describe("readMcpAuthNeeds", () => {
+  const authCachePath = path.join(HOME, ".claude", "mcp-needs-auth-cache.json");
+
+  it("returns [] when the cache file is missing", () => {
+    expect(readMcpAuthNeeds()).toEqual([]);
+  });
+
+  it("returns sorted server names from the cache keys", () => {
+    writeJson(authCachePath, {
+      "claude.ai Google Drive": { timestamp: 1, id: "x" },
+      "claude.ai Gmail": { timestamp: 2, id: "y" },
+      "claude.ai Google Calendar": { timestamp: 3, id: "z" },
+    });
+    expect(readMcpAuthNeeds()).toEqual([
+      "claude.ai Gmail",
+      "claude.ai Google Calendar",
+      "claude.ai Google Drive",
+    ]);
+  });
+
+  it("returns [] for an array (not an object)", () => {
+    writeJson(authCachePath, ["nope"]);
+    expect(readMcpAuthNeeds()).toEqual([]);
+  });
+
+  it("returns [] for invalid JSON", () => {
+    fs.mkdirSync(path.dirname(authCachePath), { recursive: true });
+    fs.writeFileSync(authCachePath, "{ not json");
+    expect(readMcpAuthNeeds()).toEqual([]);
   });
 });

@@ -9,6 +9,8 @@ import type { McpServer } from "../types";
 // ── Raw state ──
 
 let allServers: McpServer[] = [];
+/** Connector names Claude Code flagged as needing (re-)authentication. */
+let authNeeds: string[] = [];
 let selectedServer: McpServer | null = null;
 let loading = false;
 let searchQuery = "";
@@ -51,6 +53,16 @@ export function getFilterScope(): "all" | "project" | "global" | "plugin" {
 /** Replace the full server list with newly received data. */
 export function setServers(servers: McpServer[]): void {
   allServers = servers;
+}
+
+/** Server names Claude flagged as needing (re-)auth. */
+export function getAuthNeeds(): string[] {
+  return authNeeds;
+}
+
+/** Replace the auth-needs list (host pushes this alongside the server list). */
+export function setAuthNeeds(next: string[]): void {
+  authNeeds = next;
 }
 
 /** Set the currently selected MCP server. */

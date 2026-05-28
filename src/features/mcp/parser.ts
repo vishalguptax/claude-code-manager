@@ -6,6 +6,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { MCP_AUTH_CACHE_FILE } from "../../core/config";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { loadActivePlugins, findPluginMcpFile, type ActivePlugin } from "../../core/plugins";
 import type { McpServer, McpServerScope, McpServerType } from "./types";
@@ -155,6 +156,29 @@ export function parseMcpServers(workspacePath?: string): McpServer[] {
   }
 
   return servers;
+}
+
+/**
+ * List MCP servers Claude Code has flagged as needing (re-)auth. Keys
+ * of `mcp-needs-auth-cache.json` are the connector display names Claude
+ * uses ("claude.ai Gmail", …). Returns a sorted array; absent file or
+ * parse failure → empty array (no badge).
+ */
+export function readMcpAuthNeeds(): string[] {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(MCP_AUTH_CACHE_FILE, "utf-8");
+  } catch {
+    return [];
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+  return Object.keys(parsed as Record<string, unknown>).sort();
 }
 
 /**

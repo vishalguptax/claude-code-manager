@@ -7,7 +7,7 @@
 import type { VSCodeAPI } from "../../../webview/types";
 import { skeletonListHtml } from "../../../webview/loader";
 import { initMcpApi, sendGetMcpServers } from "./api";
-import { setServers, setSelectedServer, getSelectedServer, setLoading } from "./state";
+import { setAuthNeeds, setServers, setSelectedServer, getSelectedServer, setLoading } from "./state";
 import { renderMcpList } from "./views/listView";
 import { showMcpDetail } from "./views/detailView";
 import type { McpServer } from "../types";
@@ -31,8 +31,25 @@ export function mount(container: HTMLElement): void {
     const msg = event.data as Record<string, unknown>;
 
     if (msg.type === "mcpServers") {
-      const servers = msg.data as McpServer[];
+      // The host now sends { servers, authNeeds } so the auth-health
+      // banner has data. Older payloads may still be a bare array —
+      // handle both for forward/backward compatibility.
+      const data = msg.data as unknown;
+      let servers: McpServer[];
+      let authNeeds: string[];
+      if (Array.isArray(data)) {
+        servers = data as McpServer[];
+        authNeeds = [];
+      } else if (data && typeof data === "object") {
+        const d = data as { servers?: McpServer[]; authNeeds?: string[] };
+        servers = (d.servers ?? []) as McpServer[];
+        authNeeds = d.authNeeds ?? [];
+      } else {
+        servers = [];
+        authNeeds = [];
+      }
       setServers(servers);
+      setAuthNeeds(authNeeds);
       setLoading(false);
       // If detail view is open, refresh the selected server with updated data
       const selected = getSelectedServer();

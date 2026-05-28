@@ -61,7 +61,7 @@ import {
   updateHook as writerUpdateHook,
   addHook as writerAddHook,
 } from "../hooks/writer";
-import { parseMcpServers, toggleMcpServer, deleteMcpServer } from "../mcp/parser";
+import { parseMcpServers, readMcpAuthNeeds, toggleMcpServer, deleteMcpServer } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
 import {
   parseAccountData,
@@ -550,7 +550,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
     }
     if (mcpResult.ok) {
       this.mcpServers = mcpResult.data;
-      wv.postMessage({ type: "mcpServers", data: this.mcpServers });
+      wv.postMessage({ type: "mcpServers", data: { servers: this.mcpServers, authNeeds: readMcpAuthNeeds() } });
     }
     if (agentsResult.ok) {
       this.agents = agentsResult.data;
@@ -1508,7 +1508,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
       case "getMcpServers": {
         const workspace = getWorkspace();
         this.mcpServers = parseMcpServers(workspace || undefined);
-        wv.postMessage({ type: "mcpServers", data: this.mcpServers });
+        wv.postMessage({ type: "mcpServers", data: { servers: this.mcpServers, authNeeds: readMcpAuthNeeds() } });
         break;
       }
 
@@ -1554,7 +1554,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
         if (ok) {
           // Re-parse and push updated list
           this.mcpServers = parseMcpServers(workspace || undefined);
-          wv.postMessage({ type: "mcpServers", data: this.mcpServers });
+          wv.postMessage({ type: "mcpServers", data: { servers: this.mcpServers, authNeeds: readMcpAuthNeeds() } });
         } else {
           vscode.window.showErrorMessage(`Failed to ${disabled ? "disable" : "enable"} ${name}`);
         }
@@ -1584,7 +1584,7 @@ export class ClaudeSessionViewProvider implements vscode.WebviewViewProvider {
           const ok = deleteMcpServer(srvName, srvScope, workspace || undefined);
           if (ok) {
             this.mcpServers = parseMcpServers(workspace || undefined);
-            wv.postMessage({ type: "mcpServers", data: this.mcpServers });
+            wv.postMessage({ type: "mcpServers", data: { servers: this.mcpServers, authNeeds: readMcpAuthNeeds() } });
           } else {
             vscode.window.showErrorMessage(`Failed to delete ${srvName}`);
           }

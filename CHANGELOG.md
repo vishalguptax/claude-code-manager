@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.3] - 2026-05-28
+
+MCP tab now badges connectors that Claude Code has flagged as needing (re-)authentication — sourced from `~/.claude/mcp-needs-auth-cache.json`. Pure local read, no network. See [docs/releases/v1.11.3.md](docs/releases/v1.11.3.md).
+
 ## [1.11.2] - 2026-05-28
 
 Scope-aware statusline install + live cache watcher. The 1.11.0 install only wrote at global scope, so any repo with its own `.claude/settings.json` statusline silently shadowed our tap. Now the installer detects which scope Claude actually reads (local › project › global) and writes there; uninstall reverses at the same scope. The Quota + Current Session cards now auto-refresh the instant Claude re-renders. Plus an absolute-node-path resolve at install time so nvm setups work, and a clearer label when a cached window has rolled over.

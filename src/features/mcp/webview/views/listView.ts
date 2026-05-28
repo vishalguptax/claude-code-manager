@@ -10,6 +10,7 @@ import { sendOpenUrl } from "../../../sessions/webview/api";
 import { getMarketplaceMcpUrl } from "../../../../webview/marketplace";
 import {
   getAllServers,
+  getAuthNeeds,
   getFilteredServers,
   getServersByScope,
   getSearchQuery,
@@ -42,7 +43,13 @@ export function renderMcpList(container: HTMLElement): void {
   const globalCount = getServersByScope("global").length;
   const pluginCount = getServersByScope("plugin").length;
 
+  const needs = getAuthNeeds();
+  const authBanner = needs.length > 0
+    ? `<div class="mcp-auth-banner" role="status">${icon("circle-alert", 14)}<span>${needs.length} MCP ${needs.length === 1 ? "connector needs" : "connectors need"} re-auth: ${esc(needs.join(", "))}</span></div>`
+    : "";
+
   let shell = `<div class="panel">
+    ${authBanner}
     <div class="search-row">
       <div class="feature-search">
         <input id="mcpSearch" type="text" placeholder="Search servers..." value="${esc(searchQuery)}" />
