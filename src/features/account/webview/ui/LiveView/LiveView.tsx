@@ -52,7 +52,7 @@ export function LiveView() {
       {collapsed ? null : (
         <div class="acct-section-body">
           <div class="acct-meta">
-            {live.model ? <MetaRow k="Model" v={live.model} /> : null}
+            {live.model ? <MetaRow k="Model" v={live.model} numeric /> : null}
             {live.contextUsedPercent !== null ? (
               <MetaRow k="Context" v={contextLabel(live)} numeric />
             ) : null}

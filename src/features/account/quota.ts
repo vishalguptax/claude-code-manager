@@ -117,13 +117,15 @@ function isoFromMs(ms: number): string {
 /**
  * Read the latest quota + live-session snapshot from the local cache.
  * Distinguishes "tap not installed" from "installed but no render yet"
- * so the webview can show the right call-to-action. Named `readQuota`
- * (not "fetch") because it performs no network request.
+ * so the webview can show the right call-to-action. `workspacePath` is
+ * threaded so the installed-check considers project / local scopes too
+ * (Claude Code's statusLine precedence: local › project › global).
+ * Named `readQuota` (not "fetch") because it performs no network request.
  */
-export function readQuota(): QuotaResult {
+export function readQuota(workspacePath?: string): QuotaResult {
   const cache = readStatuslineCache();
   if (!cache) {
-    return isStatuslineInstalled()
+    return isStatuslineInstalled(workspacePath)
       ? {
           ok: false,
           error: {

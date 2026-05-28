@@ -28,6 +28,7 @@ import {
 import { loadState } from "./state";
 import { getWorkspace } from "../../extension/workspace";
 import { parseAccountData } from "../account/parser";
+import { readQuota } from "../account/quota";
 import { syncActiveProfile as syncActiveProfileSnapshot } from "../account/profiles";
 import type { Session } from "./types";
 import type { AccountData } from "../account/types";
@@ -82,6 +83,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   const watchers: vscode.FileSystemWatcher[] = [];
   let accountReparseTimer: NodeJS.Timeout | undefined;
   let sessionsReparseTimer: NodeJS.Timeout | undefined;
+  let quotaCacheTimer: NodeJS.Timeout | undefined;
   const pendingSessionPaths = new Set<string>();
 
   // Account-relevant files live in ~/.claude/ and ~/.claude.json.
@@ -164,6 +166,36 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
     bindAll(watcher, onAccountChange);
     watchers.push(watcher);
   }
+
+  // ── Quota watcher ──
+  // The statusline tap rewrites ~/.claude/.claude-manager/statusline.json
+  // on every Claude Code render (via tmp + rename). Watch it so the Quota
+  // + Current Session cards refresh live — matching the terminal
+  // statusline — instead of only updating on tab mount / manual Refresh.
+  // No network, no polling: purely reacting to the cache the authorized
+  // client wrote. Debounced to coalesce the tmp/rename burst.
+  const quotaCachePattern = new vscode.RelativePattern(
+    vscode.Uri.file(claudeDir),
+    ".claude-manager/statusline.json",
+  );
+  const onQuotaCacheChange = (): void => {
+    if (quotaCacheTimer) clearTimeout(quotaCacheTimer);
+    quotaCacheTimer = setTimeout(() => {
+      const wv = ctx.getWebview();
+      if (!wv) return;
+      try {
+        // Threaded workspace so the installed-check sees project/local
+        // statusline scopes — matters when the tap is wired there.
+        const workspace = getWorkspace() || undefined;
+        wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
+      } catch (err) {
+        console.warn("[claude-manager] quota cache push failed:", err);
+      }
+    }, 150);
+  };
+  const quotaWatcher = vscode.workspace.createFileSystemWatcher(quotaCachePattern);
+  bindAll(quotaWatcher, onQuotaCacheChange);
+  watchers.push(quotaWatcher);
 
   // ── Session data watchers ──
   // history.jsonl is split out from the projects watcher so the
@@ -297,6 +329,8 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
       accountReparseTimer = undefined;
       if (sessionsReparseTimer) clearTimeout(sessionsReparseTimer);
       sessionsReparseTimer = undefined;
+      if (quotaCacheTimer) clearTimeout(quotaCacheTimer);
+      quotaCacheTimer = undefined;
       for (const w of watchers) w.dispose();
       watchers.length = 0;
     },

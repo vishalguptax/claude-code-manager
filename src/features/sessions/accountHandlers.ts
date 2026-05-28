@@ -41,47 +41,39 @@ export async function handleAccountMessage(
 
     case "fetchQuota": {
       // No network call: re-read the local statusline cache the tap
-      // wrote. "Refresh" means "re-read the latest the authorized
-      // client (Claude Code) last reported", never a fresh server hit.
-      // The result carries either `data` or a typed `error` so the
-      // webview can render a precise state (not-installed / no-data).
-      wv.postMessage({ type: "quotaData", result: readQuota() });
+      // wrote. Workspace is threaded so the installed-check considers
+      // project / local statusLine scopes (precedence: local › project
+      // › global).
+      const workspace = getWorkspace() || undefined;
+      wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
       break;
     }
 
     case "installStatusline": {
       // Opt-in: wire Claude Code's statusLine.command to our tap so it
-      // caches the server-computed quota locally. The bundled script
-      // sits beside extension.js in dist/; __dirname resolves there.
+      // caches the server-computed quota locally. Install at the
+      // EFFECTIVE scope so a project/local statusline that overrides
+      // global doesn't shadow us. The bundled tap script sits beside
+      // extension.js in dist/; __dirname resolves there.
       const tapSource = path.join(__dirname, "statusline-tap.js");
-      const res = installStatusline(tapSource);
+      const workspace = getWorkspace() || undefined;
+      const res = installStatusline(tapSource, workspace);
       if (!res.ok) {
-        vscode.window.showErrorMessage(
-          `Couldn't enable live quota: ${res.error}.`,
-        );
+        vscode.window.showErrorMessage(`Couldn't enable live quota: ${res.error}.`);
       }
-      // Re-read quota (now "no-data" until Claude renders) and refresh
-      // account data so the statusline setting reflects the change.
-      wv.postMessage({ type: "quotaData", result: readQuota() });
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(getWorkspace() || undefined),
-      });
+      wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
+      wv.postMessage({ type: "accountData", data: parseAccountData(workspace) });
       break;
     }
 
     case "uninstallStatusline": {
-      const res = uninstallStatusline();
+      const workspace = getWorkspace() || undefined;
+      const res = uninstallStatusline(workspace);
       if (!res.ok) {
-        vscode.window.showErrorMessage(
-          `Couldn't disable live quota: ${res.error}.`,
-        );
+        vscode.window.showErrorMessage(`Couldn't disable live quota: ${res.error}.`);
       }
-      wv.postMessage({ type: "quotaData", result: readQuota() });
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(getWorkspace() || undefined),
-      });
+      wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
+      wv.postMessage({ type: "accountData", data: parseAccountData(workspace) });
       break;
     }
 

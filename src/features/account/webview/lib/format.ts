@@ -100,7 +100,10 @@ export function formatResetsIn(isoResetsAt: string): string {
   const resetMs = Date.parse(isoResetsAt);
   if (Number.isNaN(resetMs)) return "";
   const diffMs = resetMs - Date.now();
-  if (diffMs <= 0) return "resets now";
+  // A reset time in the past means the cached window already rolled over
+  // since Claude Code last rendered — the figure is stale, not "resetting
+  // now". Surface staleness instead of a misleading countdown.
+  if (diffMs <= 0) return "outdated · open Claude to refresh";
   const mins = Math.floor(diffMs / 60_000);
   if (mins < 60) return `resets in ${mins}m`;
   const hours = Math.floor(mins / 60);

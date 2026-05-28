@@ -103,8 +103,10 @@ describe("formatResetsIn", () => {
     const inMins = new Date(Date.now() + 10 * 60000).toISOString();
     expect(formatResetsIn(inMins)).toMatch(/^resets in 1[01]m/);
   });
-  it("says resets now for a past time", () => {
-    expect(formatResetsIn(new Date(Date.now() - 1000).toISOString())).toBe("resets now");
+  it("flags a past reset as outdated (cached window already rolled over)", () => {
+    expect(formatResetsIn(new Date(Date.now() - 1000).toISOString())).toBe(
+      "outdated · open Claude to refresh",
+    );
   });
 });
 
