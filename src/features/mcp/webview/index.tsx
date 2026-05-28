@@ -11,7 +11,15 @@ import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { McpServer } from "../types";
 import { createMcpApi } from "./api";
 import { MCP_BROWSE_URL } from "./lib";
-import { applyAuthNeeds, applyError, applyServers, errorMessage, loading, selected, servers } from "./model";
+import {
+  applyAuthNeeds,
+  applyError,
+  applyServers,
+  errorMessage,
+  loading,
+  selected,
+  servers,
+} from "./model";
 import { DetailView, ListView } from "./ui";
 
 /** Copy text to the clipboard, ignoring environments without the API. */
