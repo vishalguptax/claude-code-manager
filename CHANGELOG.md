@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.4] - 2026-05-28
+
+Remove the Current Session card from the Account tab — duplicated Claude Code's terminal statusline without adding enough value. See [docs/releases/v1.11.4.md](docs/releases/v1.11.4.md).
+
 ## [1.11.3] - 2026-05-28
 
 MCP tab now badges connectors that Claude Code has flagged as needing (re-)authentication — sourced from `~/.claude/mcp-needs-auth-cache.json`. Pure local read, no network. See [docs/releases/v1.11.3.md](docs/releases/v1.11.3.md).

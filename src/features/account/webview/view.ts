@@ -42,7 +42,7 @@ import type {
   PermissionScope,
   UsageStats,
 } from "../types";
-import type { LiveSession, QuotaSuccess, QuotaWindow, QuotaError } from "../quota";
+import type { QuotaSuccess, QuotaWindow, QuotaError } from "../quota";
 import {
   buildHeatmap,
   cutoffDaysForPeriod,
@@ -157,7 +157,6 @@ export function renderAccount(container: HTMLElement): void {
     <div class="panel">
       ${renderProfileSection(data)}
       ${renderQuotaSection()}
-      ${renderLiveSection()}
       ${renderUsageSection(data)}
     </div>`;
 
@@ -501,50 +500,6 @@ function renderQuotaSection(): string {
       <div class="acct-section-body">
         ${renderQuotaBody()}
       </div>`}
-    </section>`;
-}
-
-// ── Section: Current session ──
-
-/**
- * Live session metrics from the same statusline cache as Quota: active
- * model, context-window usage, and cost. Reflects the most recently
- * active Claude Code session. Hidden entirely when the cache holds no
- * session metrics, so it never shows an empty shell.
- */
-function renderLiveSection(): string {
-  const status = getQuotaStatus();
-  if (status.kind !== "success") return "";
-  const live = status.data.live;
-  const hasLive =
-    live.model !== "" || live.contextUsedPercent !== null || live.sessionCostUsd !== null;
-  if (!hasLive) return "";
-
-  const metaRow = (k: string, v: string): string =>
-    `<div class="acct-meta-row"><span class="acct-meta-k">${esc(k)}</span><span class="acct-meta-v">${esc(v)}</span></div>`;
-
-  const rows: string[] = [];
-  if (live.model) rows.push(metaRow("Model", live.model));
-  if (live.contextUsedPercent !== null) {
-    const pct = `${Math.round(live.contextUsedPercent)}%`;
-    rows.push(metaRow("Context", live.contextSize ? `${pct} of ${formatNumber(live.contextSize)}` : pct));
-  }
-  if (live.sessionCostUsd !== null) {
-    rows.push(metaRow("Session cost", `$${live.sessionCostUsd.toFixed(2)}`));
-  }
-  if (live.linesAdded !== null || live.linesRemoved !== null) {
-    rows.push(metaRow("Edits", `+${live.linesAdded ?? 0} / −${live.linesRemoved ?? 0}`));
-  }
-
-  const collapsed = isSectionCollapsed("session");
-  return `
-    <section class="acct-section">
-      <header class="acct-section-header" data-section="session"
-        role="button" tabindex="0" aria-expanded="${!collapsed}">
-        <span class="acct-section-chevron ${collapsed ? "collapsed" : ""}">${icon("chevron-down", 14)}</span>
-        <h2 class="acct-section-title">Current session</h2>
-      </header>
-      ${collapsed ? "" : `<div class="acct-section-body"><div class="acct-meta">${rows.join("")}</div></div>`}
     </section>`;
 }
 
