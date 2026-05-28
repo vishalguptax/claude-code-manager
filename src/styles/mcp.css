@@ -264,3 +264,20 @@
   padding-top: var(--space-md);
   padding-bottom: var(--space-md);
 }
+
+/* Auth-needs banner — shown when one or more MCP connectors need
+ * (re-)auth per Claude Code's own cache. Amber tone to match other
+ * warning banners in the extension. */
+.mcp-auth-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin: var(--space-sm) 0;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+}
+.mcp-auth-banner svg { color: rgb(245, 158, 11); flex-shrink: 0; }

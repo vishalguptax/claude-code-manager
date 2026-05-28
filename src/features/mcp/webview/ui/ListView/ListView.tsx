@@ -6,11 +6,12 @@
  * group-label rows interleaved into a single flat sequence.
  */
 import type { ComponentChildren } from "preact";
-import { Button, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
+import { Button, Icon, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
 import { type Row, buildRows } from "../../lib";
 import type { McpServer } from "../../../types";
 import {
   type McpScopeFilter,
+  authNeeds,
   filteredServers,
   scopeCounts,
   scopeFilter,
@@ -106,8 +107,19 @@ export function ListView({ onSelect, onCopyName, onBrowse, onRefresh }: ListView
       );
   }
 
+  const needs = authNeeds.value;
+
   return (
     <div class="panel">
+      {needs.length > 0 ? (
+        <div class="mcp-auth-banner" role="status">
+          <Icon name="circle-alert" size={14} />
+          <span>
+            {needs.length} MCP {needs.length === 1 ? "connector needs" : "connectors need"} re-auth:{" "}
+            {needs.join(", ")}
+          </span>
+        </div>
+      ) : null}
       <div class="search-row">
         <SearchInput
           value={query}

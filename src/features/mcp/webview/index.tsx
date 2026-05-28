@@ -11,7 +11,7 @@ import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { McpServer } from "../types";
 import { createMcpApi } from "./api";
 import { MCP_BROWSE_URL } from "./lib";
-import { applyError, applyServers, errorMessage, loading, selected, servers } from "./model";
+import { applyAuthNeeds, applyError, applyServers, errorMessage, loading, selected, servers } from "./model";
 import { DetailView, ListView } from "./ui";
 
 /** Copy text to the clipboard, ignoring environments without the API. */
@@ -26,7 +26,21 @@ export default function McpTab() {
   useEffect(() => {
     const unsubscribe = registerFeatureHandler("mcp", (msg) => {
       if (msg.type === "mcpServers") {
-        applyServers((msg.data ?? []) as McpServer[]);
+        // The host now sends { servers, authNeeds } so the auth-health
+        // badge can live on the MCP tab. Older builds (or test fixtures)
+        // may still emit a bare array — handle both shapes.
+        const data = msg.data as unknown;
+        if (Array.isArray(data)) {
+          applyServers(data as McpServer[]);
+          applyAuthNeeds([]);
+        } else if (data && typeof data === "object") {
+          const d = data as { servers?: McpServer[]; authNeeds?: string[] };
+          applyServers((d.servers ?? []) as McpServer[]);
+          applyAuthNeeds(d.authNeeds ?? []);
+        } else {
+          applyServers([]);
+          applyAuthNeeds([]);
+        }
       }
     });
     const unsubscribeError = registerFeatureHandler("error", (msg) => {

@@ -603,7 +603,11 @@ describe("ClaudeSessionViewProvider", () => {
     await handler!({ type: "getMcpServers" });
     const mcpReply = view.webview.posted.find((m) => m.type === "mcpServers");
     expect(mcpReply).toBeDefined();
-    expect(Array.isArray(mcpReply!.data)).toBe(true);
+    // Data shape is now { servers, authNeeds } (piggybacks auth-health
+    // badge onto the existing message — see mcp/messageHandlers.ts).
+    const data = mcpReply!.data as { servers?: unknown; authNeeds?: unknown };
+    expect(Array.isArray(data.servers)).toBe(true);
+    expect(Array.isArray(data.authNeeds)).toBe(true);
   });
 
   it("postWorkspacePath silently ignores posts after the view is disposed", async () => {

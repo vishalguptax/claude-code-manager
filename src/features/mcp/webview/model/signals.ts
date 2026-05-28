@@ -16,6 +16,9 @@ export type McpScopeFilter = "all" | McpServerScope;
 /** All servers as last received from the host. */
 export const servers = signal<McpServer[]>([]);
 
+/** Server names Claude Code flagged as needing (re-)authentication. */
+export const authNeeds = signal<string[]>([]);
+
 /** Currently selected server (drives the detail view), or null for the list. */
 export const selected = signal<McpServer | null>(null);
 
@@ -87,6 +90,11 @@ export function applyServers(next: McpServer[]): void {
   }
 }
 
+/** Apply the auth-needs list from the host (sorted server names). */
+export function applyAuthNeeds(next: string[]): void {
+  authNeeds.value = next;
+}
+
 /** Record a host error and stop the loading state. */
 export function applyError(message: string): void {
   errorMessage.value = message;
@@ -96,6 +104,7 @@ export function applyError(message: string): void {
 /** Reset all signals to their initial values. Used on unmount + in tests. */
 export function resetMcpSignals(): void {
   servers.value = [];
+  authNeeds.value = [];
   selected.value = null;
   loading.value = true;
   errorMessage.value = null;

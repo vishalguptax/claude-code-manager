@@ -12,7 +12,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as os from "os";
 import { parseMessage } from "../../shared/protocol/schemas";
-import { deleteMcpServer, parseMcpServers, toggleMcpServer } from "./parser";
+import { deleteMcpServer, parseMcpServers, readMcpAuthNeeds, toggleMcpServer } from "./parser";
 import type { McpServer, McpServerScope } from "./types";
 
 /** Narrow host surface the MCP handler needs. Implemented by the provider. */
@@ -30,11 +30,19 @@ function asScope(value: string): McpServerScope | null {
   return value === "global" || value === "project" || value === "plugin" ? value : null;
 }
 
-/** Re-parse the server list, cache it, and push it to the webview. */
+/**
+ * Re-parse the server list + the auth-needs cache and push both to the
+ * webview in one message. The `mcpServers` schema accepts `data:
+ * unknown`, so piggybacking { servers, authNeeds } avoids adding a
+ * second message type for what is conceptually one MCP snapshot.
+ */
 function pushServers(ctx: McpHostContext, wv: vscode.Webview): void {
   const servers = parseMcpServers(ctx.getWorkspace());
   ctx.setMcpServers(servers);
-  wv.postMessage({ type: "mcpServers", data: servers });
+  wv.postMessage({
+    type: "mcpServers",
+    data: { servers, authNeeds: readMcpAuthNeeds() },
+  });
 }
 
 /**

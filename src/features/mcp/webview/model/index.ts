@@ -3,8 +3,10 @@
  */
 export {
   type McpScopeFilter,
+  applyAuthNeeds,
   applyError,
   applyServers,
+  authNeeds,
   errorMessage,
   filteredServers,
   loading,
