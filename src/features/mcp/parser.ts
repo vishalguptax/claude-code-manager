@@ -160,9 +160,9 @@ export function parseMcpServers(workspacePath?: string): McpServer[] {
 
 /**
  * List MCP servers Claude Code has flagged as needing (re-)auth. Keys
- * of `mcp-needs-auth-cache.json` are the connector display names Claude
- * uses ("claude.ai Gmail", …). Returns a sorted array; absent file or
- * parse failure → empty array (no badge).
+ * of `mcp-needs-auth-cache.json` are the server display names Claude
+ * uses ("claude.ai Gmail", "claude.ai Google Drive", …). Returns a
+ * sorted array; absent file / parse failure → empty array (no badge).
  */
 export function readMcpAuthNeeds(): string[] {
   let raw: string;

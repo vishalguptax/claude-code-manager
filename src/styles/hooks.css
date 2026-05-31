@@ -1,0 +1,147 @@
+/* ============================================================================
+   Claude Manager — Hooks feature styles.
+
+   Search (SearchInput), scope pills (ScopeFilter), badges (Badge), and buttons
+   (Button) are shared components — their chrome lives in components.css /
+   components-native.css, not here. This file owns only the hooks-unique
+   layout that has no shared equivalent:
+     - the hooks detail layout (scoped under .hooks-panel so it does not
+       depend on sessions.css load order)
+     - the link-style Back button override of the shared .btn base
+     - the inline edit-form fields (the multi-line command <textarea>)
+     - grouping + virtual-list wrappers
+   ============================================================================ */
+
+/* Event grouping wrapper for the non-virtualized list. */
+.hook-group {
+  display: block;
+}
+
+/* Windowed list wrapper — fills the panel below the search + filter rows. */
+.hook-virtual-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Detail view (scoped to hooks so it owns its own layout) ── */
+
+/* Back is a shared <Button> styled down to a link affordance — override the
+   `.btn` base fill/height so it reads as inline navigation, not a control. */
+.hooks-panel .back-btn {
+  align-self: flex-start;
+  height: auto;
+  gap: var(--space-xs);
+  background: transparent;
+  color: var(--link);
+  font-size: var(--fs-base);
+  padding: var(--space-md) var(--space-2xl) var(--space-sm);
+}
+.hooks-panel .back-btn:hover {
+  background: transparent;
+  color: var(--link);
+  text-decoration: underline;
+}
+
+.hooks-panel .d-head {
+  padding: 0 var(--space-2xl) var(--space-md);
+}
+
+.hooks-panel .d-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: var(--space-sm);
+}
+
+.hooks-panel .d-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.hooks-panel .d-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--space-sm);
+  padding: 0 var(--space-2xl) var(--space-lg);
+}
+.hooks-panel .d-actions > .btn {
+  justify-content: center;
+}
+
+.hooks-panel .d-scroll {
+  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
+  border-top: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.hooks-panel .d-section {
+  margin-bottom: var(--space-xl);
+}
+
+.hooks-panel .d-label {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--fg-section);
+  margin-bottom: var(--space-md);
+}
+
+.hooks-panel .d-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-md);
+}
+
+.hooks-panel .d-k {
+  color: var(--fg-dim);
+}
+
+.hooks-panel .d-v {
+  color: var(--fg);
+  text-align: right;
+  word-break: break-word;
+}
+.hooks-panel .d-v.mono {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+/* ── Inline edit form ── */
+
+.hook-field {
+  margin-bottom: var(--space-lg);
+}
+
+.hook-field-label {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  margin-bottom: var(--space-xs);
+}
+
+.hook-field-input {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--input-fg);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: var(--radius);
+  /* Horizontal text inset == the shared <TextField>'s canonical 9px text inset
+     (--tf-inset). The matcher field above this textarea is a <TextField>, so
+     matching the inset keeps both fields' text start on one left x — the box
+     edges already align (both border-box, width:100%, flush under the label).
+     Vertical padding stays roomier for the multiline area. */
+  padding: var(--space-sm) 9px;
+}
+.hook-field-input:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}

@@ -9,6 +9,10 @@
 
 .acct-section {
   border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
+  /* Section separation comes from the header's top padding + body's bottom
+     padding around the divider (~22px) — no extra section padding, which
+     previously stacked into an oversized gap above the next header. */
+  padding-bottom: var(--space-sm);
 }
 .acct-section:last-child { border-bottom: none; }
 
@@ -46,52 +50,18 @@
 
 .acct-section-title {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: var(--fg-muted);
+  color: var(--fg-section);
   margin: 0;
   flex: 1; /* push header-action buttons to the far right */
 }
 
-/*
- * Inline action button rendered at the right edge of a section
- * header (see Quota's Refresh). Uses the same visual weight as the
- * header chevron so it blends into the header bar rather than
- * pulling attention away from the section title.
- */
-.acct-section-head-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  color: var(--fg-muted);
-  font-family: inherit;
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  transition: color var(--transition-control), background var(--transition-control);
-}
-.acct-section-head-btn:hover {
-  color: var(--fg);
-  background: var(--bg-hover);
-}
-.acct-section-head-btn:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 1px;
-}
-.acct-section-head-btn[disabled] {
-  opacity: 0.55;
-  cursor: default;
-}
-/* Spin while fetching — reuses the same keyframe used by the inline
-   quota spinner so there's one source of truth for rotation. */
-.acct-section-head-btn.is-spinning svg { animation: acct-quota-spin 0.8s linear infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .acct-section-head-btn.is-spinning svg { animation: none; }
-}
+/* The Quota section's header refresh control is the shared <Button
+   variant="icon" loading>; its chrome + spinner come from the shared
+   .btn-icon / .is-loading rules in components-native.css, so no
+   account-local button styling is needed here. */
 
 .acct-section-body {
   padding: 0 var(--space-2xl) var(--space-xl);
@@ -185,7 +155,7 @@
 .acct-plan-badge {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
+  padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius);
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -237,7 +207,11 @@
 
 .acct-meta-row {
   display: flex;
-  justify-content: space-between;
+  /* Label + value sit close with ONE capped gap — short identity values
+     ("Credentials: File", "Favorite model: …") read as a pair rather than being
+     flung to opposite panel edges by space-between. Numeric rows opt back into
+     edge alignment via .acct-meta-row-numeric below. */
+  justify-content: flex-start;
   align-items: baseline;
   padding: var(--space-xs) 0;
   font-size: var(--fs-base);
@@ -251,6 +225,19 @@
 
 .acct-meta-v {
   color: var(--fg);
+  /* Long identity values (a model id, a path) still ellipsize within the row
+     rather than pushing it wider. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Numeric rows: push the figure to the right edge and align a column of them. */
+.acct-meta-row-numeric {
+  justify-content: space-between;
+}
+.acct-meta-row-numeric .acct-meta-v {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -287,6 +274,28 @@
   flex-direction: column;
   gap: var(--space-xs);
   margin-top: var(--space-sm);
+  /* Cap the height so a long history (up to 20 snapshots per scope × 3 scopes)
+     scrolls WITHIN its own area instead of stretching the Config page and
+     pushing the Brain-backup section far below the fold. 40vh keeps a useful
+     number of rows visible while staying a minority of the viewport. The
+     section's intro hint stays put above; only the row list scrolls. Native
+     thin scrollbar matching the heatmap wrap so it reads as VS Code chrome. */
+  max-height: 40vh;
+  overflow-y: auto;
+  /* Inner padding-right gives the rows a hair of breathing room from the
+     scrollbar gutter when it appears; -inline keeps left rows flush. */
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle, rgba(127, 127, 127, 0.3)) transparent;
+}
+.cfg-snap-list::-webkit-scrollbar { width: 6px; }
+.cfg-snap-list::-webkit-scrollbar-track { background: transparent; }
+.cfg-snap-list::-webkit-scrollbar-thumb {
+  background: var(--border-subtle, rgba(127, 127, 127, 0.3));
+  border-radius: 3px;
+}
+.cfg-snap-list::-webkit-scrollbar-thumb:hover {
+  background: var(--border, rgba(127, 127, 127, 0.5));
 }
 .cfg-snap-row {
   display: flex;
@@ -310,9 +319,6 @@
   color: var(--fg-muted);
   margin-top: 2px;
 }
-.cfg-snap-scope {
-  text-transform: capitalize;
-}
 .cfg-snap-diff {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -329,21 +335,38 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .acct-actions {
-  /* Grid auto-fit so multi-button rows in account sections stay even
-     when they wrap on narrow panels. Buttons here have wider labels
-     ("Open settings.json", "Open /config") so the min track is larger
-     than the sessions toolbar. */
+  /* Uniform grid: equal-width columns wide enough for the longest label
+     (min 150px so "Open settings.json" / "Extension settings" never crop),
+     packing 2-up when the panel is wide and collapsing to 1-up only when truly
+     narrow. The shared `… > .btn` override (components.css) disables the
+     ellipsis clip so labels show in full; equal columns keep the row tidy. */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-sm);
   margin-top: var(--space-lg);
 }
 
-/* Period/scope toggles now use the shared .vs-segmented primitive from
-   components.css. Only the layout spacing stays local. */
+/* Period/scope toggles now use the shared <Segmented> primitive
+   (.vsc-segmented in components-native.css). Only the layout spacing stays
+   local.
+
+   The scope toggle also carries the shared `.scope-filter` class, whose
+   panel-edge rule (components.css) adds `margin: … var(--space-2xl) …` to
+   inset the control from the bare panel edge on the sessions/skills tabs.
+   Inside the Config/Account tab the control sits in `.acct-section-body`,
+   which ALREADY applies that same `--space-2xl` horizontal padding — so the
+   inherited margin double-insets the segmented, leaving it narrower than the
+   sibling search box and permission rows. Zero the horizontal margin here so
+   the scope toggle spans the full section-body width like every other row. */
 .acct-period-toggle,
 .acct-scope-toggle {
   margin-bottom: var(--space-lg);
+}
+.acct-scope-toggle.scope-filter,
+.acct-period-toggle.scope-filter {
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -356,10 +379,10 @@
    + resize so the right edge is always in view by default. */
 .acct-heatmap-wrap {
   overflow-x: auto;
-  margin: var(--space-md) 0 var(--space-md);
+  margin: var(--space-md) 0;
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle, rgba(127,127,127,0.3)) transparent;
-  padding-bottom: 4px;
+  padding-bottom: var(--space-xs);
 }
 .acct-heatmap-wrap::-webkit-scrollbar { height: 6px; }
 .acct-heatmap-wrap::-webkit-scrollbar-track { background: transparent; }
@@ -468,34 +491,6 @@
   gap: var(--space-sm);
 }
 
-/*
- * Freshness caption under the stats grid. Sits a touch below the
- * cards and a touch above the meta rows; tooltip carries the
- * cadence explanation so the timestamp itself stays scanable.
- */
-.acct-usage-footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding-top: var(--space-xs);
-  margin-bottom: var(--space-md);
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-}
-
-/*
- * "Period totals approximate" caption. Italic + slightly dimmer
- * so it reads as a clarification rather than a primary line, but
- * the underline on hover (via the title attribute) still makes
- * the tooltip discoverable.
- */
-.acct-usage-footer-note {
-  font-style: italic;
-  opacity: 0.75;
-  cursor: help;
-}
-
 .acct-stat {
   padding: var(--space-md);
   background: var(--bg-hover);
@@ -527,170 +522,76 @@
   margin-bottom: var(--space-md);
   position: relative;
 }
-.acct-field-saved::after {
-  content: "✓ Saved";
-  position: absolute;
-  top: 0;
-  right: 0;
-  font-size: var(--fs-xs);
-  color: var(--green);
-  font-weight: 500;
-  animation: acct-fade-out 1.2s ease-out forwards;
-  pointer-events: none;
-}
-@keyframes acct-fade-out {
-  0% { opacity: 0; transform: translateY(-2px); }
-  15% { opacity: 1; transform: translateY(0); }
-  80% { opacity: 1; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-2px); }
-}
 
 .acct-label {
   display: block;
   font-size: var(--fs-sm);
   color: var(--fg-dim);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 
-/*
- * Toggle switch — replaces the native checkbox for binary settings that
- * apply immediately (no Save button). The real <input type="checkbox"> is
- * kept inside the label so semantics, keyboard nav, and screen readers
- * still work; the visual track + thumb is rendered by sibling spans.
- */
-.acct-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: 0;
-  cursor: pointer;
-  user-select: none;
-}
-.acct-toggle input[type="checkbox"] {
-  /* Keep the input in the accessibility tree but hide it visually. */
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-.acct-toggle-track {
-  position: relative;
-  display: inline-block;
-  flex-shrink: 0;
-  /* Compact size — Linear/GitHub-style instead of iOS-style. */
-  width: 24px;
-  height: 14px;
-  background: rgba(127, 127, 127, 0.35);
-  border-radius: 7px;
-  transition: background var(--transition-control);
-}
-.acct-toggle-thumb {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 10px;
-  height: 10px;
-  /* OFF state: dim thumb so it does not steal attention. The state
-     change comes from BOTH track color AND thumb brightness, which
-     makes "on" much more visible than just shifting the track. */
-  background: rgba(255, 255, 255, 0.65);
-  border-radius: 50%;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
-  transition: transform var(--transition-control), background var(--transition-control);
-}
-/* ON state: use the saturated VS Code button background (a true accent
-   color, not the focus-border which can be a thin outline). Falls back
-   to --accent if the theme does not define button-background. The thumb
-   simultaneously snaps to full white for maximum contrast against the
-   colored track. */
-.acct-toggle input:checked ~ .acct-toggle-track {
-  background: var(--vscode-button-background, var(--accent));
-}
-.acct-toggle input:checked ~ .acct-toggle-track .acct-toggle-thumb {
-  transform: translateX(10px);
-  /* Off-white even when on — full #fff blows out against the saturated
-     accent track. 0.88 keeps the thumb readable without screaming. */
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-}
-.acct-toggle:hover .acct-toggle-track {
-  filter: brightness(1.15);
-}
-.acct-toggle input:focus-visible ~ .acct-toggle-track {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-.acct-toggle-text {
-  font-size: var(--fs-sm);
-  color: var(--fg);
-}
-
-.acct-input,
-.acct-select {
-  width: 100%;
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  background: var(--input-bg);
-  color: var(--input-fg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  font-size: var(--fs-base);
-  font-family: inherit;
-  transition: border-color var(--transition-control);
-}
-.acct-input:focus,
-.acct-select:focus {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-}
-
+/* Status-line command etc. — a READ-ONLY code display, not an editable field.
+   Inherits the shared `.code-readonly` treatment (mono surface, no input
+   chrome, single-line horizontal scroll) from components.css. The element
+   carries both classes so existing markup/selectors keep working. */
 .acct-code {
   display: block;
-  padding: var(--space-sm);
-  background: var(--bg-hover);
-  color: var(--fg-dim);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--vscode-textCodeBlock-background,
+    var(--vscode-textBlockQuote-background, var(--bg-hover)));
+  color: var(--fg);
   font-family: var(--mono);
   font-size: var(--fs-sm);
+  line-height: 1.5;
   border-radius: var(--radius-sm);
-  word-break: break-all;
+  border: none;
+  cursor: default;
+  white-space: pre;
+  overflow-x: auto;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Permissions
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* Each labelled group (ALLOWED / DENIED / ADDITIONAL DIRECTORIES) reads as its
+   own block — the larger inter-group gap separates them clearly from the dense
+   rows packed inside each one. */
 .acct-perm-group {
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .acct-perm-group-label {
-  font-size: var(--fs-xs);
-  font-weight: 600;
+  /* Sub-section header (BY MODEL / BY PROJECT / TOOLS / ALLOWED / DENIED).
+     Promoted to the section-header treatment so these read as structural
+     headings, not muted captions. */
+  font-size: var(--fs-sm);
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--fg-muted);
-  margin-bottom: var(--space-xs);
+  letter-spacing: 0.6px;
+  color: var(--fg-section);
+  /* Heading → first row breathing room so the label isn't glued to its list. */
+  margin-bottom: var(--space-md);
 }
 
 .acct-perm-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
-  padding: 6px 8px;
+  /* Wide name→× gap so the remove button never crowds the ellipsized command. */
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
   background: var(--bg-hover);
   border-radius: var(--radius-sm);
-  margin-bottom: 3px;
+  margin-bottom: var(--space-xs);
 }
 
 .acct-perm-name {
   font-family: var(--mono);
   font-size: var(--fs-sm);
+  /* Mono `$`, descenders and parens clip when the line box is exactly the
+     font size; 1.6 gives the glyphs vertical room so nothing is cropped. */
+  line-height: 1.6;
   color: var(--fg);
   white-space: nowrap;
   overflow: hidden;
@@ -699,20 +600,14 @@
   min-width: 0;
 }
 
+/* The remove control is the shared icon <Button>, so it already carries the
+   `.btn-icon` affordance (>=24px hit area, --toolbar-hoverBackground hover,
+   inset --focus-ring). We only pin it from growing in the flex row and keep it
+   centred against the taller (line-height 1.6) name. */
 .acct-perm-remove {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
   flex-shrink: 0;
+  align-self: center;
 }
-.acct-perm-remove:hover { color: var(--red); background: var(--red-bg); }
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Empty states
@@ -727,7 +622,7 @@
   font-size: var(--fs-md);
   font-weight: 600;
   color: var(--fg);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 
 .acct-empty-hint {
@@ -740,7 +635,7 @@
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   font-style: italic;
-  padding: 4px 0;
+  padding: var(--space-xs) 0;
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -760,70 +655,10 @@
  * the dropdown options themselves to be multi-line.
  */
 .acct-field-hint {
-  margin-top: 4px;
+  margin-top: var(--space-xs);
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   line-height: 1.4;
-}
-
-/*
- * Effort segmented row in Config tab. 7 pills (Default · Low · Med ·
- * High · XHigh · Max · Auto). Flex-wraps when the sidebar is too
- * narrow for one row so nothing overflows; pills share remaining
- * width evenly.
- */
-.cfg-effort-row {
-  display: flex !important;
-  flex-wrap: wrap;
-  gap: 2px;
-  width: 100%;
-  box-sizing: border-box;
-}
-.cfg-effort-row .vs-segmented-btn {
-  flex: 1 1 auto;
-  min-width: 48px;
-  padding: 4px 6px;
-  font-size: var(--fs-xs);
-}
-
-/*
- * Radio group (legacy — superseded by segmented row above; kept in
- * case future settings benefit from the stacked-with-desc layout).
- */
-.cfg-radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 4px;
-  background: var(--bg);
-}
-.cfg-radio {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  padding: 6px 8px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background 120ms ease;
-}
-.cfg-radio:hover { background: var(--bg-hover); }
-.cfg-radio input[type="radio"] { margin-top: 3px; accent-color: var(--accent); }
-.cfg-radio-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-.cfg-radio-label {
-  font-size: var(--fs-sm);
-  color: var(--fg);
-}
-.cfg-radio-desc {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  line-height: 1.3;
 }
 
 /*
@@ -837,7 +672,7 @@
 .acct-section-body p code,
 .acct-section-body code:not(.acct-code) {
   display: inline-block;
-  padding: 0 6px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);
   background: var(--bg-hover);
   color: var(--fg);
@@ -872,7 +707,7 @@
 .acct-quota-intro-text code {
   font-family: var(--font-mono, monospace);
   background: var(--bg-hover);
-  padding: 1px 6px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   font-size: 0.92em;
   color: var(--fg);
@@ -887,7 +722,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-lg);
   min-height: 120px;
   color: var(--fg-muted);
   font-size: var(--fs-sm);
@@ -919,7 +754,7 @@
 .acct-quota-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 .acct-quota-row-head {
   display: flex;
@@ -1051,7 +886,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  padding: 4px 0;
+  padding: var(--space-xs) 0;
   margin-bottom: 0;
   min-width: 0;
 }
@@ -1083,7 +918,7 @@
   grid-template-columns: minmax(80px, 1.4fr) minmax(0, 2fr) auto;
   align-items: center;
   gap: var(--space-sm);
-  padding: 3px 0;
+  padding: var(--space-xs) 0;
   margin-bottom: 0;
 }
 .acct-toolbar-label {
@@ -1115,4 +950,226 @@
   font-feature-settings: "tnum" 1;
   min-width: 36px;
   text-align: right;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Preact migration helpers (v2)
+   ──────────────────────────────────────────────────────────────────────────────
+   Classes introduced when porting the account tab from vanilla DOM to
+   Preact. They replace the handful of inline `style="margin-top:…"` /
+   wrapper markup the v1 string-templates used, so the TSX components
+   stay free of inline styling (dynamic geometry — heatmap grid coords,
+   progress-bar widths — remains inline because it is data-driven and
+   has no static class equivalent). */
+
+/* Top-margin separator between consecutive breakdown groups in the
+   Usage section (By model · Projects · Tools · MCP). v1 set this via an
+   inline style on each group. */
+.acct-group-spaced {
+  margin-top: var(--space-lg);
+}
+
+/* Wrapper around the signed-in profile body. v1 emitted these children
+   directly inside `.acct-section-body`; the Preact component groups
+   them under one element so the banner + profile + meta + actions stack
+   reads as a single block. No box of its own — purely structural. */
+.acct-profile-wrap {
+  display: contents;
+}
+
+/* ── Usage redesign: section dividers + ribbon + blocks ─────────────── */
+
+.acct-divider {
+  border-top: 1px solid var(--vscode-panel-border, rgba(127, 127, 127, 0.2));
+  margin: var(--space-lg) 0;
+}
+
+/* Single-line ribbon replacing the old five MetaRow lines under the
+   stat tiles. Wraps onto a second line on narrow panels. */
+.acct-info-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) 0;
+  font-size: var(--fs-sm);
+  color: var(--vscode-descriptionForeground);
+}
+.acct-ribbon-item { white-space: nowrap; }
+.acct-ribbon-item:not(:last-child)::after {
+  content: "·";
+  margin-left: var(--space-md);
+  opacity: 0.5;
+}
+
+/* Each below-heatmap chunk lives in its own block with a small subhead
+   so the eye can group related rows. */
+.acct-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.acct-section-subhead {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-xs);
+}
+
+/* Cost headline = "the money story" on one line. Total prominent, the
+   prices-effective date tucked underneath in muted text. */
+.acct-cost-headline {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0 var(--space-sm);
+}
+.acct-cost-label {
+  font-size: var(--fs-sm);
+  color: var(--vscode-descriptionForeground);
+}
+.acct-cost-amount {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Donut + legend laid out side-by-side. Legend takes remaining space. */
+.acct-models-layout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-lg);
+  align-items: center;
+}
+.acct-donut {
+  display: block;
+  flex-shrink: 0;
+}
+.acct-donut-track {
+  fill: none;
+  stroke: var(--vscode-panel-border, rgba(127, 127, 127, 0.2));
+  stroke-width: 12;
+}
+.acct-donut-arc {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: butt;
+}
+
+/* Legend = grid row per model. Dot + name + share% + cost in fixed
+   columns so numbers line up vertically (tabular-nums on the numerics). */
+.acct-model-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.acct-model-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--fs-sm);
+}
+.acct-model-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.acct-model-name {
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-model-share,
+.acct-model-cost {
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 3.5em;
+}
+
+/* Per-row secondary number under .acct-toolbar (e.g. project sessions). */
+.acct-toolbar-sub {
+  font-size: var(--fs-xs);
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+  margin-left: var(--space-xs);
+  min-width: 4em;
+  text-align: right;
+}
+
+/* "Show N more" / "Show less" inline expander. Subtle, button-as-link. */
+.acct-show-more {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-sm);
+}
+.acct-show-more:hover { text-decoration: underline; }
+
+/* MCP rows: name + two pill badges. */
+.acct-mcp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-sm);
+}
+.acct-mcp-name {
+  flex: 1;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--vscode-badge-background, rgba(127, 127, 127, 0.15));
+  color: var(--vscode-badge-foreground, var(--vscode-descriptionForeground));
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Plain ranked text row — name (ellipsis on overflow) + primary number
+   (right-aligned tabular) + optional muted sub. No bar, less clutter,
+   names get the room they need. Full path/name in row title. */
+.acct-data-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-md);
+  align-items: baseline;
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+.acct-data-name {
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.acct-data-num {
+  color: var(--vscode-foreground);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.acct-data-sub {
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-size: var(--fs-xs);
+  min-width: 5em;
 }

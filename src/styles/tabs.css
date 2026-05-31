@@ -1,0 +1,67 @@
+.tab-bar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  /* flex:0 0 auto so the tab strip stays its natural height. Overrides the
+     stray `.tab-bar { flex:1 }` in components.css (a v1 vertical-nav leftover)
+     that otherwise makes the strip grow to half the panel height. */
+  flex: 0 0 auto;
+}
+/* The scrollable tab list. The global reload button is a flex sibling pinned
+   to the right, so only the tabs scroll when the strip overflows. */
+.tab-list {
+  display: flex;
+  flex: 1 1 auto;
+  overflow-x: auto;
+}
+.tab-list::-webkit-scrollbar { display: none; }
+/* Global reload affordance — pinned right, never scrolls with the tabs.
+   Ghost toolbar chrome: transparent at rest (no border/fill — unlike the
+   bordered inline icon buttons in feature rows), hover-only background, like
+   VS Code's own view-title toolbar icons. */
+.tab-reload-btn.btn-icon {
+  flex: 0 0 auto;
+  margin: 0 var(--space-sm);
+  /* Smaller than the full --h-control control box so the hover fill stays a
+     tidy square contained inside the tab strip rather than looking taller than
+     the tab cells beside it. */
+  width: 26px;
+  height: 26px;
+  min-width: 0;
+  min-height: 0;
+  background: none;
+  border-color: transparent;
+}
+.tab-reload-btn.btn-icon:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--bg-hover));
+}
+.tab-reload-btn.btn-icon:active {
+  background: var(--vscode-toolbar-activeBackground, var(--bg-active));
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  padding: var(--space-md) var(--space-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+  font-size: var(--fs-base);
+  border-bottom: 2px solid transparent;
+  transition: var(--transition-control);
+}
+.tab-btn:hover { color: var(--fg); }
+.tab-btn.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+.tab-icon { display: inline-flex; }
+.tab-label { font-size: var(--fs-base); }
+.tab-content-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.tab-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.tab-content.hidden { display: none; }
+/* Feature panels are direct children of .tab-content; they own their own
+   vertical scroll so the sticky footer stays visible. */
+.tab-content > .panel { flex: 1; min-height: 0; overflow-y: auto; }

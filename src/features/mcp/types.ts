@@ -38,15 +38,6 @@ export interface McpServer {
   pluginName?: string;
 }
 
-// ── Extension <-> Webview Messages ──
-
-/** Messages sent from the extension host to the webview for the MCP feature. */
-export type McpExtensionMessage =
-  | { type: "mcpServers"; data: McpServer[] }
-  | { type: "mcpError"; message: string };
-
-/** Messages sent from the webview to the extension host for the MCP feature. */
-export type McpWebviewMessage =
-  | { type: "getMcpServers" }
-  | { type: "openMcpConfig"; scope: McpServerScope }
-  | { type: "toggleMcpServer"; name: string; scope: McpServerScope; disabled: boolean; pluginName?: string };
+// MCP postMessage shapes now live in the shared protocol
+// (src/shared/protocol/messages.ts): getMcpServers, openMcpConfig,
+// toggleMcpServer, deleteMcpServer (webview→host) and mcpServers (host→webview).

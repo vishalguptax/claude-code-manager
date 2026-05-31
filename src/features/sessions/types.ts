@@ -296,6 +296,7 @@ export type WebviewMessage =
   | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
   | { type: "resumeMultiple"; sessionIds: string[]; projectPaths?: string[] }
+  | { type: "viewTerminal"; sessionId: string }
   | { type: "newSession" }
   | { type: "newTempSession" }
   | { type: "openProject"; projectPath: string }
@@ -389,27 +390,22 @@ export type WebviewMessage =
   | { type: "uninstallStatusline" }
   /**
    * Accounts section — manage saved profile snapshots under
-   * ~/.claude/manager-accounts/<slug>/. Each command sends a
-   * refreshed `accountData` reply so the webview re-renders with the
-   * latest list + active marker.
-   */
-  | { type: "saveProfile"; label: string }
-  /**
-   * Ask the host to pop a native VS Code input box for the profile
-   * label, then save if the user submits. Invoked from the Profile
-   * section's "Save profile" button.
+   * ~/.claude/manager-accounts/<slug>/. Ask the host to pop a native
+   * VS Code input box for the profile label, then save if the user
+   * submits. Invoked from the Profile section's "Save profile" button;
+   * the host replies with a refreshed `accountData` so the webview
+   * re-renders with the latest list + active marker.
    */
   | { type: "promptSaveProfile" }
   /**
    * Open the native QuickPick account switcher — lists saved profiles
    * with item buttons for Switch / Update / Remove, plus entries for
    * "Log in as a new account" and "Save current account". Single
-   * entry point replacing the standalone Accounts section UI.
+   * entry point replacing the standalone Accounts section UI. The
+   * Switch/Update/Remove actions run inside the QuickPick handler
+   * (accountSwitcher.ts), not via dedicated webview messages.
    */
   | { type: "openAccountSwitcher" }
-  | { type: "switchProfile"; slug: string }
-  | { type: "updateProfile"; slug: string }
-  | { type: "removeProfile"; slug: string }
   /**
    * Search inside session transcripts (content of every message), not just
    * metadata. The extension replies with matching IDs via `fullTextResults`.

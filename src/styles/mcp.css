@@ -1,6 +1,16 @@
 /* ============================================================================
    Claude Manager — MCP Servers Styles
-   Server list items, detail view, type badges, env var display
+   Server list items, detail view, transport/scope badge colours, env var display.
+
+   Shared chrome lives in the component layer and is NOT repeated here:
+     - badge box (display/padding/radius/font)  → .vsc-badge (components-native.css)
+     - search field + clear + side buttons       → .vsc-search / .search-side-btn
+     - segmented scope filter                     → .scope-filter / .vsc-segmented
+     - buttons (primary/secondary/icon/danger)    → .btn-* (components-native.css)
+     - list rows                                  → .list-item (components.css)
+   This file keeps only what is MCP-specific: row layout, the transport/scope
+   badge *colours* (the shared variants don't carry these distinct hues), the
+   detail view, env vars, and the windowed-list row sizing.
    ============================================================================ */
 
 
@@ -34,60 +44,55 @@
   font-size: var(--fs-sm);
   background: var(--badge-bg);
   color: var(--badge-fg);
-  padding: 1px 5px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
 }
+
+/* The browse affordance is a shared <Button> styled down to a borderless link
+   so it reads as a follow-up prompt, not a primary CTA. Loaded after the .btn
+   base, so these chrome resets win on the cascade. */
+.mcp-empty-link {
+  margin-top: var(--space-sm);
+  background: none;
+  border: none;
+  padding: var(--space-xs) var(--space-md);
+  color: var(--link, var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mcp-empty-link:hover { background: none; color: var(--fg); }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
    MCP — List
    ────────────────────────────────────────────────────────────────────────────── */
 
-.mcp-list-count {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  padding: var(--space-xs) var(--space-2xl) 2px;
-}
+/* Result count caption uses the shared `.list-count` (components.css). */
 
 .mcp-group-label {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--fg-muted);
-  padding: var(--space-2xl) var(--space-2xl) var(--space-sm);
+  color: var(--fg-section);
+  /* Unified section-header rhythm — see .group-label (sessions.css). */
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
 
+/* A row is a shared .list-item; these add MCP-specific padding, the divider,
+   and the disabled dimming. */
 .mcp-item {
   padding: var(--space-lg) var(--space-2xl);
-  cursor: pointer;
   border-bottom: 1px solid var(--border);
-  position: relative;
+  transition: background var(--transition-control), opacity var(--transition-control);
 }
 .mcp-item:last-child         { border-bottom: none; }
-.mcp-item:hover              { background: var(--bg-hover); }
-.mcp-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
+.mcp-item:focus-visible      { outline: 1px solid var(--list-focus); outline-offset: -1px; }
 .mcp-item.mcp-disabled       { opacity: 0.5; }
 .mcp-item.mcp-disabled:hover { opacity: 0.7; }
-
-.mcp-disabled-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 7px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
-  background: var(--badge-bg);
-  color: var(--fg-muted);
-  opacity: 0.8;
-}
 
 .mcp-item-row1 {
   display: flex;
@@ -121,58 +126,35 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   MCP — Type Badge
+   MCP — Badge colours (chrome from .vsc-badge; only the hue is MCP-specific)
    ────────────────────────────────────────────────────────────────────────────── */
 
-.mcp-type-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 7px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
+/* Transport type */
+.mcp-type-stdio { background: var(--badge-bg); color: var(--badge-fg); }
+.mcp-type-http  { background: var(--color-blue-bg); color: var(--color-blue); }
+
+/* Config scope */
+.mcp-scope-project { background: var(--green-bg); color: var(--green); }
+.mcp-scope-global  { background: var(--badge-bg); color: var(--badge-fg); }
+.mcp-scope-plugin  { background: var(--color-purple-bg); color: var(--color-purple); }
+
+/* Disabled + read-only pills — muted neutral, distinct from the type/scope hues. */
+.mcp-disabled-badge { background: var(--badge-bg); color: var(--fg-muted); opacity: 0.8; }
+.mcp-readonly-badge { background: var(--badge-bg); color: var(--fg-muted); }
+
+.mcp-readonly-note {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  line-height: 1.5;
 }
 
-.mcp-type-stdio {
+.mcp-readonly-note code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
   background: var(--badge-bg);
   color: var(--badge-fg);
-}
-
-.mcp-type-http {
-  background: var(--color-blue-bg);
-  color: var(--color-blue);
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   MCP — Scope Badge
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.mcp-scope-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px 7px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
-}
-
-.mcp-scope-project {
-  background: var(--green-bg);
-  color: var(--green);
-}
-
-.mcp-scope-global {
-  background: var(--badge-bg);
-  color: var(--badge-fg);
 }
 
 
@@ -200,10 +182,10 @@
 
 .mcp-detail-label {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: var(--fg-muted);
+  color: var(--fg-section);
   margin-bottom: var(--space-md);
 }
 
@@ -259,8 +241,32 @@
   word-break: break-all;
 }
 
-/* Auth-needs banner — shown when Claude Code's auth cache lists one or
- * more MCP connectors as needing (re-)auth. Amber tone matches other
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Virtualized list rows
+   Windowed rows must be a fixed height so the virtualizer can place them by
+   index. 48px = the two-line .mcp-item at the standard padding.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mcp-virtual {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.mcp-virtual .mcp-item,
+.mcp-virtual .mcp-group-label {
+  height: 48px;
+  box-sizing: border-box;
+}
+
+.mcp-virtual .mcp-group-label {
+  padding-top: var(--space-md);
+  padding-bottom: var(--space-md);
+}
+
+/* Auth-needs banner — shown when one or more MCP connectors need
+ * (re-)auth per Claude Code's own cache. Amber tone to match other
  * warning banners in the extension. */
 .mcp-auth-banner {
   display: flex;

@@ -1,0 +1,465 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.15/schema.json",
+  "files": {
+    "includes": [
+      "src/shared/**/*.ts",
+      "src/core/lru.ts",
+      "src/extension/registry.ts",
+      "src/webview/app/**/*",
+      "src/webview/shared/**/*",
+      "src/features/*/webview/index.tsx",
+      "scripts/build-extension.mjs",
+      "scripts/build-webview.mjs",
+      "!**/__tests__/**",
+      "!**/*.test.ts",
+      "!**/*.test.tsx"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "crlf"
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "suspicious": {
+        "noDoubleEquals": "error",
+        "noDuplicateObjectKeys": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "trailingCommas": "all",
+      "semicolons": "always"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/webview/shared/**/*"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/features/**"],
+                    "message": "FSD violation: src/webview/shared/** must not import from a feature slice (src/features/**)."
+                  },
+                  {
+                    "group": ["**/app/**"],
+                    "message": "FSD violation: src/webview/shared/** must not import from the app layer (src/webview/app/**)."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/account/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"account\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/agents/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"agents\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/brain/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"brain\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/commands/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"commands\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/config/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"config\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/diagnostics/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"diagnostics\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/hooks/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"hooks\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/mcp/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"mcp\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/sessions/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/skills/webview/**",
+                      "**/features/skills/**"
+                    ],
+                    "message": "FSD violation: feature \"sessions\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/skills/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "**/account/webview/**",
+                      "**/features/account/**",
+                      "**/agents/webview/**",
+                      "**/features/agents/**",
+                      "**/brain/webview/**",
+                      "**/features/brain/**",
+                      "**/commands/webview/**",
+                      "**/features/commands/**",
+                      "**/config/webview/**",
+                      "**/features/config/**",
+                      "**/diagnostics/webview/**",
+                      "**/features/diagnostics/**",
+                      "**/hooks/webview/**",
+                      "**/features/hooks/**",
+                      "**/mcp/webview/**",
+                      "**/features/mcp/**",
+                      "**/sessions/webview/**",
+                      "**/features/sessions/**"
+                    ],
+                    "message": "FSD violation: feature \"skills\" must not import from another feature. Lift shared code into src/webview/shared or src/core."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

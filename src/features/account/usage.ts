@@ -22,7 +22,7 @@
  */
 import * as fs from "fs";
 import { STATS_CACHE_FILE } from "../../core/config";
-import { PRICES_EFFECTIVE_DATE, computeModelCost } from "../../core/pricing";
+import { PRICES_EFFECTIVE_DATE, compareModelRecencyDesc, computeModelCost } from "../../core/pricing";
 import {
   aggregateUsage,
   type UsageAggregate,
@@ -155,7 +155,7 @@ function mergeCacheWithJsonl(
     longestStreak: longestStreakOf(dailyMerged),
     currentStreak: currentStreakOf(dailyMerged),
     byModel: byModelMerged,
-    favoriteModel: byModelMerged[0]?.model ?? "",
+    favoriteModel: pickFavoriteModel(byModelMerged),
     totalInputTokens: totalInput,
     totalOutputTokens: totalOutput,
     totalTokens: totalInput + totalOutput,
@@ -242,7 +242,24 @@ function mergeByModel(
       }),
     });
   }
-  return out.sort((a, b) => b.totalTokens - a.totalTokens);
+  return out.sort(compareModelRecencyDesc);
+}
+
+/**
+ * Highest-token model — kept for `favoriteModel` after the byModel list
+ * itself moved to newest-first sort. "Favorite" means "used most", not
+ * "newest seen", so it can't just be `byModel[0]` any longer.
+ */
+function pickFavoriteModel(list: { model: string; totalTokens: number }[]): string {
+  let best = "";
+  let max = -1;
+  for (const m of list) {
+    if (m.totalTokens > max) {
+      max = m.totalTokens;
+      best = m.model;
+    }
+  }
+  return best;
 }
 
 function pickFirstDate(a: string, b: string): string {
@@ -271,7 +288,7 @@ function fromAggregate(agg: UsageAggregate): UsageStats {
     longestStreak: longestStreakOf(agg.daily),
     currentStreak: currentStreakOf(agg.daily),
     byModel: agg.byModel,
-    favoriteModel: agg.byModel[0]?.model ?? "",
+    favoriteModel: pickFavoriteModel(agg.byModel),
     totalInputTokens: agg.totalInputTokens,
     totalOutputTokens: agg.totalOutputTokens,
     totalTokens: agg.totalTokens,
@@ -387,9 +404,9 @@ function projectCache(cache: StatsCacheShape): UsageStats {
       result.totalCostUsd += costUsd;
     }
   }
-  modelList.sort((a, b) => b.totalTokens - a.totalTokens);
+  modelList.sort(compareModelRecencyDesc);
   result.byModel = modelList;
-  result.favoriteModel = modelList[0]?.model ?? "";
+  result.favoriteModel = pickFavoriteModel(modelList);
   result.totalTokens = result.totalInputTokens + result.totalOutputTokens;
   result.cacheHitRatio = cacheHitRatioOf(
     result.totalCacheReadTokens,

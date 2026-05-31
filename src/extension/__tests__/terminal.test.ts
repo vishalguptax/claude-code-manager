@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as vscode from "vscode";
 import type { MockTerminal } from "../../__mocks__/vscode";
-import { createTerminal, setExtensionUri } from "../terminal";
+import { createTerminal, setExtensionUri, validateGitRef } from "../terminal";
 
 function makeTerminal(overrides: Partial<MockTerminal> = {}): MockTerminal {
   const t: MockTerminal = {
@@ -228,6 +228,68 @@ describe("createTerminal — location", () => {
     expect(term.createOptions?.location).toEqual({
       viewColumn: vscode.ViewColumn.Beside,
     });
+  });
+});
+
+describe("validateGitRef", () => {
+  it("accepts a feature branch with slash", () => {
+    expect(validateGitRef("feature/foo")).toBe("feature/foo");
+  });
+
+  it("accepts a release branch with dash and dot", () => {
+    expect(validateGitRef("release-1.2")).toBe("release-1.2");
+  });
+
+  it("accepts main", () => {
+    expect(validateGitRef("main")).toBe("main");
+  });
+
+  it("accepts a name containing a dot", () => {
+    expect(validateGitRef("hotfix.urgent")).toBe("hotfix.urgent");
+  });
+
+  it("rejects a shell-injection payload with quotes and meta chars", () => {
+    expect(validateGitRef('x" && rm -rf /')).toBeNull();
+  });
+
+  it("rejects a leading semicolon-style injection", () => {
+    expect(validateGitRef("; cat /etc/passwd")).toBeNull();
+  });
+
+  it("rejects a newline embedded in the name", () => {
+    expect(validateGitRef("branch\nname")).toBeNull();
+  });
+
+  it("rejects a space in the name", () => {
+    expect(validateGitRef("branch name")).toBeNull();
+  });
+
+  it("rejects a leading dash", () => {
+    expect(validateGitRef("-evil")).toBeNull();
+  });
+
+  it("rejects a leading slash", () => {
+    expect(validateGitRef("/evil")).toBeNull();
+  });
+
+  it("rejects a name containing `..`", () => {
+    expect(validateGitRef("..secret")).toBeNull();
+  });
+
+  it("rejects a tilde", () => {
+    expect(validateGitRef("branch~1")).toBeNull();
+  });
+
+  it("rejects a `.lock` suffix", () => {
+    expect(validateGitRef("branch.lock")).toBeNull();
+  });
+
+  it("rejects the empty string", () => {
+    expect(validateGitRef("")).toBeNull();
+  });
+
+  it("rejects a NUL control character", () => {
+    expect(validateGitRef("\x00null")).toBeNull();
   });
 });
 

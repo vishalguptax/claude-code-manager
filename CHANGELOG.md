@@ -1,28 +1,77 @@
 # Changelog
 
-## [1.11.5] - 2026-06-01
+## [2.0.0] - 2026-06-01
 
-Self-heal the statusline tap on activation — if the project / local `.claude/settings.json` that held our tap line got reverted (teammate's PR, git checkout, merge wipe), silently re-install at the effective scope so the user doesn't need to click Enable twice. See [docs/releases/v1.11.5.md](docs/releases/v1.11.5.md).
+Ground-up rebuild of the webview on Preact + signals with a valibot-validated
+message protocol. Migration only — every feature, setting, command, and the
+"100% local, zero telemetry" promise are preserved. See
+[docs/releases/v2.0.0.md](docs/releases/v2.0.0.md) and the
+[v1→v2 migration guide](docs/migration/v1-to-v2.md). Iterated through
+`2.0.0-beta.1` and `2.0.0-beta.2`.
 
-## [1.11.4] - 2026-05-28
+### Added in 2.0.0 (after beta.1)
 
-Remove the Current Session card from the Account tab — duplicated Claude Code's terminal statusline without adding enough value. See [docs/releases/v1.11.4.md](docs/releases/v1.11.4.md).
+- Active sessions group: live CLIs pinned above date buckets with status-aware
+  dots (idle/busy/awaiting-question), de-duped against Pinned.
+- **View** action: when a session is already hosted in a VS Code terminal, the
+  Resume button swaps to View and focuses that terminal instead of spawning a
+  duplicate. Detection works for any launch path — `claude --resume`, bare
+  `claude`, `--continue`, fork, or external — via a passive `SessionStart`
+  hook (auto-installed in `~/.claude/settings.json`) plus a shell-integration
+  tap on `onDidStartTerminalShellExecution`.
+- Current-project + current-branch markers in the filter dropdowns, pinned to
+  the top of their respective lists.
+- Self-healing statusline tap: re-installs silently when a project / local
+  `settings.json` reverts wipe the wiring.
+- Account Usage section redesign: donut + bars + pills + info ribbon, version-
+  tinted colors, recency-sorted model breakdown.
+- Auth-health banner for MCP connectors that need re-authentication.
+- Global full-reload button (toolbar ghost): clears every cache, re-parses,
+  re-mounts the webview.
 
-## [1.11.3] - 2026-05-28
+### Fixed in 2.0.0 (after beta.1)
 
-MCP tab now badges connectors that Claude Code has flagged as needing (re-)authentication — sourced from `~/.claude/mcp-needs-auth-cache.json`. Pure local read, no network. See [docs/releases/v1.11.3.md](docs/releases/v1.11.3.md).
+- Session token total now reads input + output only (cache_read inflated the
+  number O(N²) on long sessions; cache stats moved to the tooltip).
+- Account, Config, and Sessions skeletons fill the full panel height on a tall
+  sidebar instead of leaving a blank gap below the last placeholder section.
+- ActionsBar weights flattened so the toolbar reads as one flat rhythm
+  regardless of button count.
+- Restore-window, default filter, and default project settings are honored
+  again (the v1 sessions settings handler was dropped in v2).
 
-## [1.11.2] - 2026-05-28
+### Added
 
-Scope-aware statusline install + live cache watcher. The 1.11.0 install only wrote at global scope, so any repo with its own `.claude/settings.json` statusline silently shadowed our tap. Now the installer detects which scope Claude actually reads (local › project › global) and writes there; uninstall reverses at the same scope. The Quota + Current Session cards now auto-refresh the instant Claude re-renders. Plus an absolute-node-path resolve at install time so nvm setups work, and a clearer label when a cached window has rolled over.
+- Preact-based webview for all tabs with reactive `@preact/signals` state.
+- Shared, valibot-validated postMessage protocol (`src/shared/protocol`) parsed
+  on both the host and webview sides.
+- Code-split webview: tiny shell plus a lazy-loaded chunk per feature.
+- Windowed `<VirtualList />` so 5,000+ sessions (and any large feature list)
+  scroll in constant time.
+- `@vscode/test-electron` integration smoke suite (run under xvfb in CI).
+- Performance harness (`scripts/perf/`) with a configurable N-session fixture.
+- CodeQL workflow, PR template, and bug/feature issue forms.
 
-See [docs/releases/v1.11.2.md](docs/releases/v1.11.2.md) for full details.
+### Changed
 
-## [1.11.0] - 2026-05-28
+- Build toolchain: Biome replaces ESLint + Prettier; size-limit gates bundles.
+- Sessions host code decomposed (view provider + parser split into focused
+  modules); search index gained LRU eviction.
+- Account usage/heatmap/formatting extracted into pure, unit-tested modules.
+- Minimum VS Code bumped to `^1.90.0`; Node engine `>=20`.
 
-Quota is now read entirely locally. Earlier versions sent your subscription OAuth token to `api.anthropic.com` from outside Claude Code — prohibited under Anthropic's 2026 terms and a risk to your account. An opt-in statusline tap lets Claude Code cache the 5h / 7d figures locally and the panel reads that file: no network call, no token. A new Current session card shows live model, context usage, and session cost from the same cache.
+### Removed
 
-See [docs/releases/v1.11.0.md](docs/releases/v1.11.0.md) for full details.
+- Legacy vanilla DOM webview, the v1 compat shims, and dead webview modules
+  (demo intro, marketplace/uiReset/loader/icons/select helpers).
+- The v1 cinematic first-run intro.
+
+### Security
+
+- Git ref validation before any `claude --resume` shell invocation (resume /
+  fork / restore-workspace), closing a shell-injection vector.
+- CSP hardened to `default-src 'none'`, nonce-only module scripts,
+  `connect-src 'none'`.
 
 ## [1.10.0] - 2026-05-19
 

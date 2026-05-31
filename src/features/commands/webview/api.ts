@@ -1,36 +1,33 @@
 /**
- * Typed wrapper around vscode.postMessage for all commands webview-to-extension messages.
- * Centralizes all message passing so callers never construct raw objects.
+ * Typed postMessage builders for the commands feature. Each builder returns
+ * a `WebviewMessage` from the shared protocol, so the compiler guarantees the
+ * shape matches what the host validates with valibot. Callers pass the result
+ * to the `post` function from `useApi()`.
  */
+import type { WebviewMessage } from "../../../shared/protocol/messages";
 
-import type { VSCodeAPI } from "../../../webview/types";
+/** Function shape returned by the shared `useApi()` hook. */
+export type Post = (msg: WebviewMessage) => void;
 
-let _vscode: VSCodeAPI;
+/** Request the list of slash commands from the host. */
+export function getCommandsMsg(): WebviewMessage {
+  return { type: "getCommands" };
+}
+
+/** Ask the host to open a command file in the editor. */
+export function openCommandFileMsg(path: string): WebviewMessage {
+  return { type: "openCommandFile", path };
+}
+
+/** Ask the host to open a URL in the default browser. */
+export function openUrlMsg(url: string): WebviewMessage {
+  return { type: "openUrl", url };
+}
 
 /**
- * Initialize the commands API module with the VS Code API instance.
- * Must be called once at startup before any other API function.
+ * Open the Claude Code extension's chat with the slash command pre-filled.
+ * The calling UI hides this affordance unless the extension is installed.
  */
-export function initCommandsApi(vscode: VSCodeAPI): void {
-  _vscode = vscode;
-}
-
-/** Request the list of slash commands from the extension host. */
-export function sendGetCommands(): void {
-  _vscode.postMessage({ type: "getCommands" });
-}
-
-/** Request the extension host to open a command file in the editor. */
-export function sendOpenCommandFile(path: string): void {
-  _vscode.postMessage({ type: "openCommandFile", path });
-}
-
-/**
- * Open the Claude Code extension's chat tab with the slash command
- * pre-filled as the prompt. No-op when the extension isn't installed —
- * the calling UI hides the button in that case, but the guard here
- * prevents a stray URI fire if the flag races the button render.
- */
-export function sendLaunchCommandInChat(name: string): void {
-  _vscode.postMessage({ type: "launchChatWithPrompt", prompt: `/${name}` });
+export function launchCommandInChatMsg(name: string): WebviewMessage {
+  return { type: "launchChatWithPrompt", prompt: `/${name}` };
 }

@@ -71,6 +71,9 @@ import {
   getLastParseWarning,
   reparseOneSession,
   invalidateSessionMetaCache,
+  clearMetaCaches,
+  clearOrphanCache,
+  clearPendingCache,
   readLiveSessions,
   applyLiveState,
 } from "../parser";
@@ -498,6 +501,45 @@ describe("applyLiveState", () => {
     ]);
     const sessions = parseSessions();
     expect(sessions.find((s) => s.id === "empty-sess")).toBeUndefined();
+  });
+
+  it("clearOrphanCache re-streams a changed orphan transcript", () => {
+    writeSessionFile("-home-user-orphclr", "orph-clr", [
+      {
+        message: { role: "user", content: "first prompt" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+        cwd: "/home/user/orphclr",
+      },
+    ]);
+    expect(parseSessions().find((s) => s.id === "orph-clr")).toBeDefined();
+
+    // Rewrite with a future mtime so the orphan cache key advances, then
+    // clear the cache (global-reload path) — the next parse must re-read.
+    writeSessionFile("-home-user-orphclr", "orph-clr", [
+      {
+        message: { role: "user", content: "rewritten prompt" },
+        timestamp: "2026-04-20T15:05:00.000Z",
+        cwd: "/home/user/orphclr",
+      },
+    ]);
+    const future = new Date(Date.now() + 60_000);
+    fs.utimesSync(path.join(PROJECTS_DIR, "-home-user-orphclr", "orph-clr.jsonl"), future, future);
+    clearOrphanCache();
+
+    expect(parseSessions().find((s) => s.id === "orph-clr")).toBeDefined();
+  });
+
+  it("clearPendingCache is callable and leaves a subsequent parse working", () => {
+    writeSessionFile("-home-user-pendclr", "pend-clr", [
+      {
+        message: { role: "user", content: "hello" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+        cwd: "/home/user/pendclr",
+      },
+    ]);
+    parseSessions();
+    expect(() => clearPendingCache()).not.toThrow();
+    expect(parseSessions().find((s) => s.id === "pend-clr")).toBeDefined();
   });
 
   it("does not duplicate sessions that exist in BOTH history.jsonl and projects/", () => {
@@ -1368,6 +1410,39 @@ describe("reparseOneSession", () => {
 
     const refreshed = parseSessions();
     expect(refreshed.find((s) => s.id === "rep-2")?.branch).toBe("new");
+  });
+
+  it("clearMetaCaches forces a cold re-parse without targeting a single file", () => {
+    const now = Date.now();
+    writeHistoryEntry({
+      display: "x",
+      timestamp: now,
+      project: "/projects/r3",
+      sessionId: "rep-3",
+    });
+    writeSessionFile("r3-hash", "rep-3", [
+      { gitBranch: "old", sessionId: "rep-3" },
+      {
+        message: { role: "user", content: "x" },
+        timestamp: new Date(now).toISOString(),
+      },
+    ]);
+    expect(parseSessions().find((s) => s.id === "rep-3")?.branch).toBe("old");
+
+    // Rewrite with a new branch + future mtime, then clear ALL caches
+    // (the global-reload path) rather than invalidating one file.
+    writeSessionFile("r3-hash", "rep-3", [
+      { gitBranch: "new", sessionId: "rep-3" },
+      {
+        message: { role: "user", content: "x" },
+        timestamp: new Date(now).toISOString(),
+      },
+    ]);
+    const future = new Date(Date.now() + 60_000);
+    fs.utimesSync(path.join(PROJECTS_DIR, "r3-hash", "rep-3.jsonl"), future, future);
+    clearMetaCaches();
+
+    expect(parseSessions().find((s) => s.id === "rep-3")?.branch).toBe("new");
   });
 });
 

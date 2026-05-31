@@ -30,7 +30,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { CLAUDE_DIR } from "../../core/config";
-import { computeModelCost } from "../../core/pricing";
+import { compareModelRecencyDesc, computeModelCost } from "../../core/pricing";
 import type {
   DailyActivity,
   DailyTokens,
@@ -562,7 +562,7 @@ class AggState {
         }),
       });
     }
-    out.sort((a, b) => b.totalTokens - a.totalTokens);
+    out.sort(compareModelRecencyDesc);
     return out;
   }
 

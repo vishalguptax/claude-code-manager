@@ -9,7 +9,7 @@ import type { Session, SessionDetail } from "./types";
 import { parseSessionDetail, getSessionFile } from "./parser";
 import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
-import { createTerminal } from "../../extension/terminal";
+import { createTerminal, validateGitRef } from "../../extension/terminal";
 import { registerEphemeralTerminal } from "../../extension/ephemeralSession";
 import { getWorkspace } from "../../extension/workspace";
 import {
@@ -127,7 +127,7 @@ export async function continueLastSession(sessions: Session[]): Promise<void> {
   // resume tab. If not, fall back to a neutral "continue" label.
   const cwd = ws;
   const termName = latest ? buildTerminalName(latest, latest.id) : "continue";
-  const term = createTerminal(termName, cwd || undefined);
+  const term = createTerminal(termName, cwd || undefined, latest?.id);
   term.show();
   term.sendText("claude --continue");
 }
@@ -365,9 +365,16 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
       }
 
       if (choice === "Switch & Resume") {
-        const term = createTerminal(termName, cwd);
+        const safe = validateGitRef(sessBranch);
+        if (!safe) {
+          vscode.window.showErrorMessage(
+            `Refusing to switch branches: "${sessBranch}" is not a valid git ref name.`,
+          );
+          return;
+        }
+        const term = createTerminal(termName, cwd, sessionId);
         term.show();
-        term.sendText(`git checkout "${sessBranch}" && ${cmd}`);
+        term.sendText(`git checkout '${safe}' && ${cmd}`);
         return;
       }
       // "Resume Anyway" falls through to the router below.
@@ -379,7 +386,7 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
     return;
   }
 
-  const term = createTerminal(termName, cwd);
+  const term = createTerminal(termName, cwd, sessionId);
   term.show();
   term.sendText(cmd);
 }
@@ -740,7 +747,7 @@ export async function importSessionFile(
   }
 
   // 7. Launch
-  const term = createTerminal(`imported ${newId.slice(0, 8)}`, target.path);
+  const term = createTerminal(`imported ${newId.slice(0, 8)}`, target.path, newId);
   term.show();
   term.sendText(`claude --resume ${newId}`);
 

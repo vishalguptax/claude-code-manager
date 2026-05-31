@@ -1,0 +1,655 @@
+/* ============================================================================
+   Native VS Code chrome for the shared component layer
+   ----------------------------------------------------------------------------
+   These rules tune the shared <Menu>/<ContextMenu>, <TextField>/<SearchInput>,
+   <Checkbox>, <Badge>, <Button> variants, and <ScopeFilter> so they are
+   indistinguishable from VS Code's own gear menu, Settings inputs, and
+   buttons. Everything reads the ambient --vscode-* theme vars so it stays
+   correct across light / dark / high-contrast.
+
+   Loaded AFTER components.css so it can refine/override the base primitives
+   without editing them. Native classes use the `vsc-` prefix.
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Menu — matches VS Code's gear / Command-Palette / right-click menu exactly.
+   The legacy `.ctx-*` class names (emitted alongside `.vsc-menu*` by <Menu>)
+   are aliased to the same rules so existing right-click call sites inherit the
+   native look without code changes.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-menu,
+.ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  /* Never let a menu grow wider than the panel — the JS clamp in Menu.tsx
+     keeps it on-screen, and this cap keeps the clamp range non-negative on a
+     narrow sidebar (a long menu row would otherwise force overflow). */
+  max-width: calc(100vw - 16px);
+  /* Long lists (e.g. a repo with many branches) scroll inside the menu instead
+     of running off the bottom of the panel. Cap to a sensible height; the JS
+     vertical-flip clamp uses the measured (capped) height so positioning stays
+     correct. */
+  max-height: min(60vh, 320px);
+  overflow-y: auto;
+  /* VS Code's menu uses ~4px top/bottom padding around the item list. */
+  padding: var(--space-xs) 0;
+  background: var(--vscode-menu-background, var(--menu-bg));
+  color: var(--vscode-menu-foreground, var(--menu-fg));
+  border: 1px solid var(--vscode-menu-border, var(--menu-border));
+  border-radius: var(--radius-md);
+  /* Heavier, softer shadow than a plain dropdown — matches the menu elevation. */
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.vsc-menu-item,
+.ctx-menu .ctx-item {
+  display: flex;
+  align-items: center;
+  /* Compact rows: 6px vertical / 10px horizontal. The fixed-width icon gutter
+     keeps labels aligned across rows with and without an icon; the old 22px
+     horizontal pad (stacked on top of the icon gutter + gap) pushed labels far
+     too far in for a sidebar dropdown. */
+  padding: var(--space-sm) var(--space-lg);
+  gap: var(--space-sm);
+  font-size: var(--fs-md);
+  line-height: 1.2;
+  color: var(--vscode-menu-foreground, var(--menu-fg));
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.vsc-menu-item:hover,
+.ctx-menu .ctx-item:hover {
+  background: var(--vscode-menu-selectionBackground, var(--bg-active));
+  color: var(--vscode-menu-selectionForeground, var(--bg-active-fg));
+}
+
+.vsc-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Fixed gutter so labels align across rows with and without icons. */
+  width: 16px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.vsc-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right-aligned keybinding hint, muted like VS Code's shortcut column. On the
+   hovered (selected) row it inherits the selection foreground so it stays
+   legible against the highlight. */
+.vsc-menu-hint {
+  margin-left: 24px;
+  flex-shrink: 0;
+  font-size: var(--fs-base);
+  color: var(--vscode-descriptionForeground, var(--fg-dim));
+}
+.vsc-menu-item:hover .vsc-menu-hint {
+  color: var(--vscode-menu-selectionForeground, var(--bg-active-fg));
+  opacity: 0.85;
+}
+
+/* Danger row — red label/icon, red-tinted highlight on hover. */
+.vsc-menu-item.danger,
+.vsc-menu-item.danger .vsc-menu-icon,
+.ctx-menu .ctx-item.del {
+  color: var(--red);
+}
+.vsc-menu-item.danger:hover,
+.ctx-menu .ctx-item.del:hover {
+  background: var(--red-bg);
+  color: var(--red);
+}
+.vsc-menu-item.danger:hover .vsc-menu-icon {
+  color: var(--red);
+}
+
+/* Disabled row — dimmed, no hover highlight, no pointer. */
+.vsc-menu-item.disabled {
+  color: var(--fg-muted);
+  cursor: default;
+  opacity: 0.6;
+}
+.vsc-menu-item.disabled:hover {
+  background: none;
+  color: var(--fg-muted);
+}
+
+/* Section separator — a hairline inset from the menu edges, in the dedicated
+   menu separator colour. */
+.vsc-menu-sep,
+.ctx-menu .ctx-sep {
+  height: 1px;
+  margin: var(--space-xs) 0;
+  background: var(--vscode-menu-separatorBackground, var(--border));
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   TextField / SearchInput — native controlled <input>.
+
+   No Shadow DOM: the `.tf` container is the flex box (leading slot, the input,
+   trailing slot), and the `<input>` paints the VS Code input face directly from
+   --vscode-input-*. Because the input has no shadow `.root` indirection, the
+   box edge IS the element edge IS the label edge (flush, no offset), and the
+   only text inset is the input's own padding (fully ours — the 9px comfortable
+   inset). Both the box-flush-to-label and the comfortable text inset are won at
+   once, and there is no controlled-sync flicker because Preact drives the
+   native input's `value` directly.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Canonical horizontal text inset, single source of truth. The Dropdown trigger
+   and the SearchInput slot gutters track this so a stacked TextField, Dropdown,
+   and search field share one text-start x. */
+.tf {
+  --tf-inset: 9px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--h-control);
+  box-sizing: border-box;
+  background: var(--vscode-input-background, var(--input-bg));
+  color: var(--vscode-input-foreground, var(--fg));
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: var(--radius);
+}
+.tf:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+  border-color: var(--vscode-focusBorder, var(--accent));
+}
+
+/* The editable area fills the row between the (optional) leading/trailing slots.
+   It is chromeless — the `.tf` container paints the box — so the input only
+   owns the text inset and the placeholder colour. */
+.tf-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0 var(--tf-inset);
+  background: none;
+  color: inherit;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: var(--fs-base);
+  line-height: 1.2;
+}
+.tf-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--fg-dim));
+  opacity: 1;
+}
+.tf-input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* SearchInput variant (the TextField carries class "vsc-search"): the leading
+   magnifier and trailing clear sit inside the box, so the input's own text
+   inset would double them up. Drop the input's horizontal padding and let the
+   slot gutters own the inset symmetrically (left magnifier ↔ right clear). */
+.tf.vsc-search .tf-input {
+  /* Gap so the placeholder/text doesn't touch the leading magnifier (the icon
+     already supplies the left box inset via its margin). */
+  padding-left: var(--space-sm);
+  padding-right: 0;
+}
+
+/* Leading magnifier — centred in the box, sits at the canonical inset from the
+   left edge (mirroring a plain field's text start and the clear button's inset
+   from the right edge). */
+.vsc-search-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  /* Gutter from the left box edge == the input's text inset, so the magnifier
+     starts where a plain field's text would. */
+  margin-left: var(--tf-inset);
+  color: var(--role-text-secondary);
+  pointer-events: none;
+}
+
+/* Trailing clear (x) button — chromeless, lights up on hover like VS Code's
+   inline input affordances. Centred in the field by the `.tf` flex row. */
+.vsc-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  /* Right gutter mirrors the magnifier's left gutter so the x sits at the same
+     inset from the right edge as the magnifier is from the left. */
+  margin: 0 var(--tf-inset) 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+.vsc-search-clear:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+.vsc-search-clear:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Dropdown — custom trigger button + shared <Menu> popup. Replaces the old
+   <vscode-single-select> wrapper, which rendered at an un-resizable ~26px and
+   could not be widened to match the search field. The trigger owns the box
+   exactly: full-width, --h-control tall, settings-dropdown chrome; the open
+   list reuses the native <Menu>. Width parity: the trigger fills its container,
+   and the popup is at least the trigger width via --dropdown-trigger-width
+   (set inline on the wrapper when the menu opens).
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  height: var(--h-control);
+  box-sizing: border-box;
+  /* 9px is the canonical control text-start (== the TextField's --tf-inset).
+     The trigger and the TextField both draw their own border on a flush
+     border-box (no shadow indirection), so a stacked Dropdown and TextField
+     align on BOTH the box edge AND the text start. Keep this literal in sync
+     with --tf-inset (9px). */
+  padding: 0 9px;
+  background: var(--role-control-bg);
+  color: var(--role-control-fg);
+  border: 1px solid var(--role-control-border);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition-control);
+}
+.vsc-dropdown-trigger:hover {
+  border-color: var(--vscode-focusBorder, var(--role-control-border));
+}
+.vsc-dropdown-trigger:focus-visible {
+  outline: var(--focus-ring, 1px solid var(--accent));
+  outline-offset: -1px;
+}
+
+/* Selected-option label — fills the trigger and ellipsizes long values
+   (e.g. long project paths or branch names). */
+.vsc-dropdown-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Trailing chevron — muted, never shrinks. */
+.vsc-dropdown-chevron {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--role-text-secondary);
+  pointer-events: none;
+}
+
+/* The open popup is the native <Menu>; widen its min-width to the trigger so it
+   never opens narrower than the closed control. The Menu's own max-content
+   growth still lets long rows expand it further. The min-width is clamped to the
+   viewport (min-width would otherwise override the menu's max-width on a narrow
+   sidebar, forcing horizontal overflow). */
+.vsc-dropdown-menu {
+  min-width: min(var(--dropdown-trigger-width, 180px), calc(100vw - 16px));
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Checkbox — native <input type="checkbox"> inside a clickable <label>.
+
+   The native input is the source of truth (Preact drives `checked`, so no
+   flicker); it is visually hidden and a sibling `.cb-box` paints VS Code's
+   small bordered square + the check mark on the selected state, reading the
+   --vscode-checkbox-* / --vscode-settings-checkbox* theme vars so it matches
+   VS Code's own Settings checkbox across light/dark/high-contrast.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.cb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+/* Hide the real input but keep it in the layout flow for the focus ring + a
+   reliable hit target (the surrounding label forwards clicks to it). */
+.cb-input {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* The drawn box — VS Code's 16px square with the checkbox border/background. */
+.cb-box {
+  position: relative;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  background: var(--vscode-checkbox-background, var(--vscode-settings-checkboxBackground, var(--input-bg)));
+  border: 1px solid var(--vscode-checkbox-border, var(--vscode-settings-checkboxBorder, var(--input-border)));
+  border-radius: var(--radius-sm);
+}
+
+/* The check mark — a CSS tick drawn with two borders, in the checkbox
+   foreground colour, shown only when the (preceding) input is checked. */
+.cb-input:checked + .cb-box::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--vscode-checkbox-foreground, var(--vscode-settings-checkboxForeground, var(--fg)));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Focus ring on the box when the hidden input is focused via keyboard. */
+.cb-input:focus-visible + .cb-box {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.cb-input:disabled ~ * {
+  opacity: 0.5;
+}
+.cb-input:disabled,
+.cb:has(.cb-input:disabled) {
+  cursor: default;
+}
+
+.cb-label {
+  font-size: var(--fs-base);
+  line-height: 1.2;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Badge — small inline chip. The "count" variant uses VS Code's own badge
+   colours (matches tree/tab counts); the others are theme-agnostic overlays
+   that stay readable on any background.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 1px var(--space-sm);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vsc-badge--default,
+.vsc-badge--scope {
+  background: rgba(128, 128, 128, 0.18);
+  color: var(--fg);
+}
+
+.vsc-badge--count {
+  background: var(--vscode-badge-background, var(--badge-bg));
+  color: var(--vscode-badge-foreground, var(--badge-fg));
+  /* Counts read better with the digits in a tabular figure set and a pill
+     shape, matching the activity-bar / tree counters. */
+  font-variant-numeric: tabular-nums;
+  border-radius: 10px;
+  min-width: 16px;
+  justify-content: center;
+}
+
+.vsc-badge--status {
+  background: var(--color-blue-bg);
+  color: var(--color-blue);
+}
+
+.vsc-badge--danger {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Button variants — refine the shared <Button>. The base `.btn` and the
+   `.btn-primary` / `.btn-secondary` rules live in components.css; here we wire
+   them to the canonical --vscode-button-* vars and add the danger + icon
+   variants and the loading spinner.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* PRIMARY ROLE — the single main create action per view. Solid accent fill.
+   Keeps a transparent 1px border so it lands on the SAME pixel row as the
+   bordered secondary buttons beside it (border-box sizing). */
+.btn-primary {
+  background: var(--role-primary-bg);
+  color: var(--role-primary-fg);
+  border: 1px solid var(--role-primary-border);
+}
+.btn-primary:hover {
+  background: var(--role-primary-hover-bg);
+}
+
+/* SECONDARY ROLE — every non-primary button. In the sidebar
+   --vscode-button-secondaryBackground frequently resolves to the panel
+   background, so a fill-only button reads as plain text (the observed bug). The
+   role token gives it an explicit visible edge (button border → contrast border
+   → input border, whichever the theme defines) over the native secondary fill,
+   so it still reads as a button, not an outline-only ghost. */
+.btn-secondary {
+  background: var(--role-secondary-bg);
+  color: var(--role-secondary-fg);
+  border: 1px solid var(--role-secondary-border);
+}
+.btn-secondary:hover {
+  background: var(--role-secondary-hover-bg);
+  border-color: var(--role-secondary-border);
+}
+
+/* DANGER ROLE — Log out, Delete. NOT bare red text: a bordered secondary button
+   whose label/icon uses errorForeground, sharing the secondary border / height /
+   padding so it ALIGNS in a button row. The hover fill is a faint error-tinted
+   overlay, never a solid red block. Aliased to the legacy `.btn.del` modifier so
+   `<Button class="del">` and `<Button variant="danger">` are identical. */
+.btn-danger,
+.btn.del {
+  background: var(--role-secondary-bg);
+  color: var(--role-danger-fg);
+  border: 1px solid var(--role-danger-border);
+}
+.btn-danger:hover,
+.btn.del:hover {
+  background: var(--role-danger-hover-bg);
+  color: var(--role-danger-fg);
+  border-color: var(--role-danger-border);
+}
+/* Keep the leading icon on the error colour too (it inherits, but be explicit
+   so an <Icon> with its own colour rule can't override it). */
+.btn-danger > svg,
+.btn.del > svg {
+  color: var(--role-danger-fg);
+}
+
+/* GHOST / ICON ROLE — square, chromeless toolbar affordance. Transparent border
+   so its border-box height equals the bordered controls in the same row.
+   Resting is fully transparent (native VS Code), but a CLEAR interactive
+   affordance reveals on interaction:
+     hover  → VS Code's toolbar hover fill
+     active → toolbar active (pressed) fill
+     focus  → the focus-ring outline, inset so it never clips
+   The subtle radius and a >=24px min square keep it an easy, native-feeling
+   target. Applied uniformly so refresh / globe / back / resume and every
+   feature toolbar icon share one affordance. NO permanent resting border or
+   background — that would read as non-native. */
+.btn-icon {
+  width: var(--h-control);
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  justify-content: center;
+  /* Visible resting affordance (product call): icon buttons read as buttons
+     with a subtle secondary fill + border, not a transparent ghost. */
+  background: var(--vscode-button-secondaryBackground, var(--bg-hover));
+  color: var(--role-text-secondary);
+  border: 1px solid var(--vscode-button-border, var(--vscode-input-border, var(--border)));
+  border-radius: var(--radius);
+}
+.btn-icon:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--role-ghost-hover-bg));
+  color: var(--role-text-primary);
+}
+.btn-icon:active {
+  background: var(--role-ghost-active-bg);
+  color: var(--role-text-primary);
+}
+/* Higher specificity (.btn.btn-icon) so the inset offset wins over the generic
+   `.btn:focus-visible` rule below regardless of source order — an icon button's
+   square is tight, so the ring sits INSIDE the box rather than 1px outside. */
+.btn.btn-icon:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.btn:focus-visible {
+  outline: var(--focus-ring, 1px solid var(--accent));
+  outline-offset: 1px;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Loading spinner — reuses the refresh glyph, spun. Respects reduced motion. */
+.btn .btn-spinner {
+  display: inline-flex;
+  align-items: center;
+}
+.btn.is-loading .btn-spinner svg {
+  animation: vsc-btn-spin 700ms linear infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes vsc-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn.is-loading .btn-spinner svg {
+    animation: none;
+  }
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Segmented — the single segmented-control primitive (date range, scope filter,
+   usage period). The whole control is a recessed TRACK with a subtle border;
+   the SELECTED segment gets a subtle raised fill (--role-selected-*), NOT
+   primary blue, with the normal foreground; UNSELECTED segments are transparent
+   with the muted description colour. This is the core design-system fix for the
+   "everything is blue" hierarchy problem — the selected state is visually
+   distinct from the solid-blue primary button, matching VS Code's own segmented
+   toggles (Settings table/JSON switch, search filters).
+   ────────────────────────────────────────────────────────────────────────── */
+
+.vsc-segmented {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  /* The recessed channel the segments sit in. */
+  padding: 2px;
+  background: var(--role-track-bg);
+  border: 1px solid var(--role-track-border);
+  border-radius: var(--radius);
+  height: var(--h-control);
+  box-sizing: border-box;
+}
+
+.vsc-segmented-seg {
+  /* Full-width segments by default (date range / scope filter span the panel);
+     the compact `--sm` variant below makes them content-sized instead. */
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: 0 var(--space-md);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--role-unselected-fg);
+  font-family: inherit;
+  font-size: var(--fs-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background var(--transition-control), color var(--transition-control);
+}
+.vsc-segmented-seg:hover:not(.active) {
+  color: var(--role-text-primary);
+  background: var(--role-selected-hover-bg);
+}
+.vsc-segmented-seg.active {
+  background: var(--role-selected-bg);
+  color: var(--role-selected-fg);
+  font-weight: 500;
+}
+.vsc-segmented-seg:focus-visible {
+  outline: var(--focus-ring, 1px solid var(--accent));
+  outline-offset: -1px;
+}
+
+/* Dimmed + non-interactive while still occupying layout — kept in the DOM so
+   the surrounding header doesn't reflow when the toggle becomes contextually
+   meaningless (e.g. the sessions Latest/Earliest toggle while search is
+   active). The buttons are already `disabled`; this also blocks pointer
+   interaction on the track and mutes the whole control. */
+.vsc-segmented.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Compact variant — inline toggles (account usage period). Content-sized
+   segments at a shorter height. */
+.vsc-segmented--sm {
+  height: var(--h-control-sm);
+  width: fit-content;
+}
+.vsc-segmented--sm .vsc-segmented-seg {
+  flex: 0 0 auto;
+  padding: 0 var(--space-md);
+  font-size: var(--fs-sm);
+}

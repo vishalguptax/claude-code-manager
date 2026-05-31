@@ -75,3 +75,55 @@ describe("PRICES_EFFECTIVE_DATE", () => {
     expect(PRICES_EFFECTIVE_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
+
+import { compareModelRecencyDesc, modelRecency } from "../pricing";
+
+describe("modelRecency", () => {
+  it("scores newer model versions higher", () => {
+    expect(modelRecency("claude-opus-4-7")).toBeGreaterThan(modelRecency("claude-opus-4-5"));
+    expect(modelRecency("claude-sonnet-4-6")).toBeGreaterThan(modelRecency("claude-sonnet-4-0"));
+  });
+
+  it("returns -1 for non-Claude / unknown models", () => {
+    expect(modelRecency("gpt-5-turbo")).toBe(-1);
+    expect(modelRecency("")).toBe(-1);
+  });
+
+  it("ignores dated suffix in id", () => {
+    expect(modelRecency("claude-sonnet-4-5-20250929")).toBe(modelRecency("claude-sonnet-4-5"));
+  });
+});
+
+describe("compareModelRecencyDesc", () => {
+  it("sorts newer models first", () => {
+    const list = [
+      { model: "claude-sonnet-4-5", totalTokens: 100 },
+      { model: "claude-opus-4-7", totalTokens: 1 },
+      { model: "claude-haiku-3-5", totalTokens: 999 },
+    ];
+    list.sort(compareModelRecencyDesc);
+    expect(list.map((m) => m.model)).toEqual([
+      "claude-opus-4-7",
+      "claude-sonnet-4-5",
+      "claude-haiku-3-5",
+    ]);
+  });
+
+  it("breaks ties by higher totalTokens", () => {
+    const list = [
+      { model: "claude-opus-4-7", totalTokens: 50 },
+      { model: "claude-opus-4-7-20260101", totalTokens: 200 },
+    ];
+    list.sort(compareModelRecencyDesc);
+    expect(list[0].totalTokens).toBe(200);
+  });
+
+  it("unknown models go to the bottom", () => {
+    const list = [
+      { model: "gpt-4", totalTokens: 9999 },
+      { model: "claude-haiku-3-5", totalTokens: 1 },
+    ];
+    list.sort(compareModelRecencyDesc);
+    expect(list[0].model).toBe("claude-haiku-3-5");
+  });
+});

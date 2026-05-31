@@ -1,174 +1,126 @@
 /**
- * Typed wrapper around vscode.postMessage for all webview-to-extension messages.
- * Centralizes all message passing so callers never construct raw objects.
+ * Typed webview → host senders for the sessions feature.
+ *
+ * Every send constructs a `WebviewMessage` from the shared protocol, so the
+ * compiler rejects any message shape the host cannot parse. Messages go out
+ * through the shared `useApi()` bridge (a thin `postMessage` wrapper acquired
+ * once in main.tsx). `useApi()` contains no hooks, so calling it at module
+ * scope is safe.
  */
+import { useApi } from "../../../webview/shared/hooks";
+import type { WebviewMessage } from "../../../shared/protocol/messages";
 
-import type { VSCodeAPI } from "../../../webview/types";
+/** Post a protocol-typed message to the host. */
+function post(msg: WebviewMessage): void {
+  useApi().post(msg);
+}
 
-let _vscode: VSCodeAPI;
+/** Signal the host the webview is mounted and ready for data. */
+export const sendReady = (): void => post({ type: "ready" });
+
+/** Request a fresh session list. */
+export const sendRefresh = (): void => post({ type: "refresh" });
+
+/** Force a full re-parse + re-post of every tab. */
+export const sendReloadAll = (): void => post({ type: "reloadAll" });
+
+/** Start a new Claude session in a fresh terminal. */
+export const sendNewSession = (): void => post({ type: "newSession" });
+
+/** Start an ephemeral session whose transcript is wiped on exit. */
+export const sendNewTempSession = (): void => post({ type: "newTempSession" });
+
+/** Continue the most recent session in the current workspace. */
+export const sendContinueLastSession = (): void => post({ type: "continueLastSession" });
+
+/** Resume one session in a terminal. */
+export const sendResumeSession = (
+  sessionId: string,
+  entrypoint?: string,
+  projectPath?: string,
+): void => post({ type: "resumeSession", sessionId, entrypoint, projectPath });
+
+/** Resume several sessions in stacked terminals. */
+export const sendResumeMultiple = (sessionIds: string[], projectPaths?: string[]): void =>
+  post({ type: "resumeMultiple", sessionIds, projectPaths });
+
+/** Focus an existing terminal hosting a session that's already open. */
+export const sendViewTerminal = (sessionId: string): void =>
+  post({ type: "viewTerminal", sessionId });
+
+/** Fork a session into a new branch. */
+export const sendForkSession = (sessionId: string): void =>
+  post({ type: "forkSession", sessionId });
 
 /**
- * Initialize the API module with the VS Code API instance.
- * Must be called once at startup before any other API function.
+ * Request a page of a session transcript.
+ *  - `mode` chooses first-N or last-N (default "last").
+ *  - `query` switches the host to full-transcript search; matches return
+ *    with a `detailQuery` echo so stale replies can be dropped.
  */
-export function initApi(vscode: VSCodeAPI): void {
-  _vscode = vscode;
-}
-
-/** Signal to the extension that the webview is ready. */
-export function sendReady(): void {
-  _vscode.postMessage({ type: "ready" });
-}
-
-/**
- * Tell the host the cinematic intro has played. Host writes the flag
- * into globalState so the intro never auto-plays again on this VS Code
- * install.
- */
-export function sendMarkDemoSeen(): void {
-  _vscode.postMessage({ type: "markDemoSeen" });
-}
-
-/** Request a fresh session list from the extension. */
-export function sendRefresh(): void {
-  _vscode.postMessage({ type: "refresh" });
-}
-
-/** Request a new Claude terminal session. */
-export function sendNewSession(): void {
-  _vscode.postMessage({ type: "newSession" });
-}
-
-/**
- * Request an ephemeral Claude terminal session. The host wipes the
- * transcript and the matching history.jsonl rows when the terminal
- * exits.
- */
-export function sendNewTempSession(): void {
-  _vscode.postMessage({ type: "newTempSession" });
-}
-
-/** Continue the most recent Claude Code session in the current workspace. */
-export function sendContinueLastSession(): void {
-  _vscode.postMessage({ type: "continueLastSession" });
-}
-
-/** Resume a specific session in the terminal. */
-export function sendResumeSession(sessionId: string, entrypoint: string, projectPath: string): void {
-  _vscode.postMessage({ type: "resumeSession", sessionId, entrypoint, projectPath });
-}
-
-/** Resume multiple sessions in separate terminals. */
-export function sendResumeMultiple(sessionIds: string[], projectPaths: string[]): void {
-  _vscode.postMessage({ type: "resumeMultiple", sessionIds, projectPaths });
-}
-
-/**
- * Request messages for a session.
- *  - `mode` picks first-N or last-N paging (default "last").
- *  - `query` switches the host into full-transcript search mode —
- *    paging is bypassed, every matching message comes back with a
- *    `detailQuery` echo so stale replies can be dropped.
- */
-export function sendGetSessionDetail(
+export const sendGetSessionDetail = (
   sessionId: string,
   mode: "first" | "last" = "last",
-  query: string = "",
-): void {
-  _vscode.postMessage({ type: "getSessionDetail", sessionId, mode, query });
-}
+  query = "",
+): void => post({ type: "getSessionDetail", sessionId, mode, query });
 
 /** Pin a session to the top of the list. */
-export function sendPinSession(sessionId: string): void {
-  _vscode.postMessage({ type: "pinSession", sessionId });
-}
+export const sendPinSession = (sessionId: string): void =>
+  post({ type: "pinSession", sessionId });
 
 /** Unpin a previously pinned session. */
-export function sendUnpinSession(sessionId: string): void {
-  _vscode.postMessage({ type: "unpinSession", sessionId });
-}
+export const sendUnpinSession = (sessionId: string): void =>
+  post({ type: "unpinSession", sessionId });
 
-/** Prompt the user to confirm deletion of a session. */
-export function sendConfirmDelete(sessionId: string, callback?: string): void {
-  _vscode.postMessage({ type: "confirmDelete", sessionId, callback });
-}
+/** Hide a session from the list (host confirms first via confirmDelete). */
+export const sendConfirmDelete = (sessionId: string, callback?: string): void =>
+  post({ type: "confirmDelete", sessionId, callback });
 
-/** Prompt the user to rename a session. Opens a VS Code input box. */
-export function sendRenameSession(sessionId: string): void {
-  _vscode.postMessage({ type: "renameSession", sessionId });
-}
+/** Open a native rename input box on the host. */
+export const sendRenameSession = (sessionId: string): void =>
+  post({ type: "renameSession", sessionId });
 
-/** Fork a session (create a new session branching from this one). */
-export function sendForkSession(sessionId: string): void {
-  _vscode.postMessage({ type: "forkSession", sessionId });
-}
-
-/** Copy the resume command for a session to the clipboard. */
-export function sendCopyCommand(sessionId: string): void {
-  _vscode.postMessage({ type: "copyCommand", sessionId });
-}
+/** Copy the `claude --resume <id>` command to the clipboard. */
+export const sendCopyCommand = (sessionId: string): void =>
+  post({ type: "copyCommand", sessionId });
 
 /** Open a different project folder in VS Code. */
-export function sendOpenProject(projectPath: string): void {
-  _vscode.postMessage({ type: "openProject", projectPath });
-}
+export const sendOpenProject = (projectPath: string): void =>
+  post({ type: "openProject", projectPath });
+
+/** Open a project folder then fire the chat URI in the new window. */
+export const sendOpenProjectAndChat = (projectPath: string): void =>
+  post({ type: "openProjectAndChat", projectPath });
 
 /** Open an external URL in the default browser. */
-export function sendOpenUrl(url: string): void {
-  _vscode.postMessage({ type: "openUrl", url });
-}
+export const sendOpenUrl = (url: string): void => post({ type: "openUrl", url });
 
-/** Export a session to a portable .jsonl file via Save dialog. */
-export function sendExportSession(sessionId: string): void {
-  _vscode.postMessage({ type: "exportSession", sessionId });
-}
+/** Export one session as a portable .jsonl via Save dialog. */
+export const sendExportSession = (sessionId: string): void =>
+  post({ type: "exportSession", sessionId });
 
-/**
- * Import a portable session .jsonl. Triggers the file picker, project
- * picker, validation, copy, and terminal launch flow on the extension side.
- */
-export function sendImportSession(): void {
-  _vscode.postMessage({ type: "importSession" });
-}
+/** Import a portable session .jsonl. */
+export const sendImportSession = (): void => post({ type: "importSession" });
+
+/** Open a chat tab pre-filled with a prompt. */
+export const sendLaunchChatWithPrompt = (prompt: string): void =>
+  post({ type: "launchChatWithPrompt", prompt });
 
 /**
- * Search inside session transcripts (full content, not just metadata).
- * Extension replies asynchronously via a `fullTextResults` message.
+ * Search inside session transcripts (full content). Host replies async via
+ * a `fullTextResults` message.
  */
-export function sendSearchFullText(query: string): void {
-  _vscode.postMessage({ type: "searchFullText", query });
-}
+export const sendSearchFullText = (query: string): void =>
+  post({ type: "searchFullText", query });
 
-/** Open a chat tab pre-filled with the given prompt. */
-export function sendLaunchChatWithPrompt(prompt: string): void {
-  _vscode.postMessage({ type: "launchChatWithPrompt", prompt });
-}
+/** Bulk pin / unpin every id in one round-trip. */
+export const sendBulkPinSessions = (ids: string[], pin: boolean): void =>
+  post({ type: "bulkPinSessions", ids, pin });
 
-/** Open a project folder and fire the chat URI in the new window. */
-export function sendOpenProjectAndChat(projectPath: string): void {
-  _vscode.postMessage({ type: "openProjectAndChat", projectPath });
-}
+/** Bulk delete with a single host-side confirm. */
+export const sendBulkDeleteSessions = (ids: string[]): void =>
+  post({ type: "bulkDeleteSessions", ids });
 
-/**
- * Force a full re-parse + re-post of every tab's data on the host.
- * Backs the toolbar refresh button. Host replies asynchronously with a
- * `reloadComplete` message once data is back on the wire.
- */
-export function sendReloadAll(): void {
-  _vscode.postMessage({ type: "reloadAll" });
-}
-
-/** Bulk pin / unpin — `pin` chooses which leg to take. */
-export function sendBulkPinSessions(ids: string[], pin: boolean): void {
-  _vscode.postMessage({ type: "bulkPinSessions", ids, pin });
-}
-
-/** Bulk delete — host pops a single confirm before doing anything. */
-export function sendBulkDeleteSessions(ids: string[]): void {
-  _vscode.postMessage({ type: "bulkDeleteSessions", ids });
-}
-
-/** Bulk export — host packages selected sessions into a single .zip. */
-export function sendBulkExportSessions(ids: string[]): void {
-  _vscode.postMessage({ type: "bulkExportSessions", ids });
-}
+/** Bulk export selected sessions as one .zip. */
+export const sendBulkExportSessions = (ids: string[]): void =>
+  post({ type: "bulkExportSessions", ids });

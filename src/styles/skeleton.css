@@ -1,0 +1,161 @@
+/* ============================================================================
+   Claude Manager — Content-aware loading skeletons
+
+   Layout-only rules for the per-feature skeleton components (the atoms +
+   shimmer live in base.css). Each block mirrors the inset / height of the
+   real layout it stands in for, so the swap to real data has no layout shift.
+   All sizing reuses the same --space-* / --h-control tokens the real
+   controls use. Colour is --vscode-* driven (via the .skeleton-el base).
+   ============================================================================ */
+
+/* Skeletons that own the whole panel reuse the real `.panel` flex column so
+   the search row stays pinned and the list area scrolls, exactly like the
+   loaded view. No extra rules needed beyond the row helpers below. */
+
+/* List-feature skeleton (skills / commands / hooks / mcp / agents) ----------- */
+
+/* Scope-filter placeholder — same edge inset as the real .scope-filter
+   (segmented control) so it lands on the shared control-row rhythm. */
+.skeleton-scope-row {
+  margin: var(--space-sm) var(--space-2xl) 0;
+  flex-shrink: 0;
+}
+
+/* The placeholder row body inherits the real `.list` flex/scroll; the rows
+   reuse `.item` for their --space-lg/--space-2xl inset + bottom border so
+   they align pixel-for-pixel with the real rows that replace them. */
+.skeleton-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  cursor: default;
+}
+.skeleton-item-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+}
+
+/* Sessions skeleton --------------------------------------------------------- */
+
+/* The action button row mirrors the real `.actions-bar` auto-fit grid so the
+   button blocks distribute the same way and wrap identically on narrow panels. */
+.skeleton-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-2xl);
+  flex-shrink: 0;
+}
+
+/* Project/branch dropdown placeholder row — matches the real `.filter-row`
+   inset + flex so the two dropdown blocks line up with the live dropdowns. */
+.skeleton-filter-row {
+  display: flex;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-2xl);
+  flex-shrink: 0;
+}
+.skeleton-filter-row > .skeleton-el { flex: 1; min-width: 0; }
+
+/* Date-range chip placeholder row — same inset as the real `.date-chips`. */
+.skeleton-chips-row {
+  padding: var(--space-sm) var(--space-2xl);
+  flex-shrink: 0;
+}
+
+/* Session placeholder rows reuse the REAL `.session-item` + `.item-row1` /
+   `.item-prompt` / `.item-row2` structure so internal spacing matches the
+   loaded row exactly (even boxes). Pin to the virtualizer's fixed 64px
+   ITEM_HEIGHT so each placeholder occupies the same height its real row will. */
+.skeleton-list-rows > .session-item {
+  height: 64px;
+  box-sizing: border-box;
+  cursor: default;
+}
+
+/* Account skeleton ---------------------------------------------------------- */
+
+/* Profile block — avatar + name/email lines, mirrors `.acct-profile`. */
+.skeleton-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+}
+.skeleton-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+/* Quota window placeholder — two label lines above a full-width bar block,
+   mirroring `.acct-quota-row` / `.acct-quota-bar`. */
+.skeleton-quota-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+.skeleton-quota-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+/* Generic vertical gap for stacked skeleton fields (config) + section bodies. */
+.skeleton-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xl);
+}
+
+/* Flex-grow filler ---------------------------------------------------------- */
+
+/* Spacer placed at the END of a `.panel` skeleton whose sections have a fixed
+   intrinsic height (Account, Config). The live tab fills the viewport via its
+   scroll area; the skeleton has no scrolling content, so without this filler
+   it leaves visible empty room below the last section on a tall sidebar.
+   Reads as part of the panel column — no border, no background — purely a
+   layout fill. */
+.skeleton-fill {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Grow the last skeleton section to fill the panel height so the loader
+   reads as a full-height block rather than leaving an empty gap below a
+   short stack of placeholder sections (Account, Config). Its body becomes
+   a flex container so an inline 100%-height SkeletonBlock fills it. */
+.skeleton-section-grow {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.skeleton-section-grow-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Detail-view skeleton ------------------------------------------------------ */
+
+/* Paragraph / message-block stack inside a detail panel — same 2xl inset as
+   the real `.d-head` / `.d-section` content. */
+.skeleton-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-2xl) var(--space-md);
+}
+.skeleton-detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+}

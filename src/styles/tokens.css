@@ -1,0 +1,162 @@
+/* Design tokens — single source of truth for CSS variables. The base values
+   here are mirrored in the inline <style> block of src/extension/html.ts
+   (the CSP shell paints before this stylesheet loads); keep the two in sync. */
+
+:root {
+  --bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  --bg-hover: var(--vscode-list-hoverBackground, rgba(255,255,255,0.06));
+  --bg-active: var(--vscode-list-activeSelectionBackground);
+  --bg-active-fg: var(--vscode-list-activeSelectionForeground);
+  --fg: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground));
+  --fg-dim: var(--vscode-descriptionForeground);
+  --fg-muted: var(--vscode-disabledForeground);
+  /* Section-header foreground — VS Code's own SOURCE CONTROL / EXPLORER
+     group titles use this dedicated token (falls back to the panel
+     foreground on themes that leave it unset). Keeping section labels on
+     this var instead of --fg-muted matches the native sidebar hierarchy:
+     headers read as quiet structural labels, not disabled text. */
+  --fg-section: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+  --border: var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border));
+  --accent: var(--vscode-focusBorder);
+  /* Keyboard-focus outline for list rows — VS Code's tree/list uses a
+     dedicated colour (list.focusOutline) that falls back to focusBorder.
+     Used by every focusable row so keyboard nav reads native. */
+  --list-focus: var(--vscode-list-focusOutline, var(--vscode-focusBorder));
+  --badge-bg: var(--vscode-badge-background);
+  --badge-fg: var(--vscode-badge-foreground);
+  --input-bg: var(--vscode-input-background);
+  --input-border: var(--vscode-input-border, transparent);
+  --input-fg: var(--vscode-input-foreground);
+  --btn-bg: var(--vscode-button-background);
+  --btn-fg: var(--vscode-button-foreground);
+  --btn-hover: var(--vscode-button-hoverBackground);
+  --btn-sec-bg: var(--vscode-button-secondaryBackground, var(--vscode-list-hoverBackground, rgba(255,255,255,0.08)));
+  --btn-sec-fg: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  --btn-sec-hover: var(--vscode-button-secondaryHoverBackground, rgba(255,255,255,0.12));
+  --link: var(--vscode-textLink-foreground);
+  --green: #2ea043;
+  --green-bg: rgba(46,160,67,0.15);
+  --orange: var(--vscode-notificationsWarningIcon-foreground, #f5a623);
+  --orange-bg: rgba(245,166,35,0.15);
+  --red: var(--vscode-errorForeground, #f85149);
+  --red-bg: rgba(248,81,73,0.15);
+  --mono: var(--vscode-editor-font-family, monospace);
+  /* Alias kept for call sites that reference --font-mono (sessions session-id,
+     account quota code chips). Without this definition those fell through to
+     bare `monospace`, ignoring the user's editor font; aliasing to --mono makes
+     every monospace surface resolve to the same theme-correct family. */
+  --font-mono: var(--mono);
+  --shadow: rgba(0,0,0,0.25);
+  /* Faint hairline used by heatmap empty/future cells and account scrollbars.
+     Aliased to a low-alpha neutral so it stays subtle on light + dark; call
+     sites already pass this exact fallback inline. */
+  --border-subtle: rgba(127,127,127,0.3);
+  --overlay-hover: rgba(255,255,255,0.08);
+  --dropdown-bg: var(--vscode-dropdown-background, var(--input-bg));
+  --dropdown-border: var(--vscode-dropdown-border, var(--border));
+  --menu-bg: var(--vscode-menu-background, var(--input-bg));
+  --menu-border: var(--vscode-menu-border, var(--border));
+  --menu-fg: var(--vscode-menu-foreground, var(--fg));
+  --color-blue: #58a6ff;
+  --color-blue-bg: rgba(88,166,255,0.15);
+  --color-purple: #a371f7;
+  --color-purple-bg: rgba(163,113,247,0.15);
+  --color-green-badge: #3fb950;
+  --color-green-badge-bg: rgba(63,185,80,0.15);
+  --fs-xs: 10px;
+  --fs-sm: 11px;
+  --fs-base: 12px;
+  --fs-md: 13px;
+  --fs-lg: 14px;
+  --fs-xl: 16px;
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --space-xs: 4px;
+  --space-sm: 6px;
+  --space-md: 8px;
+  --space-lg: 10px;
+  --space-xl: 12px;
+  --space-2xl: 14px;
+
+  /* ────────────────────────────────────────────────────────────────────────
+     DESIGN-SYSTEM TOKEN ROLES (VS Code native)
+
+     The root problem this layer fixes: --vscode-button-background ("primary
+     blue") was being used for BOTH the primary call-to-action AND every
+     selected/active state (date chips, scope segments, usage toggle). With
+     four solid-blue controls on screen there was no hierarchy. These role
+     tokens give each intent a distinct, theme-correct treatment so features
+     inherit one consistent language. Every value resolves to a --vscode-* var
+     (with safe fallbacks) and stays correct in dark / light / high-contrast.
+     ──────────────────────────────────────────────────────────────────────── */
+
+  /* PRIMARY ACTION — the single main create action per view (Sessions "New").
+     Solid accent fill. Use sparingly: at most one primary button visible. */
+  --role-primary-bg: var(--vscode-button-background);
+  --role-primary-fg: var(--vscode-button-foreground);
+  --role-primary-hover-bg: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+  /* Transparent edge so a primary button lands on the same pixel row as the
+     bordered secondary buttons beside it (border-box sizing). */
+  --role-primary-border: var(--vscode-button-border, transparent);
+
+  /* SECONDARY ACTION — every non-primary button (Temp, Continue, Restore,
+     Import, Switch account, Open claude.ai, Check quota, Try again …). Neutral
+     fill + an explicit 1px edge: in the sidebar secondaryBackground often
+     resolves to the panel colour, so a fill-only button reads as bare text.
+     The border chain always lands on something the theme defines. */
+  --role-secondary-bg: var(--vscode-button-secondaryBackground, var(--btn-sec-bg));
+  --role-secondary-fg: var(--vscode-button-secondaryForeground, var(--btn-sec-fg));
+  --role-secondary-hover-bg: var(--vscode-button-secondaryHoverBackground, var(--btn-sec-hover));
+  --role-secondary-border: var(--vscode-button-border,
+    var(--vscode-contrastBorder,
+      var(--vscode-input-border, var(--border))));
+
+  /* DANGER ACTION — Log out, Delete. NOT bare red text: a secondary button
+     whose label/icon uses errorForeground, sharing the secondary border /
+     height / padding so it aligns in a button row. The fill is a faint
+     error-tinted overlay on hover, never a solid red block. */
+  --role-danger-fg: var(--vscode-errorForeground, var(--red));
+  --role-danger-border: var(--role-secondary-border);
+  --role-danger-hover-bg: var(--red-bg);
+
+  /* SELECTED / ACTIVE — segmented controls, filter tabs, scope toggles.
+     Deliberately NOT primary blue. The selected segment gets a subtle raised
+     fill (list active-selection bg) with normal foreground; unselected
+     segments are transparent with the muted description colour. The whole
+     control sits in a track (faint fill + 1px edge), mirroring VS Code's own
+     segmented toggles (Settings table/JSON switch, search filters). */
+  --role-selected-bg: var(--vscode-list-activeSelectionBackground,
+    var(--vscode-button-secondaryBackground, var(--btn-sec-bg)));
+  --role-selected-fg: var(--vscode-foreground, var(--fg));
+  --role-unselected-fg: var(--vscode-descriptionForeground, var(--fg-dim));
+  /* Track: the recessed channel the segments sit in. */
+  --role-track-bg: var(--vscode-editorWidget-background, var(--bg-hover));
+  --role-track-border: var(--vscode-input-border,
+    var(--vscode-contrastBorder, var(--border)));
+  --role-selected-hover-bg: var(--vscode-list-hoverBackground, var(--bg-hover));
+
+  /* GHOST / ICON — chromeless toolbar affordance. Transparent until hover,
+     then VS Code's toolbar hover fill; the pressed (active) state deepens to
+     the toolbar active fill, falling back to the list active-selection bg. */
+  --role-ghost-hover-bg: var(--vscode-toolbar-hoverBackground, var(--bg-hover));
+  --role-ghost-active-bg: var(--vscode-toolbar-activeBackground,
+    var(--vscode-list-activeSelectionBackground, var(--bg-active)));
+
+  /* TEXT HIERARCHY — primary body text, secondary/meta text, and section
+     headers. Never use disabledForeground for structural text (it reads as
+     "turned off", not "quiet"). Section headers ride VS Code's dedicated
+     sidebar section-header colour. */
+  --role-text-primary: var(--vscode-foreground, var(--fg));
+  --role-text-secondary: var(--vscode-descriptionForeground, var(--fg-dim));
+  --role-text-section: var(--vscode-sideBarSectionHeader-foreground, var(--fg-section));
+
+  /* CONTROL SURFACE — the bg/border for input-like trigger surfaces (the
+     rebuilt Dropdown trigger), matched to VS Code's settings-dropdown chrome
+     so a closed Dropdown reads identically to a Settings select. */
+  --role-control-bg: var(--vscode-dropdown-background, var(--vscode-input-background, var(--input-bg)));
+  --role-control-fg: var(--vscode-dropdown-foreground, var(--vscode-input-foreground, var(--input-fg)));
+  --role-control-border: var(--vscode-dropdown-border,
+    var(--vscode-input-border, var(--vscode-contrastBorder, var(--border))));
+}

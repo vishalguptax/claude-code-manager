@@ -28,10 +28,10 @@ export const SETTINGS_FILE: string = path.join(CLAUDE_DIR, "settings.json");
 
 /**
  * Cache Claude Code writes when an MCP server needs (re-)authentication.
- * Keys are connector display names (e.g. "claude.ai Gmail"); presence
- * means Claude flagged an auth prompt for that server. We use it to
- * badge the MCP tab so users see which connectors need re-auth without
- * opening Claude.
+ * Keys are server display names (e.g. "claude.ai Gmail"); presence means
+ * Claude Code surfaced an auth prompt for that connector at the
+ * recorded timestamp. We badge the MCP tab so users see which
+ * connectors need re-auth without opening Claude.
  */
 export const MCP_AUTH_CACHE_FILE: string = path.join(
   CLAUDE_DIR,
@@ -65,8 +65,8 @@ export const CLAUDE_MANAGER_DIR: string = path.join(CLAUDE_DIR, ".claude-manager
  * windows, current model, context-window usage, and session cost —
  * data Claude Code computes server-side and hands its statusline.
  * Reading this file is how Claude Manager surfaces 5h/7d quota WITHOUT
- * a network call or the OAuth token: Claude Code (the authorized
- * client) fetches it, the tap caches it, we read the cache.
+ * making any network call or touching the OAuth token: Claude Code (the
+ * authorized client) fetches it, the tap caches it, we read the cache.
  */
 export const STATUSLINE_CACHE_FILE: string = path.join(
   CLAUDE_MANAGER_DIR,
@@ -86,10 +86,33 @@ export const STATUSLINE_TAP_FILE: string = path.join(
 
 /**
  * Sidecar that records the user's original `statusLine.command` when
- * the tap is installed, so the tap can chain it and uninstall can
- * restore it exactly.
+ * the tap is installed, so the tap can chain it (keeping the user's own
+ * status bar intact) and the uninstaller can restore it exactly.
  */
 export const STATUSLINE_INNER_FILE: string = path.join(
   CLAUDE_MANAGER_DIR,
   "statusline-inner.json",
+);
+
+/**
+ * SessionStart hook script: a tiny Node program Claude CLI runs on every
+ * session boot. Records `{ session_id, ppid, cwd, ts }` into the active
+ * sessions file so the extension can link a sidebar row to the terminal
+ * actually hosting that CLI. Stable path so settings.json hook entries
+ * survive extension updates.
+ */
+export const SESSION_TAP_FILE: string = path.join(
+  CLAUDE_MANAGER_DIR,
+  "session-start-tap.js",
+);
+
+/**
+ * Append-only registry of currently-running Claude sessions. The
+ * SessionStart hook adds one entry per session boot; the extension
+ * reads it to map `vscode.Terminal.processId` → session id so the row
+ * + detail action swap from Resume to View.
+ */
+export const SESSION_ACTIVE_FILE: string = path.join(
+  CLAUDE_MANAGER_DIR,
+  "active-sessions.json",
 );

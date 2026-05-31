@@ -8,19 +8,17 @@
    Session List Items
    ────────────────────────────────────────────────────────────────────────────── */
 
-.list-count {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  padding: var(--space-xs) var(--space-2xl) 2px;
-}
-
 .group-label {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--fg-muted);
-  padding: var(--space-2xl) var(--space-2xl) var(--space-sm);
+  color: var(--fg-section);
+  /* Section-header rhythm: --space-lg above (matches the account/config
+     .acct-section-header top inset) and --space-sm below to the first row.
+     Shared by every list group-label (sessions/commands/hooks/mcp/agents) so
+     the uppercase group titles sit on one cross-tab rhythm. */
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
 }
 
 /*
@@ -42,7 +40,21 @@
   cursor: pointer;
   border-bottom: 1px solid var(--border);
   position: relative;
+  /* Native-feeling hover: ease the row highlight in rather than snapping. */
+  transition: background var(--transition-control);
 }
+.item:focus-visible {
+  outline: 1px solid var(--list-focus);
+  outline-offset: -1px;
+}
+/* No permanent right inset. The action cluster (Resume + the rest) is an
+   absolutely-positioned OVERLAY that only appears on hover/focus, so at rest
+   the name / relative-time in row1 and the prompt subtitle use the row's FULL
+   width — no ~46px gap wasted on a button that isn't visible. On hover the
+   cluster fades in over the text tail on a matching-bg overlay (see
+   `.item-actions` below), the standard VS Code list-action pattern, so the
+   Resume button never overlaps the text illegibly. */
+
 /* Selected row indicator — left border accent + subtle background.
    Active (detail-open) takes precedence so the resume-target highlight
    keeps reading as the dominant signal. */
@@ -86,7 +98,7 @@
   margin-right: var(--space-xs);
 }
 .list-header .bulk-btn {
-  padding: 4px 10px;
+  padding: var(--space-xs) var(--space-lg);
   font-size: var(--fs-sm);
   flex: 0 0 auto;
   white-space: nowrap;
@@ -94,11 +106,11 @@
 .list-count-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   background: transparent;
   border: 1px solid var(--border);
   color: var(--fg-muted);
-  padding: 2px 8px;
+  padding: 2px var(--space-md);
   border-radius: var(--radius-sm);
   font-size: var(--fs-xs);
   font-family: inherit;
@@ -110,11 +122,11 @@
 .bulk-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-xs);
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--bg-active-fg) 35%, transparent);
   color: var(--bg-active-fg);
-  padding: 2px 8px;
+  padding: 2px var(--space-md);
   border-radius: var(--radius-sm);
   font-size: var(--fs-xs);
   font-family: inherit;
@@ -204,27 +216,74 @@
 }
 .item.active .item-name      { color: var(--bg-active-fg); }
 
-.item-resume {
-  display: none;
+/*
+ * Hover-revealed row action: the Resume affordance. The cluster is pinned to
+ * the right edge of the row; Resume only appears on hover (or when focused via
+ * keyboard) so the row stays calm at rest, mirroring v1. The redundant ⋯
+ * overflow trigger was removed — the right-click context menu is the single
+ * action-menu path now.
+ *
+ * Overlay pattern (VS Code list actions): the row reserves NO permanent space
+ * for this cluster, so the title/prompt run full-width at rest. On hover the
+ * cluster appears ON TOP of the text tail, riding a background that matches the
+ * row's hover background (--bg-hover) with a short left-to-right gradient fade
+ * so the text disappears cleanly UNDER the actions instead of colliding with
+ * them. `padding-left` + the gradient give the fade its run-up; the solid tail
+ * sits behind the button itself. The selected/active variants below swap the
+ * matching bg so the overlay blends on those rows too.
+ */
+.item-actions {
   position: absolute;
-  right: var(--space-lg);
-  top: 50%;
-  transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
-  font-size: var(--fs-xl);
-  line-height: 32px;
-  text-align: center;
-  background: none;
-  border: none;
-  color: var(--green);
-  cursor: pointer;
-  border-radius: var(--radius-lg);
-  padding: 0;
-  margin: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  padding-right: var(--space-lg);
+  padding-left: var(--space-2xl);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  /* Solid tail (right) behind the buttons, fading to transparent on the left so
+     the covered text edge dissolves rather than hard-clipping. Only shown while
+     the cluster is visible (hover/focus); a hidden Resume keeps the row clean. */
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--bg-hover) var(--space-2xl)
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-control);
 }
-.session-item:hover .item-resume { display: block; }
-.item-resume:hover           { background: var(--green-bg); }
+/* Reveal the overlay (and re-enable its hit targets) on row hover or when the
+   Resume button inside it is focused via keyboard (:focus-within). */
+.session-item:hover .item-actions,
+.item-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* Match the overlay tail to the selected / active row backgrounds so it blends
+   on those rows instead of flashing the resting hover colour over a darker
+   selection. Active (detail-open) wins, mirroring the row bg precedence. */
+.session-item.is-selected .item-actions {
+  background: linear-gradient(to right, transparent, var(--bg-hover) var(--space-2xl));
+}
+.session-item.is-selected.active .item-actions,
+.item.active .item-actions {
+  background: linear-gradient(to right, transparent, var(--bg-active) var(--space-2xl));
+}
+@media (prefers-reduced-motion: reduce) {
+  .item-actions { transition: none; }
+}
+
+/* Resume is a shared icon <Button>, so the chromeless `.btn-icon` look (native
+   ghost + toolbar hover/active fill) applies. Here we only own the play-green
+   tint; the reveal-on-hover now lives on the `.item-actions` overlay (opacity)
+   so the button visibility no longer needs its own toggle. The hover/active/
+   focus affordance comes from `.btn-icon` in components-native.css so it
+   matches every other toolbar icon button. */
+.item-resume {
+  color: var(--green);
+}
 
 .item-time {
   font-size: var(--fs-sm);
@@ -252,7 +311,10 @@
   text-overflow: ellipsis;
   margin-top: 2px;
 }
-.session-item:hover .item-prompt { margin-right: 36px; }
+/* At rest the prompt runs the row's full width (no reserved action inset). On
+   hover the `.item-actions` overlay simply fades in over the prompt's tail with
+   a matching-bg gradient, so the prompt needs no dodge margin — it ellipsizes
+   under the overlay cleanly. */
 .item.active .item-prompt    { color: var(--bg-active-fg); opacity: 0.65; }
 
 .item-row2 {
@@ -289,7 +351,7 @@
 .item.active .item-proj      { color: var(--bg-active-fg); opacity: 0.7; }
 
 .show-more-row {
-  padding: var(--space-xl) var(--space-2xl) 20px;
+  padding: var(--space-xl) var(--space-2xl);
 }
 .show-more-btn {
   width: 100%;
@@ -301,8 +363,10 @@
   font-size: var(--fs-base);
   font-family: inherit;
   cursor: pointer;
+  transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
 }
-.show-more-btn:hover         { color: var(--fg); background: var(--bg-hover); }
+.show-more-btn:hover         { color: var(--fg); background: var(--bg-hover); border-color: var(--accent); }
+.show-more-btn:focus-visible { outline: var(--focus-ring); outline-offset: -1px; }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -312,7 +376,7 @@
 .back-btn {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-sm);
   background: none;
   border: none;
   color: var(--fg-dim);
@@ -353,7 +417,7 @@
 }
 .d-tags {
   display: flex;
-  gap: 5px;
+  gap: var(--space-sm);
   margin-bottom: var(--space-sm);
   flex-wrap: wrap;
 }
@@ -367,7 +431,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   margin-top: var(--space-xs);
@@ -376,8 +440,8 @@
 .d-meta-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 7px;
+  gap: var(--space-xs);
+  padding: 1px var(--space-sm);
   border-radius: 10px;
   background: rgba(128, 128, 128, 0.15);
   color: var(--fg-dim);
@@ -448,26 +512,27 @@
  * of label length, eliminating uneven wraps.
  */
 .d-actions {
-  display: grid;
-  /* 110px min so typical action labels (Open in Chat, Copy /name)
-     fit without clipping at common sidebar widths. Narrower panels
-     fall back to fewer columns — the auto-fit repeat handles it. */
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 6px;
+  /* Flex-wrap so each button sizes to its content and wraps cleanly — never
+     cropping. (Was an auto-fit grid with minmax(96px, 1fr); those equal narrow
+     columns combined with `.btn`'s ellipsis clip truncated longer labels.) */
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-xl);
 }
 .d-actions > .btn {
+  /* Centre icon+label; the shared `… > .btn` override (components.css) handles
+     the ellipsis-clip reset + content-width sizing so labels never crop. */
   justify-content: center;
-  /* Allow buttons to shrink below their content width if needed. The
-     min-width on grid items defaults to auto (= content size), which
-     prevents the 1fr columns from becoming truly equal at narrow
-     widths. Setting it to 0 lets the grid distribute width evenly. */
-  min-width: 0;
 }
-.d-actions > .btn.primary {
+/* `.btn.primary` is the legacy modifier; `.btn-primary` is the shared
+   <Button variant="primary"> class — both span the full top row. */
+.d-actions > .btn.primary,
+.d-actions > .btn-primary {
   /* Primary action always spans the full top row — it's the call to
-     action, not just one of the options. Delete flows with the rest. */
-  grid-column: 1 / -1;
+     action, not just one of the options. flex-basis: 100% forces a wrap
+     after it so the remaining actions flow on the next line. */
+  flex: 1 0 100%;
 }
 
 .d-section {
@@ -476,10 +541,10 @@
 }
 .d-label {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: var(--fg-muted);
+  color: var(--fg-section);
   margin-bottom: var(--space-md);
 }
 .d-kv {
@@ -500,7 +565,7 @@
 }
 .d-label-row .d-label { margin-bottom: 0; }
 
-/* Message toggle now uses .vs-segmented / .vs-segmented--sm */
+/* Message order toggle now uses the shared <Segmented size="sm"> (.vsc-segmented). */
 
 .d-msg-hint {
   font-size: var(--fs-xs);
@@ -573,14 +638,14 @@
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-xs);
   pointer-events: none; /* default — only the clear button re-enables */
 }
 .d-msg-search-count {
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
-  padding: 0 4px;
+  padding: 0 var(--space-xs);
 }
 .d-msg-search-clear {
   width: 22px;
@@ -634,7 +699,7 @@
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--fg-muted);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 .d-msg-user .d-msg-role { color: var(--accent); }
 .d-msg-content {
@@ -656,13 +721,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 .d-msg-head .d-msg-role { margin-bottom: 0; flex: 1; }
 
 .d-msg-actions {
   display: inline-flex;
-  gap: 2px;
+  gap: var(--space-xs);
   opacity: 0;
   transition: opacity var(--transition-control);
 }
@@ -708,15 +773,15 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-xs);
 }
 .d-msg-tool {
   display: flex;
-  gap: 8px;
+  gap: var(--space-md);
   align-items: baseline;
   font-size: var(--fs-sm);
   line-height: 1.45;
-  padding: 2px 0;
+  padding: var(--space-xs) 0;
 }
 .d-msg-tool-name {
   flex: 0 0 auto;
@@ -746,13 +811,13 @@
   cursor: pointer;
   color: var(--fg-muted);
   list-style: revert;
-  padding: 2px 0;
+  padding: var(--space-xs) 0;
   user-select: none;
 }
 .d-msg-thinking > summary:hover { color: var(--fg-dim); }
 .d-msg-thinking[open] > summary { color: var(--fg-dim); }
 .d-msg-thinking-body {
-  margin-top: 4px;
+  margin-top: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   border-left: 2px solid var(--border);
   color: var(--fg-muted);
@@ -770,45 +835,13 @@
  * often scan down the thread to compare.
  */
 .d-msg-usage {
-  margin-top: 6px;
+  margin-top: var(--space-sm);
   font-size: var(--fs-xs);
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
   text-align: right;
 }
-
-/* Legacy prompt styles (kept for backward compat) */
-.d-prompt {
-  display: flex;
-  gap: var(--space-md);
-  padding: var(--space-md) 0;
-  font-size: var(--fs-base);
-  line-height: 1.55;
-  color: var(--fg);
-  border-bottom: 1px solid var(--border);
-  align-items: flex-start;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-.d-prompt:last-child         { border-bottom: none; }
-
-.d-pn {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--badge-fg);
-  background: var(--badge-bg);
-  min-width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Footer

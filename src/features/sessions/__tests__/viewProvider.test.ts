@@ -88,10 +88,22 @@ vi.mock("../../../extension/git", () => ({
   getCurrentBranch: () => __mockedBranch,
   onBranchChange: () => ({ dispose: () => {} }),
 }));
+let __clearIndexCalls = 0;
 vi.mock("../searchIndex", () => ({
   indexSession: () => {},
   pruneIndex: () => {},
+  clearIndex: () => {
+    __clearIndexCalls++;
+  },
   searchContent: (q: string) => __mockedSearchContent(q),
+}));
+// Top-level so it survives the dynamic-import cache (per-test doMock of this
+// module only wins on the very first import). Returns a fresh marker each
+// call so a regeneration is observable; counts calls so the reload test can
+// prove the document was rebuilt.
+let __htmlGen = 0;
+vi.mock("../../../extension/html", () => ({
+  getWebviewHtml: () => `<html data-gen="${++__htmlGen}"></html>`,
 }));
 
 beforeEach(() => {
@@ -100,6 +112,8 @@ beforeEach(() => {
   ws.workspaceFolders = [];
   __mockedBranch = "";
   __mockedSearchContent = () => [];
+  __clearIndexCalls = 0;
+  __htmlGen = 0;
 });
 
 describe("ClaudeSessionViewProvider", () => {
@@ -117,6 +131,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -124,9 +141,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
@@ -158,6 +172,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -165,9 +182,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
 
     vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
@@ -209,6 +223,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -216,9 +233,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
     __mockedBranch = "feature/test";
 
@@ -250,6 +264,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -257,9 +274,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
     __mockedSearchContent = (q: string) => (q === "needle" ? ["sess-1", "sess-2"] : []);
 
@@ -303,6 +317,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -310,9 +327,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
     vi.doMock("../../skills/parser", () => ({ parseSkills: () => [{ id: "sk1" }] }));
     vi.doMock("../../commands/parser", () => ({ parseCommands: () => [{ name: "cmd1" }] }));
@@ -337,6 +351,7 @@ describe("ClaudeSessionViewProvider", () => {
 
     const view = makeFakeView();
     provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    const htmlAtResolve = view.webview.html;
     view.webview.posted.length = 0;
 
     await provider.reloadAll();
@@ -352,6 +367,13 @@ describe("ClaudeSessionViewProvider", () => {
     // reloadComplete must be the final wire event so the webview can
     // safely drop the spinner once it arrives.
     expect(types[types.length - 1]).toBe("reloadComplete");
+
+    // (a) DATA — the global reload clears the full-text search index.
+    expect(__clearIndexCalls).toBeGreaterThanOrEqual(1);
+    // (c) WEBVIEW — the document was regenerated from the html builder, so
+    // the post-reload html differs from the one set at resolve time.
+    expect(view.webview.html).not.toBe(htmlAtResolve);
+    expect(view.webview.html).toContain("data-gen");
   });
 
   it("reloadAll routes through the reloadAll webview message", async () => {
@@ -366,6 +388,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -373,9 +398,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
     vi.doMock("../../skills/parser", () => ({ parseSkills: () => [] }));
     vi.doMock("../../commands/parser", () => ({ parseCommands: () => [] }));
@@ -421,6 +443,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -428,9 +453,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
 
     interface CapturedPattern {
@@ -489,6 +511,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -496,9 +521,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
@@ -525,6 +547,69 @@ describe("ClaudeSessionViewProvider", () => {
     view._dispose();
   });
 
+  it("routes getMcpServers + getCommands through the per-feature handlers", async () => {
+    // F3 host-wiring regression guard: the commands and mcp features moved
+    // their dispatch into their own messageHandlers.ts modules. This test
+    // drives the provider's live onDidReceiveMessage handler with the two
+    // feature message types and asserts the per-feature handlers reply —
+    // proving the new chain is actually wired (not just the dead monolith).
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    vi.doMock("../../commands/parser", () => ({
+      parseCommands: () => [{ name: "review", scope: "global", path: "/x/review.md" }],
+      getBuiltInCommands: () => [],
+    }));
+    vi.doMock("../../mcp/parser", () => ({
+      parseMcpServers: () => [{ name: "srv1", scope: "global" }],
+      toggleMcpServer: () => true,
+      deleteMcpServer: () => true,
+    }));
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    view.webview.posted.length = 0;
+
+    const handler = view.webview._msgHandler;
+    expect(handler).toBeDefined();
+
+    await handler!({ type: "getCommands" });
+    const cmdReply = view.webview.posted.find((m) => m.type === "commands");
+    expect(cmdReply).toBeDefined();
+    expect(Array.isArray(cmdReply!.data)).toBe(true);
+
+    await handler!({ type: "getMcpServers" });
+    const mcpReply = view.webview.posted.find((m) => m.type === "mcpServers");
+    expect(mcpReply).toBeDefined();
+    // Data shape is now { servers, authNeeds } (piggybacks auth-health
+    // badge onto the existing message — see mcp/messageHandlers.ts).
+    const data = mcpReply!.data as { servers?: unknown; authNeeds?: unknown };
+    expect(Array.isArray(data.servers)).toBe(true);
+    expect(Array.isArray(data.authNeeds)).toBe(true);
+  });
+
   it("postWorkspacePath silently ignores posts after the view is disposed", async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],
@@ -537,6 +622,9 @@ describe("ClaudeSessionViewProvider", () => {
       getLastParseWarning: () => null,
       readLiveSessions: () => new Map(),
       applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -544,9 +632,6 @@ describe("ClaudeSessionViewProvider", () => {
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
       renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
-    }));
-    vi.doMock("../../../extension/html", () => ({
-      getWebviewHtml: () => "<html></html>",
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");

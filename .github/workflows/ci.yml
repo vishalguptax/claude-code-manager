@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - v2/main
+      - v2/integration-target
+      - main
+  push:
+    branches:
+      - v2/main
+      - v2/integration-target
+
+jobs:
+  verify:
+    name: verify (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Biome check
+        run: npm run check
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Unit tests with coverage
+        run: npm test -- --coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Bundle size budgets
+        run: npm run size
+
+      - name: npm audit (runtime deps, high+)
+        run: npm audit --omit=dev --audit-level=high
+
+  integration:
+    name: integration (@vscode/test-electron)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Compile integration suite
+        run: npm run compile:integration
+
+      - name: Build extension
+        run: npm run build
+
+      # The Extension Host boots a real (headless) VS Code window, which needs
+      # a virtual framebuffer on the Linux runner. xvfb-run wraps the suite.
+      - name: Run integration tests (xvfb)
+        run: xvfb-run -a npm run test:integration

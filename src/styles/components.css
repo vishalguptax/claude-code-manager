@@ -4,6 +4,101 @@
    ============================================================================ */
 
 
+/* Shared <EmptyState> — centred icon + title + description, matching VS
+   Code's own "No results" / empty-view treatment (muted glyph, quiet
+   copy, generous vertical breathing room). The icon is dimmed so it
+   reads as decorative structure, not a control. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-sm);
+  /* Centered empty state: one shared vertical breathing value (28px =
+     2×--space-2xl) across .empty / .empty-state / .state-empty / .loading so
+     every "no content" surface sits at the same rhythm with the standard inset. */
+  padding: calc(var(--space-2xl) * 2) var(--space-2xl);
+  color: var(--fg-muted);
+  font-size: var(--fs-base);
+}
+.empty-state > svg,
+.empty-state > .icon {
+  color: var(--fg-muted);
+  opacity: 0.55;
+  margin-bottom: var(--space-xs);
+}
+.empty-state-title {
+  font-weight: 600;
+  font-size: var(--fs-md);
+  color: var(--fg);
+}
+.empty-state-desc {
+  color: var(--fg-dim);
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  min-width: 320px;
+  max-width: 80vw;
+  box-shadow: 0 8px 32px var(--shadow);
+}
+.modal-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-xl);
+}
+
+/* Base box for the primary/secondary variants; role colours + borders are
+   applied in components-native.css (the Button-variant section). */
+.btn-primary,
+.btn-secondary {
+  padding: 0 var(--pad-control-x);
+  height: var(--h-control);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.list-item {
+  padding: var(--space-md) var(--space-xl);
+  cursor: pointer;
+  border-radius: var(--radius);
+  /* Subtle, native hover fade — VS Code rows ease their highlight in
+     rather than snapping. Background only; respects reduced-motion via
+     the global rule in base.css. */
+  transition: background var(--transition-control);
+}
+.list-item:hover { background: var(--bg-hover); }
+.list-item.active { background: var(--bg-active); color: var(--bg-active-fg); }
+/* Keyboard focus on a focusable row — inset ring in VS Code's list focus
+   colour so it lands inside the row edge like the native tree. */
+.list-item:focus-visible {
+  outline: 1px solid var(--list-focus);
+  outline-offset: -1px;
+}
+
+/* Result-count caption shown above a feature's grouped list ("N skills",
+   "N commands", …). One shared class across all features. The 2xl left inset
+   aligns the caption with the list rows below it (same inset as group labels). */
+.list-count {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  padding: var(--space-xs) var(--space-2xl) var(--space-xs);
+}
+
+
 /* ──────────────────────────────────────────────────────────────────────────────
    Quick Actions Bar
    ────────────────────────────────────────────────────────────────────────────── */
@@ -17,65 +112,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   gap: var(--space-xs);
-  padding: var(--space-md) var(--space-xl) var(--space-xs);
+  /* Align the toolbar's left/right edge to the list rows + search box so the
+     panel reads as one column, and use the same vertical rhythm as the
+     filter rows below it. */
+  padding: var(--space-sm) var(--space-2xl) var(--space-xs);
   flex-shrink: 0;
 }
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  /* Center icon+label so when the grid stretches a button wider than
-     its natural content (orphaned-row case) the contents stay balanced
-     instead of left-aligning into empty space. */
-  justify-content: center;
-  gap: 5px;
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  background: var(--bg-hover);
-  border: none;
-  border-radius: var(--radius);
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-}
-.action-btn:hover         { color: var(--fg); background: var(--input-bg); }
-.action-btn.icon-only     { padding: 5px 7px; margin-left: auto; }
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Search
-   ────────────────────────────────────────────────────────────────────────────── */
-
-#search {
-  flex: 1;
-  background: none;
-  border: none;
-  color: var(--input-fg);
-  font-size: var(--fs-md);
-  padding: 0 var(--space-lg);
-  height: 100%;
-  outline: none;
-  font-family: inherit;
-}
-#search::placeholder                  { color: var(--fg-muted); }
-#search::-webkit-search-cancel-button { display: none; }
-
-.search-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--fg-dim);
-  cursor: pointer;
-}
-.search-btn:hover         { background: var(--bg-hover); color: var(--fg); }
-.search-btn.is-hidden     { visibility: hidden; pointer-events: none; }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -85,137 +127,60 @@
 .filter-row {
   display: flex;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-xl);
+  /* Match the list-row inset so the dropdowns line up with rows + search. */
+  padding: var(--space-sm) var(--space-2xl);
   position: relative;
   flex-shrink: 0;
 }
-.filter-row > .vs-select {
+/*
+ * Shared <Dropdown> (src/webview/shared/ui/Dropdown/Dropdown.tsx) — a custom
+ * trigger button + the shared <Menu> popup. The wrapper is a full-width block so
+ * the trigger fills its container (matching the search field); the trigger box,
+ * label, chevron, and popup width parity are styled in components-native.css.
+ */
+.filter-row > .vsc-dropdown {
   flex: 1;
   min-width: 0;
 }
-
-/*
- * Project filter dropdown — shares the .vs-select trigger + menu shell
- * with the model dropdown (see "Custom themed dropdown" section below).
- * These rules are only the project-specific option content (horizontal
- * row with count badges) and section separator. The trigger / menu
- * styling lives with .vs-select-* so both dropdowns evolve together.
- */
-.dropdown-item {
-  display: flex;
+.vsc-dropdown {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+/* Optional leading glyph on the closed trigger (e.g. the branch git-branch
+   icon). Muted, non-interactive. */
+.vsc-dropdown-leading {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-md);
-  color: var(--fg);
-  cursor: pointer;
-}
-.dropdown-item:hover                    { background: var(--bg-hover); }
-.dropdown-item.active                   { background: var(--bg-active); color: var(--bg-active-fg); }
-.dropdown-item.active:hover             { background: var(--bg-active); opacity: 0.85; }
-.dropdown-item.active .dropdown-count   { color: var(--bg-active-fg); opacity: 0.7; }
-
-.dropdown-count {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.dropdown-sep {
-  height: 1px;
-  background: var(--border);
-  margin: var(--space-xs) var(--space-lg);
-}
-
-/*
- * "current" badge on the branch dropdown row that matches the workspace
- * branch. Low-contrast fill so it annotates without competing with the
- * branch name; inherits foreground on the active row automatically via
- * the .dropdown-item.active rule above.
- */
-.dropdown-tag {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  background: rgba(128, 128, 128, 0.18);
-  color: var(--fg-muted);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  line-height: 1.4;
-  vertical-align: baseline;
-}
-.dropdown-item.active .dropdown-tag {
-  background: rgba(255, 255, 255, 0.2);
-  color: var(--bg-active-fg);
+  color: var(--role-text-secondary);
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Scope Filter
+   Scope Filter / Date range — panel-edge placement only.
+
+   Both are now the shared <Segmented> control (the `.vsc-segmented` track look
+   lives in components-native.css). `.scope-filter` is applied DIRECTLY to the
+   `.vsc-segmented` element, so its edge insets use MARGIN (not padding, which
+   would fight the track's internal padding) to align the control with the
+   search box and list rows. `.date-chips` is a wrapper element, so it can use
+   padding. The selected-state visuals (no longer primary blue) come entirely
+   from `.vsc-segmented`.
    ────────────────────────────────────────────────────────────────────────────── */
 
 .scope-filter {
-  display: flex;
-  gap: 4px;
-  padding: var(--space-xs) var(--space-xl) 0;
+  /* Same --space-sm vertical rhythm as the sibling control rows (search-row /
+     filter-row / date-chips / list-header) so the scope segmented sits on the
+     unified control-row spacing on every feature tab. */
+  margin: var(--space-sm) var(--space-2xl) 0;
   flex-shrink: 0;
 }
-
-.scope-btn {
-  flex: 1;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: none;
-  color: var(--fg-dim);
-  font-size: var(--fs-base);
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.scope-btn:hover  { color: var(--fg); background: var(--bg-hover); }
-.scope-btn.active {
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  border-color: var(--btn-bg);
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Date Chips
-   ────────────────────────────────────────────────────────────────────────────── */
 
 .date-chips {
-  display: flex;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-xl);
+  padding: var(--space-sm) var(--space-2xl);
   flex-shrink: 0;
-}
-
-.chip {
-  flex: 1;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: none;
-  color: var(--fg-dim);
-  font-size: var(--fs-base);
-  font-family: inherit;
-  cursor: pointer;
-}
-.chip:hover  { color: var(--fg); background: var(--bg-hover); }
-.chip.active {
-  background: var(--btn-bg);
-  color: var(--btn-fg);
-  border-color: var(--btn-bg);
 }
 
 
@@ -238,7 +203,7 @@
   font-family: var(--mono);
   background: rgba(128, 128, 128, 0.18);
   color: var(--fg);
-  padding: 0 6px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);
   max-width: 120px;
   overflow: hidden;
@@ -276,18 +241,73 @@
   text-overflow: ellipsis;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-sm);
+  /* Subtle native hover/active fade on colour + fill. Global
+     reduced-motion rule neutralises it for users who opt out. */
+  transition: background var(--transition-control), color var(--transition-control), border-color var(--transition-control);
 }
 /* Inline SVG icons shouldn't shrink when text ellipsizes — keeps
    the icon visible next to whatever label text survives. */
 .btn > svg { flex-shrink: 0; }
 .btn:hover                   { color: var(--fg); }
-.btn.primary                 { background: var(--btn-bg); color: var(--btn-fg); }
-.btn.primary:hover           { background: var(--btn-hover); }
+.btn.primary                 { background: var(--role-primary-bg); color: var(--role-primary-fg); }
+.btn.primary:hover           { background: var(--role-primary-hover-bg); }
 .btn.green                   { color: var(--green); }
 .btn.green:hover             { background: var(--green-bg); }
-.btn.del                     { color: var(--red); }
-.btn.del:hover               { background: var(--red-bg); color: var(--red); }
+/* `.btn.del` is the legacy danger modifier — wired to the danger role in
+   components-native.css alongside `.btn-danger` so both look identical. */
+
+/* Action-button rows that size to CONTENT and wrap, never crop.
+   ────────────────────────────────────────────────────────────────────────────
+   Clusters of <Button> actions (config/account/detail views) lay out with
+   `display: flex; flex-wrap: wrap` and content-width buttons, each row class
+   adding only its own padding/margin. A previous iteration used
+   `display: grid; minmax(N, 1fr)` to pack buttons two-up on narrow panels — but
+   the equal 1fr columns plus `.btn`'s `overflow: hidden; text-overflow: ellipsis`
+   cropped longer labels ("Open settings.js…", "Extension setting…") whenever the
+   column was narrower than the label. A cropped action label is unacceptable.
+
+   Each row therefore re-enables full labels on its buttons with the shared
+   `> .btn` override below: flex-wrap content-width packing keeps full labels,
+   buttons end up different widths (native + fine), and a button too wide for the
+   panel even alone takes the full row. The `.btn` base keeps its ellipsis clip
+   for OTHER layouts (list rows, grid columns elsewhere).
+
+   The selector list groups every action-row cluster so the override lives once. */
+.acct-actions > .btn,
+.d-actions > .btn,
+.agent-detail-actions > .btn,
+.cmd-detail-actions > .btn {
+  overflow: visible;
+  text-overflow: clip;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Read-only command / path display rendered as a code block, NOT a fake input.
+   ────────────────────────────────────────────────────────────────────────────
+   Used for values the user can SEE but does not EDIT in place (e.g. the Config
+   status-line command). Visually distinct from <TextField>: a subtle code
+   surface, monospace, no input border / focus ring, default cursor. Long values
+   stay on one line and scroll horizontally so a path never wraps mid-token; pair
+   with a `title` attribute carrying the full value for hover discovery. */
+.code-readonly {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--vscode-textCodeBlock-background,
+    var(--vscode-textBlockQuote-background, var(--bg-hover)));
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  /* No input border/focus chrome; reading text, not editing. */
+  border: none;
+  cursor: default;
+  /* One line; scroll long commands instead of wrapping mid-path. */
+  white-space: pre;
+  overflow-x: auto;
+}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -318,35 +338,16 @@
 .ctx-item.del                { color: var(--red); }
 .ctx-item.del:hover          { background: var(--red-bg); color: var(--red); }
 
-.ctx-icon {
-  display: flex;
-  align-items: center;
-  color: var(--fg-dim);
-  flex-shrink: 0;
-}
-.ctx-item.del .ctx-icon      { color: var(--red); }
-
 .ctx-sep {
   height: 1px;
   background: var(--border);
-  margin: 2px var(--space-lg);
+  margin: var(--space-xs) var(--space-lg);
 }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Tab Bar (shared)
    ────────────────────────────────────────────────────────────────────────────── */
-
-/* Wrapper keeps the scrollable tab bar on the left and the settings gear
-   pinned to the right. Top and bottom borders frame the whole tab bar. */
-.tab-bar-wrap {
-  display: flex;
-  align-items: stretch;
-  border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
-  border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
-  flex-shrink: 0;
-  min-height: 34px;
-}
 
 .tab-bar {
   display: flex;
@@ -358,34 +359,6 @@
 }
 .tab-bar::-webkit-scrollbar { display: none; }
 
-.tab-settings-btn {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--fg-muted);
-  cursor: pointer;
-}
-.tab-settings-btn:hover  { color: var(--fg); background: var(--bg-hover); }
-.tab-settings-btn:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-}
-.tab-settings-btn.spinning svg {
-  animation: tab-settings-spin 700ms linear infinite;
-  transform-origin: 50% 50%;
-}
-@keyframes tab-settings-spin {
-  to { transform: rotate(360deg); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tab-settings-btn.spinning svg { animation: none; }
-}
-
 .tab-btn {
   flex: 0 0 auto;
   padding: 0;
@@ -394,7 +367,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-sm);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -421,7 +394,7 @@
   border-bottom-color: var(--accent);
   font-weight: 600;
   width: auto;
-  padding: 0 10px;
+  padding: 0 var(--space-lg);
 }
 .tab-icon {
   display: flex;
@@ -457,6 +430,23 @@
   min-height: 0;
   max-height: 100%;
   overflow-y: auto;
+}
+
+/* Windowed list (VirtualList). It MUST be the scroll container itself: the
+   virtualizer reads scrollTop/clientHeight off this element and the inner
+   `.virtual-list-spacer` reserves the full content height. Without this rule
+   the element collapsed to a plain block, the spacer pushed the panel to
+   overflow instead, scrollTop stayed 0, and only the first window rendered —
+   leaving a tall empty gap below it. `flex: 1 1 auto; min-height: 0` fills a
+   flex parent (the `.panel`, or the `.list` wrapper which is now a flex
+   column) and lets it shrink so the inner spacer scrolls inside, not out. */
+.virtual-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.virtual-list-spacer {
+  width: 100%;
 }
 
 
@@ -506,127 +496,30 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Feature Empty State (shared)
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.feature-empty {
-  text-align: center;
-  padding: var(--space-2xl) var(--space-2xl);
-  color: var(--fg-muted);
-}
-.feature-empty-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-md);
-}
-.feature-empty-hint {
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  line-height: 1.5;
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Detail Pre / Code Block (shared)
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.detail-pre {
-  background: rgba(0,0,0,0.15);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-xl);
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow-x: auto;
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
    Feature Search (shared)
    ────────────────────────────────────────────────────────────────────────────── */
 
 .search-row {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  margin: var(--space-xs) var(--space-xl);
+  gap: var(--space-sm);
+  /* Inset to --space-2xl so the search field's left edge lines up with the
+     list-row text below it (rows use the same inset), the way VS Code's
+     filter box aligns to its tree. */
+  margin: var(--space-sm) var(--space-2xl);
   flex-shrink: 0;
 }
 
-.feature-search {
-  display: flex;
-  align-items: center;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  height: 32px;
-  flex: 1;
-  min-width: 0;
-}
-.feature-search:focus-within { border-color: var(--accent); }
-.feature-search input {
-  flex: 1;
-  min-width: 0;
-  background: none;
-  border: none;
-  color: var(--input-fg);
-  font-size: var(--fs-md);
-  padding: 0 var(--space-lg);
-  height: 100%;
-  outline: none;
-  font-family: inherit;
-}
-.feature-search input::placeholder { color: var(--fg-muted); }
-
+/* Trailing affordance beside the search box (refresh / browse). Rendered as a
+   shared icon <Button>, so the chromeless `.btn-icon` look applies; this rule
+   only pins it to the unified square control size so it lines up with the
+   search field height. */
 .search-side-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--btn-bg);
-  border: none;
-  border-radius: var(--radius);
-  color: var(--btn-fg);
-  cursor: pointer;
+  width: var(--h-control);
+  height: var(--h-control);
   flex-shrink: 0;
-  font-family: inherit;
-}
-.search-side-btn:hover {
-  background: var(--btn-hover);
 }
 
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Scope Badge (shared)
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.scope-badge {
-  font-size: var(--fs-xs);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-}
-.scope-badge.project { background: var(--color-green-badge-bg); color: var(--color-green-badge); }
-.scope-badge.global { background: var(--badge-bg); color: var(--badge-fg); }
-.scope-badge.local { background: var(--color-purple-bg); color: var(--color-purple); }
-.scope-badge.builtin { background: var(--color-blue-bg); color: var(--color-blue); }
-/* Plugin scope reuses the blue accent + a max-width so long
-   qualified-name labels (`Plugin: <name>@<marketplace>`) truncate
-   gracefully inside narrow list rows. */
-.scope-badge.plugin {
-  background: var(--color-blue-bg);
-  color: var(--color-blue);
-  max-width: 14ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: inline-block;
-}
 
 /* Inline note shown in detail panels for read-only items (plugin-
    sourced hooks, MCP servers, etc.) — explains why the usual
@@ -645,195 +538,12 @@
 
 /* Compact badge variant for list rows where the full note is too
    long; flags an item as not editable from the sidebar. */
-.hook-readonly-badge,
 .mcp-readonly-badge {
   font-size: var(--fs-xs);
-  padding: 1px 6px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   background: var(--badge-bg);
   color: var(--text-muted);
   font-weight: 500;
 }
 
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Segmented control (vs-segmented) — pill-style button group where one
-   option is selected. Shared primitive for the period toggle, permission
-   scope toggle, message-view toggle, etc. Same visual language as VS
-   Code's settings tabs.
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.vs-segmented {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  background: var(--bg-hover);
-  border-radius: var(--radius);
-}
-
-.vs-segmented-btn {
-  height: calc(var(--h-control) - 8px);
-  padding: 0 var(--pad-control-x);
-  font-size: var(--fs-sm);
-  background: none;
-  border: none;
-  color: var(--fg-dim);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  transition: background var(--transition-control), color var(--transition-control);
-}
-.vs-segmented-btn:hover:not(.active) { color: var(--fg); }
-.vs-segmented-btn.active {
-  background: var(--bg, var(--input-bg));
-  color: var(--fg);
-  font-weight: 500;
-}
-/* Dimmed + non-interactive. Kept in the DOM so the surrounding
-   header doesn't reflow when the toggle becomes contextually
-   meaningless (e.g. search active). */
-.vs-segmented.is-disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-.vs-segmented-btn[disabled] {
-  cursor: default;
-}
-
-/* Compact variant for inline toggles (smaller font + padding) */
-.vs-segmented.vs-segmented--sm .vs-segmented-btn {
-  height: calc(var(--h-control-sm) - 6px);
-  padding: 0 8px;
-  font-size: var(--fs-xs);
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Custom themed dropdown (vs-select) — replacement for native <select>
-   so the open panel respects VS Code theme instead of the OS system picker.
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.vs-select {
-  position: relative;
-  width: 100%;
-}
-
-/* Trigger — mirrors native <select> closed state but fully themeable. */
-.vs-select-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  padding-right: 28px;
-  background: var(--input-bg);
-  color: var(--input-fg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  font-family: inherit;
-  font-size: var(--fs-base);
-  cursor: pointer;
-  text-align: left;
-}
-.vs-select-trigger {
-  transition: border-color var(--transition-control);
-}
-.vs-select-trigger:hover { border-color: var(--accent); }
-.vs-select-trigger:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-  border-color: var(--accent);
-}
-.vs-select-value {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.vs-select-arrow {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--fg-muted);
-  display: inline-flex;
-  pointer-events: none;
-}
-.vs-select-trigger[aria-expanded="true"] .vs-select-arrow {
-  transform: translateY(-50%) rotate(180deg);
-}
-/*
- * Leading icon that sits to the left of the trigger label. Unlike
- * `.vs-select-arrow` (which is absolutely pinned to the right and
- * rotates when the menu opens), the leading icon flows as a normal
- * flex child so the value text truncates beside it without overlap.
- * Right padding reserved on .vs-select-value keeps the text from
- * running into the trailing chevron.
- */
-.vs-select-leading {
-  display: inline-flex;
-  align-items: center;
-  margin-right: 6px;
-  color: var(--fg-muted);
-  pointer-events: none;
-  flex-shrink: 0;
-}
-.vs-select-trigger:has(.vs-select-leading) .vs-select-value {
-  padding-right: 18px;
-}
-
-/* Menu — absolutely positioned below the trigger, themed like Settings. */
-.vs-select-menu {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: var(--dropdown-bg, var(--input-bg));
-  border: 1px solid var(--dropdown-border, var(--input-border));
-  border-radius: var(--radius);
-  box-shadow: var(--shadow, 0 2px 8px rgba(0, 0, 0, 0.2));
-  max-height: 280px;
-  overflow-y: auto;
-  padding: 2px;
-}
-
-.vs-select-option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  outline: none;
-}
-.vs-select-option:hover,
-.vs-select-option:focus {
-  background: var(--bg-hover);
-}
-.vs-select-option.selected {
-  background: var(--bg-active);
-  color: var(--bg-active-fg);
-}
-.vs-select-option-label {
-  font-size: var(--fs-base);
-  color: inherit;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.vs-select-option-desc {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  line-height: 1.3;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-.vs-select-option.selected .vs-select-option-desc {
-  color: var(--bg-active-fg);
-  opacity: 0.75;
-}

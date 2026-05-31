@@ -1,0 +1,1 @@
+export { ConfigSkeleton } from "./ConfigSkeleton";

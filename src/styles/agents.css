@@ -5,6 +5,19 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
+   Agents — Search Row
+   The shared <SearchInput> (native <input> in a `.tf` box) must fill the row so
+   the trailing refresh icon-button sits flush at 32px. The field is width:100%
+   but needs flex-grow inside the shared `.search-row` flex container.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.panel > .search-row .vsc-search {
+  flex: 1;
+  min-width: 0;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
    Agents — Empty State
    ────────────────────────────────────────────────────────────────────────────── */
 
@@ -34,7 +47,7 @@
   font-size: var(--fs-sm);
   background: var(--badge-bg);
   color: var(--badge-fg);
-  padding: 1px 5px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
 }
 
@@ -43,20 +56,18 @@
    Agents — List
    ────────────────────────────────────────────────────────────────────────────── */
 
-.agent-list-count {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  padding: var(--space-xs) var(--space-2xl) 2px;
-}
+/* Result count caption uses the shared `.list-count` (components.css). */
 
 .agent-item {
   padding: var(--space-lg) var(--space-2xl);
   cursor: pointer;
   border-bottom: 1px solid var(--border);
+  transition: background var(--transition-control);
 }
 .agent-item:last-child         { border-bottom: none; }
 .agent-item:hover              { background: var(--bg-hover); }
 .agent-item.active             { background: var(--bg-active); color: var(--bg-active-fg); }
+.agent-item:focus-visible      { outline: 1px solid var(--list-focus); outline-offset: -1px; }
 
 .agent-item-row1 {
   display: flex;
@@ -99,7 +110,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  padding: 1px 7px;
+  padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   flex-shrink: 0;
   height: 18px;
@@ -146,12 +157,18 @@
 }
 
 .agent-detail-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
-  gap: 6px;
+  /* Flex-wrap content-width so labels are never cropped (was an auto-fit grid
+     with minmax(95px, 1fr) which, with `.btn`'s ellipsis clip, could truncate). */
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-lg);
 }
-.agent-detail-actions > .btn { justify-content: center; }
+.agent-detail-actions > .btn {
+  /* Shared `… > .btn` override (components.css) resets the ellipsis clip and
+     sizes to content; only the centring stays local. */
+  justify-content: center;
+}
 
 .agent-detail-path {
   padding: 0 var(--space-2xl) var(--space-lg);
@@ -165,10 +182,10 @@
 
 .agent-detail-label {
   font-size: var(--fs-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: var(--fg-muted);
+  color: var(--fg-section);
   margin-bottom: var(--space-md);
 }
 
@@ -186,3 +203,43 @@
   overflow-x: auto;
   margin: 0;
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Agents — Structural (self-contained; no reliance on sibling feature CSS)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* Scope section heading inside the agent list (Project / Global / Plugin). */
+.agent-list .group-label {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-section);
+  /* Unified section-header rhythm — see .group-label (sessions.css). */
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+}
+
+/* Fixed-height wrapper for windowed rows. The 56px value is mirrored by
+   ROW_HEIGHT in AgentListView.tsx, which the VirtualList uses for its
+   offset math; keep the two in sync. */
+.agent-vrow {
+  height: 56px;
+  box-sizing: border-box;
+}
+
+/* Back action in the detail view. */
+.panel > .back-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.panel > .back-btn:hover { color: var(--fg); }

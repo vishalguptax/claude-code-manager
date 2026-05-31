@@ -1,51 +1,45 @@
 /**
- * Typed wrapper around vscode.postMessage for all hooks webview-to-extension messages.
- * Centralizes all message passing so callers never construct raw objects.
+ * Typed postMessage helpers for the hooks webview. Each helper builds a
+ * `WebviewMessage` variant from the shared protocol so a typo in the
+ * `type` string or a missing field is a compile error, not a silent
+ * runtime no-op. Callers obtain `post` from `useApi()`.
  */
-
-import type { VSCodeAPI } from "../../../webview/types";
-
-let _vscode: VSCodeAPI;
-
-/**
- * Initialize the hooks API module with the VS Code API instance.
- * Must be called once at startup before any other API function.
- */
-export function initHooksApi(vscode: VSCodeAPI): void {
-  _vscode = vscode;
-}
-
-/** Request the list of hooks from the extension host. */
-export function sendGetHooks(): void {
-  _vscode.postMessage({ type: "getHooks" });
-}
-
-/** Request to open a Claude settings file at the given scope. */
-export function sendOpenHookSettingsFile(scope: "global" | "project" | "local"): void {
-  _vscode.postMessage({ type: "openSettingsFile", scope });
-}
-
+import type { WebviewMessage, SettingsScope } from "../../../shared/protocol/messages";
 import type { Hook } from "../types";
 
-/** Move the hook between active and parked blocks. */
-export function sendToggleHookEnabled(hook: Hook): void {
-  _vscode.postMessage({ type: "toggleHookEnabled", hook });
+/** The bound postMessage function returned by `useApi()`. */
+export type Post = (msg: WebviewMessage) => void;
+
+/** Request the full hook list from the host. */
+export function getHooks(post: Post): void {
+  post({ type: "getHooks" });
 }
 
-/** Permanently delete a hook. Host shows a confirm modal first. */
-export function sendDeleteHook(hook: Hook): void {
-  _vscode.postMessage({ type: "deleteHook", hook });
+/** Open a Claude settings.json file for the given editable scope. */
+export function openSettingsFile(post: Post, scope: SettingsScope): void {
+  post({ type: "openSettingsFile", scope });
+}
+
+/** Toggle a hook between the active and parked (`_disabled_hooks`) blocks. */
+export function toggleHookEnabled(post: Post, hook: Hook): void {
+  post({ type: "toggleHookEnabled", hook });
+}
+
+/** Delete a hook. The host shows a confirm modal before writing. */
+export function deleteHook(post: Post, hook: Hook): void {
+  post({ type: "deleteHook", hook });
 }
 
 /** Apply a matcher / command edit to an existing hook. */
-export function sendUpdateHook(
+export function updateHook(
+  post: Post,
   original: Hook,
   next: { matcher: string; command: string },
 ): void {
-  _vscode.postMessage({ type: "updateHook", original, next });
+  post({ type: "updateHook", original, next });
 }
 
-/** Open the host's native scope → event → matcher → command wizard. */
-export function sendPromptAddHook(): void {
-  _vscode.postMessage({ type: "promptAddHook" });
+/** Launch the host's native scope → event → matcher → command wizard. */
+export function promptAddHook(post: Post): void {
+  post({ type: "promptAddHook" });
 }

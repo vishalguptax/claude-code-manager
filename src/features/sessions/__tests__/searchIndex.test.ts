@@ -6,6 +6,7 @@ import {
   indexSession,
   pruneIndex,
   searchContent,
+  clearIndex,
 } from "../searchIndex";
 
 const TMP = path.join(os.tmpdir(), ".claude-test-searchindex");
@@ -202,6 +203,56 @@ describe("searchIndex", () => {
     indexSession("inc2", file);
     expect(searchContent("new text")).toEqual(["inc2"]);
     expect(searchContent("old text")).toEqual([]);
+  });
+
+  it("evicts the oldest entries past the 2000-entry LRU cap", () => {
+    // Insert 2500 sessions in id order. The index is LRU-capped at 2000,
+    // so after the 2500th insert the oldest 500 (s0000..s0499) must be
+    // evicted while the most-recent 2000 (s0500..s2499) remain.
+    //
+    // Eviction order depends only on insertion order, not file content,
+    // so we write distinct transcripts only for the four boundary ids we
+    // assert on and point every other id at one shared dummy file. That
+    // keeps disk I/O to ~5 writes instead of 2500.
+    const dummy = writeJsonl("lru-dummy.jsonl", [
+      { message: { role: "user", content: "dummy filler content" } },
+    ]);
+    const boundary: Record<string, string> = {
+      s0000: writeJsonl("s0000.jsonl", [
+        { message: { role: "user", content: "token-s0000" } },
+      ]),
+      s0499: writeJsonl("s0499.jsonl", [
+        { message: { role: "user", content: "token-s0499" } },
+      ]),
+      s0500: writeJsonl("s0500.jsonl", [
+        { message: { role: "user", content: "token-s0500" } },
+      ]),
+      s2499: writeJsonl("s2499.jsonl", [
+        { message: { role: "user", content: "token-s2499" } },
+      ]),
+    };
+    for (let i = 0; i < 2500; i++) {
+      const id = `s${String(i).padStart(4, "0")}`;
+      indexSession(id, boundary[id] ?? dummy);
+    }
+
+    // The most-recent 2000 ids (s0500..s2499) survive.
+    expect(searchContent("token-s2499")).toEqual(["s2499"]);
+    expect(searchContent("token-s0500")).toEqual(["s0500"]);
+    // The oldest 500 (s0000..s0499) were evicted — no content remains.
+    expect(searchContent("token-s0000")).toEqual([]);
+    expect(searchContent("token-s0499")).toEqual([]);
+  });
+
+  it("clearIndex drops every entry so a stale id no longer matches", () => {
+    const file = writeJsonl("clr.jsonl", [
+      { message: { role: "user", content: "find me before the clear" } },
+    ]);
+    indexSession("clr1", file);
+    expect(searchContent("find me")).toEqual(["clr1"]);
+
+    clearIndex();
+    expect(searchContent("find me")).toEqual([]);
   });
 
   it("returns every matching id when multiple sessions match", () => {
