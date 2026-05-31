@@ -19,6 +19,7 @@ import type { AccountData } from "../account/types";
 import { dispatch } from "./messageHandlers";
 import { type HostContext } from "./hostContext";
 import { createTerminalRegistry, type TerminalRegistry } from "./terminalRegistry";
+import { createTerminalLinker } from "./terminalLinker";
 import { createWatchers, type WatcherContext } from "./watchers";
 import { createLivePoll, type LivePoll } from "./liveState";
 import { openAccountSwitcher } from "./accountSwitcher";
@@ -66,6 +67,12 @@ export class ClaudeSessionViewProvider
    */
   private readonly livePoll: LivePoll = createLivePoll(() => this.refreshLiveState());
   readonly terminals: TerminalRegistry = createTerminalRegistry();
+  /**
+   * Passive watcher for `claude --resume <uuid>` commands typed into ANY
+   * terminal (not just the ones we launched). Lives for the provider's
+   * lifetime so external launches register even before the panel opens.
+   */
+  private readonly terminalLinker: vscode.Disposable = createTerminalLinker(this.terminals);
   /**
    * Last observed live identity. null = never parsed; "" = signed out;
    * "abc…" = signed in. Used by the account watcher to spot /login

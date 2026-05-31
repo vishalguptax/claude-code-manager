@@ -71,6 +71,11 @@ export function onBranchChange(onChange: () => void): vscode.Disposable {
           onChange();
         }),
       );
+      // Fire once on attach so subscribers get the current branch as soon
+      // as the git extension is up — otherwise the initial post made
+      // before activation lands as "" and any (current) marker on the
+      // sidebar's branch list stays cold until the user checks out.
+      if (git.repositories.length > 0) onChange();
       return true;
     } catch {
       return false;

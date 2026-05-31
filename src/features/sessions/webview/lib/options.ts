@@ -55,6 +55,8 @@ export interface ProjectOption {
   value: string;
   label: string;
   count: number;
+  /** True for the workspace project — annotated + pinned to top. */
+  isCurrent: boolean;
 }
 
 /**
@@ -69,21 +71,28 @@ export function buildProjectOptions(
   currentProject: string,
 ): ProjectOption[] {
   const counts = new Map<string, number>();
+  const keyByProject = new Map<string, string>();
   let currentCount = 0;
   let totalCount = 0;
   for (const s of sessions) {
     if (deleted.has(s.id)) continue;
     totalCount++;
     counts.set(s.project, (counts.get(s.project) ?? 0) + 1);
+    if (!keyByProject.has(s.project)) keyByProject.set(s.project, s.projectKey);
     if (currentProject && s.projectKey === currentProject) currentCount++;
   }
 
   const opts: ProjectOption[] = [
-    { value: "current", label: "This Project", count: currentCount },
-    { value: "all", label: "All Projects", count: totalCount },
+    { value: "current", label: "This Project", count: currentCount, isCurrent: false },
+    { value: "all", label: "All Projects", count: totalCount, isCurrent: false },
   ];
   for (const p of orderProjects(sessions, deleted, currentProject)) {
-    opts.push({ value: p, label: p, count: counts.get(p) ?? 0 });
+    opts.push({
+      value: p,
+      label: p,
+      count: counts.get(p) ?? 0,
+      isCurrent: Boolean(currentProject) && keyByProject.get(p) === currentProject,
+    });
   }
   return opts;
 }

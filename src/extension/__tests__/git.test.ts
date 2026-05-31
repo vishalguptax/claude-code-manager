@@ -122,9 +122,12 @@ describe("onBranchChange", () => {
 
     const cb = vi.fn();
     const disposable = onBranchChange(cb);
+    // attach() fires onChange() once at hookup so subscribers receive the
+    // current branch immediately; subsequent repo state changes increment.
+    expect(cb).toHaveBeenCalledTimes(1);
     repoEvt.emit();
     repoEvt.emit();
-    expect(cb).toHaveBeenCalledTimes(2);
+    expect(cb).toHaveBeenCalledTimes(3);
     disposable.dispose();
   });
 
@@ -144,6 +147,9 @@ describe("onBranchChange", () => {
 
     const cb = vi.fn();
     const disposable = onBranchChange(cb);
+    // attach() fires once on hookup (initial branch); discount it before
+    // asserting the late-repo + state-change counts.
+    cb.mockClear();
 
     // Simulate a late-opened repository arriving after activation.
     const lateRepo = { state: { onDidChange: lateRepoEvt.event } };

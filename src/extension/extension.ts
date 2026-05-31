@@ -12,6 +12,8 @@ import { setExtensionUri } from "./terminal";
 import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
 import { selfHealStatusline } from "../features/account/statuslineInstall";
+import { ensureSessionStartHook } from "../features/sessions/sessionTapInstall";
+import { startActiveSessionWatcher } from "../features/sessions/activeSessionWatcher";
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
 import { runDiagnosticsCommand } from "../features/diagnostics/commands";
@@ -45,10 +47,25 @@ export function activate(context: vscode.ExtensionContext): void {
     console.warn("[claude-manager] statusline self-heal failed:", err);
   }
 
+  // SessionStart hook tap: install (idempotent) so Claude CLI writes
+  // `{sessionId, ppid, cwd}` into our active-sessions registry on every
+  // boot — bare `claude`, `--continue`, `--resume`, external launches
+  // all included. The watcher matches PPID → vscode.Terminal.processId
+  // so the row + detail action swap from Resume to View for the
+  // terminal hosting that session, regardless of how it was started.
+  // Failures must not block activation.
+  try {
+    ensureSessionStartHook(path.join(__dirname));
+  } catch (err) {
+    console.warn("[claude-manager] session-start hook install failed:", err);
+  }
+
   const provider = new ClaudeSessionViewProvider(
     context.extensionUri,
     context.globalState,
   );
+
+  context.subscriptions.push(startActiveSessionWatcher(provider.terminals));
 
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(

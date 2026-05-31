@@ -93,3 +93,26 @@ export const STATUSLINE_INNER_FILE: string = path.join(
   CLAUDE_MANAGER_DIR,
   "statusline-inner.json",
 );
+
+/**
+ * SessionStart hook script: a tiny Node program Claude CLI runs on every
+ * session boot. Records `{ session_id, ppid, cwd, ts }` into the active
+ * sessions file so the extension can link a sidebar row to the terminal
+ * actually hosting that CLI. Stable path so settings.json hook entries
+ * survive extension updates.
+ */
+export const SESSION_TAP_FILE: string = path.join(
+  CLAUDE_MANAGER_DIR,
+  "session-start-tap.js",
+);
+
+/**
+ * Append-only registry of currently-running Claude sessions. The
+ * SessionStart hook adds one entry per session boot; the extension
+ * reads it to map `vscode.Terminal.processId` → session id so the row
+ * + detail action swap from Resume to View.
+ */
+export const SESSION_ACTIVE_FILE: string = path.join(
+  CLAUDE_MANAGER_DIR,
+  "active-sessions.json",
+);

@@ -84,6 +84,7 @@ function ProjectSelect() {
     value: o.value,
     label: o.label,
     badge: o.count,
+    marker: o.isCurrent ? "current" : undefined,
   }));
   return (
     <Dropdown

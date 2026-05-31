@@ -83,6 +83,24 @@ describe("buildProjectOptions", () => {
     const all = buildProjectOptions(sessions, new Set(["b"]), "").find((o) => o.value === "all");
     expect(all?.count).toBe(1);
   });
+
+  it("marks the workspace project with isCurrent and pins it after the two pseudos", () => {
+    const sessions = [
+      session({ id: "a", project: "alpha", projectKey: "alpha", endTime: 100 }),
+      session({ id: "b", project: "beta", projectKey: "beta", endTime: 999 }),
+    ];
+    const opts = buildProjectOptions(sessions, NONE, "alpha");
+    expect(opts[0].value).toBe("current");
+    expect(opts[1].value).toBe("all");
+    expect(opts[2]).toMatchObject({ value: "alpha", isCurrent: true });
+    expect(opts.find((o) => o.value === "beta")?.isCurrent).toBe(false);
+  });
+
+  it("leaves every project isCurrent=false when no workspace project is known", () => {
+    const sessions = [session({ id: "a", project: "alpha", projectKey: "alpha" })];
+    const opts = buildProjectOptions(sessions, NONE, "");
+    expect(opts.find((o) => o.value === "alpha")?.isCurrent).toBe(false);
+  });
 });
 
 describe("buildBranchOptions", () => {

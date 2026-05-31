@@ -146,6 +146,9 @@ export const window = {
   tabGroups: {
     all: [] as MockTabGroup[],
   },
+  onDidOpenTerminal: (_listener: (t: unknown) => void): MockDisposable => ({
+    dispose: () => {},
+  }),
   onDidCloseTerminal: (listener: (t: unknown) => void): MockDisposable => {
     _terminalCloseListeners.push(listener);
     return {
