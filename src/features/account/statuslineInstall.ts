@@ -212,6 +212,28 @@ export function installStatusline(
  * "no statusline at this scope" state). Best-effort cleanup of our own
  * files — a leftover cache file is harmless.
  */
+/**
+ * Re-install silently when the sidecar says "installed" but the
+ * effective statusline scope no longer holds our tap. This catches the
+ * "settings got reverted under us" case: a teammate's PR, a `git
+ * checkout`, or a merge wiped the project/local `statusLine.command` we
+ * wrote at install. Without healing the user would see a stale Quota
+ * card forever even though Enable was clicked at some point.
+ *
+ * Returns `{ ok: true }` with no action when there is nothing to heal
+ * (sidecar absent, or tap already wired). Safe to call on every
+ * activation — it's a single fs read when there's nothing to do.
+ */
+export function selfHealStatusline(
+  tapSourcePath: string,
+  workspacePath?: string,
+): InstallResult {
+  const inner = readInner();
+  if (!inner) return { ok: true };
+  if (isStatuslineInstalled(workspacePath)) return { ok: true };
+  return installStatusline(tapSourcePath, workspacePath);
+}
+
 export function uninstallStatusline(workspacePath?: string): InstallResult {
   try {
     const rec = readInner();
