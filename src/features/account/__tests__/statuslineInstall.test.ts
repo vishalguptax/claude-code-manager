@@ -215,3 +215,44 @@ describe("uninstallStatusline (scope-aware)", () => {
     });
   });
 });
+
+import { selfHealStatusline } from "../statuslineInstall";
+
+describe("selfHealStatusline", () => {
+  it("no-ops when no sidecar (never installed)", () => {
+    const res = selfHealStatusline("/dist/statusline-tap.js", WS);
+    expect(res.ok).toBe(true);
+    expect(settings.calls).toEqual([]);
+  });
+
+  it("no-ops when sidecar exists AND tap is wired at effective scope", () => {
+    seedSettingsAt(PROJECT_SETTINGS, TAP_COMMAND);
+    fsState.files.set(
+      STATUSLINE_INNER_FILE,
+      JSON.stringify({ scope: "project", command: "prev", workspacePath: WS }),
+    );
+    selfHealStatusline("/dist/statusline-tap.js", WS);
+    expect(settings.calls).toEqual([]);
+  });
+
+  it("re-installs at the effective scope when the tap line went missing", () => {
+    // Sidecar says we previously installed at project scope, but the
+    // project settings.json now has a different command (got reverted).
+    fsState.files.set(
+      STATUSLINE_INNER_FILE,
+      JSON.stringify({ scope: "project", command: "orig-bar", workspacePath: WS }),
+    );
+    seedSettingsAt(PROJECT_SETTINGS, "someone-elses-bar.sh");
+
+    selfHealStatusline("/dist/statusline-tap.js", WS);
+
+    // Heal must have re-written the tap at project scope (the effective
+    // scope), and the sidecar must NOT be clobbered (alreadyOurs path).
+    expect(settings.calls).toContainEqual({
+      key: "statusLine.command",
+      value: TAP_COMMAND,
+      scope: "project",
+      workspacePath: WS,
+    });
+  });
+});

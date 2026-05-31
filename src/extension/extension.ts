@@ -11,6 +11,7 @@ import { setSessionStorage } from "../features/sessions/commands";
 import { setExtensionUri } from "./terminal";
 import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
+import { selfHealStatusline } from "../features/account/statuslineInstall";
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
 import { runDiagnosticsCommand } from "../features/diagnostics/commands";
@@ -27,6 +28,23 @@ export function activate(context: vscode.ExtensionContext): void {
   // pending entries left behind by a prior VS Code crash or reload.
   setEphemeralStorage(context.globalState);
   sweepOrphans();
+
+  // Self-heal the statusline tap: if the user previously enabled live
+  // quota but the project/local settings.json holding our tap line got
+  // reverted (a teammate's PR, a `git checkout`, a merge wipe), the
+  // sidecar still says "installed" while Claude Code runs a stale (or
+  // no) statusline → the Quota card freezes. Re-install silently so the
+  // user never has to click Enable twice. No-op when sidecar is absent
+  // or the tap is already wired. Failures must not block activation.
+  try {
+    selfHealStatusline(
+      path.join(__dirname, "statusline-tap.js"),
+      getWorkspace() || undefined,
+    );
+  } catch (err) {
+    console.warn("[claude-manager] statusline self-heal failed:", err);
+  }
+
   const provider = new ClaudeSessionViewProvider(
     context.extensionUri,
     context.globalState,

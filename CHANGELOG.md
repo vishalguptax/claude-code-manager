@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.11.5] - 2026-06-01
+
+Self-heal the statusline tap on activation — if the project / local `.claude/settings.json` that held our tap line got reverted (teammate's PR, git checkout, merge wipe), silently re-install at the effective scope so the user doesn't need to click Enable twice. See [docs/releases/v1.11.5.md](docs/releases/v1.11.5.md).
+
 ## [1.11.4] - 2026-05-28
 
 Remove the Current Session card from the Account tab — duplicated Claude Code's terminal statusline without adding enough value. See [docs/releases/v1.11.4.md](docs/releases/v1.11.4.md).
