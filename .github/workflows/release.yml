@@ -25,7 +25,7 @@ jobs:
       OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 

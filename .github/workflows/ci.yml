@@ -20,7 +20,7 @@ jobs:
       matrix:
         node: [20, 22]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js ${{ matrix.node }}
         uses: actions/setup-node@v4
@@ -53,7 +53,7 @@ jobs:
     name: integration (@vscode/test-electron)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
