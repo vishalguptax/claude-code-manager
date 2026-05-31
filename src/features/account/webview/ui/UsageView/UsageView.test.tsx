@@ -58,13 +58,14 @@ describe("UsageView", () => {
     expect(screen.getByText("No activity recorded")).toBeTruthy();
   });
 
-  it("renders the stats grid and meta rows", () => {
+  it("renders the stats grid and info ribbon", () => {
     render(h(UsageView, { data: dataWith(makeUsage()) }));
     expect(screen.getByText("tokens")).toBeTruthy();
     expect(screen.getByText("cache hit")).toBeTruthy();
-    expect(screen.getByText("Favorite model")).toBeTruthy();
-    expect(screen.getByText("Opus 4.7")).toBeTruthy();
-    expect(screen.getByText("Current streak")).toBeTruthy();
+    // Ribbon collapses old meta rows into one line. Favorite + streak
+    // become inline tokens, not full label/value rows.
+    expect(screen.getByText(/Favorite:\s*Opus 4\.7/)).toBeTruthy();
+    expect(screen.getByText(/streak\s+1d/)).toBeTruthy();
   });
 
   it("switches the time period when a toggle is clicked", () => {
@@ -98,7 +99,7 @@ describe("UsageView", () => {
       totalCostUsd: 1.7,
     });
     render(h(UsageView, { data: dataWith(usage) }));
-    expect(screen.getByText("By model (all time)")).toBeTruthy();
+    expect(screen.getByText(/Cost\s+&\s+models/)).toBeTruthy();
     expect(screen.getByText("Total est. cost")).toBeTruthy();
   });
 
@@ -131,9 +132,9 @@ describe("UsageView", () => {
       byMcpServer: [{ server: "github", toolCount: 5, uniqueTools: 1 }],
     });
     render(h(UsageView, { data: dataWith(usage) }));
-    expect(screen.getByText(/By project/)).toBeTruthy();
-    expect(screen.getByText(/Tools/)).toBeTruthy();
-    expect(screen.getByText("MCP servers used")).toBeTruthy();
+    expect(screen.getByText("Projects")).toBeTruthy();
+    expect(screen.getByText("Tools")).toBeTruthy();
+    expect(screen.getByText("MCP servers")).toBeTruthy();
     expect(screen.getByText("github: create_issue")).toBeTruthy();
   });
 

@@ -7,6 +7,7 @@
  * so it can render before the Account feature chunk has finished
  * downloading. The feature's own loading branch re-imports it from there.
  */
+export { Donut, type DonutProps, type DonutSegment } from "./Donut";
 export { Heatmap, type HeatmapProps } from "./Heatmap";
 export { MetaRow, type MetaRowProps } from "./MetaRow";
 export { ProfileView, type ProfileViewProps } from "./ProfileView";

@@ -976,3 +976,168 @@
 .acct-profile-wrap {
   display: contents;
 }
+
+/* ── Usage redesign: section dividers + ribbon + blocks ─────────────── */
+
+.acct-divider {
+  border-top: 1px solid var(--vscode-panel-border, rgba(127, 127, 127, 0.2));
+  margin: var(--space-lg) 0;
+}
+
+/* Single-line ribbon replacing the old five MetaRow lines under the
+   stat tiles. Wraps onto a second line on narrow panels. */
+.acct-info-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) 0;
+  font-size: var(--fs-sm);
+  color: var(--vscode-descriptionForeground);
+}
+.acct-ribbon-item { white-space: nowrap; }
+.acct-ribbon-item:not(:last-child)::after {
+  content: "·";
+  margin-left: var(--space-md);
+  opacity: 0.5;
+}
+
+/* Each below-heatmap chunk lives in its own block with a small subhead
+   so the eye can group related rows. */
+.acct-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.acct-section-subhead {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-xs);
+}
+
+/* Cost headline = "the money story" on one line. Total prominent, the
+   prices-effective date tucked underneath in muted text. */
+.acct-cost-headline {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0 var(--space-sm);
+}
+.acct-cost-label {
+  font-size: var(--fs-sm);
+  color: var(--vscode-descriptionForeground);
+}
+.acct-cost-amount {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Donut + legend laid out side-by-side. Legend takes remaining space. */
+.acct-models-layout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-lg);
+  align-items: center;
+}
+.acct-donut {
+  display: block;
+  flex-shrink: 0;
+}
+.acct-donut-track {
+  fill: none;
+  stroke: var(--vscode-panel-border, rgba(127, 127, 127, 0.2));
+  stroke-width: 12;
+}
+.acct-donut-arc {
+  fill: none;
+  stroke-width: 12;
+  stroke-linecap: butt;
+}
+
+/* Legend = grid row per model. Dot + name + share% + cost in fixed
+   columns so numbers line up vertically (tabular-nums on the numerics). */
+.acct-model-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.acct-model-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--fs-sm);
+}
+.acct-model-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.acct-model-name {
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-model-share,
+.acct-model-cost {
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 3.5em;
+}
+
+/* Per-row secondary number under .acct-toolbar (e.g. project sessions). */
+.acct-toolbar-sub {
+  font-size: var(--fs-xs);
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+  margin-left: var(--space-xs);
+  min-width: 4em;
+  text-align: right;
+}
+
+/* "Show N more" / "Show less" inline expander. Subtle, button-as-link. */
+.acct-show-more {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-sm);
+}
+.acct-show-more:hover { text-decoration: underline; }
+
+/* MCP rows: name + two pill badges. */
+.acct-mcp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-sm);
+}
+.acct-mcp-name {
+  flex: 1;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--vscode-badge-background, rgba(127, 127, 127, 0.15));
+  color: var(--vscode-badge-foreground, var(--vscode-descriptionForeground));
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
