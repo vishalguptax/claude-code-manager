@@ -68,9 +68,19 @@ function backToList(): void {
 
 function StatStrip({ d }: { d: SessionDetail }) {
   const totalMsgs = d.totalMessages ?? d.messageCount;
-  const tokenTotal = d.totalUsage
-    ? d.totalUsage.input + d.totalUsage.output + d.totalUsage.cacheRead + d.totalUsage.cacheCreation
-    : 0;
+  // Headline = input + output (Anthropic's two primary billed categories).
+  // The previous total also added cache_read + cache_creation, which inflates
+  // wildly because cache_read is the SAME cached context re-read on every
+  // turn (O(N^2) on long conversations); cache stats belong in the tooltip,
+  // not the headline number.
+  const u = d.totalUsage;
+  const tokenTotal = u ? u.input + u.output : 0;
+  const tokenTitle = u
+    ? `Input: ${u.input.toLocaleString()} · Output: ${u.output.toLocaleString()}` +
+      (u.cacheRead || u.cacheCreation
+        ? ` · Cache read: ${u.cacheRead.toLocaleString()} · Cache write: ${u.cacheCreation.toLocaleString()}`
+        : "")
+    : "";
   return (
     <div class="d-stats">
       <span class="d-stat" title={`${totalMsgs.toLocaleString()} messages`}>
@@ -84,7 +94,7 @@ function StatStrip({ d }: { d: SessionDetail }) {
         </span>
       ) : null}
       {tokenTotal > 0 ? (
-        <span class="d-stat">
+        <span class="d-stat" title={tokenTitle}>
           <span class="d-stat-v">{fmtTokens(tokenTotal)}</span>
           <span class="d-stat-k">tokens</span>
         </span>
