@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildSessionMenuItems } from "./sessionMenu";
 
@@ -61,7 +62,10 @@ describe("buildSessionMenuItems", () => {
 
   it("Copy session ID writes to the clipboard, no host message", () => {
     const writeText = vi.fn();
-    Object.assign(navigator, { clipboard: { writeText } });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
     const item = buildSessionMenuItems("sid", false).find((i) => i.label === "Copy session ID");
     item?.onSelect();
     expect(writeText).toHaveBeenCalledWith("sid");
