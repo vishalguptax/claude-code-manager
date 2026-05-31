@@ -365,8 +365,9 @@ describe("aggregateUsage — totals + daily", () => {
     expect(opus.inputTokens).toBe(150);
     expect(opus.outputTokens).toBe(250);
     expect(sonnet.totalTokens).toBe(500);
-    // Sorted by totalTokens desc
-    expect(out.byModel[0].totalTokens).toBeGreaterThanOrEqual(out.byModel[1].totalTokens);
+    // Sorted by model recency desc (opus 4-7 > sonnet 4-6).
+    expect(out.byModel[0].model).toBe("claude-opus-4-7");
+    expect(out.byModel[1].model).toBe("claude-sonnet-4-6");
   });
 });
 

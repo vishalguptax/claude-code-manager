@@ -104,3 +104,29 @@ export function computeModelCost(
     million
   );
 }
+
+/**
+ * Numeric recency score for a Claude model id. Higher = newer.
+ * `claude-opus-4-7-…` → 4*100 + 7 = 407. Unknown / non-Claude models
+ * score -1 so they sort to the bottom.
+ */
+export function modelRecency(modelId: string): number {
+  const m = modelId.match(/claude-(?:opus|sonnet|haiku)-(\d+)-?(\d*)/i);
+  if (!m) return -1;
+  const major = parseInt(m[1], 10);
+  const minor = m[2] ? parseInt(m[2], 10) : 0;
+  return major * 100 + minor;
+}
+
+/**
+ * Sort comparator for per-model breakdowns: newest models first
+ * (descending recency). Ties broken by higher totalTokens so within a
+ * single model version the bigger spender still comes first.
+ */
+export function compareModelRecencyDesc(
+  a: { model: string; totalTokens: number },
+  b: { model: string; totalTokens: number },
+): number {
+  const r = modelRecency(b.model) - modelRecency(a.model);
+  return r !== 0 ? r : b.totalTokens - a.totalTokens;
+}
