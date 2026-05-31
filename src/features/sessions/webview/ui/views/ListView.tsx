@@ -22,6 +22,7 @@ import {
   clearSelection,
   detailLoadingSignal,
   getFiltered,
+  openTerminalsSignal,
   pinnedSignal,
   searchQuerySignal,
   selectAll,
@@ -31,7 +32,7 @@ import {
   toggleSelected,
   viewSignal,
 } from "../../model";
-import { sendGetSessionDetail, sendResumeSession } from "../../api";
+import { sendGetSessionDetail, sendResumeSession, sendViewTerminal } from "../../api";
 import { ActionsBar } from "../components/ActionsBar";
 import { Filters } from "../components/Filters";
 import { Footer } from "../components/Footer";
@@ -56,6 +57,7 @@ export function ListView() {
   const selection = selectionSignal.value;
   const bulk = bulkModeSignal.value;
   const query = searchQuerySignal.value;
+  const openTerminals = openTerminalsSignal.value;
   const [menu, setMenu] = useState<MenuState | null>(null);
 
   const rows = buildRows(filtered, pinned);
@@ -95,6 +97,10 @@ export function ListView() {
   const resume = (id: string): void => {
     const s = sessionsSignal.value.find((x) => x.id === id);
     if (s) sendResumeSession(id, s.entrypoint, s.projectPath);
+  };
+
+  const view = (id: string): void => {
+    sendViewTerminal(id);
   };
 
   const onToggleSelect = (id: string): void => {
@@ -153,8 +159,10 @@ export function ListView() {
                 isPinned={pinned.has(row.session.id)}
                 isSelected={selection.has(row.session.id)}
                 bulkMode={bulk}
+                hasOpenTerminal={openTerminals.has(row.session.id)}
                 onSelect={openDetail}
                 onResume={resume}
+                onView={view}
                 onToggleSelect={onToggleSelect}
                 onContextMenu={openMenu}
               />

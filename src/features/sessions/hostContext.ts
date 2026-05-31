@@ -12,6 +12,7 @@ import type { Command } from "../commands/types";
 import type { Hook } from "../hooks/types";
 import type { McpServer } from "../mcp/types";
 import type { Agent } from "../agents/types";
+import type { TerminalRegistry } from "./terminalRegistry";
 
 /**
  * globalState key for the cinematic intro "seen" flag. Stored in the
@@ -67,6 +68,7 @@ export function identityKey(accountUuid: string, email: string): string {
  */
 export interface HostContext {
   readonly globalState?: vscode.Memento;
+  readonly terminals: TerminalRegistry;
   getWebview(): vscode.Webview | undefined;
 
   getSessions(): Session[];

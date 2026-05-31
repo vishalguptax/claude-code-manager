@@ -111,6 +111,12 @@ interface MockTab {
   input: unknown;
 }
 
+const _terminalCloseListeners: Array<(t: unknown) => void> = [];
+
+export function _fireTerminalClose(t: unknown): void {
+  for (const l of _terminalCloseListeners) l(t);
+}
+
 interface MockTabGroup {
   viewColumn: number;
   tabs: MockTab[];
@@ -140,9 +146,15 @@ export const window = {
   tabGroups: {
     all: [] as MockTabGroup[],
   },
-  onDidCloseTerminal: (_listener: (t: unknown) => void): MockDisposable => ({
-    dispose: () => {},
-  }),
+  onDidCloseTerminal: (listener: (t: unknown) => void): MockDisposable => {
+    _terminalCloseListeners.push(listener);
+    return {
+      dispose: () => {
+        const idx = _terminalCloseListeners.indexOf(listener);
+        if (idx >= 0) _terminalCloseListeners.splice(idx, 1);
+      },
+    };
+  },
   showInformationMessage: async (..._args: unknown[]) => undefined,
   showWarningMessage: async (..._args: unknown[]) => undefined,
   showErrorMessage: async (..._args: unknown[]) => undefined,

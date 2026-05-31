@@ -88,6 +88,13 @@ export const selectionSignal = signal<Set<string>>(new Set());
 /** Window into the workspace-restore cluster (minutes). */
 export const restoreWindowMinutesSignal = signal<number>(30);
 
+/** Session ids that currently have an open terminal in the editor/panel. */
+export const openTerminalsSignal = signal<Set<string>>(new Set());
+
+export function setOpenTerminals(ids: string[]): void {
+  openTerminalsSignal.value = new Set(ids);
+}
+
 // ── Setters with derived side effects ──
 
 /**
@@ -403,4 +410,5 @@ export function _resetSessionsSignals(): void {
   bulkModeSignal.value = false;
   selectionSignal.value = new Set();
   restoreWindowMinutesSignal.value = 30;
+  openTerminalsSignal.value = new Set();
 }

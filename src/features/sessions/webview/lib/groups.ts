@@ -25,18 +25,25 @@ export type Row =
 
 /**
  * Flatten the filtered, pinned-first session list into header + session rows.
- * Pinned sessions are collected under a leading "Pinned" group; the remaining
- * sessions are bucketed by their `dateLabel` in their existing (recency) order.
- * Group order follows first appearance, which mirrors the recency sort.
+ * Active (live) sessions surface under a leading "Active" group regardless of
+ * pin state; pinned sessions follow under "Pinned"; the rest bucket by
+ * `dateLabel` in recency order. A session never appears twice — once it's
+ * shown as Active, it's excluded from Pinned and date groups.
  */
 export function buildRows(sessions: Session[], pinned: Set<string>): Row[] {
   const rows: Row[] = [];
-  // Single partition pass over the sessions instead of two filter passes.
+  const active: Session[] = [];
   const pinnedRows: Session[] = [];
   const rest: Session[] = [];
   for (const s of sessions) {
-    if (pinned.has(s.id)) pinnedRows.push(s);
+    if (s.isLive) active.push(s);
+    else if (pinned.has(s.id)) pinnedRows.push(s);
     else rest.push(s);
+  }
+
+  if (active.length > 0) {
+    rows.push({ kind: "header", label: "Active" });
+    for (const s of active) rows.push({ kind: "session", session: s });
   }
 
   if (pinnedRows.length > 0) {

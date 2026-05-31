@@ -23,6 +23,7 @@ import {
   sessionsSignal,
   setDeleted,
   setFullTextHits,
+  setOpenTerminals,
   setPinned,
   setWorkspacePath,
   statsSignal,
@@ -75,6 +76,9 @@ export function handleMessage(msg: Message): void {
       break;
     case "fullTextResults":
       setFullTextHits(msg.query, msg.ids);
+      break;
+    case "terminalSessions":
+      setOpenTerminals(msg.ids);
       break;
     case "settings": {
       // Host-pushed sessions config: apply the configured restore-workspace

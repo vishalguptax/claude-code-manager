@@ -43,8 +43,10 @@ export interface SessionItemProps {
   isPinned: boolean;
   isSelected: boolean;
   bulkMode: boolean;
+  hasOpenTerminal: boolean;
   onSelect: (id: string) => void;
   onResume: (id: string) => void;
+  onView: (id: string) => void;
   onToggleSelect: (id: string, range: boolean) => void;
   /** Open the row's action menu at the given viewport point (right-click). */
   onContextMenu: (id: string, x: number, y: number) => void;
@@ -56,8 +58,10 @@ export function SessionItem({
   isPinned,
   isSelected,
   bulkMode,
+  hasOpenTerminal,
   onSelect,
   onResume,
+  onView,
   onToggleSelect,
   onContextMenu,
 }: SessionItemProps) {
@@ -116,16 +120,29 @@ export function SessionItem({
 
       {bulkMode ? null : (
         <div class="item-actions">
-          <Button
-            variant="icon"
-            class="item-resume"
-            iconName="play"
-            title="Resume session"
-            onClick={(e) => {
-              e.stopPropagation();
-              onResume(session.id);
-            }}
-          />
+          {hasOpenTerminal ? (
+            <Button
+              variant="icon"
+              class="item-resume"
+              iconName="terminal"
+              title="View open terminal"
+              onClick={(e) => {
+                e.stopPropagation();
+                onView(session.id);
+              }}
+            />
+          ) : (
+            <Button
+              variant="icon"
+              class="item-resume"
+              iconName="play"
+              title="Resume session"
+              onClick={(e) => {
+                e.stopPropagation();
+                onResume(session.id);
+              }}
+            />
+          )}
         </div>
       )}
 

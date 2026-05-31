@@ -44,6 +44,10 @@ export const sendResumeSession = (
 export const sendResumeMultiple = (sessionIds: string[], projectPaths?: string[]): void =>
   post({ type: "resumeMultiple", sessionIds, projectPaths });
 
+/** Focus an existing terminal hosting a session that's already open. */
+export const sendViewTerminal = (sessionId: string): void =>
+  post({ type: "viewTerminal", sessionId });
+
 /** Fork a session into a new branch. */
 export const sendForkSession = (sessionId: string): void =>
   post({ type: "forkSession", sessionId });

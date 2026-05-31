@@ -114,4 +114,12 @@ describe("sessions message handling", () => {
     handleMessage({ type: "error", message: "boom" } as Message);
     expect(loadedSignal.value).toBe(true);
   });
+
+  it("stores the open-terminal id set from a terminalSessions push", async () => {
+    const { openTerminalsSignal } = await import("./signals");
+    handleMessage({ type: "terminalSessions", ids: ["a", "b"] } as Message);
+    expect([...openTerminalsSignal.value].sort()).toEqual(["a", "b"]);
+    handleMessage({ type: "terminalSessions", ids: [] } as Message);
+    expect(openTerminalsSignal.value.size).toBe(0);
+  });
 });

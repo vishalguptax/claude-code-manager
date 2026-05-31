@@ -25,6 +25,15 @@ export function validateGitRef(name: string): string | null {
 /** Extension root URI, captured at activation so we can resolve asset paths for terminal icons. */
 let extensionUri: vscode.Uri | undefined;
 
+interface TerminalRegistrySink {
+  register(sessionId: string, terminal: vscode.Terminal): void;
+}
+let terminalRegistry: TerminalRegistrySink | undefined;
+
+export function setTerminalRegistry(reg: TerminalRegistrySink | undefined): void {
+  terminalRegistry = reg;
+}
+
 /**
  * Register the extension's root URI so terminal icons can be resolved from bundled assets.
  * Called once during extension activation. Passing `undefined` clears it (used by tests).
@@ -116,7 +125,7 @@ function getTerminalLocation(): vscode.TerminalEditorLocationOptions | undefined
  * it first so the caller's subsequent sendText runs in the right directory.
  * The double-quoted path works across bash, zsh, cmd, and powershell.
  */
-export function createTerminal(name: string, cwd?: string): vscode.Terminal {
+export function createTerminal(name: string, cwd?: string, sessionId?: string): vscode.Terminal {
   const empty = vscode.window.terminals.find(
     (t) =>
       t.exitStatus === undefined && !t.state.isInteractedWith && !sentTo.has(t),
@@ -126,6 +135,7 @@ export function createTerminal(name: string, cwd?: string): vscode.Terminal {
     // forward slashes — safe on every shell the cwd flows into.
     if (cwd) empty.sendText(`cd "${cwd.replace(/\\/g, "/")}"`);
     sentTo.add(empty);
+    if (sessionId) terminalRegistry?.register(sessionId, empty);
     return empty;
   }
 
@@ -137,5 +147,6 @@ export function createTerminal(name: string, cwd?: string): vscode.Terminal {
     ...(location ? { location } : {}),
   });
   sentTo.add(term);
+  if (sessionId) terminalRegistry?.register(sessionId, term);
   return term;
 }

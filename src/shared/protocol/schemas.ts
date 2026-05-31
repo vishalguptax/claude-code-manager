@@ -208,6 +208,14 @@ const sessionsDelta = v.object({
     removed: v.optional(v.array(v.string())),
   }),
 });
+const terminalSessions = v.object({
+  type: v.literal("terminalSessions"),
+  ids: v.array(v.string()),
+});
+const viewTerminal = v.object({
+  type: v.literal("viewTerminal"),
+  sessionId: v.string(),
+});
 // === END SESSIONS MESSAGES ===
 
 export const messageSchema = v.variant("type", [
@@ -305,6 +313,8 @@ export const messageSchema = v.variant("type", [
   copyMarkdown,
   openFile,
   sessionsDelta,
+  terminalSessions,
+  viewTerminal,
   // === END SESSIONS MESSAGES ===
 ]);
 

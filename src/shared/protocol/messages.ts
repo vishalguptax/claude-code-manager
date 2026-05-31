@@ -90,6 +90,8 @@ export type Message =
   | { type: "mcpServers"; data: unknown }
   | { type: "agents"; data: unknown }
   | { type: "quotaData"; result: unknown }
+  | { type: "terminalSessions"; ids: string[] }
+  | { type: "viewTerminal"; sessionId: string }
   // === SESSIONS MESSAGES ===
   // Inbound (webview → host) session messages handled in
   // features/sessions/messageHandlers.ts. `search`/`filter` ask the host to
@@ -192,7 +194,8 @@ type WebviewMessageType =
   | "filter"
   | "deleteSession"
   | "copyMarkdown"
-  | "openFile";
+  | "openFile"
+  | "viewTerminal";
 // === END SESSIONS MESSAGES ===
 
 export type WebviewMessage = Extract<Message, { type: WebviewMessageType }>;
@@ -219,4 +222,5 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "agents",
   "quotaData",
   "sessions.delta",
+  "terminalSessions",
 ];

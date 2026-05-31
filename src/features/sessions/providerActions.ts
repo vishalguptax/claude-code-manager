@@ -97,6 +97,8 @@ export interface ProviderActionsContext {
 
   /** Re-entrant dispatch for host-initiated messages. */
   dispatch(msg: import("./types").WebviewMessage): Promise<void>;
+
+  readonly terminals: import("./terminalRegistry").TerminalRegistry;
 }
 
 /**
@@ -328,6 +330,7 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
 
   ctx.refreshSettings();
   ctx.postWorkspacePath();
+  wv.postMessage({ type: "terminalSessions", ids: ctx.terminals.ids() });
   wv.postMessage({ type: "reloadComplete" });
 
   // (c) WEBVIEW — re-mount the Preact app from a freshly generated

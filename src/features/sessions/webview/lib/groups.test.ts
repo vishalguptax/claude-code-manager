@@ -60,4 +60,26 @@ describe("buildRows", () => {
     const rows = buildRows([s("a", now)], new Set());
     expect(rows.some((r) => r.kind === "header" && r.label === "Pinned")).toBe(false);
   });
+
+  it("hoists live sessions under an Active header above Pinned and date groups", () => {
+    const now = Date.now();
+    const live = session("live", { endTime: now, isLive: true });
+    const pinnedSession = s("pinned", now);
+    const plain = s("plain", now);
+    const rows = buildRows([live, pinnedSession, plain], new Set(["pinned"]));
+    expect(rows[0]).toMatchObject({ kind: "header", label: "Active" });
+    expect(rows[1]).toMatchObject({ kind: "session", session: { id: "live" } });
+    const pinnedIdx = rows.findIndex((r) => r.kind === "header" && r.label === "Pinned");
+    expect(pinnedIdx).toBeGreaterThan(1);
+  });
+
+  it("never shows the same session twice when it is both live and pinned", () => {
+    const now = Date.now();
+    const livePinned = session("dual", { endTime: now, isLive: true });
+    const rows = buildRows([livePinned], new Set(["dual"]));
+    const ids = rows.filter((r) => r.kind === "session").map((r) => (r as { session: Session }).session.id);
+    expect(ids).toEqual(["dual"]);
+    expect(rows.some((r) => r.kind === "header" && r.label === "Pinned")).toBe(false);
+    expect(rows[0]).toMatchObject({ kind: "header", label: "Active" });
+  });
 });

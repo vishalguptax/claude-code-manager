@@ -296,6 +296,7 @@ export type WebviewMessage =
   | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
   | { type: "resumeMultiple"; sessionIds: string[]; projectPaths?: string[] }
+  | { type: "viewTerminal"; sessionId: string }
   | { type: "newSession" }
   | { type: "newTempSession" }
   | { type: "openProject"; projectPath: string }

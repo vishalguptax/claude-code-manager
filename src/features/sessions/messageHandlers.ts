@@ -196,6 +196,7 @@ async function handleSessionMessage(
       wv.postMessage({ type: "sessions", data: groupSessions(ctx.getSessions()), stats: getStats(ctx.getSessions()) });
       wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
       wv.postMessage({ type: "userState", ...loadState() });
+      wv.postMessage({ type: "terminalSessions", ids: ctx.terminals.ids() });
       const warning = getLastParseWarning();
       if (warning) wv.postMessage({ type: "error", message: warning });
       // Kick off the full-text index in the background — the webview
@@ -384,6 +385,10 @@ async function handleSessionMessage(
 
     case "resumeSession":
       await resumeSession(msg.sessionId, false, ctx.getSessions());
+      break;
+
+    case "viewTerminal":
+      ctx.terminals.view(msg.sessionId);
       break;
 
     case "resumeMultiple":

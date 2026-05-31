@@ -32,12 +32,14 @@ import {
   sendRenameSession,
   sendResumeSession,
   sendUnpinSession,
+  sendViewTerminal,
 } from "../../api";
 import {
   clearSelection,
   currentProjectSignal,
   detailLoadingSignal,
   detailSignal,
+  openTerminalsSignal,
   pinnedSignal,
   selectedIdSignal,
   viewSignal,
@@ -107,7 +109,17 @@ function StatStrip({ d }: { d: SessionDetail }) {
   );
 }
 
-function Actions({ d, isPinned, isDiffProject }: { d: SessionDetail; isPinned: boolean; isDiffProject: boolean }) {
+function Actions({
+  d,
+  isPinned,
+  isDiffProject,
+  hasOpenTerminal,
+}: {
+  d: SessionDetail;
+  isPinned: boolean;
+  isDiffProject: boolean;
+  hasOpenTerminal: boolean;
+}) {
   if (isDiffProject) {
     return (
       <>
@@ -155,13 +167,24 @@ function Actions({ d, isPinned, isDiffProject }: { d: SessionDetail; isPinned: b
   }
   return (
     <div class="d-actions">
-      <Button
-        variant="primary"
-        iconName="play"
-        onClick={() => sendResumeSession(d.id, d.entrypoint, d.projectPath)}
-      >
-        Resume
-      </Button>
+      {hasOpenTerminal ? (
+        <Button
+          variant="primary"
+          iconName="terminal"
+          title="Focus the open terminal for this session"
+          onClick={() => sendViewTerminal(d.id)}
+        >
+          View
+        </Button>
+      ) : (
+        <Button
+          variant="primary"
+          iconName="play"
+          onClick={() => sendResumeSession(d.id, d.entrypoint, d.projectPath)}
+        >
+          Resume
+        </Button>
+      )}
       <Button iconName="pencil" onClick={() => sendRenameSession(d.id)}>
         Rename
       </Button>
@@ -293,7 +316,12 @@ export function DetailView() {
         <StatStrip d={d} />
       </div>
 
-      <Actions d={d} isPinned={isPinned} isDiffProject={isDiffProject} />
+      <Actions
+        d={d}
+        isPinned={isPinned}
+        isDiffProject={isDiffProject}
+        hasOpenTerminal={openTerminalsSignal.value.has(d.id)}
+      />
 
       <div class="d-scroll">
         <div class="d-section">

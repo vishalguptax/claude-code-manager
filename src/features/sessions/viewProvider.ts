@@ -14,9 +14,11 @@
 import * as vscode from "vscode";
 import { getWebviewHtml } from "../../extension/html";
 import { getCurrentBranch, onBranchChange } from "../../extension/git";
+import { setTerminalRegistry } from "../../extension/terminal";
 import type { AccountData } from "../account/types";
 import { dispatch } from "./messageHandlers";
 import { type HostContext } from "./hostContext";
+import { createTerminalRegistry, type TerminalRegistry } from "./terminalRegistry";
 import { createWatchers, type WatcherContext } from "./watchers";
 import { createLivePoll, type LivePoll } from "./liveState";
 import { openAccountSwitcher } from "./accountSwitcher";
@@ -63,6 +65,7 @@ export class ClaudeSessionViewProvider
    * while the webview is hidden to avoid spending CPU on UI no one sees.
    */
   private readonly livePoll: LivePoll = createLivePoll(() => this.refreshLiveState());
+  readonly terminals: TerminalRegistry = createTerminalRegistry();
   /**
    * Last observed live identity. null = never parsed; "" = signed out;
    * "abc…" = signed in. Used by the account watcher to spot /login
@@ -80,7 +83,9 @@ export class ClaudeSessionViewProvider
   constructor(
     private readonly extensionUri: vscode.Uri,
     readonly globalState?: vscode.Memento,
-  ) {}
+  ) {
+    setTerminalRegistry(this.terminals);
+  }
 
   // ── Context accessors (HostContext / WatcherContext / ProviderActionsContext) ──
 
@@ -233,6 +238,12 @@ export class ClaudeSessionViewProvider
     this.viewSubscriptions.push(
       vscode.extensions.onDidChange(() => {
         this.refreshSettings();
+      }),
+    );
+
+    this.viewSubscriptions.push(
+      this.terminals.onChange((ids) => {
+        this.view?.webview.postMessage({ type: "terminalSessions", ids });
       }),
     );
 
