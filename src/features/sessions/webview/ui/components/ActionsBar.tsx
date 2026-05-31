@@ -21,7 +21,6 @@ export function ActionsBar() {
   return (
     <div class="actions-bar">
       <Button
-        variant="primary"
         iconName="plus"
         title="Start a new Claude Code session in a fresh terminal"
         onClick={() => sendNewSession()}

@@ -15,12 +15,14 @@ describe("AccountSkeleton", () => {
     expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
   });
 
-  it("ends with a flex-grow filler so the panel reads as covered top to bottom", () => {
-    // Without this spacer the three fixed sections leave empty room below on a
-    // tall sidebar; the filler absorbs that room so the loading state looks
-    // edge-to-edge instead of half-painted.
+  it("grows the last section so the panel reads as covered top to bottom", () => {
+    // Without this the three fixed sections leave empty room below on a tall
+    // sidebar; the last section's flex-grow shell absorbs that room so the
+    // loading state looks edge-to-edge instead of half-painted.
     const { container } = render(<AccountSkeleton />);
     const panel = container.querySelector(".panel.skeleton-panel");
-    expect(panel?.lastElementChild?.classList.contains("skeleton-fill")).toBe(true);
+    const last = panel?.lastElementChild;
+    expect(last?.classList.contains("skeleton-section-grow")).toBe(true);
+    expect(last?.querySelector(".skeleton-section-grow-body")).toBeTruthy();
   });
 });

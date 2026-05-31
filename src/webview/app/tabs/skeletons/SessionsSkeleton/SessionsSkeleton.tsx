@@ -19,8 +19,10 @@
 
 import { SkeletonBlock, SkeletonLine } from "../../../../shared/ui";
 
-/** Action buttons in the real ActionsBar, by width hint (px). */
-const ACTION_WIDTHS = [60, 64, 84, 132, 72];
+/** Real ActionsBar uses an auto-fit 1fr grid — skeleton blocks fill their cell
+ *  so every button placeholder reads as equal width and full-width, matching
+ *  the live row exactly. */
+const ACTION_COUNT = 5;
 
 /** Title / prompt / project widths cycled per row so it doesn't read as a grid. */
 const ROW_WIDTHS: ReadonlyArray<readonly [string, string, string]> = [
@@ -39,8 +41,8 @@ export function SessionsSkeleton() {
   return (
     <div class="panel skeleton-panel" aria-busy="true" aria-live="polite">
       <div class="skeleton-actions">
-        {ACTION_WIDTHS.map((w, i) => (
-          <SkeletonBlock key={i} width={w} height="var(--h-control-sm)" />
+        {Array.from({ length: ACTION_COUNT }, (_, i) => (
+          <SkeletonBlock key={i} height="var(--h-control-sm)" />
         ))}
       </div>
 

@@ -128,6 +128,21 @@
   min-height: 0;
 }
 
+/* Grow the last skeleton section to fill the panel height so the loader
+   reads as a full-height block rather than leaving an empty gap below a
+   short stack of placeholder sections (Account, Config). Its body becomes
+   a flex container so an inline 100%-height SkeletonBlock fills it. */
+.skeleton-section-grow {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.skeleton-section-grow-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 /* Detail-view skeleton ------------------------------------------------------ */
 
 /* Paragraph / message-block stack inside a detail panel — same 2xl inset as
