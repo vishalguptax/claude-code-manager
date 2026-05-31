@@ -32,6 +32,7 @@ import {
   formatDuration,
   formatModelName,
   formatMoney,
+  formatMoneyCompact,
   formatNumber,
   formatPct,
   shortenProjectPath,
@@ -57,16 +58,23 @@ const PROJECT_TOP_DEFAULT = 5;
 const TOOL_TOP_DEFAULT = 8;
 
 /**
- * Stable, semantic colour per Claude family. Hand-picked so opus reads
- * as "deep" (premium), sonnet as "warm" (balanced), haiku as "fresh"
- * (fast). HSL values chosen for ≥3:1 contrast against the panel
- * background in both light + dark themes.
+ * Per-model colour. Hue encodes the family (blue=opus, amber=sonnet,
+ * green=haiku), lightness encodes recency within the family so Opus 4.8
+ * reads brighter than Opus 4.5 even when they sit side-by-side. Values
+ * chosen for ≥3:1 contrast against the panel in both themes.
  */
 function modelFamilyColor(model: string): string {
-  if (/opus/i.test(model)) return "hsl(220, 75%, 62%)";
-  if (/sonnet/i.test(model)) return "hsl(32, 85%, 60%)";
-  if (/haiku/i.test(model)) return "hsl(155, 60%, 52%)";
-  return "hsl(220, 8%, 55%)";
+  const m = model.match(/claude-(opus|sonnet|haiku)-(\d+)-?(\d*)/i);
+  if (!m) return "hsl(220, 8%, 55%)";
+  const family = m[1].toLowerCase();
+  const minor = m[3] ? parseInt(m[3], 10) : 0;
+  const hue = family === "opus" ? 220 : family === "sonnet" ? 32 : 155;
+  const sat = family === "haiku" ? 60 : 75;
+  // Newer minor version → lighter shade. 4.0→40%, 4.5→55%, 4.8→64%.
+  // 3-percentage-point steps + 40 floor keeps every adjacent pair
+  // visibly distinct while staying readable on the panel.
+  const lightness = Math.max(35, Math.min(70, 40 + minor * 3));
+  return `hsl(${hue}, ${sat}%, ${lightness}%)`;
 }
 
 export function UsageView({ data }: UsageViewProps) {
@@ -195,9 +203,21 @@ function BlockHeading({ children }: { children: ComponentChildren }) {
  * and cost — replacing the per-row inline `· $X` noise from the old
  * layout with a tabular column you can scan.
  */
+/** Drop Claude CLI's diagnostic model (and any other non-Claude entry
+ * with zero usage) so the legend doesn't trail a "0% · —" row that
+ * teaches the user nothing. Their tokens stay in the totals. */
+function visibleModels(list: ModelStats[]): ModelStats[] {
+  return list.filter((m) => {
+    if (m.model === "<synthetic>") return false;
+    if (m.totalTokens === 0 && m.costUsd === 0) return false;
+    return true;
+  });
+}
+
 function ModelsBlock({ u }: { u: UsageStats }) {
-  const total = u.byModel.reduce((s, m) => s + m.totalTokens, 0);
-  const segments = u.byModel.map((m) => ({
+  const shown = visibleModels(u.byModel);
+  const total = shown.reduce((s, m) => s + m.totalTokens, 0);
+  const segments = shown.map((m) => ({
     key: m.model,
     value: m.totalTokens,
     color: modelFamilyColor(m.model),
@@ -208,15 +228,18 @@ function ModelsBlock({ u }: { u: UsageStats }) {
       {u.totalCostUsd > 0 ? (
         <div class="acct-cost-headline">
           <span class="acct-cost-label">Total est. cost</span>
-          <span class="acct-cost-amount">
-            {formatMoney(Math.round(u.totalCostUsd * 100), "USD")}
+          <span
+            class="acct-cost-amount"
+            title={formatMoney(Math.round(u.totalCostUsd * 100), "USD")}
+          >
+            {formatMoneyCompact(Math.round(u.totalCostUsd * 100), "USD")}
           </span>
         </div>
       ) : null}
       <div class="acct-models-layout">
         <Donut segments={segments} />
         <div class="acct-model-legend">
-          {u.byModel.map((m) => (
+          {shown.map((m) => (
             <ModelLegendRow key={m.model} m={m} total={total} />
           ))}
         </div>
@@ -228,106 +251,114 @@ function ModelsBlock({ u }: { u: UsageStats }) {
   );
 }
 
+/**
+ * One legend row. Cost + share share a column (`$22.4K · 52%`) so the
+ * legend stays narrow enough to balance the donut at sidebar widths.
+ * Full precise cost lives in the title for hover.
+ */
 function ModelLegendRow({ m, total }: { m: ModelStats; total: number }) {
   const sharePct = total > 0 ? Math.round((m.totalTokens / total) * 100) : 0;
+  const cost = m.costUsd > 0 ? formatMoneyCompact(Math.round(m.costUsd * 100), "USD") : "—";
+  const preciseCost =
+    m.costUsd > 0 ? formatMoney(Math.round(m.costUsd * 100), "USD") : "";
   return (
-    <div class="acct-model-row">
+    <div class="acct-model-row" title={preciseCost ? `${m.model} · ${preciseCost}` : m.model}>
       <span class="acct-model-dot" style={{ background: modelFamilyColor(m.model) }} />
-      <span class="acct-model-name" title={m.model}>
-        {formatModelName(m.model)}
-      </span>
-      <span class="acct-model-share">{sharePct}%</span>
-      <span class="acct-model-cost">
-        {m.costUsd > 0 ? formatMoney(Math.round(m.costUsd * 100), "USD") : "—"}
+      <span class="acct-model-name">{formatModelName(m.model)}</span>
+      <span class="acct-model-share">
+        {cost}
+        {sharePct > 0 ? ` · ${sharePct}%` : ""}
       </span>
     </div>
   );
 }
 
 /**
- * Ranked horizontal bars for projects + tools. Bar = share of the
- * leader's value so the visual stays meaningful regardless of dataset
- * size. Tiny shares clamp to a 2% minimum width so the row never goes
- * "blank".
+ * Ranked text rows for projects + tools. Bars were noisy here — the
+ * data is "rank + magnitude" and a right-aligned tabular column reads
+ * faster than a bar visualization at this density. Names ellipsize on
+ * the left and full path is preserved in the row title for hover.
  */
 function ProjectsBlock({ byProject }: { byProject: ProjectStats[] }) {
   const [showAll, setShowAll] = useState(false);
-  const sorted = byProject;
-  const total = sorted.reduce((s, p) => s + p.tokens, 0);
-  const list = showAll ? sorted : sorted.slice(0, PROJECT_TOP_DEFAULT);
-  const hidden = sorted.length - list.length;
+  const list = showAll ? byProject : byProject.slice(0, PROJECT_TOP_DEFAULT);
+  const hidden = byProject.length - list.length;
   return (
     <div class="acct-block">
       <BlockHeading>Projects</BlockHeading>
-      {list.map((p) => {
-        const share = total > 0 ? p.tokens / total : 0;
-        const pct = Math.max(2, Math.round(share * 100));
-        return (
-          <div class="acct-toolbar" key={p.slug} title={p.path}>
-            <span class="acct-toolbar-label">{shortenProjectPath(p.path)}</span>
-            <span class="acct-toolbar-track">
-              <span class="acct-toolbar-fill" style={{ width: `${pct}%` }} />
-            </span>
-            <span class="acct-toolbar-count">{formatNumber(p.tokens)}</span>
-            <span class="acct-toolbar-sub">
-              {p.sessions} sess{p.sessions === 1 ? "" : ""}
-            </span>
-          </div>
-        );
-      })}
-      {hidden > 0 ? (
-        <button
-          type="button"
-          class="acct-show-more"
-          onClick={() => setShowAll(true)}
-        >
-          Show {hidden} more
-        </button>
-      ) : null}
-      {showAll && sorted.length > PROJECT_TOP_DEFAULT ? (
-        <button type="button" class="acct-show-more" onClick={() => setShowAll(false)}>
-          Show less
-        </button>
-      ) : null}
+      {list.map((p) => (
+        <div class="acct-data-row" key={p.slug} title={p.path}>
+          <span class="acct-data-name">{shortenProjectPath(p.path)}</span>
+          <span class="acct-data-num">{formatNumber(p.tokens)}</span>
+          <span class="acct-data-sub">
+            {p.sessions} sess
+          </span>
+        </div>
+      ))}
+      <ShowMore
+        showAll={showAll}
+        setShowAll={setShowAll}
+        hidden={hidden}
+        total={byProject.length}
+        threshold={PROJECT_TOP_DEFAULT}
+      />
     </div>
   );
 }
 
 function ToolsBlock({ byTool }: { byTool: UsageStats["byTool"] }) {
   const [showAll, setShowAll] = useState(false);
-  const sorted = byTool;
-  const max = sorted[0].count;
-  const list = showAll ? sorted : sorted.slice(0, TOOL_TOP_DEFAULT);
-  const hidden = sorted.length - list.length;
+  const list = showAll ? byTool : byTool.slice(0, TOOL_TOP_DEFAULT);
+  const hidden = byTool.length - list.length;
   return (
     <div class="acct-block">
       <BlockHeading>Tools</BlockHeading>
-      {list.map((t) => {
-        const pct = Math.max(2, Math.round((t.count / max) * 100));
-        return (
-          <div class="acct-toolbar" key={t.name}>
-            <span class="acct-toolbar-label" title={t.name}>
-              {displayToolName(t.name)}
-            </span>
-            <span class="acct-toolbar-track">
-              <span class="acct-toolbar-fill" style={{ width: `${pct}%` }} />
-            </span>
-            <span class="acct-toolbar-count">{formatNumber(t.count)}</span>
-          </div>
-        );
-      })}
-      {hidden > 0 ? (
-        <button type="button" class="acct-show-more" onClick={() => setShowAll(true)}>
-          Show {hidden} more
-        </button>
-      ) : null}
-      {showAll && sorted.length > TOOL_TOP_DEFAULT ? (
-        <button type="button" class="acct-show-more" onClick={() => setShowAll(false)}>
-          Show less
-        </button>
-      ) : null}
+      {list.map((t) => (
+        <div class="acct-data-row" key={t.name} title={t.name}>
+          <span class="acct-data-name">{displayToolName(t.name)}</span>
+          <span class="acct-data-num">{formatNumber(t.count)}</span>
+        </div>
+      ))}
+      <ShowMore
+        showAll={showAll}
+        setShowAll={setShowAll}
+        hidden={hidden}
+        total={byTool.length}
+        threshold={TOOL_TOP_DEFAULT}
+      />
     </div>
   );
+}
+
+/** Shared expand/collapse toggle for the ranked-text blocks. */
+function ShowMore({
+  showAll,
+  setShowAll,
+  hidden,
+  total,
+  threshold,
+}: {
+  showAll: boolean;
+  setShowAll: (v: boolean) => void;
+  hidden: number;
+  total: number;
+  threshold: number;
+}) {
+  if (hidden > 0) {
+    return (
+      <button type="button" class="acct-show-more" onClick={() => setShowAll(true)}>
+        Show {hidden} more
+      </button>
+    );
+  }
+  if (showAll && total > threshold) {
+    return (
+      <button type="button" class="acct-show-more" onClick={() => setShowAll(false)}>
+        Show less
+      </button>
+    );
+  }
+  return null;
 }
 
 /**

@@ -1031,7 +1031,7 @@
   color: var(--vscode-descriptionForeground);
 }
 .acct-cost-amount {
-  font-size: 1.4rem;
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--vscode-foreground);
   font-variant-numeric: tabular-nums;
@@ -1068,7 +1068,7 @@
 }
 .acct-model-row {
   display: grid;
-  grid-template-columns: 10px 1fr auto auto;
+  grid-template-columns: 10px 1fr auto;
   align-items: center;
   gap: var(--space-sm);
   font-size: var(--fs-sm);
@@ -1140,4 +1140,36 @@
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Plain ranked text row — name (ellipsis on overflow) + primary number
+   (right-aligned tabular) + optional muted sub. No bar, less clutter,
+   names get the room they need. Full path/name in row title. */
+.acct-data-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: var(--space-md);
+  align-items: baseline;
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+.acct-data-name {
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.acct-data-num {
+  color: var(--vscode-foreground);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.acct-data-sub {
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-size: var(--fs-xs);
+  min-width: 5em;
 }

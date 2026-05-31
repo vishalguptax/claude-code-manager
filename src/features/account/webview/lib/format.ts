@@ -232,3 +232,20 @@ export function accountKey(data: AccountData): string {
   const email = data.profile.email ?? "";
   return `${slug}|${email}`;
 }
+
+/**
+ * Abbreviated currency for tight columns: $22.4K, $1.5M, $345.12.
+ * Below $1,000 we keep two decimals so small spend reads exactly;
+ * above that, one decimal + K/M suffix keeps the figure two-or-three
+ * characters wide so seven legend rows still line up at narrow widths.
+ */
+export function formatMoneyCompact(minorUnits: number, currency: string): string {
+  const digits = currencyFractionDigits(currency);
+  const major = minorUnits / 10 ** digits;
+  const sign = major < 0 ? "-" : "";
+  const abs = Math.abs(major);
+  const symbol = currency.toUpperCase() === "USD" ? "$" : currency;
+  if (abs >= 1_000_000) return `${sign}${symbol}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${sign}${symbol}${(abs / 1_000).toFixed(1)}K`;
+  return `${sign}${symbol}${abs.toFixed(digits)}`;
+}

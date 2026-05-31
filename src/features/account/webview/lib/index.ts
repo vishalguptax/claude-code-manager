@@ -13,6 +13,7 @@ export {
   formatFetchedRelative,
   formatModelName,
   formatMoney,
+  formatMoneyCompact,
   formatNumber,
   formatPct,
   formatResetsIn,
