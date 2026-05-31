@@ -1,13 +1,44 @@
 # Changelog
 
-## [2.0.0] - 2026-05-23
+## [2.0.0] - 2026-06-01
 
 Ground-up rebuild of the webview on Preact + signals with a valibot-validated
 message protocol. Migration only — every feature, setting, command, and the
 "100% local, zero telemetry" promise are preserved. See
 [docs/releases/v2.0.0.md](docs/releases/v2.0.0.md) and the
-[v1→v2 migration guide](docs/migration/v1-to-v2.md). First shipped as
-`2.0.0-beta.1`.
+[v1→v2 migration guide](docs/migration/v1-to-v2.md). Iterated through
+`2.0.0-beta.1` and `2.0.0-beta.2`.
+
+### Added in 2.0.0 (after beta.1)
+
+- Active sessions group: live CLIs pinned above date buckets with status-aware
+  dots (idle/busy/awaiting-question), de-duped against Pinned.
+- **View** action: when a session is already hosted in a VS Code terminal, the
+  Resume button swaps to View and focuses that terminal instead of spawning a
+  duplicate. Detection works for any launch path — `claude --resume`, bare
+  `claude`, `--continue`, fork, or external — via a passive `SessionStart`
+  hook (auto-installed in `~/.claude/settings.json`) plus a shell-integration
+  tap on `onDidStartTerminalShellExecution`.
+- Current-project + current-branch markers in the filter dropdowns, pinned to
+  the top of their respective lists.
+- Self-healing statusline tap: re-installs silently when a project / local
+  `settings.json` reverts wipe the wiring.
+- Account Usage section redesign: donut + bars + pills + info ribbon, version-
+  tinted colors, recency-sorted model breakdown.
+- Auth-health banner for MCP connectors that need re-authentication.
+- Global full-reload button (toolbar ghost): clears every cache, re-parses,
+  re-mounts the webview.
+
+### Fixed in 2.0.0 (after beta.1)
+
+- Session token total now reads input + output only (cache_read inflated the
+  number O(N²) on long sessions; cache stats moved to the tooltip).
+- Account, Config, and Sessions skeletons fill the full panel height on a tall
+  sidebar instead of leaving a blank gap below the last placeholder section.
+- ActionsBar weights flattened so the toolbar reads as one flat rhythm
+  regardless of button count.
+- Restore-window, default filter, and default project settings are honored
+  again (the v1 sessions settings handler was dropped in v2).
 
 ### Added
 
