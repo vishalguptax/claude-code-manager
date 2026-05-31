@@ -10,11 +10,11 @@
  *   - Read quota from the local statusline cache on mount and on account
  *     switch. Reading is free (no network), so there is no opt-in gate;
  *     the one explicit action is installing the tap, driven from QuotaView.
- *   - Render Profile / Quota / Session / Usage sections, or loading /
- *     error / empty states.
+ *   - Render Profile / Quota / Usage sections, or loading / error /
+ *     empty states.
  *
- * The Account tab is identity-only — Profile, Quota, Session, Usage.
- * Settings + Permissions live in the separate Config tab.
+ * The Account tab is identity-only — Profile, Quota, Usage. Settings +
+ * Permissions live in the separate Config tab.
  */
 
 import { useEffect } from "preact/hooks";
@@ -35,7 +35,7 @@ import {
   setQuotaLoading,
   setQuotaSuccess,
 } from "./model";
-import { LiveView, ProfileView, QuotaView, UsageView } from "./ui";
+import { ProfileView, QuotaView, UsageView } from "./ui";
 
 /** Identity of the account at the last render, for switch detection. */
 let lastAccountKey: string | null = null;
@@ -122,7 +122,6 @@ export default function AccountTab() {
     <div class="panel">
       <ProfileView data={data} api={api} />
       <QuotaView api={api} />
-      <LiveView />
       <UsageView data={data} />
     </div>
   );
