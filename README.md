@@ -111,36 +111,36 @@ Whether you want to **switch between Claude accounts in VS Code** without a full
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/screenshots/02-skills.png" alt="Skills tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/02-skills.webp" alt="Skills tab" width="360"><br>
 <strong>Skills</strong><br>
 <sub>Global, project, and plugin skills with scope badges.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/screenshots/03-commands.png" alt="Commands tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/03-commands.webp" alt="Commands tab" width="360"><br>
 <strong>Commands</strong><br>
 <sub>Built-in slash commands plus your custom ones from <code>.claude/commands/</code>.</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/screenshots/04-hooks.png" alt="Hooks tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/04-hooks.webp" alt="Hooks tab" width="360"><br>
 <strong>Hooks</strong><br>
 <sub>Inspect automation hooks across global, project, and local scopes.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/screenshots/05-mcp.png" alt="MCP servers tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/05-mcp.webp" alt="MCP servers tab" width="360"><br>
 <strong>MCP Servers</strong><br>
 <sub>Enable/disable, delete, or inspect MCP servers. Secrets masked automatically.</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/screenshots/06-agents.png" alt="Agents tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/06-agents.webp" alt="Agents tab" width="360"><br>
 <strong>Agents</strong><br>
 <sub>Browse project agents with Sonnet / Opus / Haiku badges.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/screenshots/07-account.png" alt="Account tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/07-account.webp" alt="Account tab" width="360"><br>
 <strong>Account</strong><br>
 <sub>Profile switcher, activity heatmap, token stats, opt-in quota card.</sub>
 </td>
