@@ -251,6 +251,23 @@ code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .88em;
 .sheet-cta strong { color: var(--text); font-variant-numeric: tabular-nums; }
 .sheet-cta .cta-row { position: relative; }
 
+/* ================= sponsor slot ================= */
+.sponsor-slot { max-width: 760px; margin: 0 auto; padding: 1.4rem 1.4rem 0; }
+.sponsor-empty, .sponsor-filled {
+  display: flex; align-items: center; justify-content: center; gap: 1rem;
+  flex-wrap: wrap; text-align: center;
+  border: 1px dashed var(--border); border-radius: var(--r-lg);
+  padding: 1.05rem 1.4rem; background: rgba(255,255,255,.014);
+}
+.sponsor-filled { border-style: solid; }
+.sponsor-tag { font-size: .64rem; font-weight: 700; letter-spacing: .12em; color: var(--dim); }
+.sponsor-empty p { color: var(--muted); font-size: .88rem; margin: 0; }
+.sponsor-empty strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.sponsor-link { color: var(--clay-dim); font-weight: 600; font-size: .88rem; white-space: nowrap; }
+.sponsor-link:hover { text-decoration: underline; }
+.sponsor-brand { display: inline-flex; align-items: center; gap: .6rem; color: var(--text); font-weight: 600; }
+.sponsor-brand img { display: block; }
+
 /* ================= footer (on ambient) ================= */
 .footer { text-align: center; padding: 1.6rem 1.4rem .8rem; color: var(--muted); }
 .foot-links { display: flex; flex-wrap: wrap; gap: 1.4rem; justify-content: center; margin: 0 0 1rem; }
