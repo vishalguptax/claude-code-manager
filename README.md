@@ -59,6 +59,8 @@ Claude Code is powerful, but the terminal isn't built for browsing. Finding a se
 
 Claude Manager turns all of it into a sidebar you can click and search. Same Claude Code underneath &mdash; just one keystroke closer. Works whether you use the Claude Code **CLI**, the official **VS Code extension**, or both; sessions from either surface show up in the same list, and Resume routes back to the surface each session came from (configurable).
 
+Whether you want to **switch between Claude accounts in VS Code** without a full logout/login, **track Claude Code token usage** and your 5-hour / 7-day subscription quota, **manage MCP servers without editing JSON**, browse and **resume past Claude Code sessions** by project and git branch, or organize your Claude **skills, slash commands, hooks, and agents** &mdash; Claude Manager keeps all of it one click away in your editor sidebar.
+
 <br>
 
 ## What's inside

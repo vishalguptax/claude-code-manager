@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-08T00:00:00.000Z",
+  "title": "Design System: Claude Manager",
+  "extensions": {
+    "colorMeta": {
+      "claude-clay": {
+        "role": "primary",
+        "displayName": "Claude Clay",
+        "canonical": "oklch(74% 0.09 45)",
+        "tonalRamp": ["#2a1810", "#4a2a1c", "#6e3f2a", "#955438", "#bd6c4b", "#e08a63", "#ecaa8c", "#f6d4c5"]
+      },
+      "claude-clay-deep": {
+        "role": "primary",
+        "displayName": "Claude Clay Deep",
+        "canonical": "oklch(69% 0.10 42)",
+        "tonalRamp": ["#271409", "#452514", "#673922", "#8c4f31", "#b16641", "#d97757", "#e8a487", "#f3cdbb"]
+      },
+      "workbench-bg": {
+        "role": "neutral",
+        "displayName": "Workbench BG",
+        "canonical": "oklch(18% 0.02 280)",
+        "tonalRamp": ["#14141f", "#1a1a2e", "#22243c", "#2c2f4e", "#3a3d63", "#565a86", "#8d90b3", "#c7c9dd"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "oklch(24% 0.03 275)",
+        "tonalRamp": ["#15162447", "#1a1a2e", "#1f2138", "#262945", "#33365a", "#4a4e7a", "#8589b0", "#c5c8df"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(95% 0.01 280)",
+        "tonalRamp": ["#1c1d2c", "#33354d", "#4f5273", "#7376a0", "#9a9dc4", "#c2c4de", "#eef0ff", "#f8f9ff"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "oklch(74% 0.04 275)",
+        "tonalRamp": ["#23263a", "#363a55", "#4e527a", "#6a6fa0", "#888dbf", "#aab0d6", "#cdd2e8", "#eaecf6"]
+      },
+      "focus-blue": {
+        "role": "tertiary",
+        "displayName": "Focus Blue",
+        "canonical": "oklch(76% 0.10 260)",
+        "tonalRamp": ["#16223f", "#22335f", "#304681", "#425da6", "#5d7bc9", "#8ab4ff", "#b3cdff", "#dbe7ff"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero H1 only. Inter 800, balanced wrap." },
+      "headline": { "displayName": "Headline", "purpose": "Section titles." },
+      "title": { "displayName": "Title", "purpose": "Feature-card and component headings." },
+      "body": { "displayName": "Body", "purpose": "Paragraphs and card copy, capped 65-75ch." },
+      "label": { "displayName": "Label", "purpose": "The single hero eyebrow and small chips. Uppercase, short strings only." },
+      "mono": { "displayName": "Mono", "purpose": "Install command and inline code." }
+    },
+    "shadows": [
+      { "name": "hero-float", "value": "0 30px 70px -30px rgba(0,0,0,.7)", "purpose": "Hero demo image only; deep diffuse pool lifting it off the field." },
+      { "name": "screenshot-float", "value": "0 18px 44px -24px rgba(0,0,0,.7)", "purpose": "Screenshot figures; lighter version of the hero pool." }
+    ],
+    "motion": [
+      { "name": "ease-out-quart", "value": "cubic-bezier(.2,.7,.3,1)", "purpose": "Default easing for hover lifts and state transitions." },
+      { "name": "duration-state", "value": "180ms", "purpose": "Button and card hover transitions." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "820px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The install CTA. Claude Clay fill, the page's one warm signal.",
+      "html": "<a class=\"ds-btn-primary\" href=\"#\">Install for VS&nbsp;Code</a>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; justify-content:center; min-height:48px; padding:12px 22px; border-radius:11px; background:#e08a63; color:#1a1009; font-family:Inter,system-ui,sans-serif; font-weight:600; font-size:1rem; text-decoration:none; border:1px solid transparent; transition:transform .18s cubic-bezier(.2,.7,.3,1), background .18s cubic-bezier(.2,.7,.3,1); } .ds-btn-primary:hover { background:#d97757; transform:translateY(-2px); } .ds-btn-primary:focus-visible { outline:3px solid #8ab4ff; outline-offset:2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action. Transparent with a hairline border that warms to clay on hover.",
+      "html": "<a class=\"ds-btn-ghost\" href=\"#\">View on GitHub</a>",
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; justify-content:center; min-height:48px; padding:12px 22px; border-radius:11px; background:transparent; color:#eef0ff; font-family:Inter,system-ui,sans-serif; font-weight:600; font-size:1rem; text-decoration:none; border:1px solid #33365a; transition:transform .18s cubic-bezier(.2,.7,.3,1), border-color .18s cubic-bezier(.2,.7,.3,1); } .ds-btn-ghost:hover { border-color:#e08a63; transform:translateY(-2px); } .ds-btn-ghost:focus-visible { outline:3px solid #8ab4ff; outline-offset:2px; }"
+    },
+    {
+      "name": "Feature Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Feature-grid tile. Tonal navy gradient, clay-tinted icon tile, border warms on hover.",
+      "html": "<article class=\"ds-card\"><span class=\"ds-card-icon\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/><path d=\"M3 3v5h5\"/><path d=\"M12 7v5l4 2\"/></svg></span><h3>Sessions</h3><p>Browse, search, and resume past Claude Code sessions by project and git branch.</p></article>",
+      "css": ".ds-card { background:linear-gradient(180deg,#1f2138 0%,#1a1a2e 100%); border:1px solid #33365a; border-radius:14px; padding:24px; font-family:Inter,system-ui,sans-serif; transition:transform .2s cubic-bezier(.2,.7,.3,1), border-color .2s cubic-bezier(.2,.7,.3,1); } .ds-card:hover { transform:translateY(-4px); border-color:#e08a63; } .ds-card-icon { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:11px; background:rgba(224,138,99,.13); color:#e08a63; margin-bottom:16px; } .ds-card-icon svg { width:22px; height:22px; } .ds-card h3 { color:#eef0ff; font-size:1.18rem; font-weight:700; margin:0 0 8px; } .ds-card p { color:#aab0d6; font-size:.96rem; line-height:1.6; margin:0; }"
+    },
+    {
+      "name": "Install Command",
+      "kind": "custom",
+      "refersTo": "install-cmd",
+      "description": "Copy-the-command affordance. Darkest surface, mono in cool blue.",
+      "html": "<div class=\"ds-install\"><code>code --install-extension vishalguptax.claude-manager</code></div>",
+      "css": ".ds-install { background:#0e0e18; border:1px solid #33365a; border-radius:10px; padding:13px 16px; overflow-x:auto; } .ds-install code { font-family:'JetBrains Mono',ui-monospace,monospace; font-size:.92rem; color:#cfe3ff; white-space:nowrap; }"
+    },
+    {
+      "name": "FAQ Disclosure",
+      "kind": "custom",
+      "refersTo": "faq-summary",
+      "description": "Native details/summary with a rotating clay marker. No JS, keyboard-accessible.",
+      "html": "<details class=\"ds-faq\" open><summary>Does Claude Manager send anything to the network?</summary><p>No. It is local-first by default, zero telemetry, zero accounts, no background traffic.</p></details>",
+      "css": ".ds-faq { background:#1f2138; border:1px solid #33365a; border-radius:11px; padding:0 20px; font-family:Inter,system-ui,sans-serif; } .ds-faq summary { cursor:pointer; list-style:none; padding:18px 0; color:#eef0ff; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:16px; } .ds-faq summary::-webkit-details-marker { display:none; } .ds-faq summary::after { content:'+'; color:#e08a63; font-size:1.4rem; line-height:1; transition:transform .2s cubic-bezier(.2,.7,.3,1); } .ds-faq[open] summary::after { transform:rotate(45deg); } .ds-faq p { color:#aab0d6; line-height:1.6; padding:0 0 18px; margin:0; }"
+    },
+    {
+      "name": "Sticky Nav",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Translucent blurred header over a hairline border; muted links brighten to ink, install chip warms to clay.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-brand\">Claude Manager</span><span class=\"ds-nav-links\"><a href=\"#\">Features</a><a href=\"#\">FAQ</a><a class=\"ds-nav-cta\" href=\"#\">Install</a></span></nav>",
+      "css": ".ds-nav { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 20px; background:rgba(20,20,31,.78); backdrop-filter:blur(10px); border-bottom:1px solid #33365a; font-family:Inter,system-ui,sans-serif; } .ds-brand { color:#eef0ff; font-weight:700; } .ds-nav-links { display:flex; align-items:center; gap:22px; } .ds-nav-links a { color:#aab0d6; font-weight:500; font-size:.95rem; text-decoration:none; } .ds-nav-links a:hover { color:#eef0ff; } .ds-nav-cta { background:#262945; color:#eef0ff !important; padding:8px 14px; border-radius:9px; border:1px solid #33365a; } .ds-nav-cta:hover { border-color:#e08a63; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Local Workbench",
+    "overview": "Claude Manager lives inside the editor, so its marketing surface should feel like the editor: a quiet, dark workbench where the work, not the chrome, is the subject. The page is a deep navy field lit by a single warm tool-light, Claude Clay, whose scarcity is the whole point. The voice is precise, local, honest. It shows real extension screenshots rather than illustration, because specificity is the credibility. It rejects the saturated AI-landing reflexes by name: no cream background, no gradient text, no per-section eyebrow, no purple-gradient hype, no fade-in-on-everything. Depth comes from tonal navy layering, not glassmorphism or heavy shadow. A developer should know within a second this was built by someone who uses Claude Code daily and respects their machine.",
+    "keyCharacteristics": [
+      "Dark workbench field with exactly one warm accent (Claude Clay)",
+      "Real product screenshots, never illustration or mockup",
+      "Tonal navy layering for depth; restraint over shadow",
+      "Inter throughout, weight contrast over font count",
+      "Motion only as state feedback, never as decoration"
+    ],
+    "rules": [
+      { "name": "The One Warm Light Rule", "body": "Claude Clay is the only warm hue on the page and appears on no more than ~10% of any screen. Every additional warm element steals from the signal.", "section": "colors" },
+      { "name": "The Hairline Rule", "body": "Borders are 1px, color #33365a, full perimeter only. A thicker or colored edge is never the answer.", "section": "colors" },
+      { "name": "The One Eyebrow Rule", "body": "The uppercase tracked label appears once, in the hero. It is forbidden above every section.", "section": "typography" },
+      { "name": "The Weight-Not-Family Rule", "body": "New hierarchy comes from Inter weight, never from adding a third typeface.", "section": "typography" },
+      { "name": "The Tonal-Depth Rule", "body": "Depth is a lighter navy, not a shadow. Reach for box-shadow only when an element genuinely floats above the page.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Claude Clay (#e08a63) to ~10% of any screen; it is the only warm hue.",
+      "Do build depth from tonal navy steps; reserve box-shadow for floating media.",
+      "Do use real extension screenshots and the real demo; specificity is the credibility.",
+      "Do drive hierarchy with Inter weight contrast (400 vs 800), never a third typeface.",
+      "Do give every interactive element the 3px Focus Blue (#8ab4ff) ring and a prefers-reduced-motion fallback.",
+      "Do keep body/muted text (#aab0d6) at >=4.5:1 on the dark field; bump toward Ink if it drifts close."
+    ],
+    "donts": [
+      "Don't ship the generic SaaS template: no cream/sand background, no endless identical icon-card grids, no tiny uppercase eyebrow above every section.",
+      "Don't use gradient text; the accent word is a solid #e08a63.",
+      "Don't drift toward crypto/AI hype: no neon glow, no purple-gradient drench, no buzzwords, no fake urgency.",
+      "Don't over-animate: no scroll-jacking, no uniform fade-in on every section, no parallax. Motion is state feedback only.",
+      "Don't use a colored or >1px side-stripe border; borders are 1px full-perimeter #33365a.",
+      "Don't use glassmorphism anywhere except the one functional sticky-nav blur.",
+      "Don't write em dashes in page copy; use commas, colons, or periods."
+    ]
+  }
+}
