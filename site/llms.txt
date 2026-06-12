@@ -1,0 +1,20 @@
+# Claude Manager
+
+> Free, open-source VS Code extension that puts every Claude Code session, account, MCP server, skill, slash command, hook, and agent into one sidebar. 100% local, zero telemetry. Works in VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod.
+
+Claude Manager reads the shared `~/.claude/` directory used by Claude Code (both the CLI and the official VS Code extension) and turns it into a clickable, searchable sidebar. It does not make network calls, collect analytics, or store credentials — the only network request is an opt-in Quota card that fetches your own subscription usage with your own token, and only when you click Refresh. Licensed Apache 2.0.
+
+## Features
+
+- Sessions: browse, search (full-text transcript), and resume past Claude Code sessions by project and git branch. Pin, rename, fork, import, export, and restore a whole workspace of terminals. Active sessions show live status.
+- Account & Usage: switch between Claude accounts without a full logout/login. Activity heatmap, token usage by model/project/tool, and opt-in quota bars for the real 5-hour and 7-day subscription windows.
+- MCP Servers: enable, disable, delete, or inspect MCP servers with no JSON editing. Secrets are masked; an auth-health banner flags connectors that need re-auth.
+- Skills, Commands, Hooks, Agents: manage global, project, and plugin-scoped skills; built-in and custom slash commands; automation hooks across every settings scope with full command preview; project and plugin agents with model badges.
+- Config: model selector, reasoning effort, per-scope permissions editor, settings-history snapshots with one-click restore, and brain backup/restore.
+
+## Links
+
+- [Install on VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager): primary install for VS Code, Cursor, Windsurf, Antigravity
+- [Install on Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager): for VSCodium, Theia, Gitpod
+- [GitHub repository](https://github.com/vishalguptax/claude-code-manager): source code, issues, changelog (Apache 2.0)
+- [Sponsor the project](https://github.com/sponsors/vishalguptax)
