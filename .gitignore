@@ -17,3 +17,7 @@ docs/backlog.md
 docs/prompts/
 .local-plans/
 scripts/_mock-tmp/
+
+# Local design tooling (impeccable skill) — not part of the product
+.agents/skills/impeccable/
+.github/skills/
