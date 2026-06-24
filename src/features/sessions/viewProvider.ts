@@ -25,12 +25,14 @@ import { createLivePoll, type LivePoll } from "./liveState";
 import { openAccountSwitcher } from "./accountSwitcher";
 import {
   reloadAll,
+  reloadFeature,
   refreshSettings,
   postWorkspacePath,
   refreshLiveState,
   buildSearchIndex,
   checkForIdentityChange,
   sweepSwitchBackups,
+  type ConfigFeature,
   type ProviderActionsContext,
 } from "./providerActions";
 import type { WebviewMessage, Session } from "./types";
@@ -190,6 +192,9 @@ export class ClaudeSessionViewProvider
   }
   reloadAll(): Promise<void> {
     return reloadAll(this);
+  }
+  reloadConfigFeature(feature: ConfigFeature): void {
+    reloadFeature(this, feature);
   }
   checkForIdentityChange(data: AccountData): void {
     checkForIdentityChange(this, data);

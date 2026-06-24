@@ -10,7 +10,6 @@ import { ProfileView } from "./ProfileView";
 function stubApi(): AccountApi {
   return {
     getAccountData: vi.fn(),
-    openAccountUrl: vi.fn(),
     launchSlash: vi.fn(),
     setModel: vi.fn(),
     setVoiceEnabled: vi.fn(),
@@ -66,11 +65,71 @@ function makeData(
 describe("ProfileView", () => {
   beforeEach(() => _resetAccountState());
 
-  it("renders the signed-in identity and plan badge", () => {
+  it("renders the signed-in identity and plan badge (no separate Plan row)", () => {
     render(h(ProfileView, { data: makeData(), api: stubApi() }));
     expect(screen.getByText("Ada Lovelace")).toBeTruthy();
     expect(screen.getByText("user@example.com")).toBeTruthy();
-    expect(screen.getByText("max")).toBeTruthy();
+    // Plan shows once — in the badge only.
+    expect(screen.getAllByText("Max").length).toBe(1);
+    expect(screen.queryByText("Plan")).toBeNull();
+  });
+
+  it("shows the Max usage multiplier in the badge when the slug carries one", () => {
+    render(
+      h(ProfileView, {
+        data: makeData({ subscriptionType: "max", rateLimitTier: "default_claude_max_20x" }),
+        api: stubApi(),
+      }),
+    );
+    expect(screen.getByText("Max 20x")).toBeTruthy();
+  });
+
+  it("shows a bare Team badge (seat tier is not derivable)", () => {
+    render(
+      h(ProfileView, {
+        data: makeData(
+          { subscriptionType: "team", rateLimitTier: "default_raven" },
+          { settings: { model: "opus" } as AccountData["settings"] },
+        ),
+        api: stubApi(),
+      }),
+    );
+    expect(screen.getByText("Team")).toBeTruthy();
+    expect(screen.queryByText(/6.25|1.25/)).toBeNull();
+  });
+
+  it("never surfaces the raw internal rate-limit tier slug", () => {
+    render(
+      h(ProfileView, {
+        data: makeData({ subscriptionType: "team", rateLimitTier: "default_raven" }),
+        api: stubApi(),
+      }),
+    );
+    expect(screen.queryByText(/default_raven/)).toBeNull();
+    // Team has no multiplier — shows the bare family, never the codename.
+    expect(screen.getAllByText("Team").length).toBeGreaterThan(0);
+  });
+
+  it("does not render Organization, Plan-since, or Credentials rows", () => {
+    render(
+      h(ProfileView, {
+        data: makeData({
+          organizationName: "Acme",
+          organizationRole: "admin",
+          subscriptionCreatedAt: "2024-03-15T00:00:00Z",
+          credentialSource: "file",
+        }),
+        api: stubApi(),
+      }),
+    );
+    expect(screen.queryByText("Organization")).toBeNull();
+    expect(screen.queryByText("Plan since")).toBeNull();
+    expect(screen.queryByText("Credentials")).toBeNull();
+  });
+
+  it("no longer renders an Open claude.ai button", () => {
+    render(h(ProfileView, { data: makeData(), api: stubApi() }));
+    expect(screen.queryByText(/Open claude\.ai/)).toBeNull();
   });
 
   it("the avatar shows the first initial and opens the switcher on click", () => {

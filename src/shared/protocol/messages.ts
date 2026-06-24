@@ -48,7 +48,6 @@ export type Message =
   | { type: "getAgents" }
   | { type: "openAgentFile"; path: string }
   | { type: "getAccountData" }
-  | { type: "openAccountUrl"; url: string }
   | { type: "launchSlash"; command: string }
   | { type: "setModel"; model: string }
   | { type: "setVoiceEnabled"; value: boolean }
@@ -166,7 +165,6 @@ type WebviewMessageType =
   | "getAgents"
   | "openAgentFile"
   | "getAccountData"
-  | "openAccountUrl"
   | "launchSlash"
   | "setModel"
   | "setVoiceEnabled"

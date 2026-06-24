@@ -228,6 +228,10 @@ export const Uri = {
  * override as needed.
  */
 export const env = {
+  // Real VS Code reports "vscode"; forks override it ("cursor",
+  // "windsurf", "vscode-insiders"). Tests spy/override to assert deep
+  // links follow the host scheme rather than hardcoding "vscode://".
+  uriScheme: "vscode",
   openExternal: async (_uri: unknown) => true,
   clipboard: {
     writeText: async (_value: string) => {},

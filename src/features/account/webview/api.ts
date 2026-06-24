@@ -12,7 +12,6 @@ import type { PermissionScope } from "../types";
 /** A `post` function that only accepts validated webview messages. */
 export interface AccountApi {
   getAccountData(): void;
-  openAccountUrl(url: string): void;
   launchSlash(command: string): void;
   setModel(model: string): void;
   setVoiceEnabled(value: boolean): void;
@@ -39,7 +38,6 @@ export function useAccountApi(): AccountApi {
   const send = (msg: WebviewMessage): void => post(msg);
   return {
     getAccountData: () => send({ type: "getAccountData" }),
-    openAccountUrl: (url) => send({ type: "openAccountUrl", url }),
     launchSlash: (command) => send({ type: "launchSlash", command }),
     setModel: (model) => send({ type: "setModel", model }),
     setVoiceEnabled: (value) => send({ type: "setVoiceEnabled", value }),

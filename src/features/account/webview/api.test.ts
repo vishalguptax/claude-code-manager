@@ -21,7 +21,6 @@ describe("useAccountApi (typed Preact bridge)", () => {
     api.setModel("opus");
     api.setVoiceEnabled(true);
     api.removePermission("global", "Bash(rm)", "deny");
-    api.openAccountUrl("https://claude.ai");
     api.launchSlash("/login");
     api.openAccountSwitcher();
     api.promptSaveProfile();
@@ -43,6 +42,6 @@ describe("useAccountApi (typed Preact bridge)", () => {
       tool: "Bash(rm)",
       list: "deny",
     });
-    expect(post).toHaveBeenCalledTimes(16);
+    expect(post).toHaveBeenCalledTimes(15);
   });
 });

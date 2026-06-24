@@ -168,11 +168,6 @@ export async function handleAccountMessage(
       await ctx.openAccountSwitcher();
       break;
 
-    case "openAccountUrl": {
-      vscode.env.openExternal(vscode.Uri.parse(msg.url));
-      break;
-    }
-
     case "restoreSettingsSnapshot": {
       const workspace = getWorkspace();
       const choice = await vscode.window.showWarningMessage(

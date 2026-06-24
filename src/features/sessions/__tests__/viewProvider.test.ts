@@ -89,6 +89,32 @@ vi.mock("../../../extension/git", () => ({
   onBranchChange: () => ({ dispose: () => {} }),
 }));
 let __clearIndexCalls = 0;
+// Account cache-clear counters — the reload test proves Refresh forces a
+// cold model scan + usage re-aggregate. Wrapped (not replaced) via
+// importActual + top-level vi.mock so the real exports survive the
+// dynamic-import cache the per-test doMocks can't beat.
+let __clearModelCalls = 0;
+let __resetUsageCalls = 0;
+vi.mock("../../account/models", async (importActual) => {
+  const actual = await importActual<typeof import("../../account/models")>();
+  return {
+    ...actual,
+    clearModelCache: () => {
+      __clearModelCalls++;
+      actual.clearModelCache();
+    },
+  };
+});
+vi.mock("../../account/projectStats", async (importActual) => {
+  const actual = await importActual<typeof import("../../account/projectStats")>();
+  return {
+    ...actual,
+    resetUsageAggregateCache: () => {
+      __resetUsageCalls++;
+      actual.resetUsageAggregateCache();
+    },
+  };
+});
 vi.mock("../searchIndex", () => ({
   indexSession: () => {},
   pruneIndex: () => {},
@@ -113,6 +139,8 @@ beforeEach(() => {
   __mockedBranch = "";
   __mockedSearchContent = () => [];
   __clearIndexCalls = 0;
+  __clearModelCalls = 0;
+  __resetUsageCalls = 0;
   __htmlGen = 0;
 });
 
@@ -364,19 +392,30 @@ describe("ClaudeSessionViewProvider", () => {
     expect(types).toContain("hooks");
     expect(types).toContain("mcpServers");
     expect(types).toContain("agents");
+    // Quota rides its own message — Refresh must re-push it, since the
+    // webview won't refetch quota for an unchanged identity on its own.
+    expect(types).toContain("quotaData");
     // reloadComplete must be the final wire event so the webview can
     // safely drop the spinner once it arrives.
     expect(types[types.length - 1]).toBe("reloadComplete");
 
-    // (a) DATA — the global reload clears the full-text search index.
+    // (a) DATA — the global reload clears the full-text search index and
+    // the account caches (model scan + usage aggregate) so Refresh returns
+    // a freshly-discovered model list and live token usage, not stale memos.
     expect(__clearIndexCalls).toBeGreaterThanOrEqual(1);
+    expect(__clearModelCalls).toBeGreaterThanOrEqual(1);
+    expect(__resetUsageCalls).toBeGreaterThanOrEqual(1);
     // (c) WEBVIEW — the document was regenerated from the html builder, so
     // the post-reload html differs from the one set at resolve time.
     expect(view.webview.html).not.toBe(htmlAtResolve);
     expect(view.webview.html).toContain("data-gen");
   });
 
-  it("reloadAll routes through the reloadAll webview message", async () => {
+  // Same cold dynamic-import slack as the sibling reload test above: the
+  // doMock + `await import("../viewProvider")` pulls a fresh dep graph
+  // (now including the importActual-wrapped account caches) through Vite's
+  // transformer, which crosses the default 5s timeout on cold workers.
+  it("reloadAll routes through the reloadAll webview message", { timeout: 15000 }, async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],
       parseSessionDetail: () => null,

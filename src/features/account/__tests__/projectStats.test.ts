@@ -28,14 +28,19 @@ vi.mock("fs", () => ({
     }
     return entry;
   },
-  statSync: (p: string): { mtimeMs: number } => {
+  statSync: (p: string): { mtimeMs: number; size: number } => {
     const m = vfs.mtimes[p];
     if (m === undefined) {
       const e = new Error("ENOENT") as NodeJS.ErrnoException;
       e.code = "ENOENT";
       throw e;
     }
-    return { mtimeMs: m };
+    // Mirror real fs.Stats: size comes from the file's byte length.
+    // Directories (no file content) report 0 — the aggregator only
+    // folds file sizes into the fingerprint.
+    const content = vfs.files[p];
+    const size = content === undefined ? 0 : Buffer.byteLength(content);
+    return { mtimeMs: m, size };
   },
   readFileSync: (p: string): string => {
     const c = vfs.files[p];
@@ -236,33 +241,47 @@ describe("aggregateProjectStats", () => {
     expect(out.byProject[0].tokens).toBe(100);
   });
 
-  it("memoises by fingerprint — same dir mtimes returns cached result", () => {
+  it("memoises by fingerprint — unchanged transcripts return the cached result", () => {
     setupProject("p", "s.jsonl", [
       assistantLine({ sessionId: "s1", input: 1, output: 1 }),
     ]);
     const first = aggregateProjectStats();
-    // Mutate the underlying file content but DON'T touch the mtime —
-    // memo must hold the previous result.
-    vfs.files[path.join(PROJECTS_DIR, "p", "s.jsonl")] = "";
+    // Nothing on disk changed — the memo must return the identical object.
     const second = aggregateProjectStats();
     expect(second).toBe(first);
   });
 
-  it("recomputes when project-dir mtime changes", () => {
+  it("recomputes when an existing transcript grows mid-session (append)", () => {
+    const filePath = path.join(PROJECTS_DIR, "p", "s.jsonl");
+    setupProject("p", "s.jsonl", [
+      assistantLine({ sessionId: "s1", input: 1, output: 1 }),
+    ], 1000);
+    const first = aggregateProjectStats();
+    expect(first.byProject[0].tokens).toBe(2);
+    // Active session appends a turn: the file's mtime + size both move,
+    // but the parent directory's mtime does NOT (no entry added/removed).
+    // The fingerprint must still notice — this is the live-usage fix.
+    vfs.mtimes[filePath] = 2000;
+    vfs.files[filePath] = [
+      assistantLine({ sessionId: "s1", input: 1, output: 1 }),
+      assistantLine({ sessionId: "s1", input: 99, output: 99 }),
+    ].join("\n");
+    const second = aggregateProjectStats();
+    expect(second).not.toBe(first);
+    expect(second.byProject[0].tokens).toBe(200);
+  });
+
+  it("recomputes when a new transcript file appears", () => {
     setupProject("p", "s.jsonl", [
       assistantLine({ sessionId: "s1", input: 1, output: 1 }),
     ], 1000);
     aggregateProjectStats();
-    // Simulate a new session being written: bump mtime + change content.
-    vfs.mtimes[path.join(PROJECTS_DIR, "p")] = 2000;
-    vfs.files[path.join(PROJECTS_DIR, "p", "s.jsonl")] = JSON.stringify({
-      type: "assistant",
-      timestamp: "2026-04-27T10:00:00Z",
-      sessionId: "s2",
-      message: { model: "claude-opus-4-7", usage: { input_tokens: 99, output_tokens: 99 } },
-    });
+    // A second session is written under the same project slug.
+    setupProject("p", "s2.jsonl", [
+      assistantLine({ sessionId: "s2", input: 99, output: 99 }),
+    ], 2000);
     const out = aggregateProjectStats();
-    expect(out.byProject[0].tokens).toBe(198);
+    expect(out.byProject[0].tokens).toBe(200);
   });
 
   it("excludes projects with no sessions and zero tokens", () => {

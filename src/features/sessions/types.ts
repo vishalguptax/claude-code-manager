@@ -327,7 +327,6 @@ export type WebviewMessage =
   | { type: "openFile"; path: string }
   | { type: "openExtensionSettings" }
   | { type: "getAccountData" }
-  | { type: "openAccountUrl"; url: string }
   | { type: "launchSlash"; command: string }
   | { type: "setModel"; model: string }
   | { type: "setVoiceEnabled"; value: boolean }

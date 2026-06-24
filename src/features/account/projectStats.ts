@@ -22,9 +22,10 @@
  *   - We dedup by message `uuid`, so resumed sessions that re-append
  *     prior turns don't inflate counts.
  *
- * Result is memoised by a fingerprint over the project directories
- * (count + summed mtimes). The second open of the tab is near-instant
- * even with thousands of transcripts.
+ * Result is memoised by a fingerprint over every transcript file
+ * (slug count + summed file mtime/size). The second open of the tab is
+ * near-instant even with thousands of transcripts, yet an append to a
+ * live session's transcript still invalidates the memo.
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -137,9 +138,9 @@ interface SessionTimes {
 }
 
 /**
- * Module-scope memo. Fingerprint = count + summed mtimes across every
- * project directory in every config dir. Detects new sessions, edits,
- * and config-dir changes without per-file stat calls.
+ * Module-scope memo. Fingerprint = slug count + summed (mtime + size)
+ * of every transcript file across every config dir. File-level stats
+ * (not just dir mtimes) are what let it detect mid-session appends.
  */
 let cachedFingerprint = -1;
 let cachedResult: UsageAggregate | null = null;
@@ -153,11 +154,15 @@ export function aggregateUsage(): UsageAggregate {
   const dirs = projectDirs();
   if (dirs.length === 0) return emptyAggregate();
 
-  // Fingerprint over every (configDir, slug) pair. Cheap to compute
-  // because we only stat the project directories themselves, not the
-  // individual session files inside.
+  // Fingerprint over every transcript file (mtime + size), not just the
+  // project directories. A directory's mtime only moves when an entry is
+  // created/renamed/deleted — appending tokens to an *existing* transcript
+  // (exactly what an active session does) leaves the parent dir mtime
+  // untouched, so a dir-only fingerprint froze the usage tab mid-session.
+  // Statting each .jsonl is far cheaper than the read+parse below, which
+  // stays guarded by the fingerprint, so the second open is still fast.
   let fp = 0;
-  const allEntries: Array<{ projectsDir: string; slug: string }> = [];
+  const allFiles: Array<{ slug: string; filePath: string }> = [];
   for (const projectsDir of dirs) {
     let slugs: string[];
     try {
@@ -167,35 +172,38 @@ export function aggregateUsage(): UsageAggregate {
     }
     fp += slugs.length;
     for (const slug of slugs) {
+      const projDir = path.join(projectsDir, slug);
+      let files: string[];
       try {
-        fp += fs.statSync(path.join(projectsDir, slug)).mtimeMs;
+        files = fs.readdirSync(projDir);
       } catch {
-        // missing entry — skip in fingerprint
+        continue;
       }
-      allEntries.push({ projectsDir, slug });
+      for (const f of files) {
+        if (!f.endsWith(".jsonl")) continue;
+        const filePath = path.join(projDir, f);
+        try {
+          const st = fs.statSync(filePath);
+          fp += st.mtimeMs + st.size;
+        } catch {
+          // file vanished between readdir and stat — skip
+          continue;
+        }
+        allFiles.push({ slug, filePath });
+      }
     }
   }
   if (cachedResult && fp === cachedFingerprint) return cachedResult;
 
   const state = new AggState();
-  for (const { projectsDir, slug } of allEntries) {
-    const projDir = path.join(projectsDir, slug);
-    let files: string[];
+  for (const { slug, filePath } of allFiles) {
+    let raw: string;
     try {
-      files = fs.readdirSync(projDir);
+      raw = fs.readFileSync(filePath, "utf-8");
     } catch {
       continue;
     }
-    for (const f of files) {
-      if (!f.endsWith(".jsonl")) continue;
-      let raw: string;
-      try {
-        raw = fs.readFileSync(path.join(projDir, f), "utf-8");
-      } catch {
-        continue;
-      }
-      state.ingest(raw, slug);
-    }
+    state.ingest(raw, slug);
   }
 
   const result = state.finalise();

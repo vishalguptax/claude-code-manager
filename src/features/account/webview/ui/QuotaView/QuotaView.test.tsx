@@ -10,7 +10,6 @@ import { QuotaView } from "./QuotaView";
 function stubApi(): AccountApi {
   return {
     getAccountData: vi.fn(),
-    openAccountUrl: vi.fn(),
     launchSlash: vi.fn(),
     setModel: vi.fn(),
     setVoiceEnabled: vi.fn(),
@@ -83,13 +82,40 @@ describe("QuotaView", () => {
     expect(api.fetchQuota).toHaveBeenCalled();
   });
 
-  it("the header refresh button re-reads without collapsing the section", () => {
+  it("the header refresh button re-reads without tearing down the bars", () => {
     setQuotaSuccess(SUCCESS);
     const api = stubApi();
     render(h(QuotaView, { api }));
     fireEvent.click(screen.getByLabelText("Re-read latest quota"));
     expect(api.fetchQuota).toHaveBeenCalled();
-    // Flipped to loading in-place — the body stayed mounted (section open).
-    expect(screen.getByText(/Reading quota/)).toBeTruthy();
+    // No flicker: with data already shown, re-read keeps the bars in place
+    // instead of swapping to the "Reading quota" spinner. The numbers are
+    // replaced when the reply lands.
+    expect(screen.getByText("5-hour window")).toBeTruthy();
+    expect(screen.queryByText(/Reading quota/)).toBeNull();
+  });
+
+  it("shows a live status dot (in the header) for a fresh capture", () => {
+    setQuotaSuccess(SUCCESS);
+    render(h(QuotaView, { api: stubApi() }));
+    const dot = screen.getByTitle(/Live · last render/);
+    expect(dot).toBeTruthy();
+    expect(dot.classList.contains("is-stale")).toBe(false);
+    // No bottom caption anymore — freshness lives only in the header dot.
+    expect(screen.queryByText(/last render/)).toBeNull();
+  });
+
+  it("marks the header dot idle when the capture is stale", () => {
+    const stale: QuotaSuccess = {
+      ...SUCCESS,
+      quota: {
+        ...SUCCESS.quota,
+        capturedAt: new Date(Date.now() - 20 * 60_000).toISOString(),
+      },
+    };
+    setQuotaSuccess(stale);
+    render(h(QuotaView, { api: stubApi() }));
+    const dot = screen.getByTitle(/Idle · last render/);
+    expect(dot.classList.contains("is-stale")).toBe(true);
   });
 });

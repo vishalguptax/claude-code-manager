@@ -12,7 +12,9 @@ import {
   formatMoney,
   formatNumber,
   formatPct,
+  formatPlan,
   formatResetsIn,
+  quotaFreshness,
   quotaTone,
   shortenProjectPath,
 } from "./format";
@@ -118,6 +120,48 @@ describe("formatFetchedRelative", () => {
   it("formats minutes and hours ago", () => {
     expect(formatFetchedRelative(new Date(Date.now() - 5 * 60000).toISOString())).toBe("5m ago");
     expect(formatFetchedRelative(new Date(Date.now() - 2 * 3600000).toISOString())).toBe("2h ago");
+  });
+  it("honours an injected now and rolls into days", () => {
+    const now = Date.parse("2026-06-10T12:00:00Z");
+    const threeDaysAgo = "2026-06-07T12:00:00Z";
+    expect(formatFetchedRelative(threeDaysAgo, now)).toBe("3d ago");
+  });
+});
+
+describe("quotaFreshness", () => {
+  const now = Date.parse("2026-06-10T12:00:00Z");
+  it("is fresh for a recent capture", () => {
+    const f = quotaFreshness("2026-06-10T11:58:00Z", now); // 2m ago
+    expect(f).toEqual({ text: "2m ago", stale: false });
+  });
+  it("is stale once the capture passes the idle threshold", () => {
+    const f = quotaFreshness("2026-06-10T11:40:00Z", now); // 20m ago
+    expect(f.stale).toBe(true);
+    expect(f.text).toBe("20m ago");
+  });
+  it("never marks an unparseable timestamp stale", () => {
+    expect(quotaFreshness("nope", now)).toEqual({ text: "just now", stale: false });
+  });
+});
+
+describe("formatPlan", () => {
+  it("returns the bare family for Pro / Team / Free", () => {
+    expect(formatPlan("pro", "")).toBe("Pro");
+    expect(formatPlan("team", "default_raven")).toBe("Team");
+    expect(formatPlan("free", "")).toBe("Free");
+  });
+  it("reads the Pro/Max multiplier from the slug (lowercase x, Anthropic style)", () => {
+    expect(formatPlan("max", "default_claude_max_20x")).toBe("Max 20x");
+    expect(formatPlan("max", "default_claude_max_5x")).toBe("Max 5x");
+  });
+  it("shows bare Team — the seat tier is not in any decodable field", () => {
+    expect(formatPlan("team", "default_raven")).toBe("Team");
+  });
+  it("falls back to the bare family for Pro/Max with an opaque codename", () => {
+    expect(formatPlan("max", "default_raven")).toBe("Max");
+  });
+  it("returns empty for an absent subscription type", () => {
+    expect(formatPlan("", "default_max_20x")).toBe("");
   });
 });
 

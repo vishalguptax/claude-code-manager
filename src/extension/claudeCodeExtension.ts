@@ -4,7 +4,7 @@
  *
  * The extension is entirely optional — Claude Manager works without it.
  * When present it exposes exactly one integration point: a URI handler
- * at `vscode://anthropic.claude-code/open` that accepts `session` and
+ * at `<scheme>://anthropic.claude-code/open` that accepts `session` and
  * `prompt` query parameters. Every helper in this module either detects
  * the extension or fires that URI; nothing else is public API.
  */
@@ -13,6 +13,18 @@ import * as vscode from "vscode";
 
 /** Marketplace ID of the official extension. */
 export const CLAUDE_CODE_EXTENSION_ID = "anthropic.claude-code";
+
+/**
+ * URI scheme of the running host. VS Code is `vscode`, but forks own
+ * their own scheme — Cursor is `cursor`, Windsurf is `windsurf`,
+ * VS Code Insiders is `vscode-insiders`. Hardcoding `vscode://` here
+ * routed every deep link to a freshly launched VS Code instead of the
+ * IDE the user is actually in; `vscode.env.uriScheme` is the host's own
+ * scheme, so the URI is delivered back to this same window.
+ */
+function hostUriScheme(): string {
+  return vscode.env.uriScheme;
+}
 
 // Re-export the entrypoint helpers from core/utils so extension-host
 // callers can import them from this module alongside the URI helpers.
@@ -42,7 +54,7 @@ export function isClaudeCodeExtensionInstalled(): boolean {
  */
 export function openSessionInExtension(sessionId: string): Thenable<boolean> {
   const uri = vscode.Uri.parse(
-    `vscode://${CLAUDE_CODE_EXTENSION_ID}/open?session=${encodeURIComponent(sessionId)}`,
+    `${hostUriScheme()}://${CLAUDE_CODE_EXTENSION_ID}/open?session=${encodeURIComponent(sessionId)}`,
   );
   return vscode.env.openExternal(uri);
 }
@@ -54,7 +66,7 @@ export function openSessionInExtension(sessionId: string): Thenable<boolean> {
  * handler treats an absent `prompt` as "blank chat".
  */
 export function openPromptInExtension(prompt: string): Thenable<boolean> {
-  const base = `vscode://${CLAUDE_CODE_EXTENSION_ID}/open`;
+  const base = `${hostUriScheme()}://${CLAUDE_CODE_EXTENSION_ID}/open`;
   const uri = prompt
     ? vscode.Uri.parse(`${base}?prompt=${encodeURIComponent(prompt)}`)
     : vscode.Uri.parse(base);

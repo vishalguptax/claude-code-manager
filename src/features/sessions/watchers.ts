@@ -32,6 +32,7 @@ import { readQuota } from "../account/quota";
 import { syncActiveProfile as syncActiveProfileSnapshot } from "../account/profiles";
 import type { Session } from "./types";
 import type { AccountData } from "../account/types";
+import type { ConfigFeature } from "./providerActions";
 
 /**
  * Extension-host state + callbacks the watchers need. Implemented by the
@@ -52,6 +53,8 @@ export interface WatcherContext {
   refreshLiveState(): void;
   /** Surface the identity-change nudge after an account reparse. */
   checkForIdentityChange(data: AccountData): void;
+  /** Re-parse + re-push a single config-driven feature (skills, etc.). */
+  reloadConfigFeature(feature: ConfigFeature): void;
 }
 
 /**
@@ -166,6 +169,26 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
     bindAll(watcher, onAccountChange);
     watchers.push(watcher);
   }
+
+  // Lightweight account re-push for the session-data path. Token usage is
+  // aggregated from the transcripts and shipped inside `accountData`, but
+  // the account watcher above only fires on settings/credentials/stats-
+  // cache writes — never on a transcript append. Without this, the Usage
+  // tab stayed frozen for the whole of an active session. Skips the
+  // profile-sync + identity-change side effects of `onAccountChange`:
+  // those belong to credential writes, not to ordinary token activity.
+  // The usage aggregate is fingerprint-memoised, so when nothing actually
+  // grew this recomputes nothing and just re-ships the cached payload.
+  const pushAccountUsage = (): void => {
+    const wv = ctx.getWebview();
+    if (!wv) return;
+    try {
+      const data = parseAccountData(getWorkspace() || undefined);
+      wv.postMessage({ type: "accountData", data });
+    } catch (err) {
+      console.warn("[claude-manager] usage re-push failed:", err);
+    }
+  };
 
   // ── Quota watcher ──
   // The statusline tap rewrites ~/.claude/.claude-manager/statusline.json
@@ -307,6 +330,11 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
         ctx.buildSearchIndex();
       } catch (err) {
         console.warn("[claude-manager] sessions reparse failed:", err);
+      } finally {
+        // Runs on every exit branch (full reparse, targeted, no-op) so a
+        // transcript append refreshes the Usage tab even when the session
+        // list itself didn't reorder.
+        pushAccountUsage();
       }
     }, 1000);
   };
@@ -323,6 +351,53 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   bindAll(livePidWatcher, () => ctx.refreshLiveState());
   watchers.push(livePidWatcher);
 
+  // ── Config-artifact watchers (skills / commands / agents / mcp / hooks) ──
+  // These tabs read plain files under ~/.claude and the workspace .claude/.
+  // Nothing writes them but the user (or a plugin install) — no Claude
+  // session, no statusline tap — so a file watcher is all that's needed
+  // for them to update live for any user, regardless of whether Claude is
+  // running. The parsers are mtime-cached, so a reparse only re-reads the
+  // file that actually changed. Per-feature debounce coalesces the burst an
+  // editor emits on save (write + atomic-rename + attribute touch).
+  const CONFIG_DEBOUNCE_MS = 250;
+  const configTimers = new Map<ConfigFeature, NodeJS.Timeout>();
+  const scheduleConfigReload = (feature: ConfigFeature): void => {
+    const existing = configTimers.get(feature);
+    if (existing) clearTimeout(existing);
+    configTimers.set(
+      feature,
+      setTimeout(() => {
+        configTimers.delete(feature);
+        ctx.reloadConfigFeature(feature);
+      }, CONFIG_DEBOUNCE_MS),
+    );
+  };
+
+  const claudeUri = vscode.Uri.file(claudeDir);
+  const configPatterns: Array<{ feature: ConfigFeature; pattern: vscode.RelativePattern }> = [
+    // Global (~/.claude). claudeDir is already symlink-resolved above.
+    { feature: "skills", pattern: new vscode.RelativePattern(vscode.Uri.file(path.join(claudeDir, "skills")), "**/SKILL.md") },
+    { feature: "commands", pattern: new vscode.RelativePattern(vscode.Uri.file(path.join(claudeDir, "commands")), "**/*.{md,toml}") },
+    { feature: "agents", pattern: new vscode.RelativePattern(vscode.Uri.file(path.join(claudeDir, "agents")), "**/*.md") },
+    { feature: "mcp", pattern: new vscode.RelativePattern(claudeUri, "mcp.json") },
+    { feature: "hooks", pattern: new vscode.RelativePattern(claudeUri, "settings.json") },
+  ];
+  if (workspace) {
+    configPatterns.push(
+      { feature: "skills", pattern: new vscode.RelativePattern(workspace, ".claude/skills/**/SKILL.md") },
+      { feature: "commands", pattern: new vscode.RelativePattern(workspace, ".claude/commands/**/*.{md,toml}") },
+      { feature: "agents", pattern: new vscode.RelativePattern(workspace, ".claude/agents/**/*.md") },
+      { feature: "mcp", pattern: new vscode.RelativePattern(workspace, ".mcp.json") },
+      { feature: "hooks", pattern: new vscode.RelativePattern(workspace, ".claude/settings.json") },
+      { feature: "hooks", pattern: new vscode.RelativePattern(workspace, ".claude/settings.local.json") },
+    );
+  }
+  for (const { feature, pattern } of configPatterns) {
+    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+    bindAll(watcher, () => scheduleConfigReload(feature));
+    watchers.push(watcher);
+  }
+
   return {
     dispose(): void {
       if (accountReparseTimer) clearTimeout(accountReparseTimer);
@@ -331,6 +406,8 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
       sessionsReparseTimer = undefined;
       if (quotaCacheTimer) clearTimeout(quotaCacheTimer);
       quotaCacheTimer = undefined;
+      for (const t of configTimers.values()) clearTimeout(t);
+      configTimers.clear();
       for (const w of watchers) w.dispose();
       watchers.length = 0;
     },

@@ -116,17 +116,92 @@ export function formatResetsIn(isoResetsAt: string): string {
   return leftoverHours > 0 ? `resets in ${days}d ${leftoverHours}h` : `resets in ${days}d`;
 }
 
-/** Format "Fetched Xm ago" relative to now — tight, scannable. */
-export function formatFetchedRelative(iso: string): string {
+/**
+ * Format "Fetched Xm ago" relative to now — tight, scannable. `now` is
+ * injectable so the relative string is deterministic in tests; callers
+ * normally omit it and get wall-clock.
+ */
+export function formatFetchedRelative(iso: string, now: number = Date.now()): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return "just now";
-  const diff = Date.now() - t;
+  const diff = now - t;
   if (diff < 10_000) return "just now";
   const mins = Math.floor(diff / 60_000);
   if (mins < 1) return `${Math.floor(diff / 1000)}s ago`;
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
-  return `${hours}h ago`;
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+/**
+ * Past this age the cached quota is treated as "idle" — no Claude render
+ * has refreshed it recently, so the bars are last-known rather than live.
+ * 10 min comfortably exceeds an active session's render cadence (every
+ * turn) without flapping during a brief pause between prompts.
+ */
+export const QUOTA_STALE_AFTER_MS = 10 * 60_000;
+
+export interface QuotaFreshness {
+  /** Relative age of the capture, e.g. "5m ago". */
+  text: string;
+  /** True once the capture is old enough to be "idle" / last-known. */
+  stale: boolean;
+}
+
+/**
+ * Freshness of the cached quota. The quota number is fetched by Claude
+ * Code (the only authorized client) and cached on its statusline render;
+ * we can only read that cache, never force a server fetch. So when no
+ * render has happened recently the figure is last-known, not live — this
+ * lets the UI say so instead of presenting frozen bars as current.
+ */
+export function quotaFreshness(capturedIso: string, now: number = Date.now()): QuotaFreshness {
+  const t = Date.parse(capturedIso);
+  if (Number.isNaN(t)) return { text: "just now", stale: false };
+  return { text: formatFetchedRelative(capturedIso, now), stale: now - t >= QUOTA_STALE_AFTER_MS };
+}
+
+/** Capitalize a subscription slug for display: "max" → "Max". */
+export function formatPlanName(sub: string): string {
+  if (!sub) return "";
+  return sub.charAt(0).toUpperCase() + sub.slice(1);
+}
+
+/**
+ * Human plan label, matching Anthropic's plan vocabulary (Free / Pro /
+ * Max 5x / Max 20x / Team). The tier *family* comes from
+ * `subscriptionType`; the usage multiplier is appended only when the
+ * `rateLimitTier` slug carries the parseable "Nx" form (e.g.
+ * "default_claude_max_20x" → "Max 20x"). Lowercase "x" matches Anthropic's
+ * own naming.
+ *
+ * Team is shown bare ("Team"): the Standard (1.25×) vs Premium (6.25×)
+ * seat is NOT in any decodable local field — the slug is an opaque
+ * codename ("default_raven"), and the only model signals on disk
+ * (`settings.json` model, the live model) reflect the *user's* choice,
+ * not the seat's recommended default. Anthropic doesn't write the seat
+ * default anywhere we can read, so inferring it would just be reading
+ * back the user's own override — we don't guess. Price is excluded too
+ * (region/currency marketing data, not account data).
+ */
+export function formatPlan(subscriptionType: string, rateLimitTier: string): string {
+  const family = formatPlanName(subscriptionType);
+  if (!family) return "";
+  const slugMult = rateLimitTier.match(/(\d+)\s*x/i);
+  return slugMult ? `${family} ${slugMult[1]}x` : family;
+}
+
+/**
+ * Format an ISO date as "Mon YYYY" (e.g. "Mar 2024") for the "plan since"
+ * row. Returns "" when the timestamp is missing or unparseable so the
+ * caller can omit the row entirely.
+ */
+export function formatJoinedDate(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "";
+  return new Date(t).toLocaleDateString(undefined, { year: "numeric", month: "short" });
 }
 
 /** Utilization colour tier — drives the bar's mood as the cap nears. */

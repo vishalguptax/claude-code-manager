@@ -100,7 +100,6 @@ const deleteMcpServer = v.object({
 const getAgents = v.object({ type: v.literal("getAgents") });
 const openAgentFile = v.object({ type: v.literal("openAgentFile"), path: v.string() });
 const getAccountData = v.object({ type: v.literal("getAccountData") });
-const openAccountUrl = v.object({ type: v.literal("openAccountUrl"), url: v.string() });
 const launchSlash = v.object({ type: v.literal("launchSlash"), command: v.string() });
 const setModel = v.object({ type: v.literal("setModel"), model: v.string() });
 const setVoiceEnabled = v.object({ type: v.literal("setVoiceEnabled"), value: v.boolean() });
@@ -264,7 +263,6 @@ export const messageSchema = v.variant("type", [
   getAgents,
   openAgentFile,
   getAccountData,
-  openAccountUrl,
   launchSlash,
   setModel,
   setVoiceEnabled,

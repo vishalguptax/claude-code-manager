@@ -18,7 +18,7 @@
 import { Button, Icon } from "../../../../../webview/shared/ui";
 import type { QuotaError, QuotaSuccess } from "../../../quota";
 import type { AccountApi } from "../../api";
-import { formatFetchedRelative } from "../../lib";
+import { quotaFreshness } from "../../lib";
 import { isSectionCollapsed, quotaStatus, setQuotaLoading, toggleSection } from "../../model";
 import { QuotaBar } from "../QuotaBar";
 import { SectionHeader } from "../SectionHeader";
@@ -33,9 +33,15 @@ export function QuotaView({ api }: QuotaViewProps) {
 
   // Re-read the cache. Stop propagation so the header button doesn't
   // also toggle the section collapse.
+  //
+  // Only fall back to the loading skeleton when there's nothing to show
+  // yet. Tearing live bars down to a spinner on every re-read caused a
+  // visible layout shift + flicker (bars → spinner → bars); keeping the
+  // current bars in place and swapping the numbers when the reply lands
+  // is seamless, and the local cache read is effectively instant anyway.
   const refresh = (e: Event): void => {
     e.stopPropagation();
-    setQuotaLoading();
+    if (quotaStatus.value.kind !== "success") setQuotaLoading();
     api.fetchQuota();
   };
 
@@ -45,13 +51,22 @@ export function QuotaView({ api }: QuotaViewProps) {
     api.installStatusline();
   };
 
-  // Header freshness reflects when Claude Code last rendered (captured),
-  // not when we read the file — that's the figure users care about.
+  // A single status dot beside Refresh carries the freshness: a live
+  // green pulse while Claude is actively rendering, a muted static dot
+  // once the capture goes idle. The exact "last render Xm ago" detail
+  // lives in its tooltip, so the header stays clean (no timestamp text).
   const captured = status.kind === "success" ? status.data.quota.capturedAt : "";
-  const stamp = captured ? (
-    <span class="acct-quota-timestamp" title={captured}>
-      {formatFetchedRelative(captured)}
-    </span>
+  const fresh = captured ? quotaFreshness(captured) : null;
+  const liveDot = fresh ? (
+    <span
+      class={`acct-quota-live-dot${fresh.stale ? " is-stale" : ""}`}
+      title={
+        fresh.stale
+          ? `Idle · last render ${fresh.text}. Updates when Claude runs.`
+          : `Live · last render ${fresh.text}`
+      }
+      aria-label={fresh.stale ? "Quota idle" : "Quota live"}
+    />
   ) : null;
 
   const refreshBtn =
@@ -68,7 +83,7 @@ export function QuotaView({ api }: QuotaViewProps) {
   return (
     <section class="acct-section">
       <SectionHeader id="quota" title="Quota" collapsed={collapsed} onToggle={toggleSection}>
-        {stamp}
+        {liveDot}
         {refreshBtn}
       </SectionHeader>
       {collapsed ? null : (
@@ -139,6 +154,8 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
       </p>
     );
   }
+  // Freshness now lives in the header status dot (beside Refresh), so the
+  // body is just the bars — no redundant caption.
   return (
     <div class="acct-quota-bars">
       {fiveHour ? <QuotaBar label="5-hour window" window={fiveHour} /> : null}

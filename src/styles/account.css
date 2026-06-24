@@ -157,10 +157,11 @@
   align-items: center;
   padding: var(--space-xs) var(--space-md);
   border-radius: var(--radius);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  /* Mixed case (not uppercased) so the label reads as Anthropic names it:
+     "Max 20x", "Team 6.25x", "Pro" — the lowercase multiplier "x" survives. */
+  white-space: nowrap;
   flex-shrink: 0;
 }
 .acct-plan-badge.plan-max    { background: rgba(255,153,102,0.15); color: #FF9966; border: 1px solid rgba(255,153,102,0.3); }
@@ -174,6 +175,40 @@
 
 .acct-meta {
   margin: var(--space-md) 0;
+}
+
+/*
+ * Profile plan details. Aligns every key into one column and every value
+ * into the next so the block reads as a tidy table, not a ragged stack of
+ * rows (the keys "Organization" / "Plan since" / "Credentials" differ in
+ * width, which left the values jagged before). `display: contents` lets
+ * each shared MetaRow's two spans flow directly into the grid tracks.
+ * A hairline rule + top padding separates the details from the identity
+ * header above so the hierarchy is legible at a glance.
+ */
+.acct-meta-profile {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: var(--space-lg);
+  row-gap: var(--space-sm);
+  align-items: baseline;
+  /* The identity header already carries a bottom margin; rely on that for
+     the gap above the divider so the spacing isn't doubled. */
+  margin-top: 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+}
+.acct-meta-profile .acct-meta-row {
+  display: contents;
+}
+.acct-meta-profile .acct-meta-k {
+  font-size: var(--fs-sm);
+}
+.acct-meta-profile .acct-meta-v {
+  font-size: var(--fs-sm);
+  /* Values share column 2 and start at the same x, so the pairs line up.
+     Left-aligned (not flush-right) keeps ellipsis on long org names tidy. */
+  max-width: 100%;
 }
 
 /*
@@ -826,11 +861,30 @@
  * before the refresh button. Xs size + muted fg so it reads as
  * metadata. No icon — keeps the header lean.
  */
-.acct-quota-timestamp {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
+/* Quota freshness status dot — sits in the section header beside the
+   Refresh button. Live: a calm green pulse while Claude is rendering.
+   Idle: a muted static dot once the capture ages out. The "last render
+   Xm ago" detail rides the element's tooltip, so the header needs no
+   timestamp text. */
+.acct-quota-live-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: var(--space-xs);
+  background: var(--vscode-testing-iconPassed, #3fb950);
+  animation: acct-quota-pulse 2s ease-in-out infinite;
+}
+.acct-quota-live-dot.is-stale {
+  background: var(--fg-muted);
+  animation: none;
+}
+@keyframes acct-quota-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acct-quota-live-dot { animation: none; }
 }
 
 /* Error state — icon + title + message + retry, laid out in a row so

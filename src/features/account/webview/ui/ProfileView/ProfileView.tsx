@@ -14,6 +14,7 @@ import { cx } from "../../../../../webview/shared/lib";
 import { Button, Icon } from "../../../../../webview/shared/ui";
 import type { AccountData } from "../../../types";
 import type { AccountApi } from "../../api";
+import { formatPlan } from "../../lib";
 import { isSectionCollapsed, toggleSection } from "../../model";
 import { MetaRow } from "../MetaRow";
 import { SectionHeader } from "../SectionHeader";
@@ -78,12 +79,13 @@ function SignedIn({ data, api }: ProfileViewProps) {
   const initial = (p.displayName || p.email || "?").charAt(0).toUpperCase();
   const expiresInDays =
     p.tokenExpiresAt > 0 ? Math.round((p.tokenExpiresAt - Date.now()) / 86400000) : 0;
-  const credLabel = p.credentialSource === "keychain-darwin" ? "macOS Keychain" : "Local file";
-  const credTitle =
-    p.credentialSource === "keychain-darwin"
-      ? "Tokens stored in macOS Keychain. First read prompts for permission per IDE."
-      : "Tokens stored in ~/.claude/.credentials.json (file mode 0600).";
   const name = p.displayName || p.email || (p.signedIn ? "Signed in" : "Not signed in");
+  // Plan label (e.g. "Max 20×", "Team", "Pro") derived locally from the
+  // OAuth credential — no network. Shown in the badge beside the name;
+  // organization, plan-start date, and credential storage are omitted to
+  // keep the profile focused on identity + plan.
+  const plan = formatPlan(p.subscriptionType, p.rateLimitTier);
+  const hasMeta = expiresInDays > 0;
 
   return (
     <div class="acct-profile-wrap">
@@ -117,24 +119,19 @@ function SignedIn({ data, api }: ProfileViewProps) {
           <div class="acct-name">{name}</div>
           <div class="acct-email">{p.email}</div>
         </div>
-        {p.subscriptionType ? (
-          <span class={cx("acct-plan-badge", `plan-${p.subscriptionType}`)}>
-            {p.subscriptionType}
+        {plan ? (
+          <span class={cx("acct-plan-badge", `plan-${p.subscriptionType}`)} title="Subscription plan">
+            {plan}
           </span>
         ) : null}
       </div>
 
-      {expiresInDays > 0 || p.credentialSource ? (
-        <div class="acct-meta">
-          {expiresInDays > 0 ? (
-            <MetaRow
-              k="Session expires"
-              v={`in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}`}
-            />
-          ) : null}
-          {p.credentialSource ? (
-            <MetaRow k="Credentials stored in" v={credLabel} title={credTitle} />
-          ) : null}
+      {hasMeta ? (
+        <div class="acct-meta acct-meta-profile">
+          <MetaRow
+            k="Session expires"
+            v={`in ${expiresInDays} day${expiresInDays === 1 ? "" : "s"}`}
+          />
         </div>
       ) : null}
 
@@ -157,12 +154,6 @@ function SignedIn({ data, api }: ProfileViewProps) {
         ) : null}
         <Button variant="danger" iconName="x" onClick={() => api.launchSlash("/logout")}>
           Log out
-        </Button>
-        <Button
-          iconName="external-link"
-          onClick={() => api.openAccountUrl("https://claude.ai/settings")}
-        >
-          Open claude.ai
         </Button>
       </div>
     </div>

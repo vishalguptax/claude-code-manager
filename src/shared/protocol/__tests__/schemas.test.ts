@@ -79,7 +79,6 @@ describe("parseMessage — webview to host", () => {
 
   it("accepts account messages", () => {
     roundTrip({ type: "getAccountData" });
-    roundTrip({ type: "openAccountUrl", url: "https://x" });
     roundTrip({ type: "launchSlash", command: "/help" });
     roundTrip({ type: "setModel", model: "opus" });
     roundTrip({ type: "setVoiceEnabled", value: true });

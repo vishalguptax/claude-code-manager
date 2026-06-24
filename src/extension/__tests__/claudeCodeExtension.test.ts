@@ -57,6 +57,25 @@ describe("openSessionInExtension", () => {
     const uri = spy.mock.calls[0][0] as vscode.Uri;
     expect(uri.toString()).toContain("session=weird%20id%2Fwith%3Fchars");
   });
+
+  it("uses the host's own URI scheme so forks resume in-place", async () => {
+    // In Cursor/Windsurf the scheme is not "vscode" — firing a vscode://
+    // URI there would launch a separate VS Code window. The deep link
+    // must adopt vscode.env.uriScheme so it routes back to this host.
+    const original = vscode.env.uriScheme;
+    (vscode.env as { uriScheme: string }).uriScheme = "cursor";
+    try {
+      const spy = vi
+        .spyOn(vscode.env, "openExternal")
+        .mockResolvedValue(true as never);
+      await openSessionInExtension("abc-123");
+      const uri = spy.mock.calls[0][0] as vscode.Uri;
+      expect(uri.toString()).toContain("cursor://anthropic.claude-code/open");
+      expect(uri.toString()).not.toContain("vscode://");
+    } finally {
+      (vscode.env as { uriScheme: string }).uriScheme = original;
+    }
+  });
 });
 
 describe("openPromptInExtension", () => {

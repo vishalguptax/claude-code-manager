@@ -39,6 +39,9 @@ import { parseHooks } from "../hooks/parser";
 import { parseMcpServers } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
 import { parseAccountData } from "../account/parser";
+import { clearModelCache } from "../account/models";
+import { resetUsageAggregateCache } from "../account/projectStats";
+import { readQuota } from "../account/quota";
 import type { AccountData } from "../account/types";
 import { DEMO_SEEN_KEY, identityKey } from "./hostContext";
 import type { Session } from "./types";
@@ -47,6 +50,12 @@ import type { Command } from "../commands/types";
 import type { Hook } from "../hooks/types";
 import type { McpServer } from "../mcp/types";
 import type { Agent } from "../agents/types";
+
+/**
+ * Config-driven features that are parsed from files on disk and can be
+ * re-pushed individually by the file watchers, without a full reloadAll.
+ */
+export type ConfigFeature = "skills" | "commands" | "hooks" | "mcp" | "agents";
 
 /**
  * State + small callbacks the orchestration actions need. The provider
@@ -247,6 +256,13 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   clearOrphanCache();
   clearPendingCache();
   clearIndex();
+  // Account caches the session-lifetime CLI model scan and a
+  // fingerprint-memoised usage aggregate. Neither is keyed to the
+  // reload button, so without these the Refresh action silently
+  // returned stale model lists and stale token usage — the user's
+  // explicit "give me fresh data" gesture must force a cold re-scan.
+  clearModelCache();
+  resetUsageAggregateCache();
 
   const workspace = getWorkspace();
   const ws = workspace || undefined;
@@ -307,6 +323,12 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   if (accountResult.ok) {
     wv.postMessage({ type: "accountData", data: accountResult.data });
   }
+  // Quota rides its own message, not accountData. The webview only
+  // refetches quota on mount or an account *switch*, so a Refresh that
+  // re-sends the same identity would otherwise leave the quota card
+  // frozen. Re-read the (free, local) statusline cache and push it so
+  // Refresh updates the bars like every other card.
+  wv.postMessage({ type: "quotaData", result: readQuota(ws) });
   if (skillsResult.ok) {
     ctx.setSkills(skillsResult.data);
     wv.postMessage({ type: "skills", data: skillsResult.data });
@@ -338,6 +360,55 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   // `ready` handshake against the now-cold caches. Done last so the
   // immediate push above isn't thrown away by the re-mount.
   ctx.resetWebviewHtml();
+}
+
+/**
+ * Re-parse and push exactly one config-driven feature. The file watchers
+ * call this so an edit to a SKILL.md / command / agent / settings.json /
+ * mcp.json updates that tab live, without the cost (and webview re-mount)
+ * of a full reloadAll. The parsers are mtime-cached, so unchanged siblings
+ * are not re-read — only the file that actually changed is re-parsed.
+ */
+export function reloadFeature(ctx: ProviderActionsContext, feature: ConfigFeature): void {
+  const wv = ctx.getWebview();
+  if (!wv) return;
+  const ws = getWorkspace() || undefined;
+  try {
+    switch (feature) {
+      case "skills": {
+        const data = parseSkills(ws);
+        ctx.setSkills(data);
+        wv.postMessage({ type: "skills", data });
+        break;
+      }
+      case "commands": {
+        const data = parseCommands(ws);
+        ctx.setCommands(data);
+        wv.postMessage({ type: "commands", data });
+        break;
+      }
+      case "hooks": {
+        const data = parseHooks(ws);
+        ctx.setHooks(data);
+        wv.postMessage({ type: "hooks", data });
+        break;
+      }
+      case "mcp": {
+        const data = parseMcpServers(ws);
+        ctx.setMcpServers(data);
+        wv.postMessage({ type: "mcpServers", data });
+        break;
+      }
+      case "agents": {
+        const data = parseAgents(ws);
+        ctx.setAgents(data);
+        wv.postMessage({ type: "agents", data });
+        break;
+      }
+    }
+  } catch (err) {
+    console.warn(`[claude-manager] live reload ${feature} failed:`, err);
+  }
 }
 
 /**
