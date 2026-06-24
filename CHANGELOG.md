@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.0] - 2026-06-25
+
+The sidebar now stays live: skills, commands, hooks, MCP, agents, and token usage refresh on file change with no manual reload; resume opens in the host IDE (Cursor/Windsurf, not VS Code); and the account panel shows your plan with an honest live/idle quota indicator.
+
+See [docs/releases/v2.1.0.md](docs/releases/v2.1.0.md) for full details.
+
 ## [2.0.0] - 2026-06-01
 
 Ground-up rebuild of the webview on Preact + signals with a valibot-validated
