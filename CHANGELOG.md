@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.0] - 2026-06-26
+
+Responsiveness and honesty: smooth variable-height scrolling with a stable scrollbar, live-ticking timestamps and quota, instant settings, a preserved MCP auth badge, account-switch-aware quota, a much smaller package, and corrected privacy docs (zero network calls).
+
+See [docs/releases/v2.2.0.md](docs/releases/v2.2.0.md) for full details.
+
 ## [2.1.0] - 2026-06-25
 
 The sidebar now stays live: skills, commands, hooks, MCP, agents, and token usage refresh on file change with no manual reload; resume opens in the host IDE (Cursor/Windsurf, not VS Code); and the account panel shows your plan with an honest live/idle quota indicator.
