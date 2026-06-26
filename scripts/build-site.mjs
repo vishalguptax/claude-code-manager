@@ -47,7 +47,7 @@ async function openVsxDownloads() {
 }
 
 async function githubStars() {
-  const res = await fetch("https://api.github.com/repos/vishalguptax/claude-code-manager", {
+  const res = await fetch("https://api.github.com/repos/vishalguptax/claude-manager", {
     headers: { Accept: "application/vnd.github+json" },
   });
   if (!res.ok) throw new Error(`github ${res.status}`);
@@ -58,8 +58,11 @@ async function githubStars() {
 
 function bakeCounter(html, className, value) {
   const pretty = value.toLocaleString("en-US");
+  // Tag-agnostic: the counters are <strong> in the markup, not <span>.
+  // Match any single element tag and close it generically so the bake
+  // can't silently no-op again if the tag changes.
   const re = new RegExp(
-    `(<span class="${className}"[^>]*data-target=")\\d+("[^>]*data-final=")[\\d,]+("[^>]*>)[\\d,]+(</span>)`,
+    `(<[a-z]+ class="${className}"[^>]*data-target=")\\d+("[^>]*data-final=")[\\d,]+("[^>]*>)[\\d,]+(</[a-z]+>)`,
     "g",
   );
   return html.replace(re, `$1${value}$2${pretty}$3${pretty}$4`);

@@ -5,6 +5,12 @@ on:
     branches: [main]
     paths: ["site/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
+  # Re-bake the live star + download counts into the static HTML on a
+  # schedule so they stay current without a site edit. Baking server-side
+  # (vs a client fetch) keeps the numbers in the markup — best for SEO and
+  # no layout shift — while still refreshing on their own.
+  schedule:
+    - cron: "0 */12 * * *"
 
 permissions:
   contents: read

@@ -30,3 +30,15 @@ media/screenshots/**
 media/marketplace-icon.svg
 .local-plans/**
 .binaryos/**
+
+# Agent / skill tooling and repo-only docs that crept into the package.
+# `.agents/` alone is 160+ files (the impeccable skill toolkit) and has
+# nothing to do with the shipped extension — none of this is referenced by
+# dist/. Excluding it is the bulk of the package-size fix.
+.agents/**
+.impeccable/**
+.impeccable
+skills-lock.json
+CLAUDE.md
+marketing/**
+site/**
