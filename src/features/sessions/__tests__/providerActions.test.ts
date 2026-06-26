@@ -10,7 +10,10 @@ import type * as vscode from "vscode";
 vi.mock("../../skills/parser", () => ({ parseSkills: () => [{ id: "sk1" }] }));
 vi.mock("../../commands/parser", () => ({ parseCommands: () => [{ name: "cmd1" }] }));
 vi.mock("../../hooks/parser", () => ({ parseHooks: () => [{ name: "hk1" }] }));
-vi.mock("../../mcp/parser", () => ({ parseMcpServers: () => [{ name: "srv1" }] }));
+vi.mock("../../mcp/parser", () => ({
+  parseMcpServers: () => [{ name: "srv1" }],
+  readMcpAuthNeeds: () => ["needs-auth-server"],
+}));
 vi.mock("../../agents/parser", () => ({ parseAgents: () => [{ name: "ag1" }] }));
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => undefined }));
 
@@ -51,7 +54,6 @@ describe("reloadFeature", () => {
     ["skills", "skills", "skills"],
     ["commands", "commands", "commands"],
     ["hooks", "hooks", "hooks"],
-    ["mcp", "mcpServers", "mcp"],
     ["agents", "agents", "agents"],
   ])("parses, caches, and posts %s", (feature, msgType, setKey) => {
     reloadFeature(env.ctx as never, feature);
@@ -59,6 +61,16 @@ describe("reloadFeature", () => {
     expect(env.posted[0].type).toBe(msgType);
     expect(env.set[setKey]).toBeDefined();
     expect(env.posted[0].data).toEqual(env.set[setKey]);
+  });
+
+  it("posts mcp as { servers, authNeeds } so the auth badge survives", () => {
+    reloadFeature(env.ctx as never, "mcp");
+    expect(env.posted).toHaveLength(1);
+    expect(env.posted[0].type).toBe("mcpServers");
+    expect(env.posted[0].data).toEqual({
+      servers: env.set.mcp,
+      authNeeds: ["needs-auth-server"],
+    });
   });
 
   it("no-ops when the webview is gone", () => {

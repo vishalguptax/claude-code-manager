@@ -7,6 +7,7 @@
  */
 import * as vscode from "vscode";
 import { parseAccountData } from "../account/parser";
+import { clearModelCache } from "../account/models";
 import {
   updateProfile as updateProfileSnapshot,
   switchProfile as switchProfileSnapshot,
@@ -158,6 +159,10 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
   const pushAccountUpdate = (): void => {
     const wv2 = ctx.getWebview();
     if (wv2) {
+      // Drop the session-lifetime model scan so a CLI upgraded between
+      // switches surfaces its new models; the scan re-runs cold on the
+      // next parseAccountData.
+      clearModelCache();
       wv2.postMessage({
         type: "accountData",
         data: parseAccountData(workspace || undefined),

@@ -11,6 +11,7 @@ export {
   hasAccount,
   isSectionCollapsed,
   loading,
+  quotaAccountSince,
   quotaStatus,
   setQuotaError,
   setQuotaLoading,

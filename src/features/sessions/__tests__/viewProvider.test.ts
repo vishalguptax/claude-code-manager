@@ -361,6 +361,7 @@ describe("ClaudeSessionViewProvider", () => {
     vi.doMock("../../hooks/parser", () => ({ parseHooks: () => [{ name: "hook1" }] }));
     vi.doMock("../../mcp/parser", () => ({
       parseMcpServers: () => [{ name: "srv1" }],
+      readMcpAuthNeeds: () => [],
       toggleMcpServer: () => true,
       deleteMcpServer: () => true,
     }));
@@ -443,6 +444,7 @@ describe("ClaudeSessionViewProvider", () => {
     vi.doMock("../../hooks/parser", () => ({ parseHooks: () => [] }));
     vi.doMock("../../mcp/parser", () => ({
       parseMcpServers: () => [],
+      readMcpAuthNeeds: () => [],
       toggleMcpServer: () => true,
       deleteMcpServer: () => true,
     }));
@@ -620,6 +622,7 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../../mcp/parser", () => ({
       parseMcpServers: () => [{ name: "srv1", scope: "global" }],
+      readMcpAuthNeeds: () => [],
       toggleMcpServer: () => true,
       deleteMcpServer: () => true,
     }));

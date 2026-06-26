@@ -44,6 +44,16 @@ export const collapsedSections = signal<ReadonlySet<string>>(new Set());
 /** Current quota card state. */
 export const quotaStatus = signal<QuotaStatus>({ kind: "idle" });
 
+/**
+ * Wall-clock (ms) of the last account switch this session, or 0 if none.
+ * The statusline cache that feeds quota is global — it carries no account
+ * id — so a capture taken before the switch belongs to the PREVIOUS account.
+ * The quota view treats such a capture as "not yet available for this
+ * account" rather than presenting another account's numbers as the current
+ * one. A fresh render (capturedAt after the switch) clears it.
+ */
+export const quotaAccountSince = signal(0);
+
 /** True when account data has loaded and a profile exists. */
 export const hasAccount = computed(() => accountData.value !== null);
 
@@ -89,4 +99,5 @@ export function _resetAccountState(): void {
   timePeriod.value = "month";
   collapsedSections.value = new Set();
   quotaStatus.value = { kind: "idle" };
+  quotaAccountSince.value = 0;
 }

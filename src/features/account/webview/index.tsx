@@ -31,6 +31,7 @@ import {
   accountError,
   clearQuota,
   loading,
+  quotaAccountSince,
   setQuotaError,
   setQuotaLoading,
   setQuotaSuccess,
@@ -61,8 +62,12 @@ export function handleAccountMessage(msg: Message, send: { fetchQuota: () => voi
     loading.value = false;
     // On a detected switch, re-read so we never show the previous
     // account's numbers. The first load is handled by the mount effect,
-    // so only act when the identity actually changed.
+    // so only act when the identity actually changed. Mark the switch
+    // time: the global quota cache may still hold the prior account's
+    // render, so the view suppresses any capture older than this until a
+    // fresh render for the new account lands.
     if (switched) {
+      quotaAccountSince.value = Date.now();
       setQuotaLoading();
       send.fetchQuota();
     }

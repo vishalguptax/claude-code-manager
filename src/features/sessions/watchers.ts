@@ -89,6 +89,15 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   let quotaCacheTimer: NodeJS.Timeout | undefined;
   const pendingSessionPaths = new Set<string>();
 
+  // Usage re-push throttle. The usage payload is recomputed from a full
+  // account parse (reads ~9 files + stats every transcript), so doing it on
+  // every transcript append — which fire every second or two while Claude
+  // generates — was a real CPU/IO drag. Token usage doesn't need sub-second
+  // freshness; cap the refresh to once per window. `0` lets the first one
+  // through immediately.
+  const USAGE_PUSH_THROTTLE_MS = 10_000;
+  let lastUsagePushAt = 0;
+
   // Account-relevant files live in ~/.claude/ and ~/.claude.json.
   //
   // Resolve symlinks: on Windows (and some Linux configs) FileSystemWatcher
@@ -333,8 +342,14 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
       } finally {
         // Runs on every exit branch (full reparse, targeted, no-op) so a
         // transcript append refreshes the Usage tab even when the session
-        // list itself didn't reorder.
-        pushAccountUsage();
+        // list itself didn't reorder — but throttled, since the usage
+        // payload is expensive to recompute and doesn't need to track every
+        // token in real time.
+        const now = Date.now();
+        if (now - lastUsagePushAt >= USAGE_PUSH_THROTTLE_MS) {
+          lastUsagePushAt = now;
+          pushAccountUsage();
+        }
       }
     }, 1000);
   };

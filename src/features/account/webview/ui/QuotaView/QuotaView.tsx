@@ -16,10 +16,17 @@
  */
 
 import { Button, Icon } from "../../../../../webview/shared/ui";
+import { now } from "../../../../../webview/shared/model";
 import type { QuotaError, QuotaSuccess } from "../../../quota";
 import type { AccountApi } from "../../api";
 import { quotaFreshness } from "../../lib";
-import { isSectionCollapsed, quotaStatus, setQuotaLoading, toggleSection } from "../../model";
+import {
+  isSectionCollapsed,
+  quotaAccountSince,
+  quotaStatus,
+  setQuotaLoading,
+  toggleSection,
+} from "../../model";
 import { QuotaBar } from "../QuotaBar";
 import { SectionHeader } from "../SectionHeader";
 
@@ -56,7 +63,14 @@ export function QuotaView({ api }: QuotaViewProps) {
   // once the capture goes idle. The exact "last render Xm ago" detail
   // lives in its tooltip, so the header stays clean (no timestamp text).
   const captured = status.kind === "success" ? status.data.quota.capturedAt : "";
-  const fresh = captured ? quotaFreshness(captured) : null;
+  // Suppress the live dot for a capture that predates an account switch — the
+  // body shows the "switched account" notice in that case, so a green dot
+  // would contradict it.
+  const preSwitch =
+    quotaAccountSince.value > 0 && !!captured && Date.parse(captured) < quotaAccountSince.value;
+  // Read the shared clock so the dot re-evaluates live (flips to idle when the
+  // capture ages out) instead of freezing at its last-render state.
+  const fresh = captured && !preSwitch ? quotaFreshness(captured, now.value) : null;
   const liveDot = fresh ? (
     <span
       class={`acct-quota-live-dot${fresh.stale ? " is-stale" : ""}`}
@@ -121,7 +135,35 @@ function QuotaBody({
     );
   }
 
+  // After an account switch the global statusline cache may still hold the
+  // PREVIOUS account's render (it carries no account id). Suppress any
+  // capture taken before the switch so we never present another account's
+  // numbers as this one's — a fresh render for the new account clears it.
+  const since = quotaAccountSince.value;
+  if (since > 0 && Date.parse(status.data.quota.capturedAt) < since) {
+    return <QuotaSwitched onRetry={onRefresh} />;
+  }
+
   return <QuotaSuccessBody data={status.data} />;
+}
+
+function QuotaSwitched({ onRetry }: { onRetry: (e: Event) => void }) {
+  return (
+    <div class="acct-quota-error" role="status">
+      <span class="acct-quota-error-icon">
+        <Icon name="refresh-cw" size={16} />
+      </span>
+      <div class="acct-quota-error-body">
+        <div class="acct-quota-error-title">Switched account</div>
+        <div class="acct-quota-error-msg">
+          Open Claude Code with this account to load its quota.
+        </div>
+      </div>
+      <Button iconName="refresh-cw" onClick={onRetry}>
+        Refresh
+      </Button>
+    </div>
+  );
 }
 
 function NotInstalled({

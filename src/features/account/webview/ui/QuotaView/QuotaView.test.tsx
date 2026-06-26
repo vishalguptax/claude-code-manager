@@ -4,7 +4,13 @@ import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaSuccess } from "../../../quota";
 import type { AccountApi } from "../../api";
-import { _resetAccountState, setQuotaError, setQuotaLoading, setQuotaSuccess } from "../../model";
+import {
+  _resetAccountState,
+  quotaAccountSince,
+  setQuotaError,
+  setQuotaLoading,
+  setQuotaSuccess,
+} from "../../model";
 import { QuotaView } from "./QuotaView";
 
 function stubApi(): AccountApi {
@@ -103,6 +109,37 @@ describe("QuotaView", () => {
     expect(dot.classList.contains("is-stale")).toBe(false);
     // No bottom caption anymore — freshness lives only in the header dot.
     expect(screen.queryByText(/last render/)).toBeNull();
+  });
+
+  it("suppresses a capture that predates an account switch", () => {
+    // Capture taken before the switch belongs to the previous account
+    // (global cache, no account id) → show the switched notice, not bars.
+    const stale: QuotaSuccess = {
+      ...SUCCESS,
+      quota: {
+        ...SUCCESS.quota,
+        capturedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+      },
+    };
+    setQuotaSuccess(stale);
+    quotaAccountSince.value = Date.now(); // switch happened just now
+    const { container } = render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("Switched account")).toBeTruthy();
+    expect(screen.queryByText("5-hour window")).toBeNull();
+    // No live dot while suppressed.
+    expect(container.querySelector(".acct-quota-live-dot")).toBeNull();
+  });
+
+  it("shows bars again once a capture lands after the switch", () => {
+    quotaAccountSince.value = Date.now() - 60_000; // switched a minute ago
+    const fresh: QuotaSuccess = {
+      ...SUCCESS,
+      quota: { ...SUCCESS.quota, capturedAt: new Date().toISOString() }, // after switch
+    };
+    setQuotaSuccess(fresh);
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("5-hour window")).toBeTruthy();
+    expect(screen.queryByText("Switched account")).toBeNull();
   });
 
   it("marks the header dot idle when the capture is stale", () => {

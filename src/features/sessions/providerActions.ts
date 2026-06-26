@@ -36,7 +36,7 @@ import { isClaudeCodeExtensionInstalled } from "../../extension/claudeCodeExtens
 import { parseSkills } from "../skills/parser";
 import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
-import { parseMcpServers } from "../mcp/parser";
+import { parseMcpServers, readMcpAuthNeeds } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
 import { parseAccountData } from "../account/parser";
 import { clearModelCache } from "../account/models";
@@ -343,7 +343,12 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   }
   if (mcpResult.ok) {
     ctx.setMcpServers(mcpResult.data);
-    wv.postMessage({ type: "mcpServers", data: mcpResult.data });
+    // Shape must be { servers, authNeeds } — a bare array resets the
+    // auth-health badge to empty on the webview.
+    wv.postMessage({
+      type: "mcpServers",
+      data: { servers: mcpResult.data, authNeeds: readMcpAuthNeeds() },
+    });
   }
   if (agentsResult.ok) {
     ctx.setAgents(agentsResult.data);
@@ -396,7 +401,12 @@ export function reloadFeature(ctx: ProviderActionsContext, feature: ConfigFeatur
       case "mcp": {
         const data = parseMcpServers(ws);
         ctx.setMcpServers(data);
-        wv.postMessage({ type: "mcpServers", data });
+        // { servers, authNeeds } — preserve the auth-health badge on a
+        // live .mcp.json edit (a bare array would clear it).
+        wv.postMessage({
+          type: "mcpServers",
+          data: { servers: data, authNeeds: readMcpAuthNeeds() },
+        });
         break;
       }
       case "agents": {
