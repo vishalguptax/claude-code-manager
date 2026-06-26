@@ -1,0 +1,15 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Solid orange tile — high-contrast at 16px browser-tab size -->
+  <rect width="32" height="32" rx="7" fill="#F97316"/>
+  <g stroke="#fff" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Back card (stacked session) -->
+    <rect x="11" y="6" width="15" height="12" rx="2.5" opacity="0.5"/>
+    <!-- Front card (active session) -->
+    <rect x="6" y="10" width="15" height="12" rx="2.5"/>
+    <!-- Terminal chevron + cursor line -->
+    <polyline points="10 19 12.8 16 10 13"/>
+    <line x1="14.5" y1="19" x2="18" y2="19"/>
+  </g>
+  <!-- Claude spark -->
+  <circle cx="24.5" cy="24.5" r="2.6" fill="#fff"/>
+</svg>
