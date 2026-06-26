@@ -26,7 +26,7 @@
  * is handled by <Menu>. The trigger is a normal focusable button.
  */
 
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { Icon } from "../Icon";
 import { Menu, type MenuItem } from "../Menu";
 
@@ -68,7 +68,21 @@ export function Dropdown({
   // min-width to the trigger width via a CSS var on the wrapper.
   const [anchor, setAnchor] = useState({ x: 0, y: 0, width: 0 });
 
-  const selected = options.find((o) => o.value === value);
+  // Optimistic selection. Settings dropdowns round-trip to the host (write
+  // settings.json → re-parse → echo back), which made a pick feel laggy with
+  // no feedback. Show the chosen value immediately; when the host echoes a
+  // fresh `value` prop we defer to it (it's authoritative).
+  const [pending, setPending] = useState<string | null>(null);
+  const prevValue = useRef(value);
+  useEffect(() => {
+    if (value !== prevValue.current) {
+      prevValue.current = value;
+      setPending(null);
+    }
+  }, [value]);
+  const effectiveValue = pending ?? value;
+
+  const selected = options.find((o) => o.value === effectiveValue);
   const triggerLabel = selected
     ? selected.marker
       ? `${selected.label} (${selected.marker})`
@@ -100,10 +114,13 @@ export function Dropdown({
   // glyph; `badge` rides in the right-aligned `hint` slot as a muted count.
   const items: MenuItem[] = options.map((o) => ({
     label: o.marker ? `${o.label} (${o.marker})` : o.label,
-    icon: o.value === value ? "check" : undefined,
+    icon: o.value === effectiveValue ? "check" : undefined,
     hint: o.badge !== undefined ? String(o.badge) : undefined,
     onSelect: () => {
-      if (o.value !== value) onChange(o.value);
+      if (o.value !== effectiveValue) {
+        setPending(o.value); // reflect the choice instantly
+        onChange(o.value);
+      }
     },
   }));
 

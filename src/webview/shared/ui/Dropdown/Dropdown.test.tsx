@@ -94,6 +94,17 @@ describe("Dropdown", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("optimistically shows the chosen option before the host echoes a new value", () => {
+    // Settings dropdowns round-trip to the host; the trigger should reflect
+    // the pick immediately (value prop stays "a" until the echo arrives).
+    const { container, getByText } = render(
+      <Dropdown value="a" options={OPTS} onChange={() => {}} />,
+    );
+    fireEvent.click(container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement);
+    fireEvent.click(getByText("Beta (current)"));
+    expect(container.querySelector(".vsc-dropdown-label")?.textContent).toBe("Beta (current)");
+  });
+
   it("opens the menu via keyboard (ArrowDown / Enter / Space)", () => {
     const { container } = render(<Dropdown value="a" options={OPTS} onChange={() => {}} />);
     const trigger = container.querySelector(".vsc-dropdown-trigger") as HTMLButtonElement;

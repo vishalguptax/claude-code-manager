@@ -95,11 +95,11 @@ export function formatMoney(minorUnits: number, currency: string): string {
  * Turn an ISO timestamp into a human "resets in" string — days when
  * >=24h, hours when >=1h, otherwise minutes.
  */
-export function formatResetsIn(isoResetsAt: string): string {
+export function formatResetsIn(isoResetsAt: string, now: number = Date.now()): string {
   if (!isoResetsAt) return "";
   const resetMs = Date.parse(isoResetsAt);
   if (Number.isNaN(resetMs)) return "";
-  const diffMs = resetMs - Date.now();
+  const diffMs = resetMs - now;
   // A reset time in the past means the cached window already rolled over
   // since Claude Code last rendered — the figure is stale, not "resetting
   // now". Surface staleness instead of a misleading countdown.

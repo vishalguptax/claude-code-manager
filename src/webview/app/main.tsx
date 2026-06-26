@@ -5,7 +5,7 @@
 import { render } from "preact";
 import { initPersistence } from "../persistence";
 import { setVscodeApi } from "../shared/hooks";
-import { initMessageBus } from "../shared/model";
+import { initMessageBus, startNowTicker } from "../shared/model";
 import { App } from "./App";
 
 declare function acquireVsCodeApi(): {
@@ -22,6 +22,9 @@ setVscodeApi(vscode);
 // UI state is session-only — see persistence.ts and the account signals note.
 initPersistence(vscode);
 initMessageBus();
+// Drive the shared wall-clock signal so relative timestamps + quota
+// countdowns stay live without per-view timers.
+startNowTicker();
 
 const root = document.getElementById("root");
 if (root) render(<App />, root);

@@ -6,6 +6,7 @@
  */
 
 import { cx } from "../../../../../webview/shared/lib";
+import { now } from "../../../../../webview/shared/model";
 import type { QuotaWindow } from "../../../quota";
 import { formatResetsIn, quotaTone } from "../../lib";
 
@@ -17,7 +18,9 @@ export interface QuotaBarProps {
 export function QuotaBar({ label, window }: QuotaBarProps) {
   const pct = Math.max(0, Math.min(100, Math.round(window.utilization)));
   const tone = quotaTone(window.utilization);
-  const resetsLabel = formatResetsIn(window.resetsAt);
+  // Read the shared clock so the countdown ticks down live (and flips to
+  // "outdated" when the window rolls over) without a data change.
+  const resetsLabel = formatResetsIn(window.resetsAt, now.value);
   return (
     <div class="acct-quota-row">
       <div class="acct-quota-row-head">

@@ -35,8 +35,8 @@ export function fmtTime(ts: number): string {
  *   < 365d  → "1mo", "11mo"
  *   else    → "1y", "2y"
  */
-export function fmtRelativeTime(ts: number): string {
-  const diff = Math.max(0, Date.now() - ts);
+export function fmtRelativeTime(ts: number, now: number = Date.now()): string {
+  const diff = Math.max(0, now - ts);
   const seconds = Math.floor(diff / 1000);
   if (seconds < 45) return "now";
   const minutes = Math.floor(seconds / 60);

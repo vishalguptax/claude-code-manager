@@ -9,7 +9,9 @@ import type { AccountData, PermissionDefaultMode } from "../../types";
 
 /** Short purpose descriptions keyed by model family alias. */
 export const MODEL_DESCRIPTIONS: Record<string, string> = {
-  default: "1M context · most capable",
+  // "Default" means the CLI/account picks — we can't read the account's
+  // recommended model locally, so don't claim a specific one here.
+  default: "Let Claude pick for your account",
   sonnet: "Balanced daily driver",
   haiku: "Fastest, lightest",
   opus: "Deepest reasoning",
@@ -55,19 +57,28 @@ export function buildEffortOptions(currentValue: string): Array<SettingOption> {
  * entry first and any unknown current selection appended so it never drops.
  */
 export function buildModelOptions(data: AccountData, currentModel: string): Array<SettingOption> {
-  const latestOpus = data.availableModels.find((m) => m.alias === "opus" && m.isLatest);
-  const defaultLabel = latestOpus ? `Default (${latestOpus.label})` : "Default";
+  // The "Default" entry does NOT name a model: the account's recommended
+  // default isn't readable locally (and differs per account/plan), so
+  // claiming e.g. "Default (Opus 4.8)" was misleading — it showed the same
+  // label for every account regardless of their real default.
   const options: Array<SettingOption> = [
-    { value: "default", label: defaultLabel, desc: MODEL_DESCRIPTIONS.default },
+    { value: "default", label: "Default", desc: MODEL_DESCRIPTIONS.default },
   ];
-  const seen = new Set<string>(["default"]);
+  const seenValues = new Set<string>(["default"]);
+  // Dedup on label too, not just value: the CLI scan can surface the same
+  // version both dated and undated (e.g. "claude-opus-4-8" and
+  // "claude-opus-4-8-20260514"), which render to the same "Opus 4.8" label
+  // under two different values — that's the duplicate-option bug. First
+  // occurrence wins (discovery lists the latest/alias form first).
+  const seenLabels = new Set<string>();
   for (const m of data.availableModels) {
     const value = m.isLatest ? m.alias : m.id;
-    if (seen.has(value)) continue;
-    seen.add(value);
+    if (seenValues.has(value) || seenLabels.has(m.label)) continue;
+    seenValues.add(value);
+    seenLabels.add(m.label);
     options.push({ value, label: m.label, desc: m.isLatest ? MODEL_DESCRIPTIONS[m.alias] ?? "" : "Pinned" });
   }
-  if (currentModel && !seen.has(currentModel)) {
+  if (currentModel && !seenValues.has(currentModel)) {
     options.push({ value: currentModel, label: currentModel, desc: "" });
   }
   return options;

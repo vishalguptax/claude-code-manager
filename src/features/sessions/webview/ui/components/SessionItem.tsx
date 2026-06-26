@@ -10,6 +10,7 @@
 import { Badge, Button, Icon } from "../../../../../webview/shared/ui";
 import { fmtRelativeTime } from "../../../../../webview/utils";
 import { cx } from "../../../../../webview/shared/lib";
+import { now } from "../../../../../webview/shared/model";
 import type { Session } from "../../../types";
 
 /**
@@ -67,7 +68,8 @@ export function SessionItem({
 }: SessionItemProps) {
   const displayName = session.name || session.prompts[0] || "Untitled session";
   const branch = session.branch && session.branch !== "HEAD" ? session.branch : "";
-  const relTime = fmtRelativeTime(session.endTime);
+  // Read the shared clock so "5m" → "6m" ticks live without a data change.
+  const relTime = fmtRelativeTime(session.endTime, now.value);
   const absDate = new Date(session.endTime).toLocaleString("en-US", {
     month: "short",
     day: "numeric",

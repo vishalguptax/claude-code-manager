@@ -52,10 +52,12 @@ describe("buildEffortOptions", () => {
 });
 
 describe("buildModelOptions", () => {
-  it("puts a synthetic default first, labeled with the latest opus when present", () => {
+  it("puts a synthetic default first that does NOT name a specific model", () => {
     const opts = buildModelOptions(makeConfigData(), "default");
     expect(opts[0].value).toBe("default");
-    expect(opts[0].label).toBe("Default (Opus 4.7)");
+    // The account's real default isn't readable locally, so the label must
+    // not claim a model (was misleadingly "Default (Opus 4.7)").
+    expect(opts[0].label).toBe("Default");
   });
 
   it("uses the alias as value for the latest model and dedupes", () => {
@@ -67,6 +69,20 @@ describe("buildModelOptions", () => {
     });
     const opts = buildModelOptions(data, "default");
     expect(opts.map((o) => o.value)).toEqual(["default", "opus", "sonnet"]);
+  });
+
+  it("does not emit two options with the same label (dated + undated same version)", () => {
+    const data = makeConfigData({
+      availableModels: [
+        { alias: "opus", family: "opus", label: "Opus 4.8", id: "claude-opus-4-8", isLatest: true },
+        // Same display version surfaced as a dated, non-latest pinned id —
+        // previously rendered as a SECOND "Opus 4.8" row.
+        { alias: "opus", family: "opus", label: "Opus 4.8", id: "claude-opus-4-8-20260514", isLatest: false },
+      ],
+    });
+    const opts = buildModelOptions(data, "default");
+    const opus48 = opts.filter((o) => o.label === "Opus 4.8");
+    expect(opus48).toHaveLength(1);
   });
 
   it("appends an unknown current model so the selection never drops", () => {
