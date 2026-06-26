@@ -47,10 +47,9 @@
     "description": "A free VS Code extension to manage Claude Code sessions, MCP servers, skills, slash commands, hooks, agents, account switching, and usage tracking from your sidebar. 100% local, zero telemetry.",
     "url": "https://claudemanager.vishalg.in/",
     "downloadUrl": "https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager",
-    "softwareVersion": "2.0.1",
+    "softwareVersion": "2.1.0",
     "author": { "@type": "Person", "name": "Vishal Gupta", "url": "https://vishalg.in" },
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "aggregateRating": { "@type": "AggregateRating", "ratingValue": "5", "ratingCount": "3" }
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
   <script type="application/ld+json">
@@ -58,10 +57,10 @@
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      { "@type": "Question", "name": "Does Claude Manager send anything to the network?", "acceptedAnswer": { "@type": "Answer", "text": "No. It is local-first by default — zero telemetry, zero accounts, no background traffic. The only exception is the opt-in Quota card, which fetches your subscription usage with your own token only when you click Refresh." } },
+      { "@type": "Question", "name": "Does Claude Manager send anything to the network?", "acceptedAnswer": { "@type": "Answer", "text": "No. Zero network calls, ever. It reads ~/.claude/ and renders in a VS Code webview under a strict CSP. The opt-in Quota card is local too: your 5-hour and 7-day numbers are computed by Claude Code and shown in its statusline, and a tap caches that render to a file the extension reads from disk. It never calls Anthropic and never reads your OAuth token." } },
       { "@type": "Question", "name": "Does Claude Manager work with Cursor, Windsurf, and VSCodium?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. It is a standard VS Code extension. Install from the Marketplace on VS Code, Cursor, Windsurf, and Antigravity, or from Open VSX on VSCodium, Theia, and Gitpod." } },
       { "@type": "Question", "name": "Can I switch between Claude accounts without logging out?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The Account tab includes a multi-account profile switcher that saves and swaps Claude logins without a full logout and login cycle." } },
-      { "@type": "Question", "name": "Do I need Claude Code installed?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Install Claude Code first — either the CLI, the official VS Code extension, or both. Claude Manager reads the shared ~/.claude/ directory, so sessions from either surface show up together." } }
+      { "@type": "Question", "name": "Do I need Claude Code installed?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Install Claude Code first, either the CLI, the official VS Code extension, or both. Claude Manager reads the shared ~/.claude/ directory, so sessions from either surface show up together." } }
     ]
   }
   </script>
@@ -87,7 +86,7 @@
         <div class="hero-copy">
           <p class="hero-kicker">Free · open source · 100% local · zero telemetry</p>
           <h1>Claude Manager. <em class="serif" data-scramble>Mission control</em> for Claude&nbsp;Code.</h1>
-          <p class="lede">Sessions, accounts, usage, MCP servers, skills, hooks, and agents — one sidebar inside VS Code. No scrollback hunting. No hand-editing JSON.</p>
+          <p class="lede">Sessions, accounts, usage, MCP servers, skills, hooks, and agents, all in one VS Code sidebar. No scrollback hunting. No hand-editing JSON.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
             <a class="btn btn-ghost" href="https://open-vsx.org/extension/vishalguptax/claude-manager" target="_blank" rel="noopener">Get on Open&nbsp;VSX</a>
@@ -101,9 +100,9 @@
             </button>
           </div>
           <p class="hero-proof">
-            <span><strong class="counter" data-animate data-target="23627" data-final="23,627">23,627</strong> downloads</span>
+            <span><strong class="counter" data-animate data-target="28855" data-final="28,855">28,855</strong> downloads</span>
             <span class="sep" aria-hidden="true">·</span>
-            <span><strong class="gh-stars" data-animate data-target="17" data-final="17">17</strong> stars</span>
+            <span><strong class="gh-stars" data-animate data-target="21" data-final="21">21</strong> stars</span>
             <span class="sep" aria-hidden="true">·</span>
             <span><strong>5.0★</strong> rating</span>
           </p>
@@ -123,7 +122,7 @@
       <header class="sec-head">
         <p class="sec-tag">THE SIDEBAR:</p>
         <h2>Eight surfaces. <em class="serif">One sidebar.</em></h2>
-        <p class="sec-sub">Everything Claude Code keeps in <code>~/.claude/</code> — organized, searchable, clickable.</p>
+        <p class="sec-sub">Everything Claude Code keeps in <code>~/.claude/</code>, organized, searchable, and clickable.</p>
       </header>
 
       <article class="feat">
@@ -168,7 +167,7 @@
       <article class="feat">
         <div class="feat-copy">
           <h3>Skills</h3>
-          <p>Global, project, and plugin-shipped skills, each tagged with a scope badge. Copy, open, delete, or launch Claude with a skill in one click — in a terminal or the extension chat.</p>
+          <p>Global, project, and plugin-shipped skills, each tagged with a scope badge. Copy, open, delete, or launch Claude with a skill in one click, in a terminal or the extension chat.</p>
           <ul>
             <li>Scope badges: global / project / plugin</li>
             <li>One-click launch into Claude Code</li>
@@ -181,7 +180,7 @@
       <article class="feat">
         <div class="feat-copy">
           <h3>Hooks</h3>
-          <p>Inspect, toggle, edit, or remove automation hooks across global, project, and local scopes — with the full command shown before it runs.</p>
+          <p>Inspect, toggle, edit, or remove automation hooks across global, project, and local scopes, with the full command shown before it runs.</p>
           <ul>
             <li>Full command preview before it fires</li>
             <li>Toggle without editing settings JSON</li>
@@ -207,7 +206,7 @@
       <article class="feat">
         <div class="feat-copy">
           <h3>Agents</h3>
-          <p>Browse project and plugin agents with Sonnet, Opus, and Haiku model badges and description previews — so you know what each agent is before you reach for it.</p>
+          <p>Browse project and plugin agents with Sonnet, Opus, and Haiku model badges and description previews, so you know what each agent does before you reach for it.</p>
           <ul>
             <li>Sonnet / Opus / Haiku badges</li>
             <li>Description previews</li>
@@ -243,8 +242,8 @@
           <p>No analytics, no accounts, no background traffic. The extension reads <code>~/.claude/</code> and renders in a VS Code webview. Nothing is collected.</p>
         </article>
         <article class="fact">
-          <h3>One opt-in call</h3>
-          <p>The only network request is the Quota card, and only when you click Refresh — a single read of your own usage with your own token.</p>
+          <h3>Zero network calls</h3>
+          <p>Nothing is ever sent, not even the Quota card. Its 5-hour and 7-day numbers come from Claude Code's own statusline, cached locally and read from disk. The extension never calls Anthropic or reads your token.</p>
         </article>
         <article class="fact">
           <h3>Open source</h3>
@@ -286,7 +285,7 @@
       <div class="faq">
         <details>
           <summary>Does Claude Manager send anything to the network?</summary>
-          <p>No. It is local-first by default — zero telemetry, zero accounts, no background traffic. The one opt-in exception is the Account tab's Quota card, which fetches your subscription usage with your own token only when you click Refresh.</p>
+          <p>No. Zero network calls, ever. It reads <code>~/.claude/</code> and renders in a VS Code webview under a strict CSP. The Account tab's Quota card is local too: your 5-hour and 7-day numbers are computed by Claude Code and shown in its statusline, and an opt-in tap caches that render to a file the extension reads from disk. It never calls Anthropic and never reads your OAuth token.</p>
         </details>
         <details>
           <summary>Does it work with Cursor, Windsurf, and VSCodium?</summary>
@@ -298,11 +297,11 @@
         </details>
         <details>
           <summary>Do I need Claude Code installed?</summary>
-          <p>Yes — install <a href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code</a> first. Either the CLI, the official VS Code extension, or both works. Claude Manager reads the shared <code>~/.claude/</code> directory, so sessions from either surface show up together.</p>
+          <p>Yes. Install <a href="https://claude.ai/code" target="_blank" rel="noopener">Claude Code</a> first. Either the CLI, the official VS Code extension, or both works. Claude Manager reads the shared <code>~/.claude/</code> directory, so sessions from either surface show up together.</p>
         </details>
         <details>
           <summary>Where does my data live?</summary>
-          <p>In <code>~/.claude/</code> — the same place Claude Code itself uses. The extension never copies, uploads, or duplicates your sessions.</p>
+          <p>In <code>~/.claude/</code>, the same place Claude Code itself uses. The extension never copies, uploads, or duplicates your sessions.</p>
         </details>
       </div>
     </section>
@@ -310,10 +309,10 @@
     <!-- ============ CTA SHEET (dark, clay bloom) ============ -->
     <section class="sheet sheet-cta">
       <h2>One sidebar. <em class="serif">Everything Claude.</em></h2>
-      <p>Join <strong class="counter" data-target="23627" data-final="23,627">23,627</strong> developers. Free, open source, 100% local.</p>
+      <p>Join <strong class="counter" data-target="28855" data-final="28,855">28,855</strong> developers. Free, open source, 100% local.</p>
       <div class="cta-row center">
         <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
-        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-manager" target="_blank" rel="noopener">View on GitHub</a>
         <a class="btn btn-sponsor" href="https://github.com/sponsors/vishalguptax" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.3C.4 8.6 1.6 5.2 4.6 4.3c2-.6 3.9.3 5 1.9 1.1-1.6 3-2.5 5-1.9 3 .9 4.2 4.3 2.6 7.4C19.5 16.4 12 21 12 21z"/></svg>Sponsor</a>
       </div>
     </section>
@@ -323,8 +322,8 @@
     <aside class="sponsor-slot" aria-label="Sponsorship">
       <div class="sponsor-empty">
         <span class="sponsor-tag">SPONSOR</span>
-        <p>Put your tool in front of <strong class="counter" data-target="23627" data-final="23,627">23,627</strong> Claude Code developers. One tasteful slot — no ad network, no tracking.</p>
-        <a class="sponsor-link" href="https://vishalg.in" target="_blank" rel="noopener">Sponsor this page &rarr;</a>
+        <p>Put your tool in front of <strong class="counter" data-target="28855" data-final="28,855">28,855</strong> Claude Code developers. One tasteful slot, no ad network, no tracking.</p>
+        <a class="sponsor-link" href="mailto:vishalgupta26x@gmail.com?subject=Sponsor%20Claude%20Manager&amp;body=Hi%20Vishal%2C%0A%0AI%27d%20like%20to%20sponsor%20the%20Claude%20Manager%20page.%0A%0ATool%3A%20%0AWebsite%3A%20%0ABudget%20%2F%20duration%3A%20%0A%0AThanks%21">Sponsor this page &rarr;</a>
       </div>
       <!-- SOLD? swap the block above for:
       <div class="sponsor-filled">
@@ -341,7 +340,7 @@
       <p class="foot-links">
         <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
         <a href="https://open-vsx.org/extension/vishalguptax/claude-manager" target="_blank" rel="noopener">Open VSX</a>
-        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/vishalguptax/claude-manager" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/sponsors/vishalguptax" target="_blank" rel="noopener">Sponsor</a>
         <a href="https://vishalg.in" target="_blank" rel="noopener">Portfolio</a>
       </p>
