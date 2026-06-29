@@ -149,6 +149,18 @@ describe("installStatusline (scope-aware)", () => {
     });
   });
 
+  it("writes statusLine.type alongside the command so the object is valid", () => {
+    // Regression: Claude Code rejects a statusLine that has a command but
+    // no `type: "command"`. The installer must write both keys.
+    installStatusline("/dist/statusline-tap.js");
+    expect(settings.calls).toContainEqual({
+      key: "statusLine.type",
+      value: "command",
+      scope: "global",
+      workspacePath: undefined,
+    });
+  });
+
   it("installs at project when project overrides global", () => {
     seedSettingsAt(SETTINGS_FILE, "global-bar");
     seedSettingsAt(PROJECT_SETTINGS, "project-bar");
@@ -207,8 +219,10 @@ describe("uninstallStatusline (scope-aware)", () => {
   it("with no sidecar, clears the tap from whichever scope holds it", () => {
     seedSettingsAt(PROJECT_SETTINGS, TAP_COMMAND);
     uninstallStatusline(WS);
+    // Removing our tap drops the whole statusLine object — leaving an
+    // empty `{}` (or a dangling `type`) would still fail Claude's schema.
     expect(settings.calls).toContainEqual({
-      key: "statusLine.command",
+      key: "statusLine",
       value: "",
       scope: "project",
       workspacePath: WS,

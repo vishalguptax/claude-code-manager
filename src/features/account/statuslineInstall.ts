@@ -57,6 +57,36 @@ function tapCommand(): string {
   return `"${resolveNodePath()}" "${STATUSLINE_TAP_FILE}"`;
 }
 
+/**
+ * Write the `statusLine` block so Claude Code always sees a VALID object.
+ * Claude's schema requires the pair to move together: a statusLine with a
+ * `command` but no `type` fails validation ("statusLine.type: Invalid
+ * value"), and one with a `type` but no `command` fails too
+ * ("statusLine.command: Expected string"). Writing the two leaf keys
+ * independently — as the old code did via writeSettingsValue("statusLine.
+ * command", ...) — produced exactly those two startup errors.
+ *
+ * So we treat the block atomically:
+ *   - non-empty command → { type: "command", command }
+ *   - empty command     → remove the whole statusLine object (an empty
+ *                         `{}` is just as invalid as a half-filled one).
+ * `type` is written before `command` so disk never holds `{ command }`
+ * without a `type`.
+ */
+function writeStatuslineCommand(
+  command: string,
+  scope: PermissionScope,
+  workspacePath?: string,
+): boolean {
+  if (!command) {
+    // Drop the entire object — leaving `statusLine: {}` would still fail
+    // Claude's "type required" validation.
+    return writeSettingsValue("statusLine", "", scope, workspacePath);
+  }
+  writeSettingsValue("statusLine.type", "command", scope, workspacePath);
+  return writeSettingsValue("statusLine.command", command, scope, workspacePath);
+}
+
 /** Settings file path for a given scope, or null when unreachable. */
 function settingsPathFor(scope: PermissionScope, workspacePath?: string): string | null {
   if (scope === "global") return SETTINGS_FILE;
@@ -171,7 +201,7 @@ function clearTapFromOtherScopes(workspacePath?: string, keep?: PermissionScope)
     const filePath = settingsPathFor(scope, workspacePath);
     const cmd = readCommandFromFile(filePath);
     if (cmd !== null && cmd.includes(STATUSLINE_TAP_FILE)) {
-      writeSettingsValue("statusLine.command", "", scope, workspacePath);
+      writeStatuslineCommand("", scope, workspacePath);
     }
   }
 }
@@ -190,12 +220,7 @@ export function installStatusline(
       writeInner({ scope: eff.scope, command: eff.command, workspacePath });
     }
 
-    const ok = writeSettingsValue(
-      "statusLine.command",
-      tapCommand(),
-      eff.scope,
-      workspacePath,
-    );
+    const ok = writeStatuslineCommand(tapCommand(), eff.scope, workspacePath);
     // Drop orphan tap entries from other scopes — e.g. a prior global
     // install when the effective scope is now project. Keeps the final
     // state "tap lives in exactly one place" so uninstall is unambiguous.
@@ -238,8 +263,7 @@ export function uninstallStatusline(workspacePath?: string): InstallResult {
   try {
     const rec = readInner();
     if (rec) {
-      writeSettingsValue(
-        "statusLine.command",
+      writeStatuslineCommand(
         rec.command,
         rec.scope,
         rec.workspacePath ?? workspacePath,
