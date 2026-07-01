@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.2.2] - 2026-07-01
+
+Correct session live-state (no more stale "active" sessions, new sessions appear on their own, pending questions show the right colour) and remove every synchronous multi-second freeze from user-action paths (Settings, Export Brain, Run Diagnostics, and any click now respond immediately).
+
+See [docs/releases/v2.2.2.md](docs/releases/v2.2.2.md) for full details.
+
 ## [2.2.0] - 2026-06-26
 
 Responsiveness and honesty: smooth variable-height scrolling with a stable scrollbar, live-ticking timestamps and quota, instant settings, a preserved MCP auth badge, account-switch-aware quota, a much smaller package, and corrected privacy docs (zero network calls).
