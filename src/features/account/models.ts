@@ -14,7 +14,10 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { execSync } from "child_process";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execP = promisify(exec);
 
 /** A discovered model with its family and version. */
 export interface DiscoveredModel {
@@ -38,6 +41,8 @@ export interface DiscoveredModel {
 }
 
 let cache: DiscoveredModel[] | null = null;
+/** In-flight background scan, deduped so concurrent warms share one spawn. */
+let warming: Promise<DiscoveredModel[]> | null = null;
 
 /**
  * Resolve scannable Claude CLI files from a node_modules-shaped root.
@@ -95,7 +100,7 @@ function collectFromNodeModulesRoot(root: string): string[] {
  * coexist (e.g. an old npm global plus a fresh native install) and
  * shims may not contain every model string the real binary does.
  */
-function collectCliCandidates(): string[] {
+async function collectCliCandidates(): Promise<string[]> {
   const candidates: string[] = [];
   const home = os.homedir();
 
@@ -107,13 +112,15 @@ function collectCliCandidates(): string[] {
     if (fs.existsSync(full)) candidates.push(full);
   }
 
-  // npm global root.
+  // npm global root. Async shell `exec` so the spawn never blocks the
+  // extension-host event loop; shell form resolves `npm.cmd` on Windows.
   try {
-    const globalRoot = execSync("npm root -g", {
+    const { stdout } = await execP("npm root -g", {
       encoding: "utf-8",
       timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
+      windowsHide: true,
+    });
+    const globalRoot = stdout.trim();
     if (globalRoot) candidates.push(...collectFromNodeModulesRoot(globalRoot));
   } catch {
     // npm not installed or failed — skip
@@ -123,13 +130,12 @@ function collectCliCandidates(): string[] {
   // path per line; `command -v` on POSIX returns a single path.
   try {
     const cmd = process.platform === "win32" ? "where claude" : "command -v claude";
-    const out = execSync(cmd, {
+    const { stdout } = await execP(cmd, {
       encoding: "utf-8",
       timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"],
-      shell: process.platform === "win32" ? undefined : "/bin/sh",
-    }).trim();
-    for (const line of out.split(/\r?\n/)) {
+      windowsHide: true,
+    });
+    for (const line of stdout.trim().split(/\r?\n/)) {
       const trimmed = line.trim();
       if (!trimmed) continue;
       try {
@@ -161,7 +167,22 @@ function collectCliCandidates(): string[] {
  */
 export function discoverModelsFromCli(): DiscoveredModel[] {
   if (cache) return cache;
+  // Non-blocking: never spawn on the caller's thread (parseAccountData runs
+  // on the click path of ~19 settings handlers). Kick off the background
+  // scan and return empty for now; the dropdown falls back to "Default" +
+  // the current model until `warmModelCache` resolves and a fresh
+  // accountData push carries the full list.
+  void warmModelCache();
+  return [];
+}
 
+/**
+ * Scan one CLI file body for `claude-{family}-{major}[-{minor}]` model IDs,
+ * folding hits into the shared `seen` map. Called once per candidate so each
+ * (large — the native binary is ~236 MB) body can be freed before the next
+ * read, keeping peak memory to a single file instead of all of them.
+ */
+function scanInto(content: string, seen: Map<string, DiscoveredModel>): void {
   // Match the simple version form, no surrounding quotes required so
   // this works on both JS bundles ("claude-opus-4-7") and native
   // binaries (claude-opus-4-7 as a null-terminated string):
@@ -173,53 +194,35 @@ export function discoverModelsFromCli(): DiscoveredModel[] {
   // stop at the correct digit group even without string delimiters.
   const regex = /\bclaude-(opus|sonnet|haiku|flash|turbo|nano)-(\d{1,2})(?:-(\d{1,2}))?\b/gi;
 
-  // Dedupe across (family, versionNum) — the binary contains both
-  // "claude-opus-4" and "claude-opus-4-0" which are the same model
-  // at versionNum 4000. Keep one entry per (family, version) pair.
-  const seen = new Map<string, DiscoveredModel>();
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(content)) !== null) {
+    const family = match[1].toLowerCase();
+    const major = parseInt(match[2], 10);
+    const minor = match[3] ? parseInt(match[3], 10) : 0;
+    const versionNum = major * 1000 + minor;
+    // Dedupe across (family, versionNum) — the binary contains both
+    // "claude-opus-4" and "claude-opus-4-0" which are the same model.
+    const key = `${family}:${versionNum}`;
+    if (seen.has(key)) continue;
 
-  // Try each candidate in order, accumulating across all of them. We
-  // do not stop at the first hit because some shims (Homebrew, .cmd
-  // wrappers) only contain a couple of model strings; the real binary
-  // they delegate to has the full set.
-  for (const cliPath of collectCliCandidates()) {
-    let content: string;
-    try {
-      // Read as latin1 so binary bytes round-trip as single-byte chars,
-      // keeping our regex matching valid on both JS source and native
-      // binaries (where model IDs are embedded as plain ASCII strings).
-      content = fs.readFileSync(cliPath, "latin1");
-    } catch {
-      continue;
-    }
-
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(content)) !== null) {
-      const family = match[1].toLowerCase();
-      const major = parseInt(match[2], 10);
-      const minor = match[3] ? parseInt(match[3], 10) : 0;
-      const versionNum = major * 1000 + minor;
-      const key = `${family}:${versionNum}`;
-      if (seen.has(key)) continue;
-
-      const versionStr = minor > 0 ? `${major}.${minor}` : `${major}`;
-      const id = minor > 0
-        ? `claude-${family}-${major}-${minor}`
-        : `claude-${family}-${major}`;
-      const displayName = family.charAt(0).toUpperCase() + family.slice(1);
-      seen.set(key, {
-        alias: family,
-        id,
-        label: `${displayName} ${versionStr}`,
-        family,
-        versionNum,
-        isLatest: false, // resolved in a second pass below
-      });
-    }
-    // Reset regex lastIndex between files since /g is stateful.
-    regex.lastIndex = 0;
+    const versionStr = minor > 0 ? `${major}.${minor}` : `${major}`;
+    const id = minor > 0
+      ? `claude-${family}-${major}-${minor}`
+      : `claude-${family}-${major}`;
+    const displayName = family.charAt(0).toUpperCase() + family.slice(1);
+    seen.set(key, {
+      alias: family,
+      id,
+      label: `${displayName} ${versionStr}`,
+      family,
+      versionNum,
+      isLatest: false, // resolved by finalizeModels
+    });
   }
+}
 
+/** Order newest-first and mark the newest of each family as the alias target. */
+function finalizeModels(seen: Map<string, DiscoveredModel>): DiscoveredModel[] {
   // Sort newest to oldest across all families — the user scans the
   // dropdown top-down looking for the latest release regardless of
   // whether it's Opus, Sonnet, or Haiku. Family is the tiebreaker
@@ -229,20 +232,49 @@ export function discoverModelsFromCli(): DiscoveredModel[] {
     return a.family.localeCompare(b.family);
   });
 
-  // Mark the newest of each family as the alias target.
-  const latestByFamily = new Map<string, number>();
+  const latestByFamily = new Set<string>();
   for (const m of all) {
     if (!latestByFamily.has(m.family)) {
-      latestByFamily.set(m.family, m.versionNum);
+      latestByFamily.add(m.family);
       m.isLatest = true;
     }
   }
-
-  cache = all;
-  return cache;
+  return all;
 }
 
-/** Clear the cache so the next call re-scans. Exposed for tests. */
+/**
+ * Populate the model cache by scanning the installed CLI. Async — the
+ * candidate-resolution spawns and file reads run off the event loop. Call
+ * once at activation (and after a reload) so the cache is warm before the
+ * account panel needs it. Concurrent calls share one in-flight scan.
+ *
+ * Reads and scans each candidate one at a time so the ~236 MB native binary
+ * is never held in memory alongside the others.
+ */
+export async function warmModelCache(): Promise<DiscoveredModel[]> {
+  if (cache) return cache;
+  if (warming) return warming;
+  warming = (async () => {
+    const candidates = await collectCliCandidates();
+    const seen = new Map<string, DiscoveredModel>();
+    for (const cliPath of candidates) {
+      try {
+        // Read as latin1 so binary bytes round-trip as single-byte chars,
+        // keeping the regex valid on both JS source and native binaries.
+        scanInto(await fs.promises.readFile(cliPath, "latin1"), seen);
+      } catch {
+        // unreadable candidate — skip
+      }
+    }
+    cache = finalizeModels(seen);
+    warming = null;
+    return cache;
+  })();
+  return warming;
+}
+
+/** Clear the cache so the next warm re-scans. Exposed for tests + reload. */
 export function clearModelCache(): void {
   cache = null;
+  warming = null;
 }

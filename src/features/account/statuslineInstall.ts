@@ -37,7 +37,13 @@ import type { PermissionScope } from "./types";
  * work regardless of that shell's PATH. Falls back to bare "node" when
  * detection fails — no worse than the PATH lookup.
  */
+let cachedNodePath: string | null = null;
+
 function resolveNodePath(): string {
+  // Memoised: node's location is stable for the session, so the `where`/`which`
+  // spawn runs at most once instead of on every install click (installStatusline
+  // is a user-triggered action; re-spawning each time added avoidable latency).
+  if (cachedNodePath !== null) return cachedNodePath;
   const finder = process.platform === "win32" ? "where" : "which";
   try {
     const out = execFileSync(finder, ["node"], { encoding: "utf-8", timeout: 3000 });
@@ -45,11 +51,15 @@ function resolveNodePath(): string {
       .split(/\r?\n/)
       .map((s) => s.trim())
       .find(Boolean);
-    if (first) return first;
+    if (first) {
+      cachedNodePath = first;
+      return first;
+    }
   } catch {
     /* detection failed — fall back to PATH lookup at render time */
   }
-  return "node";
+  cachedNodePath = "node";
+  return cachedNodePath;
 }
 
 /** The `statusLine.command` value we install — runs the copied tap. */

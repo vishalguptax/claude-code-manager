@@ -145,77 +145,114 @@ interface SessionTimes {
 let cachedFingerprint = -1;
 let cachedResult: UsageAggregate | null = null;
 
+/** In-flight background aggregation, deduped so bursts share one pass. */
+let warming: Promise<UsageAggregate> | null = null;
+
 /**
- * Aggregate all JSONL transcripts into a single usage payload. Safe to
- * call from the account-tab render path — repeated calls return the
- * memoised result unless the project dirs have changed.
+ * Synchronous, NON-BLOCKING accessor for the account render path. Returns the
+ * memoised aggregate (or an empty one on a cold cache) and kicks a background
+ * refresh — it never reads the transcript corpus on the caller's thread.
+ *
+ * This matters because aggregation reads *every* JSONL transcript, and it is
+ * bundled into `parseAccountData`, which runs on every settings open and
+ * account push. Doing that read synchronously froze the extension host for
+ * seconds whenever an active session had grown the corpus. The heavy work now
+ * lives in {@link warmUsageAggregate}; the UI shows the last-known totals
+ * immediately and updates when the async pass completes.
  */
 export function aggregateUsage(): UsageAggregate {
-  const dirs = projectDirs();
-  if (dirs.length === 0) return emptyAggregate();
+  void warmUsageAggregate();
+  return cachedResult ?? emptyAggregate();
+}
 
-  // Fingerprint over every transcript file (mtime + size), not just the
-  // project directories. A directory's mtime only moves when an entry is
-  // created/renamed/deleted — appending tokens to an *existing* transcript
-  // (exactly what an active session does) leaves the parent dir mtime
-  // untouched, so a dir-only fingerprint froze the usage tab mid-session.
-  // Statting each .jsonl is far cheaper than the read+parse below, which
-  // stays guarded by the fingerprint, so the second open is still fast.
-  let fp = 0;
-  const allFiles: Array<{ slug: string; filePath: string }> = [];
-  for (const projectsDir of dirs) {
-    let slugs: string[];
+/**
+ * Recompute the usage aggregate off the event loop and refresh the memo.
+ * Reads run via `fs.promises` and the parse loop yields every few files, so a
+ * large corpus never monopolises the host. Concurrent calls share one pass;
+ * an unchanged fingerprint short-circuits without re-reading. Callers that
+ * need fresh totals (activation warm, the throttled usage push, reload) await
+ * this, then read the now-warm cache via `aggregateUsage`.
+ */
+export async function warmUsageAggregate(): Promise<UsageAggregate> {
+  if (warming) return warming;
+  warming = (async () => {
     try {
-      slugs = fs.readdirSync(projectsDir);
-    } catch {
-      continue;
-    }
-    fp += slugs.length;
-    for (const slug of slugs) {
-      const projDir = path.join(projectsDir, slug);
-      let files: string[];
-      try {
-        files = fs.readdirSync(projDir);
-      } catch {
-        continue;
+      const dirs = projectDirs();
+      if (dirs.length === 0) {
+        cachedFingerprint = 0;
+        cachedResult = emptyAggregate();
+        return cachedResult;
       }
-      for (const f of files) {
-        if (!f.endsWith(".jsonl")) continue;
-        const filePath = path.join(projDir, f);
+
+      // Fingerprint over every transcript file (mtime + size), not just the
+      // project directories. A directory's mtime only moves when an entry is
+      // created/renamed/deleted — appending tokens to an *existing* transcript
+      // (exactly what an active session does) leaves the parent dir mtime
+      // untouched, so a dir-only fingerprint would freeze the usage tab.
+      let fp = 0;
+      const allFiles: Array<{ slug: string; filePath: string }> = [];
+      for (const projectsDir of dirs) {
+        let slugs: string[];
         try {
-          const st = fs.statSync(filePath);
-          fp += st.mtimeMs + st.size;
+          slugs = await fs.promises.readdir(projectsDir);
         } catch {
-          // file vanished between readdir and stat — skip
           continue;
         }
-        allFiles.push({ slug, filePath });
+        fp += slugs.length;
+        for (const slug of slugs) {
+          const projDir = path.join(projectsDir, slug);
+          let files: string[];
+          try {
+            files = await fs.promises.readdir(projDir);
+          } catch {
+            continue;
+          }
+          for (const f of files) {
+            if (!f.endsWith(".jsonl")) continue;
+            const filePath = path.join(projDir, f);
+            try {
+              const st = await fs.promises.stat(filePath);
+              fp += st.mtimeMs + st.size;
+            } catch {
+              continue;
+            }
+            allFiles.push({ slug, filePath });
+          }
+        }
       }
-    }
-  }
-  if (cachedResult && fp === cachedFingerprint) return cachedResult;
+      if (cachedResult && fp === cachedFingerprint) return cachedResult;
 
-  const state = new AggState();
-  for (const { slug, filePath } of allFiles) {
-    let raw: string;
-    try {
-      raw = fs.readFileSync(filePath, "utf-8");
-    } catch {
-      continue;
-    }
-    state.ingest(raw, slug);
-  }
+      const state = new AggState();
+      let i = 0;
+      for (const { slug, filePath } of allFiles) {
+        let raw: string;
+        try {
+          raw = await fs.promises.readFile(filePath, "utf-8");
+        } catch {
+          continue;
+        }
+        state.ingest(raw, slug);
+        // Yield to the event loop periodically so a huge corpus doesn't
+        // block UI messages while the (synchronous) JSON parse runs.
+        if (++i % 8 === 0) await new Promise((r) => setImmediate(r));
+      }
 
-  const result = state.finalise();
-  cachedFingerprint = fp;
-  cachedResult = result;
-  return result;
+      const result = state.finalise();
+      cachedFingerprint = fp;
+      cachedResult = result;
+      return result;
+    } finally {
+      warming = null;
+    }
+  })();
+  return warming;
 }
 
 /** Reset the memo. Tests and forced refresh paths call this. */
 export function resetUsageAggregateCache(): void {
   cachedFingerprint = -1;
   cachedResult = null;
+  warming = null;
 }
 
 /** Backwards-compatible alias kept for the existing test surface. */

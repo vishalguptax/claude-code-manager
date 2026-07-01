@@ -300,6 +300,12 @@ export interface AccountData {
     isLatest: boolean;
   }>;
   /**
+   * Display name of the model Claude Code is currently using, from the
+   * statusline cache (what the "Default" model setting resolves to). "" when
+   * the tap isn't installed or hasn't rendered yet.
+   */
+  activeModel?: string;
+  /**
    * Snapshots of other Claude accounts the user has saved via the
    * Accounts section. Each entry is a slot under
    * ~/.claude/manager-accounts/<slug>/ that the user can switch to

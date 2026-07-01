@@ -178,7 +178,8 @@ code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .88em;
 .sheet-light .serif { color: var(--clay); }
 .sheet-dark .serif, .sheet-cta .serif { color: var(--clay-dim); }
 .sec-sub { color: var(--lt-muted); margin-top: .9rem; }
-.sec-sub code { background: rgba(0,0,0,.06); padding: .05em .35em; border-radius: 5px; color: var(--lt-ink); }
+/* sec-sub only renders on dark sheets; code must read light on dark, not --lt-ink */
+.sec-sub code { background: var(--inset); padding: .05em .35em; border-radius: 5px; color: var(--text); }
 .sec-head-2 { margin-top: clamp(3rem, 7vw, 5rem); }
 
 /* ================= feature rows (dark sheet, full screenshots) ================= */

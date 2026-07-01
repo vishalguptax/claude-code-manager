@@ -12,6 +12,7 @@
 import * as fs from "fs";
 import * as vscode from "vscode";
 import { SESSION_ACTIVE_FILE } from "../../core/config";
+import { getProcessStartTimesAsync } from "./procTime";
 import type { TerminalRegistry } from "./terminalRegistry";
 
 export interface ActiveEntry {
@@ -23,6 +24,12 @@ export interface ActiveEntry {
 }
 
 const STALE_MS = 60 * 60 * 1000;
+
+/**
+ * Slack allowed when checking a ppid's OS start time against the entry's
+ * write time — absorbs clock granularity. See {@link filterReusedPpids}.
+ */
+const PPID_START_TOLERANCE_MS = 60 * 1000;
 
 function isProcessAlive(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -78,13 +85,32 @@ export function readActiveSessions(now: number = Date.now()): ActiveEntry[] {
 }
 
 /**
+ * Drop entries whose ppid has been reused. `isProcessAlive` only proves the
+ * ppid is owned by *some* process now; a recycled ppid (the original host
+ * shell died and the OS handed the id to an unrelated process) would otherwise
+ * link a stale session to the wrong terminal. The recycled process necessarily
+ * started AFTER the entry was written — the original shell was alive at `ts` to
+ * host the session and only freed the id when it later exited — so an OS start
+ * time later than `ts` means reuse. An unknown start time (unsupported OS /
+ * query failure) is trusted, mirroring the live-session guard.
+ */
+export async function filterReusedPpids(entries: ActiveEntry[]): Promise<ActiveEntry[]> {
+  const starts = await getProcessStartTimesAsync(entries.map((e) => e.ppid));
+  return entries.filter((e) => {
+    const osStart = starts.get(e.ppid);
+    if (osStart === undefined) return true;
+    return osStart <= e.ts + PPID_START_TOLERANCE_MS;
+  });
+}
+
+/**
  * Resolve each fresh entry to a VS Code terminal by PPID match and
  * register the pair so the row + detail action swap to View. Terminals
  * that haven't reported their processId yet are skipped this tick; the
  * next file-watcher tick (or terminal create) retries.
  */
 async function syncMatches(registry: TerminalRegistry): Promise<void> {
-  const entries = readActiveSessions();
+  const entries = await filterReusedPpids(readActiveSessions());
   if (entries.length === 0) return;
   const byPpid = new Map<number, ActiveEntry>();
   for (const e of entries) byPpid.set(e.ppid, e);

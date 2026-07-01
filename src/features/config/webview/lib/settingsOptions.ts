@@ -61,8 +61,11 @@ export function buildModelOptions(data: AccountData, currentModel: string): Arra
   // default isn't readable locally (and differs per account/plan), so
   // claiming e.g. "Default (Opus 4.8)" was misleading — it showed the same
   // label for every account regardless of their real default.
+  // Show what Default actually resolves to when the statusline knows the
+  // running model; fall back to "(auto)" when it doesn't.
+  const defaultLabel = data.activeModel ? `Default (${data.activeModel})` : "Default (auto)";
   const options: Array<SettingOption> = [
-    { value: "default", label: "Default", desc: MODEL_DESCRIPTIONS.default },
+    { value: "default", label: defaultLabel, desc: MODEL_DESCRIPTIONS.default },
   ];
   const seenValues = new Set<string>(["default"]);
   // Dedup on label too, not just value: the CLI scan can surface the same

@@ -106,8 +106,8 @@ function formatReport(checks: DiagnosticCheck[]): string {
 }
 
 /** Build the full check list (pure + vscode-aware). Exported for tests. */
-export function runAllChecks(): DiagnosticCheck[] {
-  return [...runDiagnostics(), checkVsCodeVersion(), checkWorkspace()];
+export async function runAllChecks(): Promise<DiagnosticCheck[]> {
+  return [...(await runDiagnostics()), checkVsCodeVersion(), checkWorkspace()];
 }
 
 /**
@@ -115,7 +115,7 @@ export function runAllChecks(): DiagnosticCheck[] {
  * `claudeManager.runDiagnostics`.
  */
 export async function runDiagnosticsCommand(): Promise<void> {
-  const checks = runAllChecks();
+  const checks = await runAllChecks();
   const report = formatReport(checks);
   const doc = await vscode.workspace.openTextDocument({
     content: report,

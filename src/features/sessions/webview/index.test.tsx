@@ -87,7 +87,7 @@ describe("SessionsTab", () => {
     const { container } = render(h(SessionsTab, {}));
     expect(container.querySelector("#detailView")).toBeTruthy();
     // Content-shaped detail skeleton (message blocks), with the Back affordance.
-    expect(container.querySelector(".skeleton-detail-body")).toBeTruthy();
+    expect(container.querySelector(".skeleton-detail")).toBeTruthy();
     expect(container.querySelector(".back-btn")).toBeTruthy();
   });
 });

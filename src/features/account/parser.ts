@@ -22,6 +22,8 @@ import { CLAUDE_DIR, SETTINGS_FILE } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
 import { readCredentials } from "./credentials";
 import { computeUsageStats } from "./usage";
+import { readStatuslineCache } from "./quota";
+import { writeFileAtomic } from "../../core/atomicWrite";
 import { snapshotSettings, listSnapshots, restoreSnapshot, deleteSnapshot } from "./snapshots";
 import type { SettingsSnapshot } from "./snapshots";
 import type {
@@ -332,6 +334,7 @@ export function parseAccountData(workspacePath?: string): AccountData {
       id: m.id,
       isLatest: m.isLatest,
     })),
+    activeModel: readStatuslineCache()?.model?.displayName || undefined,
     savedProfiles,
     activeProfileSlug,
     settingsSnapshots: listAllSnapshots(workspacePath),
@@ -385,7 +388,7 @@ export function writeSettingsValue(
 
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n");
+    writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
     return true;
   } catch {
     return false;
@@ -423,7 +426,7 @@ export function addPermissionEntry(
 
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n");
+    writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
     return true;
   } catch {
     return false;
@@ -460,7 +463,7 @@ export function removePermissionEntry(
   arr.splice(idx, 1);
 
   try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n");
+    writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
     return true;
   } catch {
     return false;
@@ -544,7 +547,7 @@ export function restoreClaudeJsonFromBackup(): string | null {
         const raw = fs.readFileSync(backupPath, "utf-8");
         if (!raw.trim()) continue;
         JSON.parse(raw); // validate it parses before overwriting
-        fs.writeFileSync(CLAUDE_JSON, raw);
+        writeFileAtomic(CLAUDE_JSON, raw);
         return backupPath;
       } catch {
         // this backup is also bad — try the next one

@@ -18,44 +18,43 @@ const vfs = vi.hoisted<Vfs>(() => ({
   files: {},
 }));
 
-vi.mock("fs", () => ({
-  readdirSync: (p: string): string[] => {
-    const entry = vfs.dirs[p];
-    if (!entry) {
-      const e = new Error("ENOENT") as NodeJS.ErrnoException;
-      e.code = "ENOENT";
-      throw e;
-    }
-    return entry;
-  },
-  statSync: (p: string): { mtimeMs: number; size: number } => {
+vi.mock("fs", () => {
+  // Defined inside the factory because vi.mock is hoisted above module-level
+  // consts. Closes over the vi.hoisted `vfs`, which IS initialised in time.
+  const enoent = (): never => {
+    const e = new Error("ENOENT") as NodeJS.ErrnoException;
+    e.code = "ENOENT";
+    throw e;
+  };
+  const readdir = (p: string): string[] => vfs.dirs[p] ?? enoent();
+  const stat = (p: string): { mtimeMs: number; size: number } => {
     const m = vfs.mtimes[p];
-    if (m === undefined) {
-      const e = new Error("ENOENT") as NodeJS.ErrnoException;
-      e.code = "ENOENT";
-      throw e;
-    }
+    if (m === undefined) enoent();
     // Mirror real fs.Stats: size comes from the file's byte length.
     // Directories (no file content) report 0 — the aggregator only
     // folds file sizes into the fingerprint.
     const content = vfs.files[p];
     const size = content === undefined ? 0 : Buffer.byteLength(content);
     return { mtimeMs: m, size };
-  },
-  readFileSync: (p: string): string => {
-    const c = vfs.files[p];
-    if (c === undefined) {
-      const e = new Error("ENOENT") as NodeJS.ErrnoException;
-      e.code = "ENOENT";
-      throw e;
-    }
-    return c;
-  },
-}));
+  };
+  const readFile = (p: string): string => vfs.files[p] ?? enoent();
+  return {
+    readdirSync: readdir,
+    statSync: stat,
+    readFileSync: readFile,
+    // warmUsageAggregate reads via fs.promises — back it with the same vfs so
+    // the async aggregation path is exercised by these tests too.
+    promises: {
+      readdir: async (p: string): Promise<string[]> => readdir(p),
+      stat: async (p: string): Promise<{ mtimeMs: number; size: number }> => stat(p),
+      readFile: async (p: string): Promise<string> => readFile(p),
+    },
+  };
+});
 
-import {
-  aggregateProjectStats,
+import {
   aggregateUsage,
+  warmUsageAggregate,
   resetProjectStatsCache,
 } from "../projectStats";
 import { PROJECTS_DIR } from "../../../core/config";
@@ -136,14 +135,14 @@ function userLine(
 }
 
 describe("aggregateProjectStats", () => {
-  it("returns empty breakdown when PROJECTS_DIR is missing", () => {
-    const out = aggregateProjectStats();
+  it("returns empty breakdown when PROJECTS_DIR is missing", async () => {
+    const out = await warmUsageAggregate();
     expect(out.byProject).toEqual([]);
     expect(out.byTool).toEqual([]);
     expect(out.byMcpServer).toEqual([]);
   });
 
-  it("aggregates per-project tokens, sessions and messages", () => {
+  it("aggregates per-project tokens, sessions and messages", async () => {
     setupProject("proj-a", "s.jsonl", [
       userLine("s1", "2026-04-26T10:00:00Z", "C:/a"),
       assistantLine({ sessionId: "s1", cwd: "C:/a", input: 100, output: 200 }),
@@ -154,7 +153,7 @@ describe("aggregateProjectStats", () => {
       assistantLine({ sessionId: "s3", cwd: "D:/b", input: 10, output: 90 }),
     ]);
 
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     expect(out.byProject).toHaveLength(2);
     const a = out.byProject.find((p) => p.slug === "proj-a")!;
     expect(a.path).toBe("C:/a");
@@ -166,38 +165,38 @@ describe("aggregateProjectStats", () => {
     expect(a.lastActiveDate).toBe("2026-04-26");
   });
 
-  it("sorts projects by total tokens descending", () => {
+  it("sorts projects by total tokens descending", async () => {
     setupProject("small", "s.jsonl", [
       assistantLine({ sessionId: "x", input: 1, output: 1 }),
     ]);
     setupProject("big", "b.jsonl", [
       assistantLine({ sessionId: "y", input: 1000, output: 1000 }),
     ]);
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     expect(out.byProject.map((p) => p.slug)).toEqual(["big", "small"]);
   });
 
-  it("falls back to slug when no entry exposes cwd", () => {
+  it("falls back to slug when no entry exposes cwd", async () => {
     setupProject("slug-only", "s.jsonl", [
       userLine("s1"),
       assistantLine({ sessionId: "s1", input: 5, output: 5 }),
     ]);
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     expect(out.byProject[0].path).toBe("slug-only");
   });
 
-  it("counts tool invocations and ranks by frequency", () => {
+  it("counts tool invocations and ranks by frequency", async () => {
     setupProject("p", "s.jsonl", [
       assistantLine({ sessionId: "s1", tools: ["Read", "Read", "Edit"] }),
       assistantLine({ sessionId: "s1", tools: ["Read", "Bash"] }),
     ]);
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     expect(out.byTool[0]).toEqual({ name: "Read", count: 3 });
     expect(out.byTool[1].count).toBe(1);
     expect(out.byTool).toHaveLength(3);
   });
 
-  it("extracts MCP server usage from mcp__server__tool names", () => {
+  it("extracts MCP server usage from mcp__server__tool names", async () => {
     setupProject("p", "s.jsonl", [
       assistantLine({
         sessionId: "s1",
@@ -210,7 +209,7 @@ describe("aggregateProjectStats", () => {
         ],
       }),
     ]);
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     const gh = out.byMcpServer.find((s) => s.server === "github")!;
     expect(gh.toolCount).toBe(3);
     expect(gh.uniqueTools).toBe(2);
@@ -221,42 +220,42 @@ describe("aggregateProjectStats", () => {
     expect(out.byMcpServer[0].server).toBe("github");
   });
 
-  it("ignores built-in tools when computing MCP servers", () => {
+  it("ignores built-in tools when computing MCP servers", async () => {
     setupProject("p", "s.jsonl", [
       assistantLine({ sessionId: "s1", tools: ["Read", "Edit", "Bash"] }),
     ]);
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     expect(out.byMcpServer).toEqual([]);
     expect(out.byTool).toHaveLength(3);
   });
 
-  it("survives malformed lines without crashing", () => {
+  it("survives malformed lines without crashing", async () => {
     setupProject("p", "s.jsonl", [
       "{not json",
       "",
       userLine("s1"),
       assistantLine({ sessionId: "s1", input: 50, output: 50 }),
     ]);
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     expect(out.byProject[0].tokens).toBe(100);
   });
 
-  it("memoises by fingerprint — unchanged transcripts return the cached result", () => {
+  it("memoises by fingerprint — unchanged transcripts return the cached result", async () => {
     setupProject("p", "s.jsonl", [
       assistantLine({ sessionId: "s1", input: 1, output: 1 }),
     ]);
-    const first = aggregateProjectStats();
+    const first = await warmUsageAggregate();
     // Nothing on disk changed — the memo must return the identical object.
-    const second = aggregateProjectStats();
+    const second = await warmUsageAggregate();
     expect(second).toBe(first);
   });
 
-  it("recomputes when an existing transcript grows mid-session (append)", () => {
+  it("recomputes when an existing transcript grows mid-session (append)", async () => {
     const filePath = path.join(PROJECTS_DIR, "p", "s.jsonl");
     setupProject("p", "s.jsonl", [
       assistantLine({ sessionId: "s1", input: 1, output: 1 }),
     ], 1000);
-    const first = aggregateProjectStats();
+    const first = await warmUsageAggregate();
     expect(first.byProject[0].tokens).toBe(2);
     // Active session appends a turn: the file's mtime + size both move,
     // but the parent directory's mtime does NOT (no entry added/removed).
@@ -266,25 +265,25 @@ describe("aggregateProjectStats", () => {
       assistantLine({ sessionId: "s1", input: 1, output: 1 }),
       assistantLine({ sessionId: "s1", input: 99, output: 99 }),
     ].join("\n");
-    const second = aggregateProjectStats();
+    const second = await warmUsageAggregate();
     expect(second).not.toBe(first);
     expect(second.byProject[0].tokens).toBe(200);
   });
 
-  it("recomputes when a new transcript file appears", () => {
+  it("recomputes when a new transcript file appears", async () => {
     setupProject("p", "s.jsonl", [
       assistantLine({ sessionId: "s1", input: 1, output: 1 }),
     ], 1000);
-    aggregateProjectStats();
+    await warmUsageAggregate();
     // A second session is written under the same project slug.
     setupProject("p", "s2.jsonl", [
       assistantLine({ sessionId: "s2", input: 99, output: 99 }),
     ], 2000);
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     expect(out.byProject[0].tokens).toBe(200);
   });
 
-  it("excludes projects with no sessions and zero tokens", () => {
+  it("excludes projects with no sessions and zero tokens", async () => {
     // Empty file under a project slug — directory exists but no entries.
     const projDir = path.join(PROJECTS_DIR, "empty");
     vfs.dirs[PROJECTS_DIR] = ["empty"];
@@ -292,13 +291,13 @@ describe("aggregateProjectStats", () => {
     vfs.mtimes[projDir] = 1;
     vfs.mtimes[path.join(projDir, "s.jsonl")] = 1;
     vfs.files[path.join(projDir, "s.jsonl")] = "";
-    const out = aggregateProjectStats();
+    const out = await warmUsageAggregate();
     expect(out.byProject).toEqual([]);
   });
 });
 
 describe("aggregateUsage — totals + daily", () => {
-  it("rolls up daily activity and tokens across all projects", () => {
+  it("rolls up daily activity and tokens across all projects", async () => {
     setupProject("a", "s.jsonl", [
       userLine("s1", "2026-05-10T09:00:00Z"),
       assistantLine({
@@ -318,7 +317,7 @@ describe("aggregateUsage — totals + daily", () => {
         output: 50,
       }),
     ]);
-    const out = aggregateUsage();
+    const out = await warmUsageAggregate();
     expect(out.daily.map((d) => d.date)).toEqual(["2026-05-10", "2026-05-11"]);
     expect(out.daily[0].sessionCount).toBe(2); // s1 + s2
     expect(out.daily[1].sessionCount).toBe(1); // only s2
@@ -326,7 +325,7 @@ describe("aggregateUsage — totals + daily", () => {
     expect(out.dailyTokens.find((d) => d.date === "2026-05-11")?.total).toBe(100);
   });
 
-  it("totals tokens, sessions, messages across all projects", () => {
+  it("totals tokens, sessions, messages across all projects", async () => {
     setupProject("a", "s.jsonl", [
       userLine("s1", "2026-05-10T09:00:00Z"),
       assistantLine({
@@ -347,7 +346,7 @@ describe("aggregateUsage — totals + daily", () => {
         cacheCreation: 20,
       }),
     ]);
-    const out = aggregateUsage();
+    const out = await warmUsageAggregate();
     expect(out.totalSessions).toBe(2);
     expect(out.totalMessages).toBe(2);
     expect(out.totalInputTokens).toBe(110);
@@ -358,19 +357,19 @@ describe("aggregateUsage — totals + daily", () => {
     expect(out.firstSessionDate).toBe("2026-05-10");
   });
 
-  it("computes longestSessionMs from per-session timestamps", () => {
+  it("computes longestSessionMs from per-session timestamps", async () => {
     setupProject("a", "s.jsonl", [
       userLine("s1", "2026-05-10T09:00:00Z"),
       assistantLine({ sessionId: "s1", ts: "2026-05-10T10:30:00Z", input: 1, output: 1 }),
       userLine("s2", "2026-05-10T12:00:00Z"),
       assistantLine({ sessionId: "s2", ts: "2026-05-10T12:05:00Z", input: 1, output: 1 }),
     ]);
-    const out = aggregateUsage();
+    const out = await warmUsageAggregate();
     // s1 ran 90 minutes, s2 ran 5 minutes — longest = 5400000 ms.
     expect(out.longestSessionMs).toBe(90 * 60 * 1000);
   });
 
-  it("byModel rolls up across all projects", () => {
+  it("byModel rolls up across all projects", async () => {
     setupProject("a", "s.jsonl", [
       assistantLine({ sessionId: "s1", model: "claude-opus-4-7", input: 100, output: 200 }),
     ]);
@@ -378,7 +377,7 @@ describe("aggregateUsage — totals + daily", () => {
       assistantLine({ sessionId: "s2", model: "claude-opus-4-7", input: 50, output: 50 }),
       assistantLine({ sessionId: "s2", model: "claude-sonnet-4-6", input: 200, output: 300 }),
     ]);
-    const out = aggregateUsage();
+    const out = await warmUsageAggregate();
     const opus = out.byModel.find((m) => m.model === "claude-opus-4-7")!;
     const sonnet = out.byModel.find((m) => m.model === "claude-sonnet-4-6")!;
     expect(opus.inputTokens).toBe(150);
@@ -391,7 +390,7 @@ describe("aggregateUsage — totals + daily", () => {
 });
 
 describe("aggregateUsage — dedup", () => {
-  it("dedups duplicate uuids across files (resumed transcript)", () => {
+  it("dedups duplicate uuids across files (resumed transcript)", async () => {
     // Same uuid appears in two files — happens when Claude resumes a
     // session and re-appends earlier turns to a new transcript file.
     const sharedAssistant = assistantLine({
@@ -412,14 +411,14 @@ describe("aggregateUsage — dedup", () => {
       userLine("s1", "2026-05-10T09:00:00Z", undefined, "u-1"),
       sharedAssistant,
     ].join("\n");
-    const out = aggregateUsage();
+    const out = await warmUsageAggregate();
     // Tokens counted once despite two appearances.
     expect(out.totalInputTokens).toBe(100);
     expect(out.totalOutputTokens).toBe(200);
     expect(out.totalMessages).toBe(1);
   });
 
-  it("dedups assistants by message.id when uuid is absent", () => {
+  it("dedups assistants by message.id when uuid is absent", async () => {
     // Two files, two different uuids, SAME message.id.
     const a = JSON.stringify({
       type: "assistant",
@@ -448,13 +447,13 @@ describe("aggregateUsage — dedup", () => {
     vfs.dirs[projDir] = ["f1.jsonl", "f2.jsonl"];
     vfs.mtimes[path.join(projDir, "f2.jsonl")] = 1000;
     vfs.files[path.join(projDir, "f2.jsonl")] = b;
-    const out = aggregateUsage();
+    const out = await warmUsageAggregate();
     expect(out.totalTokens).toBe(30); // counted once
   });
 });
 
 describe("aggregateUsage — CLAUDE_CONFIG_DIRS", () => {
-  it("merges JSONL from every dir listed in CLAUDE_CONFIG_DIRS", () => {
+  it("merges JSONL from every dir listed in CLAUDE_CONFIG_DIRS", async () => {
     setupProject("a", "s.jsonl", [
       assistantLine({ sessionId: "s1", input: 100, output: 200 }),
     ]);
@@ -475,7 +474,7 @@ describe("aggregateUsage — CLAUDE_CONFIG_DIRS", () => {
     });
     process.env.CLAUDE_CONFIG_DIRS = altRoot;
     resetProjectStatsCache();
-    const out = aggregateUsage();
+    const out = await warmUsageAggregate();
     expect(out.totalSessions).toBe(2);
     expect(out.totalTokens).toBe(400);
     expect(out.byProject.map((p) => p.slug).sort()).toEqual(["a", "z"]);

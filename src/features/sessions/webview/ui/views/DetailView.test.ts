@@ -51,7 +51,7 @@ describe("DetailView", () => {
     detailSignal.value = null;
     const { container } = render(h(DetailView, {}));
     // The bare "Loading…" text was replaced by the content-shaped detail skeleton.
-    expect(container.querySelector(".skeleton-detail-body")).toBeTruthy();
+    expect(container.querySelector(".skeleton-detail")).toBeTruthy();
   });
 
   it("renders the title, project and messages", () => {

@@ -40,6 +40,11 @@ vi.mock("../../account/parser", () => ({
     return { profile: { userID: "u-1" } };
   },
 }));
+// Usage aggregate warm is awaited before the usage re-push; resolve instantly
+// so the test only has to flush microtasks, not run the real corpus read.
+vi.mock("../../account/projectStats", () => ({
+  warmUsageAggregate: () => Promise.resolve(),
+}));
 vi.mock("../../account/quota", () => ({
   readQuota: () => ({ ok: false }),
 }));
@@ -127,7 +132,7 @@ function transcriptWatcher(): Captured {
 }
 
 describe("createWatchers — transcript change refreshes the Usage tab", () => {
-  it("re-posts accountData after a transcript append (debounced)", () => {
+  it("re-posts accountData after a transcript append (debounced)", async () => {
     const ctx = makeCtx();
     const disposable = createWatchers(ctx);
 
@@ -141,6 +146,10 @@ describe("createWatchers — transcript change refreshes the Usage tab", () => {
     expect(posted.map((m) => m.type)).not.toContain("accountData");
 
     vi.advanceTimersByTime(1000);
+    // The usage re-push awaits warmUsageAggregate — flush the microtask queue
+    // so its continuation (the accountData post) runs before we assert.
+    await Promise.resolve();
+    await Promise.resolve();
 
     // Session list refreshed AND usage re-pushed off the same event.
     const types = posted.map((m) => m.type);
@@ -151,7 +160,7 @@ describe("createWatchers — transcript change refreshes the Usage tab", () => {
     disposable.dispose();
   });
 
-  it("re-posts accountData even when the session list did not change", () => {
+  it("re-posts accountData even when the session list did not change", async () => {
     // reparseOneSession returns null → session dropped / no-op mutation,
     // but a live session may still have burned tokens. The finally-push
     // must run regardless so usage never stalls.
@@ -164,6 +173,8 @@ describe("createWatchers — transcript change refreshes the Usage tab", () => {
     } as vscode.Uri;
     for (const h of w.handlers) h(fakeUri);
     vi.advanceTimersByTime(1000);
+    await Promise.resolve();
+    await Promise.resolve();
 
     expect(posted.map((m) => m.type)).toContain("accountData");
 

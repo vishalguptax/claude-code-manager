@@ -1,6 +1,6 @@
 {
   "name": "claude-manager",
-  "displayName": "Claude Manager — Sessions, MCP, Skills, Usage & Accounts",
+  "displayName": "Claude Manager: Sessions, MCP, Skills, Usage & Accounts",
   "description": "Manage Claude Code sessions, MCP servers, skills, slash commands, hooks, agents, account switching & usage tracking from your VS Code sidebar. Resume with git branch detection. 100% local, zero telemetry.",
   "version": "2.2.0",
   "publisher": "vishalguptax",
@@ -27,9 +27,9 @@
     "node": ">=20"
   },
   "categories": [
+    "AI",
     "Machine Learning",
-    "Visualization",
-    "Other"
+    "Visualization"
   ],
   "sponsor": {
     "url": "https://github.com/sponsors/vishalguptax"
@@ -42,31 +42,31 @@
     "claude-manager",
     "claude-code-manager",
     "anthropic",
-    "claude account switcher",
+    "claude code extension",
+    "claude code gui",
+    "claude code ui",
+    "claude code account switcher",
     "claude session manager",
-    "claude session management",
+    "resume claude session",
     "claude usage tracker",
     "claude token usage",
     "claude skill manager",
-    "claude skill management",
-    "claude session",
     "claude agents",
     "claude hooks",
     "claude commands",
     "claude mcp",
+    "claude code mcp manager",
     "mcp",
     "mcp manager",
     "model-context-protocol",
     "session manager",
-    "ai",
-    "ai-assistant",
-    "ai-coding",
-    "llm",
+    "claude config",
     "vscode",
+    "vscode extension",
     "cursor",
     "windsurf",
-    "developer-tools",
-    "productivity"
+    "claude code cli",
+    "developer-tools"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -198,7 +198,7 @@
           "default": 30,
           "minimum": 5,
           "maximum": 120,
-          "description": "Time window (in minutes) for Restore Workspace — sessions active within this window are grouped together."
+          "description": "Time window (in minutes) for Restore Workspace. Sessions active within this window are grouped together."
         },
         "claudeManager.marketplaceSkillsUrl": {
           "type": "string",
