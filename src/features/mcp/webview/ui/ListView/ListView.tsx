@@ -114,9 +114,13 @@ export function ListView({ onSelect, onCopyName, onBrowse, onRefresh }: ListView
       {needs.length > 0 ? (
         <div class="mcp-auth-banner" role="status">
           <Icon name="circle-alert" size={14} />
-          <span>
-            {needs.length} MCP {needs.length === 1 ? "connector needs" : "connectors need"} re-auth:{" "}
-            {needs.join(", ")}
+          <span class="mcp-auth-banner-text">
+            <strong>
+              {needs.length} {needs.length === 1 ? "connector needs" : "connectors need"} re-auth
+            </strong>
+            <span class="mcp-auth-banner-names" title={needs.join(", ")}>
+              {needs.join(", ")}
+            </span>
           </span>
         </div>
       ) : null}

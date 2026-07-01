@@ -12,6 +12,7 @@
  */
 import * as fs from "fs";
 import * as path from "path";
+import { writeFileAtomic } from "../../core/atomicWrite";
 import type { Hook, HookScope } from "./types";
 
 interface RawHookEntry {
@@ -42,7 +43,7 @@ function readSettings(filePath: string): SettingsShape {
 function writeSettings(filePath: string, data: SettingsShape): boolean {
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n");
+    writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
     return true;
   } catch {
     return false;

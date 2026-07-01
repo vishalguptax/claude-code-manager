@@ -55,9 +55,13 @@ describe("buildModelOptions", () => {
   it("puts a synthetic default first that does NOT name a specific model", () => {
     const opts = buildModelOptions(makeConfigData(), "default");
     expect(opts[0].value).toBe("default");
-    // The account's real default isn't readable locally, so the label must
-    // not claim a model (was misleadingly "Default (Opus 4.7)").
-    expect(opts[0].label).toBe("Default");
+    // No active model known → "(auto)", never a guessed model name.
+    expect(opts[0].label).toBe("Default (auto)");
+  });
+
+  it("names the Default option after the active model when the statusline knows it", () => {
+    const opts = buildModelOptions(makeConfigData({ activeModel: "Sonnet 4.5" }), "default");
+    expect(opts[0].label).toBe("Default (Sonnet 4.5)");
   });
 
   it("uses the alias as value for the latest model and dedupes", () => {

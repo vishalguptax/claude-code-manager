@@ -139,18 +139,20 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
       fileAiTitle = meta.aiTitle;
     }
 
-    // Resolve session name with priority:
-    // 1. Extension-managed rename (always wins)
-    // 2. Live PID map (active sessions)
-    // 3. /rename command in transcript
-    // 4. CLI-generated `ai-title` (Claude 2.1+ terminal/session title)
-    // 5. Claude's older auto-generated `summary` (fallback for pre-2.1 sessions)
-    let name = userRenames[sessionId] ?? "";
-    if (!name) name = sessionNames.get(sessionId) ?? "";
-    if (!name) name = fileRename || fileAiTitle || fileSummary;
-
     const summary =
       prompts[0].length > 100 ? prompts[0].slice(0, 100) + "..." : prompts[0];
+
+    // Resolve session name with priority:
+    // 1. Extension-managed rename (always wins)
+    // 2. /rename command in transcript
+    // 3. CLI-generated `ai-title` (Claude 2.1+ terminal/session title)
+    // 4. Claude's older auto-generated meta `summary`
+    // 5. First-prompt summary — descriptive text a brand-new session has before
+    //    the CLI generates an ai-title, so it beats the generic PID slug.
+    // 6. Live PID-file `name` (CLI auto-slug like `project-4b`) — last resort.
+    let name = userRenames[sessionId] ?? "";
+    if (!name)
+      name = fileRename || fileAiTitle || fileSummary || summary || sessionNames.get(sessionId) || "";
 
     // Pre-compute lowercased lookup keys so the webview filter does not
     // allocate strings on every keystroke. searchHaystack joins fields with
@@ -478,17 +480,17 @@ function discoverOrphanSessions(
         projectPathByKey.set(projectKey, rawProjectPath);
       }
 
-      // Name resolution mirrors the history path: extension rename >
-      // active-session PID map > /rename in transcript > ai-title (CLI 2.1+) >
-      // older auto-summary fallback.
-      let name = userRenames[sessionId] ?? "";
-      if (!name) name = sessionNames.get(sessionId) ?? "";
-      if (!name) name = data.rename || data.aiTitle || data.summary;
-
       const summary =
         data.firstPrompt.length > 100
           ? data.firstPrompt.slice(0, 100) + "..."
           : data.firstPrompt;
+
+      // Name resolution mirrors the history path: extension rename >
+      // /rename in transcript > ai-title (CLI 2.1+) > meta summary >
+      // first-prompt summary > active-session PID-file slug (last resort).
+      let name = userRenames[sessionId] ?? "";
+      if (!name)
+        name = data.rename || data.aiTitle || data.summary || summary || sessionNames.get(sessionId) || "";
 
       const searchHaystack =
         `${name}\n${project}\n${data.branch}\n${summary}`.toLowerCase();

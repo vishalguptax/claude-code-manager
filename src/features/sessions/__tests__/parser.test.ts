@@ -257,6 +257,41 @@ describe("parseSessions", () => {
     expect(sess!.name).toBe("Refactor auth flow");
   });
 
+  it("first-prompt summary outranks the CLI PID-file slug for a new session", () => {
+    // A brand-new live session has a PID-file `name` slug (e.g. project-4b)
+    // but no ai-title/meta-summary yet. The descriptive first prompt must win
+    // over the generic slug.
+    writeHistoryEntry({
+      display: "add pairing retry to the BLE flow",
+      timestamp: Date.now(),
+      project: "/projects/keus-iot-platform",
+      sessionId: "sess-slug-new",
+    });
+    writePidFile(process.pid, "sess-slug-new", { name: "keus-iot-platform-4b" });
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === "sess-slug-new");
+    expect(sess!.name).toBe("add pairing retry to the BLE flow");
+  });
+
+  it("ai-title outranks the CLI PID-file slug", () => {
+    writeHistoryEntry({
+      display: "x",
+      timestamp: Date.now(),
+      project: "/projects/keus-iot-platform",
+      sessionId: "sess-slug-aititle",
+    });
+    writeSessionFile("slug-aititle-hash", "sess-slug-aititle", [
+      { type: "ai-title", aiTitle: "Fix version bump workflow", sessionId: "sess-slug-aititle" },
+      { message: { role: "user", content: "x" }, timestamp: "2026-04-20T15:00:00.000Z" },
+    ]);
+    writePidFile(process.pid, "sess-slug-aititle", { name: "keus-iot-platform-91" });
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === "sess-slug-aititle");
+    expect(sess!.name).toBe("Fix version bump workflow");
+  });
+
   it("discovers sessions that only exist in projects/ (no history.jsonl entry)", () => {
     // Extension-originated sessions never touch history.jsonl. We
     // simulate that here by writing the transcript file directly.
@@ -700,7 +735,11 @@ describe("pending-question detection (idle → awaiting_question)", () => {
     expect(sess.status).toBe("awaiting_question");
   });
 
-  it("does not override non-idle CLI statuses (busy stays)", () => {
+  it("surfaces awaiting_question even when the CLI status is a stale 'busy'", () => {
+    // The CLI only rewrites `status` on a change and routinely leaves it
+    // frozen at "busy" while actually blocked on the user, which used to show
+    // the green "busy" dot for a pending question. An unanswered
+    // AskUserQuestion in the transcript is definitive, so it now overrides.
     const id = "sess-pq-5";
     writeHistoryEntry({
       display: "busy with pending",
@@ -721,6 +760,29 @@ describe("pending-question detection (idle → awaiting_question)", () => {
               input: { question: "?" },
             },
           ],
+        },
+      },
+    ]);
+    writePidFile(process.pid, id, { status: "busy", updatedAt: 1 });
+
+    const sess = parseSessions().find((s) => s.id === id)!;
+    expect(sess.status).toBe("awaiting_question");
+  });
+
+  it("leaves a genuine 'busy' session (no pending question) as busy", () => {
+    const id = "sess-pq-7";
+    writeHistoryEntry({
+      display: "genuinely busy",
+      timestamp: Date.now(),
+      project: "/projects/pending",
+      sessionId: id,
+    });
+    writeSessionFile(projectSlugFor(id), id, [
+      {
+        type: "assistant",
+        message: {
+          role: "assistant",
+          content: [{ type: "tool_use", id: "tu_read", name: "Read", input: {} }],
         },
       },
     ]);

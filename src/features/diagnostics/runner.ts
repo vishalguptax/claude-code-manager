@@ -11,7 +11,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { execSync } from "child_process";
+import { exec } from "child_process";
+import { promisify } from "util";
 import { CLAUDE_DIR, STATS_CACHE_FILE } from "../../core/config";
 import {
   readCredentials,
@@ -22,6 +23,8 @@ import type { DiagnosticCheck, DiagnosticStatus } from "./types";
 
 const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
+
+const execP = promisify(exec);
 
 /** A short-circuit constructor so each check stays a single expression. */
 function check(
@@ -47,22 +50,28 @@ function safeReadJson(filePath: string): unknown {
  * Try to invoke `claude --version` and return the trimmed stdout.
  * `null` on any failure — extracted so the check can also fall back
  * to a "not on PATH" message instead of swallowing the error.
+ *
+ * Async (shell `exec`, not `execSync`): the CLI can take several seconds
+ * to answer on a cold start, and a synchronous spawn would freeze the
+ * whole extension host — and every queued UI action — for that long.
+ * Shell form is kept so Windows resolves the `claude.cmd`/`claude.ps1`
+ * shim exactly as the previous `execSync` did.
  */
-function detectClaudeCliVersion(): string | null {
+async function detectClaudeCliVersion(): Promise<string | null> {
   try {
-    const out = execSync("claude --version", {
+    const { stdout } = await execP("claude --version", {
       encoding: "utf-8",
       timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
     });
-    return out.trim() || null;
+    return stdout.trim() || null;
   } catch {
     return null;
   }
 }
 
-function checkClaudeCli(): DiagnosticCheck {
-  const version = detectClaudeCliVersion();
+async function checkClaudeCli(): Promise<DiagnosticCheck> {
+  const version = await detectClaudeCliVersion();
   if (version) {
     return check("cli", "Claude CLI on PATH", "pass", version);
   }
@@ -359,10 +368,14 @@ function extractCmdHead(cmd: string): string {
   return m ? m[1] ?? m[2] : cmd;
 }
 
-/** Run every check and return them in display order. */
-export function runDiagnostics(): DiagnosticCheck[] {
+/**
+ * Run every check and return them in display order. Async because the
+ * Claude-CLI probe shells out; the remaining checks are fast synchronous
+ * filesystem reads.
+ */
+export async function runDiagnostics(): Promise<DiagnosticCheck[]> {
   return [
-    checkClaudeCli(),
+    await checkClaudeCli(),
     checkClaudeDir(),
     checkClaudeJson(),
     checkCredentials(),

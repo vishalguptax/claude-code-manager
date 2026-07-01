@@ -23,13 +23,22 @@ vi.mock("os", async () => {
 
 vi.mock("child_process", async () => {
   const actual = await vi.importActual<typeof import("child_process")>("child_process");
+  // Callback-style `exec` so `promisify(exec)` in models.ts resolves/rejects
+  // exactly as the real child_process would. `ctx.execImpl` throwing models a
+  // failed spawn (npm missing / not on PATH).
   return {
     ...actual,
-    execSync: (cmd: string, _opts?: unknown) => ctx.execImpl(cmd),
+    exec: (cmd: string, _opts: unknown, cb: (e: unknown, r?: { stdout: string }) => void) => {
+      try {
+        cb(null, { stdout: ctx.execImpl(cmd) });
+      } catch (err) {
+        cb(err);
+      }
+    },
   };
 });
 
-import { discoverModelsFromCli, clearModelCache } from "../models";
+import { discoverModelsFromCli, warmModelCache, clearModelCache } from "../models";
 
 afterAll(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
@@ -78,11 +87,17 @@ beforeEach(() => {
 });
 
 describe("discoverModelsFromCli", () => {
-  it("returns empty array when no CLI install is found anywhere", () => {
+  it("returns empty array when no CLI install is found anywhere", async () => {
+    expect(await warmModelCache()).toEqual([]);
+  });
+
+  it("sync discoverModelsFromCli returns empty on a cold cache and never blocks", () => {
+    // Cold: the scan hasn't run, so the sync reader must return [] immediately
+    // rather than spawning on the caller's thread.
     expect(discoverModelsFromCli()).toEqual([]);
   });
 
-  it("scans the native-installer layout under ~/.claude/local", () => {
+  it("scans the native-installer layout under ~/.claude/local", async () => {
     const home = fs.mkdtempSync(path.join(tmpRoot, "native-home-"));
     ctx.home = home;
 
@@ -90,14 +105,14 @@ describe("discoverModelsFromCli", () => {
     const binary = pkgRootBinary(localNodeModules, "linux-x64");
     writeFakeBinary(binary, ["claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"]);
 
-    const models = discoverModelsFromCli();
+    const models = await warmModelCache();
     const ids = models.map((m) => m.id);
     expect(ids).toContain("claude-opus-4-7");
     expect(ids).toContain("claude-sonnet-4-6");
     expect(ids).toContain("claude-haiku-4-5");
   });
 
-  it("falls back to npm global root when ~/.claude/local is missing", () => {
+  it("falls back to npm global root when ~/.claude/local is missing", async () => {
     const npmRoot = fs.mkdtempSync(path.join(tmpRoot, "npm-root-"));
     ctx.execImpl = (cmd: string) => {
       if (cmd.includes("npm root")) return `${npmRoot}\n`;
@@ -107,13 +122,13 @@ describe("discoverModelsFromCli", () => {
     const binary = pkgRootBinary(npmRoot, "darwin-arm64");
     writeFakeBinary(binary, ["claude-opus-4-7", "claude-sonnet-4-6"]);
 
-    const models = discoverModelsFromCli();
+    const models = await warmModelCache();
     expect(models.map((m) => m.id).sort()).toEqual(
       ["claude-opus-4-7", "claude-sonnet-4-6"].sort(),
     );
   });
 
-  it("merges results across native-install + npm + PATH candidates", () => {
+  it("merges results across native-install + npm + PATH candidates", async () => {
     const home = fs.mkdtempSync(path.join(tmpRoot, "merge-home-"));
     ctx.home = home;
 
@@ -141,11 +156,11 @@ describe("discoverModelsFromCli", () => {
       throw new Error("not configured");
     };
 
-    const families = discoverModelsFromCli().map((m) => m.family).sort();
+    const families = (await warmModelCache()).map((m) => m.family).sort();
     expect(families).toEqual(["haiku", "opus", "sonnet"]);
   });
 
-  it("marks the newest of each family as isLatest and sorts newest first", () => {
+  it("marks the newest of each family as isLatest and sorts newest first", async () => {
     const home = fs.mkdtempSync(path.join(tmpRoot, "latest-home-"));
     ctx.home = home;
 
@@ -160,7 +175,7 @@ describe("discoverModelsFromCli", () => {
       "claude-sonnet-4-6",
     ]);
 
-    const models = discoverModelsFromCli();
+    const models = await warmModelCache();
     // Sorted newest first.
     expect(models[0].id).toBe("claude-opus-4-7");
     // Only the newest opus is marked latest; older opus versions are not.
@@ -171,7 +186,7 @@ describe("discoverModelsFromCli", () => {
     expect(models.find((m) => m.family === "sonnet")?.isLatest).toBe(true);
   });
 
-  it("ignores date-versioned snapshots like claude-opus-4-20250514", () => {
+  it("ignores date-versioned snapshots like claude-opus-4-20250514", async () => {
     const home = fs.mkdtempSync(path.join(tmpRoot, "date-home-"));
     ctx.home = home;
 
@@ -181,12 +196,12 @@ describe("discoverModelsFromCli", () => {
     );
     writeFakeBinary(binary, ["claude-opus-4-20250514", "claude-opus-4-7"]);
 
-    const ids = discoverModelsFromCli().map((m) => m.id);
+    const ids = (await warmModelCache()).map((m) => m.id);
     expect(ids).toContain("claude-opus-4-7");
     expect(ids).not.toContain("claude-opus-4-20250514");
   });
 
-  it("dedupes claude-opus-4 against claude-opus-4-0", () => {
+  it("dedupes claude-opus-4 against claude-opus-4-0", async () => {
     const home = fs.mkdtempSync(path.join(tmpRoot, "dedupe-home-"));
     ctx.home = home;
 
@@ -196,11 +211,11 @@ describe("discoverModelsFromCli", () => {
     );
     writeFakeBinary(binary, ["claude-opus-4", "claude-opus-4-0"]);
 
-    const opus = discoverModelsFromCli().filter((m) => m.family === "opus");
+    const opus = (await warmModelCache()).filter((m) => m.family === "opus");
     expect(opus).toHaveLength(1);
   });
 
-  it("caches results across calls", () => {
+  it("caches results so the sync reader returns them without re-scanning", async () => {
     const home = fs.mkdtempSync(path.join(tmpRoot, "cache-home-"));
     ctx.home = home;
 
@@ -210,8 +225,8 @@ describe("discoverModelsFromCli", () => {
     );
     writeFakeBinary(binary, ["claude-opus-4-7"]);
 
-    const first = discoverModelsFromCli();
-    // Delete the source file — second call must still return cached data.
+    const first = await warmModelCache();
+    // Delete the source file — the sync reader must still return cached data.
     fs.rmSync(binary);
     const second = discoverModelsFromCli();
     expect(second).toEqual(first);

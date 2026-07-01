@@ -16,12 +16,19 @@ vi.mock("../../../core/config", () => ({
   SESSION_ACTIVE_FILE: "/fake/active-sessions.json",
 }));
 
-import { readActiveSessions } from "../activeSessionWatcher";
+const getProcessStartTimesAsync = vi.fn<(pids: number[]) => Promise<Map<number, number>>>();
+vi.mock("../procTime", () => ({
+  getProcessStartTimesAsync: (pids: number[]) => getProcessStartTimesAsync(pids),
+}));
+
+import { readActiveSessions, filterReusedPpids, type ActiveEntry } from "../activeSessionWatcher";
 
 const NOW = 1_000_000_000_000;
 
 beforeEach(() => {
   fsReadMock.mockReset();
+  getProcessStartTimesAsync.mockReset();
+  getProcessStartTimesAsync.mockResolvedValue(new Map());
 });
 
 describe("readActiveSessions", () => {
@@ -92,5 +99,39 @@ describe("readActiveSessions", () => {
     );
     const out = readActiveSessions(NOW);
     expect(out.map((e) => e.sessionId)).toEqual(["ok"]);
+  });
+});
+
+describe("filterReusedPpids", () => {
+  const mk = (sessionId: string, ppid: number, ts: number): ActiveEntry => ({
+    sessionId,
+    ppid,
+    ts,
+    cwd: "",
+    transcriptPath: "",
+  });
+
+  it("keeps an entry whose ppid started before ts (real host shell)", async () => {
+    getProcessStartTimesAsync.mockResolvedValue(new Map([[10, NOW - 5000]]));
+    const out = await filterReusedPpids([mk("a", 10, NOW)]);
+    expect(out.map((e) => e.sessionId)).toEqual(["a"]);
+  });
+
+  it("drops an entry whose ppid started well after ts (reused pid)", async () => {
+    getProcessStartTimesAsync.mockResolvedValue(new Map([[10, NOW + 5 * 60 * 1000]]));
+    const out = await filterReusedPpids([mk("a", 10, NOW)]);
+    expect(out).toEqual([]);
+  });
+
+  it("trusts the entry when the ppid start time is unknown", async () => {
+    getProcessStartTimesAsync.mockResolvedValue(new Map());
+    const out = await filterReusedPpids([mk("a", 10, NOW)]);
+    expect(out.map((e) => e.sessionId)).toEqual(["a"]);
+  });
+
+  it("tolerates a small clock gap around ts", async () => {
+    getProcessStartTimesAsync.mockResolvedValue(new Map([[10, NOW + 1000]]));
+    const out = await filterReusedPpids([mk("a", 10, NOW)]);
+    expect(out.map((e) => e.sessionId)).toEqual(["a"]);
   });
 });

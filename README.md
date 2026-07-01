@@ -23,7 +23,7 @@
 <br>
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/demo.gif" alt="Claude Manager sidebar demo — sessions, skills, commands, hooks, MCP servers, agents, and account in VS Code" width="480">
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/demo.gif" alt="Claude Manager sidebar demo showing sessions, skills, commands, hooks, MCP servers, agents, and account in VS Code" width="480">
 </div>
 
 <p align="center">
@@ -64,6 +64,8 @@ That's it.
 Claude Code is powerful, but the terminal isn't built for browsing. Finding a session you ran last week means scrollback hunting. Editing an MCP server means hand-patching JSON. Keeping track of every custom slash command, hook, and agent is its own job.
 
 Claude Manager turns all of it into a sidebar you can click and search. Same Claude Code underneath, just one keystroke closer. It works whether you run the Claude Code **CLI**, the official **VS Code extension**, or both. Sessions from either show up in the same list, and Resume sends you back to wherever the session started (configurable).
+
+It also folds the jobs you'd otherwise wire up with separate single-purpose tools into one install: a usage tracker (like ccusage), an account switcher (like claude-swap), and an MCP manager all live in the same sidebar.
 
 So you can **switch between Claude accounts in VS Code** without a full logout and login, **track Claude Code token usage** alongside your 5-hour and 7-day subscription quota, **manage MCP servers without editing JSON**, **resume past sessions** by project and git branch, and organize your **skills, slash commands, hooks, and agents**. All of it one click away in your editor.
 

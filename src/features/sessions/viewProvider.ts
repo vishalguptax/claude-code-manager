@@ -29,6 +29,7 @@ import {
   refreshSettings,
   postWorkspacePath,
   refreshLiveState,
+  refreshAccountData,
   buildSearchIndex,
   checkForIdentityChange,
   sweepSwitchBackups,
@@ -186,6 +187,9 @@ export class ClaudeSessionViewProvider
   }
   refreshLiveState(): void {
     refreshLiveState(this);
+  }
+  refreshAccountData(): void {
+    refreshAccountData(this);
   }
   buildSearchIndex(): void {
     buildSearchIndex(this);

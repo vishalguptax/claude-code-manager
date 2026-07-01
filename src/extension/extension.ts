@@ -12,6 +12,8 @@ import { setExtensionUri } from "./terminal";
 import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
 import { selfHealStatusline } from "../features/account/statuslineInstall";
+import { warmModelCache } from "../features/account/models";
+import { warmUsageAggregate } from "../features/account/projectStats";
 import { ensureSessionStartHook } from "../features/sessions/sessionTapInstall";
 import { startActiveSessionWatcher } from "../features/sessions/activeSessionWatcher";
 import { exportBrain } from "../features/brain/exporter";
@@ -63,6 +65,17 @@ export function activate(context: vscode.ExtensionContext): void {
   const provider = new ClaudeSessionViewProvider(
     context.extensionUri,
     context.globalState,
+  );
+
+  // Warm the two expensive account inputs in the background at activation so
+  // the account/settings panel is ready by the time the user opens it:
+  //   - the CLI model scan (spawns + reads the ~236 MB CLI binary), and
+  //   - the usage aggregate (reads every transcript under ~/.claude/projects).
+  // Both used to run synchronously on the settings-handler click path and
+  // froze the host for seconds. Re-push accountData once they resolve so a
+  // panel opened mid-warm fills in.
+  void Promise.allSettled([warmModelCache(), warmUsageAggregate()]).then(() =>
+    provider.refreshAccountData(),
   );
 
   context.subscriptions.push(startActiveSessionWatcher(provider.terminals));

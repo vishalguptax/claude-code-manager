@@ -2,7 +2,7 @@
 
 > Free, open-source VS Code extension that puts every Claude Code session, account, MCP server, skill, slash command, hook, and agent into one sidebar. 100% local, zero telemetry. Works in VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod.
 
-Claude Manager reads the shared `~/.claude/` directory used by Claude Code (both the CLI and the official VS Code extension) and turns it into a clickable, searchable sidebar. It makes no network calls at all, collects no analytics, and stores no credentials — even the opt-in Quota card is fully local: the 5-hour / 7-day numbers are computed by Claude Code and shown in its statusline, and a tap caches that render to a local file the extension reads. It never calls Anthropic and never touches your OAuth token. Licensed Apache 2.0.
+Claude Manager reads the shared `~/.claude/` directory used by Claude Code (both the CLI and the official VS Code extension) and turns it into a clickable, searchable sidebar. It is an all-in-one alternative to running separate single-purpose tools: a Claude Code usage tracker (in the spirit of ccusage), a multi-account switcher (like claude-swap), and an MCP server manager all live in the same sidebar. It makes no network calls at all, collects no analytics, and stores no credentials. Even the opt-in Quota card stays fully local: the 5-hour and 7-day numbers are computed by Claude Code and shown in its statusline, and a tap caches that render to a local file the extension reads. It never calls Anthropic and never touches your OAuth token. Licensed Apache 2.0.
 
 ## Features
 

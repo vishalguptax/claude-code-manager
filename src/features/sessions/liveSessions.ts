@@ -14,6 +14,7 @@ import * as path from "path";
 import { SESSIONS_DIR } from "../../core/config";
 import { LRU } from "../../core/lru";
 import { getSessionFile } from "./metaParser";
+import { getProcessStartTimes } from "./procTime";
 import type { Session } from "./types";
 
 /**
@@ -21,6 +22,16 @@ import type { Session } from "./types";
  * without limit across thousands of distinct transcripts.
  */
 const PENDING_CACHE_MAX = 2000;
+
+/**
+ * Allowed gap between the OS-reported process start time and the `startedAt`
+ * the CLI recorded before we call it the same process. `startedAt` is stamped
+ * a moment after the fork (node boot + CLI init), so a few seconds of slack is
+ * expected; 60s comfortably absorbs that and clock jitter while making a
+ * recycled PID — a different process that happens to have started within a
+ * minute of the orphan's exact start — effectively impossible.
+ */
+const PROC_START_TOLERANCE_MS = 60_000;
 
 /**
  * Probe whether a process id is still running. `process.kill(pid, 0)` is
@@ -80,6 +91,13 @@ export function readSessionsDir(): {
     return { names, live };
   }
 
+  interface Candidate extends LiveSessionInfo {
+    sessionId: string;
+    /** CLI-recorded start time (unix ms), or null when the file omits it. */
+    startedAt: number | null;
+  }
+  const candidates: Candidate[] = [];
+
   for (const file of files) {
     if (!file.endsWith(".json")) continue;
     try {
@@ -89,15 +107,44 @@ export function readSessionsDir(): {
       if (!sessionId) continue;
       if (typeof data.name === "string") names.set(sessionId, data.name);
       if (typeof data.pid !== "number" || !isPidAlive(data.pid)) continue;
-      const status = typeof data.status === "string" ? data.status : "";
-      const updatedAt = typeof data.updatedAt === "number" ? data.updatedAt : 0;
-      const next: LiveSessionInfo = { pid: data.pid, status, updatedAt };
-      const prev = live.get(sessionId);
-      if (!prev || next.updatedAt >= prev.updatedAt) live.set(sessionId, next);
+      candidates.push({
+        sessionId,
+        pid: data.pid,
+        status: typeof data.status === "string" ? data.status : "",
+        updatedAt: typeof data.updatedAt === "number" ? data.updatedAt : 0,
+        startedAt: typeof data.startedAt === "number" ? data.startedAt : null,
+      });
     } catch {
       // Skip unreadable files (partial writes during CLI heartbeat,
       // permission errors, schema drift)
     }
+  }
+
+  // Defeat PID reuse: `isPidAlive` above only proves *some* process owns the
+  // PID now. An orphaned PID file (hard-killed CLI) can point at a recycled
+  // PID owned by an unrelated process. Compare the OS process start time
+  // against the CLI-recorded `startedAt`; a mismatch beyond tolerance means
+  // the PID was reused, so the session is not live. Only query for candidates
+  // that carry a `startedAt` — the others we cannot disambiguate, and we trust
+  // the liveness check for them rather than risk dropping a real session.
+  const checkable = candidates.filter((c) => c.startedAt !== null);
+  const osStarts = checkable.length
+    ? getProcessStartTimes(checkable.map((c) => c.pid))
+    : new Map<number, number>();
+
+  for (const c of candidates) {
+    if (c.startedAt !== null) {
+      const osStart = osStarts.get(c.pid);
+      // Only drop when we positively know the OS start time and it disagrees;
+      // an unknown start time (query failed / unsupported OS) falls through to
+      // trusting liveness so we never hide a session we cannot verify.
+      if (osStart !== undefined && Math.abs(osStart - c.startedAt) > PROC_START_TOLERANCE_MS) {
+        continue;
+      }
+    }
+    const next: LiveSessionInfo = { pid: c.pid, status: c.status, updatedAt: c.updatedAt };
+    const prev = live.get(c.sessionId);
+    if (!prev || next.updatedAt >= prev.updatedAt) live.set(c.sessionId, next);
   }
 
   return { names, live };
@@ -240,22 +287,28 @@ function detectPendingInteraction(filePath: string): boolean {
 }
 
 /**
- * Promote `idle` (or no-status) live sessions to the synthetic
- * `awaiting_question` state when their transcript shows an unanswered
- * interactive tool_use. Other statuses are returned unchanged because
- * the CLI is already signalling something more specific (busy,
- * awaiting_permission, …) that we should not stomp on.
+ * Surface the synthetic `awaiting_question` state whenever the transcript
+ * shows an unanswered interactive tool_use (`AskUserQuestion`/`ExitPlanMode`).
+ *
+ * The probe runs regardless of the PID file's `status`. The CLI only rewrites
+ * `status` on a *change* and routinely leaves it frozen at `busy` while the
+ * session is actually blocked on the user — so gating the probe on `idle`
+ * (as before) left a pending question showing the green "busy" dot instead of
+ * the orange "needs you" dot. Only these two tools block on the user, so a
+ * genuinely active generation (Read/Bash/etc.) never trips this — meaning an
+ * unanswered question is definitive proof Claude is waiting, and it correctly
+ * overrides a stale `busy`.
+ *
+ * When no question is pending the base status passes through unchanged, so
+ * `busy`, `idle`, and the CLI's own `awaiting_permission` keep their meaning.
  */
 export function refineStatus(
   sessionId: string,
   baseStatus: string | undefined,
 ): string | undefined {
-  if (baseStatus !== "idle" && baseStatus !== "" && baseStatus !== undefined) {
-    return baseStatus;
-  }
   const file = getSessionFile(sessionId);
-  if (!file) return baseStatus;
-  return detectPendingInteraction(file) ? AWAITING_QUESTION_STATUS : baseStatus;
+  if (file && detectPendingInteraction(file)) return AWAITING_QUESTION_STATUS;
+  return baseStatus;
 }
 
 /**

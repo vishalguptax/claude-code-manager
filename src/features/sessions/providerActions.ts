@@ -39,8 +39,8 @@ import { parseHooks } from "../hooks/parser";
 import { parseMcpServers, readMcpAuthNeeds } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
 import { parseAccountData } from "../account/parser";
-import { clearModelCache } from "../account/models";
-import { resetUsageAggregateCache } from "../account/projectStats";
+import { clearModelCache, warmModelCache } from "../account/models";
+import { resetUsageAggregateCache, warmUsageAggregate } from "../account/projectStats";
 import { readQuota } from "../account/quota";
 import type { AccountData } from "../account/types";
 import { DEMO_SEEN_KEY, identityKey } from "./hostContext";
@@ -127,6 +127,17 @@ export function postWorkspacePath(ctx: ProviderActionsContext, force = false): v
 }
 
 /**
+ * Re-parse account data and push it to the webview. Used after the async
+ * model-cache warm resolves so the model dropdown fills in once the
+ * background CLI scan completes (the cold sync read returns an empty list).
+ */
+export function refreshAccountData(ctx: ProviderActionsContext): void {
+  const wv = ctx.getWebview();
+  if (!wv) return;
+  wv.postMessage({ type: "accountData", data: parseAccountData(getWorkspace() || undefined) });
+}
+
+/**
  * Recompute live state for every cached session and push a fresh snapshot
  * only when something changed. Debounced so heartbeat-burst writes
  * coalesce into a single UI update.
@@ -141,13 +152,42 @@ export function refreshLiveState(ctx: ProviderActionsContext): void {
       if (!wv) return;
       try {
         const live = readLiveSessions();
-        const changed = applyLiveState(ctx.getSessions(), live);
-        if (!changed) return;
+        const sessions = ctx.getSessions();
+
+        // Self-heal: a session can go live before the FS watcher delivers its
+        // transcript-create event (missed or late on some platforms, notably
+        // Windows), leaving the poll with a live PID for a session absent from
+        // the cached list. applyLiveState only mutates known sessions, so pull
+        // the missing ones in from a fresh parse — this guarantees a newly
+        // started session surfaces within one poll tick regardless of watcher
+        // reliability.
+        const known = new Set(sessions.map((s) => s.id));
+        const missing = [...live.keys()].filter((id) => !known.has(id));
+        let added = false;
+        if (missing.length > 0) {
+          const byId = new Map(parseSessions(loadState().renames).map((s) => [s.id, s]));
+          for (const id of missing) {
+            const fresh = byId.get(id);
+            if (fresh) {
+              sessions.push(fresh);
+              added = true;
+            }
+          }
+          if (added) sessions.sort((a, b) => b.endTime - a.endTime);
+        }
+
+        const changed = applyLiveState(sessions, live);
+        if (!changed && !added) return;
         wv.postMessage({
           type: "sessions",
-          data: groupSessions(ctx.getSessions()),
-          stats: getStats(ctx.getSessions()),
+          data: groupSessions(sessions),
+          stats: getStats(sessions),
         });
+        if (added) {
+          // A new session widens the project set and needs indexing for search.
+          wv.postMessage({ type: "projects", data: getUniqueProjects(sessions) });
+          ctx.buildSearchIndex();
+        }
       } catch (err) {
         console.warn("[claude-manager] refreshLiveState failed:", err);
       }
@@ -266,6 +306,12 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
 
   const workspace = getWorkspace();
   const ws = workspace || undefined;
+
+  // Re-warm the expensive account inputs (async, off the event loop) before
+  // the parse below so the refreshed accountData carries the full model list
+  // and fresh usage totals rather than the empty placeholders the sync
+  // readers return cold. Run concurrently — they touch different files.
+  await Promise.allSettled([warmModelCache(), warmUsageAggregate()]);
 
   // Yield to the event loop between parser kickoffs so the watchdog
   // doesn't see a 200ms pause while six parsers run back-to-back on a

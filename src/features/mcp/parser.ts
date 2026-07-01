@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { MCP_AUTH_CACHE_FILE } from "../../core/config";
+import { writeFileAtomic } from "../../core/atomicWrite";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { loadActivePlugins, findPluginMcpFile, type ActivePlugin } from "../../core/plugins";
 import type { McpServer, McpServerScope, McpServerType } from "./types";
@@ -14,8 +15,49 @@ import type { McpServer, McpServerScope, McpServerType } from "./types";
 /** Cache parsed `McpServer[]` keyed by config file path. */
 const mcpCache = createMtimeCache<McpServer[]>();
 
-/** Global MCP config file: ~/.claude/mcp.json */
+/**
+ * Canonical global/user MCP config. Claude Code stores `claude mcp add -s user`
+ * servers in ~/.claude.json under a top-level `mcpServers` key — this is where
+ * real global servers actually live. (It does NOT use ~/.claude/mcp.json.)
+ */
+const CLAUDE_JSON_FILE: string = path.join(os.homedir(), ".claude.json");
+
+/** Legacy global MCP config (~/.claude/mcp.json) — read for older setups. */
 const GLOBAL_MCP_FILE: string = path.join(os.homedir(), ".claude", "mcp.json");
+
+/**
+ * Resolve which file owns a global-scope server `name` for a write. Prefer
+ * the canonical ~/.claude.json; fall back to the legacy file only when the
+ * entry lives there.
+ */
+/**
+ * Write an MCP config back atomically (temp + rename) so a crash can't leave
+ * the file — especially the critical ~/.claude.json — truncated. Indentation
+ * is matched to the original so a large minified file isn't ballooned into a
+ * huge pretty-printed diff.
+ */
+function writeMcpConfig(filePath: string, config: unknown, originalRaw: string): boolean {
+  const indented = /\n[ \t]+"/.test(originalRaw);
+  const json = JSON.stringify(config, null, indented ? 2 : undefined) + (indented ? "\n" : "");
+  try {
+    writeFileAtomic(filePath, json);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function globalMcpFileFor(name: string): string {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(CLAUDE_JSON_FILE, "utf-8")) as {
+      mcpServers?: Record<string, unknown>;
+    };
+    if (cfg.mcpServers && name in cfg.mcpServers) return CLAUDE_JSON_FILE;
+  } catch {
+    // unreadable/absent — fall through to legacy
+  }
+  return GLOBAL_MCP_FILE;
+}
 
 /**
  * Read and parse MCP servers from a single JSON config file.
@@ -147,8 +189,15 @@ export function parseMcpServers(workspacePath?: string): McpServer[] {
     servers.push(...readMcpServersFromFile(projectMcpFile, { scope: "project" }));
   }
 
-  // Global MCP servers (~/.claude/mcp.json)
-  servers.push(...readMcpServersFromFile(GLOBAL_MCP_FILE, { scope: "global" }));
+  // Global / user MCP servers. Canonical location is ~/.claude.json's
+  // top-level mcpServers (where `claude mcp add -s user` writes); merge the
+  // legacy ~/.claude/mcp.json for older setups, deduping by name.
+  const globalServers = readMcpServersFromFile(CLAUDE_JSON_FILE, { scope: "global" });
+  const seen = new Set(globalServers.map((s) => s.name));
+  for (const s of readMcpServersFromFile(GLOBAL_MCP_FILE, { scope: "global" })) {
+    if (!seen.has(s.name)) globalServers.push(s);
+  }
+  servers.push(...globalServers);
 
   // Plugin-provided MCP servers (read-only).
   for (const plugin of loadActivePlugins(workspacePath)) {
@@ -202,7 +251,7 @@ export function toggleMcpServer(
   if (scope === "plugin") return false;
   const filePath = scope === "project" && workspacePath
     ? path.join(workspacePath, ".mcp.json")
-    : GLOBAL_MCP_FILE;
+    : globalMcpFileFor(name);
 
   let raw: string;
   try {
@@ -227,12 +276,7 @@ export function toggleMcpServer(
     delete servers[name].disabled;
   }
 
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + "\n");
-    return true;
-  } catch {
-    return false;
-  }
+  return writeMcpConfig(filePath, config, raw);
 }
 
 /**
@@ -251,7 +295,7 @@ export function deleteMcpServer(
   if (scope === "plugin") return false;
   const filePath = scope === "project" && workspacePath
     ? path.join(workspacePath, ".mcp.json")
-    : GLOBAL_MCP_FILE;
+    : globalMcpFileFor(name);
 
   let raw: string;
   try {
@@ -272,10 +316,5 @@ export function deleteMcpServer(
 
   delete servers[name];
 
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(config, null, 2) + "\n");
-    return true;
-  } catch {
-    return false;
-  }
+  return writeMcpConfig(filePath, config, raw);
 }

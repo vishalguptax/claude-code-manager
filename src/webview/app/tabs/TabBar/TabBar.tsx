@@ -83,6 +83,7 @@ export function TabBar() {
               role="tab"
               aria-selected={isActive ? "true" : "false"}
               aria-label={tab.label}
+              title={tab.label}
               tabIndex={isActive ? 0 : -1}
               data-tab={tab.id}
               onClick={() => {

@@ -28,6 +28,7 @@ import {
 import { loadState } from "./state";
 import { getWorkspace } from "../../extension/workspace";
 import { parseAccountData } from "../account/parser";
+import { warmUsageAggregate } from "../account/projectStats";
 import { readQuota } from "../account/quota";
 import { syncActiveProfile as syncActiveProfileSnapshot } from "../account/profiles";
 import type { Session } from "./types";
@@ -188,10 +189,15 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   // those belong to credential writes, not to ordinary token activity.
   // The usage aggregate is fingerprint-memoised, so when nothing actually
   // grew this recomputes nothing and just re-ships the cached payload.
-  const pushAccountUsage = (): void => {
+  // Awaits the async aggregate warm first so the pushed payload reflects the
+  // just-appended tokens — the read runs off the event loop, so this never
+  // blocks the host the way the old synchronous whole-corpus read did.
+  const pushAccountUsage = async (): Promise<void> => {
     const wv = ctx.getWebview();
     if (!wv) return;
     try {
+      await warmUsageAggregate();
+      if (!ctx.getWebview()) return;
       const data = parseAccountData(getWorkspace() || undefined);
       wv.postMessage({ type: "accountData", data });
     } catch (err) {
@@ -348,7 +354,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
         const now = Date.now();
         if (now - lastUsagePushAt >= USAGE_PUSH_THROTTLE_MS) {
           lastUsagePushAt = now;
-          pushAccountUsage();
+          void pushAccountUsage();
         }
       }
     }, 1000);
@@ -395,6 +401,10 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
     { feature: "commands", pattern: new vscode.RelativePattern(vscode.Uri.file(path.join(claudeDir, "commands")), "**/*.{md,toml}") },
     { feature: "agents", pattern: new vscode.RelativePattern(vscode.Uri.file(path.join(claudeDir, "agents")), "**/*.md") },
     { feature: "mcp", pattern: new vscode.RelativePattern(claudeUri, "mcp.json") },
+    // NB: ~/.claude.json (where user-scope MCP servers live) is intentionally
+    // NOT watched here — Claude rewrites it constantly during normal use, so
+    // re-parsing that large file on every change would be wasteful for a
+    // rarely-edited list. The MCP tab picks up changes on reload/mount.
     { feature: "hooks", pattern: new vscode.RelativePattern(claudeUri, "settings.json") },
   ];
   if (workspace) {

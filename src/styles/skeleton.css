@@ -145,17 +145,78 @@
 
 /* Detail-view skeleton ------------------------------------------------------ */
 
-/* Paragraph / message-block stack inside a detail panel — same 2xl inset as
-   the real `.d-head` / `.d-section` content. */
-.skeleton-detail-body {
+/* Mirrors DetailView block-for-block so the loaded content drops in without a
+   layout jump. Each section reuses the same inset / gap as its real
+   counterpart in sessions.css (.d-head / .d-actions / .d-section / .d-msg). */
+.skeleton-detail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-2xl) var(--space-md);
+  overflow: hidden;
 }
-.skeleton-detail-block {
+
+/* Header — matches .d-head padding + inner stacking. */
+.skeleton-d-head {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  padding: var(--space-md) 0;
+  padding: var(--space-sm) var(--space-2xl) var(--space-md);
+}
+.skeleton-d-meta {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: 2px;
+}
+.skeleton-d-stats {
+  display: flex;
+  gap: var(--space-xl);
+  margin-top: var(--space-xs);
+}
+.skeleton-d-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+/* Action button row — matches .d-actions. */
+.skeleton-d-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: 0 var(--space-2xl) var(--space-xl);
+}
+
+/* Messages section — matches .d-section. */
+.skeleton-d-section {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
+}
+.skeleton-d-msg-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-md);
+}
+
+/* Message card — matches .d-msg (left accent bar, right-rounded, tinted for
+   the user variant) so bubbles don't reshape when real content arrives. */
+.skeleton-d-msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  padding-left: var(--space-lg);
+  margin-bottom: var(--space-sm);
+  border-left: 2px solid var(--fg-muted);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.skeleton-d-msg.is-user {
+  border-left-color: var(--accent);
+  background: rgba(127, 127, 255, 0.04);
+}
+/* First line in each card is the role label — slightly dimmer so the row
+   reads as a heading, matching .d-msg-role. */
+.skeleton-d-msg > .skeleton-el:first-child {
+  opacity: 0.7;
+  margin-bottom: 2px;
 }
