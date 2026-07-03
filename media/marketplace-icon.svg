@@ -1,24 +1,28 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision">
   <defs>
-    <linearGradient id="accent" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FF9966"/>
-      <stop offset="1" stop-color="#E07B39"/>
+    <linearGradient id="card" x1="20" y1="36" x2="96" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E08056"/>
+      <stop offset="1" stop-color="#BE5730"/>
     </linearGradient>
   </defs>
 
-  <!-- Back card (faded stacked session) -->
-  <rect x="29" y="15" width="84" height="62" rx="9" stroke="url(#accent)" stroke-width="3" opacity="0.32"/>
+  <!-- Tile (warm near-black ground) -->
+  <rect width="128" height="128" rx="28" fill="#211B16"/>
+  <!-- Faint rim: separates tile edge on dark marketplace theme, invisible on light -->
+  <rect x="1" y="1" width="126" height="126" rx="27" stroke="#F0E6D8" stroke-width="2" opacity="0.09" fill="none"/>
 
-  <!-- Front card (active session) -->
-  <rect x="17" y="27" width="84" height="62" rx="9" stroke="url(#accent)" stroke-width="4" fill="none"/>
+  <!-- Back card (faded stacked session) -->
+  <rect x="36" y="22" width="72" height="52" rx="10" stroke="#F0E6D8" stroke-width="5" opacity="0.25"/>
+
+  <!-- Front card (active session, brand gradient) -->
+  <rect x="20" y="36" width="76" height="56" rx="10" fill="url(#card)"/>
 
   <!-- Terminal prompt chevron -->
-  <polyline points="33,69 49,57 33,45" stroke="url(#accent)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="34,74 48,64 34,54" stroke="#FFF7EE" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
 
   <!-- Cursor line -->
-  <line x1="57" y1="69" x2="87" y2="69" stroke="url(#accent)" stroke-width="5" stroke-linecap="round"/>
+  <line x1="56" y1="74" x2="80" y2="74" stroke="#FFF7EE" stroke-width="7" stroke-linecap="round"/>
 
-  <!-- Claude spark with glow ring -->
-  <circle cx="106" cy="106" r="15" fill="url(#accent)"/>
-  <circle cx="106" cy="106" r="20" fill="none" stroke="#FF9966" stroke-width="2.5" opacity="0.45"/>
+  <!-- Claude spark: 4-point sparkle, tile-colored stroke punches gap over card corner -->
+  <path d="M101,82 Q104.5,97.5 120,101 Q104.5,104.5 101,120 Q97.5,104.5 82,101 Q97.5,97.5 101,82 Z" fill="#F0E6D8" stroke="#211B16" stroke-width="5" stroke-linejoin="round"/>
 </svg>
