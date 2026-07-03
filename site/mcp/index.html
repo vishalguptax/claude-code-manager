@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a09">
+
+  <title>Claude Code MCP Manager — Toggle MCP Servers Without Editing JSON | Claude Code Manager</title>
+  <meta name="description" content="Enable, disable, and inspect Claude Code MCP servers from a VS Code sidebar. Secrets masked, auth health surfaced, no hand-editing .mcp.json. Free and 100% local.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://claudemanager.vishalg.in/mcp/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Code Manager">
+  <meta property="og:url" content="https://claudemanager.vishalg.in/mcp/">
+  <meta property="og:title" content="Claude Code MCP manager — no more JSON editing">
+  <meta property="og:description" content="Toggle and inspect MCP servers from a sidebar. Secrets masked, auth health surfaced. Free, 100% local.">
+  <meta property="og:image" content="https://claudemanager.vishalg.in/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Code MCP manager — no more JSON editing">
+  <meta name="twitter:image" content="https://claudemanager.vishalg.in/assets/og.png">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/marketplace-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "How do I disable an MCP server in Claude Code without editing JSON?", "acceptedAnswer": { "@type": "Answer", "text": "Claude Code Manager lists every configured MCP server with a toggle. Disabling rewrites the config for you, correctly, and re-enabling restores it — no hand-editing .mcp.json or settings files." } },
+      { "@type": "Question", "name": "Are my MCP server API keys visible in the sidebar?", "acceptedAnswer": { "@type": "Answer", "text": "No. Keys and secrets are masked automatically when you inspect a server's config." } },
+      { "@type": "Question", "name": "Which MCP scopes does it manage?", "acceptedAnswer": { "@type": "Answer", "text": "Global servers from ~/.claude and project servers from .mcp.json — both shown together with scope labels, including servers added by plugins." } },
+      { "@type": "Question", "name": "Can it tell me when an MCP connector needs re-authentication?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. An auth-health banner surfaces connectors with stale or missing auth so you find out in the sidebar, not mid-conversation when a tool call fails." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <main id="main" class="page">
+
+    <section class="sheet sheet-hero">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="/"><img src="/assets/icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>Claude Code Manager</span></a>
+        <div class="nav-links">
+          <a href="/sessions/">Sessions</a>
+          <a href="/usage/">Usage</a>
+          <a href="/accounts/">Accounts</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install</a>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Free · open source · 100% local</p>
+          <h1>Manage Claude Code MCP servers <em class="serif" data-scramble>without touching JSON</em>.</h1>
+          <p class="lede">Every MCP server Claude Code knows about — global, project, and plugin — in one list with toggles. Enable, disable, inspect, or delete. Secrets stay masked. Config files stay valid.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+            <a class="btn btn-ghost" href="/">See everything it does</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/screenshots/05-mcp.webp" width="760" height="1128" alt="Claude Code MCP manager showing MCP servers with enable and disable toggles and masked secrets" loading="eager" fetchpriority="high">
+        </figure>
+      </div>
+    </section>
+
+    <section class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">MCP:</p>
+        <h2>Config files are for machines. <em class="serif">Toggles are for you.</em></h2>
+        <p class="sec-sub">MCP servers live across <code>~/.claude</code>, project <code>.mcp.json</code>, and plugin configs. One misplaced comma and the server silently vanishes. So: a sidebar.</p>
+      </header>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Toggle instead of edit</h3>
+          <p>Turning a server off for one heavy session used to mean cutting a JSON block and keeping it in a notes app. Now it's a switch — the extension rewrites the config correctly and puts it back when you re-enable.</p>
+          <ul>
+            <li>Enable / disable / delete per server</li>
+            <li>Config rewritten correctly every time</li>
+            <li>Malformed config errors surfaced, not swallowed</li>
+          </ul>
+        </div>
+        <figure class="feat-shot"><img src="/assets/screenshots/05-mcp.webp" alt="Toggling Claude Code MCP servers without editing JSON" loading="lazy" width="760" height="1128"></figure>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Inspect without leaking</h3>
+          <p>Open any server to see its command, transport, and environment — with API keys and secrets masked automatically. Safe to inspect on a shared screen.</p>
+          <ul>
+            <li>Secrets masked by default</li>
+            <li>STDIO and HTTP transports labeled</li>
+            <li>Global, project, and plugin scopes together</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Auth health, before it bites</h3>
+          <p>OAuth-based connectors expire quietly, and you usually find out when a tool call fails mid-conversation. The auth-health banner surfaces stale connectors in the sidebar instead.</p>
+          <ul>
+            <li>Stale/missing auth flagged up front</li>
+            <li>Live status dots per server</li>
+            <li>Jump to the config file when you do need it</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="sheet sheet-light">
+      <header class="sec-head">
+        <p class="sec-tag">FAQ:</p>
+        <h2>MCP questions, <em class="serif">answered.</em></h2>
+      </header>
+      <div class="faq">
+        <details>
+          <summary>How do I disable an MCP server without editing JSON?</summary>
+          <p>Every configured server gets a toggle. Disabling rewrites the config for you, correctly; re-enabling restores it. No hand-editing <code>.mcp.json</code> or settings files.</p>
+        </details>
+        <details>
+          <summary>Are my API keys visible in the sidebar?</summary>
+          <p>No. Keys and secrets are masked automatically when you inspect a server's config.</p>
+        </details>
+        <details>
+          <summary>Which scopes does it manage?</summary>
+          <p>Global servers from <code>~/.claude</code> and project servers from <code>.mcp.json</code>, shown together with scope labels — including servers added by plugins.</p>
+        </details>
+        <details>
+          <summary>Can it tell me when a connector needs re-auth?</summary>
+          <p>Yes. An auth-health banner flags stale or missing auth in the sidebar, so you find out before a tool call fails mid-conversation.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="sheet sheet-cta">
+      <h2>Your MCP stack, <em class="serif">one glance.</em></h2>
+      <p>Free, open source, reads only your local <code>~/.claude/</code>.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="foot-links">
+        <a href="/">Home</a>
+        <a href="/sessions/">Session manager</a>
+        <a href="/usage/">Usage tracking</a>
+        <a href="/accounts/">Account switching</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
+        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+      </p>
+      <p class="fine">Apache 2.0 © Vishal Gupta. Independent community project, not affiliated with Anthropic. <em>Claude</em> and <em>Claude Code</em> are trademarks of Anthropic, PBC.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

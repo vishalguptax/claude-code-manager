@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a09">
+
+  <title>Claude Code Session Manager for VS Code — Search, Resume, Fork | Claude Code Manager</title>
+  <meta name="description" content="Search every Claude Code session full-text, resume on the right git branch, fork conversations, and move sessions between machines. Free VS Code extension, 100% local.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://claudemanager.vishalg.in/sessions/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Code Manager">
+  <meta property="og:url" content="https://claudemanager.vishalg.in/sessions/">
+  <meta property="og:title" content="Claude Code session manager — search, resume, fork">
+  <meta property="og:description" content="Full-text search across every Claude Code session, git-branch-aware resume, forking, and import/export. Free, 100% local.">
+  <meta property="og:image" content="https://claudemanager.vishalg.in/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Code session manager — search, resume, fork">
+  <meta name="twitter:image" content="https://claudemanager.vishalg.in/assets/og.png">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/marketplace-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "How do I find an old Claude Code session?", "acceptedAnswer": { "@type": "Answer", "text": "Claude Code Manager indexes every session in ~/.claude/ and gives you full-text search across transcripts, plus project and git-branch filters. Type what you remember from the conversation and click Resume." } },
+      { "@type": "Question", "name": "Can I resume a Claude Code session on a different git branch?", "acceptedAnswer": { "@type": "Answer", "text": "You can, but you probably don't want to by accident — so the extension warns you when the session's original branch doesn't match your current one before resuming." } },
+      { "@type": "Question", "name": "Can I move Claude Code sessions between machines?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Export a session to a file, copy it to the other machine, and import it. The conversation continues with full context." } },
+      { "@type": "Question", "name": "Does it work with sessions from the official Claude Code VS Code extension?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. The CLI and the official extension share ~/.claude/, so sessions from both show up in the same list, and Resume routes back to whichever surface the session started in." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <main id="main" class="page">
+
+    <section class="sheet sheet-hero">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="/"><img src="/assets/icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>Claude Code Manager</span></a>
+        <div class="nav-links">
+          <a href="/usage/">Usage</a>
+          <a href="/accounts/">Accounts</a>
+          <a href="/mcp/">MCP</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install</a>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Free · open source · 100% local</p>
+          <h1>The Claude Code <em class="serif" data-scramble>session manager</em> for VS&nbsp;Code.</h1>
+          <p class="lede">Every Claude Code session you've ever run, searchable full-text and filtered by project and git branch. Resume, fork, or carry a session to another machine — no more scrolling terminal history for last week's conversation.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+            <a class="btn btn-ghost" href="/">See everything it does</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/screenshots/01-sessions.webp" width="760" height="1128" alt="Claude Code session manager sidebar showing searchable, resumable sessions filtered by project and git branch" loading="eager" fetchpriority="high">
+        </figure>
+      </div>
+    </section>
+
+    <section class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">SESSIONS:</p>
+        <h2>Your sessions are files. <em class="serif">Treat them like it.</em></h2>
+        <p class="sec-sub">Claude Code stores every conversation as JSONL in <code>~/.claude/</code>. The extension indexes that directory and turns it into something you can actually browse.</p>
+      </header>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Search that reads the transcripts</h3>
+          <p><code>claude --resume</code> gives you a linear picker. Fine at ten sessions, useless at eighty. Here you search the actual conversation text — the migration you discussed, the bug you named, the file you touched — and jump straight back in.</p>
+          <ul>
+            <li>Full-text search across every transcript</li>
+            <li>Filter by project, date window, or git branch</li>
+            <li>Live status dots for running sessions</li>
+          </ul>
+        </div>
+        <figure class="feat-shot"><img src="/assets/screenshots/01-sessions.webp" alt="Full-text search across Claude Code sessions" loading="lazy" width="760" height="1128"></figure>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Resume on the branch it started on</h3>
+          <p>Sessions remember their git branch. Resuming feature-branch work while you're on <code>main</code> is how files get edited in the wrong place — so the extension checks, and warns you before it happens.</p>
+          <ul>
+            <li>Branch mismatch warning before resume</li>
+            <li>Resume routes to terminal or extension chat</li>
+            <li>Restore a whole workspace of terminals at once</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Fork, export, import</h3>
+          <p>Fork a session to branch the conversation without losing the original. Export one to a file and import it on your laptop — the context comes with it.</p>
+          <ul>
+            <li>Fork keeps the original untouched</li>
+            <li>Import/export moves sessions between machines</li>
+            <li>Pin and rename the ones that matter</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="sheet sheet-light">
+      <header class="sec-head">
+        <p class="sec-tag">FAQ:</p>
+        <h2>Session questions, <em class="serif">answered.</em></h2>
+      </header>
+      <div class="faq">
+        <details>
+          <summary>How do I find an old Claude Code session?</summary>
+          <p>The extension indexes every session in <code>~/.claude/</code> and gives you full-text search across transcripts, plus project and git-branch filters. Type what you remember from the conversation and click Resume.</p>
+        </details>
+        <details>
+          <summary>Can I resume a session on a different git branch?</summary>
+          <p>You can — but you probably don't want to by accident. The extension warns you when the session's original branch doesn't match your current one.</p>
+        </details>
+        <details>
+          <summary>Can I move sessions between machines?</summary>
+          <p>Yes. Export a session to a file, copy it over, import it. The conversation continues with full context.</p>
+        </details>
+        <details>
+          <summary>Does it work with sessions from the official Claude Code extension?</summary>
+          <p>Yes. The CLI and the official extension share <code>~/.claude/</code>, so sessions from both show up in one list, and Resume routes back to whichever surface the session started in.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="sheet sheet-cta">
+      <h2>Stop scrolling scrollback. <em class="serif">Start searching.</em></h2>
+      <p>Free, open source, reads only your local <code>~/.claude/</code>.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="foot-links">
+        <a href="/">Home</a>
+        <a href="/usage/">Usage tracking</a>
+        <a href="/accounts/">Account switching</a>
+        <a href="/mcp/">MCP servers</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
+        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+      </p>
+      <p class="fine">Apache 2.0 © Vishal Gupta. Independent community project, not affiliated with Anthropic. <em>Claude</em> and <em>Claude Code</em> are trademarks of Anthropic, PBC.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

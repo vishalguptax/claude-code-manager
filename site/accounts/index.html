@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a09">
+
+  <title>Claude Account Switcher — Swap Claude Code Logins Without /logout | Claude Code Manager</title>
+  <meta name="description" content="Switch between Claude accounts in VS Code without the /logout /login cycle. Save work and personal profiles, swap instantly. Free extension, tokens never leave your machine.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://claudemanager.vishalg.in/accounts/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Code Manager">
+  <meta property="og:url" content="https://claudemanager.vishalg.in/accounts/">
+  <meta property="og:title" content="Claude account switcher — swap logins without /logout">
+  <meta property="og:description" content="Save multiple Claude logins and swap between them instantly. Local profiles, no network calls.">
+  <meta property="og:image" content="https://claudemanager.vishalg.in/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude account switcher — swap logins without /logout">
+  <meta name="twitter:image" content="https://claudemanager.vishalg.in/assets/og.png">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/marketplace-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "How do I switch between Claude accounts without logging out?", "acceptedAnswer": { "@type": "Answer", "text": "Claude Code Manager saves each login as a named profile. Switching swaps the stored credentials on disk — no /logout, no /login, no re-entering codes. Your sessions and settings stay put." } },
+      { "@type": "Question", "name": "Can I use separate work and personal Claude accounts in VS Code?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the main use case. Save both as profiles and swap in two clicks, from the sidebar or the command palette." } },
+      { "@type": "Question", "name": "Where are my saved Claude account profiles stored?", "acceptedAnswer": { "@type": "Answer", "text": "Locally, in ~/.claude/manager-accounts/, in the same plain format Claude CLI itself uses. Nothing is uploaded anywhere. Treat the folder as sensitive, the same way you treat ~/.claude.json." } },
+      { "@type": "Question", "name": "What happens if a switch is interrupted?", "acceptedAnswer": { "@type": "Answer", "text": "The previous account's identity is kept as a backup file, and the extension offers to restore it, discard it, or decide later. A half-finished swap never locks you out." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <main id="main" class="page">
+
+    <section class="sheet sheet-hero">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="/"><img src="/assets/icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>Claude Code Manager</span></a>
+        <div class="nav-links">
+          <a href="/sessions/">Sessions</a>
+          <a href="/usage/">Usage</a>
+          <a href="/mcp/">MCP</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install</a>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Free · open source · tokens never leave your machine</p>
+          <h1>Switch Claude accounts <em class="serif" data-scramble>without logging out</em>.</h1>
+          <p class="lede">Work account, personal account, client account — saved as profiles, swapped in two clicks. No <code>/logout</code>, no <code>/login</code>, no fishing for the verification code again.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+            <a class="btn btn-ghost" href="/">See everything it does</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/screenshots/07-account.webp" width="760" height="1128" alt="Claude account switcher in VS Code showing saved profiles that swap without logout" loading="eager" fetchpriority="high">
+        </figure>
+      </div>
+    </section>
+
+    <section class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">ACCOUNTS:</p>
+        <h2>The logout dance, <em class="serif">retired.</em></h2>
+        <p class="sec-sub">Claude Code supports one login at a time. If you juggle two accounts, you know the ritual. This replaces it.</p>
+      </header>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Profiles, not re-logins</h3>
+          <p>Save the account you're logged into as a named profile. Later, switch back to it in two clicks — from the sidebar or straight from the command palette. Credentials swap on disk; sessions, skills, and settings stay exactly where they were.</p>
+          <ul>
+            <li>Save unlimited named profiles</li>
+            <li>Swap from sidebar or command palette</li>
+            <li>Sessions and settings untouched by a switch</li>
+          </ul>
+        </div>
+        <figure class="feat-shot"><img src="/assets/screenshots/07-account.webp" alt="Saved Claude account profiles in the account switcher" loading="lazy" width="760" height="1128"></figure>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Stored the way Claude stores it</h3>
+          <p>Profiles live in <code>~/.claude/manager-accounts/</code> in the same format Claude CLI itself uses — no encryption theater, no cloud sync, no invented credential store. The extension tells you exactly this before saving the first profile, once.</p>
+          <ul>
+            <li>Local files only, plain CLI format</li>
+            <li>Nothing uploaded, ever</li>
+            <li>You're told exactly what's stored, and where</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Interruption-proof</h3>
+          <p>If a swap gets interrupted mid-way — VS Code closes, machine sleeps — the previous identity is preserved as a backup, and you choose: restore it, discard it, or decide later. A half-finished switch never locks you out of Claude.</p>
+          <ul>
+            <li>Automatic backup of the outgoing account</li>
+            <li>Restore / discard / decide-later prompt</li>
+            <li>Config restore from Claude's own backups too</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="sheet sheet-light">
+      <header class="sec-head">
+        <p class="sec-tag">FAQ:</p>
+        <h2>Account questions, <em class="serif">answered.</em></h2>
+      </header>
+      <div class="faq">
+        <details>
+          <summary>How do I switch Claude accounts without logging out?</summary>
+          <p>Save each login as a named profile. Switching swaps the stored credentials on disk — no <code>/logout</code>, no <code>/login</code>, no verification codes. Sessions and settings stay put.</p>
+        </details>
+        <details>
+          <summary>Can I use separate work and personal accounts in VS Code?</summary>
+          <p>Yes — that's the main use case. Save both as profiles, swap in two clicks.</p>
+        </details>
+        <details>
+          <summary>Where are saved profiles stored?</summary>
+          <p>Locally, in <code>~/.claude/manager-accounts/</code>, in the same plain format Claude CLI uses. Nothing is uploaded. Treat the folder as sensitive, like <code>~/.claude.json</code> itself.</p>
+        </details>
+        <details>
+          <summary>What if a switch gets interrupted?</summary>
+          <p>The previous account's identity is kept as a backup, and the extension offers restore, discard, or decide-later. You're never locked out by a half-finished swap.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="sheet sheet-cta">
+      <h2>Two accounts. <em class="serif">Two clicks.</em></h2>
+      <p>Free, open source, reads only your local <code>~/.claude/</code>.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="foot-links">
+        <a href="/">Home</a>
+        <a href="/sessions/">Session manager</a>
+        <a href="/usage/">Usage tracking</a>
+        <a href="/mcp/">MCP servers</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
+        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+      </p>
+      <p class="fine">Apache 2.0 © Vishal Gupta. Independent community project, not affiliated with Anthropic. <em>Claude</em> and <em>Claude Code</em> are trademarks of Anthropic, PBC.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -16,5 +16,12 @@ Claude Code Manager reads the shared `~/.claude/` directory used by Claude Code 
 
 - [Install on VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager): primary install for VS Code, Cursor, Windsurf, Antigravity
 - [Install on Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager): for VSCodium, Theia, Gitpod
-- [GitHub repository](https://github.com/vishalguptax/claude-manager): source code, issues, changelog (Apache 2.0)
+- [GitHub repository](https://github.com/vishalguptax/claude-code-manager): source code, issues, changelog (Apache 2.0)
 - [Sponsor the project](https://github.com/sponsors/vishalguptax)
+
+## Guides
+
+- [Claude Code session manager](https://claudemanager.vishalg.in/sessions/): search, resume, fork, and move sessions between machines
+- [Claude Code usage tracker](https://claudemanager.vishalg.in/usage/): tokens by model/project/tool and real 5-hour / 7-day quota
+- [Claude account switcher](https://claudemanager.vishalg.in/accounts/): swap logins without /logout /login
+- [Claude Code MCP manager](https://claudemanager.vishalg.in/mcp/): toggle and inspect MCP servers without JSON editing

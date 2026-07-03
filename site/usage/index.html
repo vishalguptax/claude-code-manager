@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a09">
+
+  <title>Claude Code Usage Tracker — Tokens, Quota & Cost by Model | Claude Code Manager</title>
+  <meta name="description" content="Track Claude Code token usage by model, project, and tool. See your real 5-hour and 7-day subscription quota — computed locally, zero network calls. Free VS Code extension.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://claudemanager.vishalg.in/usage/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Code Manager">
+  <meta property="og:url" content="https://claudemanager.vishalg.in/usage/">
+  <meta property="og:title" content="Claude Code usage tracker — tokens, quota, cost">
+  <meta property="og:description" content="Token usage by model, project, and tool, plus real 5-hour / 7-day quota bars. 100% local, zero network calls.">
+  <meta property="og:image" content="https://claudemanager.vishalg.in/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Code usage tracker — tokens, quota, cost">
+  <meta name="twitter:image" content="https://claudemanager.vishalg.in/assets/og.png">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/marketplace-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "How can I see how many tokens Claude Code is using?", "acceptedAnswer": { "@type": "Answer", "text": "Claude Code Manager reads your local session transcripts and shows token usage across 7-day, 30-day, and all-time windows, broken down by model, project, and tool, including cache-hit percentage." } },
+      { "@type": "Question", "name": "Can I see my real 5-hour and 7-day Claude quota?", "acceptedAnswer": { "@type": "Answer", "text": "Yes, via the opt-in Quota card. Claude Code computes those numbers itself for its statusline; the extension caches that render to disk and reads it locally. No API call is made and your OAuth token is never read." } },
+      { "@type": "Question", "name": "Does usage tracking send my data anywhere?", "acceptedAnswer": { "@type": "Answer", "text": "No. Everything is computed from files already on your machine in ~/.claude/. The extension makes zero network calls — this is enforced by a strict webview CSP, not just promised." } },
+      { "@type": "Question", "name": "Is this different from ccusage?", "acceptedAnswer": { "@type": "Answer", "text": "Same category of insight, different home. ccusage is a great CLI; Claude Code Manager puts the numbers in a VS Code sidebar alongside your sessions, accounts, and MCP servers, so there's one place to look." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <main id="main" class="page">
+
+    <section class="sheet sheet-hero">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="/"><img src="/assets/icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>Claude Code Manager</span></a>
+        <div class="nav-links">
+          <a href="/sessions/">Sessions</a>
+          <a href="/accounts/">Accounts</a>
+          <a href="/mcp/">MCP</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install</a>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Free · open source · zero network calls</p>
+          <h1>Track your Claude Code <em class="serif" data-scramble>usage and quota</em>. Locally.</h1>
+          <p class="lede">Tokens by model, project, and tool. Cache-hit rates. An activity heatmap. And the numbers everyone actually wants — your real 5-hour and 7-day subscription windows — without a single network call.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+            <a class="btn btn-ghost" href="/">See everything it does</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/screenshots/07-account.webp" width="760" height="1128" alt="Claude Code usage tracker showing token usage by model, activity heatmap, and 5-hour and 7-day quota bars" loading="eager" fetchpriority="high">
+        </figure>
+      </div>
+    </section>
+
+    <section class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">USAGE:</p>
+        <h2>The receipts are already <em class="serif">on your disk.</em></h2>
+        <p class="sec-sub">Every Claude Code transcript records what was spent. The extension adds it up — no account, no API key, no telemetry.</p>
+      </header>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Token usage that answers questions</h3>
+          <p>Not just a total. Which model is eating the budget? Which project? Is caching actually working? Windows for 7-day, 30-day, and all-time, with per-model, per-project, and per-tool breakdowns.</p>
+          <ul>
+            <li>7-day / 30-day / all-time windows</li>
+            <li>Per-model, per-project, per-tool splits</li>
+            <li>Cache-hit percentage</li>
+          </ul>
+        </div>
+        <figure class="feat-shot"><img src="/assets/screenshots/07-account.webp" alt="Token usage breakdowns by model and project in Claude Code Manager" loading="lazy" width="760" height="1128"></figure>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Real quota, not an estimate</h3>
+          <p>Third-party trackers estimate your 5-hour window from timestamps and hope. Claude Code already computes the real numbers for its own statusline — the opt-in Quota card caches that render to disk and reads it back. Exact numbers, zero API calls, and your OAuth token is never touched.</p>
+          <ul>
+            <li>Real 5-hour and 7-day subscription bars</li>
+            <li>Opt-in, refreshed only when you click</li>
+            <li>Never calls Anthropic, never reads your token</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>An honest heatmap</h3>
+          <p>A GitHub-style activity heatmap of your Claude Code work. Mostly it's just satisfying — but it also shows you which projects are quietly consuming your quota.</p>
+          <ul>
+            <li>Daily activity at a glance</li>
+            <li>Sits beside the account switcher</li>
+            <li>All computed from local files</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="sheet sheet-light">
+      <header class="sec-head">
+        <p class="sec-tag">FAQ:</p>
+        <h2>Usage questions, <em class="serif">answered.</em></h2>
+      </header>
+      <div class="faq">
+        <details>
+          <summary>How can I see how many tokens Claude Code is using?</summary>
+          <p>The extension reads your local session transcripts and shows token usage across 7-day, 30-day, and all-time windows, broken down by model, project, and tool — including cache-hit percentage.</p>
+        </details>
+        <details>
+          <summary>Can I see my real 5-hour and 7-day quota?</summary>
+          <p>Yes, via the opt-in Quota card. Claude Code computes those numbers itself for its statusline; the extension caches that render to disk and reads it locally. No API call, no token access.</p>
+        </details>
+        <details>
+          <summary>Does usage tracking send my data anywhere?</summary>
+          <p>No. Everything is computed from files already in <code>~/.claude/</code>. Zero network calls — enforced by a strict webview CSP, not just promised.</p>
+        </details>
+        <details>
+          <summary>How is this different from ccusage?</summary>
+          <p>Same category of insight, different home. ccusage is a great CLI; this puts the numbers in a VS Code sidebar next to your sessions, accounts, and MCP servers — one place to look.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="sheet sheet-cta">
+      <h2>Know what you're spending. <em class="serif">Tell no one.</em></h2>
+      <p>Free, open source, reads only your local <code>~/.claude/</code>.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="foot-links">
+        <a href="/">Home</a>
+        <a href="/sessions/">Session manager</a>
+        <a href="/accounts/">Account switching</a>
+        <a href="/mcp/">MCP servers</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
+        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+      </p>
+      <p class="fine">Apache 2.0 © Vishal Gupta. Independent community project, not affiliated with Anthropic. <em>Claude</em> and <em>Claude Code</em> are trademarks of Anthropic, PBC.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
