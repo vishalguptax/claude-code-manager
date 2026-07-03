@@ -29,7 +29,7 @@ export function SnapshotsView({ snapshots, api }: SnapshotsViewProps) {
         </header>
         <div class="acct-section-body">
           <div class="acct-field-hint">
-            No snapshots yet. The next time you change a setting or permission, Claude Manager will
+            No snapshots yet. The next time you change a setting or permission, Claude Code Manager will
             save the previous state here so you can roll back.
           </div>
         </div>

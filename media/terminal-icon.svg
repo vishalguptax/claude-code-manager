@@ -1,6 +1,7 @@
 <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="none">
-  <rect x="1.25" y="2.25" width="11.5" height="8.5" rx="1.5" stroke="#FF9966" stroke-width="1.3"/>
-  <polyline points="3.5,8.3 5.6,6.5 3.5,4.7" stroke="#FF9966" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-  <line x1="7" y1="8.3" x2="10.5" y2="8.3" stroke="#FF9966" stroke-width="1.3" stroke-linecap="round"/>
-  <circle cx="12.5" cy="12.5" r="2" fill="#FF9966"/>
+  <rect x="1.25" y="2.25" width="11.5" height="8.5" rx="1.5" stroke="#E08056" stroke-width="1.3"/>
+  <polyline points="3.5,8.3 5.6,6.5 3.5,4.7" stroke="#E08056" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="7" y1="8.3" x2="10.5" y2="8.3" stroke="#E08056" stroke-width="1.3" stroke-linecap="round"/>
+  <!-- Claude spark: 4-point sparkle -->
+  <path d="M12.6,10 Q13.1,12.1 15.2,12.6 Q13.1,13.1 12.6,15.2 Q12.1,13.1 10,12.6 Q12.1,12.1 12.6,10 Z" fill="#E08056"/>
 </svg>

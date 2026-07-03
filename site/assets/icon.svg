@@ -1,12 +1,12 @@
 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!-- Back card (stacked session) -->
-  <rect x="7" y="3" width="18" height="14" rx="2.5" stroke="#C5C5C5" stroke-width="1.5" opacity="0.3"/>
+  <rect x="7" y="3" width="18" height="14" rx="2.5" stroke="#DCD5CA" stroke-width="1.5" opacity="0.35"/>
   <!-- Front card (active session) -->
-  <rect x="3" y="7" width="18" height="14" rx="2.5" stroke="#C5C5C5" stroke-width="1.5"/>
+  <rect x="3" y="7" width="18" height="14" rx="2.5" stroke="#DCD5CA" stroke-width="1.5"/>
   <!-- Terminal chevron -->
-  <polyline points="7 17 10.5 13.5 7 10" stroke="#C5C5C5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="7 17 10.5 13.5 7 10" stroke="#DCD5CA" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
   <!-- Cursor line -->
-  <line x1="12.5" y1="17" x2="17" y2="17" stroke="#C5C5C5" stroke-width="1.5" stroke-linecap="round"/>
-  <!-- Claude spark -->
-  <circle cx="24" cy="24" r="2.5" fill="#C5C5C5"/>
+  <line x1="12.5" y1="17" x2="17" y2="17" stroke="#DCD5CA" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Claude spark: 4-point sparkle in brand terracotta -->
+  <path d="M23.5,19.2 Q24.3,22.7 27.8,23.5 Q24.3,24.3 23.5,27.8 Q22.7,24.3 19.2,23.5 Q22.7,22.7 23.5,19.2 Z" fill="#E08056"/>
 </svg>

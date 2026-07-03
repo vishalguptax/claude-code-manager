@@ -1,5 +1,5 @@
-<!--
-Thanks for contributing to Claude Manager! Keep PRs focused — one concern per
+﻿<!--
+Thanks for contributing to Claude Code Manager! Keep PRs focused — one concern per
 PR. The CI gates (Biome, tsc, vitest + coverage, build, size-limit, npm audit)
 must be green before review.
 -->

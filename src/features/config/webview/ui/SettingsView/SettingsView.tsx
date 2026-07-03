@@ -177,7 +177,7 @@ export function SettingsView({ data, api }: SettingsViewProps) {
           </Button>
           <Button
             iconName="settings"
-            title="Open VS Code settings filtered to Claude Manager"
+            title="Open VS Code settings filtered to Claude Code Manager"
             onClick={() => api.openExtensionSettings()}
           >
             Extension settings

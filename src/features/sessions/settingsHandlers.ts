@@ -79,7 +79,7 @@ export async function handleSettingsMessage(
         {
           modal: true,
           detail:
-            "Your ~/.claude.json is empty or invalid. Claude Manager can copy the most recent backup from ~/.claude/backups over it, which preserves your account and settings so Claude CLI doesn't prompt to reset or re-login.",
+            "Your ~/.claude.json is empty or invalid. Claude Code Manager can copy the most recent backup from ~/.claude/backups over it, which preserves your account and settings so Claude CLI doesn't prompt to reset or re-login.",
         },
         "Restore",
       );

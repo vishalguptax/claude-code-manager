@@ -548,7 +548,7 @@ export async function sweepSwitchBackups(): Promise<void> {
     {
       modal: true,
       detail:
-        "Claude Manager was interrupted while swapping accounts. The previous account's identity is still on disk as a .bak file. Restore it, discard it, or decide later.",
+        "Claude Code Manager was interrupted while swapping accounts. The previous account's identity is still on disk as a .bak file. Restore it, discard it, or decide later.",
     },
     "Restore previous",
     "Discard backup",
@@ -565,7 +565,7 @@ export async function sweepSwitchBackups(): Promise<void> {
       if (hasClaudeJsonBak) fs.rmSync(claudeJsonBak, { force: true });
       if (hasCredsBak) fs.rmSync(credsBak, { force: true });
       vscode.window.showInformationMessage(
-        "Previous Claude account restored. Reload the Claude Manager panel to refresh.",
+        "Previous Claude account restored. Reload the Claude Code Manager panel to refresh.",
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

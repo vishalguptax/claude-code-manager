@@ -47,7 +47,7 @@ function checkVsCodeVersion(): DiagnosticCheck {
     label: "VS Code version",
     status: "fail",
     detail: `${current} < ${MIN_VSCODE}`,
-    fixHint: "Upgrade VS Code — older builds lack the webview APIs Claude Manager uses.",
+    fixHint: "Upgrade VS Code — older builds lack the webview APIs Claude Code Manager uses.",
   };
 }
 
@@ -79,7 +79,7 @@ function formatReport(checks: DiagnosticCheck[]): string {
   };
 
   const lines: string[] = [];
-  lines.push("# Claude Manager — Diagnostic report");
+  lines.push("# Claude Code Manager — Diagnostic report");
   lines.push("");
   lines.push(`Generated: ${stamp}`);
   lines.push(

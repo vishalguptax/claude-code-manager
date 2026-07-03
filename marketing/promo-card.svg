@@ -76,8 +76,10 @@
     <rect x="13" y="9" width="64" height="47" rx="7" stroke="url(#accent)" stroke-width="3.4" fill="none"/>
     <polyline points="25,41 37,32 25,23" stroke="url(#accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
     <line x1="43" y1="41" x2="66" y2="41" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+    <!-- Claude spark: 4-point sparkle -->
+    <path d="M81,50 Q82.7,57.3 90,59 Q82.7,60.7 81,68 Q79.3,60.7 72,59 Q79.3,57.3 81,50 Z" fill="url(#accent)"/>
   </g>
-  <text x="172" y="108" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="700" fill="#FFFFFF" letter-spacing="0.4">Claude Manager</text>
+  <text x="172" y="108" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="700" fill="#FFFFFF" letter-spacing="0.4">Claude Code Manager</text>
   <text x="172" y="136" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" fill="#a59ec2">VS Code extension &#183; Open source &#183; Apache&#160;2.0</text>
 
   <!-- headline -->
@@ -94,5 +96,5 @@
   </g>
 
   <!-- footer -->
-  <text x="80" y="592" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="500" fill="#8a83a6">VS Code &#183; Cursor &#183; Windsurf &#183; VSCodium &#160;&#8212;&#160; search &#8220;Claude Manager&#8221;</text>
+  <text x="80" y="592" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="500" fill="#8a83a6">VS Code &#183; Cursor &#183; Windsurf &#183; VSCodium &#160;&#8212;&#160; search &#8220;Claude Code Manager&#8221;</text>
 </svg>

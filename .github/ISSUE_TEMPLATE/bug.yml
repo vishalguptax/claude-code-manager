@@ -1,12 +1,12 @@
-name: Bug report
-description: Something in Claude Manager is broken or behaves unexpectedly.
+﻿name: Bug report
+description: Something in Claude Code Manager is broken or behaves unexpectedly.
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! Claude Manager is 100% local — please do **not**
+        Thanks for reporting! Claude Code Manager is 100% local — please do **not**
         paste OAuth tokens, `.credentials.json` contents, or full session
         transcripts. Redact anything sensitive.
   - type: textarea
@@ -25,7 +25,7 @@ body:
     attributes:
       label: Diagnostics report
       description: >
-        Run "Claude Manager: Run Diagnostics" from the Command Palette and paste
+        Run "Claude Code Manager: Run Diagnostics" from the Command Palette and paste
         the output here. Redact paths/emails as needed.
       render: text
     validations:
@@ -33,7 +33,7 @@ body:
   - type: input
     id: extension-version
     attributes:
-      label: Claude Manager version
+      label: Claude Code Manager version
       placeholder: e.g. 2.0.0-beta.1
     validations:
       required: true
@@ -60,7 +60,7 @@ body:
       label: Webview / Extension Host errors
       description: >
         From "Help → Toggle Developer Tools" (webview console) or the
-        "Claude Manager" output channel, paste any red errors.
+        "Claude Code Manager" output channel, paste any red errors.
       render: shell
     validations:
       required: false
