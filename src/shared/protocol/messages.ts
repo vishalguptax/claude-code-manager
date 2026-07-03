@@ -42,7 +42,7 @@ export type Message =
   | { type: "updateHook"; original: unknown; next: { matcher: string; command: string } }
   | { type: "promptAddHook" }
   | { type: "getMcpServers" }
-  | { type: "openMcpConfig"; scope: string }
+  | { type: "openMcpConfig"; scope: string; name?: string }
   | { type: "toggleMcpServer"; name: string; scope: string; disabled: boolean; pluginName?: string }
   | { type: "deleteMcpServer"; name: string; scope: string }
   | { type: "getAgents" }
@@ -85,9 +85,12 @@ export type Message =
   | { type: "projects"; data: string[] }
   | { type: "accountData"; data: unknown }
   | { type: "commands"; data: unknown }
-  | { type: "hooks"; data: unknown }
-  | { type: "mcpServers"; data: unknown }
-  | { type: "agents"; data: unknown }
+  // `errors` carries user-readable parse failures (malformed config files)
+  // so the webview can show a warning banner while still rendering
+  // whatever parsed successfully.
+  | { type: "hooks"; data: unknown; errors?: string[] }
+  | { type: "mcpServers"; data: unknown; errors?: string[] }
+  | { type: "agents"; data: unknown; errors?: string[] }
   | { type: "quotaData"; result: unknown }
   | { type: "terminalSessions"; ids: string[] }
   | { type: "viewTerminal"; sessionId: string }

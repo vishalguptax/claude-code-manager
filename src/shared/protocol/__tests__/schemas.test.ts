@@ -68,6 +68,7 @@ describe("parseMessage — webview to host", () => {
   it("accepts mcp messages", () => {
     roundTrip({ type: "getMcpServers" });
     roundTrip({ type: "openMcpConfig", scope: "global" });
+    roundTrip({ type: "openMcpConfig", scope: "global", name: "my-server" });
     roundTrip({ type: "toggleMcpServer", name: "n", scope: "global", disabled: true });
     roundTrip({ type: "deleteMcpServer", name: "n", scope: "global" });
   });
@@ -117,8 +118,11 @@ describe("parseMessage — host to webview", () => {
     roundTrip({ type: "accountData", data: { email: "a@b" } });
     roundTrip({ type: "commands", data: [] });
     roundTrip({ type: "hooks", data: [] });
+    roundTrip({ type: "hooks", data: [], errors: ["Failed to parse settings.json: bad"] });
     roundTrip({ type: "mcpServers", data: [] });
+    roundTrip({ type: "mcpServers", data: [], errors: ["Failed to parse .mcp.json: bad"] });
     roundTrip({ type: "agents", data: [] });
+    roundTrip({ type: "agents", data: [], errors: ["Failed to read agents dir: bad"] });
     roundTrip({ type: "quotaData", result: { ok: true } });
   });
 

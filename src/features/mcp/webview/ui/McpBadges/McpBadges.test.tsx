@@ -24,4 +24,12 @@ describe("McpBadges", () => {
     expect(screen.getByText("read-only")).toBeTruthy();
     expect(screen.getByTitle("Owned by plugin p@m")).toBeTruthy();
   });
+
+  it("flags sse as deprecated via title, and renders ws with no such note", () => {
+    const { rerender } = render(h(TypeBadge, { type: "sse" }));
+    expect(screen.getByTitle(/deprecated/i)).toBeTruthy();
+    rerender(h(TypeBadge, { type: "ws" }));
+    expect(screen.getByText("ws")).toBeTruthy();
+    expect(screen.queryByTitle(/deprecated/i)).toBeNull();
+  });
 });

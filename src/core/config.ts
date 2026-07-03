@@ -27,6 +27,27 @@ export const STATS_CACHE_FILE: string = path.join(CLAUDE_DIR, "stats-cache.json"
 export const SETTINGS_FILE: string = path.join(CLAUDE_DIR, "settings.json");
 
 /**
+ * The three Claude Code settings files: global (~/.claude/settings.json),
+ * project (.claude/settings.json, committed), and local
+ * (.claude/settings.local.json, personal/gitignored).
+ */
+export type ClaudeSettingsScope = "global" | "project" | "local";
+
+/**
+ * Resolve the settings file path for a scope. Project/local scopes
+ * need a workspace; without one they resolve to null.
+ */
+export function claudeSettingsPath(
+  scope: ClaudeSettingsScope,
+  workspacePath?: string,
+): string | null {
+  if (scope === "global") return SETTINGS_FILE;
+  if (!workspacePath) return null;
+  const name = scope === "local" ? "settings.local.json" : "settings.json";
+  return path.join(workspacePath, ".claude", name);
+}
+
+/**
  * Cache Claude Code writes when an MCP server needs (re-)authentication.
  * Keys are server display names (e.g. "claude.ai Gmail"); presence means
  * Claude Code surfaced an auth prompt for that connector at the

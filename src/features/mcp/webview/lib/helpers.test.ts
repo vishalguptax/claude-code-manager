@@ -4,6 +4,7 @@ import {
   buildRows,
   connectionPreview,
   groupLabel,
+  isUrlTransport,
   maskSensitiveValue,
 } from "./helpers";
 
@@ -39,6 +40,15 @@ describe("buildRows", () => {
   });
 });
 
+describe("isUrlTransport", () => {
+  it("is false only for stdio", () => {
+    expect(isUrlTransport({ type: "stdio" })).toBe(false);
+    expect(isUrlTransport({ type: "http" })).toBe(true);
+    expect(isUrlTransport({ type: "sse" })).toBe(true);
+    expect(isUrlTransport({ type: "ws" })).toBe(true);
+  });
+});
+
 describe("connectionPreview", () => {
   it("joins command + args for stdio servers", () => {
     expect(connectionPreview(srv({ name: "a", scope: "project", args: ["x.js"] }))).toBe(
@@ -50,6 +60,15 @@ describe("connectionPreview", () => {
     expect(
       connectionPreview(srv({ name: "a", scope: "global", type: "http", url: "https://h" })),
     ).toBe("https://h");
+  });
+
+  it("uses the url for sse and ws servers too", () => {
+    expect(
+      connectionPreview(srv({ name: "a", scope: "global", type: "sse", url: "https://s" })),
+    ).toBe("https://s");
+    expect(
+      connectionPreview(srv({ name: "a", scope: "global", type: "ws", url: "wss://w" })),
+    ).toBe("wss://w");
   });
 
   it("truncates long previews", () => {

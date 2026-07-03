@@ -20,6 +20,12 @@ describe("createMcpApi", () => {
     expect(posted).toEqual([{ type: "openMcpConfig", scope: "project" }]);
   });
 
+  it("posts openMcpConfig with the server name so the host opens the owning file", () => {
+    const { api, posted } = harness();
+    api.openConfig("global", "my-server");
+    expect(posted).toEqual([{ type: "openMcpConfig", scope: "global", name: "my-server" }]);
+  });
+
   it("posts toggleMcpServer with all fields", () => {
     const { api, posted } = harness();
     api.toggle("srv", "global", true, "p@m");

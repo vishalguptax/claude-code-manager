@@ -6,6 +6,7 @@ export {
   buildRows,
   connectionPreview,
   groupLabel,
+  isUrlTransport,
   maskSensitiveValue,
   type Row,
 } from "./helpers";

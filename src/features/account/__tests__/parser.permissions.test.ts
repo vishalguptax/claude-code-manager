@@ -37,6 +37,12 @@ vi.mock("../../../core/config", () => ({
   SETTINGS_FILE: path.join(tmp.root, "settings.json"),
   SESSION_META_READ_BYTES: 4096,
   SETTINGS_SNAPSHOTS_DIR: path.join(tmp.root, "snapshots"),
+  claudeSettingsPath: (scope: string, workspacePath?: string) => {
+    if (scope === "global") return path.join(tmp.root, "settings.json");
+    if (!workspacePath) return null;
+    const name = scope === "local" ? "settings.local.json" : "settings.json";
+    return path.join(workspacePath, ".claude", name);
+  },
 }));
 
 // Keep the parse fast + hermetic: stub the heavy collaborators so this test is

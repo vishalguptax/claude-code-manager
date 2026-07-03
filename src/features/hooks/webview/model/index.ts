@@ -10,6 +10,7 @@ export {
   hooks,
   type HookScopeFilter,
   loading,
+  parseErrors,
   resetHooksState,
   scopeFilter,
   searchQuery,

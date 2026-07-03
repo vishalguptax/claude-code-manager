@@ -13,7 +13,12 @@ vi.mock("os", async () => {
   return { ...actual, homedir: () => HOME };
 });
 
-import { parseMcpServers, toggleMcpServer, deleteMcpServer, readMcpAuthNeeds } from "../parser";
+import {
+  parseMcpServers,
+  setProjectMcpServerDisabled,
+  deleteMcpServer,
+  readMcpAuthNeeds,
+} from "../parser";
 
 beforeEach(() => {
   fs.rmSync(HOME, { recursive: true, force: true });
@@ -28,8 +33,8 @@ function writeJson(filePath: string, value: unknown): void {
 }
 
 describe("parseMcpServers", () => {
-  it("returns [] when nothing is configured", () => {
-    expect(parseMcpServers()).toEqual([]);
+  it("returns no servers when nothing is configured", () => {
+    expect(parseMcpServers().servers).toEqual([]);
   });
 
   it("reads project + global MCP servers", () => {
@@ -40,7 +45,7 @@ describe("parseMcpServers", () => {
     writeJson(path.join(HOME, ".claude", "mcp.json"), {
       mcpServers: { remote: { url: "https://example.com/mcp" } },
     });
-    const servers = parseMcpServers(ws);
+    const servers = parseMcpServers(ws).servers;
     expect(servers.find((s) => s.name === "local")?.scope).toBe("project");
     expect(servers.find((s) => s.name === "remote")?.scope).toBe("global");
     expect(servers.find((s) => s.name === "remote")?.type).toBe("http");
@@ -56,7 +61,7 @@ describe("parseMcpServers", () => {
       plugins: { "p@mkt": [{ scope: "user", installPath: pluginRoot }] },
     });
 
-    const servers = parseMcpServers();
+    const servers = parseMcpServers().servers;
     const docs = servers.find((s) => s.name === "docs");
     expect(docs?.scope).toBe("plugin");
     expect(docs?.pluginName).toBe("p@mkt");
@@ -73,7 +78,7 @@ describe("parseMcpServers", () => {
       plugins: { "f@mkt": [{ scope: "user", installPath: pluginRoot }] },
     });
 
-    const servers = parseMcpServers();
+    const servers = parseMcpServers().servers;
     expect(servers.find((s) => s.name === "fs" && s.scope === "plugin")).toBeDefined();
   });
 
@@ -90,33 +95,189 @@ describe("parseMcpServers", () => {
       plugins: { "d@mkt": [{ scope: "user", installPath: pluginRoot }] },
     });
 
-    const servers = parseMcpServers().filter((s) => s.name === "srv");
+    const servers = parseMcpServers().servers.filter((s) => s.name === "srv");
     expect(servers).toHaveLength(1);
     expect(servers[0].command).toBe("from-inline");
   });
 });
 
-describe("toggle/delete reject plugin scope", () => {
-  it("toggleMcpServer returns false for plugin scope and writes nothing", () => {
-    const pluginRoot = path.join(HOME, ".claude", "plugins", "cache", "mkt", "g", "v1");
-    fs.mkdirSync(path.join(pluginRoot, ".claude-plugin"), { recursive: true });
-    writeJson(path.join(pluginRoot, ".claude-plugin", "plugin.json"), {
-      mcpServers: { docs: { command: "docs-mcp" } },
+describe("transport type derivation", () => {
+  const ws = path.join(HOME, "ws");
+
+  it("honors an explicit type over the command/url heuristic", () => {
+    writeJson(path.join(ws, ".mcp.json"), {
+      mcpServers: {
+        // Both command and url present — explicit type must win over
+        // the "!command && url" heuristic, which would otherwise guess
+        // stdio here since command is set.
+        weird: { type: "http", command: "node", url: "https://example.com/mcp" },
+      },
     });
-    const manifestBefore = fs.readFileSync(
-      path.join(pluginRoot, ".claude-plugin", "plugin.json"),
-      "utf-8",
-    );
-
-    expect(toggleMcpServer("docs", "plugin", true)).toBe(false);
-
-    const manifestAfter = fs.readFileSync(
-      path.join(pluginRoot, ".claude-plugin", "plugin.json"),
-      "utf-8",
-    );
-    expect(manifestAfter).toBe(manifestBefore);
+    const servers = parseMcpServers(ws).servers;
+    expect(servers.find((s) => s.name === "weird")?.type).toBe("http");
   });
 
+  it("normalizes streamable-http to http", () => {
+    writeJson(path.join(ws, ".mcp.json"), {
+      mcpServers: { srv: { type: "streamable-http", url: "https://example.com/mcp" } },
+    });
+    expect(parseMcpServers(ws).servers.find((s) => s.name === "srv")?.type).toBe("http");
+  });
+
+  it("passes through sse and ws unchanged", () => {
+    writeJson(path.join(ws, ".mcp.json"), {
+      mcpServers: {
+        legacy: { type: "sse", url: "https://example.com/sse" },
+        socket: { type: "ws", url: "wss://example.com/ws" },
+      },
+    });
+    const servers = parseMcpServers(ws).servers;
+    expect(servers.find((s) => s.name === "legacy")?.type).toBe("sse");
+    expect(servers.find((s) => s.name === "socket")?.type).toBe("ws");
+  });
+
+  it("falls back to the command/url heuristic when type is absent or unrecognized", () => {
+    writeJson(path.join(ws, ".mcp.json"), {
+      mcpServers: {
+        stdioSrv: { command: "node" },
+        urlOnly: { url: "https://example.com/mcp" },
+        unknownType: { type: "carrier-pigeon", command: "node" },
+      },
+    });
+    const servers = parseMcpServers(ws).servers;
+    expect(servers.find((s) => s.name === "stdioSrv")?.type).toBe("stdio");
+    expect(servers.find((s) => s.name === "urlOnly")?.type).toBe("http");
+    expect(servers.find((s) => s.name === "unknownType")?.type).toBe("stdio");
+  });
+});
+
+describe("headers parsing", () => {
+  it("parses a string-valued headers object", () => {
+    const ws = path.join(HOME, "ws");
+    writeJson(path.join(ws, ".mcp.json"), {
+      mcpServers: {
+        api: {
+          type: "http",
+          url: "https://example.com/mcp",
+          headers: { Authorization: "Bearer token", "X-Custom": "value" },
+        },
+      },
+    });
+    const server = parseMcpServers(ws).servers.find((s) => s.name === "api");
+    expect(server?.headers).toEqual({ Authorization: "Bearer token", "X-Custom": "value" });
+  });
+
+  it("drops non-string header values and omits headers entirely when empty", () => {
+    const ws = path.join(HOME, "ws");
+    writeJson(path.join(ws, ".mcp.json"), {
+      mcpServers: {
+        withNumeric: { command: "node", headers: { count: 5, ok: "yes" } },
+        withNoStrings: { command: "node", headers: { count: 5 } },
+      },
+    });
+    const servers = parseMcpServers(ws).servers;
+    expect(servers.find((s) => s.name === "withNumeric")?.headers).toEqual({ ok: "yes" });
+    expect(servers.find((s) => s.name === "withNoStrings")?.headers).toBeUndefined();
+  });
+});
+
+describe("project server enable/disable via settings arrays", () => {
+  const ws = path.join(HOME, "ws");
+  const localSettings = path.join(ws, ".claude", "settings.local.json");
+  const projectSettings = path.join(ws, ".claude", "settings.json");
+
+  function readLocal(): Record<string, unknown> {
+    return JSON.parse(fs.readFileSync(localSettings, "utf-8"));
+  }
+
+  it("disable writes the name to disabledMcpjsonServers in settings.local.json", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    expect(setProjectMcpServerDisabled("srv", true, ws)).toBe(true);
+    expect(readLocal().disabledMcpjsonServers).toEqual(["srv"]);
+  });
+
+  it("does not touch .mcp.json when toggling", () => {
+    const mcpFile = path.join(ws, ".mcp.json");
+    writeJson(mcpFile, { mcpServers: { srv: { command: "node" } } });
+    const before = fs.readFileSync(mcpFile, "utf-8");
+    setProjectMcpServerDisabled("srv", true, ws);
+    expect(fs.readFileSync(mcpFile, "utf-8")).toBe(before);
+  });
+
+  it("parseMcpServers reflects the disabled state from the settings array", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    writeJson(localSettings, { disabledMcpjsonServers: ["srv"] });
+    const server = parseMcpServers(ws).servers.find((s) => s.name === "srv");
+    expect(server?.disabled).toBe(true);
+  });
+
+  it("a local enabled entry overrides a project-scope disabled entry (precedence)", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    writeJson(projectSettings, { disabledMcpjsonServers: ["srv"] });
+    writeJson(localSettings, { enabledMcpjsonServers: ["srv"] });
+    const server = parseMcpServers(ws).servers.find((s) => s.name === "srv");
+    expect(server?.disabled).toBeUndefined();
+  });
+
+  it("re-enabling clears the local disabled array key when it becomes empty", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    setProjectMcpServerDisabled("srv", true, ws);
+    setProjectMcpServerDisabled("srv", false, ws);
+    expect(readLocal().disabledMcpjsonServers).toBeUndefined();
+  });
+
+  it("re-enabling records a local override when a broader scope still disables the name", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    writeJson(projectSettings, { disabledMcpjsonServers: ["srv"] });
+    setProjectMcpServerDisabled("srv", false, ws);
+    expect(readLocal().enabledMcpjsonServers).toEqual(["srv"]);
+  });
+
+  it("preserves unrelated settings keys when toggling", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    writeJson(localSettings, { permissions: { allow: ["Bash"] } });
+    setProjectMcpServerDisabled("srv", true, ws);
+    expect(readLocal().permissions).toEqual({ allow: ["Bash"] });
+  });
+
+  it("strips the legacy per-entry disabled key from .mcp.json on toggle", () => {
+    const mcpFile = path.join(ws, ".mcp.json");
+    writeJson(mcpFile, { mcpServers: { srv: { command: "node", disabled: true } } });
+    setProjectMcpServerDisabled("srv", true, ws);
+    const config = JSON.parse(fs.readFileSync(mcpFile, "utf-8"));
+    expect("disabled" in config.mcpServers.srv).toBe(false);
+  });
+
+  it("ignores a stale per-entry disabled key when computing disabled state", () => {
+    // The legacy key was never honored by Claude Code — a server carrying it
+    // (but not named in any disabledMcpjsonServers array) reads as enabled.
+    writeJson(path.join(ws, ".mcp.json"), {
+      mcpServers: { srv: { command: "node", disabled: true } },
+    });
+    const server = parseMcpServers(ws).servers.find((s) => s.name === "srv");
+    expect(server?.disabled).toBeUndefined();
+  });
+});
+
+describe("parse error surfacing", () => {
+  it("reports a malformed project .mcp.json instead of throwing", () => {
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(ws, { recursive: true });
+    fs.writeFileSync(path.join(ws, ".mcp.json"), "{ not valid json");
+    const result = parseMcpServers(ws);
+    expect(result.servers).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(".mcp.json");
+  });
+
+  it("returns no errors when configs parse cleanly", () => {
+    const ws = path.join(HOME, "ws");
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    expect(parseMcpServers(ws).errors).toEqual([]);
+  });
+});
+
+describe("delete rejects plugin scope", () => {
   it("deleteMcpServer returns false for plugin scope", () => {
     expect(deleteMcpServer("docs", "plugin")).toBe(false);
   });

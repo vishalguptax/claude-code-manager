@@ -14,6 +14,9 @@ function hook(partial: Partial<Hook> = {}): Hook {
     command: "echo hi",
     scope: "global",
     disabled: false,
+    hookType: "command",
+    entryIndex: 0,
+    commandIndex: null,
     ...partial,
   };
 }
@@ -107,5 +110,18 @@ describe("ListView", () => {
     const { container } = render(h(ListView, {}));
     expect(container.querySelector(".hook-virtual-list")).toBeTruthy();
     expect(screen.getByText("60 hooks")).toBeTruthy();
+  });
+
+  it("shows a parse-error banner above the list while still rendering the data", () => {
+    setHooks([hook({ command: "still-here" })], ["Failed to parse .claude/settings.json: bad"]);
+    render(h(ListView, {}));
+    expect(screen.getByText("Failed to parse .claude/settings.json: bad")).toBeTruthy();
+    expect(screen.getByText("still-here")).toBeTruthy();
+  });
+
+  it("renders no banner when there are no parse errors", () => {
+    setHooks([hook({ command: "clean" })]);
+    const { container } = render(h(ListView, {}));
+    expect(container.querySelector(".error-banner")).toBeNull();
   });
 });

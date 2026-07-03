@@ -7,9 +7,10 @@
 import { Badge } from "../../../../../webview/shared/ui";
 import type { McpServerScope, McpServerType } from "../../../types";
 
-/** Transport-type badge (stdio / http). */
+/** Transport-type badge (stdio / http / sse / ws). */
 export function TypeBadge({ type }: { type: McpServerType }) {
-  return <Badge text={type} variant="scope" class={`mcp-type-${type}`} />;
+  const title = type === "sse" ? "SSE transport (deprecated in Claude Code — use http)" : undefined;
+  return <Badge text={type} variant="scope" class={`mcp-type-${type}`} title={title} />;
 }
 
 /** Configuration-scope badge (project / global / plugin). */

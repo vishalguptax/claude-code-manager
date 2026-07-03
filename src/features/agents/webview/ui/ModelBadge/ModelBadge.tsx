@@ -8,7 +8,7 @@ import { cx } from "../../../../../webview/shared/lib";
 import { Badge } from "../../../../../webview/shared/ui";
 
 /** Models that have a dedicated accent color in the stylesheet. */
-const KNOWN_MODELS = new Set(["sonnet", "opus", "haiku"]);
+const KNOWN_MODELS = new Set(["sonnet", "opus", "haiku", "inherit"]);
 
 export interface ModelBadgeProps {
   model: string;

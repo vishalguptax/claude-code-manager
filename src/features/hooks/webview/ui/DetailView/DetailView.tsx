@@ -25,6 +25,7 @@ export function DetailView({ hook }: DetailViewProps) {
   const [copied, setCopied] = useState(false);
 
   const isPlugin = hook.scope === "plugin";
+  const isCommand = hook.hookType === "command";
   const eLabel = eventLabel(hook.event);
   const sLabel = scopeLabel(hook);
   const mDisplay = matcherDisplay(hook.matcher);
@@ -50,6 +51,7 @@ export function DetailView({ hook }: DetailViewProps) {
         <div class="d-tags">
           <Badge variant="scope" text={sLabel} title={sLabel} />
           <Badge variant="default" text={`matcher: ${mDisplay}`} />
+          {!isCommand ? <Badge variant="default" text={hook.hookType} /> : null}
           {hook.disabled ? <Badge variant="status" text="disabled" /> : null}
         </div>
       </div>
@@ -64,9 +66,11 @@ export function DetailView({ hook }: DetailViewProps) {
           </span>
         ) : (
           <>
-            <Button onClick={() => setEditing(true)}>
-              <Icon name="pencil" /> Edit
-            </Button>
+            {isCommand ? (
+              <Button onClick={() => setEditing(true)}>
+                <Icon name="pencil" /> Edit
+              </Button>
+            ) : null}
             <Button onClick={() => api.toggleHookEnabled(send, hook)}>
               <Icon name={hook.disabled ? "play" : "pin-off"} />{" "}
               {hook.disabled ? "Enable" : "Disable"}
@@ -89,7 +93,7 @@ export function DetailView({ hook }: DetailViewProps) {
       </div>
 
       <div class="d-scroll">
-        {editing && !isPlugin ? (
+        {editing && !isPlugin && isCommand ? (
           <EditForm
             hook={hook}
             onCancel={() => setEditing(false)}
@@ -114,9 +118,21 @@ export function DetailView({ hook }: DetailViewProps) {
                 <span class="d-k">Scope</span>
                 <span class="d-v">{sLabel}</span>
               </div>
+              {!isCommand ? (
+                <div class="d-kv">
+                  <span class="d-k">Action</span>
+                  <span class="d-v">{hook.hookType}</span>
+                </div>
+              ) : null}
+              {hook.timeout !== undefined ? (
+                <div class="d-kv">
+                  <span class="d-k">Timeout</span>
+                  <span class="d-v">{`${hook.timeout}s`}</span>
+                </div>
+              ) : null}
             </div>
             <div class="d-section">
-              <div class="d-label">Command</div>
+              <div class="d-label">{isCommand ? "Command" : "Content"}</div>
               <pre class="hook-command-block">
                 <code>{hook.command}</code>
               </pre>

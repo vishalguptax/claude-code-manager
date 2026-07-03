@@ -24,7 +24,7 @@ export default function HooksTab() {
     // only narrow the carried `data` to Hook[] here.
     const unsubscribe = registerFeatureHandler("hooks", (msg: Message) => {
       if (msg.type === "hooks") {
-        setHooks((msg.data as Hook[]) ?? []);
+        setHooks((msg.data as Hook[]) ?? [], msg.errors ?? []);
       }
     });
     // A host parse failure surfaces as a generic `error` message; without this

@@ -65,6 +65,27 @@ describe("McpTab", () => {
     });
   });
 
+  it("opens the owning config file with the server name from the detail view", async () => {
+    render(h(McpTab, {}));
+    dispatch({ type: "mcpServers", data: [srv({ name: "files", scope: "global" })] });
+    await waitFor(() => screen.getByText("files"));
+    fireEvent.click(screen.getByText("files"));
+    await waitFor(() => screen.getByText("Open Config"));
+    fireEvent.click(screen.getByText("Open Config"));
+    expect(posted).toContainEqual({ type: "openMcpConfig", scope: "global", name: "files" });
+  });
+
+  it("surfaces host parse errors as a banner while still rendering servers", async () => {
+    render(h(McpTab, {}));
+    dispatch({
+      type: "mcpServers",
+      data: { servers: [srv({ name: "files", scope: "project" })], authNeeds: [] },
+      errors: ["Failed to parse .mcp.json: bad"],
+    });
+    await waitFor(() => expect(screen.getByText("files")).toBeTruthy());
+    expect(screen.getByText("Failed to parse .mcp.json: bad")).toBeTruthy();
+  });
+
   it("shows the error state when the host reports an error and no servers loaded", async () => {
     render(h(McpTab, {}));
     dispatch({ type: "error", message: "disk on fire" });

@@ -9,12 +9,16 @@ import type * as vscode from "vscode";
  */
 vi.mock("../../skills/parser", () => ({ parseSkills: () => [{ id: "sk1" }] }));
 vi.mock("../../commands/parser", () => ({ parseCommands: () => [{ name: "cmd1" }] }));
-vi.mock("../../hooks/parser", () => ({ parseHooks: () => [{ name: "hk1" }] }));
+vi.mock("../../hooks/parser", () => ({
+  parseHooks: () => ({ hooks: [{ name: "hk1" }], errors: [] }),
+}));
 vi.mock("../../mcp/parser", () => ({
-  parseMcpServers: () => [{ name: "srv1" }],
+  parseMcpServers: () => ({ servers: [{ name: "srv1" }], errors: [] }),
   readMcpAuthNeeds: () => ["needs-auth-server"],
 }));
-vi.mock("../../agents/parser", () => ({ parseAgents: () => [{ name: "ag1" }] }));
+vi.mock("../../agents/parser", () => ({
+  parseAgents: () => ({ agents: [{ name: "ag1" }], errors: [] }),
+}));
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => undefined }));
 
 import { reloadFeature, type ConfigFeature } from "../providerActions";

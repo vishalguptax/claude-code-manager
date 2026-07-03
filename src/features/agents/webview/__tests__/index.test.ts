@@ -59,6 +59,19 @@ describe("AgentsTab", () => {
     expect(screen.getByText("Error: kaboom")).toBeTruthy();
   });
 
+  it("surfaces host parse errors as a banner while still rendering agents", () => {
+    render(h(AgentsTab, {}));
+    act(() =>
+      dispatch({
+        type: "agents",
+        data: [agent()],
+        errors: ["Failed to read agent /a/broken.md: bad"],
+      } as Message),
+    );
+    expect(screen.getByText("reviewer")).toBeTruthy();
+    expect(screen.getByText("Failed to read agent /a/broken.md: bad")).toBeTruthy();
+  });
+
   it("navigates to detail on click and back again", () => {
     const { container } = render(h(AgentsTab, {}));
     act(() => dispatch({ type: "agents", data: [agent()] } as Message));

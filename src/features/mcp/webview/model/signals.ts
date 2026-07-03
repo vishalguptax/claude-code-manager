@@ -28,6 +28,10 @@ export const loading = signal<boolean>(true);
 /** Host-reported error message, or null when healthy. */
 export const errorMessage = signal<string | null>(null);
 
+/** Non-fatal config parse errors (malformed .mcp.json / ~/.claude.json)
+ *  that arrived with a `mcpServers` message — the list still renders. */
+export const parseErrors = signal<string[]>([]);
+
 /** Lowercased free-text search query. */
 export const searchQuery = signal<string>("");
 
@@ -79,10 +83,11 @@ export const filteredServers = computed<McpServer[]>(() => {
  * its reference is refreshed to the new data; otherwise the selection is
  * dropped so the detail view falls back to the list.
  */
-export function applyServers(next: McpServer[]): void {
+export function applyServers(next: McpServer[], errors: string[] = []): void {
   servers.value = next;
   loading.value = false;
   errorMessage.value = null;
+  parseErrors.value = errors;
   const sel = selected.value;
   if (sel) {
     const updated = next.find((s) => s.name === sel.name && s.scope === sel.scope);
@@ -108,6 +113,7 @@ export function resetMcpSignals(): void {
   selected.value = null;
   loading.value = true;
   errorMessage.value = null;
+  parseErrors.value = [];
   searchQuery.value = "";
   scopeFilter.value = "all";
 }

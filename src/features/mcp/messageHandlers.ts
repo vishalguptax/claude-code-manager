@@ -10,9 +10,15 @@
  */
 import * as vscode from "vscode";
 import * as path from "path";
-import * as os from "os";
+import {
+  deleteMcpServer,
+  globalMcpFileFor,
+  globalMcpConfigFile,
+  parseMcpServers,
+  readMcpAuthNeeds,
+  setProjectMcpServerDisabled,
+} from "./parser";
 import { parseMessage } from "../../shared/protocol/schemas";
-import { deleteMcpServer, parseMcpServers, readMcpAuthNeeds, toggleMcpServer } from "./parser";
 import type { McpServer, McpServerScope } from "./types";
 
 /** Narrow host surface the MCP handler needs. Implemented by the provider. */
@@ -34,14 +40,16 @@ function asScope(value: string): McpServerScope | null {
  * Re-parse the server list + the auth-needs cache and push both to the
  * webview in one message. The `mcpServers` schema accepts `data:
  * unknown`, so piggybacking { servers, authNeeds } avoids adding a
- * second message type for what is conceptually one MCP snapshot.
+ * second message type for what is conceptually one MCP snapshot. Any
+ * config parse failures ride the message's `errors` field.
  */
 function pushServers(ctx: McpHostContext, wv: vscode.Webview): void {
-  const servers = parseMcpServers(ctx.getWorkspace());
+  const { servers, errors } = parseMcpServers(ctx.getWorkspace());
   ctx.setMcpServers(servers);
   wv.postMessage({
     type: "mcpServers",
     data: { servers, authNeeds: readMcpAuthNeeds() },
+    errors,
   });
 }
 
@@ -99,7 +107,11 @@ export async function handleMcpMessage(
         }
         configPath = path.join(workspace, ".mcp.json");
       } else {
-        configPath = path.join(os.homedir(), ".claude", "mcp.json");
+        // Global servers live in ~/.claude.json, not the legacy
+        // ~/.claude/mcp.json. Route by the specific server's owning
+        // file when we have its name; otherwise open the canonical
+        // global config.
+        configPath = msg.name ? globalMcpFileFor(msg.name) : globalMcpConfigFile();
       }
       try {
         const doc = await vscode.workspace.openTextDocument(configPath);
@@ -112,13 +124,22 @@ export async function handleMcpMessage(
 
     case "toggleMcpServer": {
       const scope = asScope(msg.scope);
-      if (scope === null || scope === "plugin") {
+      // Only project-scope servers can be toggled: Claude Code's
+      // enable/disable mechanism (the disabledMcpjsonServers arrays)
+      // governs project .mcp.json servers only. Global and plugin
+      // servers have no such switch.
+      if (scope !== "project") {
         vscode.window.showErrorMessage(
-          `"${msg.name}" is provided by a plugin — manage it via /plugin.`,
+          `"${msg.name}" can't be disabled from here — only project (.mcp.json) servers support enable/disable. Edit the config to remove a global or plugin server.`,
         );
         return true;
       }
-      const ok = toggleMcpServer(msg.name, scope, msg.disabled, ctx.getWorkspace());
+      const workspace = ctx.getWorkspace();
+      if (!workspace) {
+        vscode.window.showErrorMessage("No workspace folder open");
+        return true;
+      }
+      const ok = setProjectMcpServerDisabled(msg.name, msg.disabled, workspace);
       if (ok && wv) {
         pushServers(ctx, wv);
       } else if (!ok) {
@@ -137,11 +158,13 @@ export async function handleMcpMessage(
         );
         return true;
       }
+      const target =
+        scope === "project" ? "the project's .mcp.json" : globalMcpFileFor(msg.name);
       const choice = await vscode.window.showWarningMessage(
         `Delete MCP server "${msg.name}"?`,
         {
           modal: true,
-          detail: `This will remove the server entry from your ${scope} .mcp.json config.`,
+          detail: `This will remove the server entry from ${target}.`,
         },
         "Delete",
       );

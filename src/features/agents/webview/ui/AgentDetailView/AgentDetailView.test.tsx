@@ -56,6 +56,27 @@ describe("AgentDetailView", () => {
     expect(container.querySelector(".agent-detail-desc")).toBeNull();
   });
 
+  it("shows Tools and Skills chip rows when present", () => {
+    render(
+      h(AgentDetailView, {
+        agent: agent({ tools: ["Read", "Grep"], skills: ["research"] }),
+        onBack: () => {},
+        onOpenFile: () => {},
+      }),
+    );
+    expect(screen.getByText("Tools")).toBeTruthy();
+    expect(screen.getByText("Read")).toBeTruthy();
+    expect(screen.getByText("Grep")).toBeTruthy();
+    expect(screen.getByText("Skills")).toBeTruthy();
+    expect(screen.getByText("research")).toBeTruthy();
+  });
+
+  it("omits Tools and Skills rows when the agent has none", () => {
+    render(h(AgentDetailView, { agent: agent(), onBack: () => {}, onOpenFile: () => {} }));
+    expect(screen.queryByText("Tools")).toBeNull();
+    expect(screen.queryByText("Skills")).toBeNull();
+  });
+
   it("fires onBack and onOpenFile", () => {
     const onBack = vi.fn();
     const onOpenFile = vi.fn();

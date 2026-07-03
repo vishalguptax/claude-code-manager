@@ -14,6 +14,9 @@ function hook(partial: Partial<Hook> = {}): Hook {
     command: "echo hi",
     scope: "global",
     disabled: false,
+    hookType: "command",
+    entryIndex: 0,
+    commandIndex: null,
     ...partial,
   };
 }

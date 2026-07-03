@@ -6,6 +6,7 @@
  */
 import { computed, signal } from "@preact/signals";
 import type { Hook, HookEvent, HookScope } from "../../types";
+import { hookKey } from "../lib/hookKey";
 
 /** Scope filter pill state — "all" plus the four concrete scopes. */
 export type HookScopeFilter = "all" | HookScope;
@@ -16,6 +17,10 @@ export const hooks = signal<Hook[]>([]);
 export const loading = signal<boolean>(true);
 /** Host-reported error message, or null when healthy. */
 export const errorMessage = signal<string | null>(null);
+/** Non-fatal parse errors from the host (e.g. malformed settings.json)
+ *  that arrived alongside a `hooks` data message — the list below still
+ *  renders whatever parsed. */
+export const parseErrors = signal<string[]>([]);
 /** Lowercased search query applied to event / matcher / command. */
 export const searchQuery = signal<string>("");
 /** Active scope filter pill. */
@@ -60,22 +65,19 @@ export const groupedHooks = computed<Array<[HookEvent, Hook[]]>>(() => {
 });
 
 /** Replace the full hook list (host `hooks` message). Clears any error. */
-export function setHooks(next: Hook[]): void {
+export function setHooks(next: Hook[], errors: string[] = []): void {
   hooks.value = next;
   loading.value = false;
   errorMessage.value = null;
+  parseErrors.value = errors;
   // If a detail view is open, re-resolve the selection against the fresh
-  // list so an edited / toggled hook keeps showing updated values. A hook
-  // is identified by scope + event + matcher + command.
+  // list so an edited / toggled hook keeps showing updated values. Keyed
+  // by array position (see hookKey), not matcher/command — those can
+  // collide across duplicate or enabled/disabled-pair hooks.
   const sel = selectedHook.value;
   if (sel) {
-    const match = next.find(
-      (h) =>
-        h.scope === sel.scope &&
-        h.event === sel.event &&
-        h.matcher === sel.matcher &&
-        h.command === sel.command,
-    );
+    const key = hookKey(sel);
+    const match = next.find((h) => hookKey(h) === key);
     selectedHook.value = match ?? null;
   }
 }
@@ -91,6 +93,7 @@ export function resetHooksState(): void {
   hooks.value = [];
   loading.value = true;
   errorMessage.value = null;
+  parseErrors.value = [];
   searchQuery.value = "";
   scopeFilter.value = "all";
   selectedHook.value = null;

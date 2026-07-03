@@ -37,16 +37,17 @@ export default function McpTab() {
         // The host now sends { servers, authNeeds } so the auth-health
         // badge can live on the MCP tab. Older builds (or test fixtures)
         // may still emit a bare array — handle both shapes.
+        const errors = msg.errors ?? [];
         const data = msg.data as unknown;
         if (Array.isArray(data)) {
-          applyServers(data as McpServer[]);
+          applyServers(data as McpServer[], errors);
           applyAuthNeeds([]);
         } else if (data && typeof data === "object") {
           const d = data as { servers?: McpServer[]; authNeeds?: string[] };
-          applyServers((d.servers ?? []) as McpServer[]);
+          applyServers((d.servers ?? []) as McpServer[], errors);
           applyAuthNeeds(d.authNeeds ?? []);
         } else {
-          applyServers([]);
+          applyServers([], errors);
           applyAuthNeeds([]);
         }
       }
@@ -85,7 +86,7 @@ export default function McpTab() {
         onBack={() => {
           selected.value = null;
         }}
-        onOpenConfig={(s) => api.openConfig(s.scope)}
+        onOpenConfig={(s) => api.openConfig(s.scope, s.name)}
         onToggle={(s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName)}
         onDelete={(s) => api.remove(s.name, s.scope)}
         onCopyName={copyToClipboard}

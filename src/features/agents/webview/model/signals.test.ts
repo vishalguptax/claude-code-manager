@@ -8,6 +8,7 @@ import {
   groupedAgents,
   loading,
   modelCounts,
+  parseErrors,
   resetAgentsState,
   scopeLabel,
   searchQuery,
@@ -68,8 +69,30 @@ describe("agents signals", () => {
       agent({ path: "2", model: "opus" }),
       agent({ path: "3", model: "opus" }),
       agent({ path: "4", model: "haiku" }),
+      agent({ path: "5", model: "inherit" }),
     ]);
-    expect(modelCounts.value).toEqual({ all: 4, sonnet: 1, opus: 2, haiku: 1 });
+    expect(modelCounts.value).toEqual({ all: 5, sonnet: 1, opus: 2, haiku: 1, inherit: 1 });
+  });
+
+  it("counts inherit exactly, not as a substring family", () => {
+    setAgents([agent({ path: "1", model: "inherit" }), agent({ path: "2", model: "opus" })]);
+    expect(modelCounts.value.inherit).toBe(1);
+  });
+
+  it("filters by inherit with an exact match", () => {
+    setAgents([
+      agent({ name: "i", path: "1", model: "inherit" }),
+      agent({ name: "o", path: "2", model: "opus" }),
+    ]);
+    filterModel.value = "inherit";
+    expect(filteredAgents.value.map((a) => a.name)).toEqual(["i"]);
+  });
+
+  it("setAgents records parse errors, defaulting to none", () => {
+    setAgents([agent()], ["Failed to read agents directory /x: bad"]);
+    expect(parseErrors.value).toEqual(["Failed to read agents directory /x: bad"]);
+    setAgents([agent()]);
+    expect(parseErrors.value).toEqual([]);
   });
 
   it("filteredAgents applies the model filter", () => {
@@ -130,11 +153,13 @@ describe("agents signals", () => {
     selectAgent(agent());
     searchQuery.value = "q";
     filterModel.value = "opus";
+    setAgents([agent()], ["err"]);
     resetAgentsState();
     expect(agents.value).toEqual([]);
     expect(selectedAgent.value).toBeNull();
     expect(searchQuery.value).toBe("");
     expect(filterModel.value).toBe("all");
     expect(loading.value).toBe(true);
+    expect(parseErrors.value).toEqual([]);
   });
 });

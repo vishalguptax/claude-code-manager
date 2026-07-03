@@ -8,19 +8,20 @@
  * smaller sets keep the event-grouped layout that reads better for the
  * common handful-of-hooks case.
  */
-import { Button, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
+import { Button, ErrorBanner, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
 import type { ScopeOption } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { useApi } from "../../../../../webview/shared/hooks";
 import type { Hook } from "../../../types";
 import * as api from "../../api";
 import type { Post } from "../../api";
-import { eventLabel } from "../../lib";
+import { eventLabel, hookKey } from "../../lib";
 import {
   countByScope,
   filteredHooks,
   groupedHooks,
   hooks,
+  parseErrors,
   scopeFilter,
   searchQuery,
   selectedHook,
@@ -63,6 +64,7 @@ export function ListView() {
 
   return (
     <div class="panel hooks-panel">
+      <ErrorBanner errors={parseErrors.value} />
       <div class="search-row">
         <SearchInput
           value={searchQuery.value}
@@ -154,7 +156,7 @@ function renderBody({ all, filtered, groups, open, toggle, remove }: BodyProps) 
           <div class="hook-group-label">{eventLabel(event)}</div>
           {eventHooks.map((hook) => (
             <HookItem
-              key={`${hook.scope}:${hook.matcher}:${hook.command}`}
+              key={hookKey(hook)}
               hook={hook}
               onOpen={open}
               onToggle={toggle}

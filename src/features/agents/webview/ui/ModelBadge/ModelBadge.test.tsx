@@ -23,4 +23,10 @@ describe("ModelBadge", () => {
     expect(badge.className).toContain("agent-model-badge");
     expect(badge.className).not.toContain("agent-model-gpt");
   });
+
+  it("styles the 'inherit' default as a known (neutral) model", () => {
+    render(h(ModelBadge, { model: "inherit" }));
+    const badge = screen.getByText("inherit");
+    expect(badge.className).toContain("agent-model-inherit");
+  });
 });

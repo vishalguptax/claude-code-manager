@@ -13,7 +13,7 @@ import type { McpServerScope } from "../types";
 /** Bridge shape returned by the shared `useApi()` hook. */
 export interface McpApi {
   getServers(): void;
-  openConfig(scope: McpServerScope): void;
+  openConfig(scope: McpServerScope, name?: string): void;
   toggle(name: string, scope: McpServerScope, disabled: boolean, pluginName?: string): void;
   remove(name: string, scope: McpServerScope): void;
   openUrl(url: string): void;
@@ -35,8 +35,8 @@ export function createMcpApi(post: (m: unknown) => void): McpApi {
     getServers() {
       send(post, { type: "getMcpServers" });
     },
-    openConfig(scope) {
-      send(post, { type: "openMcpConfig", scope });
+    openConfig(scope, name) {
+      send(post, { type: "openMcpConfig", scope, name });
     },
     toggle(name, scope, disabled, pluginName) {
       send(post, { type: "toggleMcpServer", name, scope, disabled, pluginName });

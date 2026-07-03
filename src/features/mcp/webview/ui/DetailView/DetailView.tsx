@@ -6,7 +6,7 @@
  */
 import { useState } from "preact/hooks";
 import { Button } from "../../../../../webview/shared/ui";
-import { maskSensitiveValue } from "../../lib";
+import { isUrlTransport, maskSensitiveValue } from "../../lib";
 import type { McpServer } from "../../../types";
 import { ScopeBadge, TypeBadge } from "../McpBadges";
 
@@ -24,7 +24,12 @@ export function DetailView(props: DetailViewProps) {
   const { server, onBack, onOpenConfig, onToggle, onDelete, onCopyName, onOpenClaude } = props;
   const [copied, setCopied] = useState(false);
   const isPlugin = server.scope === "plugin";
+  // Only project .mcp.json servers can be enabled/disabled — Claude
+  // Code's toggle mechanism (the disabledMcpjsonServers arrays) governs
+  // project servers only. Global/plugin servers have no such switch.
+  const canToggle = server.scope === "project";
   const envEntries = server.env ? Object.entries(server.env) : [];
+  const headerEntries = server.headers ? Object.entries(server.headers) : [];
 
   return (
     <div class="panel">
@@ -39,7 +44,7 @@ export function DetailView(props: DetailViewProps) {
       </div>
 
       <div class="d-actions">
-        {!isPlugin ? (
+        {canToggle ? (
           <Button
             variant="primary"
             iconName={server.disabled ? "play" : "x"}
@@ -78,9 +83,16 @@ export function DetailView(props: DetailViewProps) {
         )}
       </div>
 
+      {server.scope === "global" ? (
+        <div class="mcp-readonly-note mcp-global-note">
+          User-scope servers can't be enabled/disabled by Claude Code — remove the
+          entry from <code>~/.claude.json</code> to stop using it.
+        </div>
+      ) : null}
+
       <div class="mcp-detail-section">
         <div class="mcp-detail-label">Connection</div>
-        {server.type === "http" ? (
+        {isUrlTransport(server) ? (
           <div class="mcp-detail-kv">
             <span class="mcp-detail-k">URL</span>
             <span class="mcp-detail-v mono">{server.url ?? ""}</span>
@@ -105,6 +117,18 @@ export function DetailView(props: DetailViewProps) {
         <div class="mcp-detail-section">
           <div class="mcp-detail-label">Environment Variables</div>
           {envEntries.map(([key, value]) => (
+            <div class="mcp-env-row" key={key}>
+              <span class="mcp-env-key">{key}</span>
+              <span class="mcp-env-value">{maskSensitiveValue(value)}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {headerEntries.length > 0 ? (
+        <div class="mcp-detail-section">
+          <div class="mcp-detail-label">Headers</div>
+          {headerEntries.map(([key, value]) => (
             <div class="mcp-env-row" key={key}>
               <span class="mcp-env-key">{key}</span>
               <span class="mcp-env-value">{maskSensitiveValue(value)}</span>

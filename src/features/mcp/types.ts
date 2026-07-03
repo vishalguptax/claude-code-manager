@@ -3,8 +3,12 @@
  * Covers MCP server data and extension-webview message protocol.
  */
 
-/** Transport type for an MCP server connection. */
-export type McpServerType = "stdio" | "http";
+/**
+ * Transport type for an MCP server connection. `sse` is deprecated by
+ * Claude Code (superseded by `http`) but still a valid, live config
+ * value — shown as-is rather than coerced into something else.
+ */
+export type McpServerType = "stdio" | "http" | "sse" | "ws";
 
 /**
  * Scope of an MCP server configuration.
@@ -27,6 +31,8 @@ export interface McpServer {
   url?: string;
   /** Environment variables passed to the server process. */
   env?: Record<string, string>;
+  /** HTTP headers sent with each request (http/sse/ws servers only). */
+  headers?: Record<string, string>;
   /** Source scope — global, project, or plugin. */
   scope: McpServerScope;
   /** Whether the server is explicitly disabled in the config. */

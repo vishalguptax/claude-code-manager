@@ -33,7 +33,7 @@ beforeEach(() => {
 describe("parseHooks disabled support", () => {
   it("returns an empty list when settings.json has no hook blocks", () => {
     fs.writeFileSync(tmp.settings, JSON.stringify({}));
-    expect(parseHooks(undefined)).toEqual([]);
+    expect(parseHooks(undefined).hooks).toEqual([]);
   });
 
   it("tags entries from `hooks` as enabled", () => {
@@ -43,10 +43,110 @@ describe("parseHooks disabled support", () => {
         hooks: { PreToolUse: [{ matcher: "Write", command: "echo a" }] },
       }),
     );
-    const list = parseHooks(undefined);
+    const list = parseHooks(undefined).hooks;
     expect(list).toHaveLength(1);
     expect(list[0].disabled).toBe(false);
     expect(list[0].command).toBe("echo a");
+  });
+
+  it("records the record's position (entryIndex/commandIndex) for the flat shape", () => {
+    fs.writeFileSync(
+      tmp.settings,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: "Write", command: "echo a" },
+            { matcher: "Edit", command: "echo b" },
+          ],
+        },
+      }),
+    );
+    const list = parseHooks(undefined).hooks;
+    expect(list.map((h) => h.entryIndex)).toEqual([0, 1]);
+    expect(list.map((h) => h.commandIndex)).toEqual([null, null]);
+    expect(list.map((h) => h.hookType)).toEqual(["command", "command"]);
+  });
+
+  it("records entryIndex + commandIndex for nested multi-command entries", () => {
+    fs.writeFileSync(
+      tmp.settings,
+      JSON.stringify({
+        hooks: {
+          Stop: [
+            {
+              matcher: "*",
+              hooks: [
+                { type: "command", command: "first" },
+                { type: "command", command: "second" },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    const list = parseHooks(undefined).hooks;
+    expect(list.map((h) => h.entryIndex)).toEqual([0, 0]);
+    expect(list.map((h) => h.commandIndex)).toEqual([0, 1]);
+  });
+
+  it("reads a record's timeout", () => {
+    fs.writeFileSync(
+      tmp.settings,
+      JSON.stringify({
+        hooks: {
+          Stop: [{ matcher: "*", hooks: [{ type: "command", command: "echo", timeout: 30 }] }],
+        },
+      }),
+    );
+    const list = parseHooks(undefined).hooks;
+    expect(list[0].timeout).toBe(30);
+  });
+
+  it("leaves timeout undefined when the record has none", () => {
+    fs.writeFileSync(
+      tmp.settings,
+      JSON.stringify({ hooks: { PreToolUse: [{ matcher: "Write", command: "echo a" }] } }),
+    );
+    expect(parseHooks(undefined).hooks[0].timeout).toBeUndefined();
+  });
+
+  it("surfaces non-command hook types (prompt/agent/http/mcp_tool) instead of dropping them", () => {
+    fs.writeFileSync(
+      tmp.settings,
+      JSON.stringify({
+        hooks: {
+          Stop: [
+            {
+              matcher: "*",
+              hooks: [
+                { type: "prompt", prompt: "Verify tests pass" },
+                { type: "agent", prompt: "Run the reviewer agent" },
+                { type: "http", url: "https://example.com/hook" },
+                { type: "mcp_tool", tool: "my-server.do-thing" },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    const list = parseHooks(undefined).hooks;
+    expect(list.map((h) => h.hookType)).toEqual(["prompt", "agent", "http", "mcp_tool"]);
+    expect(list.map((h) => h.command)).toEqual([
+      "Verify tests pass",
+      "Run the reviewer agent",
+      "https://example.com/hook",
+      "my-server.do-thing",
+    ]);
+  });
+
+  it("skips a record with no command/prompt/url/tool to display", () => {
+    fs.writeFileSync(
+      tmp.settings,
+      JSON.stringify({
+        hooks: { Stop: [{ matcher: "*", hooks: [{ type: "command" }] }] },
+      }),
+    );
+    expect(parseHooks(undefined).hooks).toEqual([]);
   });
 
   it("tags entries from `_disabled_hooks` as disabled", () => {
@@ -56,7 +156,7 @@ describe("parseHooks disabled support", () => {
         _disabled_hooks: { PreToolUse: [{ matcher: "Write", command: "echo b" }] },
       }),
     );
-    const list = parseHooks(undefined);
+    const list = parseHooks(undefined).hooks;
     expect(list).toHaveLength(1);
     expect(list[0].disabled).toBe(true);
   });
@@ -69,9 +169,29 @@ describe("parseHooks disabled support", () => {
         _disabled_hooks: { PreToolUse: [{ matcher: "y", command: "parked" }] },
       }),
     );
-    const list = parseHooks(undefined);
+    const list = parseHooks(undefined).hooks;
     expect(list.map((h) => h.command)).toEqual(["active", "parked"]);
     expect(list.map((h) => h.disabled)).toEqual([false, true]);
+  });
+});
+
+describe("parseHooks error surfacing", () => {
+  it("reports a malformed settings.json as an error instead of throwing", () => {
+    fs.writeFileSync(tmp.settings, "{ not valid json");
+    const result = parseHooks(undefined);
+    expect(result.hooks).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain(tmp.settings);
+  });
+
+  it("returns no errors when every scope parses cleanly", () => {
+    fs.writeFileSync(tmp.settings, JSON.stringify({}));
+    expect(parseHooks(undefined).errors).toEqual([]);
+  });
+
+  it("does not error on a missing settings file (ENOENT is normal)", () => {
+    // beforeEach already deleted tmp.settings — nothing to write.
+    expect(parseHooks(undefined).errors).toEqual([]);
   });
 });
 
@@ -91,7 +211,7 @@ describe("parseHooks mtime caching", () => {
     const fixedSec = Math.floor(Date.now() / 1000) - 600;
     fs.utimesSync(tmp.settings, fixedSec, fixedSec);
 
-    const list = parseHooks(undefined);
+    const list = parseHooks(undefined).hooks;
     expect(list[0].matcher).toBe("z");
 
     // Replace bytes (same length), restore the mtime. The cache key
@@ -100,7 +220,7 @@ describe("parseHooks mtime caching", () => {
     fs.writeFileSync(tmp.settings, replacement);
     fs.utimesSync(tmp.settings, fixedSec, fixedSec);
 
-    const second = parseHooks(undefined);
+    const second = parseHooks(undefined).hooks;
     expect(second[0].matcher).toBe("z");
   });
 });
@@ -134,7 +254,7 @@ describe("parseHooks — plugin discovery", () => {
     // Empty settings.json so global hooks contribute nothing.
     fs.writeFileSync(tmp.settings, JSON.stringify({}));
 
-    const hooks = parseHooks(undefined);
+    const hooks = parseHooks(undefined).hooks;
     const plug = hooks.find((h) => h.scope === "plugin");
     expect(plug).toBeDefined();
     expect(plug?.event).toBe("SessionStart");

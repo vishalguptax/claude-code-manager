@@ -18,7 +18,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { discoverModelsFromCli } from "./models";
 import * as os from "os";
-import { CLAUDE_DIR, SETTINGS_FILE } from "../../core/config";
+import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
 import { readCredentials } from "./credentials";
 import { computeUsageStats } from "./usage";
@@ -477,11 +477,7 @@ export function resolveSettingsPath(
   scope: PermissionScope,
   workspacePath?: string,
 ): string | null {
-  if (scope === "global") return SETTINGS_FILE;
-  if (!workspacePath) return null;
-  if (scope === "project") return path.join(workspacePath, ".claude", PROJECT_SETTINGS_NAME);
-  if (scope === "local") return path.join(workspacePath, ".claude", LOCAL_SETTINGS_NAME);
-  return null;
+  return claudeSettingsPath(scope, workspacePath);
 }
 
 /**

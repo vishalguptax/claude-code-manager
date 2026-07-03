@@ -6,6 +6,7 @@ import {
   errorMessage,
   filteredServers,
   loading,
+  parseErrors,
   resetMcpSignals,
   scopeCounts,
   scopeFilter,
@@ -28,6 +29,13 @@ describe("applyServers", () => {
     expect(servers.value).toHaveLength(1);
     expect(loading.value).toBe(false);
     expect(errorMessage.value).toBeNull();
+  });
+
+  it("records parse errors alongside the list, defaulting to none", () => {
+    applyServers([srv({ name: "a", scope: "project" })], ["Failed to parse .mcp.json: bad"]);
+    expect(parseErrors.value).toEqual(["Failed to parse .mcp.json: bad"]);
+    applyServers([srv({ name: "a", scope: "project" })]);
+    expect(parseErrors.value).toEqual([]);
   });
 
   it("refreshes the selection to the new reference when it still exists", () => {
@@ -120,11 +128,13 @@ describe("resetMcpSignals", () => {
     selected.value = servers.value[0];
     searchQuery.value = "x";
     scopeFilter.value = "global";
+    applyServers([srv({ name: "a", scope: "project" })], ["err"]);
     resetMcpSignals();
     expect(servers.value).toEqual([]);
     expect(selected.value).toBeNull();
     expect(loading.value).toBe(true);
     expect(errorMessage.value).toBeNull();
+    expect(parseErrors.value).toEqual([]);
     expect(searchQuery.value).toBe("");
     expect(scopeFilter.value).toBe("all");
   });

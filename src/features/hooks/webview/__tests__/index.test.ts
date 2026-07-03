@@ -15,6 +15,9 @@ function hook(partial: Partial<Hook> = {}): Hook {
     command: "echo hi",
     scope: "global",
     disabled: false,
+    hookType: "command",
+    entryIndex: 0,
+    commandIndex: null,
     ...partial,
   };
 }
@@ -52,6 +55,19 @@ describe("HooksTab", () => {
     render(h(HooksTab, {}));
     dispatch({ type: "hooks", data: [] });
     await waitFor(() => expect(screen.getByText("No hooks configured")).toBeTruthy());
+  });
+
+  it("shows the host's parse errors alongside the (possibly partial) list", async () => {
+    render(h(HooksTab, {}));
+    dispatch({
+      type: "hooks",
+      data: [hook({ command: "from-host" })],
+      errors: ["Failed to parse .claude/settings.json: bad"],
+    });
+    await waitFor(() =>
+      expect(screen.getByText("Failed to parse .claude/settings.json: bad")).toBeTruthy(),
+    );
+    expect(screen.getByText("from-host")).toBeTruthy();
   });
 
   it("clears the loader and surfaces a host error message", async () => {

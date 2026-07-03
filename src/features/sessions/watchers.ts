@@ -406,6 +406,10 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
     // re-parsing that large file on every change would be wasteful for a
     // rarely-edited list. The MCP tab picks up changes on reload/mount.
     { feature: "hooks", pattern: new vscode.RelativePattern(claudeUri, "settings.json") },
+    // settings.json also carries the disabledMcpjsonServers / enabledMcpjsonServers
+    // arrays that toggle project .mcp.json servers, so an external edit must
+    // also refresh the MCP tab's enabled/disabled state.
+    { feature: "mcp", pattern: new vscode.RelativePattern(claudeUri, "settings.json") },
   ];
   if (workspace) {
     configPatterns.push(
@@ -415,6 +419,10 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
       { feature: "mcp", pattern: new vscode.RelativePattern(workspace, ".mcp.json") },
       { feature: "hooks", pattern: new vscode.RelativePattern(workspace, ".claude/settings.json") },
       { feature: "hooks", pattern: new vscode.RelativePattern(workspace, ".claude/settings.local.json") },
+      // Project/local settings hold the MCP toggle arrays too — refresh
+      // the MCP tab when they change.
+      { feature: "mcp", pattern: new vscode.RelativePattern(workspace, ".claude/settings.json") },
+      { feature: "mcp", pattern: new vscode.RelativePattern(workspace, ".claude/settings.local.json") },
     );
   }
   for (const { feature, pattern } of configPatterns) {

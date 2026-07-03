@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { createMtimeCache } from "../../core/mtimeCache";
+import { parseFrontmatter, fmString, fmList } from "../../core/frontmatter";
 import { loadActivePlugins, resolvePluginContentDirs, type ActivePlugin } from "../../core/plugins";
 import type { Skill } from "./types";
 
@@ -22,82 +23,16 @@ const skillCache = createMtimeCache<Skill>();
 const GLOBAL_SKILLS_DIR: string = path.join(os.homedir(), ".claude", "skills");
 
 /**
- * Parse YAML frontmatter from a SKILL.md file content string.
- * Handles simple key-value pairs and nested metadata.tags.
- *
- * @param raw - Raw file content of SKILL.md
- * @returns Parsed frontmatter fields and markdown body
+ * Read `tags` from parsed frontmatter, accepting either a YAML list
+ * (`tags: [a, b]` / `tags:\n  - a`) or the comma-separated scalar
+ * shorthand (`tags: a, b`) that SKILL.md files commonly use.
  */
-function parseFrontmatter(raw: string): { name: string; description: string; tags: string[]; body: string } {
-  const result = { name: "", description: "", tags: [] as string[], body: raw };
-
-  const match = raw.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-  if (!match) {
-    return result;
-  }
-
-  const yaml = match[1];
-  result.body = match[2];
-
-  // YAML frontmatter can use block-scalar markers (`>-`, `|-`, `>`,
-  // `|`) for multi-line values. The naive regex below caught only
-  // single-line key:value rows, so a real SKILL.md with
-  //   description: >-
-  //     Multi-line text...
-  // surfaced "description = >-" and dropped the actual prose. Walk
-  // line by line; when we see a block-scalar marker, collect every
-  // indented follow-up line until indentation drops back.
-  const lines = yaml.split(/\r?\n/);
-  const assign = (key: string, value: string): void => {
-    if (key === "name") result.name = value;
-    else if (key === "description") result.description = value;
-    else if (key === "tags") {
-      result.tags = value.split(",").map((t) => t.trim()).filter(Boolean);
-    }
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const kvMatch = line.match(/^([A-Za-z_][\w-]*)\s*:\s*(.*)$/);
-    if (!kvMatch) continue;
-    const key = kvMatch[1].trim();
-    const rawValue = kvMatch[2];
-
-    // Block scalar — consume follow-up indented lines. `>` folds
-    // newlines to spaces; `|` preserves them. `-` / `+` chomp
-    // trailing newlines (we trim anyway, so irrelevant).
-    const scalarMatch = rawValue.match(/^([|>])([+-]?)\s*$/);
-    if (scalarMatch) {
-      const fold = scalarMatch[1] === ">";
-      const collected: string[] = [];
-      let baseIndent = -1;
-      let j = i + 1;
-      while (j < lines.length) {
-        const next = lines[j];
-        if (!next.trim()) {
-          collected.push("");
-          j++;
-          continue;
-        }
-        const indent = (next.match(/^(\s*)/) ?? ["", ""])[1].length;
-        if (baseIndent < 0) baseIndent = indent;
-        if (indent < baseIndent || indent === 0) break;
-        collected.push(next.slice(baseIndent));
-        j++;
-      }
-      i = j - 1;
-      const joined = fold
-        ? collected.join(" ").replace(/\s+/g, " ").trim()
-        : collected.join("\n").trim();
-      assign(key, joined);
-      continue;
-    }
-
-    // Plain single-line value (handles empty string safely).
-    assign(key, rawValue.trim());
-  }
-
-  return result;
+function parseTags(fm: ReturnType<typeof parseFrontmatter>): string[] {
+  const list = fmList(fm, "tags");
+  if (list) return list;
+  const scalar = fmString(fm, "tags");
+  if (!scalar) return [];
+  return scalar.split(",").map((t) => t.trim()).filter(Boolean);
 }
 
 /**
@@ -167,15 +102,15 @@ function readSkillsFromDir(root: string, opts: ReadSkillsOpts): Skill[] {
         try {
           skill = skillCache.get(skillFile, (p) => {
             const raw = fs.readFileSync(p, "utf-8");
-            const parsed = parseFrontmatter(raw);
+            const fm = parseFrontmatter(raw);
             return {
               id: `${idPrefix}:${idSuffix}`,
-              name: parsed.name || entry,
-              description: parsed.description,
+              name: fmString(fm, "name") || entry,
+              description: fmString(fm, "description") ?? "",
               scope,
               path: folderPath,
               content: raw,
-              tags: parsed.tags,
+              tags: parseTags(fm),
               group: groupSegments.join("/"),
               pluginName: scope === "plugin" ? pluginName : undefined,
             };

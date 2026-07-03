@@ -132,6 +132,10 @@
 /* Transport type */
 .mcp-type-stdio { background: var(--badge-bg); color: var(--badge-fg); }
 .mcp-type-http  { background: var(--color-blue-bg); color: var(--color-blue); }
+/* sse is deprecated by Claude Code (superseded by http) — muted like stdio
+   rather than given its own accent, so it reads as "legacy" not "distinct". */
+.mcp-type-sse   { background: var(--badge-bg); color: var(--badge-fg); }
+.mcp-type-ws    { background: var(--color-purple-bg); color: var(--color-purple); }
 
 /* Config scope */
 .mcp-scope-project { background: var(--green-bg); color: var(--green); }

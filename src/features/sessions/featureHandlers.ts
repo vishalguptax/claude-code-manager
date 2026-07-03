@@ -21,9 +21,17 @@ import {
 import { parseAgents } from "../agents/parser";
 import { resolveSettingsPath } from "../account/parser";
 import { getWorkspace } from "../../extension/workspace";
+import { KNOWN_HOOK_EVENTS } from "../hooks/events";
 import type { HookScope } from "../hooks/types";
 import type { WebviewMessage } from "./types";
 import type { HostContext } from "./hostContext";
+
+/** Re-parse hooks and push the fresh list (+ any parse errors) to the webview. */
+function pushHooks(ctx: HostContext, wv: vscode.Webview, workspace: string): void {
+  const { hooks, errors } = parseHooks(workspace || undefined);
+  ctx.setHooks(hooks);
+  wv.postMessage({ type: "hooks", data: hooks, errors });
+}
 
 export async function handleFeatureMessage(
   msg: WebviewMessage,
@@ -96,9 +104,7 @@ export async function handleFeatureMessage(
     // ── Hooks messages ──
 
     case "getHooks": {
-      const hooks = parseHooks(getWorkspace());
-      ctx.setHooks(hooks);
-      wv.postMessage({ type: "hooks", data: hooks });
+      pushHooks(ctx, wv, getWorkspace());
       break;
     }
 
@@ -110,12 +116,15 @@ export async function handleFeatureMessage(
       if (msg.hook.scope === "plugin") break;
       const workspace = getWorkspace();
       const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
-      if (filePath) {
-        writerToggleHookEnabled(filePath, msg.hook, msg.hook.disabled);
+      const ok = filePath
+        ? writerToggleHookEnabled(filePath, msg.hook, msg.hook.disabled)
+        : false;
+      if (!ok) {
+        vscode.window.showErrorMessage(
+          `Failed to ${msg.hook.disabled ? "enable" : "disable"} hook — it may have been edited on disk. The list has been refreshed.`,
+        );
       }
-      const hooks = parseHooks(workspace);
-      ctx.setHooks(hooks);
-      wv.postMessage({ type: "hooks", data: hooks });
+      pushHooks(ctx, wv, workspace);
       break;
     }
 
@@ -132,10 +141,13 @@ export async function handleFeatureMessage(
       );
       if (choice !== "Delete") break;
       const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
-      if (filePath) writerDeleteHook(filePath, msg.hook);
-      const hooks = parseHooks(workspace);
-      ctx.setHooks(hooks);
-      wv.postMessage({ type: "hooks", data: hooks });
+      const ok = filePath ? writerDeleteHook(filePath, msg.hook) : false;
+      if (!ok) {
+        vscode.window.showErrorMessage(
+          "Failed to delete hook — it may have been edited on disk. The list has been refreshed.",
+        );
+      }
+      pushHooks(ctx, wv, workspace);
       break;
     }
 
@@ -143,10 +155,13 @@ export async function handleFeatureMessage(
       if (msg.original.scope === "plugin") break;
       const workspace = getWorkspace();
       const filePath = resolveSettingsPath(msg.original.scope, workspace || undefined);
-      if (filePath) writerUpdateHook(filePath, msg.original, msg.next);
-      const hooks = parseHooks(workspace);
-      ctx.setHooks(hooks);
-      wv.postMessage({ type: "hooks", data: hooks });
+      const ok = filePath ? writerUpdateHook(filePath, msg.original, msg.next) : false;
+      if (!ok) {
+        vscode.window.showErrorMessage(
+          "Failed to update hook — it may have been edited on disk, or is not editable (non-command hooks only support toggle/delete). The list has been refreshed.",
+        );
+      }
+      pushHooks(ctx, wv, workspace);
       break;
     }
 
@@ -177,12 +192,7 @@ export async function handleFeatureMessage(
       if (!scopePick) break;
 
       const eventChoices: vscode.QuickPickItem[] = [
-        { label: "PreToolUse", description: "Before any tool runs" },
-        { label: "PostToolUse", description: "After a tool finishes" },
-        { label: "Notification", description: "On a Claude Notification event" },
-        { label: "Stop", description: "When the user stops the run" },
-        { label: "SubagentStop", description: "When a subagent finishes" },
-        { label: "PreCompact", description: "Before context auto-compaction" },
+        ...KNOWN_HOOK_EVENTS.map((e) => ({ label: e.name, description: e.description })),
         { label: "Other…", description: "Type a custom event name" },
       ];
       const eventPick = await vscode.window.showQuickPick(eventChoices, {
@@ -221,13 +231,11 @@ export async function handleFeatureMessage(
         );
         break;
       }
-      const ok = writerAddHook(filePath, event, matcher.trim(), command.trim(), scopePick.value);
+      const ok = writerAddHook(filePath, event, matcher.trim(), command.trim());
       if (!ok) {
         vscode.window.showErrorMessage("Failed to write hook to settings.json.");
       }
-      const hooks = parseHooks(workspace);
-      ctx.setHooks(hooks);
-      wv.postMessage({ type: "hooks", data: hooks });
+      pushHooks(ctx, wv, workspace);
       break;
     }
 
@@ -240,9 +248,9 @@ export async function handleFeatureMessage(
 
     case "getAgents": {
       const workspace = getWorkspace();
-      const agents = parseAgents(workspace || undefined);
+      const { agents, errors } = parseAgents(workspace || undefined);
       ctx.setAgents(agents);
-      wv.postMessage({ type: "agents", data: agents });
+      wv.postMessage({ type: "agents", data: agents, errors });
       break;
     }
 

@@ -11,6 +11,9 @@ const baseHook: Hook = {
   command: "echo hi",
   scope: "global",
   disabled: false,
+  hookType: "command",
+  entryIndex: 0,
+  commandIndex: null,
 };
 
 /** The matcher field is the shared <TextField> (native <input>). Fire `input`

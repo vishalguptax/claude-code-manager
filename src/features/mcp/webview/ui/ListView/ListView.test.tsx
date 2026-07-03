@@ -35,6 +35,13 @@ describe("ListView", () => {
     expect(screen.getByText("Global Servers")).toBeTruthy();
   });
 
+  it("shows a parse-error banner above the list while still rendering servers", () => {
+    applyServers([srv({ name: "a", scope: "project" })], ["Failed to parse .mcp.json: bad"]);
+    render(h(ListView, props()));
+    expect(screen.getByText("Failed to parse .mcp.json: bad")).toBeTruthy();
+    expect(screen.getByText("a")).toBeTruthy();
+  });
+
   it("shows a 'no matching servers' message when the query excludes everything", () => {
     applyServers([srv({ name: "alpha", scope: "project" })]);
     searchQuery.value = "zzz";

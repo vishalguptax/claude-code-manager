@@ -332,8 +332,9 @@ describe("ClaudeSessionViewProvider", () => {
   // pulls a fresh dep graph through Vite's transformer on the first
   // run, which crosses the default 5s timeout on cold CI/dev workers.
   // The reloadAll work itself is sub-second; the slack covers cold
-  // import cost only.
-  it("reloadAll re-posts data for every feature plus a reloadComplete marker", { timeout: 15000 }, async () => {
+  // import cost only. (30s not 15s: the transformed graph has grown, so
+  // a fully-cold worker under full-suite parallelism needs the headroom.)
+  it("reloadAll re-posts data for every feature plus a reloadComplete marker", { timeout: 30000 }, async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],
       parseSessionDetail: () => null,
@@ -358,14 +359,20 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../../skills/parser", () => ({ parseSkills: () => [{ id: "sk1" }] }));
     vi.doMock("../../commands/parser", () => ({ parseCommands: () => [{ name: "cmd1" }] }));
-    vi.doMock("../../hooks/parser", () => ({ parseHooks: () => [{ name: "hook1" }] }));
-    vi.doMock("../../mcp/parser", () => ({
-      parseMcpServers: () => [{ name: "srv1" }],
-      readMcpAuthNeeds: () => [],
-      toggleMcpServer: () => true,
-      deleteMcpServer: () => true,
+    vi.doMock("../../hooks/parser", () => ({
+      parseHooks: () => ({ hooks: [{ name: "hook1" }], errors: [] }),
     }));
-    vi.doMock("../../agents/parser", () => ({ parseAgents: () => [{ name: "agent1" }] }));
+    vi.doMock("../../mcp/parser", () => ({
+      parseMcpServers: () => ({ servers: [{ name: "srv1" }], errors: [] }),
+      readMcpAuthNeeds: () => [],
+      setProjectMcpServerDisabled: () => true,
+      deleteMcpServer: () => true,
+      globalMcpFileFor: () => "/home/.claude.json",
+      globalMcpConfigFile: () => "/home/.claude.json",
+    }));
+    vi.doMock("../../agents/parser", () => ({
+      parseAgents: () => ({ agents: [{ name: "agent1" }], errors: [] }),
+    }));
     vi.doMock("../../account/parser", () => ({
       parseAccountData: () => ({ profile: { userID: "u-1" } }),
       writeSettingsValue: () => true,
@@ -416,7 +423,7 @@ describe("ClaudeSessionViewProvider", () => {
   // doMock + `await import("../viewProvider")` pulls a fresh dep graph
   // (now including the importActual-wrapped account caches) through Vite's
   // transformer, which crosses the default 5s timeout on cold workers.
-  it("reloadAll routes through the reloadAll webview message", { timeout: 15000 }, async () => {
+  it("reloadAll routes through the reloadAll webview message", { timeout: 30000 }, async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],
       parseSessionDetail: () => null,
@@ -441,14 +448,16 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../../skills/parser", () => ({ parseSkills: () => [] }));
     vi.doMock("../../commands/parser", () => ({ parseCommands: () => [] }));
-    vi.doMock("../../hooks/parser", () => ({ parseHooks: () => [] }));
+    vi.doMock("../../hooks/parser", () => ({ parseHooks: () => ({ hooks: [], errors: [] }) }));
     vi.doMock("../../mcp/parser", () => ({
-      parseMcpServers: () => [],
+      parseMcpServers: () => ({ servers: [], errors: [] }),
       readMcpAuthNeeds: () => [],
-      toggleMcpServer: () => true,
+      setProjectMcpServerDisabled: () => true,
       deleteMcpServer: () => true,
+      globalMcpFileFor: () => "/home/.claude.json",
+      globalMcpConfigFile: () => "/home/.claude.json",
     }));
-    vi.doMock("../../agents/parser", () => ({ parseAgents: () => [] }));
+    vi.doMock("../../agents/parser", () => ({ parseAgents: () => ({ agents: [], errors: [] }) }));
     vi.doMock("../../account/parser", () => ({
       parseAccountData: () => ({ profile: { userID: "" } }),
       writeSettingsValue: () => true,
@@ -621,10 +630,12 @@ describe("ClaudeSessionViewProvider", () => {
       getBuiltInCommands: () => [],
     }));
     vi.doMock("../../mcp/parser", () => ({
-      parseMcpServers: () => [{ name: "srv1", scope: "global" }],
+      parseMcpServers: () => ({ servers: [{ name: "srv1", scope: "global" }], errors: [] }),
       readMcpAuthNeeds: () => [],
-      toggleMcpServer: () => true,
+      setProjectMcpServerDisabled: () => true,
       deleteMcpServer: () => true,
+      globalMcpFileFor: () => "/home/.claude.json",
+      globalMcpConfigFile: () => "/home/.claude.json",
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");

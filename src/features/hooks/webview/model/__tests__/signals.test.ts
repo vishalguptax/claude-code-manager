@@ -5,6 +5,7 @@ import {
   filteredHooks,
   groupedHooks,
   hooks,
+  parseErrors,
   scopeFilter,
   searchQuery,
   selectedHook,
@@ -22,6 +23,9 @@ function hook(partial: Partial<Hook>): Hook {
     command: "echo hi",
     scope: "global",
     disabled: false,
+    hookType: "command",
+    entryIndex: 0,
+    commandIndex: null,
     ...partial,
   };
 }
@@ -83,23 +87,41 @@ describe("hooks signals", () => {
     expect(groups[0]?.[1]).toHaveLength(2);
   });
 
-  it("setHooks re-resolves an open selection against the fresh list", () => {
+  it("setHooks follows an edited hook in the same array slot", () => {
     const original = hook({ command: "old" });
     setHooks([original]);
     selectedHook.value = original;
-    // Re-send the same hook with an updated command — selection drops
-    // because the identity (command) changed.
-    setHooks([hook({ command: "new" })]);
-    expect(selectedHook.value).toBeNull();
-    // Re-send an identical hook — selection is preserved (re-pointed).
-    selectedHook.value = hook({ command: "new" });
+    // Identity is positional (scope/event/disabled/entryIndex/commandIndex),
+    // not command text — so editing a hook's command keeps the detail view
+    // open on it, showing the new value, instead of dropping the selection.
     setHooks([hook({ command: "new" })]);
     expect(selectedHook.value?.command).toBe("new");
+  });
+
+  it("setHooks drops the selection when the hook is no longer present", () => {
+    const original = hook({ command: "old" });
+    setHooks([original]);
+    selectedHook.value = original;
+    setHooks([]);
+    expect(selectedHook.value).toBeNull();
   });
 
   it("setError records the message and stops loading", () => {
     setError("nope");
     expect(errorMessage.value).toBe("nope");
     expect(loading.value).toBe(false);
+  });
+
+  it("setHooks records parse errors alongside the list, defaulting to none", () => {
+    setHooks([hook({})], ["Failed to parse .claude/settings.json: bad"]);
+    expect(parseErrors.value).toEqual(["Failed to parse .claude/settings.json: bad"]);
+    setHooks([hook({})]);
+    expect(parseErrors.value).toEqual([]);
+  });
+
+  it("resetHooksState clears parse errors", () => {
+    setHooks([hook({})], ["boom"]);
+    resetHooksState();
+    expect(parseErrors.value).toEqual([]);
   });
 });

@@ -8,6 +8,9 @@ const sampleHook: Hook = {
   command: "echo hi",
   scope: "global",
   disabled: false,
+  hookType: "command",
+  entryIndex: 0,
+  commandIndex: null,
 };
 
 describe("hooks api helpers", () => {

@@ -7,7 +7,7 @@ import { computed, signal } from "@preact/signals";
 import type { Agent } from "../../types";
 
 /** Filter values for the model selector. */
-export type ModelFilter = "all" | "sonnet" | "opus" | "haiku";
+export type ModelFilter = "all" | "sonnet" | "opus" | "haiku" | "inherit";
 
 // ── Raw state ──
 
@@ -19,6 +19,8 @@ export const selectedAgent = signal<Agent | null>(null);
 export const loading = signal<boolean>(true);
 /** Error string from the host, or null when healthy. */
 export const error = signal<string | null>(null);
+/** Non-fatal parse errors (unreadable agent dir/file) from the host. */
+export const parseErrors = signal<string[]>([]);
 /** Lowercased free-text search query. */
 export const searchQuery = signal<string>("");
 /** Active model filter. */
@@ -29,17 +31,21 @@ export const filterModel = signal<ModelFilter>("all");
 export const modelCounts = computed(() => {
   const list = agents.value;
   // Single pass: lowercase each model name once and increment every matching
-  // bucket, instead of three separate filter passes over the whole list.
+  // bucket, instead of separate filter passes over the whole list.
   let sonnet = 0;
   let opus = 0;
   let haiku = 0;
+  let inherit = 0;
   for (const a of list) {
     const model = a.model.toLowerCase();
     if (model.includes("sonnet")) sonnet++;
     if (model.includes("opus")) opus++;
     if (model.includes("haiku")) haiku++;
+    // "inherit" is an exact state (no model set), not a substring family
+    // like the named models — count it exactly so it isn't conflated.
+    if (model === "inherit") inherit++;
   }
-  return { all: list.length, sonnet, opus, haiku };
+  return { all: list.length, sonnet, opus, haiku, inherit };
 });
 
 // ── Derived filtered + sorted list ──
@@ -56,7 +62,9 @@ export const filteredAgents = computed<Agent[]>(() => {
   const model = filterModel.value;
   const query = searchQuery.value;
 
-  if (model !== "all") {
+  if (model === "inherit") {
+    list = list.filter((a) => a.model.toLowerCase() === "inherit");
+  } else if (model !== "all") {
     list = list.filter((a) => a.model.toLowerCase().includes(model));
   }
 
@@ -107,11 +115,12 @@ export const groupedAgents = computed<Array<{ label: string; items: Agent[] }>>(
 
 // ── Mutators (called by the message handler and views) ──
 
-/** Replace the agent list and clear loading/error. */
-export function setAgents(next: Agent[]): void {
+/** Replace the agent list, record parse errors, and clear loading/error. */
+export function setAgents(next: Agent[], errors: string[] = []): void {
   agents.value = next;
   loading.value = false;
   error.value = null;
+  parseErrors.value = errors;
 }
 
 /** Record a host-reported error and clear loading. */
@@ -131,6 +140,7 @@ export function resetAgentsState(): void {
   selectedAgent.value = null;
   loading.value = true;
   error.value = null;
+  parseErrors.value = [];
   searchQuery.value = "";
   filterModel.value = "all";
 }

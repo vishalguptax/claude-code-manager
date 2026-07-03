@@ -91,15 +91,30 @@ describe("getMcpServers", () => {
 });
 
 describe("openMcpConfig", () => {
-  it("opens the global config for global scope", async () => {
+  it("opens the canonical ~/.claude.json for global scope (not the legacy mcp.json)", async () => {
+    // A real global server lives in ~/.claude.json — opening the legacy
+    // ~/.claude/mcp.json (the old behaviour) would show a file that doesn't
+    // contain it. With a name, we route to the file that owns that server.
+    writeJson(path.join(HOME, ".claude.json"), { mcpServers: { srv: { command: "node" } } });
+    const open = vi.fn().mockResolvedValue({});
+    const show = vi.fn().mockResolvedValue(undefined);
+    (vscode.workspace as unknown as { openTextDocument: unknown }).openTextDocument = open;
+    (vscode.window as unknown as { showTextDocument: unknown }).showTextDocument = show;
+    const { ctx } = harness();
+    await handleMcpMessage({ type: "openMcpConfig", scope: "global", name: "srv" }, ctx);
+    expect(open).toHaveBeenCalledWith(path.join(HOME, ".claude.json"));
+    expect(show).toHaveBeenCalled();
+  });
+
+  it("opens the canonical global config when no server name is given", async () => {
+    writeJson(path.join(HOME, ".claude.json"), { mcpServers: {} });
     const open = vi.fn().mockResolvedValue({});
     const show = vi.fn().mockResolvedValue(undefined);
     (vscode.workspace as unknown as { openTextDocument: unknown }).openTextDocument = open;
     (vscode.window as unknown as { showTextDocument: unknown }).showTextDocument = show;
     const { ctx } = harness();
     await handleMcpMessage({ type: "openMcpConfig", scope: "global" }, ctx);
-    expect(open).toHaveBeenCalledWith(path.join(HOME, ".claude", "mcp.json"));
-    expect(show).toHaveBeenCalled();
+    expect(open).toHaveBeenCalledWith(path.join(HOME, ".claude.json"));
   });
 
   it("errors when project scope has no workspace", async () => {
@@ -118,7 +133,7 @@ describe("openMcpConfig", () => {
 });
 
 describe("toggleMcpServer", () => {
-  it("toggles a real server and re-pushes the list", async () => {
+  it("disables a project server by writing the settings.local.json array, then re-pushes", async () => {
     const ws = path.join(HOME, "ws");
     writeJson(path.join(ws, ".mcp.json"), {
       mcpServers: { local: { command: "node" } },
@@ -129,14 +144,30 @@ describe("toggleMcpServer", () => {
       ctx,
     );
     expect(ok).toBe(true);
-    const written = JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8"));
-    expect(written.mcpServers.local.disabled).toBe(true);
+    // The real mechanism: an array in settings.local.json, NOT a field on
+    // the .mcp.json entry.
+    const local = JSON.parse(
+      fs.readFileSync(path.join(ws, ".claude", "settings.local.json"), "utf-8"),
+    );
+    expect(local.disabledMcpjsonServers).toEqual(["local"]);
+    const mcp = JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8"));
+    expect("disabled" in mcp.mcpServers.local).toBe(false);
     expect(posted.at(-1)).toMatchObject({ type: "mcpServers" });
   });
 
-  it("refuses plugin scope", async () => {
+  it("rejects global scope — Claude Code can't disable user-scope servers", async () => {
     const err = vi.spyOn(vscode.window, "showErrorMessage");
-    const { ctx } = harness();
+    const { ctx } = harness(path.join(HOME, "ws"));
+    await handleMcpMessage(
+      { type: "toggleMcpServer", name: "g", scope: "global", disabled: true },
+      ctx,
+    );
+    expect(err).toHaveBeenCalled();
+  });
+
+  it("rejects plugin scope", async () => {
+    const err = vi.spyOn(vscode.window, "showErrorMessage");
+    const { ctx } = harness(path.join(HOME, "ws"));
     await handleMcpMessage(
       { type: "toggleMcpServer", name: "p", scope: "plugin", disabled: true },
       ctx,
@@ -144,16 +175,14 @@ describe("toggleMcpServer", () => {
     expect(err).toHaveBeenCalled();
   });
 
-  it("reports failure when the server is not found", async () => {
-    const ws = path.join(HOME, "ws");
-    writeJson(path.join(ws, ".mcp.json"), { mcpServers: {} });
+  it("errors when there is no workspace open", async () => {
     const err = vi.spyOn(vscode.window, "showErrorMessage");
-    const { ctx } = harness(ws);
+    const { ctx } = harness(undefined);
     await handleMcpMessage(
-      { type: "toggleMcpServer", name: "missing", scope: "project", disabled: true },
+      { type: "toggleMcpServer", name: "local", scope: "project", disabled: true },
       ctx,
     );
-    expect(err).toHaveBeenCalled();
+    expect(err).toHaveBeenCalledWith("No workspace folder open");
   });
 });
 

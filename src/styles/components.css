@@ -547,3 +547,25 @@
   font-weight: 500;
 }
 
+
+
+/* Shared <ErrorBanner> - warning strip above a feature list surfacing
+   config parse failures (malformed settings.json / .mcp.json). Uses the
+   editor warning palette so it reads as "degraded, not broken": the
+   list below still renders whatever parsed. */
+.error-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+  border-radius: var(--radius-sm);
+  background: var(--vscode-inputValidation-warningBackground, rgba(204, 167, 0, 0.1));
+  color: var(--fg);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+}
+.error-banner__item {
+  word-break: break-word;
+}

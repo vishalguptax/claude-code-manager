@@ -84,7 +84,11 @@ const updateHook = v.object({
 });
 const promptAddHook = v.object({ type: v.literal("promptAddHook") });
 const getMcpServers = v.object({ type: v.literal("getMcpServers") });
-const openMcpConfig = v.object({ type: v.literal("openMcpConfig"), scope: v.string() });
+const openMcpConfig = v.object({
+  type: v.literal("openMcpConfig"),
+  scope: v.string(),
+  name: v.optional(v.string()),
+});
 const toggleMcpServer = v.object({
   type: v.literal("toggleMcpServer"),
   name: v.string(),
@@ -181,9 +185,14 @@ const reloadComplete = v.object({ type: v.literal("reloadComplete") });
 const projects = v.object({ type: v.literal("projects"), data: v.array(v.string()) });
 const accountData = v.object({ type: v.literal("accountData"), data: v.unknown() });
 const commands = v.object({ type: v.literal("commands"), data: v.unknown() });
-const hooks = v.object({ type: v.literal("hooks"), data: v.unknown() });
-const mcpServers = v.object({ type: v.literal("mcpServers"), data: v.unknown() });
-const agents = v.object({ type: v.literal("agents"), data: v.unknown() });
+const parseErrors = v.optional(v.array(v.string()));
+const hooks = v.object({ type: v.literal("hooks"), data: v.unknown(), errors: parseErrors });
+const mcpServers = v.object({
+  type: v.literal("mcpServers"),
+  data: v.unknown(),
+  errors: parseErrors,
+});
+const agents = v.object({ type: v.literal("agents"), data: v.unknown(), errors: parseErrors });
 const quotaData = v.object({ type: v.literal("quotaData"), result: v.unknown() });
 
 // === SESSIONS MESSAGES ===

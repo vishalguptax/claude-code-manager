@@ -131,6 +131,14 @@
   color: var(--color-green-badge);
 }
 
+/* "inherit" is the absence of an explicit model (agent runs on the main
+   conversation's model) — muted/neutral so it reads as "unset", not as a
+   named model with its own accent. */
+.agent-model-inherit {
+  background: var(--badge-bg);
+  color: var(--text-muted);
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Agents — Detail View
@@ -154,6 +162,23 @@
   color: var(--fg-dim);
   padding: 0 var(--space-2xl) var(--space-lg);
   line-height: 1.5;
+}
+
+/* Read-only Tools / Skills chip rows in the detail view. The label reuses
+   .agent-detail-label's uppercase treatment; the chips flow-wrap under it. */
+.agent-detail-chips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: 0 var(--space-2xl) var(--space-lg);
+}
+.agent-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+.agent-chip {
+  font-family: var(--font-mono);
 }
 
 .agent-detail-actions {

@@ -50,6 +50,40 @@ describe("DetailView", () => {
     expect(screen.getByText("https://x")).toBeTruthy();
   });
 
+  it("renders the URL for sse and ws servers too, not just http", () => {
+    render(
+      h(DetailView, {
+        server: srv({ name: "r", scope: "global", type: "sse", url: "https://legacy" }),
+        ...handlers(),
+      }),
+    );
+    expect(screen.getByText("https://legacy")).toBeTruthy();
+    expect(screen.queryByText("Command")).toBeNull();
+  });
+
+  it("renders masked headers alongside env vars", () => {
+    render(
+      h(DetailView, {
+        server: srv({
+          name: "api",
+          scope: "global",
+          type: "http",
+          url: "https://x",
+          headers: { Authorization: "Bearer abcdefghijkl" },
+        }),
+        ...handlers(),
+      }),
+    );
+    expect(screen.getByText("Headers")).toBeTruthy();
+    expect(screen.getByText("Authorization")).toBeTruthy();
+    expect(screen.getByText("Bear****ijkl")).toBeTruthy();
+  });
+
+  it("omits the Headers section when there are none", () => {
+    render(h(DetailView, { server: srv({ name: "a", scope: "project" }), ...handlers() }));
+    expect(screen.queryByText("Headers")).toBeNull();
+  });
+
   it("wires back, toggle, config, and delete for editable servers", () => {
     const hnd = handlers();
     render(h(DetailView, { server: srv({ name: "a", scope: "project" }), ...hnd }));
@@ -71,6 +105,23 @@ describe("DetailView", () => {
       }),
     );
     expect(screen.getByText("Enable")).toBeTruthy();
+  });
+
+  it("hides the toggle and shows a note for global servers (no Claude Code disable)", () => {
+    render(
+      h(DetailView, { server: srv({ name: "g", scope: "global" }), ...handlers() }),
+    );
+    expect(screen.queryByText("Disable")).toBeNull();
+    expect(screen.queryByText("Enable")).toBeNull();
+    // Delete + Open Config still available for global servers.
+    expect(screen.getByText("Delete")).toBeTruthy();
+    expect(screen.getByText("Open Config")).toBeTruthy();
+    expect(screen.getByText(/User-scope servers can't be enabled\/disabled/)).toBeTruthy();
+  });
+
+  it("shows the toggle for project servers", () => {
+    render(h(DetailView, { server: srv({ name: "p", scope: "project" }), ...handlers() }));
+    expect(screen.getByText("Disable")).toBeTruthy();
   });
 
   it("hides edit actions and shows a note for plugin servers", () => {

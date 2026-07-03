@@ -10,6 +10,7 @@ export {
   errorMessage,
   filteredServers,
   loading,
+  parseErrors,
   resetMcpSignals,
   scopeCounts,
   scopeFilter,

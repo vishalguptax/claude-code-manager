@@ -36,12 +36,16 @@ export function buildRows(list: McpServer[]): Row[] {
   return rows;
 }
 
+/** True for URL-based transports (http/sse/ws) as opposed to stdio. */
+export function isUrlTransport(server: Pick<McpServer, "type">): boolean {
+  return server.type !== "stdio";
+}
+
 /** Build the single-line connection preview for a server row. */
 export function connectionPreview(server: McpServer): string {
-  const detail =
-    server.type === "http"
-      ? (server.url ?? "")
-      : [server.command, ...(server.args ?? [])].filter(Boolean).join(" ");
+  const detail = isUrlTransport(server)
+    ? (server.url ?? "")
+    : [server.command, ...(server.args ?? [])].filter(Boolean).join(" ");
   return detail.length > PREVIEW_MAX ? `${detail.slice(0, PREVIEW_MAX)}...` : detail;
 }
 

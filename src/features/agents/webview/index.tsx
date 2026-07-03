@@ -27,7 +27,7 @@ export default function AgentsTab() {
     // and validates payloads with valibot before invoking this handler.
     const off = registerFeatureHandler("agents", (msg) => {
       if (msg.type === "agents") {
-        setAgents((msg.data as Agent[]) ?? []);
+        setAgents((msg.data as Agent[]) ?? [], msg.errors ?? []);
       }
     });
     const offError = registerFeatureHandler("error", (msg) => {

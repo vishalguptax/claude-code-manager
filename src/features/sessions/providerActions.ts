@@ -384,21 +384,22 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
     wv.postMessage({ type: "commands", data: commandsResult.data });
   }
   if (hooksResult.ok) {
-    ctx.setHooks(hooksResult.data);
-    wv.postMessage({ type: "hooks", data: hooksResult.data });
+    ctx.setHooks(hooksResult.data.hooks);
+    wv.postMessage({ type: "hooks", data: hooksResult.data.hooks, errors: hooksResult.data.errors });
   }
   if (mcpResult.ok) {
-    ctx.setMcpServers(mcpResult.data);
+    ctx.setMcpServers(mcpResult.data.servers);
     // Shape must be { servers, authNeeds } — a bare array resets the
     // auth-health badge to empty on the webview.
     wv.postMessage({
       type: "mcpServers",
-      data: { servers: mcpResult.data, authNeeds: readMcpAuthNeeds() },
+      data: { servers: mcpResult.data.servers, authNeeds: readMcpAuthNeeds() },
+      errors: mcpResult.data.errors,
     });
   }
   if (agentsResult.ok) {
-    ctx.setAgents(agentsResult.data);
-    wv.postMessage({ type: "agents", data: agentsResult.data });
+    ctx.setAgents(agentsResult.data.agents);
+    wv.postMessage({ type: "agents", data: agentsResult.data.agents, errors: agentsResult.data.errors });
   }
 
   ctx.refreshSettings();
@@ -439,26 +440,27 @@ export function reloadFeature(ctx: ProviderActionsContext, feature: ConfigFeatur
         break;
       }
       case "hooks": {
-        const data = parseHooks(ws);
-        ctx.setHooks(data);
-        wv.postMessage({ type: "hooks", data });
+        const { hooks, errors } = parseHooks(ws);
+        ctx.setHooks(hooks);
+        wv.postMessage({ type: "hooks", data: hooks, errors });
         break;
       }
       case "mcp": {
-        const data = parseMcpServers(ws);
-        ctx.setMcpServers(data);
+        const { servers, errors } = parseMcpServers(ws);
+        ctx.setMcpServers(servers);
         // { servers, authNeeds } — preserve the auth-health badge on a
         // live .mcp.json edit (a bare array would clear it).
         wv.postMessage({
           type: "mcpServers",
-          data: { servers: data, authNeeds: readMcpAuthNeeds() },
+          data: { servers, authNeeds: readMcpAuthNeeds() },
+          errors,
         });
         break;
       }
       case "agents": {
-        const data = parseAgents(ws);
-        ctx.setAgents(data);
-        wv.postMessage({ type: "agents", data });
+        const { agents, errors } = parseAgents(ws);
+        ctx.setAgents(agents);
+        wv.postMessage({ type: "agents", data: agents, errors });
         break;
       }
     }

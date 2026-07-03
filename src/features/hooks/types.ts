@@ -4,15 +4,27 @@
  */
 
 /**
- * Known Claude Code hook event types.
- * New events may be added in the future, so consumers should handle unknown strings.
+ * Known Claude Code hook event types. See `events.ts` for the full
+ * catalog with display labels and descriptions (used by the "add
+ * hook" wizard and list grouping). New events may be added by Claude
+ * Code before this list is updated, so consumers must handle unknown
+ * strings — hence the `| string` fallback.
  */
 export type HookEvent =
+  | "SessionStart"
+  | "SessionEnd"
+  | "UserPromptSubmit"
   | "PreToolUse"
   | "PostToolUse"
+  | "PostToolUseFailure"
   | "Notification"
   | "Stop"
+  | "SubagentStart"
   | "SubagentStop"
+  | "PreCompact"
+  | "PostCompact"
+  | "PermissionRequest"
+  | "PermissionDenied"
   | string;
 
 /**
@@ -22,13 +34,22 @@ export type HookEvent =
  */
 export type HookScope = "global" | "project" | "local" | "plugin";
 
+/**
+ * The action a hook record performs. "command" is the classic (and
+ * only editable) shape; the others are rendered read-only.
+ */
+export type HookActionType = "command" | "prompt" | "agent" | "http" | "mcp_tool" | string;
+
 /** A single hook entry from the Claude Code settings. */
 export interface Hook {
   /** The event type this hook triggers on (e.g. "PreToolUse"). */
   event: HookEvent;
   /** Glob or string pattern to match against (e.g. tool name). */
   matcher: string;
-  /** Shell command to execute when the hook fires. */
+  /**
+   * Display/identity string: the shell command for "command" hooks,
+   * or the prompt/url/tool text for other action types.
+   */
   command: string;
   /** Source of this hook: global (~/.claude), project (.claude/settings.json), or local (.claude/settings.local.json) */
   scope: HookScope;
@@ -46,6 +67,14 @@ export interface Hook {
    * sourced from a settings.json file.
    */
   pluginName?: string;
+  /** The record's action type. Only "command" hooks are editable. */
+  hookType: HookActionType;
+  /** Timeout in seconds, when the record configures one. */
+  timeout?: number;
+  /** Index of the outer entry within its `hooks[event]` (or `_disabled_hooks[event]`) array. */
+  entryIndex: number;
+  /** Index within the entry's nested `hooks` array; `null` for the legacy flat shape. */
+  commandIndex: number | null;
 }
 
 // ── Extension <-> Webview Messages ──

@@ -11,6 +11,7 @@
 import {
   Button,
   EmptyState,
+  ErrorBanner,
   ScopeFilter,
   SearchInput,
   VirtualList,
@@ -23,6 +24,7 @@ import {
   groupedAgents,
   type ModelFilter as ModelFilterValue,
   modelCounts,
+  parseErrors,
   searchQuery,
   selectAgent,
   selectedAgent,
@@ -40,6 +42,7 @@ const MODEL_OPTIONS: ReadonlyArray<{ value: ModelFilterValue; label: string }> =
   { value: "sonnet", label: "Sonnet" },
   { value: "opus", label: "Opus" },
   { value: "haiku", label: "Haiku" },
+  { value: "inherit", label: "Inherit" },
 ];
 
 export interface AgentListViewProps {
@@ -64,6 +67,7 @@ export function AgentListView({ onRefresh }: AgentListViewProps) {
 
   return (
     <div class="panel">
+      <ErrorBanner errors={parseErrors.value} />
       <div class="search-row">
         <SearchInput
           value={searchQuery.value}

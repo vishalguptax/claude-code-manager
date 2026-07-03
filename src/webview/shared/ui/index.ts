@@ -14,6 +14,7 @@ export {
 } from "./ContextMenu";
 export { Dropdown, type DropdownOption, type DropdownProps } from "./Dropdown";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
+export { ErrorBanner, type ErrorBannerProps } from "./ErrorBanner";
 export { Icon, type IconProps } from "./Icon";
 export { ListItem, type ListItemProps } from "./ListItem";
 export { Loading } from "./Loading";

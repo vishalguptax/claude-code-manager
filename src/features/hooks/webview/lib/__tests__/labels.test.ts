@@ -8,6 +8,17 @@ describe("hooks event helpers", () => {
     expect(eventLabel("CustomThing")).toBe("CustomThing");
   });
 
+  it("eventLabel covers the previously-missing event names", () => {
+    expect(eventLabel("SessionStart")).toBe("Session Start");
+    expect(eventLabel("SessionEnd")).toBe("Session End");
+    expect(eventLabel("UserPromptSubmit")).toBe("User Prompt Submit");
+    expect(eventLabel("PostToolUseFailure")).toBe("Post Tool Use Failure");
+    expect(eventLabel("SubagentStart")).toBe("Subagent Start");
+    expect(eventLabel("PostCompact")).toBe("Post Compact");
+    expect(eventLabel("PermissionRequest")).toBe("Permission Request");
+    expect(eventLabel("PermissionDenied")).toBe("Permission Denied");
+  });
+
   it("scopeLabel maps editable scopes", () => {
     expect(scopeLabel({ scope: "global" })).toBe("Global");
     expect(scopeLabel({ scope: "project" })).toBe("Project");

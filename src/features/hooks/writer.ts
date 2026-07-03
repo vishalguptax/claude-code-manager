@@ -13,13 +13,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import { writeFileAtomic } from "../../core/atomicWrite";
-import type { Hook, HookScope } from "./types";
-
-interface RawHookEntry {
-  matcher?: string;
-  command?: string;
-  hooks?: Array<{ type?: string; command?: string }>;
-}
+import { hookRecordIdentity, hookRecordType, type HookRecord, type RawHookEntry } from "./hookRecord";
+import type { Hook } from "./types";
 
 interface SettingsShape {
   hooks?: Record<string, RawHookEntry[]>;
@@ -50,49 +45,78 @@ function writeSettings(filePath: string, data: SettingsShape): boolean {
   }
 }
 
-/**
- * Iterate every entry in a hooks-style block and yield enough
- * context for callers to mutate or remove the matched record.
- * Handles both the flat (`{ matcher, command }`) and nested
- * (`{ matcher, hooks: [{ command }] }`) formats Claude accepts.
- */
-function findEntry(
-  block: Record<string, RawHookEntry[]> | undefined,
-  event: string,
-  matcher: string,
-  command: string,
-):
-  | {
-      arr: RawHookEntry[];
-      index: number;
-      entry: RawHookEntry;
-      nestedIndex: number | null;
-    }
-  | null {
-  if (!block) return null;
-  const arr = block[event];
-  if (!Array.isArray(arr)) return null;
-  for (let i = 0; i < arr.length; i++) {
-    const e = arr[i];
-    if (!e || typeof e !== "object") continue;
-    const entryMatcher = typeof e.matcher === "string" ? e.matcher : "";
-    if (entryMatcher !== matcher) continue;
+interface Located {
+  arr: RawHookEntry[];
+  entryIndex: number;
+  entry: RawHookEntry;
+  /** The record holding type/command/timeout — `entry` itself for the
+   *  flat shape, or `entry.hooks[commandIndex]` for the nested shape. */
+  record: HookRecord;
+  commandIndex: number | null;
+}
 
-    if (Array.isArray(e.hooks)) {
-      for (let j = 0; j < e.hooks.length; j++) {
-        const sub = e.hooks[j];
-        if (sub && typeof sub === "object" && sub.command === command) {
-          return { arr, index: i, entry: e, nestedIndex: j };
+function recordMatches(record: unknown, hook: Hook): boolean {
+  if (!record || typeof record !== "object") return false;
+  const rec = record as HookRecord;
+  if (hookRecordType(rec) !== hook.hookType) return false;
+  return hookRecordIdentity(rec) === hook.command;
+}
+
+/** Try the hook's own entryIndex/commandIndex snapshot first. */
+function tryLocateAt(arr: RawHookEntry[], hook: Hook): Located | null {
+  const entry = arr[hook.entryIndex];
+  if (!entry || typeof entry !== "object") return null;
+  const entryMatcher = typeof entry.matcher === "string" ? entry.matcher : "";
+  if (entryMatcher !== hook.matcher) return null;
+
+  if (hook.commandIndex !== null) {
+    if (!Array.isArray(entry.hooks)) return null;
+    const record = entry.hooks[hook.commandIndex];
+    if (!recordMatches(record, hook)) return null;
+    return { arr, entryIndex: hook.entryIndex, entry, record, commandIndex: hook.commandIndex };
+  }
+
+  if (!recordMatches(entry, hook)) return null;
+  return { arr, entryIndex: hook.entryIndex, entry, record: entry, commandIndex: null };
+}
+
+/** Fall back to a full scan — the file may have changed since the last parse. */
+function scanForHook(arr: RawHookEntry[], hook: Hook): Located | null {
+  for (let i = 0; i < arr.length; i++) {
+    const entry = arr[i];
+    if (!entry || typeof entry !== "object") continue;
+    const entryMatcher = typeof entry.matcher === "string" ? entry.matcher : "";
+    if (entryMatcher !== hook.matcher) continue;
+
+    if (Array.isArray(entry.hooks)) {
+      for (let j = 0; j < entry.hooks.length; j++) {
+        if (recordMatches(entry.hooks[j], hook)) {
+          return { arr, entryIndex: i, entry, record: entry.hooks[j], commandIndex: j };
         }
       }
       continue;
     }
 
-    if (e.command === command) {
-      return { arr, index: i, entry: e, nestedIndex: null };
+    if (recordMatches(entry, hook)) {
+      return { arr, entryIndex: i, entry, record: entry, commandIndex: null };
     }
   }
   return null;
+}
+
+/**
+ * Locate the JSON record backing a `Hook` snapshot. Index-first: the
+ * webview's snapshot carries the entryIndex/commandIndex from the
+ * last parse, which resolves duplicates (identical matcher+command
+ * pairs) deterministically instead of always hitting the first match.
+ * Falls back to a full scan when the index is stale (file edited
+ * externally since the last parse) or absent.
+ */
+function locateHook(block: Record<string, RawHookEntry[]> | undefined, hook: Hook): Located | null {
+  if (!block) return null;
+  const arr = block[hook.event];
+  if (!Array.isArray(arr)) return null;
+  return tryLocateAt(arr, hook) ?? scanForHook(arr, hook);
 }
 
 /**
@@ -101,18 +125,16 @@ function findEntry(
  * goes; the outer entry stays if it still has siblings, otherwise
  * it is dropped too. Returns true if anything was removed.
  */
-function removeAt(
-  match: ReturnType<typeof findEntry>,
-): boolean {
+function removeAt(match: Located | null): boolean {
   if (!match) return false;
-  if (match.nestedIndex !== null) {
+  if (match.commandIndex !== null) {
     const inner = match.entry.hooks;
     if (!Array.isArray(inner)) return false;
-    inner.splice(match.nestedIndex, 1);
-    if (inner.length === 0) match.arr.splice(match.index, 1);
+    inner.splice(match.commandIndex, 1);
+    if (inner.length === 0) match.arr.splice(match.entryIndex, 1);
     return true;
   }
-  match.arr.splice(match.index, 1);
+  match.arr.splice(match.entryIndex, 1);
   return true;
 }
 
@@ -134,24 +156,33 @@ export function toggleHookEnabled(
   const sourceKey = enable ? "_disabled_hooks" : "hooks";
   const targetKey = enable ? "hooks" : "_disabled_hooks";
   const source = data[sourceKey] as Record<string, RawHookEntry[]> | undefined;
-  const match = findEntry(source, hook.event, hook.matcher, hook.command);
+  const match = locateHook(source, hook);
   if (!match) return false;
 
-  // Capture a clone of just the bit we want to move so the source
-  // splice does not affect the value we later reinsert.
-  let movePayload: RawHookEntry;
-  if (match.nestedIndex !== null) {
-    const inner = match.entry.hooks ?? [];
-    const sub = inner[match.nestedIndex];
-    movePayload = {
-      matcher: hook.matcher,
-      hooks: [sub],
-    };
-  } else {
-    movePayload = match.entry;
-  }
+  // Move payload: preserve everything, never rebuild. A nested entry
+  // with siblings moves only the targeted sub-record — `{ ...entry,
+  // hooks: [record] }` clones the outer entry's unknown keys (e.g.
+  // `if`) into a NEW object with a NEW hooks array, so it shares no
+  // mutable state with the source. A sole-child nested entry or a flat
+  // entry moves verbatim (same object, since the whole thing leaves
+  // the source anyway).
+  const siblingCount = match.commandIndex !== null ? (match.entry.hooks?.length ?? 0) : 0;
+  const hasSiblings = match.commandIndex !== null && siblingCount > 1;
+  const movePayload: RawHookEntry = hasSiblings
+    ? { ...match.entry, hooks: [match.record] }
+    : match.entry;
 
-  removeAt(match);
+  // Remove from the source. When only one command is leaving a
+  // multi-command entry, splice its slot out of the (still-shared)
+  // inner array — the entry itself stays. Otherwise the whole entry is
+  // moving, so it comes out of the outer array directly; using the
+  // shared removeAt() here would splice match.entry.hooks first, which
+  // is the very array movePayload (== match.entry) is about to carry.
+  if (hasSiblings) {
+    match.entry.hooks!.splice(match.commandIndex as number, 1);
+  } else {
+    match.arr.splice(match.entryIndex, 1);
+  }
   // Drop empty arrays to keep the file tidy.
   if (source && Array.isArray(source[hook.event]) && source[hook.event].length === 0) {
     delete source[hook.event];
@@ -178,7 +209,7 @@ export function deleteHook(filePath: string, hook: Hook): boolean {
   const data = readSettings(filePath);
   const blockKey = hook.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
-  const match = findEntry(block, hook.event, hook.matcher, hook.command);
+  const match = locateHook(block, hook);
   if (!removeAt(match)) return false;
   if (block && Array.isArray(block[hook.event]) && block[hook.event].length === 0) {
     delete block[hook.event];
@@ -190,9 +221,11 @@ export function deleteHook(filePath: string, hook: Hook): boolean {
 }
 
 /**
- * Rewrite an existing hook's matcher + command in place. Stays
- * inside whichever block (`hooks` / `_disabled_hooks`) the
- * original lived in.
+ * Rewrite an existing hook's matcher + command in place. Only
+ * targeted fields are mutated — `timeout`, `type`, and any unknown
+ * keys on the record survive untouched. Refuses non-"command" hooks:
+ * a prompt/http/agent/mcp_tool record has no "command" field to
+ * rewrite, so blindly writing one would corrupt it.
  */
 export function updateHook(
   filePath: string,
@@ -200,21 +233,15 @@ export function updateHook(
   next: { matcher: string; command: string },
 ): boolean {
   if (original.scope === "plugin") return false;
+  if (original.hookType !== "command") return false;
   const data = readSettings(filePath);
   const blockKey = original.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
-  const match = findEntry(block, original.event, original.matcher, original.command);
+  const match = locateHook(block, original);
   if (!match) return false;
 
-  if (match.nestedIndex !== null) {
-    const inner = match.entry.hooks;
-    if (!Array.isArray(inner)) return false;
-    match.entry.matcher = next.matcher;
-    inner[match.nestedIndex] = { type: "command", command: next.command };
-  } else {
-    match.entry.matcher = next.matcher;
-    match.entry.command = next.command;
-  }
+  match.entry.matcher = next.matcher;
+  match.record.command = next.command;
 
   return writeSettings(filePath, data);
 }
@@ -230,7 +257,6 @@ export function addHook(
   event: string,
   matcher: string,
   command: string,
-  _scope: HookScope,
 ): boolean {
   if (!event.trim() || !command.trim()) return false;
   const data = readSettings(filePath);

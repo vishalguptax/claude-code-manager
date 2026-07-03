@@ -32,13 +32,13 @@ afterEach(() => {
 });
 
 describe("parseAgents", () => {
-  it("returns [] when nothing is configured", () => {
-    expect(parseAgents()).toEqual([]);
+  it("returns no agents when nothing is configured", () => {
+    expect(parseAgents().agents).toEqual([]);
   });
 
   it("reads global agents from ~/.claude/agents/", () => {
     writeAgent(path.join(HOME, ".claude", "agents"), "reviewer.md", fm("reviewer"));
-    const agents = parseAgents();
+    const agents = parseAgents().agents;
     expect(agents).toHaveLength(1);
     expect(agents[0].name).toBe("reviewer");
     expect(agents[0].scope).toBe("global");
@@ -47,7 +47,7 @@ describe("parseAgents", () => {
   it("reads project agents from <workspace>/.claude/agents/", () => {
     const ws = path.join(HOME, "ws");
     writeAgent(path.join(ws, ".claude", "agents"), "scout.md", fm("scout"));
-    const agents = parseAgents(ws);
+    const agents = parseAgents(ws).agents;
     expect(agents.find((a) => a.name === "scout")?.scope).toBe("project");
   });
 
@@ -63,7 +63,7 @@ describe("parseAgents", () => {
       }),
     );
 
-    const agents = parseAgents();
+    const agents = parseAgents().agents;
     const plug = agents.find((a) => a.scope === "plugin");
     expect(plug).toBeDefined();
     expect(plug?.name).toBe("spec");
@@ -85,7 +85,7 @@ describe("parseAgents", () => {
       }),
     );
 
-    const agents = parseAgents();
+    const agents = parseAgents().agents;
     expect(agents.some((a) => a.scope === "plugin" && a.name === "a")).toBe(true);
   });
 
@@ -99,6 +99,75 @@ describe("parseAgents", () => {
         plugins: { "empty@mkt": [{ scope: "user", installPath: pluginRoot }] },
       }),
     );
-    expect(parseAgents()).toEqual([]);
+    expect(parseAgents().agents).toEqual([]);
+  });
+});
+
+describe("parseAgents — frontmatter fields", () => {
+  const dir = path.join(HOME, ".claude", "agents");
+
+  it("defaults model to 'inherit' when the frontmatter omits it", () => {
+    writeAgent(dir, "a.md", `---\nname: a\ndescription: no model here\n---\nbody`);
+    expect(parseAgents().agents[0].model).toBe("inherit");
+  });
+
+  it("strips surrounding quotes from a quoted model value", () => {
+    writeAgent(dir, "a.md", `---\nname: a\nmodel: "opus"\n---\nbody`);
+    expect(parseAgents().agents[0].model).toBe("opus");
+  });
+
+  it("parses tools as an inline flow list", () => {
+    writeAgent(dir, "a.md", `---\nname: a\ntools: [Read, Grep, Bash]\n---\nbody`);
+    expect(parseAgents().agents[0].tools).toEqual(["Read", "Grep", "Bash"]);
+  });
+
+  it("parses tools as a block list", () => {
+    writeAgent(dir, "a.md", `---\nname: a\ntools:\n  - Read\n  - Grep\n---\nbody`);
+    expect(parseAgents().agents[0].tools).toEqual(["Read", "Grep"]);
+  });
+
+  it("parses a comma-separated tools scalar", () => {
+    writeAgent(dir, "a.md", `---\nname: a\ntools: Read, Grep\n---\nbody`);
+    expect(parseAgents().agents[0].tools).toEqual(["Read", "Grep"]);
+  });
+
+  it("parses skills and leaves tools/skills undefined when absent", () => {
+    writeAgent(dir, "a.md", `---\nname: a\nskills: [research, writing]\n---\nbody`);
+    const agent = parseAgents().agents[0];
+    expect(agent.skills).toEqual(["research", "writing"]);
+    expect(agent.tools).toBeUndefined();
+  });
+
+  it("handles a block-scalar description and a filename fallback for missing name", () => {
+    writeAgent(dir, "helper.md", `---\ndescription: >-\n  A multi-line\n  folded description.\n---\nbody`);
+    const agent = parseAgents().agents[0];
+    expect(agent.name).toBe("helper");
+    expect(agent.description).toBe("A multi-line folded description.");
+  });
+
+  it("handles CRLF frontmatter", () => {
+    writeAgent(dir, "a.md", `---\r\nname: crlf\r\nmodel: haiku\r\n---\r\nbody`);
+    const agent = parseAgents().agents[0];
+    expect(agent.name).toBe("crlf");
+    expect(agent.model).toBe("haiku");
+  });
+});
+
+describe("parseAgents — error surfacing", () => {
+  it("reports a directory read failure but keeps other scopes", () => {
+    // A file where the agents directory is expected — readdirSync throws
+    // ENOTDIR, which is surfaced as an error (not ENOENT, which is silent).
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(path.join(ws, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(ws, ".claude", "agents"), "not a directory");
+    writeAgent(path.join(HOME, ".claude", "agents"), "g.md", fm("g"));
+    const result = parseAgents(ws);
+    expect(result.agents.map((a) => a.name)).toEqual(["g"]);
+    expect(result.errors).toHaveLength(1);
+  });
+
+  it("returns no errors on a clean parse", () => {
+    writeAgent(path.join(HOME, ".claude", "agents"), "g.md", fm("g"));
+    expect(parseAgents().errors).toEqual([]);
   });
 });

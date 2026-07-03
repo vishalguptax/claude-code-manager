@@ -3,17 +3,13 @@
  * Kept framework-agnostic so both list and detail views import the
  * same source of truth instead of duplicating the label tables.
  */
+import { KNOWN_HOOK_EVENTS } from "../../events";
 import type { Hook, HookScope } from "../../types";
 
 /** Map known event names to user-friendly display labels. */
-const EVENT_LABELS: Record<string, string> = {
-  PreToolUse: "Pre Tool Use",
-  PostToolUse: "Post Tool Use",
-  Notification: "Notification",
-  Stop: "Stop",
-  SubagentStop: "Subagent Stop",
-  PreCompact: "Pre Compact",
-};
+const EVENT_LABELS: Record<string, string> = Object.fromEntries(
+  KNOWN_HOOK_EVENTS.map((e) => [e.name, e.label]),
+);
 
 /** Map scope to its short user-visible label. */
 const SCOPE_LABELS: Record<HookScope, string> = {

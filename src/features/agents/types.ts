@@ -3,8 +3,12 @@
  * Covers agent data and extension-webview message protocol.
  */
 
-/** Supported Claude model identifiers for agents. */
-export type AgentModel = "sonnet" | "opus" | "haiku" | string;
+/**
+ * Model identifier for an agent. `"inherit"` is the truthful default
+ * when the frontmatter omits `model` — the agent runs on the main
+ * conversation's model, NOT a fabricated "sonnet".
+ */
+export type AgentModel = "sonnet" | "opus" | "haiku" | "inherit" | string;
 
 /**
  * Where an agent definition is sourced from.
@@ -20,8 +24,12 @@ export interface Agent {
   name: string;
   /** Short description from YAML frontmatter. */
   description: string;
-  /** Model identifier from YAML frontmatter (sonnet, opus, haiku). */
+  /** Model identifier from YAML frontmatter, or "inherit" when unset. */
   model: AgentModel;
+  /** Allowed-tools list from frontmatter, when the agent restricts them. */
+  tools?: string[];
+  /** Preloaded skills from frontmatter, when the agent assigns any. */
+  skills?: string[];
   /** Absolute path to the .md file on disk. */
   path: string;
   /** Full raw content of the agent file (frontmatter + body). */
@@ -35,14 +43,7 @@ export interface Agent {
   pluginName?: string;
 }
 
-// ── Extension <-> Webview Messages ──
-
-/** Messages sent from the extension host to the webview for the agents feature. */
-export type AgentsExtensionMessage =
-  | { type: "agents"; data: Agent[] }
-  | { type: "agentsError"; message: string };
-
-/** Messages sent from the webview to the extension host for the agents feature. */
-export type AgentsWebviewMessage =
-  | { type: "getAgents" }
-  | { type: "openAgentFile"; path: string };
+// MCP postMessage shapes live in the shared protocol
+// (src/shared/protocol/messages.ts): getAgents, openAgentFile
+// (webview→host) and agents (host→webview, carrying an optional
+// `errors` array for surfaced parse failures).

@@ -11,6 +11,7 @@ export {
   loading,
   type ModelFilter,
   modelCounts,
+  parseErrors,
   resetAgentsState,
   scopeLabel,
   searchQuery,

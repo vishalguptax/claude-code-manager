@@ -3,10 +3,24 @@
  * agent, with a back action and an "open file" action that delegates to the
  * host. Renders nothing useful if no agent is selected (parent guards this).
  */
-import { Button } from "../../../../../webview/shared/ui";
+import { Badge, Button } from "../../../../../webview/shared/ui";
 import type { Agent } from "../../../types";
 import { stripFrontmatter } from "../../lib";
 import { ModelBadge } from "../ModelBadge";
+
+/** Read-only chip row for a frontmatter list field (tools / skills). */
+function ChipRow({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div class="agent-detail-chips">
+      <span class="agent-detail-label">{label}</span>
+      <span class="agent-chip-list">
+        {items.map((item) => (
+          <Badge key={item} text={item} variant="scope" class="agent-chip" />
+        ))}
+      </span>
+    </div>
+  );
+}
 
 export interface AgentDetailViewProps {
   agent: Agent;
@@ -29,6 +43,13 @@ export function AgentDetailView({ agent, onBack, onOpenFile }: AgentDetailViewPr
       </div>
 
       {agent.description ? <div class="agent-detail-desc">{agent.description}</div> : null}
+
+      {agent.tools && agent.tools.length > 0 ? (
+        <ChipRow label="Tools" items={agent.tools} />
+      ) : null}
+      {agent.skills && agent.skills.length > 0 ? (
+        <ChipRow label="Skills" items={agent.skills} />
+      ) : null}
 
       <div class="agent-detail-actions">
         <Button iconName="external-link" onClick={() => onOpenFile(agent.path)}>
