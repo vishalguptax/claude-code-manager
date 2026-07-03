@@ -52,6 +52,9 @@ function writeMcpConfig(filePath: string, config: unknown, originalRaw: string):
   const indented = /\n[ \t]+"/.test(originalRaw);
   const json = JSON.stringify(config, null, indented ? 2 : undefined) + (indented ? "\n" : "");
   try {
+    // Create the parent dir so a first project server can be added to a
+    // workspace that has no .mcp.json yet.
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
     writeFileAtomic(filePath, json);
     return true;
   } catch {
