@@ -12,8 +12,9 @@ Recommended order (authority-per-effort):
 | 5 | `05-anthropic-software-directory.md` | Apply to Anthropic's directory | 15 min | Legitimacy + link |
 | 6 | `06-marketplace-name-reclaim.md` | Email Microsoft re: squatted name | 5 min | Reclaim exact "Claude Code Manager" |
 | 7 | `07-search-console.md` | Set up Google Search Console | 15 min | Measurement baseline |
+| 8 | `08-awesome-claude-code.md` | Submit via their issue form | 5 min | Highest-authority link; form-only, currently paused — check first |
 
 Notes:
-- The awesome-claude-code PR is automated separately (not in this folder).
+- awesome-claude-code forbids PRs and CLI submissions — human web form only (see 08).
 - Master promo copy lives in `../announcement-post.md` — files here adapt it per channel.
 - After each action, log the URL of what you posted at the bottom of that file (tracking).
