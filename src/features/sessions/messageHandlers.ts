@@ -171,6 +171,19 @@ function makeMcpHost(ctx: HostContext): McpHostContext {
     getWebview: () => ctx.getWebview(),
     getWorkspace: () => getWorkspace() || undefined,
     setMcpServers: (servers) => ctx.setMcpServers(servers),
+    runShellCommand: (label, command) => {
+      const term = createTerminal(label);
+      term.show();
+      term.sendText(command);
+    },
+    runSlashCommand: (label, slash) => {
+      // Same timing as launchSlash: open claude, wait for the REPL to
+      // enter raw mode, then type the slash command.
+      const term = createTerminal(label);
+      term.show();
+      term.sendText("claude");
+      setTimeout(() => term.sendText(slash), 1800);
+    },
   };
 }
 

@@ -47,7 +47,7 @@ async function openVsxDownloads() {
 }
 
 async function githubStars() {
-  const res = await fetch("https://api.github.com/repos/vishalguptax/claude-manager", {
+  const res = await fetch("https://api.github.com/repos/vishalguptax/claude-code-manager", {
     headers: { Accept: "application/vnd.github+json" },
   });
   if (!res.ok) throw new Error(`github ${res.status}`);

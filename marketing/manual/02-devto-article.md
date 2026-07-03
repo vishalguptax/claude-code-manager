@@ -56,7 +56,7 @@ Search "Claude Code Manager" in the Extensions panel, or:
 
     code --install-extension vishalguptax.claude-manager
 
-Repo: https://github.com/vishalguptax/claude-manager
+Repo: https://github.com/vishalguptax/claude-code-manager
 
 If you hit something broken, open an issue — I use this daily so bugs tend to get fixed fast.
 ```

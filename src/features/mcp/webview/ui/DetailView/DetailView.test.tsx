@@ -12,11 +12,16 @@ function srv(p: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServ
 function handlers() {
   return {
     onBack: vi.fn(),
+    onEdit: vi.fn(),
     onOpenConfig: vi.fn(),
     onToggle: vi.fn(),
     onDelete: vi.fn(),
     onCopyName: vi.fn(),
     onOpenClaude: vi.fn(),
+    onAuthenticate: vi.fn(),
+    onLogout: vi.fn(),
+    onReconnect: vi.fn(),
+    onCheckStatus: vi.fn(),
   };
 }
 
@@ -150,5 +155,51 @@ describe("DetailView", () => {
     render(h(DetailView, { server: srv({ name: "a", scope: "project" }), ...hnd }));
     fireEvent.click(screen.getByText("Open Claude"));
     expect(hnd.onOpenClaude).toHaveBeenCalledOnce();
+  });
+
+  it("wires edit, authenticate, clear-auth, and reconnect actions", () => {
+    const hnd = handlers();
+    render(h(DetailView, { server: srv({ name: "api", scope: "project" }), ...hnd }));
+    fireEvent.click(screen.getByText("Edit"));
+    fireEvent.click(screen.getByText("Authenticate"));
+    fireEvent.click(screen.getByText("Clear Auth"));
+    fireEvent.click(screen.getByText("Reconnect"));
+    expect(hnd.onEdit).toHaveBeenCalledOnce();
+    expect(hnd.onAuthenticate).toHaveBeenCalledWith("api");
+    expect(hnd.onLogout).toHaveBeenCalledWith("api");
+    expect(hnd.onReconnect).toHaveBeenCalledOnce();
+  });
+
+  it("shows Check Status only for url-transport servers", () => {
+    const hnd = handlers();
+    const { rerender } = render(
+      h(DetailView, { server: srv({ name: "s", scope: "project" }), ...hnd }),
+    );
+    expect(screen.queryByText("Check Status")).toBeNull(); // stdio
+    rerender(h(DetailView, { server: srv({ name: "s", scope: "global", type: "http", url: "https://x" }), ...hnd }));
+    fireEvent.click(screen.getByText("Check Status"));
+    expect(hnd.onCheckStatus).toHaveBeenCalledOnce();
+  });
+
+  it("reveals masked secret values when the eye toggle is clicked", () => {
+    render(
+      h(DetailView, {
+        server: srv({ name: "a", scope: "project", env: { API_KEY: "abcdefghijkl" } }),
+        ...handlers(),
+      }),
+    );
+    expect(screen.getByText("abcd****ijkl")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Reveal secret values"));
+    expect(screen.getByText("abcdefghijkl")).toBeTruthy();
+  });
+
+  it("shows a red health dot when a stdio command is missing from PATH", () => {
+    const { container } = render(
+      h(DetailView, {
+        server: srv({ name: "a", scope: "project", commandAvailable: false }),
+        ...handlers(),
+      }),
+    );
+    expect(container.querySelector(".mcp-health-dot.is-missing")).toBeTruthy();
   });
 });

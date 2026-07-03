@@ -40,7 +40,7 @@ On privacy since this sub cares (and so do I): it's local. Reads ~/.claude/, ren
 Works in VS Code, Cursor, Windsurf, VSCodium. Works with both the CLI and the official extension — sessions from either show up in the same list.
 
 Install: search "Claude Code Manager" in Extensions
-Repo: https://github.com/vishalguptax/claude-manager
+Repo: https://github.com/vishalguptax/claude-code-manager
 
 It's free. If something's broken or missing tell me, I'm actively working on it.
 ```

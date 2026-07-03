@@ -18,7 +18,11 @@ import {
   setProjectMcpServerDisabled,
   deleteMcpServer,
   readMcpAuthNeeds,
+  addMcpServer,
+  updateMcpServer,
+  commandExistsOnPath,
 } from "../parser";
+import type { McpServerInput } from "../../../shared/protocol/messages";
 
 beforeEach(() => {
   fs.rmSync(HOME, { recursive: true, force: true });
@@ -312,5 +316,92 @@ describe("readMcpAuthNeeds", () => {
     fs.mkdirSync(path.dirname(authCachePath), { recursive: true });
     fs.writeFileSync(authCachePath, "{ not json");
     expect(readMcpAuthNeeds()).toEqual([]);
+  });
+});
+
+describe("addMcpServer / updateMcpServer", () => {
+  const ws = path.join(HOME, "ws");
+
+  function input(overrides: Partial<McpServerInput> = {}): McpServerInput {
+    return {
+      name: "srv",
+      scope: "project",
+      transport: "stdio",
+      command: "node",
+      args: ["server.js"],
+      env: {},
+      headers: {},
+      ...overrides,
+    };
+  }
+
+  function readMcp(): Record<string, Record<string, unknown>> {
+    return JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8")).mcpServers;
+  }
+
+  it("adds a stdio server, creating .mcp.json if absent", () => {
+    expect(addMcpServer(input(), ws).ok).toBe(true);
+    expect(readMcp().srv).toEqual({ command: "node", args: ["server.js"] });
+  });
+
+  it("adds an http server with url + headers, recording the transport type", () => {
+    addMcpServer(
+      input({ name: "api", transport: "http", command: undefined, args: undefined, url: "https://x", headers: { Authorization: "Bearer t" } }),
+      ws,
+    );
+    expect(readMcp().api).toEqual({ type: "http", url: "https://x", headers: { Authorization: "Bearer t" } });
+  });
+
+  it("rejects a duplicate name on add", () => {
+    addMcpServer(input(), ws);
+    const r = addMcpServer(input(), ws);
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/already exists/);
+  });
+
+  it("preserves sibling servers when adding", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { other: { command: "x" } } });
+    addMcpServer(input(), ws);
+    expect(Object.keys(readMcp()).sort()).toEqual(["other", "srv"]);
+  });
+
+  it("updates a server in place", () => {
+    addMcpServer(input(), ws);
+    expect(updateMcpServer("srv", input({ command: "deno" }), ws).ok).toBe(true);
+    expect(readMcp().srv.command).toBe("deno");
+  });
+
+  it("supports renaming on update", () => {
+    addMcpServer(input(), ws);
+    expect(updateMcpServer("srv", input({ name: "renamed" }), ws).ok).toBe(true);
+    expect(readMcp().srv).toBeUndefined();
+    expect(readMcp().renamed).toBeDefined();
+  });
+
+  it("fails to update a server that no longer exists", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: {} });
+    expect(updateMcpServer("ghost", input(), ws).ok).toBe(false);
+  });
+
+  it("refuses add/update on project scope without a workspace", () => {
+    expect(addMcpServer(input(), undefined).ok).toBe(false);
+    expect(updateMcpServer("srv", input(), undefined).ok).toBe(false);
+  });
+});
+
+describe("commandExistsOnPath", () => {
+  it("finds a command that exists in a PATH directory", () => {
+    const dir = path.join(HOME, "bin");
+    const exe = process.platform === "win32" ? "mytool.exe" : "mytool";
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, exe), "#!/bin/sh\n");
+    const savedPath = process.env.PATH;
+    process.env.PATH = dir + path.delimiter + (savedPath ?? "");
+    try {
+      expect(commandExistsOnPath("mytool")).toBe(true);
+      expect(commandExistsOnPath("definitely-not-a-real-command-xyz")).toBe(false);
+    } finally {
+      process.env.PATH = savedPath;
+    }
   });
 });

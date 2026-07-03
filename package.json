@@ -16,11 +16,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/vishalguptax/claude-manager"
+    "url": "https://github.com/vishalguptax/claude-code-manager"
   },
   "homepage": "https://claudemanager.vishalg.in",
   "bugs": {
-    "url": "https://github.com/vishalguptax/claude-manager/issues"
+    "url": "https://github.com/vishalguptax/claude-code-manager/issues"
   },
   "engines": {
     "vscode": "^1.90.0",

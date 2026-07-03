@@ -10,6 +10,7 @@ import { MCP_AUTH_CACHE_FILE, claudeSettingsPath } from "../../core/config";
 import { writeFileAtomic } from "../../core/atomicWrite";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { loadActivePlugins, findPluginMcpFile, type ActivePlugin } from "../../core/plugins";
+import type { McpServerInput } from "../../shared/protocol/messages";
 import type { McpServer, McpServerScope, McpServerType } from "./types";
 
 /** Servers parsed from every scope, plus any per-file parse failures. */
@@ -331,7 +332,54 @@ export function parseMcpServers(workspacePath?: string): McpParseResult {
     }
   }
 
+  // Stamp a local, offline health signal on stdio servers: does the
+  // launch command resolve on PATH? url-transport servers are left
+  // undefined — the extension never probes network reachability.
+  for (const server of servers) {
+    if (server.type === "stdio" && server.command) {
+      server.commandAvailable = commandExistsOnPath(server.command);
+    }
+  }
+
   return { servers, errors };
+}
+
+/**
+ * True when `command` resolves to an executable on the user's PATH (or
+ * is an existing absolute/relative path). Pure filesystem lookup — no
+ * process spawn, no network — so it's safe to run on every parse.
+ * On Windows, PATHEXT extensions (.exe/.cmd/.bat/…) are tried.
+ */
+export function commandExistsOnPath(command: string): boolean {
+  // An explicit path (absolute or containing a separator) is checked directly.
+  if (command.includes("/") || command.includes("\\")) {
+    return existsWithExt(command);
+  }
+  const pathEnv = process.env.PATH ?? process.env.Path ?? "";
+  const dirs = pathEnv.split(path.delimiter).filter(Boolean);
+  for (const dir of dirs) {
+    if (existsWithExt(path.join(dir, command))) return true;
+  }
+  return false;
+}
+
+/** Check a candidate path, trying Windows PATHEXT suffixes when present. */
+function existsWithExt(candidate: string): boolean {
+  const isFile = (p: string): boolean => {
+    try {
+      return fs.statSync(p).isFile();
+    } catch {
+      return false;
+    }
+  };
+  if (isFile(candidate)) return true;
+  if (process.platform === "win32") {
+    const exts = (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";").filter(Boolean);
+    for (const ext of exts) {
+      if (isFile(candidate + ext.toLowerCase()) || isFile(candidate + ext)) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -510,4 +558,108 @@ export function deleteMcpServer(
   delete servers[name];
 
   return writeMcpConfig(filePath, config, raw);
+}
+
+/** Build the raw `.mcp.json` entry object for a server from form input. */
+function buildServerEntry(input: McpServerInput): Record<string, unknown> {
+  const entry: Record<string, unknown> = {};
+  if (input.transport === "stdio") {
+    if (input.command) entry.command = input.command;
+    if (input.args && input.args.length > 0) entry.args = input.args;
+  } else {
+    // http / sse / ws — record the transport explicitly and the URL.
+    entry.type = input.transport;
+    if (input.url) entry.url = input.url;
+  }
+  if (input.env && Object.keys(input.env).length > 0) entry.env = input.env;
+  if (input.headers && Object.keys(input.headers).length > 0) entry.headers = input.headers;
+  return entry;
+}
+
+/** Resolve the write target file for an editable-scope server. */
+function serverConfigFile(scope: string, name: string, workspacePath?: string): string | null {
+  if (scope === "project") {
+    return workspacePath ? path.join(workspacePath, ".mcp.json") : null;
+  }
+  if (scope === "global") return globalMcpFileFor(name);
+  return null;
+}
+
+/** Read a config file's raw text + parsed object, defaulting to an empty config. */
+function readConfig(filePath: string): { raw: string; config: Record<string, unknown> } {
+  let raw = "";
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return { raw: "", config: {} };
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return { raw, config: parsed as Record<string, unknown> };
+    }
+  } catch {
+    // Malformed — refuse to clobber; callers treat empty config as "can't write".
+  }
+  return { raw, config: {} };
+}
+
+export interface McpWriteResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Add a new MCP server to the target scope's config file (creating the
+ * file if needed). Rejects a duplicate name in that file.
+ */
+export function addMcpServer(input: McpServerInput, workspacePath?: string): McpWriteResult {
+  if (!input.name.trim()) return { ok: false, error: "Server name is required." };
+  const filePath = serverConfigFile(input.scope, input.name, workspacePath);
+  if (!filePath) {
+    return { ok: false, error: `Cannot write to ${input.scope} scope without a workspace.` };
+  }
+  const { raw, config } = readConfig(filePath);
+  const servers = (config.mcpServers as Record<string, unknown>) ?? {};
+  if (input.name in servers) {
+    return { ok: false, error: `An MCP server named "${input.name}" already exists in ${input.scope} scope.` };
+  }
+  servers[input.name] = buildServerEntry(input);
+  config.mcpServers = servers;
+  // A brand-new file (no prior newline-indented content) should still be
+  // pretty-printed; seed the indent hint so writeMcpConfig formats it.
+  const indentHint = raw || '{\n  "mcpServers": {}\n}';
+  return writeMcpConfig(filePath, config, indentHint)
+    ? { ok: true }
+    : { ok: false, error: "Failed to write MCP config." };
+}
+
+/**
+ * Update an existing MCP server in place. Supports renaming (removes the
+ * old key, writes the new). Identified by `originalName` within the
+ * server's scope.
+ */
+export function updateMcpServer(
+  originalName: string,
+  input: McpServerInput,
+  workspacePath?: string,
+): McpWriteResult {
+  if (!input.name.trim()) return { ok: false, error: "Server name is required." };
+  const filePath = serverConfigFile(input.scope, originalName, workspacePath);
+  if (!filePath) {
+    return { ok: false, error: `Cannot write to ${input.scope} scope without a workspace.` };
+  }
+  const { raw, config } = readConfig(filePath);
+  const servers = config.mcpServers as Record<string, unknown> | undefined;
+  if (!servers || !(originalName in servers)) {
+    return { ok: false, error: `Server "${originalName}" was not found — it may have been edited on disk.` };
+  }
+  if (input.name !== originalName && input.name in servers) {
+    return { ok: false, error: `An MCP server named "${input.name}" already exists.` };
+  }
+  delete servers[originalName];
+  servers[input.name] = buildServerEntry(input);
+  return writeMcpConfig(filePath, config, raw)
+    ? { ok: true }
+    : { ok: false, error: "Failed to write MCP config." };
 }

@@ -40,9 +40,10 @@ export interface ListViewProps {
   onCopyName: (name: string) => void;
   onBrowse: () => void;
   onRefresh: () => void;
+  onNew: () => void;
 }
 
-export function ListView({ onSelect, onCopyName, onBrowse, onRefresh }: ListViewProps) {
+export function ListView({ onSelect, onCopyName, onBrowse, onRefresh, onNew }: ListViewProps) {
   const all = servers.value;
   const filtered = filteredServers.value;
   const query = searchQuery.value;
@@ -141,6 +142,14 @@ export function ListView({ onSelect, onCopyName, onBrowse, onRefresh }: ListView
           onInput={(v) => {
             searchQuery.value = v.toLowerCase();
           }}
+        />
+        <Button
+          variant="icon"
+          iconName="plus"
+          class="search-side-btn"
+          title="Add MCP server"
+          ariaLabel="Add MCP server"
+          onClick={onNew}
         />
         <Button
           variant="icon"

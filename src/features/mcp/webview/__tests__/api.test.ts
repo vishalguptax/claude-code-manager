@@ -40,6 +40,38 @@ describe("createMcpApi", () => {
     expect(posted).toEqual([{ type: "deleteMcpServer", name: "srv", scope: "project" }]);
   });
 
+  it("posts add / update with the server payload", () => {
+    const { api, posted } = harness();
+    const server = {
+      name: "api",
+      scope: "project",
+      transport: "http",
+      url: "https://x/mcp",
+      env: {},
+      headers: {},
+    };
+    api.add(server);
+    api.update("old-name", server);
+    expect(posted).toEqual([
+      { type: "addMcpServer", server },
+      { type: "updateMcpServer", originalName: "old-name", server },
+    ]);
+  });
+
+  it("posts the custom action messages", () => {
+    const { api, posted } = harness();
+    api.authenticate("api");
+    api.logout("api");
+    api.reconnect();
+    api.checkStatus();
+    expect(posted).toEqual([
+      { type: "authenticateMcp", name: "api" },
+      { type: "logoutMcp", name: "api" },
+      { type: "reconnectMcp" },
+      { type: "mcpListStatus" },
+    ]);
+  });
+
   it("posts openUrl and newSession", () => {
     const { api, posted } = harness();
     api.openUrl("https://mcp.so");

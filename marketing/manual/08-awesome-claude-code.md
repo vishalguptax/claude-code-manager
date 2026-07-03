@@ -24,7 +24,7 @@ Claude Code Manager
 
 URL:
 ```
-https://github.com/vishalguptax/claude-manager
+https://github.com/vishalguptax/claude-code-manager
 ```
 
 Description (their style: one line, descriptive, no pitch):

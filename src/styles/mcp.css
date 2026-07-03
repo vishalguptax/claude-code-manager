@@ -297,3 +297,57 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Health dot (local stdio command-on-PATH signal)
+   ────────────────────────────────────────────────────────────────────────────── */
+.mcp-health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.mcp-health-dot.is-ok { background: var(--green, #2ea043); }
+.mcp-health-dot.is-missing { background: var(--vscode-editorError-foreground, #f14c4c); }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Reveal-secret toggle (env/headers)
+   ────────────────────────────────────────────────────────────────────────────── */
+.mcp-secret-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-2xl) 0;
+}
+.mcp-secret-toggle-label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Add/Edit form (in the shared <Modal>)
+   ────────────────────────────────────────────────────────────────────────────── */
+.mcp-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 320px;
+}
+.mcp-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.mcp-form-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--fg-section);
+}
+.mcp-form-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}

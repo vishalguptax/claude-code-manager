@@ -2,7 +2,7 @@
 
 Marketplace: https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
 Open VSX: https://open-vsx.org/extension/vishalguptax/claude-manager
-Repo: https://github.com/vishalguptax/claude-manager
+Repo: https://github.com/vishalguptax/claude-code-manager
 Image: `marketing/promo-card.png`
 
 ---
@@ -42,7 +42,7 @@ Apache 2.0. Works in **VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespa
 **Install:** search "Claude Code Manager" in Extensions, or `code --install-extension vishalguptax.claude-manager`.
 
 Marketplace: https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
-Repo (stars appreciated 🙏): https://github.com/vishalguptax/claude-manager
+Repo (stars appreciated 🙏): https://github.com/vishalguptax/claude-code-manager
 
 Built this because I needed it daily — feature requests and feedback very welcome.
 
@@ -64,7 +64,7 @@ I use Claude Code daily and kept losing track of sessions, MCP servers, and cust
 
 Local-first: no telemetry, no accounts. Reads from ~/.claude/. The only network call is an opt-in usage fetch to Anthropic's own API with your own token. Works with both the CLI and the official extension, and in any VS Code-based editor. Apache 2.0.
 
-Repo: https://github.com/vishalguptax/claude-manager
+Repo: https://github.com/vishalguptax/claude-code-manager
 Marketplace: https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
 
 Would love feedback on what's missing.

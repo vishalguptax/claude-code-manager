@@ -7,7 +7,7 @@
  * module owns the message shapes (single source: shared protocol).
  */
 import { parseMessage } from "../../../shared/protocol/schemas";
-import type { WebviewMessage } from "../../../shared/protocol/messages";
+import type { McpServerInput, WebviewMessage } from "../../../shared/protocol/messages";
 import type { McpServerScope } from "../types";
 
 /** Bridge shape returned by the shared `useApi()` hook. */
@@ -16,6 +16,12 @@ export interface McpApi {
   openConfig(scope: McpServerScope, name?: string): void;
   toggle(name: string, scope: McpServerScope, disabled: boolean, pluginName?: string): void;
   remove(name: string, scope: McpServerScope): void;
+  add(server: McpServerInput): void;
+  update(originalName: string, server: McpServerInput): void;
+  authenticate(name: string): void;
+  logout(name: string): void;
+  reconnect(): void;
+  checkStatus(): void;
   openUrl(url: string): void;
   newSession(): void;
 }
@@ -43,6 +49,24 @@ export function createMcpApi(post: (m: unknown) => void): McpApi {
     },
     remove(name, scope) {
       send(post, { type: "deleteMcpServer", name, scope });
+    },
+    add(server) {
+      send(post, { type: "addMcpServer", server });
+    },
+    update(originalName, server) {
+      send(post, { type: "updateMcpServer", originalName, server });
+    },
+    authenticate(name) {
+      send(post, { type: "authenticateMcp", name });
+    },
+    logout(name) {
+      send(post, { type: "logoutMcp", name });
+    },
+    reconnect() {
+      send(post, { type: "reconnectMcp" });
+    },
+    checkStatus() {
+      send(post, { type: "mcpListStatus" });
     },
     openUrl(url) {
       send(post, { type: "openUrl", url });

@@ -27,7 +27,7 @@ I'm the developer of Claude Code Manager, a VS Code extension that might be a fi
 - ~1.5K installs, actively maintained
 
 Marketplace: https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
-Repo: https://github.com/vishalguptax/claude-manager
+Repo: https://github.com/vishalguptax/claude-code-manager
 
 If it doesn't fit your criteria, no worries at all. Happy to answer anything either way.
 

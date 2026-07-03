@@ -42,6 +42,13 @@ export interface McpServer {
    * `"plugin"`. Undefined otherwise.
    */
   pluginName?: string;
+  /**
+   * For stdio servers, whether the launch command resolves on the
+   * user's PATH (a local, offline health signal). `undefined` for
+   * url-transport servers, whose reachability the extension never
+   * probes (no network) — their status is checked via `claude mcp list`.
+   */
+  commandAvailable?: boolean;
 }
 
 // MCP postMessage shapes now live in the shared protocol

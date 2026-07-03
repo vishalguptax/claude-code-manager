@@ -114,12 +114,12 @@ _Released YYYY-MM-DD_
 
 ---
 
-**Full changelog**: https://github.com/vishalguptax/claude-manager/compare/{lastTag}...{nextVersion}
+**Full changelog**: https://github.com/vishalguptax/claude-code-manager/compare/{lastTag}...{nextVersion}
 ```
 
 Skip empty sections. If a section has no commits, omit it entirely. Keep commit subjects as-is (don't paraphrase) but strip the `feat:` / `fix:` etc. prefix so the section headings carry the type info.
 
-Links: use `https://github.com/vishalguptax/claude-manager/commit/{full-sha}` as the href, show the 7-char short SHA as the link text.
+Links: use `https://github.com/vishalguptax/claude-code-manager/commit/{full-sha}` as the href, show the 7-char short SHA as the link text.
 
 ### 7. Update CHANGELOG.md at repo root
 
@@ -182,7 +182,7 @@ Tell the user:
 - How many commits are included
 - Where the release notes file was created
 - That CI is now handling the publish
-- Link to Actions: `https://github.com/vishalguptax/claude-manager/actions`
+- Link to Actions: `https://github.com/vishalguptax/claude-code-manager/actions`
 
 ---
 

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/marketplace-icon.png" alt="Claude Code Manager" width="100">
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/marketplace-icon.png" alt="Claude Code Manager" width="100">
 
 <h1>Claude Code Manager</h1>
 <p><em>(formerly Claude Manager)</em></p>
@@ -13,7 +13,7 @@
 <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager"><img src="https://vsmarketplacebadges.dev/version-short/vishalguptax.claude-manager.svg?style=for-the-badge&label=Marketplace&labelColor=1a1a2e&color=007ACC&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace"></a>
 <a href="https://open-vsx.org/extension/vishalguptax/claude-manager"><img src="https://img.shields.io/open-vsx/v/vishalguptax/claude-manager?style=for-the-badge&label=Open%20VSX&labelColor=1a1a2e&color=a60ee5&logo=eclipseide&logoColor=white" alt="Open VSX"></a>
 <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager"><img src="https://vsmarketplacebadges.dev/installs-short/vishalguptax.claude-manager.svg?style=for-the-badge&label=Installs&labelColor=1a1a2e&color=22c55e&logo=visualstudiocode&logoColor=white" alt="Installs"></a>
-<a href="https://github.com/vishalguptax/claude-manager/stargazers"><img src="https://img.shields.io/github/stars/vishalguptax/claude-manager?style=for-the-badge&label=Stars&labelColor=1a1a2e&color=f59e0b&logo=github&logoColor=white" alt="GitHub Stars"></a>
+<a href="https://github.com/vishalguptax/claude-code-manager/stargazers"><img src="https://img.shields.io/github/stars/vishalguptax/claude-code-manager?style=for-the-badge&label=Stars&labelColor=1a1a2e&color=f59e0b&logo=github&logoColor=white" alt="GitHub Stars"></a>
 <a href="#faq"><img src="https://img.shields.io/badge/100%25_Local-zero%20network-22c55e?style=for-the-badge&labelColor=1a1a2e&logo=ghostery&logoColor=white" alt="100% Local, zero network calls"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-f43f5e?style=for-the-badge&labelColor=1a1a2e" alt="License"></a>
 <a href="https://github.com/sponsors/vishalguptax"><img src="https://img.shields.io/badge/Sponsor-%E2%99%A5-ec4899?style=for-the-badge&labelColor=1a1a2e&logo=githubsponsors&logoColor=white" alt="Sponsor"></a>
@@ -24,7 +24,7 @@
 <br>
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/demo.gif" alt="Claude Code Manager sidebar demo showing sessions, skills, commands, hooks, MCP servers, agents, and account in VS Code" width="480">
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/demo.gif" alt="Claude Code Manager sidebar demo showing sessions, skills, commands, hooks, MCP servers, agents, and account in VS Code" width="480">
 </div>
 
 <p align="center">
@@ -118,36 +118,36 @@ So you can **switch between Claude accounts in VS Code** without a full logout a
 <table>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/02-skills.webp" alt="Skills tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/site/assets/screenshots/02-skills.webp" alt="Skills tab" width="360"><br>
 <strong>Skills</strong><br>
 <sub>Global, project, and plugin skills with scope badges.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/03-commands.webp" alt="Commands tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/site/assets/screenshots/03-commands.webp" alt="Commands tab" width="360"><br>
 <strong>Commands</strong><br>
 <sub>Built-in slash commands plus your custom ones from <code>.claude/commands/</code>.</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/04-hooks.webp" alt="Hooks tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/site/assets/screenshots/04-hooks.webp" alt="Hooks tab" width="360"><br>
 <strong>Hooks</strong><br>
 <sub>Inspect automation hooks across global, project, and local scopes.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/05-mcp.webp" alt="MCP servers tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/site/assets/screenshots/05-mcp.webp" alt="MCP servers tab" width="360"><br>
 <strong>MCP Servers</strong><br>
 <sub>Enable/disable, delete, or inspect MCP servers. Secrets masked automatically.</sub>
 </td>
 </tr>
 <tr>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/06-agents.webp" alt="Agents tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/site/assets/screenshots/06-agents.webp" alt="Agents tab" width="360"><br>
 <strong>Agents</strong><br>
 <sub>Browse project agents with Sonnet / Opus / Haiku badges.</sub>
 </td>
 <td width="50%" valign="top" align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/site/assets/screenshots/07-account.webp" alt="Account tab" width="360"><br>
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/site/assets/screenshots/07-account.webp" alt="Account tab" width="360"><br>
 <strong>Account</strong><br>
 <sub>Profile switcher, activity heatmap, token stats, opt-in quota card.</sub>
 </td>
@@ -221,7 +221,7 @@ Requires VS Code 1.90+ and [Claude Code](https://claude.ai/code) installed. (On 
 
 ## Contributing
 
-Bug reports and PRs are welcome. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local setup, build, and architecture. Browse [open issues](https://github.com/vishalguptax/claude-manager/issues), [open a new one](https://github.com/vishalguptax/claude-manager/issues/new), or check the [changelog](CHANGELOG.md).
+Bug reports and PRs are welcome. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local setup, build, and architecture. Browse [open issues](https://github.com/vishalguptax/claude-code-manager/issues), [open a new one](https://github.com/vishalguptax/claude-code-manager/issues/new), or check the [changelog](CHANGELOG.md).
 
 **Architecture (v2):** the webview is built with [Preact](https://preactjs.com/) + [@preact/signals](https://preactjs.com/guide/v10/signals/), feature-sliced under `src/features/*/webview/`, bundled by esbuild as a tiny shell that lazy-loads one code-split chunk per feature tab. Every message between the extension host and the webview flows through a single shared protocol validated at runtime with [valibot](https://valibot.dev/), so malformed frames are rejected rather than acted on. The webview runs under a strict CSP (`default-src 'none'`, nonce-only scripts) and makes no network calls. Lint + format is [Biome](https://biomejs.dev/); 1,400+ unit tests gate every change. Upgrading from v1? See the [v1→v2 migration guide](docs/migration/v1-to-v2.md). There's nothing you need to do.
 

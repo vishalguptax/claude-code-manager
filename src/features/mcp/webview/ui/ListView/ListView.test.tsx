@@ -16,6 +16,7 @@ function props() {
     onCopyName: vi.fn(),
     onBrowse: vi.fn(),
     onRefresh: vi.fn(),
+    onNew: vi.fn(),
   };
 }
 
@@ -65,6 +66,13 @@ describe("ListView", () => {
     fireEvent.click(screen.getByLabelText("Refresh MCP servers"));
     expect(p.onBrowse).toHaveBeenCalledOnce();
     expect(p.onRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("fires onNew from the add-server button", () => {
+    const p = props();
+    render(h(ListView, p));
+    fireEvent.click(screen.getByLabelText("Add MCP server"));
+    expect(p.onNew).toHaveBeenCalledOnce();
   });
 
   it("filters the visible list by the scope filter", () => {

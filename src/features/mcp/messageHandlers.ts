@@ -11,12 +11,14 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import {
+  addMcpServer,
   deleteMcpServer,
   globalMcpFileFor,
   globalMcpConfigFile,
   parseMcpServers,
   readMcpAuthNeeds,
   setProjectMcpServerDisabled,
+  updateMcpServer,
 } from "./parser";
 import { parseMessage } from "../../shared/protocol/schemas";
 import type { McpServer, McpServerScope } from "./types";
@@ -29,11 +31,25 @@ export interface McpHostContext {
   getWorkspace(): string | undefined;
   /** Cache the parsed server list so other host code can read it. */
   setMcpServers(servers: McpServer[]): void;
+  /** Run a shell command in a terminal (e.g. `claude mcp login x`). */
+  runShellCommand(label: string, command: string): void;
+  /** Open `claude` and type a slash command after it enters the REPL (e.g. `/mcp`). */
+  runSlashCommand(label: string, slash: string): void;
 }
 
 /** Coerce an arbitrary string scope to a known MCP scope, else null. */
 function asScope(value: string): McpServerScope | null {
   return value === "global" || value === "project" || value === "plugin" ? value : null;
+}
+
+/**
+ * Single-quote a server name for safe use in the terminal command line
+ * (server names are user-controlled config keys). Wraps in single
+ * quotes and escapes any embedded single quote — works for bash/zsh;
+ * on Windows the value reaches `claude` as a literal argument.
+ */
+function shellArg(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 /**
@@ -70,12 +86,19 @@ export async function handleMcpMessage(
   } catch (err) {
     // Only claim+reject messages that look like ours; otherwise defer.
     const type = (raw as { type?: unknown } | null)?.type;
-    if (
-      type === "getMcpServers" ||
-      type === "openMcpConfig" ||
-      type === "toggleMcpServer" ||
-      type === "deleteMcpServer"
-    ) {
+    const MCP_TYPES = new Set([
+      "getMcpServers",
+      "openMcpConfig",
+      "toggleMcpServer",
+      "deleteMcpServer",
+      "addMcpServer",
+      "updateMcpServer",
+      "authenticateMcp",
+      "logoutMcp",
+      "reconnectMcp",
+      "mcpListStatus",
+    ]);
+    if (typeof type === "string" && MCP_TYPES.has(type)) {
       console.error("[claude-manager] rejected malformed MCP message", err);
       return true;
     }
@@ -175,6 +198,51 @@ export async function handleMcpMessage(
       } else if (!ok) {
         vscode.window.showErrorMessage(`Failed to delete ${msg.name}`);
       }
+      return true;
+    }
+
+    case "addMcpServer": {
+      const result = addMcpServer(msg.server, ctx.getWorkspace());
+      if (!result.ok) {
+        vscode.window.showErrorMessage(result.error ?? "Failed to add MCP server.");
+      } else if (wv) {
+        pushServers(ctx, wv);
+      }
+      return true;
+    }
+
+    case "updateMcpServer": {
+      const result = updateMcpServer(msg.originalName, msg.server, ctx.getWorkspace());
+      if (!result.ok) {
+        vscode.window.showErrorMessage(result.error ?? "Failed to update MCP server.");
+      } else if (wv) {
+        pushServers(ctx, wv);
+      }
+      return true;
+    }
+
+    case "authenticateMcp": {
+      // `claude mcp login <name>` runs the OAuth flow from the terminal.
+      ctx.runShellCommand(`mcp login ${msg.name}`, `claude mcp login ${shellArg(msg.name)}`);
+      return true;
+    }
+
+    case "logoutMcp": {
+      ctx.runShellCommand(`mcp logout ${msg.name}`, `claude mcp logout ${shellArg(msg.name)}`);
+      return true;
+    }
+
+    case "reconnectMcp": {
+      // No programmatic reconnect exists — the /mcp panel is the manual
+      // reconnect + status surface.
+      ctx.runSlashCommand("mcp", "/mcp");
+      return true;
+    }
+
+    case "mcpListStatus": {
+      // Connection status for url-transport servers: Claude Code probes,
+      // the extension only launches the command.
+      ctx.runShellCommand("mcp list", "claude mcp list");
       return true;
     }
 

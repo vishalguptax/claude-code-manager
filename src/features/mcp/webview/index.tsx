@@ -4,10 +4,11 @@
  * detail view depending on the current selection. All host sends go through
  * the validated `createMcpApi` wrapper built on the shared `useApi()` hook.
  */
-import { useEffect, useMemo } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
+import type { McpServerInput } from "../../../shared/protocol/messages";
 import type { McpServer } from "../types";
 import { createMcpApi } from "./api";
 import { MCP_BROWSE_URL } from "./lib";
@@ -20,7 +21,10 @@ import {
   selected,
   servers,
 } from "./model";
-import { DetailView, ListView } from "./ui";
+import { DetailView, ListView, McpForm } from "./ui";
+
+/** Form state: closed, or open in add (null) / edit (a server) mode. */
+type FormState = { open: false } | { open: true; server: McpServer | null };
 
 /** Copy text to the clipboard, ignoring environments without the API. */
 function copyToClipboard(text: string): void {
@@ -30,6 +34,7 @@ function copyToClipboard(text: string): void {
 export default function McpTab() {
   const { post } = useApi();
   const api = useMemo(() => createMcpApi(post), [post]);
+  const [form, setForm] = useState<FormState>({ open: false });
 
   useEffect(() => {
     const unsubscribe = registerFeatureHandler("mcp", (msg) => {
@@ -79,29 +84,51 @@ export default function McpTab() {
     selected.value = server;
   };
 
+  const submitForm = (originalName: string | null, input: McpServerInput): void => {
+    if (originalName !== null) api.update(originalName, input);
+    else api.add(input);
+    setForm({ open: false });
+  };
+
+  const formEl = form.open ? (
+    <McpForm server={form.server} onClose={() => setForm({ open: false })} onSubmit={submitForm} />
+  ) : null;
+
   if (sel) {
     return (
-      <DetailView
-        server={sel}
-        onBack={() => {
-          selected.value = null;
-        }}
-        onOpenConfig={(s) => api.openConfig(s.scope, s.name)}
-        onToggle={(s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName)}
-        onDelete={(s) => api.remove(s.name, s.scope)}
-        onCopyName={copyToClipboard}
-        onOpenClaude={() => api.newSession()}
-      />
+      <>
+        <DetailView
+          server={sel}
+          onBack={() => {
+            selected.value = null;
+          }}
+          onEdit={(s) => setForm({ open: true, server: s })}
+          onOpenConfig={(s) => api.openConfig(s.scope, s.name)}
+          onToggle={(s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName)}
+          onDelete={(s) => api.remove(s.name, s.scope)}
+          onCopyName={copyToClipboard}
+          onOpenClaude={() => api.newSession()}
+          onAuthenticate={(name) => api.authenticate(name)}
+          onLogout={(name) => api.logout(name)}
+          onReconnect={() => api.reconnect()}
+          onCheckStatus={() => api.checkStatus()}
+        />
+        {formEl}
+      </>
     );
   }
 
   return (
-    <ListView
-      onSelect={onSelect}
-      onCopyName={copyToClipboard}
-      onBrowse={() => api.openUrl(MCP_BROWSE_URL)}
-      onRefresh={() => api.getServers()}
-    />
+    <>
+      <ListView
+        onSelect={onSelect}
+        onCopyName={copyToClipboard}
+        onBrowse={() => api.openUrl(MCP_BROWSE_URL)}
+        onRefresh={() => api.getServers()}
+        onNew={() => setForm({ open: true, server: null })}
+      />
+      {formEl}
+    </>
   );
 }
 
