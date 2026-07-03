@@ -26,7 +26,7 @@ describe("formatReport", () => {
       { id: "b", label: "Second", status: "warn", detail: "iffy" },
       { id: "c", label: "Third", status: "fail", detail: "broken", fixHint: "fix it" },
     ]);
-    expect(md).toContain("# Claude Manager — Diagnostic report");
+    expect(md).toContain("# Claude Code Manager — Diagnostic report");
     expect(md).toContain("1 pass · 1 warn · 1 fail");
     expect(md).toContain("| First |");
     expect(md).toContain("[ OK ]");

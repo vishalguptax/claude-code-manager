@@ -16,7 +16,7 @@ const LINKEDIN_URL = "https://www.linkedin.com/in/vishalgupta26/";
 export function Footer() {
   return (
     <div class="app-footer">
-      <span class="footer-name">Claude Manager</span>
+      <span class="footer-name">Claude Code Manager</span>
       <span class="footer-links">
         <Button
           variant="icon"

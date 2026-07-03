@@ -107,7 +107,7 @@ function checkClaudeJson(): DiagnosticCheck {
       "~/.claude.json valid",
       "fail",
       "File missing or malformed JSON.",
-      "Run `Claude Manager: Restore Claude config` or `claude` once.",
+      "Run `Claude Code Manager: Restore Claude config` or `claude` once.",
     );
   }
   if (!("oauthAccount" in (data as Record<string, unknown>))) {

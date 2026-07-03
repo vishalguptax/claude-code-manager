@@ -1,4 +1,4 @@
-# Claude Manager — promo copy
+# Claude Code Manager — promo copy
 
 Marketplace: https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
 Open VSX: https://open-vsx.org/extension/vishalguptax/claude-manager
@@ -15,7 +15,7 @@ Image: `marketing/promo-card.png`
 
 Claude Code is powerful, but the terminal isn't built for *managing* it. Finding last week's session means scrolling forever. Toggling an MCP server means hand-editing JSON. Your custom commands, hooks, and agents are scattered across files you have to remember.
 
-**Claude Manager** is a VS Code extension that turns all of it into one clickable, searchable sidebar. Same Claude Code underneath — just one keystroke away (`Ctrl/Cmd+Alt+C`).
+**Claude Code Manager** is a VS Code extension that turns all of it into one clickable, searchable sidebar. Same Claude Code underneath — just one keystroke away (`Ctrl/Cmd+Alt+C`).
 
 **🗂️ Sessions** — Full-text search across every session. Resume, continue, fork, and import/export across machines. Filter by project and git branch — it *warns you* if your current branch doesn't match. Live status dots show what's running vs. waiting on your input.
 
@@ -39,7 +39,7 @@ Claude Code is powerful, but the terminal isn't built for *managing* it. Finding
 
 Apache 2.0. Works in **VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod** — and with both the Claude Code CLI and the official VS Code extension (sessions from either show up together).
 
-**Install:** search "Claude Manager" in Extensions, or `code --install-extension vishalguptax.claude-manager`.
+**Install:** search "Claude Code Manager" in Extensions, or `code --install-extension vishalguptax.claude-manager`.
 
 Marketplace: https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
 Repo (stars appreciated 🙏): https://github.com/vishalguptax/claude-code-manager
@@ -50,11 +50,11 @@ Built this because I needed it daily — feature requests and feedback very welc
 
 ## Hacker News — Show HN
 
-**Title:** Show HN: Claude Manager – local-first VS Code extension for Claude Code  (70 chars)
+**Title:** Show HN: Claude Code Manager – local-first VS Code extension for Claude Code  (76 chars)
 
 **Body:**
 
-I use Claude Code daily and kept losing track of sessions, MCP servers, and custom commands in the terminal. Claude Manager surfaces the whole setup in a VS Code sidebar:
+I use Claude Code daily and kept losing track of sessions, MCP servers, and custom commands in the terminal. Claude Code Manager surfaces the whole setup in a VS Code sidebar:
 
 - Sessions: full-text search, resume/fork/continue, git-branch-aware (warns on mismatch), import/export across machines, live "running vs. needs-input" indicators
 - MCP servers: toggle/inspect without editing JSON, secrets masked
@@ -76,7 +76,7 @@ Would love feedback on what's missing.
 **Post 1:**
 Your Claude Code setup lives in a dozen terminal commands and JSON files.
 
-Claude Manager puts all of it in one VS Code sidebar 👇 (free + open source)
+Claude Code Manager puts all of it in one VS Code sidebar 👇 (free + open source)
 
 🗂️ Search every session — git-branch aware
 🔌 Toggle MCP servers, no JSON
@@ -100,7 +100,7 @@ https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
 
 If you use Claude Code, your setup is probably scattered — sessions buried in terminal scrollback, MCP servers configured by hand-editing JSON, custom commands and agents spread across files.
 
-I built **Claude Manager**, a free and open-source VS Code extension that brings the whole thing into one searchable sidebar:
+I built **Claude Code Manager**, a free and open-source VS Code extension that brings the whole thing into one searchable sidebar:
 
 • Sessions — search, resume, fork, filter by project & git branch, import/export across machines
 • MCP servers — enable/disable/inspect without touching JSON
@@ -115,7 +115,7 @@ Apache 2.0, free for everyone. Link in comments.
 
 ## Short blurb (Discord / one-liner)
 
-Claude Manager — a free, local-first VS Code extension for managing Claude Code sessions, skills, commands, hooks, MCP servers & agents from one searchable sidebar. Open source. https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
+Claude Code Manager — a free, local-first VS Code extension for managing Claude Code sessions, skills, commands, hooks, MCP servers & agents from one searchable sidebar. Open source. https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
 
 ---
 

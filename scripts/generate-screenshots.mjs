@@ -145,13 +145,13 @@ const TABS = [
 
 function chrome(active, body) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>
-  <div class="hd">CLAUDE MANAGER</div>
+  <div class="hd">CLAUDE CODE MANAGER</div>
   <div class="tabs">
     ${TABS.map(([ic, label]) => `<span class="tab${label === active ? " on" : ""}">${IC[ic]}${label === active ? `<span>${label}</span>` : ""}</span>`).join("")}
     <span class="sp"></span><span class="rficon">${IC.rf}</span>
   </div>
   <div class="content">${body}</div>
-  <div class="foot"><span>Claude Manager</span><span class="ics">${IC.gh}${IC.li}</span></div>
+  <div class="foot"><span>Claude Code Manager</span><span class="ics">${IC.gh}${IC.li}</span></div>
   </body></html>`;
 }
 

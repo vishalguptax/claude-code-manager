@@ -1,8 +1,9 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/marketplace-icon.png" alt="Claude Manager" width="100">
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/marketplace-icon.png" alt="Claude Code Manager" width="100">
 
-<h1>Claude Manager</h1>
+<h1>Claude Code Manager</h1>
+<p><em>(formerly Claude Manager)</em></p>
 
 <p><strong>Every <a href="https://claude.ai/code">Claude Code</a> session, skill, slash command, hook, MCP server, and agent, one click away in your VS Code sidebar. Works with both the Claude Code CLI and the official VS Code extension.</strong></p>
 
@@ -23,7 +24,7 @@
 <br>
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/demo.gif" alt="Claude Manager sidebar demo showing sessions, skills, commands, hooks, MCP servers, agents, and account in VS Code" width="480">
+<img src="https://raw.githubusercontent.com/vishalguptax/claude-manager/main/media/demo.gif" alt="Claude Code Manager sidebar demo showing sessions, skills, commands, hooks, MCP servers, agents, and account in VS Code" width="480">
 </div>
 
 <p align="center">
@@ -33,11 +34,11 @@
 <br>
 
 > [!NOTE]
-> **100% local. Zero network calls.** Claude Manager reads `~/.claude/` and renders in your sidebar under a strict CSP. No telemetry, no accounts, no token ever leaves your machine. Even the live Quota card reads Claude Code's own statusline from disk, never the network.
+> **100% local. Zero network calls.** Claude Code Manager reads `~/.claude/` and renders in your sidebar under a strict CSP. No telemetry, no accounts, no token ever leaves your machine. Even the live Quota card reads Claude Code's own statusline from disk, never the network.
 
 ## Install
 
-**VS Code, Cursor, Windsurf, Antigravity:** open Extensions (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>), search **Claude Manager**, click Install.
+**VS Code, Cursor, Windsurf, Antigravity:** open Extensions (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>), search **Claude Code Manager**, click Install.
 
 **VSCodium, Theia, Gitpod:** install from [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager).
 
@@ -52,8 +53,8 @@ Three ways, pick whichever is closest:
 | Way | How |
 | :-- | :-- |
 | **Keyboard** | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> on Windows/Linux, <kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> on macOS |
-| **Status bar** | Click the **Claude Manager** chip at the bottom of the editor |
-| **Command palette** | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Manager: Open* |
+| **Status bar** | Click the **Claude Code Manager** chip at the bottom of the editor |
+| **Command palette** | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Code Manager: Open* |
 
 That's it.
 
@@ -63,7 +64,7 @@ That's it.
 
 Claude Code is powerful, but the terminal isn't built for browsing. Finding a session you ran last week means scrollback hunting. Editing an MCP server means hand-patching JSON. Keeping track of every custom slash command, hook, and agent is its own job.
 
-Claude Manager turns all of it into a sidebar you can click and search. Same Claude Code underneath, just one keystroke closer. It works whether you run the Claude Code **CLI**, the official **VS Code extension**, or both. Sessions from either show up in the same list, and Resume sends you back to wherever the session started (configurable).
+Claude Code Manager turns all of it into a sidebar you can click and search. Same Claude Code underneath, just one keystroke closer. It works whether you run the Claude Code **CLI**, the official **VS Code extension**, or both. Sessions from either show up in the same list, and Resume sends you back to wherever the session started (configurable).
 
 It also folds the jobs you'd otherwise wire up with separate single-purpose tools into one install: a usage tracker (like ccusage), an account switcher (like claude-swap), and an MCP manager all live in the same sidebar.
 
@@ -108,7 +109,7 @@ So you can **switch between Claude accounts in VS Code** without a full logout a
 </tr>
 <tr>
 <td align="center"><strong>Status bar</strong></td>
-<td>Open Claude Manager from anywhere in your editor with a single click.</td>
+<td>Open Claude Code Manager from anywhere in your editor with a single click.</td>
 </tr>
 </table>
 
@@ -159,16 +160,16 @@ So you can **switch between Claude accounts in VS Code** without a full logout a
 
 | Shortcut | Action |
 | :-- | :-- |
-| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> / <kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> | Open Claude Manager |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Manager: Open* | Command palette fallback |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Manager: Switch Account* | Native quick-pick profile switcher |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Manager: Reload* | Full re-parse + webview re-mount |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> / <kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> | Open Claude Code Manager |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Code Manager: Open* | Command palette fallback |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Code Manager: Switch Account* | Native quick-pick profile switcher |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Code Manager: Reload* | Full re-parse + webview re-mount |
 
 <br>
 
 ## Configuration
 
-Open Settings (<kbd>Ctrl</kbd>+<kbd>,</kbd>) and search **Claude Manager**.
+Open Settings (<kbd>Ctrl</kbd>+<kbd>,</kbd>) and search **Claude Code Manager**.
 
 | Setting | Default | What it controls |
 | :-- | :-- | :-- |
@@ -188,7 +189,7 @@ Full reference in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 ## FAQ
 
 **Does it send anything to the network?**
-No. **Zero network calls, ever.** The extension reads `~/.claude/` and renders in a VS Code webview under a strict CSP that blocks every outbound request. The Account tab's **Quota** card is local too: your 5-hour and 7-day numbers are computed by Claude Code and shown in its statusline, and an opt-in tap caches that render to a file the extension reads from disk. Claude Manager never calls Anthropic and never reads your OAuth token.
+No. **Zero network calls, ever.** The extension reads `~/.claude/` and renders in a VS Code webview under a strict CSP that blocks every outbound request. The Account tab's **Quota** card is local too: your 5-hour and 7-day numbers are computed by Claude Code and shown in its statusline, and an opt-in tap caches that render to a file the extension reads from disk. Claude Code Manager never calls Anthropic and never reads your OAuth token.
 
 **How does the View button know which terminal hosts which session?**
 Two passive signals, no instrumentation of Claude itself. (1) A `SessionStart` hook (auto-installed in your global `~/.claude/settings.json`, removable) records each CLI boot's `{sessionId, ppid}` into `~/.claude/.claude-manager/active-sessions.json`. The extension matches `vscode.Terminal.processId` against the recorded parent PID. (2) For VS Code terminals with shell integration, `claude --resume <id>` typed at any prompt is caught directly from the shell-execution event. cmd.exe (no shell integration) is covered by the hook path. Stale entries auto-prune after 1h or a dead PID.
@@ -200,7 +201,7 @@ Two passive signals, no instrumentation of Claude itself. (1) A `SessionStart` h
 Yes. It's a standard VS Code extension. Install from the Marketplace (VS Code, Cursor, Windsurf, Antigravity) or [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager) (VSCodium, Theia, Gitpod).
 
 **Do I need Claude Code installed?**
-Yes. Install [Claude Code](https://claude.ai/code) first. Either the CLI, the official VS Code extension, or both works. Claude Manager reads from the shared `~/.claude/` directory, so sessions from either surface show up together.
+Yes. Install [Claude Code](https://claude.ai/code) first. Either the CLI, the official VS Code extension, or both works. Claude Code Manager reads from the shared `~/.claude/` directory, so sessions from either surface show up together.
 
 **Does it modify my Claude config?**
 Only when you explicitly act: enable or disable an MCP server, edit a permission, restore from a backup, rename or delete a session. There's also one bootstrap write on first activation. The `SessionStart` hook that powers the View button is added to `~/.claude/settings.json`. Remove it from the Hooks tab if you'd rather not have it.
@@ -228,13 +229,13 @@ Bug reports and PRs are welcome. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) 
 
 ## Support
 
-If Claude Manager saves you time, consider [sponsoring the project](https://github.com/sponsors/vishalguptax). Sponsorship keeps development active and the extension free for everyone.
+If Claude Code Manager saves you time, consider [sponsoring the project](https://github.com/sponsors/vishalguptax). Sponsorship keeps development active and the extension free for everyone.
 
 <br>
 
 ## Disclaimer
 
-Claude Manager is an independent, community-built extension. It is not affiliated with, endorsed by, or sponsored by Anthropic. *Claude* and *Claude Code* are trademarks of Anthropic, PBC, used here only to describe the files this extension reads on your machine.
+Claude Code Manager is an independent, community-built extension. It is not affiliated with, endorsed by, or sponsored by Anthropic. *Claude* and *Claude Code* are trademarks of Anthropic, PBC, used here only to describe the files this extension reads on your machine.
 
 <br>
 

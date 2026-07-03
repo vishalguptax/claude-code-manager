@@ -1,4 +1,4 @@
-name: Feature request
+﻿name: Feature request
 description: Suggest an improvement or new capability.
 title: "[Feature]: "
 labels: ["enhancement"]
@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Claude Manager stays **local-first with zero telemetry**. Requests that
+        Claude Code Manager stays **local-first with zero telemetry**. Requests that
         require network calls, analytics, or account sign-in are out of scope.
   - type: textarea
     id: problem
@@ -19,7 +19,7 @@ body:
     id: proposal
     attributes:
       label: Proposed solution
-      description: What would you like Claude Manager to do?
+      description: What would you like Claude Code Manager to do?
     validations:
       required: true
   - type: textarea

@@ -1,6 +1,6 @@
-{
+﻿{
   "name": "claude-manager",
-  "displayName": "Claude Manager: Sessions, MCP, Skills, Usage & Accounts",
+  "displayName": "Claude Code Manager",
   "description": "Manage Claude Code sessions, MCP servers, skills, slash commands, hooks, agents, account switching & usage tracking from your VS Code sidebar. Resume with git branch detection. 100% local, zero telemetry.",
   "version": "2.2.1",
   "publisher": "vishalguptax",
@@ -75,7 +75,7 @@
       "activitybar": [
         {
           "id": "claudeCodeManager",
-          "title": "Claude Manager",
+          "title": "Claude Code Manager",
           "icon": "media/icon.svg"
         }
       ]
@@ -85,34 +85,34 @@
         {
           "type": "webview",
           "id": "claudeCodeManager.view",
-          "name": "Claude Manager"
+          "name": "Claude Code Manager"
         }
       ]
     },
     "commands": [
       {
         "command": "claudeManager.open",
-        "title": "Claude Manager: Open"
+        "title": "Claude Code Manager: Open"
       },
       {
         "command": "claudeManager.switchAccount",
-        "title": "Claude Manager: Switch Account"
+        "title": "Claude Code Manager: Switch Account"
       },
       {
         "command": "claudeManager.exportBrain",
-        "title": "Claude Manager: Export Brain…"
+        "title": "Claude Code Manager: Export Brain…"
       },
       {
         "command": "claudeManager.importBrain",
-        "title": "Claude Manager: Import Brain…"
+        "title": "Claude Code Manager: Import Brain…"
       },
       {
         "command": "claudeManager.reload",
-        "title": "Claude Manager: Reload"
+        "title": "Claude Code Manager: Reload"
       },
       {
         "command": "claudeManager.runDiagnostics",
-        "title": "Claude Manager: Run Diagnostics"
+        "title": "Claude Code Manager: Run Diagnostics"
       }
     ],
     "keybindings": [
@@ -129,7 +129,7 @@
       }
     ],
     "configuration": {
-      "title": "Claude Manager",
+      "title": "Claude Code Manager",
       "properties": {
         "claudeManager.terminal.location": {
           "type": "string",
@@ -265,7 +265,7 @@
       "limit": "60 KB"
     },
     {
-      "name": "webview feature chunks (sum; all-native Preact UI — no @vscode-elements/lit vendor)",
+      "name": "webview feature chunks (sum; all-native Preact UI â€” no @vscode-elements/lit vendor)",
       "path": "dist/webview/chunks/*.js",
       "limit": "60 KB"
     },

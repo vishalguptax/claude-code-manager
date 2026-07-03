@@ -359,8 +359,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.StatusBarAlignment.Right,
     100,
   );
-  statusBarItem.text = "$(sparkle) Claude Manager";
-  statusBarItem.tooltip = "Open Claude Manager sidebar";
+  statusBarItem.text = "$(sparkle) Claude Code Manager";
+  statusBarItem.tooltip = "Open Claude Code Manager sidebar";
   statusBarItem.command = "claudeManager.open";
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);

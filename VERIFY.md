@@ -22,7 +22,7 @@ Claude session in `~/.claude/` for the Sessions/Account tabs to show data.
 
 ## Per-tab smoke
 
-Open the Claude Manager sidebar (Activity Bar icon, or `Ctrl/Cmd+Alt+C`). For
+Open the Claude Code Manager sidebar (Activity Bar icon, or `Ctrl/Cmd+Alt+C`). For
 **each** tab, confirm: it loads without a spinner getting stuck, the
 Developer Tools webview console shows **no red errors**, and the listed actions
 work.
