@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.3.0] - 2026-07-04
+
+Claude Manager is now **Claude Code Manager** — display-name rename only (settings, keybindings, installs, and reviews untouched) — with a redesigned sparkle icon family, plus correctness fixes across MCP, agents, hooks, and session restore.
+
+See [docs/releases/v2.3.0.md](docs/releases/v2.3.0.md) for full details.
+
 ## [2.2.2] - 2026-07-01
 
 Correct session live-state (no more stale "active" sessions, new sessions appear on their own, pending questions show the right colour) and remove every synchronous multi-second freeze from user-action paths (Settings, Export Brain, Run Diagnostics, and any click now respond immediately).
