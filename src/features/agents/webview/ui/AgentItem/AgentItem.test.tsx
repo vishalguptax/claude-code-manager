@@ -38,6 +38,16 @@ describe("AgentItem", () => {
     expect(container.querySelector(".agent-item-desc")).toBeNull();
   });
 
+  it("shows a validity dot only when the description is blank", () => {
+    const withDesc = render(h(AgentItem, { agent: agent(), active: false, onSelect: () => {} }));
+    expect(withDesc.container.querySelector(".agent-validity-dot")).toBeNull();
+
+    const blank = render(
+      h(AgentItem, { agent: agent({ description: "  " }), active: false, onSelect: () => {} }),
+    );
+    expect(blank.container.querySelector(".agent-validity-dot")).toBeTruthy();
+  });
+
   it("fires onSelect with the agent on click", () => {
     const onSelect = vi.fn();
     const a = agent();
