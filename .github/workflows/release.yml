@@ -9,6 +9,7 @@ on:
       - "docs/DEVELOPMENT.md"
       - "docs/PLAN.md"
       - ".dev/**"
+      - "marketing/**"
     # Note: docs/releases/** and CHANGELOG.md are NOT ignored —
     # the release skill commits a release notes file which should
     # trigger the publish workflow.
