@@ -5,6 +5,7 @@
  * imported directly from `webview/shared/ui`, not re-exported here.
  */
 export { AgentDetailView, type AgentDetailViewProps } from "./AgentDetailView";
+export { AgentForm, type AgentFormProps } from "./AgentForm";
 export { AgentItem, type AgentItemProps } from "./AgentItem";
 export { AgentListView, type AgentListViewProps } from "./AgentListView";
 export { ModelBadge, type ModelBadgeProps } from "./ModelBadge";

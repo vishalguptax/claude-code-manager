@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { parseFrontmatter, fmString, fmList } from "../frontmatter";
+import {
+  parseFrontmatter,
+  fmString,
+  fmList,
+  serializeFrontmatter,
+  updateFrontmatterFields,
+} from "../frontmatter";
 
 const doc = (yaml: string, body = "Body text.\n"): string => `---\n${yaml}\n---\n${body}`;
 
@@ -124,5 +130,96 @@ describe("fmString / fmList", () => {
     expect(fmList(fm, "tools")).toEqual(["Read", "Grep"]);
     expect(fmList(fm, "name")).toBeUndefined();
     expect(fmList(fm, "missing")).toBeUndefined();
+  });
+});
+
+describe("serializeFrontmatter", () => {
+  it("round-trips scalars and lists back through the parser", () => {
+    const raw = serializeFrontmatter(
+      { name: "reviewer", model: "opus", tools: ["Read", "Grep"] },
+      "You are a reviewer.\n",
+    );
+    const fm = parseFrontmatter(raw);
+    expect(fm.fields).toEqual({ name: "reviewer", model: "opus", tools: ["Read", "Grep"] });
+    expect(fm.body).toBe("You are a reviewer.\n");
+  });
+
+  it("preserves insertion order of fields", () => {
+    const raw = serializeFrontmatter({ b: "2", a: "1" });
+    expect(raw.indexOf("b: 2")).toBeLessThan(raw.indexOf("a: 1"));
+  });
+
+  it("quotes values that would otherwise mis-parse", () => {
+    const raw = serializeFrontmatter({ description: "usage: run it # now", empty: "" });
+    expect(parseFrontmatter(raw).fields.description).toBe("usage: run it # now");
+    expect(parseFrontmatter(raw).fields.empty).toBe("");
+  });
+
+  it("produces a valid empty body when none is given", () => {
+    const fm = parseFrontmatter(serializeFrontmatter({ name: "x" }));
+    expect(fm.hasFrontmatter).toBe(true);
+    expect(fm.fields.name).toBe("x");
+  });
+});
+
+describe("updateFrontmatterFields", () => {
+  const original = [
+    "---",
+    "name: reviewer",
+    "model: opus",
+    "permissionMode: acceptEdits",
+    "color: blue",
+    "---",
+    "You are a reviewer.",
+  ].join("\n");
+
+  it("rewrites only the named key, preserving all others and the body", () => {
+    const out = updateFrontmatterFields(original, { model: "haiku" });
+    const fm = parseFrontmatter(out);
+    expect(fm.fields.model).toBe("haiku");
+    expect(fm.fields.name).toBe("reviewer");
+    expect(fm.fields.permissionMode).toBe("acceptEdits");
+    expect(fm.fields.color).toBe("blue");
+    expect(fm.body).toBe("You are a reviewer.");
+  });
+
+  it("removes a key when its value is undefined", () => {
+    const out = updateFrontmatterFields(original, { color: undefined });
+    expect(parseFrontmatter(out).fields.color).toBeUndefined();
+    expect(parseFrontmatter(out).fields.name).toBe("reviewer");
+  });
+
+  it("appends a key that was not already present", () => {
+    const out = updateFrontmatterFields(original, { tools: ["Read", "Grep"] });
+    expect(parseFrontmatter(out).fields.tools).toEqual(["Read", "Grep"]);
+  });
+
+  it("preserves an unrelated block-list field while editing a scalar", () => {
+    const withList = "---\nname: a\ntools:\n  - Read\n  - Grep\nmodel: opus\n---\nbody";
+    const out = updateFrontmatterFields(withList, { model: "haiku" });
+    const fm = parseFrontmatter(out);
+    expect(fm.fields.tools).toEqual(["Read", "Grep"]);
+    expect(fm.fields.model).toBe("haiku");
+  });
+
+  it("replaces a block-list field without leaving orphaned item lines", () => {
+    const withList = "---\nname: a\ntools:\n  - Read\n  - Grep\n---\nbody";
+    const out = updateFrontmatterFields(withList, { tools: ["Bash"] });
+    expect(parseFrontmatter(out).fields.tools).toEqual(["Bash"]);
+    expect(out).not.toContain("- Read");
+  });
+
+  it("prepends a fresh frontmatter block when the file has none", () => {
+    const out = updateFrontmatterFields("Just a body.\n", { name: "x" });
+    const fm = parseFrontmatter(out);
+    expect(fm.fields.name).toBe("x");
+    expect(fm.body).toBe("Just a body.\n");
+  });
+
+  it("preserves CRLF line endings", () => {
+    const crlf = "---\r\nname: a\r\nmodel: opus\r\n---\r\nbody";
+    const out = updateFrontmatterFields(crlf, { model: "haiku" });
+    expect(out).toContain("\r\n");
+    expect(parseFrontmatter(out).fields.model).toBe("haiku");
   });
 });

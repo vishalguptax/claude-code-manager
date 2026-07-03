@@ -18,7 +18,6 @@ import {
   updateHook as writerUpdateHook,
   addHook as writerAddHook,
 } from "../hooks/writer";
-import { parseAgents } from "../agents/parser";
 import { resolveSettingsPath } from "../account/parser";
 import { getWorkspace } from "../../extension/workspace";
 import { KNOWN_HOOK_EVENTS } from "../hooks/events";
@@ -245,25 +244,9 @@ export async function handleFeatureMessage(
     //  this monolith in dispatch.)
 
     // ── Agents messages ──
-
-    case "getAgents": {
-      const workspace = getWorkspace();
-      const { agents, errors } = parseAgents(workspace || undefined);
-      ctx.setAgents(agents);
-      wv.postMessage({ type: "agents", data: agents, errors });
-      break;
-    }
-
-    case "openAgentFile": {
-      const agentPath = (msg as { type: string; path: string }).path;
-      try {
-        const doc = await vscode.workspace.openTextDocument(agentPath);
-        await vscode.window.showTextDocument(doc);
-      } catch {
-        vscode.window.showErrorMessage(`Could not open ${agentPath}`);
-      }
-      break;
-    }
+    // (getAgents / openAgentFile / createAgent / updateAgent / deleteAgent /
+    //  duplicateAgent are handled by the agents feature's own messageHandlers.ts,
+    //  wired ahead of this monolith in dispatch.)
 
     case "openExtensionSettings": {
       vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");

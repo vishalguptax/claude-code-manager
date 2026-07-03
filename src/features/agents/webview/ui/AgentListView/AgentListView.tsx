@@ -47,12 +47,13 @@ const MODEL_OPTIONS: ReadonlyArray<{ value: ModelFilterValue; label: string }> =
 
 export interface AgentListViewProps {
   onRefresh: () => void;
+  onNew: () => void;
 }
 
 /** A flattened virtual row: either a scope header or an agent. */
 type Row = { kind: "header"; label: string } | { kind: "agent"; agent: Agent };
 
-export function AgentListView({ onRefresh }: AgentListViewProps) {
+export function AgentListView({ onRefresh, onNew }: AgentListViewProps) {
   const all = agents.value;
   const filtered = filteredAgents.value;
   const groups = groupedAgents.value;
@@ -80,6 +81,13 @@ export function AgentListView({ onRefresh }: AgentListViewProps) {
         />
         <Button
           variant="icon"
+          iconName="plus"
+          onClick={onNew}
+          title="New agent"
+          ariaLabel="New agent"
+        />
+        <Button
+          variant="icon"
           iconName="refresh-cw"
           onClick={onRefresh}
           title="Refresh agents"
@@ -95,7 +103,7 @@ export function AgentListView({ onRefresh }: AgentListViewProps) {
       ) : null}
       <div class="list agent-list">
         {all.length === 0 ? (
-          <EmptyAgents />
+          <EmptyAgents onNew={onNew} />
         ) : filtered.length === 0 ? (
           <EmptyState title={searchQuery.value ? "No matching agents" : "No agents found"} />
         ) : filtered.length > VIRTUALIZE_THRESHOLD ? (
@@ -109,7 +117,7 @@ export function AgentListView({ onRefresh }: AgentListViewProps) {
 }
 
 /** Empty state shown when no agents exist anywhere. */
-function EmptyAgents() {
+function EmptyAgents({ onNew }: { onNew: () => void }) {
   return (
     <div class="agent-empty">
       <div class="agent-empty-title">No agents found</div>
@@ -118,6 +126,9 @@ function EmptyAgents() {
         Each file uses YAML frontmatter with <code>name</code>, <code>description</code>, and{" "}
         <code>model</code> fields, followed by the agent's system prompt.
       </div>
+      <Button variant="primary" iconName="plus" onClick={onNew} class="agent-empty-cta">
+        New agent
+      </Button>
     </div>
   );
 }

@@ -194,6 +194,38 @@
   cursor: default;
 }
 
+/* Shared <TextArea> — multi-line sibling of .tf-input. Paints its own box
+   (unlike .tf-input which is chromeless inside .tf) since a textarea has no
+   leading/trailing slots; matches the single-line field's face + focus ring. */
+.ta-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px var(--tf-inset, 9px);
+  background: var(--vscode-input-background, var(--input-bg));
+  color: var(--vscode-input-foreground, var(--fg));
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  resize: vertical;
+}
+.ta-input:focus {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+  border-color: var(--vscode-focusBorder, var(--accent));
+}
+.ta-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--fg-dim));
+  opacity: 1;
+}
+.ta-input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* SearchInput variant (the TextField carries class "vsc-search"): the leading
    magnifier and trailing clear sit inside the box, so the input's own text
    inset would double them up. Drop the input's horizontal padding and let the

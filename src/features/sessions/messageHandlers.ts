@@ -57,6 +57,7 @@ import { handleFeatureMessage } from "./featureHandlers";
 import { handleAccountMessage } from "./accountHandlers";
 import { handleSettingsMessage } from "./settingsHandlers";
 import { handleMcpMessage, type McpHostContext } from "../mcp/messageHandlers";
+import { handleAgentMessage, type AgentHostContext } from "../agents/messageHandlers";
 import { dispatchCommandsMessage, type CommandsHost } from "../commands/messageHandlers";
 import { getWorkspace } from "../../extension/workspace";
 import { type HostContext, DEMO_SEEN_KEY } from "./hostContext";
@@ -112,6 +113,7 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
     // without importing the provider.
     if (await dispatchCommandsMessage(msg, makeCommandsHost(ctx))) return;
     if (await handleMcpMessage(msg, makeMcpHost(ctx))) return;
+    if (await handleAgentMessage(msg, makeAgentHost(ctx))) return;
     if (await handleFeatureMessage(msg, ctx)) return;
     if (await handleAccountMessage(msg, ctx)) return;
     await handleSettingsMessage(msg, ctx);
@@ -169,6 +171,15 @@ function makeMcpHost(ctx: HostContext): McpHostContext {
     getWebview: () => ctx.getWebview(),
     getWorkspace: () => getWorkspace() || undefined,
     setMcpServers: (servers) => ctx.setMcpServers(servers),
+  };
+}
+
+/** Adapt the shared {@link HostContext} to the agents feature's {@link AgentHostContext}. */
+function makeAgentHost(ctx: HostContext): AgentHostContext {
+  return {
+    getWebview: () => ctx.getWebview(),
+    getWorkspace: () => getWorkspace() || undefined,
+    setAgents: (agents) => ctx.setAgents(agents),
   };
 }
 

@@ -73,9 +73,60 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "deleteMcpServer", name: "n", scope: "global" });
   });
 
+  it("accepts mcp add/edit + action messages", () => {
+    roundTrip({
+      type: "addMcpServer",
+      server: {
+        name: "api",
+        scope: "project",
+        transport: "http",
+        url: "https://x/mcp",
+        headers: { Authorization: "Bearer t" },
+      },
+    });
+    roundTrip({
+      type: "updateMcpServer",
+      originalName: "api",
+      server: {
+        name: "api2",
+        scope: "project",
+        transport: "stdio",
+        command: "node",
+        args: ["s.js"],
+        env: { K: "v" },
+      },
+    });
+    roundTrip({ type: "authenticateMcp", name: "api" });
+    roundTrip({ type: "logoutMcp", name: "api" });
+    roundTrip({ type: "reconnectMcp" });
+    roundTrip({ type: "mcpListStatus" });
+  });
+
+  it("accepts hook edit + panel messages", () => {
+    roundTrip({ type: "openHooksPanel" });
+    roundTrip({
+      type: "updateHook",
+      original: { any: "snapshot" },
+      next: { matcher: "Edit", command: "echo", event: "PreToolUse", scope: "project", timeout: 30 },
+    });
+  });
+
   it("accepts agents messages", () => {
     roundTrip({ type: "getAgents" });
     roundTrip({ type: "openAgentFile", path: "/p" });
+    const agent = {
+      scope: "project",
+      name: "reviewer",
+      description: "reviews",
+      model: "opus",
+      tools: ["Read", "Grep"],
+      skills: ["research"],
+      body: "You are a reviewer.",
+    };
+    roundTrip({ type: "createAgent", agent });
+    roundTrip({ type: "updateAgent", path: "/a/reviewer.md", agent });
+    roundTrip({ type: "deleteAgent", path: "/a/reviewer.md" });
+    roundTrip({ type: "duplicateAgent", path: "/a/reviewer.md" });
   });
 
   it("accepts account messages", () => {

@@ -27,7 +27,7 @@ afterEach(() => {
 
 describe("AgentListView", () => {
   it("shows the all-empty state when there are no agents", () => {
-    const { container } = render(h(AgentListView, { onRefresh: () => {} }));
+    const { container } = render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     expect(container.querySelector(".agent-empty")).toBeTruthy();
     // No model filter row when there are no agents.
     expect(container.querySelector(".scope-filter")).toBeNull();
@@ -38,7 +38,7 @@ describe("AgentListView", () => {
       agent({ name: "p", scope: "project" }),
       agent({ name: "g", scope: "global" }),
     ];
-    const { container } = render(h(AgentListView, { onRefresh: () => {} }));
+    const { container } = render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     expect(screen.getByText("2 agents")).toBeTruthy();
     const labels = [...container.querySelectorAll(".group-label")].map((e) => e.textContent);
     expect(labels).toEqual(["Project", "Global"]);
@@ -47,21 +47,21 @@ describe("AgentListView", () => {
 
   it("uses singular wording for one agent", () => {
     agents.value = [agent({ name: "solo" })];
-    render(h(AgentListView, { onRefresh: () => {} }));
+    render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     expect(screen.getByText("1 agent")).toBeTruthy();
   });
 
   it("shows a no-match state when the search filters everything out", () => {
     agents.value = [agent({ name: "alpha" })];
     searchQuery.value = "zzz";
-    render(h(AgentListView, { onRefresh: () => {} }));
+    render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     expect(screen.getByText("No matching agents")).toBeTruthy();
   });
 
   it("selects an agent on click", () => {
     const a = agent({ name: "pick" });
     agents.value = [a];
-    render(h(AgentListView, { onRefresh: () => {} }));
+    render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     fireEvent.click(screen.getByText("pick"));
     expect(selectedAgent.value?.path).toBe(a.path);
   });
@@ -69,7 +69,7 @@ describe("AgentListView", () => {
   it("debounces search input into the searchQuery signal", () => {
     vi.useFakeTimers();
     agents.value = [agent({ name: "reviewer" })];
-    const { container } = render(h(AgentListView, { onRefresh: () => {} }));
+    const { container } = render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     const el = container.querySelector("input") as HTMLInputElement;
     fireEvent.input(el, { target: { value: "REV" } });
     expect(searchQuery.value).toBe("");
@@ -82,14 +82,27 @@ describe("AgentListView", () => {
   it("fires onRefresh from the refresh button", () => {
     const onRefresh = vi.fn();
     agents.value = [agent()];
-    render(h(AgentListView, { onRefresh }));
+    render(h(AgentListView, { onRefresh, onNew: () => {} }));
     fireEvent.click(screen.getByLabelText("Refresh agents"));
     expect(onRefresh).toHaveBeenCalled();
   });
 
+  it("fires onNew from the toolbar + empty-state CTA", () => {
+    const onNew = vi.fn();
+    // Empty-state CTA.
+    const { rerender } = render(h(AgentListView, { onRefresh: () => {}, onNew }));
+    fireEvent.click(screen.getByText("New agent"));
+    expect(onNew).toHaveBeenCalledTimes(1);
+    // Toolbar "+" button (present whether or not agents exist).
+    agents.value = [agent()];
+    rerender(h(AgentListView, { onRefresh: () => {}, onNew }));
+    fireEvent.click(screen.getByLabelText("New agent"));
+    expect(onNew).toHaveBeenCalledTimes(2);
+  });
+
   it("changes the model filter", () => {
     agents.value = [agent({ name: "o", model: "opus" })];
-    render(h(AgentListView, { onRefresh: () => {} }));
+    render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     fireEvent.click(screen.getByText("Opus (1)"));
     expect(filterModel.value).toBe("opus");
   });
@@ -98,7 +111,7 @@ describe("AgentListView", () => {
     agents.value = Array.from({ length: 60 }, (_, i) =>
       agent({ name: `agent-${i}`, scope: "global" }),
     );
-    const { container } = render(h(AgentListView, { onRefresh: () => {} }));
+    const { container } = render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     // VirtualList wrapper present and count caption shown.
     expect(container.querySelector(".virtual-list")).toBeTruthy();
     expect(screen.getByText("60 agents")).toBeTruthy();

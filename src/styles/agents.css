@@ -268,3 +268,57 @@
   flex-shrink: 0;
 }
 .panel > .back-btn:hover { color: var(--fg); }
+
+/* Create CTA under the empty state. */
+.agent-empty-cta {
+  margin-top: var(--space-xl);
+}
+
+/* Read-only note shown instead of edit/delete for plugin-owned agents. */
+.agent-readonly-note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-style: italic;
+  align-self: center;
+}
+.agent-readonly-note code {
+  font-style: normal;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Agents — Create/Edit Form (in the shared <Modal>)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.agent-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 320px;
+}
+
+.agent-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.agent-form-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--fg-section);
+}
+
+.agent-form-hint {
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+}
+.agent-form-hint-error {
+  color: var(--vscode-editorError-foreground, #f14c4c);
+}
+
+.agent-form-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}

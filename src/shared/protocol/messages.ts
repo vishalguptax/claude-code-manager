@@ -2,6 +2,34 @@ export type SettingsScope = "global" | "project" | "local";
 export type PermissionList = "allow" | "deny";
 export type DetailMode = "first" | "last";
 
+/** Payload for creating/editing an MCP server from the webview form. */
+export interface McpServerInput {
+  name: string;
+  /** "global" | "project" — the two writable scopes. */
+  scope: string;
+  /** "stdio" | "http" | "sse" | "ws" */
+  transport: string;
+  command?: string;
+  args?: string[];
+  url?: string;
+  env?: Record<string, string>;
+  headers?: Record<string, string>;
+}
+
+/** Payload for creating/editing an agent from the webview form. */
+export interface AgentInput {
+  /** "global" | "project" — used on create to pick the target dir. */
+  scope: string;
+  name: string;
+  description: string;
+  /** Model id or "inherit". */
+  model: string;
+  tools: string[];
+  skills: string[];
+  /** System-prompt markdown body (no frontmatter). */
+  body: string;
+}
+
 export type Message =
   | { type: "ready" }
   | { type: "markDemoSeen" }
@@ -39,14 +67,35 @@ export type Message =
   | { type: "openSettingsFile"; scope: SettingsScope }
   | { type: "toggleHookEnabled"; hook: unknown }
   | { type: "deleteHook"; hook: unknown }
-  | { type: "updateHook"; original: unknown; next: { matcher: string; command: string } }
+  | {
+      type: "updateHook";
+      original: unknown;
+      next: {
+        matcher: string;
+        command: string;
+        event?: string;
+        scope?: SettingsScope;
+        timeout?: number;
+      };
+    }
   | { type: "promptAddHook" }
+  | { type: "openHooksPanel" }
   | { type: "getMcpServers" }
   | { type: "openMcpConfig"; scope: string; name?: string }
   | { type: "toggleMcpServer"; name: string; scope: string; disabled: boolean; pluginName?: string }
   | { type: "deleteMcpServer"; name: string; scope: string }
+  | { type: "addMcpServer"; server: McpServerInput }
+  | { type: "updateMcpServer"; originalName: string; server: McpServerInput }
+  | { type: "authenticateMcp"; name: string }
+  | { type: "logoutMcp"; name: string }
+  | { type: "reconnectMcp" }
+  | { type: "mcpListStatus" }
   | { type: "getAgents" }
   | { type: "openAgentFile"; path: string }
+  | { type: "createAgent"; agent: AgentInput }
+  | { type: "updateAgent"; path: string; agent: AgentInput }
+  | { type: "deleteAgent"; path: string }
+  | { type: "duplicateAgent"; path: string }
   | { type: "getAccountData" }
   | { type: "launchSlash"; command: string }
   | { type: "setModel"; model: string }
@@ -161,12 +210,23 @@ type WebviewMessageType =
   | "deleteHook"
   | "updateHook"
   | "promptAddHook"
+  | "openHooksPanel"
   | "getMcpServers"
   | "openMcpConfig"
   | "toggleMcpServer"
   | "deleteMcpServer"
+  | "addMcpServer"
+  | "updateMcpServer"
+  | "authenticateMcp"
+  | "logoutMcp"
+  | "reconnectMcp"
+  | "mcpListStatus"
   | "getAgents"
   | "openAgentFile"
+  | "createAgent"
+  | "updateAgent"
+  | "deleteAgent"
+  | "duplicateAgent"
   | "getAccountData"
   | "launchSlash"
   | "setModel"

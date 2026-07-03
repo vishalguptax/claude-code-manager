@@ -26,10 +26,23 @@ export interface AgentDetailViewProps {
   agent: Agent;
   onBack: () => void;
   onOpenFile: (path: string) => void;
+  onEdit: (agent: Agent) => void;
+  onDuplicate: (agent: Agent) => void;
+  onDelete: (agent: Agent) => void;
 }
 
-export function AgentDetailView({ agent, onBack, onOpenFile }: AgentDetailViewProps) {
+export function AgentDetailView({
+  agent,
+  onBack,
+  onOpenFile,
+  onEdit,
+  onDuplicate,
+  onDelete,
+}: AgentDetailViewProps) {
   const body = stripFrontmatter(agent.content);
+  // Plugin agents live in a plugin's install dir — read-only from here
+  // (managed via Claude Code's /plugin), so no edit/delete/duplicate.
+  const isPlugin = agent.scope === "plugin";
 
   return (
     <div class="panel">
@@ -52,9 +65,28 @@ export function AgentDetailView({ agent, onBack, onOpenFile }: AgentDetailViewPr
       ) : null}
 
       <div class="agent-detail-actions">
+        {!isPlugin ? (
+          <Button variant="primary" iconName="pencil" onClick={() => onEdit(agent)}>
+            Edit
+          </Button>
+        ) : null}
         <Button iconName="external-link" onClick={() => onOpenFile(agent.path)}>
           Open File
         </Button>
+        {!isPlugin ? (
+          <Button iconName="copy" onClick={() => onDuplicate(agent)}>
+            Duplicate
+          </Button>
+        ) : null}
+        {!isPlugin ? (
+          <Button variant="danger" iconName="trash-2" onClick={() => onDelete(agent)}>
+            Delete
+          </Button>
+        ) : (
+          <span class="agent-readonly-note">
+            Owned by plugin {agent.pluginName ?? ""} — managed via Claude Code's <code>/plugin</code>.
+          </span>
+        )}
       </div>
 
       <div class="agent-detail-path">

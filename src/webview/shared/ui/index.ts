@@ -38,5 +38,6 @@ export {
   type SkeletonProps,
   SkeletonRect,
 } from "./Skeleton";
+export { TextArea, type TextAreaProps } from "./TextArea";
 export { TextField, type TextFieldProps, type TextFieldType } from "./TextField";
 export { VirtualList, type VirtualListProps } from "./VirtualList";

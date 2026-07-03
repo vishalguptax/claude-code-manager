@@ -80,9 +80,16 @@ const deleteHook = v.object({ type: v.literal("deleteHook"), hook: v.unknown() }
 const updateHook = v.object({
   type: v.literal("updateHook"),
   original: v.unknown(),
-  next: v.object({ matcher: v.string(), command: v.string() }),
+  next: v.object({
+    matcher: v.string(),
+    command: v.string(),
+    event: v.optional(v.string()),
+    scope: v.optional(scope),
+    timeout: v.optional(v.number()),
+  }),
 });
 const promptAddHook = v.object({ type: v.literal("promptAddHook") });
+const openHooksPanel = v.object({ type: v.literal("openHooksPanel") });
 const getMcpServers = v.object({ type: v.literal("getMcpServers") });
 const openMcpConfig = v.object({
   type: v.literal("openMcpConfig"),
@@ -101,8 +108,46 @@ const deleteMcpServer = v.object({
   name: v.string(),
   scope: v.string(),
 });
+const stringRecord = v.record(v.string(), v.string());
+const mcpServerInput = v.object({
+  name: v.string(),
+  scope: v.string(),
+  transport: v.string(),
+  command: v.optional(v.string()),
+  args: v.optional(v.array(v.string())),
+  url: v.optional(v.string()),
+  env: v.optional(stringRecord),
+  headers: v.optional(stringRecord),
+});
+const addMcpServer = v.object({ type: v.literal("addMcpServer"), server: mcpServerInput });
+const updateMcpServer = v.object({
+  type: v.literal("updateMcpServer"),
+  originalName: v.string(),
+  server: mcpServerInput,
+});
+const authenticateMcp = v.object({ type: v.literal("authenticateMcp"), name: v.string() });
+const logoutMcp = v.object({ type: v.literal("logoutMcp"), name: v.string() });
+const reconnectMcp = v.object({ type: v.literal("reconnectMcp") });
+const mcpListStatus = v.object({ type: v.literal("mcpListStatus") });
 const getAgents = v.object({ type: v.literal("getAgents") });
 const openAgentFile = v.object({ type: v.literal("openAgentFile"), path: v.string() });
+const agentInput = v.object({
+  scope: v.string(),
+  name: v.string(),
+  description: v.string(),
+  model: v.string(),
+  tools: v.array(v.string()),
+  skills: v.array(v.string()),
+  body: v.string(),
+});
+const createAgent = v.object({ type: v.literal("createAgent"), agent: agentInput });
+const updateAgent = v.object({
+  type: v.literal("updateAgent"),
+  path: v.string(),
+  agent: agentInput,
+});
+const deleteAgent = v.object({ type: v.literal("deleteAgent"), path: v.string() });
+const duplicateAgent = v.object({ type: v.literal("duplicateAgent"), path: v.string() });
 const getAccountData = v.object({ type: v.literal("getAccountData") });
 const launchSlash = v.object({ type: v.literal("launchSlash"), command: v.string() });
 const setModel = v.object({ type: v.literal("setModel"), model: v.string() });
@@ -265,12 +310,23 @@ export const messageSchema = v.variant("type", [
   deleteHook,
   updateHook,
   promptAddHook,
+  openHooksPanel,
   getMcpServers,
   openMcpConfig,
   toggleMcpServer,
   deleteMcpServer,
+  addMcpServer,
+  updateMcpServer,
+  authenticateMcp,
+  logoutMcp,
+  reconnectMcp,
+  mcpListStatus,
   getAgents,
   openAgentFile,
+  createAgent,
+  updateAgent,
+  deleteAgent,
+  duplicateAgent,
   getAccountData,
   launchSlash,
   setModel,
