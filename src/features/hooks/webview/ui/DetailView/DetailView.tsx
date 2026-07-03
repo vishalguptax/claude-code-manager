@@ -90,6 +90,9 @@ export function DetailView({ hook }: DetailViewProps) {
             </Button>
           </>
         )}
+        <Button onClick={() => api.openHooksPanel(send)} title="Open Claude's /hooks panel">
+          <Icon name="terminal" /> Open /hooks
+        </Button>
       </div>
 
       <div class="d-scroll">

@@ -16,10 +16,12 @@ import {
   toggleHookEnabled as writerToggleHookEnabled,
   deleteHook as writerDeleteHook,
   updateHook as writerUpdateHook,
+  moveHookToFile as writerMoveHookToFile,
   addHook as writerAddHook,
 } from "../hooks/writer";
 import { resolveSettingsPath } from "../account/parser";
 import { getWorkspace } from "../../extension/workspace";
+import { createTerminal } from "../../extension/terminal";
 import { KNOWN_HOOK_EVENTS } from "../hooks/events";
 import type { HookScope } from "../hooks/types";
 import type { WebviewMessage } from "./types";
@@ -153,14 +155,35 @@ export async function handleFeatureMessage(
     case "updateHook": {
       if (msg.original.scope === "plugin") break;
       const workspace = getWorkspace();
-      const filePath = resolveSettingsPath(msg.original.scope, workspace || undefined);
-      const ok = filePath ? writerUpdateHook(filePath, msg.original, msg.next) : false;
+      const fromFile = resolveSettingsPath(msg.original.scope, workspace || undefined);
+      // A scope change moves the hook across settings files; same scope
+      // edits (matcher/command/event/timeout) stay in one file.
+      const nextScope = msg.next.scope ?? msg.original.scope;
+      // Never move a hook into plugin scope (read-only, plugin.json-owned).
+      if (nextScope === "plugin") break;
+      let ok = false;
+      if (nextScope === msg.original.scope) {
+        ok = fromFile ? writerUpdateHook(fromFile, msg.original, msg.next) : false;
+      } else {
+        const toFile = resolveSettingsPath(nextScope, workspace || undefined);
+        ok = fromFile && toFile ? writerMoveHookToFile(fromFile, toFile, msg.original, msg.next) : false;
+      }
       if (!ok) {
         vscode.window.showErrorMessage(
           "Failed to update hook — it may have been edited on disk, or is not editable (non-command hooks only support toggle/delete). The list has been refreshed.",
         );
       }
       pushHooks(ctx, wv, workspace);
+      break;
+    }
+
+    case "openHooksPanel": {
+      // Open the read-only /hooks browser so the user can see what Claude
+      // Code actually loaded (same launch pattern as launchSlash).
+      const term = createTerminal("hooks");
+      term.show();
+      term.sendText("claude");
+      setTimeout(() => term.sendText("/hooks"), 1800);
       break;
     }
 

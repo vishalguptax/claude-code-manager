@@ -26,11 +26,15 @@ interface Harness {
   ctx: McpHostContext;
   posted: unknown[];
   cached: McpServer[][];
+  shell: Array<{ label: string; command: string }>;
+  slash: Array<{ label: string; slash: string }>;
 }
 
 function harness(workspace?: string, withWebview = true): Harness {
   const posted: unknown[] = [];
   const cached: McpServer[][] = [];
+  const shell: Array<{ label: string; command: string }> = [];
+  const slash: Array<{ label: string; slash: string }> = [];
   const wv = withWebview
     ? ({ postMessage: (m: unknown) => posted.push(m) } as unknown as vscode.Webview)
     : undefined;
@@ -38,8 +42,10 @@ function harness(workspace?: string, withWebview = true): Harness {
     getWebview: () => wv,
     getWorkspace: () => workspace,
     setMcpServers: (servers) => cached.push(servers),
+    runShellCommand: (label, command) => shell.push({ label, command }),
+    runSlashCommand: (label, s) => slash.push({ label, slash: s }),
   };
-  return { ctx, posted, cached };
+  return { ctx, posted, cached, shell, slash };
 }
 
 beforeEach(() => {
@@ -218,5 +224,80 @@ describe("deleteMcpServer", () => {
     const { ctx } = harness();
     await handleMcpMessage({ type: "deleteMcpServer", name: "p", scope: "plugin" }, ctx);
     expect(err).toHaveBeenCalled();
+  });
+});
+
+describe("addMcpServer / updateMcpServer", () => {
+  it("adds a server to project .mcp.json and re-pushes", async () => {
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(ws, { recursive: true });
+    const { ctx, posted } = harness(ws);
+    const server = { name: "api", scope: "project", transport: "http", url: "https://x/mcp" };
+    await handleMcpMessage({ type: "addMcpServer", server }, ctx);
+    const written = JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8"));
+    expect(written.mcpServers.api).toEqual({ type: "http", url: "https://x/mcp" });
+    expect(posted.at(-1)).toMatchObject({ type: "mcpServers" });
+  });
+
+  it("surfaces a duplicate-name failure on add", async () => {
+    const ws = path.join(HOME, "ws");
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { api: { command: "x" } } });
+    const err = vi.spyOn(vscode.window, "showErrorMessage");
+    const { ctx } = harness(ws);
+    await handleMcpMessage(
+      { type: "addMcpServer", server: { name: "api", scope: "project", transport: "stdio", command: "y" } },
+      ctx,
+    );
+    expect(err).toHaveBeenCalled();
+  });
+
+  it("updates a server, keyed by originalName", async () => {
+    const ws = path.join(HOME, "ws");
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { api: { command: "old" } } });
+    const { ctx } = harness(ws);
+    await handleMcpMessage(
+      {
+        type: "updateMcpServer",
+        originalName: "api",
+        server: { name: "api", scope: "project", transport: "stdio", command: "new" },
+      },
+      ctx,
+    );
+    const written = JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8"));
+    expect(written.mcpServers.api.command).toBe("new");
+  });
+});
+
+describe("custom actions (terminal launches)", () => {
+  it("authenticate runs `claude mcp login <name>`", async () => {
+    const { ctx, shell } = harness();
+    await handleMcpMessage({ type: "authenticateMcp", name: "api" }, ctx);
+    expect(shell[0].command).toBe("claude mcp login 'api'");
+  });
+
+  it("logout runs `claude mcp logout <name>`", async () => {
+    const { ctx, shell } = harness();
+    await handleMcpMessage({ type: "logoutMcp", name: "api" }, ctx);
+    expect(shell[0].command).toBe("claude mcp logout 'api'");
+  });
+
+  it("reconnect opens the /mcp slash panel", async () => {
+    const { ctx, slash } = harness();
+    await handleMcpMessage({ type: "reconnectMcp" }, ctx);
+    expect(slash[0].slash).toBe("/mcp");
+  });
+
+  it("mcpListStatus runs `claude mcp list`", async () => {
+    const { ctx, shell } = harness();
+    await handleMcpMessage({ type: "mcpListStatus" }, ctx);
+    expect(shell[0].command).toBe("claude mcp list");
+  });
+
+  it("shell-escapes a server name with a single quote", async () => {
+    const { ctx, shell } = harness();
+    await handleMcpMessage({ type: "authenticateMcp", name: "a'b" }, ctx);
+    // POSIX close-quote, escaped literal quote, reopen: a'b -> 'a'\''b'
+    const escaped = ["'a'", "\\'", "'b'"].join("");
+    expect(shell[0].command).toBe(`claude mcp login ${escaped}`);
   });
 });

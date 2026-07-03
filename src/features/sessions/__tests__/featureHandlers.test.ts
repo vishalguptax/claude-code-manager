@@ -14,23 +14,30 @@ const mockParseHooks = vi.fn();
 const mockToggleHookEnabled = vi.fn();
 const mockDeleteHook = vi.fn();
 const mockUpdateHook = vi.fn();
+const mockMoveHookToFile = vi.fn();
 const mockAddHook = vi.fn();
 const mockResolveSettingsPath = vi.fn();
 const mockGetWorkspace = vi.fn(() => "");
 const mockParseSkills = vi.fn(() => []);
 const mockParseAgents = vi.fn(() => ({ agents: [], errors: [] }));
+const mockSendText = vi.fn();
+const mockCreateTerminal = vi.fn(() => ({ show: vi.fn(), sendText: mockSendText }));
 
 vi.mock("../../hooks/parser", () => ({ parseHooks: (...args: unknown[]) => mockParseHooks(...args) }));
 vi.mock("../../hooks/writer", () => ({
   toggleHookEnabled: (...args: unknown[]) => mockToggleHookEnabled(...args),
   deleteHook: (...args: unknown[]) => mockDeleteHook(...args),
   updateHook: (...args: unknown[]) => mockUpdateHook(...args),
+  moveHookToFile: (...args: unknown[]) => mockMoveHookToFile(...args),
   addHook: (...args: unknown[]) => mockAddHook(...args),
 }));
 vi.mock("../../account/parser", () => ({
   resolveSettingsPath: (...args: unknown[]) => mockResolveSettingsPath(...args),
 }));
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => mockGetWorkspace() }));
+vi.mock("../../../extension/terminal", () => ({
+  createTerminal: (...args: unknown[]) => mockCreateTerminal(...args),
+}));
 vi.mock("../../skills/parser", () => ({ parseSkills: () => mockParseSkills() }));
 vi.mock("../../agents/parser", () => ({ parseAgents: () => mockParseAgents() }));
 
@@ -76,6 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockGetWorkspace.mockReturnValue("");
   mockParseHooks.mockReturnValue({ hooks: [], errors: [] });
+  mockCreateTerminal.mockReturnValue({ show: vi.fn(), sendText: mockSendText });
 });
 
 describe("getHooks", () => {
@@ -172,6 +180,56 @@ describe("updateHook", () => {
       ctx,
     );
     expect(err).not.toHaveBeenCalled();
+  });
+
+  it("uses updateHook (same file) when the scope is unchanged", async () => {
+    mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
+    mockUpdateHook.mockReturnValue(true);
+    const { ctx } = harness();
+    await handleFeatureMessage(
+      {
+        type: "updateHook",
+        original: makeHook({ scope: "global" }),
+        next: { matcher: "W", command: "c", scope: "global" },
+      },
+      ctx,
+    );
+    expect(mockUpdateHook).toHaveBeenCalled();
+    expect(mockMoveHookToFile).not.toHaveBeenCalled();
+  });
+
+  it("uses moveHookToFile when the scope changes", async () => {
+    mockResolveSettingsPath.mockImplementation((scope: string) => `/ws/.claude/${scope}.json`);
+    mockMoveHookToFile.mockReturnValue(true);
+    const { ctx } = harness();
+    await handleFeatureMessage(
+      {
+        type: "updateHook",
+        original: makeHook({ scope: "global" }),
+        next: { matcher: "W", command: "c", scope: "project" },
+      },
+      ctx,
+    );
+    expect(mockMoveHookToFile).toHaveBeenCalledWith(
+      "/ws/.claude/global.json",
+      "/ws/.claude/project.json",
+      expect.objectContaining({ scope: "global" }),
+      expect.objectContaining({ scope: "project" }),
+    );
+    expect(mockUpdateHook).not.toHaveBeenCalled();
+  });
+});
+
+describe("openHooksPanel", () => {
+  it("launches claude and types /hooks after the REPL starts", async () => {
+    vi.useFakeTimers();
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "openHooksPanel" }, ctx);
+    expect(mockCreateTerminal).toHaveBeenCalled();
+    expect(mockSendText).toHaveBeenCalledWith("claude");
+    vi.advanceTimersByTime(1800);
+    expect(mockSendText).toHaveBeenCalledWith("/hooks");
+    vi.useRealTimers();
   });
 });
 

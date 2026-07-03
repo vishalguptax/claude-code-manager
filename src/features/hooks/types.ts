@@ -103,6 +103,21 @@ export type HooksWebviewMessage =
    * parked block — staying disabled — so toggling and editing are
    * independent.
    */
-  | { type: "updateHook"; original: Hook; next: { matcher: string; command: string } }
+  | {
+      type: "updateHook";
+      original: Hook;
+      next: {
+        matcher: string;
+        command: string;
+        /** New event; omit to keep the current one. */
+        event?: string;
+        /** New scope; omit to keep the current one (a change moves files). */
+        scope?: HookScope;
+        /** Timeout in seconds; omit/undefined removes it. */
+        timeout?: number;
+      };
+    }
   /** Native VS Code wizard flow: pick scope/event, then matcher + command. */
-  | { type: "promptAddHook" };
+  | { type: "promptAddHook" }
+  /** Open the read-only /hooks panel in a terminal. */
+  | { type: "openHooksPanel" };

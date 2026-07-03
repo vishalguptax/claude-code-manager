@@ -2,14 +2,15 @@ import { describe, it, expect, beforeEach } from "vitest";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { toggleHookEnabled, deleteHook, updateHook, addHook } from "../writer";
+import { toggleHookEnabled, deleteHook, updateHook, moveHookToFile, addHook } from "../writer";
 import type { Hook } from "../types";
 
 let tmpFile: string;
+let tmpDir: string;
 
 beforeEach(() => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cm-hooks-"));
-  tmpFile = path.join(dir, "settings.json");
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cm-hooks-"));
+  tmpFile = path.join(tmpDir, "settings.json");
 });
 
 function read(): Record<string, unknown> {
@@ -203,7 +204,7 @@ describe("updateHook", () => {
     expect(arr[0]).toMatchObject({ matcher: "Edit", command: "echo new" });
   });
 
-  it("rewrites only matcher + command on a nested entry, preserving timeout and unknown fields", () => {
+  it("rewrites matcher/command in place, preserving unknown fields and re-applying timeout", () => {
     seed({
       hooks: {
         Stop: [
@@ -214,15 +215,52 @@ describe("updateHook", () => {
         ],
       },
     });
+    // The edit form always sends the current timeout back, so a same-event
+    // edit preserves it; unknown fields (`if`) survive the in-place mutation.
     updateHook(
       tmpFile,
       makeHook({ event: "Stop", matcher: "*", command: "echo old" }),
-      { matcher: "*", command: "echo new" },
+      { matcher: "*", command: "echo new", timeout: 30 },
     );
     const data = read();
     const arr = (data.hooks as Record<string, Array<Record<string, unknown>>>).Stop;
     const inner = arr[0].hooks as Array<Record<string, unknown>>;
     expect(inner[0]).toEqual({ type: "command", command: "echo new", timeout: 30, if: "always" });
+  });
+
+  it("removes the timeout when the edit omits it", () => {
+    seed({
+      hooks: {
+        Stop: [{ matcher: "*", hooks: [{ type: "command", command: "c", timeout: 30 }] }],
+      },
+    });
+    updateHook(
+      tmpFile,
+      makeHook({ event: "Stop", matcher: "*", command: "c" }),
+      { matcher: "*", command: "c" },
+    );
+    const inner = (read().hooks as Record<string, Array<Record<string, unknown>>>).Stop[0]
+      .hooks as Array<Record<string, unknown>>;
+    expect("timeout" in inner[0]).toBe(false);
+  });
+
+  it("re-homes a hook to a new event within the same file, carrying command + timeout", () => {
+    seed({
+      hooks: {
+        PreToolUse: [{ matcher: "Write", hooks: [{ type: "command", command: "c", timeout: 15 }] }],
+      },
+    });
+    const ok = updateHook(
+      tmpFile,
+      makeHook({ event: "PreToolUse", matcher: "Write", command: "c", commandIndex: 0 }),
+      { matcher: "Edit", command: "c2", event: "PostToolUse", timeout: 15 },
+    );
+    expect(ok).toBe(true);
+    const data = read().hooks as Record<string, Array<Record<string, unknown>>>;
+    expect(data.PreToolUse).toBeUndefined(); // old event array dropped
+    const moved = data.PostToolUse[0].hooks as Array<Record<string, unknown>>;
+    expect(data.PostToolUse[0].matcher).toBe("Edit");
+    expect(moved[0]).toEqual({ type: "command", command: "c2", timeout: 15 });
   });
 
   it("refuses to rewrite a non-command hook (prompt/agent/http/mcp_tool)", () => {
@@ -245,6 +283,46 @@ describe("updateHook", () => {
     );
     expect(ok).toBe(false);
     expect(fs.readFileSync(tmpFile, "utf-8")).toBe(before);
+  });
+});
+
+describe("moveHookToFile (cross-scope)", () => {
+  it("adds to the destination and removes from the source, preserving command + timeout", () => {
+    const toFile = path.join(tmpDir, "settings.local.json");
+    fs.writeFileSync(
+      tmpFile,
+      JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: "Write", hooks: [{ type: "command", command: "c", timeout: 20 }] }] },
+      }),
+    );
+    const ok = moveHookToFile(
+      tmpFile,
+      toFile,
+      makeHook({ event: "PreToolUse", matcher: "Write", command: "c", commandIndex: 0 }),
+      { matcher: "Write", command: "c", timeout: 20 },
+    );
+    expect(ok).toBe(true);
+    // Source emptied.
+    expect(JSON.parse(fs.readFileSync(tmpFile, "utf-8")).hooks).toBeUndefined();
+    // Destination has the moved hook.
+    const dest = JSON.parse(fs.readFileSync(toFile, "utf-8")).hooks.PreToolUse[0];
+    expect(dest.matcher).toBe("Write");
+    expect(dest.hooks[0]).toEqual({ type: "command", command: "c", timeout: 20 });
+  });
+
+  it("refuses a non-command hook", () => {
+    const toFile = path.join(tmpDir, "settings.local.json");
+    fs.writeFileSync(
+      tmpFile,
+      JSON.stringify({ hooks: { Stop: [{ matcher: "*", hooks: [{ type: "prompt", prompt: "p" }] }] } }),
+    );
+    const ok = moveHookToFile(
+      tmpFile,
+      toFile,
+      makeHook({ event: "Stop", matcher: "*", command: "p", hookType: "prompt", commandIndex: 0 }),
+      { matcher: "*", command: "p" },
+    );
+    expect(ok).toBe(false);
   });
 });
 

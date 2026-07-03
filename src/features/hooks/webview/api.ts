@@ -30,16 +30,26 @@ export function deleteHook(post: Post, hook: Hook): void {
   post({ type: "deleteHook", hook });
 }
 
-/** Apply a matcher / command edit to an existing hook. */
-export function updateHook(
-  post: Post,
-  original: Hook,
-  next: { matcher: string; command: string },
-): void {
+/** Fields an edit can change (matcher/command always; event/scope/timeout optional). */
+export interface HookEditFields {
+  matcher: string;
+  command: string;
+  event?: string;
+  scope?: SettingsScope;
+  timeout?: number;
+}
+
+/** Apply an edit to an existing hook (matcher/command + optional event/scope/timeout). */
+export function updateHook(post: Post, original: Hook, next: HookEditFields): void {
   post({ type: "updateHook", original, next });
 }
 
 /** Launch the host's native scope → event → matcher → command wizard. */
 export function promptAddHook(post: Post): void {
   post({ type: "promptAddHook" });
+}
+
+/** Open the read-only /hooks panel in a terminal. */
+export function openHooksPanel(post: Post): void {
+  post({ type: "openHooksPanel" });
 }

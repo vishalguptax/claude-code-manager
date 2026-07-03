@@ -220,30 +220,131 @@ export function deleteHook(filePath: string, hook: Hook): boolean {
   return writeSettings(filePath, data);
 }
 
+/** Fields an edit can change on a command hook. */
+export interface HookEdit {
+  matcher: string;
+  command: string;
+  /** New event name; omit/equal to keep the hook under its current event. */
+  event?: string;
+  /** Timeout in seconds; `undefined` removes the field. */
+  timeout?: number;
+}
+
+/** Set or remove the numeric `timeout` on a record per the edit. */
+function applyTimeout(record: HookRecord, timeout: number | undefined): void {
+  if (timeout === undefined) delete record.timeout;
+  else record.timeout = timeout;
+}
+
+/** Build a fresh nested command record for a re-homed (moved) hook. */
+function buildCommandRecord(command: string, timeout: number | undefined): HookRecord {
+  const record: HookRecord = { type: "command", command };
+  if (timeout !== undefined) record.timeout = timeout;
+  return record;
+}
+
+/** Append a `{ matcher, hooks: [record] }` entry under an event block. */
+function insertHookEntry(
+  data: SettingsShape,
+  blockKey: "hooks" | "_disabled_hooks",
+  event: string,
+  matcher: string,
+  record: HookRecord,
+): void {
+  let block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
+  if (!block) {
+    block = {};
+    data[blockKey] = block;
+  }
+  if (!Array.isArray(block[event])) block[event] = [];
+  block[event].push({ matcher, hooks: [record] });
+}
+
+/** Drop an event array once empty, then the whole block if it emptied out. */
+function dropEmpty(
+  data: SettingsShape,
+  blockKey: "hooks" | "_disabled_hooks",
+  block: Record<string, RawHookEntry[]>,
+  event: string,
+): void {
+  if (Array.isArray(block[event]) && block[event].length === 0) delete block[event];
+  if (Object.keys(block).length === 0) delete data[blockKey];
+}
+
 /**
- * Rewrite an existing hook's matcher + command in place. Only
- * targeted fields are mutated — `timeout`, `type`, and any unknown
- * keys on the record survive untouched. Refuses non-"command" hooks:
- * a prompt/http/agent/mcp_tool record has no "command" field to
- * rewrite, so blindly writing one would corrupt it.
+ * Rewrite an existing command hook within its own settings file.
+ *
+ * A same-event edit mutates matcher/command/timeout IN PLACE, so the
+ * record's `type`, `if`, and any unknown keys survive untouched
+ * (lossless). Changing the event is a re-home: the record is removed
+ * from the old event array and a fresh nested `{ matcher, hooks: [{
+ * type, command, timeout }] }` entry is inserted under the new event.
+ *
+ * Cross-scope moves go through {@link moveHookToFile} (two files).
+ * Refuses plugin + non-command hooks.
  */
-export function updateHook(
-  filePath: string,
-  original: Hook,
-  next: { matcher: string; command: string },
-): boolean {
+export function updateHook(filePath: string, original: Hook, next: HookEdit): boolean {
   if (original.scope === "plugin") return false;
   if (original.hookType !== "command") return false;
   const data = readSettings(filePath);
   const blockKey = original.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
   const match = locateHook(block, original);
-  if (!match) return false;
+  if (!match || !block) return false;
 
-  match.entry.matcher = next.matcher;
-  match.record.command = next.command;
+  const targetEvent = next.event ?? original.event;
 
+  if (targetEvent === original.event) {
+    match.entry.matcher = next.matcher;
+    match.record.command = next.command;
+    applyTimeout(match.record, next.timeout);
+    return writeSettings(filePath, data);
+  }
+
+  // Event change — re-home the record under the new event.
+  removeAt(match);
+  dropEmpty(data, blockKey, block, original.event);
+  insertHookEntry(data, blockKey, targetEvent, next.matcher, buildCommandRecord(next.command, next.timeout));
   return writeSettings(filePath, data);
+}
+
+/**
+ * Move a command hook to a different scope's settings file (and
+ * optionally a different event). Writes the destination FIRST, then
+ * removes from the source, so a partial failure duplicates (recoverable)
+ * rather than loses the hook. Preserves the disabled/parked state.
+ * Refuses plugin + non-command hooks.
+ */
+export function moveHookToFile(
+  fromFile: string,
+  toFile: string,
+  original: Hook,
+  next: HookEdit,
+): boolean {
+  if (original.scope === "plugin") return false;
+  if (original.hookType !== "command") return false;
+
+  const fromData = readSettings(fromFile);
+  const blockKey = original.disabled ? "_disabled_hooks" : "hooks";
+  const fromBlock = fromData[blockKey] as Record<string, RawHookEntry[]> | undefined;
+  const match = locateHook(fromBlock, original);
+  if (!match || !fromBlock) return false;
+
+  // Insert into the destination file first.
+  const toData = readSettings(toFile);
+  insertHookEntry(
+    toData,
+    blockKey,
+    next.event ?? original.event,
+    next.matcher,
+    buildCommandRecord(next.command, next.timeout),
+  );
+  if (!writeSettings(toFile, toData)) return false;
+
+  // Then remove from the source.
+  removeAt(match);
+  dropEmpty(fromData, blockKey, fromBlock, original.event);
+  return writeSettings(fromFile, fromData);
 }
 
 /**

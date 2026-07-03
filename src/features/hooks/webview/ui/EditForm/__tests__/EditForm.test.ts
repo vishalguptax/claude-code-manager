@@ -16,29 +16,34 @@ const baseHook: Hook = {
   commandIndex: null,
 };
 
-/** The matcher field is the shared <TextField> (native <input>). Fire `input`
- * with the new value to simulate typing. */
-function setMatcher(el: HTMLInputElement, value: string): void {
-  fireEvent.input(el, { target: { value } });
-}
-
 describe("EditForm", () => {
   it("prefills matcher and command from the hook", () => {
-    const { container } = render(
-      h(EditForm, { hook: baseHook, onSave: vi.fn(), onCancel: vi.fn() }),
-    );
-    const matcher = container.querySelector("input") as HTMLInputElement;
-    expect(matcher.value).toBe("Write");
+    render(h(EditForm, { hook: baseHook, onSave: vi.fn(), onCancel: vi.fn() }));
+    expect((screen.getByLabelText("Matcher") as HTMLInputElement).value).toBe("Write");
     expect((screen.getByLabelText("Command") as HTMLTextAreaElement).value).toBe("echo hi");
   });
 
-  it("saves trimmed matcher + command", () => {
+  it("saves matcher + command with the hook's current event/scope and no timeout", () => {
     const onSave = vi.fn();
-    const { container } = render(h(EditForm, { hook: baseHook, onSave, onCancel: vi.fn() }));
-    setMatcher(container.querySelector("input") as HTMLInputElement, "  Bash  ");
+    render(h(EditForm, { hook: baseHook, onSave, onCancel: vi.fn() }));
+    fireEvent.input(screen.getByLabelText("Matcher"), { target: { value: "  Bash  " } });
     fireEvent.input(screen.getByLabelText("Command"), { target: { value: "  ls -la  " } });
     fireEvent.click(screen.getByText("Save"));
-    expect(onSave).toHaveBeenCalledWith({ matcher: "Bash", command: "ls -la" });
+    expect(onSave).toHaveBeenCalledWith({
+      matcher: "Bash",
+      command: "ls -la",
+      event: "PreToolUse",
+      scope: "global",
+      timeout: undefined,
+    });
+  });
+
+  it("sends a numeric timeout when the field is filled", () => {
+    const onSave = vi.fn();
+    render(h(EditForm, { hook: baseHook, onSave, onCancel: vi.fn() }));
+    fireEvent.input(screen.getByLabelText("Timeout in seconds"), { target: { value: "45" } });
+    fireEvent.click(screen.getByText("Save"));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ timeout: 45 }));
   });
 
   it("disables save when the command is empty", () => {

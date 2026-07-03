@@ -73,7 +73,7 @@ describe("DetailView", () => {
     expect(screen.getByText("Copied!")).toBeTruthy();
   });
 
-  it("edit flow posts updateHook", () => {
+  it("edit flow posts updateHook with event/scope/timeout", () => {
     const target = hook();
     render(h(DetailView, { hook: target }));
     fireEvent.click(screen.getByText("Edit"));
@@ -82,8 +82,20 @@ describe("DetailView", () => {
     expect(post).toHaveBeenCalledWith({
       type: "updateHook",
       original: target,
-      next: { matcher: "Write", command: "new-cmd" },
+      next: {
+        matcher: "Write",
+        command: "new-cmd",
+        event: "PreToolUse",
+        scope: "global",
+        timeout: undefined,
+      },
     });
+  });
+
+  it("posts openHooksPanel from the Open /hooks action", () => {
+    render(h(DetailView, { hook: hook() }));
+    fireEvent.click(screen.getByText("Open /hooks"));
+    expect(post).toHaveBeenCalledWith({ type: "openHooksPanel" });
   });
 
   it("shows Enable for a disabled hook", () => {
