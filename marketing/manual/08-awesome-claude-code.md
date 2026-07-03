@@ -1,9 +1,10 @@
 # 8 — awesome-claude-code submission (web form only)
 
 Their rules (CONTRIBUTING.md, checked 2026-07-04): NO PRs, NO gh CLI, human-submitted
-web issue form only. Also: recommendations are temporarily PAUSED while their redesign
-settles — check the note at the top of their CONTRIBUTING before submitting; if still
-paused, set a reminder for ~2 weeks.
+web issue form only. STATUS 2026-07-04: issue creation is HARD-LOCKED to repo
+collaborators ("An owner of this repository has limited the ability to create an
+issue...") — submissions are fully closed right now, verified by attempting the form.
+Re-check every ~2 weeks; watch their README/CONTRIBUTING for the unlock.
 
 Their style rule: description, not sales pitch. One line. No emoji. Don't address the reader.
 

@@ -15,6 +15,7 @@ Recommended order (authority-per-effort):
 | 8 | `08-awesome-claude-code.md` | Submit via their issue form | 5 min | Highest-authority link; form-only, currently paused — check first |
 
 Notes:
-- awesome-claude-code forbids PRs and CLI submissions — human web form only (see 08).
+- awesome-claude-code forbids PRs and CLI submissions — human web form only (see 08); locked as of 2026-07-04.
+- Submitted: viatsko/awesome-vscode PR #503 (2026-07-04) — https://github.com/viatsko/awesome-vscode/pull/503
 - Master promo copy lives in `../announcement-post.md` — files here adapt it per channel.
 - After each action, log the URL of what you posted at the bottom of that file (tracking).
