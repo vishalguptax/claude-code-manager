@@ -5,7 +5,7 @@ Baseline measurement. Without this we're guessing about rankings.
 ## Steps
 
 1. https://search.google.com/search-console — sign in with your Google account
-2. Add property → **URL prefix** → `https://claudemanager.vishalg.in/`
+2. Add property → **URL prefix** → `https://claudecodemanager.vishalg.in/`
    (URL-prefix is easier than Domain property; Domain needs a DNS TXT record on vishalg.in — fine too if you have DNS access handy, and it covers future subdomains)
 3. Verify: HTML file method — download the verification file, drop it in `site/`, commit, push (Pages deploys it), click Verify
    - Keep the file committed permanently; Google re-checks

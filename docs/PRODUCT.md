@@ -10,7 +10,7 @@ Developers who already use Claude Code (the CLI, the official VS Code extension,
 
 ## Product Purpose
 
-The site at claudemanager.vishalg.in is the marketing and discovery surface for the Claude Manager VS Code extension. It exists to (1) rank on Google for Claude Code tooling queries the Marketplace README cannot win, and (2) convert that traffic into installs. Success = first-page ranking for target long-tail queries plus a measurable install lift attributable to the site. It is not documentation; deep reference stays in the repo README.
+The site at claudecodemanager.vishalg.in is the marketing and discovery surface for the Claude Manager VS Code extension. It exists to (1) rank on Google for Claude Code tooling queries the Marketplace README cannot win, and (2) convert that traffic into installs. Success = first-page ranking for target long-tail queries plus a measurable install lift attributable to the site. It is not documentation; deep reference stays in the repo README.
 
 ## Brand Personality
 

@@ -19,7 +19,7 @@ Free, open-source VS Code extension for managing Claude Code: search and resume 
 Links:
 - https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
 - https://github.com/vishalguptax/claude-code-manager
-- https://claudemanager.vishalg.in
+- https://claudecodemanager.vishalg.in
 
 ## After submitting
 

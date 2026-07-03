@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://claudemanager.vishalg.in/sitemap.xml
+Sitemap: https://claudecodemanager.vishalg.in/sitemap.xml

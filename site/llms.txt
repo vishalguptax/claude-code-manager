@@ -21,7 +21,7 @@ Claude Code Manager reads the shared `~/.claude/` directory used by Claude Code 
 
 ## Guides
 
-- [Claude Code session manager](https://claudemanager.vishalg.in/sessions/): search, resume, fork, and move sessions between machines
-- [Claude Code usage tracker](https://claudemanager.vishalg.in/usage/): tokens by model/project/tool and real 5-hour / 7-day quota
-- [Claude account switcher](https://claudemanager.vishalg.in/accounts/): swap logins without /logout /login
-- [Claude Code MCP manager](https://claudemanager.vishalg.in/mcp/): toggle and inspect MCP servers without JSON editing
+- [Claude Code session manager](https://claudecodemanager.vishalg.in/sessions/): search, resume, fork, and move sessions between machines
+- [Claude Code usage tracker](https://claudecodemanager.vishalg.in/usage/): tokens by model/project/tool and real 5-hour / 7-day quota
+- [Claude account switcher](https://claudecodemanager.vishalg.in/accounts/): swap logins without /logout /login
+- [Claude Code MCP manager](https://claudecodemanager.vishalg.in/mcp/): toggle and inspect MCP servers without JSON editing

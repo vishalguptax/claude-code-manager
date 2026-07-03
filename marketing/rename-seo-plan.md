@@ -21,7 +21,7 @@ Rename display brand to **"Claude Code Manager"**. Keep extension ID `vishalgupt
 - `"name": "claude-manager"` and `"publisher": "vishalguptax"` in package.json (extension ID; changing loses 1.5K installs + reviews, old name permanently reserved)
 - `claudeManager.*` settings namespace (breaks user configs)
 - Command IDs (`claudeManager.open`, …), view container IDs (breaks keybindings/muscle memory)
-- Site domain `claudemanager.vishalg.in` (no free redirect mechanism for domains; not worth the churn)
+- Site domain `claudecodemanager.vishalg.in` (no free redirect mechanism for domains; not worth the churn)
 - ~~Repo slug~~ — UPDATE 2026-07-04: repo renamed to `vishalguptax/claude-code-manager` after all. GitHub 301s cover old web/git/raw URLs permanently, and GitHub repos rank by name in Google for "claude code manager" — economics differ from the domain case. Old slug must never be reused (would kill redirects).
 - Source-internal strings (log prefixes, test names) — cosmetic, zero SEO value, churn risk
 

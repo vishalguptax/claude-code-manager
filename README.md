@@ -7,7 +7,7 @@
 
 <p><strong>Every <a href="https://claude.ai/code">Claude Code</a> session, skill, slash command, hook, MCP server, and agent, one click away in your VS Code sidebar. Works with both the Claude Code CLI and the official VS Code extension.</strong></p>
 
-<p><a href="https://claudemanager.vishalg.in"><strong>claudemanager.vishalg.in</strong></a></p>
+<p><a href="https://claudecodemanager.vishalg.in"><strong>claudecodemanager.vishalg.in</strong></a></p>
 
 <p>
 <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager"><img src="https://vsmarketplacebadges.dev/version-short/vishalguptax.claude-manager.svg?style=for-the-badge&label=Marketplace&labelColor=1a1a2e&color=007ACC&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace"></a>
