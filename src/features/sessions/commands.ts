@@ -305,10 +305,18 @@ export async function resolveClaudeTarget(sess: Session | undefined): Promise<Re
  * Routing:
  *   - Different project → open the project window (user re-clicks Resume there).
  *   - Fork → always terminal (the URI handler has no --fork-session equivalent).
+ *   - forceTerminal → always terminal (the extension chat tab is single-instance,
+ *     so a multi-session restore routed through it would collapse every session
+ *     into one panel and only the last would survive).
  *   - Branch mismatch → always terminal (branch switching is terminal-native).
  *   - Same project, no branch issue → consult the resumeIn setting.
  */
-export async function resumeSession(sessionId: string, fork: boolean, sessions: Session[]): Promise<void> {
+export async function resumeSession(
+  sessionId: string,
+  fork: boolean,
+  sessions: Session[],
+  forceTerminal = false,
+): Promise<void> {
   const sess = sessions.find((s) => s.id === sessionId);
   const cwd = sess?.projectPath ?? "";
   const sessBranch = sess?.branch ?? "";
@@ -322,7 +330,8 @@ export async function resumeSession(sessionId: string, fork: boolean, sessions: 
   // Fork always uses the terminal — no extension equivalent. Resolve
   // the target up-front so we know whether a cross-workspace hop needs
   // to be paired with a delayed URI.
-  const target: ResumeTarget = fork ? "terminal" : await resolveClaudeTarget(sess);
+  const target: ResumeTarget =
+    fork || forceTerminal ? "terminal" : await resolveClaudeTarget(sess);
 
   if (target === "cancel") return;
 

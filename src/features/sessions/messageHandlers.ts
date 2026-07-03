@@ -400,9 +400,12 @@ async function handleSessionMessage(
       // to register the previous tab before findExistingTerminalColumn
       // runs again — the result is all restored terminals stacked as
       // tabs in a single editor group instead of N split panels.
+      // Force the terminal path: the Claude Code extension chat tab is
+      // single-instance, so routing a multi-session restore through it
+      // collapses every session into one panel and only the last survives.
       for (let i = 0; i < msg.sessionIds.length; i++) {
         if (i > 0) await new Promise((r) => setTimeout(r, 80));
-        await resumeSession(msg.sessionIds[i], false, ctx.getSessions());
+        await resumeSession(msg.sessionIds[i], false, ctx.getSessions(), true);
       }
       break;
 

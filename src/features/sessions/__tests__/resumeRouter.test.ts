@@ -205,6 +205,22 @@ describe("resumeSession routing", () => {
     expect(sentText.some((t) => t.includes("--fork-session"))).toBe(true);
   });
 
+  it("forceTerminal overrides extension mode (multi-session restore)", async () => {
+    // Restore Workspace resumes N sessions; the extension chat tab is
+    // single-instance, so it must force terminals or only the last survives.
+    const sess = makeSession({ entrypoint: "vscode" });
+    extensionPresent = true;
+    mockSameWorkspace(sess);
+    mockBranch("main");
+    mockResumeIn("extension");
+    const openSpy = vi.spyOn(vscode.env, "openExternal");
+
+    await resumeSession(sess.id, false, [sess], true /* forceTerminal */);
+
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(sentText.some((t) => t.includes(`claude --resume ${sess.id}`))).toBe(true);
+  });
+
   it("ask mode + user picks Extension → URI", async () => {
     const sess = makeSession({ entrypoint: "cli" });
     extensionPresent = true;
