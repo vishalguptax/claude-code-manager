@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.3.1] - 2026-07-04
+
+Marketplace publish fix: display name now "Claude Code Manager: Sessions, MCP & Usage" (exact short name is squatted by an abandoned extension); release CI now fails loudly on publish rejection.
+
+See [docs/releases/v2.3.1.md](docs/releases/v2.3.1.md) for full details.
+
 ## [2.3.0] - 2026-07-04
 
 Claude Manager is now **Claude Code Manager** — display-name rename only (settings, keybindings, installs, and reviews untouched) — with a redesigned sparkle icon family, plus correctness fixes across MCP, agents, hooks, and session restore.

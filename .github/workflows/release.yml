@@ -70,14 +70,17 @@ jobs:
           git push
           git push --tags
 
-      # Publishes are non-blocking — a missing token or a marketplace hiccup
-      # must not stop the GitHub Release from being created below.
+      # Publishes must not stop the GitHub Release below from being created,
+      # but a failed publish must still fail the job (see the last step) —
+      # v2.3.0 was silently rejected by the Marketplace behind a green run.
       - name: Publish to VS Code Marketplace
+        id: vsce
         if: ${{ env.VSCE_PAT != '' }}
         continue-on-error: true
         run: npx @vscode/vsce publish --no-dependencies
 
       - name: Publish to Open VSX
+        id: ovsx
         if: ${{ env.OVSX_TOKEN != '' }}
         continue-on-error: true
         run: npx ovsx publish dist/*.vsix -p "$OVSX_TOKEN"
@@ -104,3 +107,11 @@ jobs:
           files: dist/*.vsix
           body_path: ${{ steps.notes.outputs.file }}
           generate_release_notes: ${{ steps.notes.outputs.exists == 'false' }}
+
+      # Runs after the GitHub Release so the release always exists, but turns
+      # any swallowed publish failure into a red run.
+      - name: Fail if a marketplace publish failed
+        if: ${{ steps.vsce.outcome == 'failure' || steps.ovsx.outcome == 'failure' }}
+        run: |
+          echo "::error::Publish failed — vsce: ${{ steps.vsce.outcome }}, ovsx: ${{ steps.ovsx.outcome }}"
+          exit 1
