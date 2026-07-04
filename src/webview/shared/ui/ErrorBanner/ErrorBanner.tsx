@@ -13,8 +13,8 @@ export function ErrorBanner({ errors }: ErrorBannerProps) {
   if (errors.length === 0) return null;
   return (
     <div class="error-banner" role="alert">
-      {errors.map((message) => (
-        <div class="error-banner__item" key={message}>
+      {errors.map((message, i) => (
+        <div class="error-banner__item" key={i}>
           {message}
         </div>
       ))}

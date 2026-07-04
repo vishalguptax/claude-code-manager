@@ -71,6 +71,14 @@ describe("Menu", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("closes on scroll (the fixed popup would otherwise pin at stale coords)", () => {
+    const onClose = vi.fn();
+    render(<Menu open={true} x={0} y={0} items={items()} onClose={onClose} />);
+    // Capture-phase window listener — dispatch directly on window.
+    window.dispatchEvent(new Event("scroll"));
+    expect(onClose).toHaveBeenCalled();
+  });
+
   describe("outside-press dismissal", () => {
     it("closes on a pointerdown outside the menu (after the open-tick defer)", () => {
       vi.useFakeTimers();

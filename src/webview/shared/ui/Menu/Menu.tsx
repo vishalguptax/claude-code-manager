@@ -24,7 +24,7 @@
  * reopening it.
  */
 import type { RefObject } from "preact";
-import { useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useDismiss } from "../../hooks";
 import { Icon } from "../Icon";
 
@@ -207,6 +207,17 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
     contentRef: ref,
     ignore: anchorRef ? [anchorRef] : undefined,
   });
+
+  // The menu is position:fixed at coordinates captured when it opened, so if an
+  // ancestor scrolls (the menu now opens inside scrolling forms/panels) it would
+  // pin at a stale spot. Close on any scroll — capture phase catches scrolls on
+  // inner containers, not just window. Cheap: only listens while open.
+  useEffect(() => {
+    if (!open) return;
+    const onScroll = (): void => onClose();
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [open, onClose]);
 
   if (!open) return null;
 

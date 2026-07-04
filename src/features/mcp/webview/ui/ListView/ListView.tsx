@@ -8,6 +8,7 @@
 import type { ComponentChildren } from "preact";
 import {
   Button,
+  EmptyState,
   ErrorBanner,
   Icon,
   ScopeFilter,
@@ -75,7 +76,7 @@ export function ListView({ onSelect, onCopyName, onBrowse, onRefresh, onNew }: L
   if (all.length === 0) {
     body = <McpEmpty onBrowse={onBrowse} />;
   } else if (filtered.length === 0) {
-    body = <div class="empty">{query ? "No matching servers" : "No servers found"}</div>;
+    body = <EmptyState title={query ? "No matching servers" : "No servers found"} />;
   } else {
     const rows = buildRows(filtered);
     const count = (

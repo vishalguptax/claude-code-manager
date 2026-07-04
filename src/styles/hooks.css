@@ -61,19 +61,32 @@
   gap: var(--space-sm);
 }
 
+/* Flex-wrap content-width buttons (not an auto-fit grid): a grid stretches
+   each button to its 1fr track and long labels ("Open settings file",
+   "Open /hooks") spill out and overlap. Matches agents/mcp/commands. */
 .hooks-panel .d-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-lg);
 }
 .hooks-panel .d-actions > .btn {
+  flex: 0 0 auto;
   justify-content: center;
+}
+/* Plugin read-only note spans the full row instead of sitting in a button slot. */
+.hooks-panel .d-actions > .hook-readonly-note {
+  flex: 1 1 100%;
 }
 
 .hooks-panel .d-scroll {
   padding: var(--space-lg) var(--space-2xl) var(--space-xl);
   border-top: 1px solid var(--border);
+  /* Scroll the body, keeping Back + head + actions fixed above it. Without
+     flex:1/min-height:0 the section grows to content and the whole panel
+     scrolls instead. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -118,30 +131,12 @@
   margin-bottom: var(--space-lg);
 }
 
+/* Match the agent/mcp form label treatment (section colour, weight 600) so
+   the three "create/edit" surfaces read consistently. */
 .hook-field-label {
   display: block;
   font-size: var(--fs-sm);
-  color: var(--fg-dim);
+  font-weight: 600;
+  color: var(--fg-section);
   margin-bottom: var(--space-xs);
-}
-
-.hook-field-input {
-  width: 100%;
-  box-sizing: border-box;
-  font: inherit;
-  font-size: var(--fs-base);
-  color: var(--input-fg);
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  border-radius: var(--radius);
-  /* Horizontal text inset == the shared <TextField>'s canonical 9px text inset
-     (--tf-inset). The matcher field above this textarea is a <TextField>, so
-     matching the inset keeps both fields' text start on one left x — the box
-     edges already align (both border-box, width:100%, flush under the label).
-     Vertical padding stays roomier for the multiline area. */
-  padding: var(--space-sm) 9px;
-}
-.hook-field-input:focus {
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
 }

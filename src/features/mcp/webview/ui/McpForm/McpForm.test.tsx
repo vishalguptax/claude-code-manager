@@ -70,6 +70,23 @@ describe("McpForm", () => {
     );
   });
 
+  it("hides the Headers field for stdio and shows it for url transports", () => {
+    // stdio: Command + Args, no Headers (headers don't apply to a local process).
+    render(h(McpForm, { server: srv({ name: "s", scope: "project" }), onClose: () => {}, onSubmit: () => {} }));
+    expect(screen.getByLabelText("Command")).toBeTruthy();
+    expect(screen.queryByLabelText("Headers")).toBeNull();
+
+    // http: URL + Headers, no Command.
+    render(
+      h(McpForm, {
+        server: srv({ name: "h", scope: "global", type: "http", url: "https://x" }),
+        onClose: () => {},
+        onSubmit: () => {},
+      }),
+    );
+    expect(screen.getByLabelText("Headers")).toBeTruthy();
+  });
+
   it("fires onClose from Cancel", () => {
     const onClose = vi.fn();
     render(h(McpForm, { server: null, onClose, onSubmit: () => {} }));

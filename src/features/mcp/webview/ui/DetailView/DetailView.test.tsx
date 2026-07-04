@@ -89,17 +89,28 @@ describe("DetailView", () => {
     expect(screen.queryByText("Headers")).toBeNull();
   });
 
-  it("wires back, toggle, config, and delete for editable servers", () => {
+  // Occasional actions live behind the "More" overflow menu.
+  const openMore = (): void => {
+    fireEvent.click(screen.getByText("More"));
+  };
+
+  it("wires back, toggle, and delete (primary) for editable servers", () => {
     const hnd = handlers();
     render(h(DetailView, { server: srv({ name: "a", scope: "project" }), ...hnd }));
     fireEvent.click(screen.getByText("Back"));
     fireEvent.click(screen.getByText("Disable"));
-    fireEvent.click(screen.getByText("Open Config"));
     fireEvent.click(screen.getByText("Delete"));
     expect(hnd.onBack).toHaveBeenCalledOnce();
     expect(hnd.onToggle).toHaveBeenCalledOnce();
-    expect(hnd.onOpenConfig).toHaveBeenCalledOnce();
     expect(hnd.onDelete).toHaveBeenCalledOnce();
+  });
+
+  it("wires Open Config from the More menu", () => {
+    const hnd = handlers();
+    render(h(DetailView, { server: srv({ name: "a", scope: "project" }), ...hnd }));
+    openMore();
+    fireEvent.click(screen.getByText("Open Config"));
+    expect(hnd.onOpenConfig).toHaveBeenCalledOnce();
   });
 
   it("shows Enable when the server is disabled", () => {
@@ -118,9 +129,8 @@ describe("DetailView", () => {
     );
     expect(screen.queryByText("Disable")).toBeNull();
     expect(screen.queryByText("Enable")).toBeNull();
-    // Delete + Open Config still available for global servers.
+    // Delete stays primary for global servers.
     expect(screen.getByText("Delete")).toBeTruthy();
-    expect(screen.getByText("Open Config")).toBeTruthy();
     expect(screen.getByText(/User-scope servers can't be enabled\/disabled/)).toBeTruthy();
   });
 
@@ -129,54 +139,60 @@ describe("DetailView", () => {
     expect(screen.getByText("Disable")).toBeTruthy();
   });
 
-  it("hides edit actions and shows a note for plugin servers", () => {
+  it("hides edit/delete and shows a note for plugin servers", () => {
     render(
       h(DetailView, {
         server: srv({ name: "p", scope: "plugin", pluginName: "p@m" }),
         ...handlers(),
       }),
     );
+    expect(screen.queryByText("Edit")).toBeNull();
     expect(screen.queryByText("Disable")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
-    expect(screen.queryByText("Open Config")).toBeNull();
     expect(screen.getByText(/Owned by plugin/)).toBeTruthy();
   });
 
-  it("copies the name and flashes 'Copied!'", () => {
+  it("copies the name from the More menu", () => {
     const hnd = handlers();
     render(h(DetailView, { server: srv({ name: "a", scope: "project" }), ...hnd }));
+    openMore();
     fireEvent.click(screen.getByText("Copy Name"));
     expect(hnd.onCopyName).toHaveBeenCalledWith("a");
-    expect(screen.getByText("Copied!")).toBeTruthy();
   });
 
-  it("fires onOpenClaude", () => {
+  it("fires onOpenClaude from the More menu", () => {
     const hnd = handlers();
     render(h(DetailView, { server: srv({ name: "a", scope: "project" }), ...hnd }));
+    openMore();
     fireEvent.click(screen.getByText("Open Claude"));
     expect(hnd.onOpenClaude).toHaveBeenCalledOnce();
   });
 
-  it("wires edit, authenticate, clear-auth, and reconnect actions", () => {
+  it("wires Edit (primary) and authenticate/clear-auth/reconnect (More menu)", () => {
     const hnd = handlers();
     render(h(DetailView, { server: srv({ name: "api", scope: "project" }), ...hnd }));
     fireEvent.click(screen.getByText("Edit"));
-    fireEvent.click(screen.getByText("Authenticate"));
-    fireEvent.click(screen.getByText("Clear Auth"));
-    fireEvent.click(screen.getByText("Reconnect"));
     expect(hnd.onEdit).toHaveBeenCalledOnce();
+    openMore();
+    fireEvent.click(screen.getByText("Authenticate"));
+    openMore();
+    fireEvent.click(screen.getByText("Clear Auth"));
+    openMore();
+    fireEvent.click(screen.getByText("Reconnect (/mcp)"));
     expect(hnd.onAuthenticate).toHaveBeenCalledWith("api");
     expect(hnd.onLogout).toHaveBeenCalledWith("api");
     expect(hnd.onReconnect).toHaveBeenCalledOnce();
   });
 
-  it("shows Check Status only for url-transport servers", () => {
+  it("offers Check Status in the More menu only for url-transport servers", () => {
     const hnd = handlers();
     const { rerender } = render(
       h(DetailView, { server: srv({ name: "s", scope: "project" }), ...hnd }),
     );
+    openMore();
     expect(screen.queryByText("Check Status")).toBeNull(); // stdio
     rerender(h(DetailView, { server: srv({ name: "s", scope: "global", type: "http", url: "https://x" }), ...hnd }));
+    openMore();
     fireEvent.click(screen.getByText("Check Status"));
     expect(hnd.onCheckStatus).toHaveBeenCalledOnce();
   });

@@ -15,7 +15,7 @@ function ChipRow({ label, items }: { label: string; items: string[] }) {
       <span class="agent-detail-label">{label}</span>
       <span class="agent-chip-list">
         {items.map((item) => (
-          <Badge key={item} text={item} variant="scope" class="agent-chip" />
+          <Badge key={item} text={item} title={item} variant="scope" class="agent-chip" />
         ))}
       </span>
     </div>

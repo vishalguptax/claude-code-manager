@@ -4,8 +4,8 @@
  * health dot for stdio servers, and scope-aware actions. Edit/toggle/delete
  * are hidden for read-only plugin servers. "Back" clears the selection.
  */
-import { useState } from "preact/hooks";
-import { Button, Icon } from "../../../../../webview/shared/ui";
+import { useRef, useState } from "preact/hooks";
+import { Button, Icon, Menu, type MenuItem } from "../../../../../webview/shared/ui";
 import { isUrlTransport, maskSensitiveValue } from "../../lib";
 import type { McpServer } from "../../../types";
 import { ScopeBadge, TypeBadge } from "../McpBadges";
@@ -50,8 +50,16 @@ export function DetailView(props: DetailViewProps) {
     onReconnect,
     onCheckStatus,
   } = props;
-  const [copied, setCopied] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [anchor, setAnchor] = useState({ x: 0, y: 0 });
+  const moreRef = useRef<HTMLSpanElement>(null);
+
+  const openMore = (e: MouseEvent): void => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setAnchor({ x: r.left, y: r.bottom + 2 });
+    setMenuOpen(true);
+  };
 
   const isPlugin = server.scope === "plugin";
   // Only project .mcp.json servers can be enabled/disabled — Claude
@@ -63,9 +71,23 @@ export function DetailView(props: DetailViewProps) {
   const headerEntries = server.headers ? Object.entries(server.headers) : [];
   const hasSecrets = envEntries.length > 0 || headerEntries.length > 0;
 
+  // Occasional actions live in the "More" menu (auth/connection/utility).
+  const moreItems: MenuItem[] = [];
+  if (!isPlugin) {
+    moreItems.push({ label: "Authenticate", icon: "key-round", onSelect: () => onAuthenticate(server.name) });
+    moreItems.push({ label: "Clear Auth", icon: "log-out", onSelect: () => onLogout(server.name) });
+  }
+  moreItems.push({ label: "Reconnect (/mcp)", icon: "refresh-cw", onSelect: onReconnect });
+  if (isUrl) moreItems.push({ label: "Check Status", icon: "activity", onSelect: onCheckStatus });
+  moreItems.push({ label: "Open Claude", icon: "play", onSelect: onOpenClaude });
+  moreItems.push({ label: "Copy Name", icon: "copy", onSelect: () => onCopyName(server.name) });
+  if (!isPlugin) {
+    moreItems.push({ label: "Open Config", icon: "external-link", onSelect: () => onOpenConfig(server) });
+  }
+
   return (
     <div class="panel">
-      <Button variant="secondary" class="back-btn" iconName="arrow-left" onClick={onBack}>
+      <Button class="back-btn" iconName="arrow-left" onClick={onBack}>
         Back
       </Button>
 
@@ -85,6 +107,8 @@ export function DetailView(props: DetailViewProps) {
         <ScopeBadge scope={server.scope} />
       </div>
 
+      {/* Primary actions stay visible; occasional actions fold into "More" so
+          the row doesn't become a wall of equal-weight buttons. */}
       <div class="mcp-detail-actions">
         {!isPlugin ? (
           <Button variant="primary" iconName="pencil" onClick={() => onEdit(server)}>
@@ -97,52 +121,23 @@ export function DetailView(props: DetailViewProps) {
           </Button>
         ) : null}
         {!isPlugin ? (
-          <Button iconName="key-round" onClick={() => onAuthenticate(server.name)}>
-            Authenticate
-          </Button>
-        ) : null}
-        {!isPlugin ? (
-          <Button iconName="log-out" onClick={() => onLogout(server.name)}>
-            Clear Auth
-          </Button>
-        ) : null}
-        <Button iconName="refresh-cw" onClick={onReconnect} title="Open the /mcp panel to reconnect">
-          Reconnect
-        </Button>
-        {isUrl ? (
-          <Button iconName="activity" onClick={onCheckStatus} title="Run `claude mcp list`">
-            Check Status
-          </Button>
-        ) : null}
-        <Button iconName="play" onClick={onOpenClaude}>
-          Open Claude
-        </Button>
-        <Button
-          iconName="copy"
-          onClick={() => {
-            onCopyName(server.name);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1000);
-          }}
-        >
-          {copied ? "Copied!" : "Copy Name"}
-        </Button>
-        {!isPlugin ? (
-          <Button iconName="external-link" onClick={() => onOpenConfig(server)}>
-            Open Config
-          </Button>
-        ) : null}
-        {!isPlugin ? (
           <Button variant="danger" iconName="trash-2" onClick={() => onDelete(server)}>
             Delete
           </Button>
-        ) : (
-          <span class="mcp-readonly-note">
-            Owned by plugin {server.pluginName ?? ""} — managed by Claude Code's{" "}
-            <code>/plugin</code> command.
-          </span>
-        )}
+        ) : null}
+        <span ref={moreRef} class="mcp-more-wrap">
+          <Button iconName="more-horizontal" onClick={openMore} title="More actions">
+            More
+          </Button>
+        </span>
       </div>
+
+      {isPlugin ? (
+        <div class="mcp-readonly-note">
+          Owned by plugin {server.pluginName ?? ""} — managed by Claude Code's{" "}
+          <code>/plugin</code> command.
+        </div>
+      ) : null}
 
       {server.scope === "global" ? (
         <div class="mcp-readonly-note mcp-global-note">
@@ -150,6 +145,15 @@ export function DetailView(props: DetailViewProps) {
           entry from <code>~/.claude.json</code> to stop using it.
         </div>
       ) : null}
+
+      <Menu
+        open={menuOpen}
+        x={anchor.x}
+        y={anchor.y}
+        items={moreItems}
+        onClose={() => setMenuOpen(false)}
+        anchorRef={moreRef}
+      />
 
       <div class="mcp-detail-section">
         <div class="mcp-detail-label">Connection</div>

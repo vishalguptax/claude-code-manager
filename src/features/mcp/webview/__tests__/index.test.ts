@@ -70,7 +70,9 @@ describe("McpTab", () => {
     dispatch({ type: "mcpServers", data: [srv({ name: "files", scope: "global" })] });
     await waitFor(() => screen.getByText("files"));
     fireEvent.click(screen.getByText("files"));
-    await waitFor(() => screen.getByText("Open Config"));
+    // Open Config lives in the "More" overflow menu.
+    await waitFor(() => screen.getByText("More"));
+    fireEvent.click(screen.getByText("More"));
     fireEvent.click(screen.getByText("Open Config"));
     expect(posted).toContainEqual({ type: "openMcpConfig", scope: "global", name: "files" });
   });

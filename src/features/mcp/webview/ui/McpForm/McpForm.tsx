@@ -65,7 +65,8 @@ export function McpForm({ server, onClose, onSubmit }: McpFormProps) {
       args: isStdio ? args.split(/\s+/).filter(Boolean) : undefined,
       url: isStdio ? undefined : url.trim(),
       env: linesToRecord(env),
-      headers: linesToRecord(headers),
+      // Headers only apply to url transports; never write them for stdio.
+      headers: isStdio ? {} : linesToRecord(headers),
     };
     onSubmit(isEdit ? (server as McpServer).name : null, input);
   };
@@ -156,16 +157,19 @@ export function McpForm({ server, onClose, onSubmit }: McpFormProps) {
           />
         </label>
 
-        <label class="mcp-form-field">
-          <span class="mcp-form-label">Headers</span>
-          <TextArea
-            value={headers}
-            onInput={setHeaders}
-            rows={2}
-            placeholder={"Authorization=Bearer token"}
-            ariaLabel="Headers"
-          />
-        </label>
+        {/* Headers only apply to url transports (http/sse/ws) — hidden for stdio. */}
+        {!isStdio ? (
+          <label class="mcp-form-field">
+            <span class="mcp-form-label">Headers</span>
+            <TextArea
+              value={headers}
+              onInput={setHeaders}
+              rows={2}
+              placeholder={"Authorization=Bearer token"}
+              ariaLabel="Headers"
+            />
+          </label>
+        ) : null}
 
         <div class="mcp-form-actions">
           <Button variant="primary" iconName="check" disabled={!canSave} onClick={submit}>

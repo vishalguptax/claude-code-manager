@@ -268,13 +268,6 @@
   opacity: 1;
 }
 
-.hook-edit-command {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  resize: vertical;
-  min-height: 80px;
-}
-
 .hook-matcher {
   display: inline-flex;
   align-items: center;
@@ -285,6 +278,12 @@
   padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   height: 18px;
+  /* A long matcher (e.g. Bash|Write|Edit|Read) must not push the badges +
+     hover actions out of the row — clip it; the full value is in the title. */
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hook-matcher-all {

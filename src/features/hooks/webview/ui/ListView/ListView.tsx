@@ -8,7 +8,7 @@
  * smaller sets keep the event-grouped layout that reads better for the
  * common handful-of-hooks case.
  */
-import { Button, ErrorBanner, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
+import { Button, EmptyState, ErrorBanner, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
 import type { ScopeOption } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { useApi } from "../../../../../webview/shared/hooks";
@@ -123,7 +123,7 @@ function renderBody({ all, filtered, groups, open, toggle, remove }: BodyProps) 
     return <HooksEmpty />;
   }
   if (filtered.length === 0) {
-    return <div class="empty">No matching hooks</div>;
+    return <EmptyState title="No matching hooks" />;
   }
 
   const count = (

@@ -262,21 +262,11 @@
   box-sizing: border-box;
 }
 
-/* Back action in the detail view. */
-.panel > .back-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  background: none;
-  border: none;
-  color: var(--fg-dim);
-  font-size: var(--fs-base);
-  cursor: pointer;
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
-  font-family: inherit;
-  flex-shrink: 0;
-}
-.panel > .back-btn:hover { color: var(--fg); }
+/* Back action: uses the shared `.back-btn` base (sessions.css) — no
+   agents-specific override. A prior `.panel > .back-btn` rule here was a
+   global leak (every tab renders `.panel`) that clobbered the hooks
+   link-style Back and the commands/skills icon Back; the base already
+   gives the agent/MCP detail + form Back the exact look this duplicated. */
 
 /* Create CTA under the empty state. */
 .agent-empty-cta {

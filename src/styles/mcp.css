@@ -146,10 +146,13 @@
 .mcp-disabled-badge { background: var(--badge-bg); color: var(--fg-muted); opacity: 0.8; }
 .mcp-readonly-badge { background: var(--badge-bg); color: var(--fg-muted); }
 
+/* Standalone block note under the action row (plugin / user-scope hints).
+   A direct .panel child, so it must carry the panel's --space-2xl inset. */
 .mcp-readonly-note {
   font-size: var(--fs-sm);
   color: var(--fg-dim);
   line-height: 1.5;
+  padding: 0 var(--space-2xl) var(--space-md);
 }
 
 .mcp-readonly-note code {
@@ -321,11 +324,14 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-2xl) 0;
+  /* Breathing room above (clears the section divider) and below (before the
+     env/header rows) so the eye control doesn't stick to a line. */
+  padding: var(--space-md) var(--space-2xl);
 }
 .mcp-secret-toggle-label {
   font-size: var(--fs-xs);
   color: var(--text-muted);
+  cursor: default;
 }
 
 
@@ -345,8 +351,10 @@
   flex: 0 0 auto;
   justify-content: center;
 }
-.mcp-detail-actions > .mcp-readonly-note {
-  flex: 1 1 100%;
+/* The "More" overflow trigger is wrapped in a ref'd span (Button takes no
+   ref) so the menu can exclude it from outside-press dismissal. */
+.mcp-more-wrap {
+  display: inline-flex;
 }
 
 

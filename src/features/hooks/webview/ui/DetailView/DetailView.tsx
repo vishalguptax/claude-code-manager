@@ -50,7 +50,7 @@ export function DetailView({ hook }: DetailViewProps) {
         <div class="d-title">{eLabel}</div>
         <div class="d-tags">
           <Badge variant="scope" text={sLabel} title={sLabel} />
-          <Badge variant="default" text={`matcher: ${mDisplay}`} />
+          <Badge variant="default" text={`matcher: ${mDisplay}`} title={mDisplay} />
           {!isCommand ? <Badge variant="default" text={hook.hookType} /> : null}
           {hook.disabled ? <Badge variant="status" text="disabled" /> : null}
         </div>
