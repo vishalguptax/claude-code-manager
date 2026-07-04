@@ -1,12 +1,14 @@
 /**
- * Create/edit form for an agent, rendered in the shared <Modal>. Emits an
- * `AgentInput` on save; the parent posts createAgent/updateAgent. Fields
- * mirror the frontmatter the parser reads (name, description, model, tools,
- * skills) plus the system-prompt body. tools/skills are entered free-text
- * (comma or newline separated) and split on save.
+ * Create/edit form for an agent, rendered as a full inline panel (not a
+ * modal — a centered dialog is cramped in a ~350px sidebar and stacks a
+ * popup behind its own backdrop). Emits an `AgentInput` on save; the
+ * parent posts createAgent/updateAgent. Fields mirror the frontmatter the
+ * parser reads (name, description, model, tools, skills) plus the
+ * system-prompt body. tools/skills are entered free-text (comma or newline
+ * separated) and split on save.
  */
 import { useState } from "preact/hooks";
-import { Button, Dropdown, Modal, TextArea, TextField } from "../../../../../webview/shared/ui";
+import { Button, Dropdown, TextArea, TextField } from "../../../../../webview/shared/ui";
 import type { AgentInput } from "../../../../../shared/protocol/messages";
 import type { Agent } from "../../../types";
 
@@ -61,7 +63,11 @@ export function AgentForm({ agent, onClose, onSubmit }: AgentFormProps) {
   };
 
   return (
-    <Modal open onClose={onClose} title={isEdit ? "Edit agent" : "New agent"}>
+    <div class="panel">
+      <Button class="back-btn" iconName="arrow-left" onClick={onClose}>
+        Back
+      </Button>
+      <div class="agent-form-title">{isEdit ? "Edit agent" : "New agent"}</div>
       <div class="agent-form">
         <label class="agent-form-field">
           <span class="agent-form-label">Name</span>
@@ -168,7 +174,7 @@ export function AgentForm({ agent, onClose, onSubmit }: AgentFormProps) {
           </Button>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 

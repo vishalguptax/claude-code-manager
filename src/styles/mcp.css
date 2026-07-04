@@ -277,7 +277,9 @@
   align-items: flex-start;
   gap: var(--space-sm);
   padding: var(--space-md);
-  margin: var(--space-sm) 0;
+  /* Match the search-row inset so the banner lines up with the content
+     below it instead of spanning edge-to-edge. */
+  margin: var(--space-sm) var(--space-2xl);
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.35);
   border-radius: var(--radius);
@@ -328,13 +330,45 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   MCP — Add/Edit form (in the shared <Modal>)
+   MCP — Detail action row
+   The detail view has many actions (edit, auth, reconnect, delete, …); a
+   stretched auto-fit grid made each a full-width slab. Pack them as tidy
+   content-width buttons that wrap, so the row reads as a compact toolbar.
    ────────────────────────────────────────────────────────────────────────────── */
+.mcp-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: 0 var(--space-2xl) var(--space-lg);
+}
+.mcp-detail-actions > .btn {
+  flex: 0 0 auto;
+  justify-content: center;
+}
+.mcp-detail-actions > .mcp-readonly-note {
+  flex: 1 1 100%;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   MCP — Add/Edit form (full inline panel)
+   ────────────────────────────────────────────────────────────────────────────── */
+.mcp-form-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+  padding: 0 var(--space-2xl) var(--space-md);
+  flex-shrink: 0;
+}
 .mcp-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  min-width: 320px;
+  /* Scrolls under the fixed Back + title; actions ride at the end. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-2xl) var(--space-xl);
 }
 .mcp-form-field {
   display: flex;

@@ -296,14 +296,26 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Agents — Create/Edit Form (in the shared <Modal>)
+   Agents — Create/Edit Form (full inline panel)
    ────────────────────────────────────────────────────────────────────────────── */
+
+.agent-form-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--fg);
+  padding: 0 var(--space-2xl) var(--space-md);
+  flex-shrink: 0;
+}
 
 .agent-form {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  min-width: 320px;
+  /* Scrolls under the fixed Back + title; actions ride at the end. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-2xl) var(--space-xl);
 }
 
 .agent-form-field {

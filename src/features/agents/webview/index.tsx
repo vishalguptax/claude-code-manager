@@ -67,31 +67,29 @@ export default function AgentsTab() {
     setForm({ open: false });
   };
 
-  const formEl = form.open ? (
-    <AgentForm agent={form.agent} onClose={() => setForm({ open: false })} onSubmit={submitForm} />
-  ) : null;
+  // The create/edit form is a full-panel view (not an overlay) — it replaces
+  // the list/detail while open, matching the sidebar's single-column flow.
+  if (form.open) {
+    return (
+      <AgentForm agent={form.agent} onClose={() => setForm({ open: false })} onSubmit={submitForm} />
+    );
+  }
 
   const selected = selectedAgent.value;
   if (selected) {
     return (
-      <>
-        <AgentDetailView
-          agent={selected}
-          onBack={() => selectAgent(null)}
-          onOpenFile={api.openAgentFile}
-          onEdit={(a) => setForm({ open: true, agent: a })}
-          onDuplicate={(a) => api.duplicateAgent(a.path)}
-          onDelete={(a) => api.deleteAgent(a.path)}
-        />
-        {formEl}
-      </>
+      <AgentDetailView
+        agent={selected}
+        onBack={() => selectAgent(null)}
+        onOpenFile={api.openAgentFile}
+        onEdit={(a) => setForm({ open: true, agent: a })}
+        onDuplicate={(a) => api.duplicateAgent(a.path)}
+        onDelete={(a) => api.deleteAgent(a.path)}
+      />
     );
   }
 
   return (
-    <>
-      <AgentListView onRefresh={api.getAgents} onNew={() => setForm({ open: true, agent: null })} />
-      {formEl}
-    </>
+    <AgentListView onRefresh={api.getAgents} onNew={() => setForm({ open: true, agent: null })} />
   );
 }

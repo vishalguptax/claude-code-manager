@@ -1,12 +1,13 @@
 /**
- * Create/edit form for an MCP server, rendered in the shared <Modal>.
- * Emits an `McpServerInput` on save; the parent posts addMcpServer /
- * updateMcpServer. Fields adapt to the chosen transport: stdio shows
- * command + args, url transports (http/sse/ws) show a URL. env and
- * headers are entered as `KEY=value` lines and parsed on save.
+ * Create/edit form for an MCP server, rendered as a full inline panel
+ * (not a modal — cramped in a narrow sidebar, and a popup stacks behind
+ * its own backdrop). Emits an `McpServerInput` on save; the parent posts
+ * addMcpServer / updateMcpServer. Fields adapt to the chosen transport:
+ * stdio shows command + args, url transports (http/sse/ws) show a URL.
+ * env and headers are entered as `KEY=value` lines and parsed on save.
  */
 import { useState } from "preact/hooks";
-import { Button, Dropdown, Modal, TextArea, TextField } from "../../../../../webview/shared/ui";
+import { Button, Dropdown, TextArea, TextField } from "../../../../../webview/shared/ui";
 import type { McpServerInput } from "../../../../../shared/protocol/messages";
 import type { McpServer } from "../../../types";
 
@@ -70,7 +71,11 @@ export function McpForm({ server, onClose, onSubmit }: McpFormProps) {
   };
 
   return (
-    <Modal open onClose={onClose} title={isEdit ? "Edit MCP server" : "Add MCP server"}>
+    <div class="panel">
+      <Button class="back-btn" iconName="arrow-left" onClick={onClose}>
+        Back
+      </Button>
+      <div class="mcp-form-title">{isEdit ? "Edit MCP server" : "Add MCP server"}</div>
       <div class="mcp-form">
         <label class="mcp-form-field">
           <span class="mcp-form-label">Name</span>
@@ -171,6 +176,6 @@ export function McpForm({ server, onClose, onSubmit }: McpFormProps) {
           </Button>
         </div>
       </div>
-    </Modal>
+    </div>
   );
 }

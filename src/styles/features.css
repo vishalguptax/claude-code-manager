@@ -300,10 +300,15 @@
 .hook-item-command code {
   font-family: var(--mono);
   font-size: var(--fs-sm);
-  color: var(--fg);
-  background: var(--input-bg);
-  padding: 2px var(--space-sm);
-  border-radius: var(--radius-sm);
+  color: var(--fg-dim);
+  /* Plain inline text — no input-box chrome, so a list of hooks reads as
+     rows, not a stack of disabled fields. */
+  background: none;
+  padding: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 

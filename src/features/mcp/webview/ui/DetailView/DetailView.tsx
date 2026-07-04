@@ -85,7 +85,7 @@ export function DetailView(props: DetailViewProps) {
         <ScopeBadge scope={server.scope} />
       </div>
 
-      <div class="d-actions">
+      <div class="mcp-detail-actions">
         {!isPlugin ? (
           <Button variant="primary" iconName="pencil" onClick={() => onEdit(server)}>
             Edit

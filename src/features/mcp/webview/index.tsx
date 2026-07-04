@@ -90,45 +90,43 @@ export default function McpTab() {
     setForm({ open: false });
   };
 
-  const formEl = form.open ? (
-    <McpForm server={form.server} onClose={() => setForm({ open: false })} onSubmit={submitForm} />
-  ) : null;
+  // The add/edit form is a full-panel view (not an overlay) — it replaces the
+  // list/detail while open, matching the sidebar's single-column flow.
+  if (form.open) {
+    return (
+      <McpForm server={form.server} onClose={() => setForm({ open: false })} onSubmit={submitForm} />
+    );
+  }
 
   if (sel) {
     return (
-      <>
-        <DetailView
-          server={sel}
-          onBack={() => {
-            selected.value = null;
-          }}
-          onEdit={(s) => setForm({ open: true, server: s })}
-          onOpenConfig={(s) => api.openConfig(s.scope, s.name)}
-          onToggle={(s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName)}
-          onDelete={(s) => api.remove(s.name, s.scope)}
-          onCopyName={copyToClipboard}
-          onOpenClaude={() => api.newSession()}
-          onAuthenticate={(name) => api.authenticate(name)}
-          onLogout={(name) => api.logout(name)}
-          onReconnect={() => api.reconnect()}
-          onCheckStatus={() => api.checkStatus()}
-        />
-        {formEl}
-      </>
+      <DetailView
+        server={sel}
+        onBack={() => {
+          selected.value = null;
+        }}
+        onEdit={(s) => setForm({ open: true, server: s })}
+        onOpenConfig={(s) => api.openConfig(s.scope, s.name)}
+        onToggle={(s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName)}
+        onDelete={(s) => api.remove(s.name, s.scope)}
+        onCopyName={copyToClipboard}
+        onOpenClaude={() => api.newSession()}
+        onAuthenticate={(name) => api.authenticate(name)}
+        onLogout={(name) => api.logout(name)}
+        onReconnect={() => api.reconnect()}
+        onCheckStatus={() => api.checkStatus()}
+      />
     );
   }
 
   return (
-    <>
-      <ListView
-        onSelect={onSelect}
-        onCopyName={copyToClipboard}
-        onBrowse={() => api.openUrl(MCP_BROWSE_URL)}
-        onRefresh={() => api.getServers()}
-        onNew={() => setForm({ open: true, server: null })}
-      />
-      {formEl}
-    </>
+    <ListView
+      onSelect={onSelect}
+      onCopyName={copyToClipboard}
+      onBrowse={() => api.openUrl(MCP_BROWSE_URL)}
+      onRefresh={() => api.getServers()}
+      onNew={() => setForm({ open: true, server: null })}
+    />
   );
 }
 
