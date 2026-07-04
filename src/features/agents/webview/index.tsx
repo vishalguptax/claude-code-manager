@@ -11,6 +11,7 @@ import type { AgentInput } from "../../../shared/protocol/messages";
 import type { Agent } from "../types";
 import { useAgentsApi } from "./api";
 import {
+  agents,
   error,
   loading,
   resetAgentsState,
@@ -71,7 +72,12 @@ export default function AgentsTab() {
   // the list/detail while open, matching the sidebar's single-column flow.
   if (form.open) {
     return (
-      <AgentForm agent={form.agent} onClose={() => setForm({ open: false })} onSubmit={submitForm} />
+      <AgentForm
+        agent={form.agent}
+        existing={agents.value.map((a) => ({ name: a.name, scope: a.scope }))}
+        onClose={() => setForm({ open: false })}
+        onSubmit={submitForm}
+      />
     );
   }
 

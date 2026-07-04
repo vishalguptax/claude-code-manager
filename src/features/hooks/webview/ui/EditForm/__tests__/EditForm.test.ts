@@ -46,6 +46,19 @@ describe("EditForm", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ timeout: 45 }));
   });
 
+  it("blocks save on a non-numeric or zero timeout", () => {
+    const onSave = vi.fn();
+    render(h(EditForm, { hook: baseHook, onSave, onCancel: vi.fn() }));
+    const save = screen.getByText("Save").closest("button") as HTMLButtonElement;
+    fireEvent.input(screen.getByLabelText("Timeout in seconds"), { target: { value: "abc" } });
+    expect(screen.getByText(/positive whole number/)).toBeTruthy();
+    expect(save.disabled).toBe(true);
+    fireEvent.input(screen.getByLabelText("Timeout in seconds"), { target: { value: "0" } });
+    expect(save.disabled).toBe(true);
+    fireEvent.input(screen.getByLabelText("Timeout in seconds"), { target: { value: "30" } });
+    expect(save.disabled).toBe(false);
+  });
+
   it("disables save when the command is empty", () => {
     const onSave = vi.fn();
     render(h(EditForm, { hook: baseHook, onSave, onCancel: vi.fn() }));

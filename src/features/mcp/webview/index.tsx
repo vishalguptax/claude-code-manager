@@ -94,7 +94,12 @@ export default function McpTab() {
   // list/detail while open, matching the sidebar's single-column flow.
   if (form.open) {
     return (
-      <McpForm server={form.server} onClose={() => setForm({ open: false })} onSubmit={submitForm} />
+      <McpForm
+        server={form.server}
+        existing={servers.value.map((s) => ({ name: s.name, scope: s.scope }))}
+        onClose={() => setForm({ open: false })}
+        onSubmit={submitForm}
+      />
     );
   }
 

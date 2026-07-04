@@ -388,6 +388,13 @@
   font-weight: 600;
   color: var(--fg-section);
 }
+.mcp-form-hint {
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+}
+.mcp-form-hint-error {
+  color: var(--vscode-editorError-foreground, #f14c4c);
+}
 .mcp-form-actions {
   display: flex;
   gap: var(--space-sm);

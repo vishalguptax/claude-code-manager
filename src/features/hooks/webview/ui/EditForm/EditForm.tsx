@@ -42,18 +42,19 @@ export function EditForm({ hook, onSave, onCancel }: EditFormProps) {
   const [timeout, setTimeout] = useState(hook.timeout !== undefined ? String(hook.timeout) : "");
 
   const trimmedCommand = command.trim();
-  const canSave = trimmedCommand.length > 0;
+  const trimmedTimeout = timeout.trim();
+  // Timeout is optional, but if given it must be a positive integer (seconds).
+  const timeoutValid = trimmedTimeout === "" || /^[1-9]\d*$/.test(trimmedTimeout);
+  const canSave = trimmedCommand.length > 0 && timeoutValid;
 
   const save = (): void => {
     if (!canSave) return;
-    const timeoutNum = timeout.trim() === "" ? undefined : Number(timeout);
     onSave({
       matcher: matcher.trim(),
       command: trimmedCommand,
       event,
       scope,
-      // Ignore a non-numeric timeout entry rather than writing NaN.
-      timeout: timeoutNum !== undefined && Number.isFinite(timeoutNum) ? timeoutNum : undefined,
+      timeout: trimmedTimeout === "" ? undefined : Number(trimmedTimeout),
     });
   };
 
@@ -96,6 +97,11 @@ export function EditForm({ hook, onSave, onCancel }: EditFormProps) {
           placeholder="default"
           onInput={setTimeout}
         />
+        {!timeoutValid ? (
+          <span class="hook-field-hint hook-field-hint-error">
+            Must be a positive whole number of seconds.
+          </span>
+        ) : null}
       </div>
 
       <div class="hook-field">

@@ -140,3 +140,12 @@
   color: var(--fg-section);
   margin-bottom: var(--space-xs);
 }
+.hook-field-hint {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+  margin-top: var(--space-xs);
+}
+.hook-field-hint-error {
+  color: var(--vscode-editorError-foreground, #f14c4c);
+}

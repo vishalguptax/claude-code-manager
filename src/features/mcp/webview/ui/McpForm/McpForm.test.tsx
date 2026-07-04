@@ -37,7 +37,7 @@ describe("McpForm", () => {
     fireEvent.input(screen.getByLabelText("Command"), { target: { value: "npx" } });
     fireEvent.input(screen.getByLabelText("Args"), { target: { value: "-y  server" } });
     fireEvent.input(screen.getByLabelText("Environment variables"), {
-      target: { value: "KEY=v\nBAD LINE\nX=1" },
+      target: { value: "KEY=v\n\nX=1" },
     });
     fireEvent.click(screen.getByText("Add"));
     expect(onSubmit).toHaveBeenCalledWith(null, {
@@ -85,6 +85,69 @@ describe("McpForm", () => {
       }),
     );
     expect(screen.getByLabelText("Headers")).toBeTruthy();
+  });
+
+  it("flags an invalid server name and blocks save", () => {
+    render(h(McpForm, { server: null, onClose: () => {}, onSubmit: vi.fn() }));
+    fireEvent.input(screen.getByLabelText("Server name"), { target: { value: "bad name!" } });
+    fireEvent.input(screen.getByLabelText("Command"), { target: { value: "node" } });
+    expect(screen.getByText(/Letters, digits/)).toBeTruthy();
+    expect((screen.getByText("Add").closest("button") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("flags a duplicate name in the same scope and blocks save", () => {
+    render(
+      h(McpForm, {
+        server: null,
+        existing: [{ name: "github", scope: "project" }],
+        onClose: () => {},
+        onSubmit: vi.fn(),
+      }),
+    );
+    fireEvent.input(screen.getByLabelText("Server name"), { target: { value: "github" } });
+    fireEvent.input(screen.getByLabelText("Command"), { target: { value: "node" } });
+    expect(screen.getByText(/already exists in project scope/)).toBeTruthy();
+    expect((screen.getByText("Add").closest("button") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("allows editing a server without a self-duplicate error", () => {
+    render(
+      h(McpForm, {
+        server: srv({ name: "github", scope: "project" }),
+        existing: [{ name: "github", scope: "project" }],
+        onClose: () => {},
+        onSubmit: vi.fn(),
+      }),
+    );
+    expect(screen.queryByText(/already exists/)).toBeNull();
+    expect((screen.getByText("Save").closest("button") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("requires a valid URL scheme for url transports", () => {
+    render(
+      h(McpForm, {
+        server: srv({ name: "api", scope: "global", type: "http", url: "" }),
+        onClose: () => {},
+        onSubmit: vi.fn(),
+      }),
+    );
+    fireEvent.input(screen.getByLabelText("URL"), { target: { value: "example.com" } });
+    expect(screen.getByText(/Must start with http/)).toBeTruthy();
+    const save = screen.getByText("Save").closest("button") as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    fireEvent.input(screen.getByLabelText("URL"), { target: { value: "https://example.com/mcp" } });
+    expect(save.disabled).toBe(false);
+  });
+
+  it("blocks save on a malformed env line and names the line", () => {
+    render(h(McpForm, { server: null, onClose: () => {}, onSubmit: vi.fn() }));
+    fireEvent.input(screen.getByLabelText("Server name"), { target: { value: "srv" } });
+    fireEvent.input(screen.getByLabelText("Command"), { target: { value: "node" } });
+    fireEvent.input(screen.getByLabelText("Environment variables"), {
+      target: { value: "OK=1\nNOPE" },
+    });
+    expect(screen.getByText(/Line 2 must be KEY=value/)).toBeTruthy();
+    expect((screen.getByText("Add").closest("button") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("fires onClose from Cancel", () => {

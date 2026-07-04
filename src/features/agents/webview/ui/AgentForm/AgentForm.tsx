@@ -15,6 +15,8 @@ import type { Agent } from "../../../types";
 export interface AgentFormProps {
   /** The agent being edited, or null to create a new one. */
   agent: Agent | null;
+  /** Existing agents (name + scope) for duplicate-name validation. */
+  existing?: Array<{ name: string; scope: string }>;
   onClose: () => void;
   onSubmit: (input: AgentInput) => void;
 }
@@ -30,7 +32,7 @@ function splitList(text: string): string[] {
     .filter(Boolean);
 }
 
-export function AgentForm({ agent, onClose, onSubmit }: AgentFormProps) {
+export function AgentForm({ agent, existing = [], onClose, onSubmit }: AgentFormProps) {
   const isEdit = agent !== null;
   const initialModel = agent?.model ?? "inherit";
   // A full model id (not one of the known short names) edits as "custom".
@@ -45,15 +47,24 @@ export function AgentForm({ agent, onClose, onSubmit }: AgentFormProps) {
   const [scope, setScope] = useState(agent?.scope === "project" ? "project" : "global");
   const [body, setBody] = useState(agentBody(agent));
 
-  const nameValid = NAME_RE.test(name);
-  const canSave = nameValid && (modelChoice !== "custom" || customModel.trim().length > 0);
+  const trimmedName = name.trim();
+  const targetScope = isEdit ? (agent as Agent).scope : scope;
+  const nameFormatValid = NAME_RE.test(trimmedName);
+  const nameDup = existing.some(
+    (e) =>
+      e.scope === targetScope &&
+      e.name === trimmedName &&
+      !(isEdit && e.name === (agent as Agent).name && e.scope === (agent as Agent).scope),
+  );
+  const modelValid = modelChoice !== "custom" || customModel.trim().length > 0;
+  const canSave = nameFormatValid && !nameDup && modelValid;
 
   const submit = (): void => {
     if (!canSave) return;
     const model = modelChoice === "custom" ? customModel.trim() : modelChoice;
     onSubmit({
-      scope: isEdit ? (agent as Agent).scope : scope,
-      name: name.trim(),
+      scope: targetScope,
+      name: trimmedName,
       description: description.trim(),
       model,
       tools: splitList(tools),
@@ -77,9 +88,13 @@ export function AgentForm({ agent, onClose, onSubmit }: AgentFormProps) {
             placeholder="lowercase-with-hyphens"
             ariaLabel="Agent name"
           />
-          {name.length > 0 && !nameValid ? (
+          {trimmedName.length > 0 && !nameFormatValid ? (
             <span class="agent-form-hint agent-form-hint-error">
               Lowercase letters, digits, and hyphens only.
+            </span>
+          ) : nameDup ? (
+            <span class="agent-form-hint agent-form-hint-error">
+              An agent named "{trimmedName}" already exists in {targetScope} scope.
             </span>
           ) : null}
         </label>

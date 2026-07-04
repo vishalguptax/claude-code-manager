@@ -73,6 +73,33 @@ describe("AgentForm", () => {
     );
   });
 
+  it("flags a duplicate name in the target scope and blocks Create", () => {
+    render(
+      h(AgentForm, {
+        agent: null,
+        existing: [{ name: "reviewer", scope: "global" }],
+        onClose: () => {},
+        onSubmit: vi.fn(),
+      }),
+    );
+    fireEvent.input(screen.getByLabelText("Agent name"), { target: { value: "reviewer" } });
+    expect(screen.getByText(/already exists in global scope/)).toBeTruthy();
+    expect((screen.getByText("Create").closest("button") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("does not flag the edited agent as a duplicate of itself", () => {
+    render(
+      h(AgentForm, {
+        agent: agent(),
+        existing: [{ name: "reviewer", scope: "global" }],
+        onClose: () => {},
+        onSubmit: vi.fn(),
+      }),
+    );
+    expect(screen.queryByText(/already exists/)).toBeNull();
+    expect((screen.getByText("Save").closest("button") as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("fires onClose from Cancel", () => {
     const onClose = vi.fn();
     render(h(AgentForm, { agent: null, onClose, onSubmit: () => {} }));
