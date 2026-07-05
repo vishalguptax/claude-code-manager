@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.5.1] - 2026-07-05
+
+Quota card no longer reads as broken when idle, and the SessionStart hook stops duplicating (and triggering Claude Code's broken-command prompt) on machines that sync ~/.claude/settings.json.
+
+See [docs/releases/v2.5.1.md](docs/releases/v2.5.1.md) for full details.
+
 ## [2.5.0] - 2026-07-05
 
 The Account tab tracks live data (models, pricing, quota, usage stay in sync with Claude Code), with a reworked global-first statusline installer, broad UI/accessibility fixes, and an instant keep-alive tab shell.
