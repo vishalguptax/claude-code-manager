@@ -33,7 +33,9 @@ export function AgentItem({ agent, active, onSelect }: AgentItemProps) {
         {missingDescription ? (
           <span
             class="agent-validity-dot"
+            role="img"
             title="No description — Claude can't tell when to use this agent"
+            aria-label="Warning: no description — Claude can't tell when to use this agent"
           />
         ) : null}
         <span class="agent-item-name">{agent.name}</span>

@@ -108,7 +108,17 @@ export function SessionItem({
     <div
       class={cx("item session-item", { active: isActive, "is-selected": isSelected })}
       data-id={session.id}
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e: KeyboardEvent) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        // A row hosts an inline action <Button> (resume/view); its own Enter/
+        // Space activation is native — don't also trigger row selection.
+        if ((e.target as HTMLElement).tagName === "BUTTON") return;
+        e.preventDefault();
+        onClick(e as unknown as MouseEvent);
+      }}
       onContextMenu={onRowContextMenu}
     >
       <div class="item-row1">
@@ -117,7 +127,8 @@ export function SessionItem({
             class="live-dot"
             data-status={liveStatus || undefined}
             title={liveTitleForStatus(session.status)}
-            aria-hidden="true"
+            role="img"
+            aria-label={liveTitleForStatus(session.status)}
           />
         ) : null}
         <span class="item-name" title={displayName}>

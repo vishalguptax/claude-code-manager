@@ -51,6 +51,7 @@ export function SkillItem(props: SkillItemProps) {
             class="item-chat-btn"
             iconName="message-square"
             title={`Launch /${skill.name} in Claude Code chat`}
+            ariaLabel={`Launch /${skill.name} in Claude Code chat`}
             onClick={(e) => {
               e.stopPropagation();
               onLaunchChat(skill.name);
@@ -62,6 +63,7 @@ export function SkillItem(props: SkillItemProps) {
           class="item-copy-btn"
           iconName="copy"
           title={`Copy /${skill.name}`}
+          ariaLabel={`Copy /${skill.name}`}
           onClick={(e) => {
             e.stopPropagation();
             onCopy(skill.name);

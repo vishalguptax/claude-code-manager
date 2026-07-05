@@ -77,6 +77,12 @@ describe("SkillItem", () => {
     expect(h2.onSelect).not.toHaveBeenCalled();
   });
 
+  it("icon-only chat and copy buttons have an accessible name", () => {
+    renderItem({ name: "lint" });
+    expect(screen.getByLabelText("Copy /lint")).toBeTruthy();
+    expect(screen.getByLabelText("Launch /lint in Claude Code chat")).toBeTruthy();
+  });
+
   it("shows the chat button only when chatEnabled", () => {
     renderItem({ name: "lint" }, { chatEnabled: false });
     expect(screen.queryByTitle(/Launch \/lint/)).toBeNull();

@@ -83,6 +83,12 @@ describe("ListView", () => {
     expect(post).toHaveBeenCalledWith({ type: "getSkills" });
   });
 
+  it("globe and refresh icon buttons have an accessible name", () => {
+    render(h(ListView, {}));
+    expect(screen.getByLabelText("Browse community skills (opens externally)")).toBeTruthy();
+    expect(screen.getByLabelText("Refresh skills list")).toBeTruthy();
+  });
+
   it("debounced search filters the list and shows a no-match empty state", async () => {
     skills.value = [
       makeSkill({ id: "1", name: "alpha" }),

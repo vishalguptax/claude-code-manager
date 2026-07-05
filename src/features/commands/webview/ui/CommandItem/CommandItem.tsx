@@ -31,6 +31,12 @@ export function CommandItem({
       role="button"
       tabIndex={0}
       onClick={() => onSelect(command)}
+      onKeyDown={(e: KeyboardEvent) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(command);
+        }
+      }}
     >
       <div class="cmd-item-row1">
         <span class="cmd-item-name">/{command.name}</span>

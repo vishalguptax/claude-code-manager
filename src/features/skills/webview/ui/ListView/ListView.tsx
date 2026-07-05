@@ -114,6 +114,7 @@ export function ListView() {
           class="search-side-btn"
           iconName="globe"
           title="Browse community skills (opens externally)"
+          ariaLabel="Browse community skills (opens externally)"
           onClick={() => openUrl(post, marketplaceSkillsUrl.value)}
         />
         <Button
@@ -121,6 +122,7 @@ export function ListView() {
           class="search-side-btn"
           iconName="refresh-cw"
           title="Refresh skills list"
+          ariaLabel="Refresh skills list"
           onClick={() => getSkills(post)}
         />
       </div>

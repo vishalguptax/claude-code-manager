@@ -84,6 +84,13 @@ describe("SessionItem", () => {
     expect(dot?.getAttribute("title")).toBe("Session is busy");
   });
 
+  it("gives the live dot an accessible name (colour-only status must reach screen readers)", () => {
+    const { container } = renderItem(session({ id: "a", isLive: true, status: "busy" }));
+    const dot = container.querySelector(".live-dot");
+    expect(dot?.getAttribute("aria-label")).toBe("Session is busy");
+    expect(dot?.getAttribute("aria-hidden")).toBeNull();
+  });
+
   it("omits the live dot when not live", () => {
     const { container } = renderItem(session({ id: "a", isLive: false }));
     expect(container.querySelector(".live-dot")).toBeNull();
@@ -109,6 +116,23 @@ describe("SessionItem", () => {
     const { container } = renderItem(session({ id: "a" }), { onSelect });
     fireEvent.click(container.querySelector(".session-item") as Element);
     expect(onSelect).toHaveBeenCalledWith("a");
+  });
+
+  it("opens on Enter / Space (row is keyboard-operable)", () => {
+    const onSelect = vi.fn();
+    const { container } = renderItem(session({ id: "a" }), { onSelect });
+    const row = container.querySelector(".session-item") as HTMLElement;
+    fireEvent.keyDown(row, { key: "Enter" });
+    fireEvent.keyDown(row, { key: " " });
+    expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+
+  it("Enter/Space on the inline resume button does not also select the row", () => {
+    const onSelect = vi.fn();
+    const onResume = vi.fn();
+    const { container } = renderItem(session({ id: "a" }), { onSelect, onResume });
+    fireEvent.keyDown(container.querySelector(".item-resume") as Element, { key: "Enter" });
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it("invokes onResume on the resume button click, not onSelect", () => {

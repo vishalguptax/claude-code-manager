@@ -46,6 +46,9 @@ describe("AgentItem", () => {
       h(AgentItem, { agent: agent({ description: "  " }), active: false, onSelect: () => {} }),
     );
     expect(blank.container.querySelector(".agent-validity-dot")).toBeTruthy();
+    expect(blank.container.querySelector(".agent-validity-dot")?.getAttribute("aria-label")).toMatch(
+      /no description/i,
+    );
   });
 
   it("fires onSelect with the agent on click", () => {

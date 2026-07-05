@@ -74,6 +74,24 @@ describe("CommandItem", () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
+  it("opens on Enter / Space (row is keyboard-operable)", () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      h(CommandItem, {
+        command: cmd({ name: "a", scope: "global" }),
+        active: false,
+        showChatButton: false,
+        onSelect,
+        onCopy: noop,
+        onLaunchChat: noop,
+      }),
+    );
+    const row = container.querySelector(".cmd-item") as HTMLElement;
+    fireEvent.keyDown(row, { key: "Enter" });
+    fireEvent.keyDown(row, { key: " " });
+    expect(onSelect).toHaveBeenCalledTimes(2);
+  });
+
   it("copy button fires onCopy and stops propagation to the row", () => {
     const onSelect = vi.fn();
     const onCopy = vi.fn();

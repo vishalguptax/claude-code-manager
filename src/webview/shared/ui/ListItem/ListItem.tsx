@@ -18,6 +18,15 @@ export function ListItem({ active, onClick, children, class: cls }: ListItemProp
       role="button"
       tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e: KeyboardEvent) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        // A row hosts inline action <Button>s; Space on a focused BUTTON
+        // descendant is that button's own activation, not the row's — let it
+        // through instead of double-firing (row select + button action).
+        if ((e.target as HTMLElement).tagName === "BUTTON") return;
+        e.preventDefault();
+        onClick?.(e as unknown as MouseEvent);
+      }}
     >
       {children}
     </div>
