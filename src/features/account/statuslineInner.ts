@@ -9,7 +9,7 @@
  * shared, git-committed project settings file is never written — the
  * tap command embeds machine-absolute paths (node binary, home dir)
  * that would break every other contributor's statusline (the
- * "C:\\Users\\001ch" bug).
+ * "C:\\Users\\winuser" bug).
  *
  * v1 was a single `{scope, command, workspacePath}` record. It broke
  * with more than one workspace: a second install overwrote the first

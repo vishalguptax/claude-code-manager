@@ -138,7 +138,7 @@ const WS = "/fake-ws";
 const PROJECT_SETTINGS = path.join(WS, ".claude", "settings.json");
 const LOCAL_SETTINGS = path.join(WS, ".claude", "settings.local.json");
 const FOREIGN_TAP =
-  '"C:\\nvm4w\\nodejs\\node.exe" "C:\\Users\\001ch\\.claude\\.claude-manager\\statusline-tap.js"';
+  '"C:\\Program Files\\nodejs\\node.exe" "C:\\Users\\winuser\\.claude\\.claude-manager\\statusline-tap.js"';
 
 function seedSettingsAt(filePath: string, command: string | null): void {
   if (command === null) {

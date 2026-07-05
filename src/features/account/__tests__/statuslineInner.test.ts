@@ -82,7 +82,7 @@ describe("isTapCommand", () => {
   it("matches this machine's and foreign machines' tap paths", () => {
     expect(isTapCommand('"/usr/bin/node" "/Users/x/.claude/.claude-manager/statusline-tap.js"')).toBe(true);
     expect(
-      isTapCommand('"C:\\nvm4w\\nodejs\\node.exe" "C:\\Users\\001ch\\.claude\\.claude-manager\\statusline-tap.js"'),
+      isTapCommand('"C:\\Program Files\\nodejs\\node.exe" "C:\\Users\\winuser\\.claude\\.claude-manager\\statusline-tap.js"'),
     ).toBe(true);
   });
 
