@@ -60,6 +60,23 @@ export function sessionTapCommand(): string {
 }
 
 /**
+ * Recognise a SessionStart entry as OUR tap by the script basename, not
+ * the full machine path. `~/.claude/settings.json` is often synced across
+ * machines (dotfiles, Claude settings sync); another machine's copy of
+ * our hook has a different home/node path, so a full-path match fails to
+ * see it as ours — leaving the foreign (broken-on-this-OS) command in
+ * place AND appending a second current-machine entry. Matching the stable
+ * basename means a foreign copy is recognised as a stale instance of the
+ * same hook and gets replaced, never duplicated. This is the same
+ * machine-agnostic match the statusline installer uses.
+ */
+const SESSION_TAP_BASENAME = path.basename(SESSION_TAP_FILE);
+
+function isOurTapCommand(command: unknown): boolean {
+  return typeof command === "string" && command.includes(SESSION_TAP_BASENAME);
+}
+
+/**
  * Copy the bundled tap script to its stable on-disk location. Source
  * is the extension's bundled `dist/session-start-tap.js`; destination
  * is `~/.claude/.claude-manager/session-start-tap.js` so the path
@@ -120,7 +137,7 @@ export function ensureSessionStartHook(extensionDistDir: string): boolean {
     if (!entry || typeof entry !== "object") continue;
     const sub = Array.isArray(entry.hooks) ? entry.hooks : [];
     const ours = sub.find(
-      (s) => s && s.type === "command" && typeof s.command === "string" && s.command.includes(SESSION_TAP_FILE),
+      (s) => s && s.type === "command" && isOurTapCommand(s.command),
     );
     if (ours) {
       if (ours.command === expectedCommand && (entry.matcher ?? "") === "") {
@@ -174,9 +191,9 @@ export function removeSessionStartHook(): boolean {
       continue;
     }
     const sub = Array.isArray(entry.hooks) ? entry.hooks : [];
-    const remaining = sub.filter(
-      (s) => !(s && s.type === "command" && typeof s.command === "string" && s.command.includes(SESSION_TAP_FILE)),
-    );
+    // Basename match so uninstall also clears foreign-machine copies of
+    // our hook that rode in via settings sync (see isOurTapCommand).
+    const remaining = sub.filter((s) => !(s && s.type === "command" && isOurTapCommand(s.command)));
     if (remaining.length !== sub.length) changed = true;
     if (remaining.length > 0) filtered.push({ matcher: entry.matcher, hooks: remaining });
   }
