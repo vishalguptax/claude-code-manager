@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.5.0] - 2026-07-05
+
+The Account tab tracks live data (models, pricing, quota, usage stay in sync with Claude Code), with a reworked global-first statusline installer, broad UI/accessibility fixes, and an instant keep-alive tab shell.
+
+See [docs/releases/v2.5.0.md](docs/releases/v2.5.0.md) for full details.
+
 ## [2.4.0] - 2026-07-04
 
 Polish and validation pass over the new MCP / agent / hook management UI: inline form validation, a cleaner MCP detail view, and a sidebar-wide layout/consistency cleanup.
