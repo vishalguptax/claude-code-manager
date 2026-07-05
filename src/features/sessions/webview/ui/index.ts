@@ -7,7 +7,6 @@ export { DetailView } from "./views/DetailView";
 export { ListView } from "./views/ListView";
 export { ActionsBar } from "./components/ActionsBar";
 export { Filters } from "./components/Filters";
-export { Footer } from "./components/Footer";
 export { ListHeader } from "./components/ListHeader";
 export { MessageItem, fmtTokens, splitHighlight } from "./components/MessageItem";
 export { SessionItem, liveTitleForStatus } from "./components/SessionItem";

@@ -353,6 +353,42 @@ button,
   }
 }
 
+/* ── App footer ────────────────────────────────────────────────────
+ * Shell chrome: rendered once by App.tsx below the tab content, so it
+ * stays visible across every tab. flex-shrink:0 keeps it from being
+ * squeezed by the sibling .tab-content-area (flex:1) that fills the
+ * rest of the #root column above it. */
+.app-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  padding: var(--space-lg) var(--space-2xl);
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
+}
+.footer-name { color: var(--fg-dim); font-weight: 600; font-size: var(--fs-sm); }
+
+.footer-links {
+  display: flex;
+  gap: var(--space-xs);
+}
+.footer-link {
+  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-xs);
+  border-radius: var(--radius);
+  transition: color var(--transition-control);
+  font-family: inherit;
+}
+.footer-link .icon { width: 14px; height: 14px; }
+.footer-link:hover { color: var(--fg); background: var(--bg-hover); }
+
 /* ── Load-deadline notice ──────────────────────────────────────────
  * Replaces a tab skeleton once its first load overruns the deadline
  * (see webview/shared/ui/LoadDeadline). */

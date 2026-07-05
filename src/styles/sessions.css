@@ -843,37 +843,5 @@
   text-align: right;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Footer
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.app-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-lg) var(--space-2xl);
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  margin-top: auto;
-  border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
-}
-.footer-name                 { color: var(--fg-dim); font-weight: 600; font-size: var(--fs-sm); }
-
-.footer-links {
-  display: flex;
-  gap: var(--space-xs);
-}
-.footer-link {
-  color: var(--fg-muted);
-  display: flex;
-  align-items: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: var(--space-xs);
-  border-radius: var(--radius);
-  transition: color var(--transition-control);
-  font-family: inherit;
-}
-.footer-link .icon           { width: 14px; height: 14px; }
-.footer-link:hover           { color: var(--fg); background: var(--bg-hover); }
+/* .app-footer / .footer-* moved to base.css — the footer is shell chrome
+   (rendered once by App.tsx below the tab content), not sessions content. */

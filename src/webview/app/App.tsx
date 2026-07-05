@@ -7,6 +7,7 @@
 import { activeTab } from "../shared/model";
 import { hostBusy } from "../shared/model/hostBusy";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { Footer } from "./Footer";
 import { TabBar, TabPanel } from "./tabs";
 
 export function App() {
@@ -22,6 +23,9 @@ export function App() {
           <TabPanel feature={current} />
         </div>
       </div>
+      {/* Shell chrome, not feature content — visible on every tab, not just
+          Sessions (where it lived before this was the app's shared footer). */}
+      <Footer />
     </ErrorBoundary>
   );
 }

@@ -36,7 +36,6 @@ import {
 import { sendGetSessionDetail, sendResumeSession, sendViewTerminal } from "../../api";
 import { ActionsBar } from "../components/ActionsBar";
 import { Filters } from "../components/Filters";
-import { Footer } from "../components/Footer";
 import { ListHeader } from "../components/ListHeader";
 import { SessionItem } from "../components/SessionItem";
 import { buildSessionMenuItems } from "../components/sessionMenu";
@@ -173,7 +172,6 @@ export function ListView() {
           }
         />
       )}
-      <Footer />
       <ContextMenu
         open={menu !== null}
         x={menu?.x ?? 0}
