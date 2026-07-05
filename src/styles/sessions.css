@@ -690,7 +690,10 @@
 }
 .d-msg-user {
   border-left-color: var(--accent);
-  background: rgba(127, 127, 255, 0.04);
+  /* A faint wash of the user's actual accent colour (not a fixed blue-purple
+     guess) so it stays correct across themes, same color-mix() pattern used
+     for .bulk-btn.del:hover above. */
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
 }
 .d-msg-role {
   display: block;
