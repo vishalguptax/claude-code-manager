@@ -24,6 +24,9 @@ export function DetailView({ skill }: DetailViewProps) {
   const { post } = useApi();
   const [copied, setCopied] = useState(false);
   const body = stripFrontmatter(skill.content).trim();
+  // Plugin skills live in a plugin's install dir — read-only from here
+  // (managed via Claude Code's /plugin), so no delete. Mirrors agents/mcp.
+  const isPlugin = skill.scope === "plugin";
 
   function copyName(): void {
     navigator.clipboard?.writeText(`/${skill.name}`);
@@ -67,10 +70,19 @@ export function DetailView({ skill }: DetailViewProps) {
         <Button iconName="external-link" onClick={() => openSkillFile(post, skill.path)}>
           Open File
         </Button>
-        <Button variant="danger" iconName="trash-2" onClick={() => deleteSkill(post, skill.path)}>
-          Delete
-        </Button>
+        {!isPlugin ? (
+          <Button variant="danger" iconName="trash-2" onClick={() => deleteSkill(post, skill.path)}>
+            Delete
+          </Button>
+        ) : null}
       </div>
+
+      {isPlugin ? (
+        <div class="skill-readonly-note">
+          Owned by plugin {skill.pluginName ?? ""} — managed by Claude Code's <code>/plugin</code>{" "}
+          command.
+        </div>
+      ) : null}
 
       <div class="d-section">
         <div class="d-label">Info</div>

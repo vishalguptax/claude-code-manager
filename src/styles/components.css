@@ -548,14 +548,16 @@
    sourced hooks, MCP servers, etc.) — explains why the usual
    toggle/delete controls are missing. */
 .hook-readonly-note,
-.mcp-readonly-note {
+.mcp-readonly-note,
+.skill-readonly-note {
   font-size: var(--fs-xs);
   color: var(--role-text-secondary);
   font-style: italic;
   align-self: center;
 }
 .hook-readonly-note code,
-.mcp-readonly-note code {
+.mcp-readonly-note code,
+.skill-readonly-note code {
   font-style: normal;
 }
 

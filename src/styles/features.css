@@ -127,6 +127,14 @@
   color: var(--color-blue);
 }
 
+/* Plugin commands are read-only, like plugin skills/mcp — same purple accent
+   so scope reads consistently across features (was falling back to the neutral
+   base chip, making a plugin command look Global). */
+.cmd-scope-plugin {
+  background: var(--color-purple-bg);
+  color: var(--color-purple);
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Commands — Detail View

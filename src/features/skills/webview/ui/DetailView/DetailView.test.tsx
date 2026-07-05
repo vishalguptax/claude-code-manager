@@ -62,6 +62,12 @@ describe("DetailView", () => {
     expect(post).toHaveBeenCalledWith({ type: "deleteSkill", skillPath: "/p" });
   });
 
+  it("hides Delete and shows a read-only note for plugin skills", () => {
+    render(h(DetailView, { skill: makeSkill({ scope: "plugin", pluginName: "acme" }) }));
+    expect(screen.queryByText("Delete")).toBeNull();
+    expect(screen.getByText(/Owned by plugin acme/)).toBeTruthy();
+  });
+
   it("hides Open in Chat unless the Claude Code extension is installed", () => {
     render(h(DetailView, { skill: makeSkill() }));
     expect(screen.queryByText(/Open in Chat/)).toBeNull();
