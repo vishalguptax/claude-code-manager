@@ -1,6 +1,8 @@
-# Native postinstall builds must be explicitly allowed (pnpm blocks them by
-# default as a supply-chain guard). esbuild fetches its platform binary; sharp
-# links libvips. Both are required for build and runtime respectively.
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
+# Native postinstall builds must be explicitly allowed — pnpm blocks them by
+# default as a supply-chain guard, and in CI an ignored build is a hard error
+# (exit 1), not just a warning. esbuild fetches its platform binary (required
+# by the build); sharp links libvips (icon tooling). pnpm 11 records approvals
+# under `allowBuilds` (a map), written by `pnpm approve-builds`.
+allowBuilds:
+  esbuild: true
+  sharp: true
