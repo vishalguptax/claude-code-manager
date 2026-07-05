@@ -45,6 +45,13 @@ export interface SessionItemProps {
   isSelected: boolean;
   bulkMode: boolean;
   hasOpenTerminal: boolean;
+  /**
+   * True when this session belongs to a different project than the current
+   * workspace. Resuming isn't possible from the row in that case — the detail
+   * view offers "Open {project}" instead — so the row hides the Resume
+   * affordance rather than offering an action that can't do what it says.
+   */
+  isDiffProject: boolean;
   onSelect: (id: string) => void;
   onResume: (id: string) => void;
   onView: (id: string) => void;
@@ -60,6 +67,7 @@ export function SessionItem({
   isSelected,
   bulkMode,
   hasOpenTerminal,
+  isDiffProject,
   onSelect,
   onResume,
   onView,
@@ -133,7 +141,7 @@ export function SessionItem({
                 onView(session.id);
               }}
             />
-          ) : (
+          ) : isDiffProject ? null : (
             <Button
               variant="icon"
               class="item-resume"

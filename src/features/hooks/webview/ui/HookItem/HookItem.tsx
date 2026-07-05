@@ -8,6 +8,7 @@
 import { cx } from "../../../../../webview/shared/lib";
 import { Badge, Button } from "../../../../../webview/shared/ui";
 import type { Hook } from "../../../types";
+import { eventUsesMatcher } from "../../../events";
 import { scopeLabel } from "../../lib";
 
 /** Command preview length before truncating with an ellipsis. */
@@ -41,13 +42,15 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
       }}
     >
       <div class="hook-item-row1">
-        {hook.matcher ? (
-          <span class="hook-matcher" title={`Matcher: ${hook.matcher}`}>
-            {hook.matcher}
-          </span>
-        ) : (
-          <span class="hook-matcher hook-matcher-all">*</span>
-        )}
+        {eventUsesMatcher(hook.event) ? (
+          hook.matcher ? (
+            <span class="hook-matcher" title={`Matcher: ${hook.matcher}`}>
+              {hook.matcher}
+            </span>
+          ) : (
+            <span class="hook-matcher hook-matcher-all">*</span>
+          )
+        ) : null}
         <Badge variant="scope" text={scopeLabel(hook)} title={scopeLabel(hook)} />
         {hook.disabled ? <Badge variant="default" text="disabled" /> : null}
         {isPlugin ? (

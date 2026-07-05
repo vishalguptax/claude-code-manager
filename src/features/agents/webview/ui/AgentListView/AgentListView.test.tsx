@@ -58,6 +58,14 @@ describe("AgentListView", () => {
     expect(screen.getByText("No matching agents")).toBeTruthy();
   });
 
+  it("shows a no-match state (not 'No agents found') when a model filter hides everything", () => {
+    agents.value = [agent({ name: "alpha", model: "sonnet" })];
+    filterModel.value = "opus";
+    render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
+    expect(screen.getByText("No matching agents")).toBeTruthy();
+    expect(screen.queryByText("No agents found")).toBeNull();
+  });
+
   it("selects an agent on click", () => {
     const a = agent({ name: "pick" });
     agents.value = [a];

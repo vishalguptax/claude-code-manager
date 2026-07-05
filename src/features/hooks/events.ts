@@ -8,6 +8,25 @@
  * catalog is updated.
  */
 
+/**
+ * Events that match against a tool name — the only ones for which the `matcher`
+ * field is meaningful. For every other event (SessionStart, Stop, Notification,
+ * PreCompact, …) a matcher has no effect, so the UI must not show a matcher
+ * badge/`*`/input that implies tool-matching the event can't do.
+ */
+export const MATCHER_EVENTS: ReadonlySet<string> = new Set([
+  "PreToolUse",
+  "PostToolUse",
+  "PostToolUseFailure",
+  "PermissionRequest",
+  "PermissionDenied",
+]);
+
+/** True when the event uses the tool-name matcher field. */
+export function eventUsesMatcher(event: string): boolean {
+  return MATCHER_EVENTS.has(event);
+}
+
 export interface HookEventInfo {
   /** The raw event name as written in settings.json. */
   name: string;

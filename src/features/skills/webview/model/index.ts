@@ -2,6 +2,7 @@
 export {
   claudeCodeInstalled,
   countByScope,
+  errorMessage,
   filteredSkills,
   loaded,
   marketplaceSkillsUrl,

@@ -20,6 +20,7 @@ import {
   bulkModeSignal,
   clearFullTextHits,
   clearSelection,
+  currentProjectSignal,
   detailLoadingSignal,
   getFiltered,
   openTerminalsSignal,
@@ -58,6 +59,7 @@ export function ListView() {
   const bulk = bulkModeSignal.value;
   const query = searchQuerySignal.value;
   const openTerminals = openTerminalsSignal.value;
+  const currentProject = currentProjectSignal.value;
   const [menu, setMenu] = useState<MenuState | null>(null);
 
   const rows = buildRows(filtered, pinned);
@@ -160,6 +162,7 @@ export function ListView() {
                 isSelected={selection.has(row.session.id)}
                 bulkMode={bulk}
                 hasOpenTerminal={openTerminals.has(row.session.id)}
+                isDiffProject={Boolean(currentProject && row.session.projectKey !== currentProject)}
                 onSelect={openDetail}
                 onResume={resume}
                 onView={view}

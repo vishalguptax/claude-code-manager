@@ -9,7 +9,14 @@ import { registerFeatureHandler } from "../../../webview/shared/model";
 import { ListSkeleton } from "../../../webview/shared/ui";
 import type { Skill } from "../types";
 import { getSkills } from "./api";
-import { claudeCodeInstalled, loaded, marketplaceSkillsUrl, selectedSkill, skills } from "./model";
+import {
+  claudeCodeInstalled,
+  errorMessage,
+  loaded,
+  marketplaceSkillsUrl,
+  selectedSkill,
+  skills,
+} from "./model";
 import { DetailView, ListView } from "./ui";
 
 /**
@@ -28,6 +35,7 @@ export function registerSkillsHandlers(): () => void {
       // empty-state can render; an empty array only reads as "no skills" once
       // the host has actually answered.
       loaded.value = true;
+      errorMessage.value = null;
       // Re-resolve the selection against the fresh list so a delete or
       // rename on the host doesn't leave a stale detail panel open.
       const sel = selectedSkill.value;
@@ -38,9 +46,13 @@ export function registerSkillsHandlers(): () => void {
   });
 
   // A host parse/read failure also ends loading — otherwise the panel would sit
-  // on the <Loading /> placeholder forever.
+  // on the <Loading /> placeholder forever. Surface it distinctly from "no
+  // skills" (see errorMessage) so a real failure doesn't read as an empty list.
   const offError = registerFeatureHandler("error", (msg) => {
-    if (msg.type === "error") loaded.value = true;
+    if (msg.type === "error") {
+      loaded.value = true;
+      errorMessage.value = msg.message;
+    }
   });
 
   // Marketplace URL + Claude Code install flag ride in on the host's
@@ -79,5 +91,6 @@ export default function SkillsTab() {
   const selected = selectedSkill.value;
   if (selected) return <DetailView skill={selected} />;
   if (!loaded.value) return <ListSkeleton />;
+  if (errorMessage.value) return <div class="empty">Error: {errorMessage.value}</div>;
   return <ListView />;
 }

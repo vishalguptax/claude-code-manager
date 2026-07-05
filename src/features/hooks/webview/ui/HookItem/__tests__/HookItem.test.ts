@@ -42,6 +42,11 @@ describe("HookItem", () => {
     expect(screen.getByText("*")).toBeTruthy();
   });
 
+  it("hides the matcher entirely for a non-tool event (matcher has no effect there)", () => {
+    renderItem({ hook: hook({ event: "SessionStart", matcher: "" }) });
+    expect(screen.queryByText("*")).toBeNull();
+  });
+
   it("truncates long commands", () => {
     renderItem({ hook: hook({ command: "x".repeat(120) }) });
     expect(screen.getByText(/x{60}…/)).toBeTruthy();

@@ -105,7 +105,13 @@ export function AgentListView({ onRefresh, onNew }: AgentListViewProps) {
         {all.length === 0 ? (
           <EmptyAgents onNew={onNew} />
         ) : filtered.length === 0 ? (
-          <EmptyState title={searchQuery.value ? "No matching agents" : "No agents found"} />
+          <EmptyState
+            title={
+              searchQuery.value || filterModel.value !== "all"
+                ? "No matching agents"
+                : "No agents found"
+            }
+          />
         ) : filtered.length > VIRTUALIZE_THRESHOLD ? (
           <VirtualAgentRows groups={groups} count={filtered.length} selectedPath={selectedPath} />
         ) : (

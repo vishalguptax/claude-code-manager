@@ -19,6 +19,14 @@ const DEFAULT_SKILLS_URL = "https://github.com/anthropics/claude-code/wiki/Skill
  */
 export const loaded = signal<boolean>(false);
 
+/**
+ * Message from a host parse/read failure, or null when the last load
+ * succeeded. Distinct from `loaded` so a failure renders an error state
+ * instead of silently falling through to "No skills found" (which reads as
+ * "you have no skills" rather than "something went wrong").
+ */
+export const errorMessage = signal<string | null>(null);
+
 /** Full skill list as last received from the host. */
 export const skills = signal<Skill[]>([]);
 

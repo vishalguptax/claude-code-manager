@@ -8,6 +8,7 @@ import type { Message } from "../../../../shared/protocol/messages";
 import SkillsTab, { registerSkillsHandlers } from "../index";
 import {
   claudeCodeInstalled,
+  errorMessage,
   loaded,
   marketplaceSkillsUrl,
   selectedSkill,
@@ -22,6 +23,7 @@ beforeEach(() => {
   skills.value = [];
   selectedSkill.value = null;
   loaded.value = false;
+  errorMessage.value = null;
   claudeCodeInstalled.value = false;
   marketplaceSkillsUrl.value = "default";
 });
@@ -60,11 +62,20 @@ describe("registerSkillsHandlers", () => {
     expect(loaded.value).toBe(true);
   });
 
-  it("flips the loaded gate on a host error", () => {
+  it("flips the loaded gate and sets errorMessage on a host error", () => {
     registerSkillsHandlers();
     expect(loaded.value).toBe(false);
     dispatch({ type: "error", message: "boom" } as Message);
     expect(loaded.value).toBe(true);
+    expect(errorMessage.value).toBe("boom");
+  });
+
+  it("clears a prior error once a skills message succeeds", () => {
+    registerSkillsHandlers();
+    dispatch({ type: "error", message: "boom" } as Message);
+    expect(errorMessage.value).toBe("boom");
+    dispatch({ type: "skills", data: [] } as Message);
+    expect(errorMessage.value).toBeNull();
   });
 
   it("reads marketplace url + install flag from settings", () => {
@@ -121,6 +132,15 @@ describe("SkillsTab", () => {
     const { container } = render(h(SkillsTab, {}));
     expect(container.querySelector(".skeleton-panel")).toBeNull();
     expect(container.textContent).toContain("No skills found");
+  });
+
+  it("shows an error state (not the empty-list message) after a host parse failure", () => {
+    setVscodeApi({ postMessage: vi.fn() });
+    loaded.value = true;
+    errorMessage.value = "Failed to parse SKILL.md";
+    const { container } = render(h(SkillsTab, {}));
+    expect(container.textContent).toContain("Error: Failed to parse SKILL.md");
+    expect(container.textContent).not.toContain("No skills found");
   });
 
   it("renders the detail view when a skill is selected", () => {

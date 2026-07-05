@@ -12,7 +12,7 @@
 import { useState } from "preact/hooks";
 import { Button, Dropdown, Icon, TextArea, TextField } from "../../../../../webview/shared/ui";
 import type { SettingsScope } from "../../../../../shared/protocol/messages";
-import { KNOWN_HOOK_EVENTS } from "../../../events";
+import { KNOWN_HOOK_EVENTS, eventUsesMatcher } from "../../../events";
 import type { Hook } from "../../../types";
 import type { HookEditFields } from "../../api";
 
@@ -46,11 +46,14 @@ export function EditForm({ hook, onSave, onCancel }: EditFormProps) {
   // Timeout is optional, but if given it must be a positive integer (seconds).
   const timeoutValid = trimmedTimeout === "" || /^[1-9]\d*$/.test(trimmedTimeout);
   const canSave = trimmedCommand.length > 0 && timeoutValid;
+  const usesMatcher = eventUsesMatcher(event);
 
   const save = (): void => {
     if (!canSave) return;
     onSave({
-      matcher: matcher.trim(),
+      // A matcher only means something for tool-matching events; re-homing to
+      // SessionStart/Stop/etc. must not silently persist a stale tool pattern.
+      matcher: usesMatcher ? matcher.trim() : "",
       command: trimmedCommand,
       event,
       scope,
@@ -77,17 +80,19 @@ export function EditForm({ hook, onSave, onCancel }: EditFormProps) {
         />
       </div>
 
-      <div class="hook-field">
-        <span class="hook-field-label" id="hookEditMatcherLabel">
-          Matcher
-        </span>
-        <TextField
-          value={matcher}
-          ariaLabel="Matcher"
-          placeholder="Tool name or pattern (blank = match all)"
-          onInput={setMatcher}
-        />
-      </div>
+      {usesMatcher ? (
+        <div class="hook-field">
+          <span class="hook-field-label" id="hookEditMatcherLabel">
+            Matcher
+          </span>
+          <TextField
+            value={matcher}
+            ariaLabel="Matcher"
+            placeholder="Tool name or pattern (blank = match all)"
+            onInput={setMatcher}
+          />
+        </div>
+      ) : null}
 
       <div class="hook-field">
         <span class="hook-field-label">Timeout (seconds)</span>

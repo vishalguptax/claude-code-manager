@@ -69,6 +69,24 @@ describe("EditForm", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
+  it("hides the Matcher field for a non-tool event and clears it on save", () => {
+    const onSave = vi.fn();
+    render(h(EditForm, { hook: { ...baseHook, event: "SessionStart", matcher: "" }, onSave, onCancel: vi.fn() }));
+    expect(screen.queryByLabelText("Matcher")).toBeNull();
+    fireEvent.click(screen.getByText("Save"));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ matcher: "", event: "SessionStart" }));
+  });
+
+  it("clears a stale matcher when re-homing from a tool event to a non-tool event", () => {
+    const onSave = vi.fn();
+    render(h(EditForm, { hook: baseHook, onSave, onCancel: vi.fn() }));
+    fireEvent.click(screen.getByLabelText("Event"));
+    fireEvent.click(screen.getByText("Session Start"));
+    expect(screen.queryByLabelText("Matcher")).toBeNull();
+    fireEvent.click(screen.getByText("Save"));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ matcher: "", event: "SessionStart" }));
+  });
+
   it("fires onCancel", () => {
     const onCancel = vi.fn();
     render(h(EditForm, { hook: baseHook, onSave: vi.fn(), onCancel }));

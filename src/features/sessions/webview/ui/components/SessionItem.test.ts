@@ -35,6 +35,7 @@ function renderItem(s: Session, props: Partial<Parameters<typeof SessionItem>[0]
       isSelected: false,
       bulkMode: false,
       hasOpenTerminal: false,
+      isDiffProject: false,
       onSelect: noop,
       onResume: noop,
       onView: noop,
@@ -135,6 +136,19 @@ describe("SessionItem", () => {
   it("hides the resume button in bulk mode", () => {
     const { container } = renderItem(session({ id: "a" }), { bulkMode: true });
     expect(container.querySelector(".item-resume")).toBeNull();
+  });
+
+  it("hides the resume button for a session from a different project (detail view offers 'Open project' instead)", () => {
+    const { container } = renderItem(session({ id: "a" }), { isDiffProject: true });
+    expect(container.querySelector(".item-resume")).toBeNull();
+  });
+
+  it("still shows the open-terminal button for a different-project session with an open terminal", () => {
+    const { container } = renderItem(session({ id: "a" }), {
+      isDiffProject: true,
+      hasOpenTerminal: true,
+    });
+    expect(container.querySelector(".item-resume")).toBeTruthy();
   });
 
   it("opens the action menu on right-click at the cursor without selecting the row", () => {
