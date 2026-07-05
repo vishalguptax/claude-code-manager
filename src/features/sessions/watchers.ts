@@ -169,7 +169,8 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
         // identity and no prompt is useful.
         ctx.checkForIdentityChange(data);
         if (wv) {
-          postAccountData(wv, data);
+          // Unsolicited watcher push — dedupe identical payloads.
+          postAccountData(wv, data, true);
         }
       } catch (err) {
         console.warn("[claude-manager] account reparse failed:", err);
@@ -207,7 +208,8 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
       await warmUsageAggregate();
       if (!ctx.getWebview()) return;
       const data = parseAccountData(getWorkspace() || undefined);
-      postAccountData(wv, data);
+      // Unsolicited throttled usage re-push — dedupe identical payloads.
+      postAccountData(wv, data, true);
     } catch (err) {
       console.warn("[claude-manager] usage re-push failed:", err);
     }

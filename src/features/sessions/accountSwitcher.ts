@@ -8,7 +8,6 @@
 import * as vscode from "vscode";
 import { postAccountData } from "./accountPush";
 import { parseAccountData } from "../account/parser";
-import { clearModelCache } from "../account/models";
 import {
   updateProfile as updateProfileSnapshot,
   switchProfile as switchProfileSnapshot,
@@ -160,10 +159,12 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
   const pushAccountUpdate = (): void => {
     const wv2 = ctx.getWebview();
     if (wv2) {
-      // Drop the session-lifetime model scan so a CLI upgraded between
-      // switches surfaces its new models; the scan re-runs cold on the
-      // next parseAccountData.
-      clearModelCache();
+      // NB: do NOT clear the model cache here. The available-model list
+      // is read from the CLI binary and is account-independent, so a
+      // switch never changes it — clearing forced a full 236 MB re-scan
+      // on every switch, blocking the host for the exact reparse the
+      // user is waiting on. A genuine CLI upgrade is picked up by the
+      // mtime-based revalidateModelCache on the watcher path instead.
       postAccountData(wv2, parseAccountData(workspace || undefined));
     }
   };
@@ -220,8 +221,15 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
           `Switch failed: ${result.detail ?? result.error}.`,
         );
       } else {
+        // Set the honest expectation: the credentials are swapped
+        // immediately (new sessions pick them up at once), but a Claude
+        // session already running holds its token in memory and only
+        // re-reads on its own schedule — so the switch isn't instant in
+        // an open terminal. Without saying so, users read the terminal
+        // still on the old account as a bug.
         vscode.window.showInformationMessage(
-          `Switched to ${result.data.email || result.data.label}.`,
+          `Switched to ${result.data.email || result.data.label}. ` +
+            `New Claude Code sessions use it now; a terminal that's already running switches after it restarts.`,
         );
       }
       pushAccountUpdate();

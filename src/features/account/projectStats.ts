@@ -337,9 +337,16 @@ export async function warmUsageAggregate(): Promise<UsageAggregate> {
             continue;
           }
           const entries: CompactEntry[] = [];
-          for (const line of raw.split("\n")) {
-            const e = compactLine(line);
+          const lines = raw.split("\n");
+          for (let li = 0; li < lines.length; li++) {
+            const e = compactLine(lines[li]);
             if (e) entries.push(e);
+            // Yield WITHIN a large file too, not just between files. An
+            // active session's transcript can grow to hundreds of MB, and
+            // re-parsing it on every throttled usage push would otherwise
+            // block the host mid-file — starving a just-opened tab's data
+            // request. 20k lines ≈ a few ms of parse between yields.
+            if ((li & 0x4fff) === 0x4fff) await new Promise((r) => setImmediate(r));
           }
           cached = { mtimeMs, size, entries };
           fileCache.set(filePath, cached);

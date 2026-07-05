@@ -156,8 +156,26 @@ async function collectCliCandidates(): Promise<string[]> {
     // not on PATH — skip
   }
 
-  // Dedupe while preserving order.
-  return [...new Set(candidates)];
+  // Dedupe by REALPATH, preserving order. The same physical binary is
+  // often reachable two ways — the node_modules layout path and the
+  // PATH lookup (`command -v claude` → realpath) — and each scan reads
+  // + regexes the full ~236 MB. Collapsing on the resolved target means
+  // that binary is read once, not twice. Fall back to the raw path when
+  // realpath fails (dangling/permission) so a candidate is never lost.
+  const seenReal = new Set<string>();
+  const deduped: string[] = [];
+  for (const c of candidates) {
+    let key = c;
+    try {
+      key = fs.realpathSync(c);
+    } catch {
+      // keep the raw path as its own key
+    }
+    if (seenReal.has(key)) continue;
+    seenReal.add(key);
+    deduped.push(c);
+  }
+  return deduped;
 }
 
 /**
