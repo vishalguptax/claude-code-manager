@@ -1,0 +1,6 @@
+# Native postinstall builds must be explicitly allowed (pnpm blocks them by
+# default as a supply-chain guard). esbuild fetches its platform binary; sharp
+# links libvips. Both are required for build and runtime respectively.
+onlyBuiltDependencies:
+  - esbuild
+  - sharp

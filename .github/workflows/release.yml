@@ -31,15 +31,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: pnpm
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
-      - run: npm test
+      - run: pnpm test
 
-      - run: npm run build
+      - run: pnpm run build
 
       # Bump version based on commit message keywords
       # Use [major] or [minor] in commit message, otherwise defaults to patch
@@ -55,18 +59,18 @@ jobs:
             BUMP="patch"
           fi
           echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
-          npm version $BUMP --no-git-tag-version
+          pnpm version $BUMP --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Package
-        run: npx @vscode/vsce package --no-dependencies -o dist/
+        run: pnpm dlx @vscode/vsce package --no-dependencies -o dist/
 
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json
+          git add package.json pnpm-lock.yaml
           git commit -m "release: v${{ steps.bump.outputs.version }}"
           git tag "${{ steps.bump.outputs.version }}"
           git push
@@ -79,13 +83,13 @@ jobs:
         id: vsce
         if: ${{ env.VSCE_PAT != '' }}
         continue-on-error: true
-        run: npx @vscode/vsce publish --no-dependencies
+        run: pnpm dlx @vscode/vsce publish --no-dependencies
 
       - name: Publish to Open VSX
         id: ovsx
         if: ${{ env.OVSX_TOKEN != '' }}
         continue-on-error: true
-        run: npx ovsx publish dist/*.vsix -p "$OVSX_TOKEN"
+        run: pnpm dlx ovsx publish dist/*.vsix -p "$OVSX_TOKEN"
 
       # Use curated release notes if present (docs/releases/v{version}.md),
       # otherwise fall back to GitHub's auto-generated notes.

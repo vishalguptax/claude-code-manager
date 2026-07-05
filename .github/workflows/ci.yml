@@ -22,32 +22,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js ${{ matrix.node }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Biome check
-        run: npm run check
+        run: pnpm run check
 
       - name: TypeScript typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Unit tests with coverage
-        run: npm test -- --coverage
+        run: pnpm test -- --coverage
 
       - name: Build
-        run: npm run build
+        run: pnpm run build
 
       - name: Bundle size budgets
-        run: npm run size
+        run: pnpm run size
 
-      - name: npm audit (runtime deps, high+)
-        run: npm audit --omit=dev --audit-level=high
+      - name: Audit (runtime deps, high+)
+        run: pnpm audit --prod --audit-level high
 
   integration:
     name: integration (@vscode/test-electron)
@@ -55,22 +58,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Compile integration suite
-        run: npm run compile:integration
+        run: pnpm run compile:integration
 
       - name: Build extension
-        run: npm run build
+        run: pnpm run build
 
       # The Extension Host boots a real (headless) VS Code window, which needs
       # a virtual framebuffer on the Linux runner. xvfb-run wraps the suite.
       - name: Run integration tests (xvfb)
-        run: xvfb-run -a npm run test:integration
+        run: xvfb-run -a pnpm run test:integration
