@@ -3,9 +3,8 @@
  * the official docs; custom commands show their file path and full template.
  * Actions are built from the shared <Button>; the scope tag from <Badge>.
  */
-import { useState } from "preact/hooks";
 import { BackButton, Badge, Button } from "../../../../../webview/shared/ui";
-import { useApi } from "../../../../../webview/shared/hooks";
+import { useApi, useCopyFeedback } from "../../../../../webview/shared/hooks";
 import type { Command } from "../../../types";
 import { openCommandFileMsg, openUrlMsg, type Post } from "../../api";
 import { selected } from "../../model";
@@ -20,16 +19,12 @@ export interface CommandDetailViewProps {
 export function CommandDetailView({ command }: CommandDetailViewProps) {
   const { post } = useApi();
   const send = post as Post;
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText } = useCopyFeedback();
 
   const goBack = (): void => {
     selected.value = null;
   };
-  const copy = (): void => {
-    navigator.clipboard?.writeText(`/${command.name}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1000);
-  };
+  const copy = (): void => copyText(`/${command.name}`);
 
   return (
     <div class="panel">

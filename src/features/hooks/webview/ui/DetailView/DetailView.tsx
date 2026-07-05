@@ -6,7 +6,7 @@
  */
 import { useState } from "preact/hooks";
 import { BackButton, Badge, Button, Icon } from "../../../../../webview/shared/ui";
-import { useApi } from "../../../../../webview/shared/hooks";
+import { useApi, useCopyFeedback } from "../../../../../webview/shared/hooks";
 import type { Hook } from "../../../types";
 import * as api from "../../api";
 import type { Post } from "../../api";
@@ -23,7 +23,7 @@ export function DetailView({ hook }: DetailViewProps) {
   const { post } = useApi();
   const send = post as Post;
   const [editing, setEditing] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText } = useCopyFeedback();
 
   const isPlugin = hook.scope === "plugin";
   const isCommand = hook.hookType === "command";
@@ -35,11 +35,7 @@ export function DetailView({ hook }: DetailViewProps) {
     selectedHook.value = null;
   };
 
-  const copy = (): void => {
-    navigator.clipboard?.writeText(hook.command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
-  };
+  const copy = (): void => copyText(hook.command);
 
   return (
     <div class="panel hooks-panel">

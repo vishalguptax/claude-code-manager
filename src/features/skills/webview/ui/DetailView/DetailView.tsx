@@ -3,9 +3,8 @@
  * (frontmatter stripped). Rendered when a skill is selected; the back
  * button clears the selection to return to the list.
  */
-import { useState } from "preact/hooks";
 import { BackButton, Badge, Button } from "../../../../../webview/shared/ui";
-import { useApi } from "../../../../../webview/shared/hooks";
+import { useApi, useCopyFeedback } from "../../../../../webview/shared/hooks";
 import type { Skill } from "../../../types";
 import { deleteSkill, launchSkillInChat, newSession, openSkillFile } from "../../api";
 import { claudeCodeInstalled, selectedSkill } from "../../model";
@@ -22,17 +21,13 @@ export interface DetailViewProps {
 
 export function DetailView({ skill }: DetailViewProps) {
   const { post } = useApi();
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyText } = useCopyFeedback();
   const body = stripFrontmatter(skill.content).trim();
   // Plugin skills live in a plugin's install dir — read-only from here
   // (managed via Claude Code's /plugin), so no delete. Mirrors agents/mcp.
   const isPlugin = skill.scope === "plugin";
 
-  function copyName(): void {
-    navigator.clipboard?.writeText(`/${skill.name}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1000);
-  }
+  const copyName = (): void => copyText(`/${skill.name}`);
 
   return (
     <div class="panel" id="skillsDetailView">
