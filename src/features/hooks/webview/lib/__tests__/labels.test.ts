@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { eventLabel, matcherDisplay, scopeLabel } from "../labels";
+import { eventLabel, matcherDisplay, scopeClass, scopeLabel } from "../labels";
 
 describe("hooks event helpers", () => {
   it("eventLabel maps known events and falls back to raw name", () => {
@@ -35,5 +35,12 @@ describe("hooks event helpers", () => {
   it("matcherDisplay shows a placeholder for blank matchers", () => {
     expect(matcherDisplay("Write")).toBe("Write");
     expect(matcherDisplay("")).toBe("* (any)");
+  });
+
+  it("scopeClass matches the green/neutral/purple palette every other feature's scope badge uses", () => {
+    expect(scopeClass("global")).toBe("hook-scope-global");
+    expect(scopeClass("project")).toBe("hook-scope-project");
+    expect(scopeClass("local")).toBe("hook-scope-project");
+    expect(scopeClass("plugin")).toBe("hook-scope-plugin");
   });
 });

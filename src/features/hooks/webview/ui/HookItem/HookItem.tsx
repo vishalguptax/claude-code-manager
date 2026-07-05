@@ -9,7 +9,7 @@ import { cx } from "../../../../../webview/shared/lib";
 import { Badge, Button } from "../../../../../webview/shared/ui";
 import type { Hook } from "../../../types";
 import { eventUsesMatcher } from "../../../events";
-import { scopeLabel } from "../../lib";
+import { scopeClass, scopeLabel } from "../../lib";
 
 /** Command preview length before truncating with an ellipsis. */
 const PREVIEW_MAX = 60;
@@ -51,11 +51,16 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
             <span class="hook-matcher hook-matcher-all">*</span>
           )
         ) : null}
-        <Badge variant="scope" text={scopeLabel(hook)} title={scopeLabel(hook)} />
+        <Badge
+          variant="scope"
+          text={scopeLabel(hook)}
+          title={scopeLabel(hook)}
+          class={scopeClass(hook.scope)}
+        />
         {hook.disabled ? <Badge variant="default" text="disabled" /> : null}
         {isPlugin ? (
           <Badge
-            variant="status"
+            variant="default"
             text="read-only"
             title={`Owned by plugin ${hook.pluginName ?? ""}`}
           />

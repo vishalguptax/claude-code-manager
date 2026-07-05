@@ -12,6 +12,23 @@
      - grouping + virtual-list wrappers
    ============================================================================ */
 
+/* Scope badge colours — matching the green/neutral/purple palette every other
+   feature's scope badge uses (skills .scope-*, commands .cmd-scope-*, mcp
+   .mcp-scope-*). Hooks scope badges previously carried no colour modifier at
+   all, so every scope read as the same flat grey. */
+.hook-scope-project {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.hook-scope-global {
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+}
+.hook-scope-plugin {
+  background: var(--color-purple-bg);
+  color: var(--color-purple);
+}
+
 /* Event grouping wrapper for the non-virtualized list. */
 .hook-group {
   display: block;

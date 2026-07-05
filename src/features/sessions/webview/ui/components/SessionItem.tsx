@@ -7,7 +7,7 @@
  * the list view owns selection / navigation logic and this stays testable in
  * isolation.
  */
-import { Badge, Button, Icon } from "../../../../../webview/shared/ui";
+import { Button, Icon } from "../../../../../webview/shared/ui";
 import { fmtRelativeTime } from "../../../../../webview/utils";
 import { cx } from "../../../../../webview/shared/lib";
 import { now } from "../../../../../webview/shared/model";
@@ -174,7 +174,11 @@ export function SessionItem({
       ) : null}
 
       <div class="item-row2">
-        {branch ? <Badge text={branch} title={branch} class="tag" /> : null}
+        {branch ? (
+          <span class="tag" title={branch}>
+            {branch}
+          </span>
+        ) : null}
         <span class="item-proj" title={session.project}>
           {session.project}
         </span>

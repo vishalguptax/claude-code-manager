@@ -39,3 +39,23 @@ export function scopeLabel(hook: Pick<Hook, "scope" | "pluginName">): string {
 export function matcherDisplay(matcher: string): string {
   return matcher || "* (any)";
 }
+
+/**
+ * CSS modifier class for a scope badge, matching the green/neutral/purple
+ * palette every other feature's scope badge already uses (skills, commands,
+ * mcp) — hooks scope badges previously carried no colour at all. `local` has
+ * no precedent elsewhere (only hooks has a fourth, workspace-local scope); it
+ * shares project's green since both are non-global/non-plugin, distinguished
+ * by the scopeLabel text ("Local" vs "Project").
+ */
+export function scopeClass(scope: HookScope): string {
+  switch (scope) {
+    case "project":
+    case "local":
+      return "hook-scope-project";
+    case "plugin":
+      return "hook-scope-plugin";
+    default:
+      return "hook-scope-global";
+  }
+}

@@ -10,7 +10,7 @@ import { useApi, useCopyFeedback } from "../../../../../webview/shared/hooks";
 import type { Hook } from "../../../types";
 import * as api from "../../api";
 import type { Post } from "../../api";
-import { eventLabel, matcherDisplay, scopeLabel } from "../../lib";
+import { eventLabel, matcherDisplay, scopeClass, scopeLabel } from "../../lib";
 import { eventUsesMatcher } from "../../../events";
 import { selectedHook } from "../../model";
 import { EditForm } from "../EditForm";
@@ -44,7 +44,7 @@ export function DetailView({ hook }: DetailViewProps) {
       <div class="d-head">
         <div class="d-title">{eLabel}</div>
         <div class="d-tags">
-          <Badge variant="scope" text={sLabel} title={sLabel} />
+          <Badge variant="scope" text={sLabel} title={sLabel} class={scopeClass(hook.scope)} />
           {eventUsesMatcher(hook.event) ? (
             <Badge variant="default" text={`matcher: ${mDisplay}`} title={mDisplay} />
           ) : null}

@@ -37,6 +37,11 @@ describe("HookItem", () => {
     expect(screen.getByText("echo hi")).toBeTruthy();
   });
 
+  it("colours the scope badge like every other feature's scope badge", () => {
+    renderItem({ hook: hook({ scope: "global" }) });
+    expect(screen.getByText("Global").classList.contains("hook-scope-global")).toBe(true);
+  });
+
   it("shows the all-matcher placeholder when matcher is blank", () => {
     renderItem({ hook: hook({ matcher: "" }) });
     expect(screen.getByText("*")).toBeTruthy();
