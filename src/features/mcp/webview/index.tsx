@@ -131,6 +131,7 @@ export default function McpTab() {
       onBrowse={() => api.openUrl(MCP_BROWSE_URL)}
       onRefresh={() => api.getServers()}
       onNew={() => setForm({ open: true, server: null })}
+      onReauth={() => api.reconnect()}
     />
   );
 }

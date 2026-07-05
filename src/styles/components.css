@@ -189,20 +189,18 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 /*
- * Branch tag — theme-agnostic filled style. VS Code's --badge-background
- * / --badge-foreground pair has low contrast on several themes (light-
- * blue on white text especially). Using a semi-transparent gray that
- * lands as a mid-tone overlay on any background (light or dark) paired
- * with --fg text — guaranteed readable because --fg is defined to
- * contrast with the panel bg.
+ * Branch tag — the neutral-badge token pair. A semi-transparent gray that
+ * lands as a mid-tone overlay on any background (light or dark) with --fg
+ * text, guaranteed readable. This is the pattern the whole neutral-badge
+ * system was standardised on (over the low-contrast --badge-* pair).
  */
 .tag {
   display: inline-flex;
   align-items: center;
   font-size: var(--fs-xs);
   font-family: var(--mono);
-  background: rgba(128, 128, 128, 0.18);
-  color: var(--fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
   padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);
   max-width: 120px;
@@ -256,6 +254,27 @@
 .btn.green:hover             { background: var(--green-bg); }
 /* `.btn.del` is the legacy danger modifier — wired to the danger role in
    components-native.css alongside `.btn-danger` so both look identical. */
+
+/* Back affordance — the single <BackButton> style for every detail/form view.
+   A chromeless icon+label link (no fill/border/height chrome) that reads as
+   inline navigation. Lives in the shared layer, not a feature file, because it
+   is one component used across all features; the asymmetric padding seats it at
+   the top-left of the .panel. */
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: none;
+  border: none;
+  color: var(--fg-dim);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.back-btn:hover { color: var(--fg); }
+.back-btn > svg { flex-shrink: 0; }
 
 /* Action-button rows that size to CONTENT and wrap, never crop.
    ────────────────────────────────────────────────────────────────────────────
@@ -334,7 +353,11 @@
   color: var(--menu-fg);
   cursor: pointer;
 }
-.ctx-item:hover              { background: var(--overlay-hover); }
+/* Neutral-row hover lives in the native layer (`.ctx-menu .ctx-item:hover` in
+   components-native.css, using --vscode-menu-selectionBackground) which wins on
+   specificity; the old white `--overlay-hover` rule here was dead + backwards
+   on light themes. Only the danger-row hover, unique to this legacy block,
+   remains. */
 .ctx-item.del                { color: var(--red); }
 .ctx-item.del:hover          { background: var(--red-bg); color: var(--red); }
 
@@ -527,7 +550,7 @@
 .hook-readonly-note,
 .mcp-readonly-note {
   font-size: var(--fs-xs);
-  color: var(--text-muted);
+  color: var(--role-text-secondary);
   font-style: italic;
   align-self: center;
 }
@@ -537,13 +560,14 @@
 }
 
 /* Compact badge variant for list rows where the full note is too
-   long; flags an item as not editable from the sidebar. */
+   long; flags an item as not editable from the sidebar. Neutral badge — a
+   read-only item isn't disabled, so it takes the secondary text colour. */
 .mcp-readonly-badge {
   font-size: var(--fs-xs);
   padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
-  background: var(--badge-bg);
-  color: var(--text-muted);
+  background: var(--badge-neutral-bg);
+  color: var(--role-text-secondary);
   font-weight: 500;
 }
 

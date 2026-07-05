@@ -22,8 +22,19 @@
      dedicated colour (list.focusOutline) that falls back to focusBorder.
      Used by every focusable row so keyboard nav reads native. */
   --list-focus: var(--vscode-list-focusOutline, var(--vscode-focusBorder));
+  /* Native count/accent pill (tree + tab counters, avatar tile). Keep for
+     those; NOT for neutral text tags — the pair is low-contrast on several
+     themes (light-blue bg on white text). */
   --badge-bg: var(--vscode-badge-background);
   --badge-fg: var(--vscode-badge-foreground);
+  /* NEUTRAL BADGE — scope/type/meta chips with no semantic accent. One quiet
+     surface + normal foreground, readable on light AND dark. Replaces two
+     older systems: the low-contrast --badge-* pair used for neutral scope tags
+     and scattered rgba(128,128,128) literals. Semantic badges (project=green,
+     http=blue, plugin=purple, danger=red) keep their accent tints; only the
+     neutral ones route here. */
+  --badge-neutral-bg: rgba(128, 128, 128, 0.18);
+  --badge-neutral-fg: var(--fg);
   --input-bg: var(--vscode-input-background);
   --input-border: var(--vscode-input-border, transparent);
   --input-fg: var(--vscode-input-foreground);
@@ -51,7 +62,6 @@
      Aliased to a low-alpha neutral so it stays subtle on light + dark; call
      sites already pass this exact fallback inline. */
   --border-subtle: rgba(127,127,127,0.3);
-  --overlay-hover: rgba(255,255,255,0.08);
   --dropdown-bg: var(--vscode-dropdown-background, var(--input-bg));
   --dropdown-border: var(--vscode-dropdown-border, var(--border));
   --menu-bg: var(--vscode-menu-background, var(--input-bg));

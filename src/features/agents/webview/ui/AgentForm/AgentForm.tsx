@@ -8,7 +8,7 @@
  * separated) and split on save.
  */
 import { useState } from "preact/hooks";
-import { Button, Dropdown, TextArea, TextField } from "../../../../../webview/shared/ui";
+import { BackButton, Button, Dropdown, TextArea, TextField } from "../../../../../webview/shared/ui";
 import type { AgentInput } from "../../../../../shared/protocol/messages";
 import type { Agent } from "../../../types";
 
@@ -75,9 +75,7 @@ export function AgentForm({ agent, existing = [], onClose, onSubmit }: AgentForm
 
   return (
     <div class="panel">
-      <Button class="back-btn" iconName="arrow-left" onClick={onClose}>
-        Back
-      </Button>
+      <BackButton onClick={onClose} />
       <div class="agent-form-title">{isEdit ? "Edit agent" : "New agent"}</div>
       <div class="agent-form">
         <label class="agent-form-field">

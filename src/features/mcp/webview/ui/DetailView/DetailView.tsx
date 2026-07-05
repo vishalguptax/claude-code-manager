@@ -5,7 +5,7 @@
  * are hidden for read-only plugin servers. "Back" clears the selection.
  */
 import { useRef, useState } from "preact/hooks";
-import { Button, Icon, Menu, type MenuItem } from "../../../../../webview/shared/ui";
+import { BackButton, Button, Icon, Menu, type MenuItem } from "../../../../../webview/shared/ui";
 import { isUrlTransport, maskSensitiveValue } from "../../lib";
 import type { McpServer } from "../../../types";
 import { ScopeBadge, TypeBadge } from "../McpBadges";
@@ -67,13 +67,25 @@ export function DetailView(props: DetailViewProps) {
   // project servers only. Global/plugin servers have no such switch.
   const canToggle = server.scope === "project";
   const isUrl = isUrlTransport(server);
+  // Health dot is a LOCAL, offline check: does the stdio launch command resolve
+  // on PATH? It is NOT a live connection/online status (url servers get no dot).
+  // Spell that out so the green/red dot isn't read as "server is online".
+  const healthTitle =
+    server.commandAvailable === undefined
+      ? undefined
+      : server.commandAvailable
+        ? "Launch command found on PATH — not a live connection status"
+        : `Launch command "${server.command}" not found on PATH`;
   const envEntries = server.env ? Object.entries(server.env) : [];
   const headerEntries = server.headers ? Object.entries(server.headers) : [];
   const hasSecrets = envEntries.length > 0 || headerEntries.length > 0;
 
   // Occasional actions live in the "More" menu (auth/connection/utility).
   const moreItems: MenuItem[] = [];
-  if (!isPlugin) {
+  // Auth is OAuth (`claude mcp login/logout`) — a remote-transport concept.
+  // stdio servers run a local command with no OAuth, so gate auth to url
+  // transports, mirroring how "Check Status" is gated below.
+  if (!isPlugin && isUrl) {
     moreItems.push({ label: "Authenticate", icon: "key-round", onSelect: () => onAuthenticate(server.name) });
     moreItems.push({ label: "Clear Auth", icon: "log-out", onSelect: () => onLogout(server.name) });
   }
@@ -87,22 +99,18 @@ export function DetailView(props: DetailViewProps) {
 
   return (
     <div class="panel">
-      <Button class="back-btn" iconName="arrow-left" onClick={onBack}>
-        Back
-      </Button>
+      <BackButton onClick={onBack} />
 
-      <div class="mcp-detail-head">
+      <div class="d-head d-head--row">
         {server.commandAvailable !== undefined ? (
           <span
             class={`mcp-health-dot ${server.commandAvailable ? "is-ok" : "is-missing"}`}
-            title={
-              server.commandAvailable
-                ? "Command found on PATH"
-                : `Command "${server.command}" was not found on PATH`
-            }
+            role="img"
+            aria-label={healthTitle}
+            title={healthTitle}
           />
         ) : null}
-        <div class="mcp-detail-title">{server.name}</div>
+        <div class="d-title">{server.name}</div>
         <TypeBadge type={server.type} />
         <ScopeBadge scope={server.scope} />
       </div>

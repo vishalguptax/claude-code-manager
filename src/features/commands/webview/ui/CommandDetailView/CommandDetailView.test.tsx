@@ -33,7 +33,7 @@ describe("CommandDetailView — builtin", () => {
 
   it("renders the title, badge, and description", () => {
     const { container, getByText } = render(h(CommandDetailView, { command: builtin }));
-    expect(container.querySelector(".cmd-detail-title")?.textContent).toBe("/clear");
+    expect(container.querySelector(".d-title")?.textContent).toBe("/clear");
     expect(container.querySelector(".cmd-scope-builtin")?.textContent).toBe("builtin");
     expect(getByText("Clear the conversation")).toBeTruthy();
   });

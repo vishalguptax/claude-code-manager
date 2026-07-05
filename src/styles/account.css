@@ -167,7 +167,7 @@
 .acct-plan-badge.plan-max    { background: rgba(255,153,102,0.15); color: #FF9966; border: 1px solid rgba(255,153,102,0.3); }
 .acct-plan-badge.plan-pro    { background: rgba(88,166,255,0.15); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); }
 .acct-plan-badge.plan-team   { background: rgba(163,113,247,0.15); color: #a371f7; border: 1px solid rgba(163,113,247,0.3); }
-.acct-plan-badge.plan-free   { background: var(--badge-bg); color: var(--badge-fg); }
+.acct-plan-badge.plan-free   { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Meta rows (key/value)

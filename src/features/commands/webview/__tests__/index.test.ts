@@ -84,7 +84,7 @@ describe("CommandsTab", () => {
     loading.value = false;
     selected.value = commands.value[0] ?? null;
     const { container } = render(h(CommandsTab, {}));
-    await waitFor(() => expect(container.querySelector(".cmd-detail-title")?.textContent).toBe("/a"));
+    await waitFor(() => expect(container.querySelector(".d-title")?.textContent).toBe("/a"));
   });
 
   it("shows an error banner after an error message arrives", async () => {

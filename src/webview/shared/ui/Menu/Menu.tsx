@@ -209,12 +209,20 @@ export function Menu({ open, x, y, items, onClose, class: cls, anchorRef }: Menu
   });
 
   // The menu is position:fixed at coordinates captured when it opened, so if an
-  // ancestor scrolls (the menu now opens inside scrolling forms/panels) it would
-  // pin at a stale spot. Close on any scroll — capture phase catches scrolls on
-  // inner containers, not just window. Cheap: only listens while open.
+  // ANCESTOR scrolls (the menu now opens inside scrolling forms/panels) it would
+  // pin at a stale spot — dismiss then. Capture phase is required to see scrolls
+  // on inner containers, not just window. But that same reach also catches the
+  // menu's OWN `overflow-y:auto` list scrolling (a long Dropdown, e.g. the models
+  // list): closing on that made tall lists impossible to scroll. So ignore any
+  // scroll originating inside the menu box; only scrolls outside it move the
+  // anchor and warrant a close. Cheap: only listens while open.
   useEffect(() => {
     if (!open) return;
-    const onScroll = (): void => onClose();
+    const onScroll = (e: Event): void => {
+      const el = ref.current;
+      if (el && e.target instanceof Node && el.contains(e.target)) return;
+      onClose();
+    };
     window.addEventListener("scroll", onScroll, true);
     return () => window.removeEventListener("scroll", onScroll, true);
   }, [open, onClose]);

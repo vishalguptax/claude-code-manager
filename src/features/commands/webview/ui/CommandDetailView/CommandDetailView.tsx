@@ -4,7 +4,7 @@
  * Actions are built from the shared <Button>; the scope tag from <Badge>.
  */
 import { useState } from "preact/hooks";
-import { Badge, Button } from "../../../../../webview/shared/ui";
+import { BackButton, Badge, Button } from "../../../../../webview/shared/ui";
 import { useApi } from "../../../../../webview/shared/hooks";
 import type { Command } from "../../../types";
 import { openCommandFileMsg, openUrlMsg, type Post } from "../../api";
@@ -33,12 +33,10 @@ export function CommandDetailView({ command }: CommandDetailViewProps) {
 
   return (
     <div class="panel">
-      <Button variant="icon" class="back-btn" iconName="arrow-left" onClick={goBack}>
-        Back
-      </Button>
+      <BackButton onClick={goBack} />
 
-      <div class="cmd-detail-head">
-        <div class="cmd-detail-title">/{command.name}</div>
+      <div class="d-head d-head--row">
+        <div class="d-title d-title--mono">/{command.name}</div>
         <Badge text={command.scope} variant="scope" class={`cmd-scope-${command.scope}`} />
       </div>
 

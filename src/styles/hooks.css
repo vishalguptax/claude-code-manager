@@ -26,32 +26,11 @@
 
 /* ── Detail view (scoped to hooks so it owns its own layout) ── */
 
-/* Back is a shared <Button> styled down to a link affordance — override the
-   `.btn` base fill/height so it reads as inline navigation, not a control. */
-.hooks-panel .back-btn {
-  align-self: flex-start;
-  height: auto;
-  gap: var(--space-xs);
-  background: transparent;
-  color: var(--link);
-  font-size: var(--fs-base);
-  padding: var(--space-md) var(--space-2xl) var(--space-sm);
-}
-.hooks-panel .back-btn:hover {
-  background: transparent;
-  color: var(--link);
-  text-decoration: underline;
-}
+/* Back uses the shared <BackButton>; no per-feature override — one style
+   across all detail views. */
 
 .hooks-panel .d-head {
   padding: 0 var(--space-2xl) var(--space-md);
-}
-
-.hooks-panel .d-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-sm);
 }
 
 .hooks-panel .d-tags {
@@ -79,29 +58,12 @@
   flex: 1 1 100%;
 }
 
-.hooks-panel .d-scroll {
-  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
-  border-top: 1px solid var(--border);
-  /* Scroll the body, keeping Back + head + actions fixed above it. Without
-     flex:1/min-height:0 the section grows to content and the whole panel
-     scrolls instead. */
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.hooks-panel .d-section {
-  margin-bottom: var(--space-xl);
-}
-
-.hooks-panel .d-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--fg-section);
-  margin-bottom: var(--space-md);
-}
+/* .d-scroll, .d-section, and .d-label use the shared rules (sessions.css). The
+   sections own their padding + border-top dividers — matching every other
+   detail view. A former `.hooks-panel .d-scroll` here layered a SECOND
+   padding + border-top on top of the sections' own, which double-bordered the
+   divider under the actions and doubled the horizontal inset + bottom padding.
+   Only the key/value layout below is hooks-specific (justified, not 55px-key). */
 
 .hooks-panel .d-kv {
   display: flex;

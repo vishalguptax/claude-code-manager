@@ -170,7 +170,10 @@ describe("DetailView", () => {
 
   it("wires Edit (primary) and authenticate/clear-auth/reconnect (More menu)", () => {
     const hnd = handlers();
-    render(h(DetailView, { server: srv({ name: "api", scope: "project" }), ...hnd }));
+    // url transport — auth (OAuth) only applies to remote servers.
+    render(
+      h(DetailView, { server: srv({ name: "api", scope: "global", type: "http", url: "https://x" }), ...hnd }),
+    );
     fireEvent.click(screen.getByText("Edit"));
     expect(hnd.onEdit).toHaveBeenCalledOnce();
     openMore();
@@ -182,6 +185,13 @@ describe("DetailView", () => {
     expect(hnd.onAuthenticate).toHaveBeenCalledWith("api");
     expect(hnd.onLogout).toHaveBeenCalledWith("api");
     expect(hnd.onReconnect).toHaveBeenCalledOnce();
+  });
+
+  it("hides Authenticate / Clear Auth for stdio servers (OAuth is url-only)", () => {
+    render(h(DetailView, { server: srv({ name: "s", scope: "project" }), ...handlers() }));
+    openMore();
+    expect(screen.queryByText("Authenticate")).toBeNull();
+    expect(screen.queryByText("Clear Auth")).toBeNull();
   });
 
   it("offers Check Status in the More menu only for url-transport servers", () => {

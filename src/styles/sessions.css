@@ -373,20 +373,7 @@
    Detail View
    ────────────────────────────────────────────────────────────────────────────── */
 
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  background: none;
-  border: none;
-  color: var(--fg-dim);
-  font-size: var(--fs-base);
-  cursor: pointer;
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
-  font-family: inherit;
-  flex-shrink: 0;
-}
-.back-btn:hover              { color: var(--fg); }
+/* .back-btn now lives in components.css (shared <BackButton> component). */
 
 /* Scrollable body below the sticky back button. Without this the detail
    page's overflow is hidden (inherited from .panel) and prompts get clipped. */
@@ -397,6 +384,19 @@
 }
 
 .d-head    { padding: var(--space-sm) var(--space-2xl) var(--space-md); }
+/* Inline variant — title + badge(s) on one centred row. Replaces the three
+   byte-identical `.agent-detail-head` / `.mcp-detail-head` / `.cmd-detail-head`
+   rules that agents, mcp, and commands each carried separately. */
+.d-head--row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-lg);
+}
+/* Monospace title (command names like /add-dir). Only swaps the family; the
+   shared `.d-title` size/weight stay — unlike the `.mono` utility which also
+   shrinks font-size. */
+.d-title--mono { font-family: var(--mono); }
 .d-title {
   font-size: var(--fs-xl, 1.15rem);
   font-weight: 600;
@@ -443,7 +443,7 @@
   gap: var(--space-xs);
   padding: 1px var(--space-sm);
   border-radius: 10px;
-  background: rgba(128, 128, 128, 0.15);
+  background: var(--badge-neutral-bg);
   color: var(--fg-dim);
   font-size: var(--fs-xs);
   line-height: 1.6;

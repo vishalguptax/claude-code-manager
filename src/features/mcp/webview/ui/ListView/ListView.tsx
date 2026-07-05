@@ -42,9 +42,18 @@ export interface ListViewProps {
   onBrowse: () => void;
   onRefresh: () => void;
   onNew: () => void;
+  /** Open Claude's /mcp panel — the surface where flagged connectors re-auth. */
+  onReauth: () => void;
 }
 
-export function ListView({ onSelect, onCopyName, onBrowse, onRefresh, onNew }: ListViewProps) {
+export function ListView({
+  onSelect,
+  onCopyName,
+  onBrowse,
+  onRefresh,
+  onNew,
+  onReauth,
+}: ListViewProps) {
   const all = servers.value;
   const filtered = filteredServers.value;
   const query = searchQuery.value;
@@ -123,17 +132,28 @@ export function ListView({ onSelect, onCopyName, onBrowse, onRefresh, onNew }: L
     <div class="panel">
       <ErrorBanner errors={parseErrors.value} />
       {needs.length > 0 ? (
-        <div class="mcp-auth-banner" role="status">
+        // Actionable banner: these are Claude's claude.ai connectors (from the
+        // re-auth cache), NOT the configured servers listed below — they have no
+        // row here, so the banner is the only handle. Clicking opens the /mcp
+        // panel, the surface where each connector is actually re-authenticated.
+        <button
+          type="button"
+          class="mcp-auth-banner"
+          onClick={onReauth}
+          title={`Open Claude's /mcp panel to re-authenticate:\n${needs.join(", ")}`}
+          aria-label={`${needs.length} ${needs.length === 1 ? "connector needs" : "connectors need"} re-auth. Open the /mcp panel to fix.`}
+        >
           <Icon name="circle-alert" size={14} />
           <span class="mcp-auth-banner-text">
             <strong>
               {needs.length} {needs.length === 1 ? "connector needs" : "connectors need"} re-auth
             </strong>
-            <span class="mcp-auth-banner-names" title={needs.join(", ")}>
-              {needs.join(", ")}
-            </span>
+            <span class="mcp-auth-banner-names">{needs.join(", ")}</span>
           </span>
-        </div>
+          <span class="mcp-auth-banner-go" aria-hidden="true">
+            Open /mcp
+          </span>
+        </button>
       ) : null}
       <div class="search-row">
         <SearchInput

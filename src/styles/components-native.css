@@ -449,8 +449,8 @@
 
 .vsc-badge--default,
 .vsc-badge--scope {
-  background: rgba(128, 128, 128, 0.18);
-  color: var(--fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
 }
 
 .vsc-badge--count {

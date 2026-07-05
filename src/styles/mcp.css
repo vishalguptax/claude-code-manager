@@ -42,8 +42,8 @@
 .mcp-empty-desc code {
   font-family: var(--mono);
   font-size: var(--fs-sm);
-  background: var(--badge-bg);
-  color: var(--badge-fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
   padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
 }
@@ -130,21 +130,22 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 /* Transport type */
-.mcp-type-stdio { background: var(--badge-bg); color: var(--badge-fg); }
+.mcp-type-stdio { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 .mcp-type-http  { background: var(--color-blue-bg); color: var(--color-blue); }
 /* sse is deprecated by Claude Code (superseded by http) — muted like stdio
    rather than given its own accent, so it reads as "legacy" not "distinct". */
-.mcp-type-sse   { background: var(--badge-bg); color: var(--badge-fg); }
+.mcp-type-sse   { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 .mcp-type-ws    { background: var(--color-purple-bg); color: var(--color-purple); }
 
 /* Config scope */
 .mcp-scope-project { background: var(--green-bg); color: var(--green); }
-.mcp-scope-global  { background: var(--badge-bg); color: var(--badge-fg); }
+.mcp-scope-global  { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 .mcp-scope-plugin  { background: var(--color-purple-bg); color: var(--color-purple); }
 
-/* Disabled + read-only pills — muted neutral, distinct from the type/scope hues. */
-.mcp-disabled-badge { background: var(--badge-bg); color: var(--fg-muted); opacity: 0.8; }
-.mcp-readonly-badge { background: var(--badge-bg); color: var(--fg-muted); }
+/* Disabled pill — genuinely disabled, so it keeps the muted/disabled colour.
+   Read-only pill is defined once in components.css (a read-only item isn't
+   disabled). */
+.mcp-disabled-badge { background: var(--badge-neutral-bg); color: var(--fg-muted); opacity: 0.8; }
 
 /* Standalone block note under the action row (plugin / user-scope hints).
    A direct .panel child, so it must carry the panel's --space-2xl inset. */
@@ -158,8 +159,8 @@
 .mcp-readonly-note code {
   font-family: var(--mono);
   font-size: var(--fs-sm);
-  background: var(--badge-bg);
-  color: var(--badge-fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
   padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
 }
@@ -169,18 +170,7 @@
    MCP — Detail View
    ────────────────────────────────────────────────────────────────────────────── */
 
-.mcp-detail-head {
-  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-}
-
-.mcp-detail-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-}
+/* Detail head/title now use the shared `.d-head.d-head--row` + `.d-title`. */
 
 .mcp-detail-section {
   padding: var(--space-lg) var(--space-2xl) var(--space-xl);
@@ -289,8 +279,29 @@
   font-size: var(--fs-sm);
   line-height: 1.4;
 }
+/* The banner is a button (opens /mcp to re-auth); keep the full-width left-
+   aligned banner look and add interactive affordances. The orange fill/border
+   above come from the class, overriding the global bare-button reset. */
+button.mcp-auth-banner {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background var(--transition-control);
+}
+.mcp-auth-banner:hover { background: rgba(245, 158, 11, 0.18); }
+.mcp-auth-banner:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 .mcp-auth-banner svg { color: rgb(245, 158, 11); flex-shrink: 0; margin-top: 1px; }
 .mcp-auth-banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* Trailing call-to-action pinned right, so the banner reads as clickable. */
+.mcp-auth-banner-go {
+  margin-left: auto;
+  align-self: center;
+  flex-shrink: 0;
+  color: var(--link);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
 .mcp-auth-banner-text strong { font-weight: 600; }
 /* Keep the connector list from ballooning the banner: clamp to two lines
    with an ellipsis; the full list is in the title tooltip. */
@@ -330,7 +341,7 @@
 }
 .mcp-secret-toggle-label {
   font-size: var(--fs-xs);
-  color: var(--text-muted);
+  color: var(--role-text-secondary);
   cursor: default;
 }
 

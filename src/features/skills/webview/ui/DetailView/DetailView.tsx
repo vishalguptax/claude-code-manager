@@ -4,7 +4,7 @@
  * button clears the selection to return to the list.
  */
 import { useState } from "preact/hooks";
-import { Badge, Button } from "../../../../../webview/shared/ui";
+import { BackButton, Badge, Button } from "../../../../../webview/shared/ui";
 import { useApi } from "../../../../../webview/shared/hooks";
 import type { Skill } from "../../../types";
 import { deleteSkill, launchSkillInChat, newSession, openSkillFile } from "../../api";
@@ -33,11 +33,11 @@ export function DetailView({ skill }: DetailViewProps) {
 
   return (
     <div class="panel" id="skillsDetailView">
-      <Button variant="icon" class="back-btn" iconName="arrow-left" onClick={() => {
-        selectedSkill.value = null;
-      }}>
-        Back
-      </Button>
+      <BackButton
+        onClick={() => {
+          selectedSkill.value = null;
+        }}
+      />
 
       <div class="d-head">
         <div class="d-title">{skill.name}</div>

@@ -35,8 +35,8 @@
 .hook-empty-desc code {
   font-family: var(--mono);
   font-size: var(--fs-sm);
-  background: var(--badge-bg);
-  color: var(--badge-fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
   padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
 }
@@ -113,8 +113,8 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .cmd-scope-global {
-  background: var(--badge-bg);
-  color: var(--badge-fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
 }
 
 .cmd-scope-project {
@@ -132,19 +132,8 @@
    Commands — Detail View
    ────────────────────────────────────────────────────────────────────────────── */
 
-.cmd-detail-head {
-  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-}
-
-.cmd-detail-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  font-family: var(--mono);
-  color: var(--fg);
-}
+/* Detail head/title now use the shared `.d-head.d-head--row` + `.d-title mono`
+   (the command name stays monospace via the shared `.mono` utility). */
 
 .cmd-detail-actions {
   /* Flex-wrap content-width so labels are never cropped (was an auto-fit grid
@@ -183,7 +172,9 @@
 .cmd-detail-pre {
   font-family: var(--mono);
   font-size: var(--fs-sm);
-  color: var(--fg);
+  /* Pair with the input foreground so text always contrasts its input-bg
+     surface (sideBar --fg can come from a different theme group). */
+  color: var(--input-fg, var(--fg));
   background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -203,6 +194,8 @@
 
 .cmd-detail-link {
   display: inline-block;
+  padding: 0;
+  text-align: left;
   font-size: var(--fs-md);
   color: var(--link);
   text-decoration: none;
@@ -273,8 +266,8 @@
   align-items: center;
   font-size: var(--fs-sm);
   font-family: var(--mono);
-  background: var(--badge-bg);
-  color: var(--badge-fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
   padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
   height: 18px;

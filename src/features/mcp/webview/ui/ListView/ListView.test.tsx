@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render, screen } from "@testing-library/preact";
 import type { McpServer } from "../../../types";
-import { applyServers, resetMcpSignals, searchQuery, selected } from "../../model";
+import { applyAuthNeeds, applyServers, resetMcpSignals, searchQuery, selected } from "../../model";
 import { ListView } from "./ListView";
 
 function srv(p: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServer {
@@ -17,6 +17,7 @@ function props() {
     onBrowse: vi.fn(),
     onRefresh: vi.fn(),
     onNew: vi.fn(),
+    onReauth: vi.fn(),
   };
 }
 
@@ -41,6 +42,25 @@ describe("ListView", () => {
     render(h(ListView, props()));
     expect(screen.getByText("Failed to parse .mcp.json: bad")).toBeTruthy();
     expect(screen.getByText("a")).toBeTruthy();
+  });
+
+  it("shows an actionable re-auth banner that opens /mcp when connectors need auth", () => {
+    const p = props();
+    applyServers([srv({ name: "a", scope: "global" })]);
+    applyAuthNeeds(["claude.ai Gmail", "claude.ai Figma"]);
+    render(h(ListView, p));
+    // Reads as a button, names the connectors, and is separate from the list row.
+    const banner = screen.getByRole("button", { name: /connectors need re-auth/i });
+    expect(banner.textContent).toContain("claude.ai Gmail");
+    fireEvent.click(banner);
+    expect(p.onReauth).toHaveBeenCalledOnce();
+  });
+
+  it("hides the re-auth banner when no connectors need auth", () => {
+    applyServers([srv({ name: "a", scope: "global" })]);
+    applyAuthNeeds([]);
+    render(h(ListView, props()));
+    expect(screen.queryByText(/need re-auth/i)).toBeNull();
   });
 
   it("shows a 'no matching servers' message when the query excludes everything", () => {

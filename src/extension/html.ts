@@ -42,6 +42,8 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --accent: var(--vscode-focusBorder);
       --badge-bg: var(--vscode-badge-background);
       --badge-fg: var(--vscode-badge-foreground);
+      --badge-neutral-bg: rgba(128, 128, 128, 0.18);
+      --badge-neutral-fg: var(--fg);
       --input-bg: var(--vscode-input-background);
       --input-border: var(--vscode-input-border, transparent);
       --input-fg: var(--vscode-input-foreground);
@@ -60,7 +62,6 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --red-bg: rgba(248,81,73,0.15);
       --mono: var(--vscode-editor-font-family, monospace);
       --shadow: rgba(0,0,0,0.25);
-      --overlay-hover: rgba(255,255,255,0.08);
       --dropdown-bg: var(--vscode-dropdown-background, var(--input-bg));
       --dropdown-border: var(--vscode-dropdown-border, var(--border));
       --menu-bg: var(--vscode-menu-background, var(--input-bg));
@@ -97,6 +98,9 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       color: var(--fg);
       height: 100vh;
       overflow: hidden;
+      /* Let native controls (inputs, scrollbars, autofill) render for the
+         ambient theme instead of always assuming light. */
+      color-scheme: light dark;
     }
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }

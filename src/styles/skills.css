@@ -22,8 +22,8 @@
   color: var(--green);
 }
 .scope-global {
-  background: var(--badge-bg);
-  color: var(--badge-fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
 }
 .scope-plugin {
   background: var(--color-purple-bg);

@@ -45,8 +45,8 @@
 .agent-empty-desc code {
   font-family: var(--mono);
   font-size: var(--fs-sm);
-  background: var(--badge-bg);
-  color: var(--badge-fg);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
   padding: 1px var(--space-sm);
   border-radius: var(--radius-sm);
 }
@@ -144,8 +144,8 @@
    conversation's model) — muted/neutral so it reads as "unset", not as a
    named model with its own accent. */
 .agent-model-inherit {
-  background: var(--badge-bg);
-  color: var(--text-muted);
+  background: var(--badge-neutral-bg);
+  color: var(--role-text-secondary);
 }
 
 
@@ -153,18 +153,7 @@
    Agents — Detail View
    ────────────────────────────────────────────────────────────────────────────── */
 
-.agent-detail-head {
-  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-}
-
-.agent-detail-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-}
+/* Detail head/title now use the shared `.d-head.d-head--row` + `.d-title`. */
 
 .agent-detail-desc {
   font-size: var(--fs-base);
@@ -262,11 +251,10 @@
   box-sizing: border-box;
 }
 
-/* Back action: uses the shared `.back-btn` base (sessions.css) — no
-   agents-specific override. A prior `.panel > .back-btn` rule here was a
-   global leak (every tab renders `.panel`) that clobbered the hooks
-   link-style Back and the commands/skills icon Back; the base already
-   gives the agent/MCP detail + form Back the exact look this duplicated. */
+/* Back action: uses the shared <BackButton> (`.back-btn` in components.css) —
+   no agents-specific override. A prior `.panel > .back-btn` rule here was a
+   global leak (every tab renders `.panel`) that clobbered other features' Back
+   buttons; the shared component now gives every detail/form view one style. */
 
 /* Create CTA under the empty state. */
 .agent-empty-cta {
@@ -276,7 +264,7 @@
 /* Read-only note shown instead of edit/delete for plugin-owned agents. */
 .agent-readonly-note {
   font-size: var(--fs-xs);
-  color: var(--text-muted);
+  color: var(--role-text-secondary);
   font-style: italic;
   align-self: center;
 }

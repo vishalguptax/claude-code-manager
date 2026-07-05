@@ -10,6 +10,7 @@
  */
 import { useEffect, useState } from "preact/hooks";
 import {
+  BackButton,
   Button,
   Icon,
   Segmented,
@@ -242,9 +243,7 @@ export function DetailView() {
   if (loading || !d) {
     return (
       <div class="panel" id="detailView">
-        <button type="button" class="back-btn" onClick={backToList}>
-          <Icon name="arrow-left" /> Back
-        </button>
+        <BackButton onClick={backToList} />
         <DetailSkeleton />
       </div>
     );
@@ -286,9 +285,7 @@ export function DetailView() {
 
   return (
     <div class="panel" id="detailView">
-      <button type="button" class="back-btn" onClick={backToList}>
-        <Icon name="arrow-left" /> Back
-      </button>
+      <BackButton onClick={backToList} />
 
       <div class="d-head">
         <div class="d-title" title={d.name || d.summary}>

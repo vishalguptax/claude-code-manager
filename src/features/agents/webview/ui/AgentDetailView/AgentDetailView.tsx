@@ -3,7 +3,7 @@
  * agent, with a back action and an "open file" action that delegates to the
  * host. Renders nothing useful if no agent is selected (parent guards this).
  */
-import { Badge, Button } from "../../../../../webview/shared/ui";
+import { BackButton, Badge, Button } from "../../../../../webview/shared/ui";
 import type { Agent } from "../../../types";
 import { stripFrontmatter } from "../../lib";
 import { ModelBadge } from "../ModelBadge";
@@ -46,12 +46,10 @@ export function AgentDetailView({
 
   return (
     <div class="panel">
-      <Button class="back-btn" iconName="arrow-left" onClick={onBack}>
-        Back
-      </Button>
+      <BackButton onClick={onBack} />
 
-      <div class="agent-detail-head">
-        <div class="agent-detail-title">{agent.name}</div>
+      <div class="d-head d-head--row">
+        <div class="d-title">{agent.name}</div>
         <ModelBadge model={agent.model} />
       </div>
 

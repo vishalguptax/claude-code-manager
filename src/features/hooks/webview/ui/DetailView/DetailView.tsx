@@ -5,7 +5,7 @@
  * lives in plugin.json) so only copy + a read-only note are shown.
  */
 import { useState } from "preact/hooks";
-import { Badge, Button, Icon } from "../../../../../webview/shared/ui";
+import { BackButton, Badge, Button, Icon } from "../../../../../webview/shared/ui";
 import { useApi } from "../../../../../webview/shared/hooks";
 import type { Hook } from "../../../types";
 import * as api from "../../api";
@@ -42,9 +42,7 @@ export function DetailView({ hook }: DetailViewProps) {
 
   return (
     <div class="panel hooks-panel">
-      <Button class="back-btn" onClick={back}>
-        <Icon name="arrow-left" /> Back
-      </Button>
+      <BackButton onClick={back} />
 
       <div class="d-head">
         <div class="d-title">{eLabel}</div>

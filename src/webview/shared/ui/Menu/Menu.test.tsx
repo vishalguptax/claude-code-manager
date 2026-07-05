@@ -71,12 +71,25 @@ describe("Menu", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("closes on scroll (the fixed popup would otherwise pin at stale coords)", () => {
+  it("closes on an ancestor/window scroll (the fixed popup would pin at stale coords)", () => {
     const onClose = vi.fn();
     render(<Menu open={true} x={0} y={0} items={items()} onClose={onClose} />);
-    // Capture-phase window listener — dispatch directly on window.
+    // Capture-phase window listener — a window scroll has no menu target.
     window.dispatchEvent(new Event("scroll"));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("does NOT close when the menu's own list scrolls (tall dropdowns stay open)", () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <Menu open={true} x={0} y={0} items={items()} onClose={onClose} />,
+    );
+    const menu = container.querySelector(".vsc-menu") as HTMLElement;
+    // A scroll dispatched on the menu box reaches the capture-phase window
+    // listener with e.target inside the menu — the guard must skip the close so
+    // a long list (e.g. the models Dropdown) can be scrolled instead of dismissed.
+    menu.dispatchEvent(new Event("scroll"));
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   describe("outside-press dismissal", () => {

@@ -7,7 +7,7 @@
  * env and headers are entered as `KEY=value` lines and parsed on save.
  */
 import { useState } from "preact/hooks";
-import { Button, Dropdown, TextArea, TextField } from "../../../../../webview/shared/ui";
+import { BackButton, Button, Dropdown, TextArea, TextField } from "../../../../../webview/shared/ui";
 import type { McpServerInput } from "../../../../../shared/protocol/messages";
 import type { McpServer } from "../../../types";
 
@@ -109,9 +109,7 @@ export function McpForm({ server, existing = [], onClose, onSubmit }: McpFormPro
 
   return (
     <div class="panel">
-      <Button class="back-btn" iconName="arrow-left" onClick={onClose}>
-        Back
-      </Button>
+      <BackButton onClick={onClose} />
       <div class="mcp-form-title">{isEdit ? "Edit MCP server" : "Add MCP server"}</div>
       <div class="mcp-form">
         <label class="mcp-form-field">
