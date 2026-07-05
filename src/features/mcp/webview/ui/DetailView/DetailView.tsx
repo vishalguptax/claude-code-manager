@@ -163,8 +163,8 @@ export function DetailView(props: DetailViewProps) {
         anchorRef={moreRef}
       />
 
-      <div class="mcp-detail-section">
-        <div class="mcp-detail-label">Connection</div>
+      <div class="d-section">
+        <div class="d-label">Connection</div>
         {isUrl ? (
           <div class="mcp-detail-kv">
             <span class="mcp-detail-k">URL</span>
@@ -200,8 +200,8 @@ export function DetailView(props: DetailViewProps) {
       ) : null}
 
       {envEntries.length > 0 ? (
-        <div class="mcp-detail-section">
-          <div class="mcp-detail-label">Environment Variables</div>
+        <div class="d-section">
+          <div class="d-label">Environment Variables</div>
           {envEntries.map(([key, value]) => (
             <SecretRow key={key} k={key} value={value} revealed={revealed} />
           ))}
@@ -209,8 +209,8 @@ export function DetailView(props: DetailViewProps) {
       ) : null}
 
       {headerEntries.length > 0 ? (
-        <div class="mcp-detail-section">
-          <div class="mcp-detail-label">Headers</div>
+        <div class="d-section">
+          <div class="d-label">Headers</div>
           {headerEntries.map(([key, value]) => (
             <SecretRow key={key} k={key} value={value} revealed={revealed} />
           ))}

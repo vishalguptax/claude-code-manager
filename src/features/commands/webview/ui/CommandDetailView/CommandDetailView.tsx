@@ -59,10 +59,10 @@ export function CommandDetailView({ command }: CommandDetailViewProps) {
       </div>
 
       {command.scope === "builtin" ? (
-        <div class="cmd-detail-content">
-          <div class="cmd-detail-label">Description</div>
+        <div class="d-section">
+          <div class="d-label">Description</div>
           <div class="cmd-detail-desc">{command.description ?? ""}</div>
-          <div class="cmd-detail-label cmd-detail-label-spaced">Documentation</div>
+          <div class="d-label cmd-detail-label-spaced">Documentation</div>
           <button
             type="button"
             class="cmd-detail-link"
@@ -76,9 +76,9 @@ export function CommandDetailView({ command }: CommandDetailViewProps) {
           <div class="cmd-detail-path">
             <span class="text-sm text-muted">{command.path}</span>
           </div>
-          <div class="cmd-detail-content">
-            <div class="cmd-detail-label">Command Template</div>
-            <pre class="cmd-detail-pre">{command.content}</pre>
+          <div class="d-section">
+            <div class="d-label">Command Template</div>
+            <pre class="d-pre">{command.content}</pre>
           </div>
         </>
       )}

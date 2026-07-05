@@ -172,19 +172,10 @@
 
 /* Detail head/title now use the shared `.d-head.d-head--row` + `.d-title`. */
 
-.mcp-detail-section {
-  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
-  border-top: 1px solid var(--border);
-}
-
-.mcp-detail-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--fg-section);
-  margin-bottom: var(--space-md);
-}
+/* .mcp-detail-section / .mcp-detail-label use the shared `.d-section` /
+   `.d-label` (components.css) — was a byte-identical private copy. The kv/k/v
+   rows below stay MCP-specific: they wrap long commands/URLs instead of
+   truncating with ellipsis, unlike the shared `.d-v`. */
 
 .mcp-detail-kv {
   display: flex;

@@ -12,7 +12,7 @@ import { ModelBadge } from "../ModelBadge";
 function ChipRow({ label, items }: { label: string; items: string[] }) {
   return (
     <div class="agent-detail-chips">
-      <span class="agent-detail-label">{label}</span>
+      <span class="d-label">{label}</span>
       <span class="agent-chip-list">
         {items.map((item) => (
           <Badge key={item} text={item} title={item} variant="scope" class="agent-chip" />
@@ -92,9 +92,9 @@ export function AgentDetailView({
       </div>
 
       {body ? (
-        <div class="agent-detail-content">
-          <div class="agent-detail-label">System Prompt</div>
-          <pre class="agent-detail-pre">{body}</pre>
+        <div class="d-section">
+          <div class="d-label">System Prompt</div>
+          <pre class="d-pre">{body}</pre>
         </div>
       ) : null}
     </div>

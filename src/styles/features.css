@@ -127,13 +127,8 @@
   color: var(--color-blue);
 }
 
-/* Plugin commands are read-only, like plugin skills/mcp — same purple accent
-   so scope reads consistently across features (was falling back to the neutral
-   base chip, making a plugin command look Global). */
-.cmd-scope-plugin {
-  background: var(--color-purple-bg);
-  color: var(--color-purple);
-}
+/* .cmd-scope-plugin lives in commands.css (that file's documented job is
+   exactly this — the one scope colour this shared layer omits). */
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -163,36 +158,8 @@
   word-break: break-all;
 }
 
-.cmd-detail-content {
-  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
-  border-top: 1px solid var(--border);
-}
-
-.cmd-detail-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--fg-section);
-  margin-bottom: var(--space-md);
-}
-
-.cmd-detail-pre {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  /* Pair with the input foreground so text always contrasts its input-bg
-     surface (sideBar --fg can come from a different theme group). */
-  color: var(--input-fg, var(--fg));
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-xl);
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.6;
-  overflow-x: auto;
-  margin: 0;
-}
+/* Section/label/code-block chrome uses the shared `.d-section` / `.d-label` /
+   `.d-pre` (components.css) — was a byte-identical private copy. */
 
 .cmd-detail-desc {
   font-size: var(--fs-md);

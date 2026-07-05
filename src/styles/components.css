@@ -328,6 +328,27 @@
   overflow-x: auto;
 }
 
+/* Multi-line read-only code block (command templates, system prompts) — was
+   duplicated byte-for-byte as `.agent-detail-pre` and `.cmd-detail-pre`; one
+   shared class now. Distinct from `.code-readonly` above (single-line, no
+   border) — this wraps and has a bordered box, for longer content. */
+.d-pre {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  /* Pair with the input foreground so text always contrasts its input-bg
+     surface (sideBar --fg can come from a different theme group). */
+  color: var(--input-fg, var(--fg));
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-xl);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  overflow-x: auto;
+  margin: 0;
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Context Menu

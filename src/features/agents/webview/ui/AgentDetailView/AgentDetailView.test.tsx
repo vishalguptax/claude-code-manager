@@ -40,7 +40,7 @@ describe("AgentDetailView", () => {
 
   it("strips frontmatter and shows the system prompt body", () => {
     const { container } = render(h(AgentDetailView, props()));
-    const pre = container.querySelector(".agent-detail-pre");
+    const pre = container.querySelector(".d-pre");
     expect(pre?.textContent).toBe("You are a reviewer.");
   });
 
@@ -48,7 +48,7 @@ describe("AgentDetailView", () => {
     const { container } = render(
       h(AgentDetailView, props({ agent: agent({ content: "---\nname: x\n---\n" }) })),
     );
-    expect(container.querySelector(".agent-detail-content")).toBeNull();
+    expect(container.querySelector(".d-pre")).toBeNull();
   });
 
   it("omits description when empty", () => {

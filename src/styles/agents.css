@@ -163,7 +163,7 @@
 }
 
 /* Read-only Tools / Skills chip rows in the detail view. The label reuses
-   .agent-detail-label's uppercase treatment; the chips flow-wrap under it. */
+   the shared .d-label uppercase treatment; the chips flow-wrap under it. */
 .agent-detail-chips {
   display: flex;
   flex-direction: column;
@@ -198,34 +198,8 @@
   word-break: break-all;
 }
 
-.agent-detail-content {
-  padding: var(--space-lg) var(--space-2xl) var(--space-xl);
-  border-top: 1px solid var(--border);
-}
-
-.agent-detail-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--fg-section);
-  margin-bottom: var(--space-md);
-}
-
-.agent-detail-pre {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  color: var(--fg);
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: var(--space-xl);
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.6;
-  overflow-x: auto;
-  margin: 0;
-}
+/* Section/label/code-block chrome uses the shared `.d-section` / `.d-label` /
+   `.d-pre` (components.css) — was a byte-identical private copy. */
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

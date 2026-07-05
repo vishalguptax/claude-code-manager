@@ -74,7 +74,7 @@ describe("CommandDetailView — custom", () => {
   it("renders the file path and the template content", () => {
     const { container } = render(h(CommandDetailView, { command: custom }));
     expect(container.querySelector(".cmd-detail-path")?.textContent).toContain("review.md");
-    expect(container.querySelector(".cmd-detail-pre")?.textContent).toBe("Please review the diff");
+    expect(container.querySelector(".d-pre")?.textContent).toBe("Please review the diff");
   });
 
   it("posts openCommandFile when Open File is clicked", () => {
