@@ -79,6 +79,23 @@ describe("QuotaView", () => {
     expect(screen.getAllByRole("progressbar").length).toBe(2);
   });
 
+  it("captions a fresh capture with 'Updated …' (never a bare, unexplained number)", () => {
+    setQuotaSuccess(SUCCESS); // capturedAt = now
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText(/^Updated/)).toBeTruthy();
+    // Fresh capture — no "refreshes when Claude Code runs" hint yet.
+    expect(screen.queryByText(/refreshes when Claude Code runs/)).toBeNull();
+  });
+
+  it("captions a stale capture with the honest 'refreshes when Claude Code runs' hint", () => {
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: { ...SUCCESS.quota, capturedAt: new Date(Date.now() - 60 * 60_000).toISOString() },
+    });
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText(/refreshes when Claude Code runs/)).toBeTruthy();
+  });
+
   it("no-data state shows the hint and refreshes on click", () => {
     setQuotaError({ kind: "no-data", message: "open a session first" });
     const api = stubApi();

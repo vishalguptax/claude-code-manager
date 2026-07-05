@@ -786,6 +786,13 @@
   gap: var(--space-md);
   padding: var(--space-xs) 0;
 }
+/* Freshness caption under the bars — anchors the numbers to a capture
+   time so a no-change Re-read never reads as a broken button. */
+.acct-quota-freshness {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+}
 .acct-quota-row {
   display: flex;
   flex-direction: column;

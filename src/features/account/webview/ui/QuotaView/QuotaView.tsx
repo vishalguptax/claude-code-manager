@@ -10,11 +10,17 @@
  *   - no-data       → installed, but Claude hasn't rendered yet
  *   - parse         → cache unreadable
  *
- * "Refresh" re-reads the cache; it never forces a server fetch, so it's
- * only as current as Claude Code's last statusline render. The header
- * shows that capture time so the freshness is never misrepresented.
+ * "Re-read latest" re-reads the cache; it never forces a server fetch
+ * (Anthropic exposes the subscription 5h/7d windows only to the official
+ * client, only after a token-consuming turn — there is no compliant
+ * on-demand fetch). So the figures are only as current as Claude Code's
+ * last statusline render. A freshness caption under the bars states the
+ * capture age plainly, and the button briefly spins on click, so the
+ * card never reads as broken even when a re-read returns identical
+ * numbers.
  */
 
+import { useState } from "preact/hooks";
 import { Button, Icon } from "../../../../../webview/shared/ui";
 import { now } from "../../../../../webview/shared/model";
 import type { QuotaError, QuotaSuccess } from "../../../quota";
@@ -38,6 +44,13 @@ export function QuotaView({ api }: QuotaViewProps) {
   const collapsed = isSectionCollapsed("quota");
   const status = quotaStatus.value;
 
+  // Brief spin on the Re-read button so the click always registers.
+  // Re-reading an idle cache returns identical numbers (nothing new has
+  // rendered), so without this the button looks dead; the spin makes the
+  // action visible while the caption below explains why the figures may
+  // not change.
+  const [rereading, setRereading] = useState(false);
+
   // Re-read the cache. Stop propagation so the header button doesn't
   // also toggle the section collapse.
   //
@@ -48,6 +61,8 @@ export function QuotaView({ api }: QuotaViewProps) {
   // is seamless, and the local cache read is effectively instant anyway.
   const refresh = (e: Event): void => {
     e.stopPropagation();
+    setRereading(true);
+    setTimeout(() => setRereading(false), 500);
     if (quotaStatus.value.kind !== "success") setQuotaLoading();
     api.fetchQuota();
   };
@@ -88,6 +103,7 @@ export function QuotaView({ api }: QuotaViewProps) {
       <Button
         variant="icon"
         iconName="refresh-cw"
+        loading={rereading}
         title="Re-read latest"
         ariaLabel="Re-read latest quota"
         onClick={refresh}
@@ -196,12 +212,24 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
       </p>
     );
   }
-  // Freshness now lives in the header status dot (beside Refresh), so the
-  // body is just the bars — no redundant caption.
+  // Always caption the bars with when they were captured — read the
+  // shared clock so it stays live. This is what keeps the card from
+  // reading as "broken": the numbers are visibly anchored to a moment,
+  // so a Re-read that returns the same figures shows "Updated just now"
+  // rather than looking like a dead button. When the capture has aged
+  // out, the caption also states plainly that fresh numbers only arrive
+  // when Claude Code next runs — Anthropic exposes them no other way.
+  const fresh = data.quota.capturedAt ? quotaFreshness(data.quota.capturedAt, now.value) : null;
   return (
     <div class="acct-quota-bars">
       {fiveHour ? <QuotaBar label="5-hour window" window={fiveHour} /> : null}
       {sevenDay ? <QuotaBar label="7-day window" window={sevenDay} /> : null}
+      {fresh ? (
+        <p class="acct-quota-freshness">
+          Updated {fresh.text}
+          {fresh.stale ? " · refreshes when Claude Code runs" : ""}
+        </p>
+      ) : null}
     </div>
   );
 }
