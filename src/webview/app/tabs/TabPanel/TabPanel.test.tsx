@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { render } from "@testing-library/preact";
 import { h } from "preact";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TabPanel } from "./TabPanel";
 
 /**
@@ -54,5 +54,53 @@ describe("TabPanel lazy fallback", () => {
     const hasSkeleton = container.querySelector(".skeleton-scope-row") !== null;
     const hasError = container.textContent?.includes("Failed to load tab") ?? false;
     expect(hasSkeleton || hasError).toBe(true);
+  });
+});
+
+/**
+ * Keep-alive: once a tab's chunk resolves it must stay mounted (hidden)
+ * when another tab is active, so revisiting is instant. Here the feature
+ * modules are stubbed with trivial components so the test stays a focused
+ * shell check rather than pulling in real feature setup.
+ */
+vi.mock("../../../../features/account/webview/index", () => ({
+  default: () => h("div", { class: "stub-account" }, "ACCOUNT"),
+}));
+vi.mock("../../../../features/config/webview/index", () => ({
+  default: () => h("div", { class: "stub-config" }, "CONFIG"),
+}));
+
+describe("TabPanel keep-alive", () => {
+  afterEach(() => vi.clearAllMocks());
+
+  /** Wait for the pending dynamic import + state update to flush. */
+  const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+  it("keeps a loaded tab mounted (hidden) after switching away, and reveals it on return", async () => {
+    const { container, rerender } = render(h(TabPanel, { feature: "account" }));
+    await flush();
+
+    const account = container.querySelector(".stub-account");
+    expect(account).toBeTruthy();
+    // The visible account tab is not hidden.
+    expect(account!.closest(".tab-keepalive")!.classList.contains("hidden")).toBe(false);
+
+    // Switch to config.
+    rerender(h(TabPanel, { feature: "config" }));
+    await flush();
+
+    // Account is STILL in the DOM — same node, just hidden. This is the
+    // whole point: no unmount, so no re-request / re-parse / rebuild on
+    // return.
+    const accountAfter = container.querySelector(".stub-account");
+    expect(accountAfter).toBe(account);
+    expect(accountAfter!.closest(".tab-keepalive")!.classList.contains("hidden")).toBe(true);
+    expect(container.querySelector(".stub-config")).toBeTruthy();
+
+    // Back to account — the preserved node becomes visible again.
+    rerender(h(TabPanel, { feature: "account" }));
+    await flush();
+    expect(container.querySelector(".stub-account")).toBe(account);
+    expect(account!.closest(".tab-keepalive")!.classList.contains("hidden")).toBe(false);
   });
 });

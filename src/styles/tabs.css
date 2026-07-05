@@ -62,6 +62,12 @@
 .tab-content-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .tab-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .tab-content.hidden { display: none; }
-/* Feature panels are direct children of .tab-content; they own their own
-   vertical scroll so the sticky footer stays visible. */
-.tab-content > .panel { flex: 1; min-height: 0; overflow-y: auto; }
+/* Keep-alive wrapper: each mounted tab sits in one of these. `display:
+   contents` makes the wrapper vanish from layout, so the feature's own
+   root (e.g. `.panel`) participates in `.tab-content`'s flex column
+   exactly as it did when it was a direct child. Inactive tabs stay
+   mounted but are pulled from layout. The `.tab-content .panel` scroll
+   rule (components.css) is a descendant selector, so the panel keeps
+   its own scroll through the wrapper — no rule needed here. */
+.tab-keepalive { display: contents; }
+.tab-keepalive.hidden { display: none; }

@@ -1,13 +1,21 @@
 /**
- * Lazy loader for feature webview modules. Each feature ships a default-exported
- * Preact component at `src/features/{feature}/webview/index.tsx`. We import it
- * dynamically the first time the tab is activated and cache the result.
+ * Keep-alive lazy loader for feature webview modules. Each feature ships a
+ * default-exported Preact component at `src/features/{feature}/webview/index.tsx`.
  *
- * While the chunk is in flight we render the feature's CONTENT-AWARE skeleton
- * (resolved from the per-tab registry, which lives in the shell bundle so the
- * shape is available from frame 1). This avoids the brief flash of a generic
- * loader that the user used to see on every first tab activation before the
- * feature's own loading branch could mount.
+ * The first time a tab is activated we dynamically import its chunk (rendering
+ * the feature's content-aware skeleton while it's in flight), then KEEP the
+ * mounted component in the tree — hidden when another tab is active. Revisiting
+ * a tab is therefore instant: no re-import, no fresh mount, no re-request to
+ * the host, and no rebuild of the tab's (often heavy) DOM — the already-built
+ * subtree simply becomes visible again. Only the first visit pays the load +
+ * parse cost.
+ *
+ * Hidden tabs stay mounted, so a background host push still updates them via
+ * their signals; that's a cheap JS diff (the browser skips layout/paint for a
+ * `display:none` subtree), and no-op account pushes are already deduped
+ * host-side. The alternative — unmounting on every switch — re-ran each tab's
+ * mount effect (re-posting getAccountData, re-parsing, rebuilding the heatmap)
+ * on every single revisit, which is what made revisiting feel slow.
  */
 
 import type { ComponentType } from "preact";
@@ -36,22 +44,24 @@ const featureLoaders = {
   config: () => import("../../../../features/config/webview/index"),
 } as const;
 
-type LoadState =
-  | { status: "loading" }
-  | { status: "ready"; Component: ComponentType }
-  | { status: "error" };
-
 export function TabPanel({ feature }: TabPanelProps) {
-  const [state, setState] = useState<LoadState>({ status: "loading" });
+  // Components resolved so far, keyed by feature id. Once mounted, a tab
+  // stays here for the life of the webview.
+  const [loaded, setLoaded] = useState<Record<string, ComponentType>>({});
+  // Features whose chunk failed to resolve (bad id, import error).
+  const [failed, setFailed] = useState<Record<string, true>>({});
 
   useEffect(() => {
-    let cancelled = false;
-    setState({ status: "loading" });
+    // Already resolved (loaded or failed) — nothing to do on revisit.
+    if (loaded[feature] || failed[feature]) return;
+
     const load = featureLoaders[feature as keyof typeof featureLoaders];
     if (!load) {
-      setState({ status: "error" });
+      setFailed((f) => ({ ...f, [feature]: true }));
       return;
     }
+
+    let cancelled = false;
     load()
       .then((mod) => {
         if (cancelled) return;
@@ -59,29 +69,47 @@ export function TabPanel({ feature }: TabPanelProps) {
           | ComponentType
           | undefined;
         if (!Component) {
-          setState({ status: "error" });
+          setFailed((f) => ({ ...f, [feature]: true }));
           return;
         }
-        setState({ status: "ready", Component });
+        setLoaded((m) => ({ ...m, [feature]: Component }));
       })
       .catch((err) => {
         console.error("[claude-manager] failed to load feature", feature, err);
-        if (!cancelled) setState({ status: "error" });
+        if (!cancelled) setFailed((f) => ({ ...f, [feature]: true }));
       });
+
     return () => {
       cancelled = true;
     };
-  }, [feature]);
+  }, [feature, loaded, failed]);
 
-  if (state.status === "loading") {
-    // Per-tab skeleton shaped like the feature's loaded layout — same shell,
-    // same insets — so the activation feels instant and there's no layout
-    // shift when the chunk lands. Resolved from the shell-side registry, so
-    // this paints from frame 1 even before the feature chunk arrives.
-    const Skeleton = resolveTabSkeleton(feature);
-    return <Skeleton />;
-  }
-  if (state.status === "error") return <EmptyState title="Failed to load tab" />;
-  const { Component } = state;
-  return <Component />;
+  const activeReady = Boolean(loaded[feature]);
+
+  return (
+    <>
+      {/* Every tab mounted so far stays in the tree; only the active one
+          is visible. Keeping the others alive is what makes revisiting
+          instant. */}
+      {Object.entries(loaded).map(([id, Component]) => (
+        <div key={id} class={id === feature ? "tab-keepalive" : "tab-keepalive hidden"}>
+          <Component />
+        </div>
+      ))}
+      {/* First visit to the active tab: its chunk hasn't resolved yet.
+          Show the content-shaped skeleton (or the error state) on top —
+          the already-mounted tabs above are all hidden in this frame. */}
+      {!activeReady &&
+        (failed[feature] ? (
+          <EmptyState title="Failed to load tab" />
+        ) : (
+          renderSkeleton(feature)
+        ))}
+    </>
+  );
+}
+
+function renderSkeleton(feature: string) {
+  const Skeleton = resolveTabSkeleton(feature);
+  return <Skeleton />;
 }
