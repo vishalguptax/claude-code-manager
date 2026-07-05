@@ -119,6 +119,13 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
   // height differs from the estimate. Guard on h > 0 so hidden tabs
   // (clientHeight 0) and non-layout test environments keep the estimate
   // instead of collapsing every row to zero.
+  //
+  // Deps matter for scroll cost: each offsetHeight read forces a
+  // synchronous reflow. Re-measuring is only needed when the rendered
+  // window moved (new rows appeared) or the data changed (row content —
+  // and thus height — may differ). A scroll within the same window, or
+  // the recompute this effect itself triggers, must not re-measure every
+  // visible row on every frame.
   const rowEls = useRef(new Map<number, HTMLElement>());
   useLayoutEffect(() => {
     let changed = false;
@@ -130,7 +137,7 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
       }
     }
     if (changed) forceRecompute((n) => n + 1);
-  });
+  }, [items, start, end]);
 
   // Drop stale measurements when the list shrinks so offsets don't carry
   // heights for indices that no longer exist.

@@ -23,8 +23,13 @@ vi.mock("../parser", () => ({
   getLastParseWarning: () => null,
   // "missing" ids resolve to null (deleted/unreadable) so the no-mutation
   // early-return branch is exercised; everything else reparses cleanly.
-  reparseOneSession: (id: string) =>
-    id.includes("missing") ? null : { id, endTime: 1, projectPath: "/p" },
+  reparseSessionsBatch: (ids: string[]) =>
+    new Map(
+      ids.map((id) => [
+        id,
+        id.includes("missing") ? null : { id, endTime: 1, projectPath: "/p" },
+      ]),
+    ),
   readLiveSessions: () => new Map(),
   applyLiveState: () => false,
 }));

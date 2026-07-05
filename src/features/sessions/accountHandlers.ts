@@ -7,6 +7,7 @@
  * the next handler.
  */
 import * as vscode from "vscode";
+import { postAccountData } from "./accountPush";
 import * as path from "path";
 import {
   parseAccountData,
@@ -35,7 +36,7 @@ export async function handleAccountMessage(
     case "getAccountData": {
       const workspace = getWorkspace();
       const data = parseAccountData(workspace || undefined);
-      wv.postMessage({ type: "accountData", data });
+      postAccountData(wv, data);
       break;
     }
 
@@ -51,18 +52,24 @@ export async function handleAccountMessage(
 
     case "installStatusline": {
       // Opt-in: wire Claude Code's statusLine.command to our tap so it
-      // caches the server-computed quota locally. Install at the
-      // EFFECTIVE scope so a project/local statusline that overrides
-      // global doesn't shadow us. The bundled tap script sits beside
-      // extension.js in dist/; __dirname resolves there.
+      // caches the server-computed quota locally. Installs at the
+      // GLOBAL scope (machine-wide), with a local-scope override in
+      // workspaces whose project/local statusline shadows it — the
+      // shared project settings file is never written. The bundled tap
+      // script sits beside extension.js in dist/; __dirname resolves
+      // there.
       const tapSource = path.join(__dirname, "statusline-tap.js");
       const workspace = getWorkspace() || undefined;
       const res = installStatusline(tapSource, workspace);
       if (!res.ok) {
-        vscode.window.showErrorMessage(`Couldn't enable live quota: ${res.error}.`);
+        vscode.window.showErrorMessage(
+          res.error === "managed-by-org"
+            ? "Can't enable live quota: your organization's managed settings define the statusline."
+            : `Couldn't enable live quota: ${res.error}.`,
+        );
       }
       wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace) });
+      postAccountData(wv, parseAccountData(workspace));
       break;
     }
 
@@ -73,7 +80,7 @@ export async function handleAccountMessage(
         vscode.window.showErrorMessage(`Couldn't disable live quota: ${res.error}.`);
       }
       wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace) });
+      postAccountData(wv, parseAccountData(workspace));
       break;
     }
 
@@ -157,10 +164,7 @@ export async function handleAccountMessage(
           );
         }
       }
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
@@ -190,10 +194,7 @@ export async function handleAccountMessage(
           `Couldn't restore ${msg.scope} snapshot — file may be missing.`,
         );
       }
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
@@ -205,10 +206,7 @@ export async function handleAccountMessage(
           `Couldn't delete snapshot — already gone.`,
         );
       }
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 

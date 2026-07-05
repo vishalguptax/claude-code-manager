@@ -239,6 +239,23 @@ function runSecurityRead(service: string): {
 }
 
 /**
+ * Short-lived cache for the Keychain read. Unlike the file backend
+ * (where mtime is a free change signal), detecting a Keychain change
+ * costs a full `security` spawn — the thing being avoided. A few
+ * seconds of staleness is invisible to the UI (account parses fire on
+ * watcher debounces anyway), while an active session's parse bursts
+ * would otherwise spawn `security` several times per second and each
+ * spawn blocks the extension host — with a locked Keychain, for up to
+ * SECURITY_TIMEOUT_MS. Writes and deletes invalidate immediately.
+ */
+const KEYCHAIN_CACHE_TTL_MS = 3_000;
+let keychainCache: { status: ReadStatus; readAt: number } | null = null;
+
+function invalidateKeychainCache(): void {
+  keychainCache = null;
+}
+
+/**
  * Try the current service name, then the v2.0.14 legacy name. Records
  * which service actually matched on the returned source so a later
  * write hits the same slot. The full `ReadStatus` is returned because
@@ -248,6 +265,15 @@ function runSecurityRead(service: string): {
  */
 function readFromKeychainDarwinStatus(): ReadStatus {
   if (process.platform !== "darwin") return { state: "missing" };
+  if (keychainCache && Date.now() - keychainCache.readAt < KEYCHAIN_CACHE_TTL_MS) {
+    return keychainCache.status;
+  }
+  const status = readFromKeychainDarwinStatusUncached();
+  keychainCache = { status, readAt: Date.now() };
+  return status;
+}
+
+function readFromKeychainDarwinStatusUncached(): ReadStatus {
   let sawTransient = false;
   for (const service of [KEYCHAIN_SERVICE, KEYCHAIN_LEGACY_SERVICE]) {
     const r = runSecurityRead(service);
@@ -459,6 +485,7 @@ function writeToKeychainDarwin(raw: string, service: string): boolean {
   if (process.platform !== "darwin") return false;
   const account = currentUsername();
   if (!account) return false;
+  invalidateKeychainCache();
   try {
     execFileSync(
       SECURITY_BIN,
@@ -520,6 +547,7 @@ export function deleteCredentials(source: CredentialsSource): boolean {
   }
   if (source.kind === "keychain-darwin") {
     if (process.platform !== "darwin") return false;
+    invalidateKeychainCache();
     try {
       execFileSync(
         SECURITY_BIN,
@@ -577,4 +605,5 @@ export const __internals = {
   readFromKeychainDarwin,
   runSecurityRead,
   looksLikeCredentialsBlob,
+  invalidateKeychainCache,
 };

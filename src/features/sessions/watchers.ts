@@ -12,6 +12,7 @@
  * All extension-host state lives in `ctx`, owned by the view provider.
  */
 import * as vscode from "vscode";
+import { postAccountData } from "./accountPush";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
@@ -21,13 +22,15 @@ import {
   getStats,
   getUniqueProjects,
   getLastParseWarning,
-  reparseOneSession,
+  reparseSessionsBatch,
   readLiveSessions,
   applyLiveState,
 } from "./parser";
 import { loadState } from "./state";
+import { CLAUDE_MANAGER_DIR, STATUSLINE_CACHE_FILE } from "../../core/config";
 import { getWorkspace } from "../../extension/workspace";
 import { parseAccountData } from "../account/parser";
+import { revalidateModelCache } from "../account/models";
 import { warmUsageAggregate } from "../account/projectStats";
 import { readQuota } from "../account/quota";
 import { syncActiveProfile as syncActiveProfileSnapshot } from "../account/profiles";
@@ -166,7 +169,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
         // identity and no prompt is useful.
         ctx.checkForIdentityChange(data);
         if (wv) {
-          wv.postMessage({ type: "accountData", data });
+          postAccountData(wv, data);
         }
       } catch (err) {
         console.warn("[claude-manager] account reparse failed:", err);
@@ -196,10 +199,15 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
     const wv = ctx.getWebview();
     if (!wv) return;
     try {
+      // Piggyback the model-list staleness check on this throttled path:
+      // a CLI upgrade mid-session replaces the binary, and a few stat
+      // calls every >=10s is what lets the dropdown pick up new model
+      // families without a window reload.
+      await revalidateModelCache();
       await warmUsageAggregate();
       if (!ctx.getWebview()) return;
       const data = parseAccountData(getWorkspace() || undefined);
-      wv.postMessage({ type: "accountData", data });
+      postAccountData(wv, data);
     } catch (err) {
       console.warn("[claude-manager] usage re-push failed:", err);
     }
@@ -214,7 +222,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   // client wrote. Debounced to coalesce the tmp/rename burst.
   const quotaCachePattern = new vscode.RelativePattern(
     vscode.Uri.file(claudeDir),
-    ".claude-manager/statusline.json",
+    `${path.basename(CLAUDE_MANAGER_DIR)}/${path.basename(STATUSLINE_CACHE_FILE)}`,
   );
   const onQuotaCacheChange = (): void => {
     if (quotaCacheTimer) clearTimeout(quotaCacheTimer);
@@ -298,27 +306,27 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
           fullSessionsReparse();
           return;
         }
-        // Targeted path: single transcript changed. Re-parse only
-        // that session and merge into the cached list. Sibling
+        // Targeted path: only specific transcripts changed. Batch the
+        // re-parse — one corpus rebuild for the whole tick, not one per
+        // changed file — and merge into the cached list. Sibling
         // sessions keep their cached meta — the whole point of the
         // smart watcher.
         const renames = loadState().renames;
         const sessions = ctx.getSessions();
+        const changedIds = transcriptPaths
+          .map(sessionIdFromTranscriptPath)
+          .filter((id): id is string => id !== null);
         let mutated = false;
-        for (const filePath of transcriptPaths) {
-          const id = sessionIdFromTranscriptPath(filePath);
-          if (!id) continue;
-          const fresh = reparseOneSession(id, renames);
+        for (const [id, fresh] of reparseSessionsBatch(changedIds, renames)) {
+          const idx = sessions.findIndex((s) => s.id === id);
           if (!fresh) {
             // Session was deleted — drop it from the cache.
-            const idx = sessions.findIndex((s) => s.id === id);
             if (idx >= 0) {
               sessions.splice(idx, 1);
               mutated = true;
             }
             continue;
           }
-          const idx = sessions.findIndex((s) => s.id === id);
           if (idx >= 0) sessions[idx] = fresh;
           else sessions.push(fresh);
           mutated = true;

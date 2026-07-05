@@ -63,6 +63,9 @@ beforeEach(() => {
   });
   fs.rmSync(CLAUDE_DIR_TMP, { recursive: true, force: true });
   fs.mkdirSync(CLAUDE_DIR_TMP, { recursive: true });
+  // Each test drives its own Keychain mock responses — a cached read
+  // from the previous test would mask them.
+  __internals.invalidateKeychainCache();
 });
 
 afterEach(() => {
@@ -193,6 +196,7 @@ describe("readCredentials — macOS Keychain backend", () => {
   });
 
   it("returns null on non-darwin even when the mock would have responded", () => {
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
     // Default platform — not darwin. The Keychain backend should not
     // be invoked at all (no `security` calls).
     execFileMock.mockImplementation(() => SAMPLE_RAW);
@@ -224,6 +228,7 @@ describe("probeKeychainStatus", () => {
   });
 
   it("returns 'unsupported' on non-darwin platforms", () => {
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
     expect(probeKeychainStatus()).toBe("unsupported");
   });
 
@@ -376,6 +381,7 @@ describe("writeCredentials — macOS Keychain backend", () => {
   });
 
   it("refuses to write to keychain-darwin on non-darwin platforms", () => {
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
     const ok = writeCredentials(SAMPLE_RAW, {
       kind: "keychain-darwin",
       locator: __internals.KEYCHAIN_SERVICE,
@@ -449,6 +455,7 @@ describe("defaultTargetSource", () => {
   });
 
   it("targets the file on non-darwin platforms", () => {
+    Object.defineProperty(process, "platform", { value: "linux", configurable: true });
     const target = defaultTargetSource();
     expect(target.kind).toBe("file");
   });
@@ -486,5 +493,30 @@ describe("readCredentialsRaceSafe", () => {
 
   it("returns null when no source has data", () => {
     expect(readCredentialsRaceSafe()).toBeNull();
+  });
+});
+
+describe("keychain read cache", () => {
+  it("serves repeated reads within the TTL from one security spawn", () => {
+    if (process.platform !== "darwin") return;
+    execFileMock.mockImplementation(() => SAMPLE_RAW);
+    readCredentials();
+    const spawnsAfterFirst = execFileMock.mock.calls.length;
+    readCredentials();
+    readCredentials();
+    expect(execFileMock.mock.calls.length).toBe(spawnsAfterFirst);
+  });
+
+  it("invalidates on write so the next read sees fresh state", () => {
+    if (process.platform !== "darwin") return;
+    execFileMock.mockImplementation(() => SAMPLE_RAW);
+    readCredentials();
+    writeCredentials(SAMPLE_RAW, {
+      kind: "keychain-darwin",
+      locator: __internals.KEYCHAIN_SERVICE,
+    });
+    const spawnsAfterWrite = execFileMock.mock.calls.length;
+    readCredentials();
+    expect(execFileMock.mock.calls.length).toBeGreaterThan(spawnsAfterWrite);
   });
 });

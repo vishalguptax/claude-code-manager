@@ -538,21 +538,46 @@ export function reparseOneSession(
   sessionId: string,
   userRenames: Record<string, string> = {},
 ): Session | null {
-  const filePath = getSessionFile(sessionId);
-  if (!filePath) return null;
+  return reparseSessionsBatch([sessionId], userRenames).get(sessionId) ?? null;
+}
 
-  // Drop the stale cache entry so the next readSessionMeta picks up the
-  // new mtime. Without this the cached meta from before the change wins.
-  invalidateSessionMetaCache(filePath);
-  invalidateOrphanCacheEntry(filePath);
-  invalidatePendingCacheEntry(filePath);
+/**
+ * Batch variant for the watcher's debounce tick: several transcripts
+ * changed together (parallel sessions all generating). Invalidates every
+ * changed file's caches FIRST, then runs the corpus rebuild ONCE and
+ * plucks each id — the per-id version cost one O(sessions) directory
+ * walk per changed transcript where a single walk suffices.
+ *
+ * parseSessions is mtime-cached for meta reads and the file index, so
+ * the single rebuild is dominated by history.jsonl (small,
+ * line-streamed) plus one transcript meta read per invalidated session;
+ * sibling meta reads are served from cache. Ids with no known file map
+ * to null (session deleted).
+ */
+export function reparseSessionsBatch(
+  sessionIds: string[],
+  userRenames: Record<string, string> = {},
+): Map<string, Session | null> {
+  const result = new Map<string, Session | null>();
+  let anyKnown = false;
+  for (const id of sessionIds) {
+    result.set(id, null);
+    const filePath = getSessionFile(id);
+    if (!filePath) continue;
+    anyKnown = true;
+    // Drop the stale cache entries so the next readSessionMeta picks up
+    // the new mtime. Without this the cached meta from before the
+    // change wins.
+    invalidateSessionMetaCache(filePath);
+    invalidateOrphanCacheEntry(filePath);
+    invalidatePendingCacheEntry(filePath);
+  }
+  if (!anyKnown) return result;
 
-  // Cheapest path that produces a correct Session: re-run parseSessions
-  // and pluck the matching id. parseSessions itself is now mtime-cached
-  // for meta reads (via sessionMetaCache) and for the file index, so the
-  // cost of a watcher-triggered rebuild is dominated by history.jsonl
-  // (small, line-streamed) plus one transcript meta read for the changed
-  // session. Sibling meta reads are served from cache.
   const sessions = parseSessions(userRenames);
-  return sessions.find((s) => s.id === sessionId) ?? null;
+  const byId = new Map(sessions.map((s) => [s.id, s]));
+  for (const id of sessionIds) {
+    if (byId.has(id)) result.set(id, byId.get(id)!);
+  }
+  return result;
 }

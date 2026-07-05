@@ -15,7 +15,7 @@ import type { Message } from "../../../shared/protocol/messages";
 import { ConfigSkeleton } from "../../../webview/app/tabs/skeletons";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { EmptyState } from "../../../webview/shared/ui";
+import { EmptyState, SlowLoadNotice, useLoadPhase } from "../../../webview/shared/ui";
 import type { AccountData, PermissionScope } from "../types";
 import { createConfigApi } from "./api";
 import { configData, configError, loading, permissionScope, permissionSearch } from "./model";
@@ -54,11 +54,18 @@ export default function ConfigTab() {
   }, [api]);
 
   const data = configData.value;
+  const pendingFirstLoad = loading.value && !data && !configError.value;
+  const loadPhase = useLoadPhase(pendingFirstLoad);
 
   if (configError.value && !data) {
     return <EmptyState title="Couldn't load config" description={configError.value} />;
   }
-  if (loading.value && !data) {
+  if (pendingFirstLoad) {
+    // Bounded skeleton: past the deadline the shimmer is replaced by an
+    // honest status + Retry (an idempotent re-request of the same read).
+    if (loadPhase !== "fresh") {
+      return <SlowLoadNotice phase={loadPhase} what="config" onRetry={() => api.getData()} />;
+    }
     return <ConfigSkeleton />;
   }
   if (!data) {

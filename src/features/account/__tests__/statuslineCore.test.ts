@@ -78,3 +78,134 @@ describe("renderDefaultLine", () => {
     expect(renderDefaultLine(cache)).toBe("");
   });
 });
+
+import {
+  mergeCaches,
+  resolveActiveModel,
+  SESSION_CAPTURE_MAX,
+  SESSION_CAPTURE_TTL_MS,
+  SESSION_FRESH_MS,
+  type StatuslineCache,
+} from "../statuslineCore";
+
+function cacheWith(
+  sessions: NonNullable<StatuslineCache["sessions"]>,
+  model: StatuslineCache["model"] = null,
+): StatuslineCache {
+  return {
+    capturedAt: 0,
+    version: "2.1.201",
+    model,
+    context: null,
+    cost: null,
+    rateLimits: { fiveHour: null, sevenDay: null },
+    sessions,
+  };
+}
+
+const NOW = 1_800_000_000_000;
+const fable = { id: "claude-fable-5", displayName: "Fable 5" };
+const opus = { id: "claude-opus-4-8", displayName: "Opus 4.8" };
+const sonnet = { id: "claude-sonnet-5", displayName: "Sonnet 5" };
+
+describe("extractCache — sessions", () => {
+  it("records the render under its session_id", () => {
+    const cache = extractCache(
+      JSON.stringify({
+        session_id: "s-1",
+        model: { id: "claude-fable-5", display_name: "Fable 5" },
+      }),
+      NOW,
+    )!;
+    expect(cache.sessions).toEqual({
+      "s-1": { model: fable, capturedAt: NOW },
+    });
+  });
+
+  it("yields an empty sessions map when the payload has no session_id", () => {
+    const cache = extractCache(JSON.stringify({ model: { id: "x" } }), NOW)!;
+    expect(cache.sessions).toEqual({});
+  });
+});
+
+describe("mergeCaches", () => {
+  it("unions sessions across renders; fresh render wins its own slot", () => {
+    const prev = cacheWith({
+      "s-opus": { model: opus, capturedAt: NOW - 60_000 },
+      "s-fable": { model: sonnet, capturedAt: NOW - 120_000 },
+    });
+    const fresh = cacheWith({ "s-fable": { model: fable, capturedAt: NOW } }, fable);
+    const merged = mergeCaches(prev, fresh, NOW);
+    expect(merged.sessions).toEqual({
+      "s-opus": { model: opus, capturedAt: NOW - 60_000 },
+      "s-fable": { model: fable, capturedAt: NOW },
+    });
+    // Top-level stays last-writer (backwards compatible).
+    expect(merged.model).toEqual(fable);
+  });
+
+  it("prunes captures older than the TTL", () => {
+    const prev = cacheWith({
+      old: { model: opus, capturedAt: NOW - SESSION_CAPTURE_TTL_MS - 1 },
+    });
+    const merged = mergeCaches(prev, cacheWith({ new: { model: fable, capturedAt: NOW } }), NOW);
+    expect(Object.keys(merged.sessions!)).toEqual(["new"]);
+  });
+
+  it("caps retained captures at the newest SESSION_CAPTURE_MAX", () => {
+    const many: NonNullable<StatuslineCache["sessions"]> = {};
+    for (let i = 0; i < SESSION_CAPTURE_MAX + 5; i++) {
+      many[`s-${i}`] = { model: opus, capturedAt: NOW - i * 1000 };
+    }
+    const merged = mergeCaches(cacheWith(many), cacheWith({}), NOW);
+    expect(Object.keys(merged.sessions!)).toHaveLength(SESSION_CAPTURE_MAX);
+    expect(merged.sessions!["s-0"]).toBeDefined();
+    expect(merged.sessions![`s-${SESSION_CAPTURE_MAX + 4}`]).toBeUndefined();
+  });
+
+  it("tolerates a null previous cache (first render)", () => {
+    const merged = mergeCaches(null, cacheWith({ s: { model: fable, capturedAt: NOW } }), NOW);
+    expect(Object.keys(merged.sessions!)).toEqual(["s"]);
+  });
+});
+
+describe("resolveActiveModel", () => {
+  it("returns the model when every fresh session agrees", () => {
+    const cache = cacheWith(
+      {
+        a: { model: fable, capturedAt: NOW - 1000 },
+        b: { model: fable, capturedAt: NOW - 2000 },
+      },
+      fable,
+    );
+    expect(resolveActiveModel(cache, NOW)).toBe("Fable 5");
+  });
+
+  it("returns null when fresh sessions run DIFFERENT models (no honest claim)", () => {
+    const cache = cacheWith(
+      {
+        a: { model: fable, capturedAt: NOW - 1000 },
+        b: { model: opus, capturedAt: NOW - 2000 },
+        c: { model: sonnet, capturedAt: NOW - 3000 },
+      },
+      // Last writer happened to be sonnet — must NOT be claimed.
+      sonnet,
+    );
+    expect(resolveActiveModel(cache, NOW)).toBeNull();
+  });
+
+  it("falls back to the last-known top-level model when no session is fresh", () => {
+    const cache = cacheWith(
+      { a: { model: fable, capturedAt: NOW - SESSION_FRESH_MS - 1 } },
+      opus,
+    );
+    expect(resolveActiveModel(cache, NOW)).toBe("Opus 4.8");
+  });
+
+  it("handles caches written by older taps (no sessions map)", () => {
+    const cache = cacheWith({}, sonnet);
+    delete cache.sessions;
+    expect(resolveActiveModel(cache, NOW)).toBe("Sonnet 5");
+    expect(resolveActiveModel(null, NOW)).toBeNull();
+  });
+});

@@ -35,6 +35,7 @@ export {
   getLastParseWarning,
   parseSessions,
   reparseOneSession,
+  reparseSessionsBatch,
   clearOrphanCache,
 } from "./historyParser";
 

@@ -394,12 +394,17 @@ function readLiveIdentity(): LiveIdentity | null {
  * silently "unsave" the active profile because the hash diverges even
  * though the account is unchanged.
  */
-export function getActiveProfileSlug(): string | null {
+export function getActiveProfileSlug(
+  knownProfiles?: SavedProfile[],
+): string | null {
   const live = readCredentials();
   if (!live) return null;
   const liveHash = live.hash;
 
-  const profiles = listProfiles();
+  // Callers that already hold the profile list (parseAccountData lists
+  // it for its payload anyway) pass it in — listProfiles is O(#profiles)
+  // in stats + hashes and this function runs on every account parse.
+  const profiles = knownProfiles ?? listProfiles();
 
   // Pass 1: exact hash match.
   for (const p of profiles) {

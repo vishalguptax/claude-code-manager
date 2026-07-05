@@ -28,6 +28,11 @@ import {
   type UsageAggregate,
   type DailyModelTokens,
 } from "./projectStats";
+import {
+  readUsageHistory,
+  recordUsageHistory,
+  type UsageHistory,
+} from "./usageHistory";
 import type {
   DailyActivity,
   DailyTokens,
@@ -41,14 +46,108 @@ export function computeUsageStats(): UsageStats {
   const agg = aggregateUsage();
   const base = cache ? projectCache(cache) : null;
 
+  // Fold this pass into the extension's own rollup BEFORE building the
+  // view, so days observed now survive future transcript purges. The
+  // fold returns the merged history, so the file is read at most once
+  // per compute (and written only when something grew).
+  const history = recordUsageHistory(agg) ?? readUsageHistory();
+
   if (!base && agg.daily.length === 0 && agg.byModel.length === 0) {
-    return emptyStats();
+    return applyHistoryFill(emptyStats(), history);
   }
   if (!base) {
     // No cache (fresh install). Use JSONL alone.
-    return fromAggregate(agg);
+    return applyHistoryFill(fromAggregate(agg), history);
   }
-  return mergeCacheWithJsonl(base, agg);
+  return applyHistoryFill(mergeCacheWithJsonl(base, agg), history);
+}
+
+/**
+ * Fill days the live sources no longer cover from the persistent
+ * rollup. A history day counts as "missing" when neither the
+ * stats-cache projection nor the JSONL aggregate produced a daily row
+ * for it — exactly what happens after `cleanupPeriodDays` purges the
+ * transcripts and the cache never held (or has dropped) the date.
+ * Missing days contribute their daily rows, per-model token buckets,
+ * and session/message counts; all derived totals recompute.
+ */
+function applyHistoryFill(
+  stats: UsageStats,
+  history: UsageHistory | null,
+): UsageStats {
+  if (!history) return stats;
+  const covered = new Set(stats.daily.map((d) => d.date));
+  const missing = Object.keys(history.days)
+    .filter((date) => !covered.has(date))
+    .sort();
+  if (missing.length === 0) return stats;
+
+  const daily = [...stats.daily];
+  const dailyTokens = [...stats.dailyTokens];
+  const historyByModel: DailyModelTokens[] = [];
+  let sessionsDelta = 0;
+  let messagesDelta = 0;
+
+  for (const date of missing) {
+    const day = history.days[date];
+    daily.push({
+      date,
+      messageCount: day.messages,
+      sessionCount: day.sessions,
+      toolCallCount: day.toolCalls,
+    });
+    sessionsDelta += day.sessions;
+    messagesDelta += day.messages;
+    let dayTokens = 0;
+    for (const t of Object.values(day.byModel)) {
+      dayTokens += t.input + t.output;
+    }
+    if (dayTokens > 0) dailyTokens.push({ date, total: dayTokens });
+    if (Object.keys(day.byModel).length > 0) {
+      historyByModel.push({ date, byModel: day.byModel });
+    }
+  }
+  daily.sort((a, b) => a.date.localeCompare(b.date));
+  dailyTokens.sort((a, b) => a.date.localeCompare(b.date));
+
+  // Fold the missing days' token buckets onto byModel. cutoff -Infinity
+  // treats every provided day as a delta — correct here because we
+  // already filtered to days no live source covers.
+  const byModel = mergeByModel(stats.byModel, historyByModel, -Infinity);
+  const totalInput = byModel.reduce((s, m) => s + m.inputTokens, 0);
+  const totalOutput = byModel.reduce((s, m) => s + m.outputTokens, 0);
+  const totalCacheRead = byModel.reduce((s, m) => s + m.cacheReadTokens, 0);
+  const totalCacheCreation = byModel.reduce(
+    (s, m) => s + m.cacheCreationTokens,
+    0,
+  );
+
+  return {
+    ...stats,
+    daily,
+    dailyTokens,
+    activeDays: daily.length,
+    totalDays: spanDays(daily),
+    mostActiveDay: mostActiveDayOf(daily),
+    longestStreak: longestStreakOf(daily),
+    currentStreak: currentStreakOf(daily),
+    byModel,
+    favoriteModel: pickFavoriteModel(byModel),
+    totalInputTokens: totalInput,
+    totalOutputTokens: totalOutput,
+    totalTokens: totalInput + totalOutput,
+    totalSessions: stats.totalSessions + sessionsDelta,
+    totalMessages: stats.totalMessages + messagesDelta,
+    firstSessionDate: pickFirstDate(stats.firstSessionDate, missing[0]),
+    lastComputedDate: pickLaterDate(
+      stats.lastComputedDate,
+      missing[missing.length - 1],
+    ),
+    totalCostUsd: byModel.reduce((s, m) => s + m.costUsd, 0),
+    totalCacheReadTokens: totalCacheRead,
+    totalCacheCreationTokens: totalCacheCreation,
+    cacheHitRatio: cacheHitRatioOf(totalCacheRead, totalInput),
+  };
 }
 
 function readCache(): StatsCacheShape | null {
@@ -548,6 +647,7 @@ export const __internals = {
   projectCache,
   mergeCacheWithJsonl,
   fromAggregate,
+  applyHistoryFill,
   longestStreakOf,
   currentStreakOf,
   cacheHitRatioOf,

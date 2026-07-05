@@ -32,16 +32,19 @@ export interface ModelRates {
  * effective: <date>" so users know the snapshot's age. Bump in the
  * same commit that updates rates.
  */
-export const PRICES_EFFECTIVE_DATE = "2026-04-26";
+export const PRICES_EFFECTIVE_DATE = "2026-07-05";
 
 /**
  * Family-level rates. Each model ID resolves to one of these by
- * matching the family token in its name ("opus", "sonnet", "haiku").
- * Unknown IDs fall through to `DEFAULT_RATES` so a brand-new model
- * still produces a reasonable cost approximation between releases.
+ * matching the family token in its name ("fable", "opus", "sonnet",
+ * "haiku"). Unknown IDs fall through to `DEFAULT_RATES` so a
+ * brand-new model still produces a reasonable cost approximation
+ * between releases. Mythos shares Fable's pricing (same model tier).
  */
 const FAMILY_RATES: Record<string, ModelRates> = {
-  opus:    { input: 15, output: 75, cacheRead: 1.5,  cacheWrite: 18.75 },
+  fable:   { input: 10, output: 50, cacheRead: 1,    cacheWrite: 12.5 },
+  mythos:  { input: 10, output: 50, cacheRead: 1,    cacheWrite: 12.5 },
+  opus:    { input: 5,  output: 25, cacheRead: 0.5,  cacheWrite: 6.25 },
   sonnet:  { input: 3,  output: 15, cacheRead: 0.3,  cacheWrite: 3.75 },
   haiku:   { input: 1,  output: 5,  cacheRead: 0.1,  cacheWrite: 1.25 },
 };
@@ -111,7 +114,10 @@ export function computeModelCost(
  * score -1 so they sort to the bottom.
  */
 export function modelRecency(modelId: string): number {
-  const m = modelId.match(/claude-(?:opus|sonnet|haiku)-(\d+)-?(\d*)/i);
+  // Family is any word (fable, opus, ...), not a hardcoded list, so a
+  // new family sorts by version immediately instead of scoring -1 and
+  // sinking to the bottom of the breakdown.
+  const m = modelId.match(/claude-[a-z]{3,12}-(\d+)-?(\d*)/i);
   if (!m) return -1;
   const major = parseInt(m[1], 10);
   const minor = m[2] ? parseInt(m[2], 10) : 0;

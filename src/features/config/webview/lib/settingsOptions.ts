@@ -12,10 +12,27 @@ export const MODEL_DESCRIPTIONS: Record<string, string> = {
   // "Default" means the CLI/account picks — we can't read the account's
   // recommended model locally, so don't claim a specific one here.
   default: "Let Claude pick for your account",
+  fable: "Most capable — hardest reasoning",
+  mythos: "Most capable — hardest reasoning",
   sonnet: "Balanced daily driver",
   haiku: "Fastest, lightest",
-  opus: "Deepest reasoning",
+  opus: "Deep reasoning workhorse",
 };
+
+/**
+ * Human label for a raw model id the discovery scan didn't surface —
+ * e.g. a brand-new family or a variant suffix. "claude-fable-5[1m]"
+ * renders as "Fable 5 · 1M context" instead of the raw id. Ids that
+ * don't fit the claude-{family}-{version} shape pass through verbatim
+ * so custom endpoints / router ids stay recognizable.
+ */
+export function prettyModelLabel(id: string): string {
+  const m = /^claude-([a-z]+)-(\d{1,2})(?:-(\d{1,2}))?(\[1m\])?$/i.exec(id.trim());
+  if (!m) return id;
+  const family = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+  const version = m[3] ? `${m[2]}.${m[3]}` : m[2];
+  return `${family} ${version}${m[4] ? " · 1M context" : ""}`;
+}
 
 /** One selectable option carrying a hint description. */
 export interface SettingOption<V extends string = string> {
@@ -82,7 +99,14 @@ export function buildModelOptions(data: AccountData, currentModel: string): Arra
     options.push({ value, label: m.label, desc: m.isLatest ? MODEL_DESCRIPTIONS[m.alias] ?? "" : "Pinned" });
   }
   if (currentModel && !seenValues.has(currentModel)) {
-    options.push({ value: currentModel, label: currentModel, desc: "" });
+    const label = prettyModelLabel(currentModel);
+    // Keep the raw id visible in the hint when we prettified it, so
+    // the user can still see exactly what settings.json contains.
+    options.push({
+      value: currentModel,
+      label,
+      desc: label === currentModel ? "" : currentModel,
+    });
   }
   return options;
 }

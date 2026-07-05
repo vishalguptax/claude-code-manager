@@ -43,6 +43,13 @@ export interface DiscoveredModel {
 let cache: DiscoveredModel[] | null = null;
 /** In-flight background scan, deduped so concurrent warms share one spawn. */
 let warming: Promise<DiscoveredModel[]> | null = null;
+/**
+ * Fingerprints of the CLI files the last scan read. A CLI upgrade
+ * replaces the binary in place; comparing mtime+size against these is
+ * how `revalidateModelCache` notices new models mid-session without
+ * paying the 236 MB re-scan on every check.
+ */
+let scannedCandidates: Array<{ path: string; mtimeMs: number; size: number }> = [];
 
 /**
  * Resolve scannable Claude CLI files from a node_modules-shaped root.
@@ -182,21 +189,34 @@ export function discoverModelsFromCli(): DiscoveredModel[] {
  * (large — the native binary is ~236 MB) body can be freed before the next
  * read, keeping peak memory to a single file instead of all of them.
  */
+/**
+ * Strings that fit the claude-{word}-{digit} shape but are not model
+ * families. "code" guards against the CLI's own package name (e.g.
+ * "claude-code-2..."); "instant" is the ancient claude-instant line
+ * whose IDs still linger in the binary.
+ */
+const NON_MODEL_FAMILIES = new Set(["code", "instant"]);
+
 function scanInto(content: string, seen: Map<string, DiscoveredModel>): void {
   // Match the simple version form, no surrounding quotes required so
   // this works on both JS bundles ("claude-opus-4-7") and native
   // binaries (claude-opus-4-7 as a null-terminated string):
   //   claude-{family}-{major}           (e.g. claude-opus-4)
   //   claude-{family}-{major}-{minor}   (e.g. claude-opus-4-7)
-  // where minor is 1-2 digits so we reject date-versioned snapshots
-  // like claude-opus-4-20250514 (8-digit date would pose as a huge
-  // minor version). Word boundary \b on the trailing side ensures we
-  // stop at the correct digit group even without string delimiters.
-  const regex = /\bclaude-(opus|sonnet|haiku|flash|turbo|nano)-(\d{1,2})(?:-(\d{1,2}))?\b/gi;
+  // The family is any word, not a hardcoded list — a new family
+  // (fable, mythos, ...) must appear in the dropdown without a
+  // release of this extension. NON_MODEL_FAMILIES filters the known
+  // lookalikes. Minor is 1-2 digits so we reject date-versioned
+  // snapshots like claude-opus-4-20250514 (8-digit date would pose
+  // as a huge minor version). Word boundary \b on the trailing side
+  // ensures we stop at the correct digit group even without string
+  // delimiters.
+  const regex = /\bclaude-([a-z]{3,12})-(\d{1,2})(?:-(\d{1,2}))?\b/gi;
 
   let match: RegExpExecArray | null;
   while ((match = regex.exec(content)) !== null) {
     const family = match[1].toLowerCase();
+    if (NON_MODEL_FAMILIES.has(family)) continue;
     const major = parseInt(match[2], 10);
     const minor = match[3] ? parseInt(match[3], 10) : 0;
     const versionNum = major * 1000 + minor;
@@ -257,24 +277,59 @@ export async function warmModelCache(): Promise<DiscoveredModel[]> {
   warming = (async () => {
     const candidates = await collectCliCandidates();
     const seen = new Map<string, DiscoveredModel>();
+    const fingerprints: typeof scannedCandidates = [];
     for (const cliPath of candidates) {
       try {
         // Read as latin1 so binary bytes round-trip as single-byte chars,
         // keeping the regex valid on both JS source and native binaries.
         scanInto(await fs.promises.readFile(cliPath, "latin1"), seen);
+        const st = await fs.promises.stat(cliPath);
+        fingerprints.push({ path: cliPath, mtimeMs: st.mtimeMs, size: st.size });
       } catch {
         // unreadable candidate — skip
       }
     }
     cache = finalizeModels(seen);
+    scannedCandidates = fingerprints;
     warming = null;
     return cache;
   })();
   return warming;
 }
 
+/**
+ * Cheap staleness check: stat the files the last scan read and re-scan
+ * only when one changed (a CLI upgrade rewrites the binary in place).
+ * Returns true when a re-scan ran — the caller should re-push account
+ * data so the dropdown picks up the new list. No-op while a scan is
+ * already in flight or before the first scan completed (nothing to
+ * compare against; the activation warm covers that case).
+ */
+export async function revalidateModelCache(): Promise<boolean> {
+  if (warming || !cache || scannedCandidates.length === 0) return false;
+  let changed = false;
+  for (const c of scannedCandidates) {
+    try {
+      const st = await fs.promises.stat(c.path);
+      if (st.mtimeMs !== c.mtimeMs || st.size !== c.size) {
+        changed = true;
+        break;
+      }
+    } catch {
+      // Candidate deleted (uninstall / reinstall moved it) — re-scan.
+      changed = true;
+      break;
+    }
+  }
+  if (!changed) return false;
+  clearModelCache();
+  await warmModelCache();
+  return true;
+}
+
 /** Clear the cache so the next warm re-scans. Exposed for tests + reload. */
 export function clearModelCache(): void {
   cache = null;
   warming = null;
+  scannedCandidates = [];
 }

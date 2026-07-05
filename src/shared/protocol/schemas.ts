@@ -226,6 +226,9 @@ const fullTextResults = v.object({
   ids: v.array(v.string()),
 });
 const errorMsg = v.object({ type: v.literal("error"), message: v.string() });
+// Host acknowledgement that a webview-originated message finished dispatch.
+// Drives the shared busy indicator: every request gets exactly one ack.
+const ack = v.object({ type: v.literal("ack") });
 const reloadComplete = v.object({ type: v.literal("reloadComplete") });
 const projects = v.object({ type: v.literal("projects"), data: v.array(v.string()) });
 const accountData = v.object({ type: v.literal("accountData"), data: v.unknown() });
@@ -352,6 +355,7 @@ export const messageSchema = v.variant("type", [
   deleteSettingsSnapshot,
   workspacePath,
   workspaceBranch,
+  ack,
   settings,
   sessions,
   userState,

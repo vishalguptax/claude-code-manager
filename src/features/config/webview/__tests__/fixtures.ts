@@ -68,6 +68,7 @@ export function makeConfigData(over: Partial<AccountData> = {}): AccountData {
     savedProfiles: [],
     activeProfileSlug: null,
     settingsSnapshots: [],
+    usageWarming: false,
     ...over,
   };
 }

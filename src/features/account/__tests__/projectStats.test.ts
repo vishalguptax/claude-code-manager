@@ -10,12 +10,15 @@ type Vfs = {
   dirs: Record<string, string[]>;
   mtimes: Record<string, number>;
   files: Record<string, string>;
+  /** Paths read via fs.promises.readFile — asserts the per-file memo. */
+  reads: string[];
 };
 
 const vfs = vi.hoisted<Vfs>(() => ({
   dirs: {},
   mtimes: {},
   files: {},
+  reads: [],
 }));
 
 vi.mock("fs", () => {
@@ -47,12 +50,15 @@ vi.mock("fs", () => {
     promises: {
       readdir: async (p: string): Promise<string[]> => readdir(p),
       stat: async (p: string): Promise<{ mtimeMs: number; size: number }> => stat(p),
-      readFile: async (p: string): Promise<string> => readFile(p),
+      readFile: async (p: string): Promise<string> => {
+        vfs.reads.push(p);
+        return readFile(p);
+      },
     },
   };
 });
 
-import {
+import {
   aggregateUsage,
   warmUsageAggregate,
   resetProjectStatsCache,
@@ -64,6 +70,7 @@ beforeEach(() => {
   vfs.dirs = {};
   vfs.mtimes = {};
   vfs.files = {};
+  vfs.reads = [];
   uuidCounter = 0;
   delete process.env.CLAUDE_CONFIG_DIRS;
   resetProjectStatsCache();
@@ -160,8 +167,8 @@ describe("aggregateProjectStats", () => {
     expect(a.sessions).toBe(2);
     expect(a.messages).toBe(2);
     expect(a.tokens).toBe(300);
-    // Opus rates: 100 input @ $15/M + 200 output @ $75/M = 0.0165
-    expect(a.costUsd).toBeCloseTo((100 * 15 + 200 * 75) / 1_000_000);
+    // Opus rates: 100 input @ $5/M + 200 output @ $25/M = 0.0055
+    expect(a.costUsd).toBeCloseTo((100 * 5 + 200 * 25) / 1_000_000);
     expect(a.lastActiveDate).toBe("2026-04-26");
   });
 
@@ -268,6 +275,26 @@ describe("aggregateProjectStats", () => {
     const second = await warmUsageAggregate();
     expect(second).not.toBe(first);
     expect(second.byProject[0].tokens).toBe(200);
+  });
+
+  it("re-reads only the changed file on incremental recompute (per-file memo)", async () => {
+    setupProject("proj-a", "a.jsonl", [
+      assistantLine({ sessionId: "sa", input: 10, output: 0 }),
+    ]);
+    setupProject("proj-b", "b.jsonl", [
+      assistantLine({ sessionId: "sb", input: 20, output: 0 }),
+    ]);
+    await warmUsageAggregate();
+
+    // Append to b only — a's compact entries must replay from memory.
+    vfs.reads = [];
+    const bPath = path.join(PROJECTS_DIR, "proj-b", "b.jsonl");
+    vfs.files[bPath] += "\n" + assistantLine({ sessionId: "sb", input: 5, output: 0 });
+    vfs.mtimes[bPath] = 2000;
+
+    const out = await warmUsageAggregate();
+    expect(vfs.reads).toEqual([bPath]);
+    expect(out.totalInputTokens).toBe(35);
   });
 
   it("recomputes when a new transcript file appears", async () => {

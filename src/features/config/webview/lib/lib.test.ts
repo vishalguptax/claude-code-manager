@@ -7,6 +7,7 @@ import {
   EFFORT_OPTIONS,
   formatKb,
   formatTime,
+  prettyModelLabel,
 } from "./index";
 
 describe("formatTime", () => {
@@ -92,6 +93,31 @@ describe("buildModelOptions", () => {
   it("appends an unknown current model so the selection never drops", () => {
     const opts = buildModelOptions(makeConfigData(), "claude-pinned-123");
     expect(opts[opts.length - 1]).toMatchObject({ value: "claude-pinned-123" });
+  });
+
+  it("prettifies an undiscovered current model and keeps the raw id as hint", () => {
+    const opts = buildModelOptions(makeConfigData(), "claude-fable-5[1m]");
+    expect(opts[opts.length - 1]).toMatchObject({
+      value: "claude-fable-5[1m]",
+      label: "Fable 5 · 1M context",
+      desc: "claude-fable-5[1m]",
+    });
+  });
+});
+
+describe("prettyModelLabel", () => {
+  it("formats family + version", () => {
+    expect(prettyModelLabel("claude-fable-5")).toBe("Fable 5");
+    expect(prettyModelLabel("claude-opus-4-8")).toBe("Opus 4.8");
+  });
+
+  it("labels the [1m] context variant", () => {
+    expect(prettyModelLabel("claude-fable-5[1m]")).toBe("Fable 5 · 1M context");
+  });
+
+  it("passes through ids that don't fit the claude shape", () => {
+    expect(prettyModelLabel("my-router/gpt-x")).toBe("my-router/gpt-x");
+    expect(prettyModelLabel("claude-opus-4-20250514")).toBe("claude-opus-4-20250514");
   });
 });
 

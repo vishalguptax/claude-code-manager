@@ -6,6 +6,7 @@
  * provider so the ~250-line QuickPick wiring doesn't bloat the coordinator.
  */
 import * as vscode from "vscode";
+import { postAccountData } from "./accountPush";
 import { parseAccountData } from "../account/parser";
 import { clearModelCache } from "../account/models";
 import {
@@ -163,10 +164,7 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
       // switches surfaces its new models; the scan re-runs cold on the
       // next parseAccountData.
       clearModelCache();
-      wv2.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
+      postAccountData(wv2, parseAccountData(workspace || undefined));
     }
   };
 

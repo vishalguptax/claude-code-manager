@@ -4,6 +4,7 @@
  * over native HTML elements styled by --vscode-* theme vars — no web-component
  * registration, no third-party element library.
  */
+export { BackButton, type BackButtonProps } from "./BackButton";
 export { Badge, type BadgeProps, type BadgeVariant } from "./Badge";
 export { Button, type ButtonProps, type ButtonVariant } from "./Button";
 export { Checkbox, type CheckboxProps } from "./Checkbox";
@@ -18,6 +19,7 @@ export { ErrorBanner, type ErrorBannerProps } from "./ErrorBanner";
 export { Icon, type IconProps } from "./Icon";
 export { ListItem, type ListItemProps } from "./ListItem";
 export { Loading } from "./Loading";
+export { SlowLoadNotice, useLoadPhase, type LoadPhase } from "./LoadDeadline";
 export { Menu, type MenuItem, type MenuProps } from "./Menu";
 export { Modal, type ModalProps } from "./Modal";
 export { ScopeFilter, type ScopeFilterProps, type ScopeOption } from "./ScopeFilter";

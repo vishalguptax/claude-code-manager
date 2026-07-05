@@ -10,6 +10,7 @@
  * into a provider instance's private fields directly.
  */
 import * as vscode from "vscode";
+import { postAccountData } from "./accountPush";
 import * as path from "path";
 import * as os from "os";
 import * as fs from "fs";
@@ -134,7 +135,7 @@ export function postWorkspacePath(ctx: ProviderActionsContext, force = false): v
 export function refreshAccountData(ctx: ProviderActionsContext): void {
   const wv = ctx.getWebview();
   if (!wv) return;
-  wv.postMessage({ type: "accountData", data: parseAccountData(getWorkspace() || undefined) });
+  postAccountData(wv, parseAccountData(getWorkspace() || undefined));
 }
 
 /**
@@ -367,7 +368,7 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
     ctx.buildSearchIndex();
   }
   if (accountResult.ok) {
-    wv.postMessage({ type: "accountData", data: accountResult.data });
+    postAccountData(wv, accountResult.data);
   }
   // Quota rides its own message, not accountData. The webview only
   // refetches quota on mount or an account *switch*, so a Refresh that

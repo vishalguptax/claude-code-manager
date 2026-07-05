@@ -21,7 +21,7 @@ import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
 import { AccountSkeleton } from "../../../webview/app/tabs/skeletons";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { EmptyState } from "../../../webview/shared/ui";
+import { EmptyState, SlowLoadNotice, useLoadPhase } from "../../../webview/shared/ui";
 import type { QuotaResult } from "../quota";
 import type { AccountData } from "../types";
 import { useAccountApi } from "./api";
@@ -108,10 +108,26 @@ export default function AccountTab() {
   }, []);
 
   const data = accountData.value;
+  const pendingFirstLoad = loading.value && !data && !accountError.value;
+  const loadPhase = useLoadPhase(pendingFirstLoad);
   if (accountError.value) {
     return <EmptyState title="Couldn't load account" description={accountError.value} />;
   }
-  if (loading.value && !data) {
+  if (pendingFirstLoad) {
+    // Bounded skeleton: past the deadline the shimmer is replaced by an
+    // honest status + Retry (an idempotent re-request of the same reads).
+    if (loadPhase !== "fresh") {
+      return (
+        <SlowLoadNotice
+          phase={loadPhase}
+          what="account data"
+          onRetry={() => {
+            api.getAccountData();
+            api.fetchQuota();
+          }}
+        />
+      );
+    }
     return <AccountSkeleton />;
   }
   if (!data) {

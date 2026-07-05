@@ -21,3 +21,6 @@ scripts/_mock-tmp/
 # Local design tooling (impeccable skill) — not part of the product
 .agents/skills/impeccable/
 .github/skills/
+
+# Per-machine Claude Code overrides (never commit)
+.claude/settings.local.json

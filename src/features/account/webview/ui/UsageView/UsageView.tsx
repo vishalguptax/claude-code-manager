@@ -85,10 +85,37 @@ export function UsageView({ data }: UsageViewProps) {
       <SectionHeader id="usage" title="Usage" collapsed={collapsed} onToggle={toggleSection} />
       {collapsed ? null : (
         <div class="acct-section-body">
-          {u.daily.length === 0 ? <UsageEmpty /> : <UsageBody u={u} />}
+          {u.daily.length === 0 ? (
+            data.usageWarming ? (
+              <UsageWarming />
+            ) : (
+              <UsageEmpty />
+            )
+          ) : (
+            <UsageBody u={u} />
+          )}
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Cold-start state: the host is still indexing the transcript corpus,
+ * so the zeros in the (empty) aggregate are placeholders, not facts.
+ * Distinct from UsageEmpty — "no activity" is only claimable once the
+ * index has actually been built. The host re-pushes accountData when
+ * the warm completes, which swaps this note for real numbers.
+ */
+function UsageWarming() {
+  return (
+    <div class="acct-empty" role="status">
+      <div class="acct-empty-title">Indexing usage history…</div>
+      <div class="acct-empty-hint">
+        First open reads every session transcript — usually a moment, longer
+        for a large history.
+      </div>
+    </div>
   );
 }
 

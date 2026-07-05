@@ -116,6 +116,19 @@ export const STATUSLINE_INNER_FILE: string = path.join(
 );
 
 /**
+ * Persistent daily usage rollup maintained by the extension. Claude
+ * CLI's `cleanupPeriodDays` purges old transcripts and (on some
+ * installs) `stats-cache.json` never materialises, so without this
+ * file usage history silently truncates to the retention window. The
+ * extension folds every aggregate pass into this rollup (element-wise
+ * max per day), so history survives transcript cleanup permanently.
+ */
+export const USAGE_HISTORY_FILE: string = path.join(
+  CLAUDE_MANAGER_DIR,
+  "usage-history.json",
+);
+
+/**
  * SessionStart hook script: a tiny Node program Claude CLI runs on every
  * session boot. Records `{ session_id, ppid, cwd, ts }` into the active
  * sessions file so the extension can link a sidebar row to the terminal

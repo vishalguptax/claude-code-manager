@@ -4,6 +4,8 @@
  * components can post messages without re-acquiring the (single-use) handle.
  */
 
+import { noteRequest } from "../model/hostBusy";
+
 interface VsCodeApi {
   postMessage: (m: unknown) => void;
 }
@@ -18,12 +20,16 @@ export function setVscodeApi(api: VsCodeApi | null): void {
 }
 
 /**
- * Preact hook returning the host postMessage bridge.
+ * Preact hook returning the host postMessage bridge. Every post also
+ * arms the shared busy indicator, which the host's `ack` clears — slow
+ * handlers surface as a progress bar instead of a dead panel.
  */
 export function useApi(): { post: (msg: unknown) => void } {
   return {
     post(msg: unknown): void {
-      _vscode?.postMessage(msg);
+      if (!_vscode) return;
+      noteRequest();
+      _vscode.postMessage(msg);
     },
   };
 }

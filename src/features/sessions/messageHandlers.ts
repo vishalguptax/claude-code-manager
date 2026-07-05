@@ -99,6 +99,7 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
     return;
   }
 
+  const startedAt = Date.now();
   try {
     // Ordered fall-through: the first handler that owns the message type
     // returns true and short-circuits the chain.
@@ -121,8 +122,29 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[claude-manager] Message handler error (${msg.type}):`, message);
     wv.postMessage({ type: "error", message: `Internal error: ${message}` });
+  } finally {
+    // Perf tripwire: name any handler that held the dispatch for longer
+    // than a UI-noticeable beat. Shows up in Output → Extension Host, so
+    // "clicking X feels slow" reports come with the culprit attached.
+    // Excludes handlers that legitimately await user input (dialogs) —
+    // those idle in a dialog, not in work — identified by their prompt-*
+    // naming convention.
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs > SLOW_HANDLER_MS && !msg.type.startsWith("prompt")) {
+      console.warn(
+        `[claude-manager] slow handler: ${msg.type} took ${elapsedMs}ms`,
+      );
+    }
+    // Every webview-originated message gets exactly one ack when its
+    // handler finishes (success or error). The webview arms a busy
+    // indicator on send and clears it on ack — the user sees progress
+    // instead of a dead panel while a slow handler runs.
+    ctx.getWebview()?.postMessage({ type: "ack" });
   }
 }
+
+/** Dispatch time above which a handler is logged as slow. */
+const SLOW_HANDLER_MS = 250;
 
 /**
  * Adapt the shared {@link HostContext} to the narrow {@link CommandsHost}

@@ -58,6 +58,7 @@ function makeData(
     savedProfiles: [],
     activeProfileSlug: null,
     settingsSnapshots: [],
+    usageWarming: false,
     ...extra,
   };
 }

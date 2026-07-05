@@ -9,5 +9,6 @@ export {
   DEFAULT_MODE_OPTIONS,
   EFFORT_OPTIONS,
   MODEL_DESCRIPTIONS,
+  prettyModelLabel,
   type SettingOption,
 } from "./settingsOptions";

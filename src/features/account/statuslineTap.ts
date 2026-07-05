@@ -24,7 +24,9 @@ import {
   STATUSLINE_CACHE_FILE,
   STATUSLINE_INNER_FILE,
 } from "../../core/config";
-import { extractCache, renderDefaultLine } from "./statuslineCore";
+import { extractCache, mergeCaches, renderDefaultLine } from "./statuslineCore";
+import type { StatuslineCache } from "./statuslineCore";
+import { isTapCommand, parseInner, resolveChainCommand } from "./statuslineInner";
 
 /** Read all of stdin synchronously. Returns "" if stdin is empty/closed. */
 function readStdin(): string {
@@ -32,6 +34,25 @@ function readStdin(): string {
     return fs.readFileSync(0, "utf-8");
   } catch {
     return "";
+  }
+}
+
+/**
+ * Read the previous cache so this render can merge into the sessions
+ * map instead of clobbering other sessions' captures. Null on first
+ * run or a torn/corrupt file. Read-modify-write can race a concurrent
+ * tap from another session; the window is milliseconds and the loser's
+ * entry reappears on that session's next render — acceptable for a
+ * display cache, so no lock.
+ */
+function readPrevCache(): StatuslineCache | null {
+  try {
+    const parsed = JSON.parse(
+      fs.readFileSync(STATUSLINE_CACHE_FILE, "utf-8"),
+    ) as StatuslineCache;
+    return typeof parsed === "object" && parsed !== null ? parsed : null;
+  } catch {
+    return null;
   }
 }
 
@@ -48,12 +69,29 @@ function writeCache(json: string): void {
   }
 }
 
-/** The user's original statusLine.command, recorded at install time. */
-function readInnerCommand(): string {
+/**
+ * The command to chain for this render — the statusline the user had
+ * before enabling the tap. Workspace-aware: the payload names the
+ * project dir, and the v2 sidecar records a per-workspace prior
+ * command where a project/local statusline was shadowed; everything
+ * else chains the global prior. v1 sidecars chain their single
+ * recorded command.
+ */
+function readChainCommand(raw: string): string {
+  let projectDir = "";
   try {
-    const raw = fs.readFileSync(STATUSLINE_INNER_FILE, "utf-8");
-    const parsed = JSON.parse(raw) as { command?: unknown };
-    return typeof parsed.command === "string" ? parsed.command : "";
+    const payload = JSON.parse(raw) as {
+      workspace?: { project_dir?: unknown; current_dir?: unknown };
+    };
+    const ws = payload.workspace;
+    if (ws && typeof ws.project_dir === "string") projectDir = ws.project_dir;
+    else if (ws && typeof ws.current_dir === "string") projectDir = ws.current_dir;
+  } catch {
+    // unparseable payload — global chain still applies
+  }
+  try {
+    const inner = parseInner(fs.readFileSync(STATUSLINE_INNER_FILE, "utf-8"));
+    return resolveChainCommand(inner, projectDir);
   } catch {
     return "";
   }
@@ -67,6 +105,9 @@ function readInnerCommand(): string {
  */
 function runInner(command: string, stdin: string): string | null {
   if (!command) return null;
+  // A corrupted sidecar could record the tap itself as the chain
+  // command — running it would fork-bomb one process per render.
+  if (isTapCommand(command)) return null;
   try {
     const res = spawnSync(command, {
       shell: true,
@@ -84,10 +125,12 @@ function runInner(command: string, stdin: string): string | null {
 
 function main(): void {
   const raw = readStdin();
-  const cache = extractCache(raw, Date.now());
+  const now = Date.now();
+  const fresh = extractCache(raw, now);
+  const cache = fresh ? mergeCaches(readPrevCache(), fresh, now) : null;
   if (cache) writeCache(JSON.stringify(cache));
 
-  const chained = runInner(readInnerCommand(), raw);
+  const chained = runInner(readChainCommand(raw), raw);
   if (chained !== null) {
     process.stdout.write(chained);
   } else if (cache) {

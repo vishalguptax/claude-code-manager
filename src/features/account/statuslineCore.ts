@@ -15,6 +15,14 @@
  * field is optional and absent data maps to null rather than throwing.
  */
 
+/** One session's most recent statusline render. */
+export interface SessionCapture {
+  /** Model that session was running at capture time. */
+  model: { id: string; displayName: string } | null;
+  /** Epoch ms of that render. */
+  capturedAt: number;
+}
+
 /** Normalised subset of the statusline payload we persist + render. */
 export interface StatuslineCache {
   /** Epoch ms when the tap captured this (NOT from the payload). */
@@ -37,6 +45,16 @@ export interface StatuslineCache {
     fiveHour: RateWindow | null;
     sevenDay: RateWindow | null;
   };
+  /**
+   * Per-session captures keyed by Claude's session_id. The top-level
+   * fields are last-writer-wins across concurrent sessions — one file,
+   * many sessions rendering — so a session's model would be clobbered
+   * by whichever session rendered last. This map keeps each session's
+   * latest render so readers can tell "one session on Fable, one on
+   * Opus" apart from "everything runs Sonnet". Optional because caches
+   * written by older tap versions predate it.
+   */
+  sessions?: Record<string, SessionCapture>;
 }
 
 /** A single rolling rate-limit window. */
@@ -51,6 +69,7 @@ export interface RateWindow {
 
 interface StatuslinePayload {
   version?: unknown;
+  session_id?: unknown;
   model?: { id?: unknown; display_name?: unknown } | null;
   context_window?: {
     used_percentage?: unknown;
@@ -109,13 +128,19 @@ export function extractCache(raw: string, now: number): StatuslineCache | null {
   const cost = payload.cost;
   const rl = payload.rate_limits;
 
+  const modelCapture =
+    model && (model.id != null || model.display_name != null)
+      ? { id: str(model.id), displayName: str(model.display_name) }
+      : null;
+  const sessionId = str(payload.session_id);
+
   return {
     capturedAt: now,
     version: str(payload.version),
-    model:
-      model && (model.id != null || model.display_name != null)
-        ? { id: str(model.id), displayName: str(model.display_name) }
-        : null,
+    model: modelCapture,
+    sessions: sessionId
+      ? { [sessionId]: { model: modelCapture, capturedAt: now } }
+      : {},
     context:
       ctx && typeof ctx.used_percentage === "number"
         ? {
@@ -137,6 +162,62 @@ export function extractCache(raw: string, now: number): StatuslineCache | null {
       sevenDay: window(rl?.seven_day),
     },
   };
+}
+
+/** Keep a session capture visible for this long after its last render. */
+export const SESSION_CAPTURE_TTL_MS = 24 * 60 * 60 * 1000;
+/** Cap on retained session captures — newest win. */
+export const SESSION_CAPTURE_MAX = 20;
+/** A capture younger than this counts as "running right now". */
+export const SESSION_FRESH_MS = 15 * 60 * 1000;
+
+/**
+ * Merge a fresh render into the previously persisted cache. Top-level
+ * fields come from the fresh render (latest wins — matches the old
+ * single-slot behaviour); the `sessions` map is the union, pruned to
+ * captures younger than the TTL and capped at the newest
+ * SESSION_CAPTURE_MAX entries. Pure so the tap and tests share it.
+ */
+export function mergeCaches(
+  prev: StatuslineCache | null,
+  fresh: StatuslineCache,
+  now: number,
+): StatuslineCache {
+  const merged: Record<string, SessionCapture> = {
+    ...(prev?.sessions ?? {}),
+    ...(fresh.sessions ?? {}),
+  };
+  const kept = Object.entries(merged)
+    .filter(([, c]) => now - c.capturedAt < SESSION_CAPTURE_TTL_MS)
+    .sort((a, b) => b[1].capturedAt - a[1].capturedAt)
+    .slice(0, SESSION_CAPTURE_MAX);
+  return { ...fresh, sessions: Object.fromEntries(kept) };
+}
+
+/**
+ * Model name the "Default (…)" label may honestly claim, or null when
+ * no honest claim exists.
+ *
+ *   - Exactly one distinct model across freshly-rendered sessions →
+ *     that model (it's what the user is getting right now).
+ *   - Two or more distinct fresh models (concurrent sessions on
+ *     different models — per-session overrides in play) → null. The
+ *     last writer's model would be a coin flip, so claim nothing.
+ *   - No fresh session → fall back to the last-known top-level model,
+ *     matching the old behaviour for the idle case.
+ */
+export function resolveActiveModel(
+  cache: StatuslineCache | null,
+  now: number,
+): string | null {
+  if (!cache) return null;
+  const fresh = Object.values(cache.sessions ?? {}).filter(
+    (c) => now - c.capturedAt < SESSION_FRESH_MS && c.model?.displayName,
+  );
+  const names = new Set(fresh.map((c) => c.model!.displayName));
+  if (names.size === 1) return [...names][0];
+  if (names.size > 1) return null;
+  return cache.model?.displayName || null;
 }
 
 /**

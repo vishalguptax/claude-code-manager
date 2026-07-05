@@ -47,6 +47,7 @@ function dataWith(usage: UsageStats): AccountData {
     savedProfiles: [],
     activeProfileSlug: null,
     settingsSnapshots: [],
+    usageWarming: false,
   };
 }
 

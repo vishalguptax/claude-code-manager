@@ -32,7 +32,22 @@ describe("ratesForModel", () => {
   });
 
   it("matches case-insensitively", () => {
-    expect(ratesForModel("CLAUDE-OPUS-4-7").input).toBe(15);
+    expect(ratesForModel("CLAUDE-OPUS-4-7").input).toBe(5);
+  });
+
+  it("matches the fable family above opus pricing", () => {
+    const r = ratesForModel("claude-fable-5");
+    expect(r.input).toBe(10);
+    expect(r.output).toBe(50);
+    expect(r.input).toBeGreaterThan(ratesForModel("claude-opus-4-8").input);
+  });
+
+  it("matches the fable family for the 1M-context variant id", () => {
+    expect(ratesForModel("claude-fable-5[1m]").input).toBe(10);
+  });
+
+  it("prices mythos identically to fable (same tier)", () => {
+    expect(ratesForModel("claude-mythos-5")).toEqual(ratesForModel("claude-fable-5"));
   });
 });
 
@@ -42,12 +57,12 @@ describe("computeModelCost", () => {
   });
 
   it("computes input + output cost for opus", () => {
-    // 1M input tokens × $15 + 1M output tokens × $75 = $90.
+    // 1M input tokens × $5 + 1M output tokens × $25 = $30.
     const cost = computeModelCost("claude-opus-4-7", {
       input: 1_000_000,
       output: 1_000_000,
     });
-    expect(cost).toBe(90);
+    expect(cost).toBe(30);
   });
 
   it("includes cache buckets when provided (cache-read is far cheaper than input)", () => {
@@ -91,6 +106,10 @@ describe("modelRecency", () => {
 
   it("ignores dated suffix in id", () => {
     expect(modelRecency("claude-sonnet-4-5-20250929")).toBe(modelRecency("claude-sonnet-4-5"));
+  });
+
+  it("scores new families (fable) without a code change", () => {
+    expect(modelRecency("claude-fable-5")).toBeGreaterThan(modelRecency("claude-opus-4-8"));
   });
 });
 

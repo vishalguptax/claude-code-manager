@@ -5,7 +5,8 @@
 import { render } from "preact";
 import { initPersistence } from "../persistence";
 import { setVscodeApi } from "../shared/hooks";
-import { initMessageBus, startNowTicker } from "../shared/model";
+import { initMessageBus, registerFeatureHandler, startNowTicker } from "../shared/model";
+import { noteAck } from "../shared/model/hostBusy";
 import { App } from "./App";
 
 declare function acquireVsCodeApi(): {
@@ -22,6 +23,8 @@ setVscodeApi(vscode);
 // UI state is session-only — see persistence.ts and the account signals note.
 initPersistence(vscode);
 initMessageBus();
+// Host acks clear the shared busy indicator armed by useApi's post().
+registerFeatureHandler("ack", noteAck);
 // Drive the shared wall-clock signal so relative timestamps + quota
 // countdowns stay live without per-view timers.
 startNowTicker();

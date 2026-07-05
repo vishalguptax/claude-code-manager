@@ -17,12 +17,14 @@
 import * as fs from "fs";
 import * as path from "path";
 import { discoverModelsFromCli } from "./models";
+import { isUsageAggregateWarming } from "./projectStats";
 import * as os from "os";
 import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
 import { readCredentials } from "./credentials";
 import { computeUsageStats } from "./usage";
 import { readStatuslineCache } from "./quota";
+import { resolveActiveModel } from "./statuslineCore";
 import { writeFileAtomic } from "../../core/atomicWrite";
 import { snapshotSettings, listSnapshots, restoreSnapshot, deleteSnapshot } from "./snapshots";
 import type { SettingsSnapshot } from "./snapshots";
@@ -38,18 +40,24 @@ const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const CLAUDE_BACKUPS_DIR = path.join(CLAUDE_DIR, "backups");
 
 /**
- * Read and parse .claude.json, falling back to the most recent backup
- * when the main file is empty or malformed. Claude CLI rotates a copy
- * of this file to ~/.claude/backups/.claude.json.backup.<epoch-ms>
+ * Read and parse .claude.json ONCE, falling back to the most recent
+ * backup when the main file is empty or malformed. Claude CLI rotates
+ * a copy of this file to ~/.claude/backups/.claude.json.backup.<epoch>
  * on every mutation, so when the primary file gets truncated (as
  * happens occasionally on unexpected shutdowns) the latest backup is
  * almost always intact and contains the current account info.
  *
- * Returns null when neither the main file nor any backup yields valid
- * JSON — callers treat that as "profile info unavailable" without
- * surfacing a bare "Unknown" to the user.
+ * `primaryCorrupted` reports the primary file's health from the same
+ * read (the file is large and Claude rewrites it constantly — a
+ * separate health-check read would double the cost of every account
+ * parse). `data` is null when neither the main file nor any backup
+ * yields valid JSON — callers treat that as "profile info unavailable"
+ * without surfacing a bare "Unknown" to the user.
  */
-function readClaudeJson(): Record<string, unknown> | null {
+function readClaudeJson(): {
+  data: Record<string, unknown> | null;
+  primaryCorrupted: boolean;
+} {
   const tryParse = (filePath: string): Record<string, unknown> | null => {
     try {
       const raw = fs.readFileSync(filePath, "utf-8");
@@ -63,9 +71,11 @@ function readClaudeJson(): Record<string, unknown> | null {
   };
 
   const primary = tryParse(CLAUDE_JSON);
-  if (primary) return primary;
+  if (primary) return { data: primary, primaryCorrupted: false };
 
-  // Primary file is empty / corrupt — walk the backups newest-first.
+  // Primary file is empty / corrupt / missing — walk the backups
+  // newest-first. Whatever they yield, the primary needs restoring, so
+  // the caller can surface the recovery banner.
   try {
     const entries = fs.readdirSync(CLAUDE_BACKUPS_DIR);
     // Filter to `.claude.json.backup.<digits>` (NOT the `.corrupted.*`
@@ -78,12 +88,12 @@ function readClaudeJson(): Record<string, unknown> | null {
 
     for (const b of backups) {
       const data = tryParse(path.join(CLAUDE_BACKUPS_DIR, b.name));
-      if (data) return data;
+      if (data) return { data, primaryCorrupted: true };
     }
   } catch {
     // backups dir doesn't exist — give up
   }
-  return null;
+  return { data: null, primaryCorrupted: true };
 }
 const LOCAL_SETTINGS_NAME = "settings.local.json";
 const PROJECT_SETTINGS_NAME = "settings.json";
@@ -114,26 +124,12 @@ function parseProfile(): AccountProfile {
     credentialSource: "",
   };
 
-  // Check primary file directly — separate from the fallback read —
-  // so we know whether we recovered from a backup (config corruption)
-  // vs. read from the healthy primary (no problem).
-  try {
-    const raw = fs.readFileSync(CLAUDE_JSON, "utf-8");
-    if (!raw.trim()) {
-      profile.configCorrupted = true;
-    } else {
-      try { JSON.parse(raw); } catch { profile.configCorrupted = true; }
-    }
-  } catch {
-    // File doesn't exist — treat as corrupted so user can restore from backup.
-    profile.configCorrupted = true;
-  }
-
-  // ~/.claude.json — oauthAccount + startup history. Falls back to the
-  // most recent backup under ~/.claude/backups/ when the primary file
-  // is empty or corrupt (Claude CLI occasionally leaves this file at
-  // 0 bytes after an unclean shutdown).
-  const data = readClaudeJson();
+  // ~/.claude.json — oauthAccount + startup history. One read reports
+  // both the payload (with backup fallback — Claude CLI occasionally
+  // leaves this file at 0 bytes after an unclean shutdown) and the
+  // primary file's health, which drives the restore-from-backup banner.
+  const { data, primaryCorrupted } = readClaudeJson();
+  profile.configCorrupted = primaryCorrupted;
   if (data) {
     const oauth = data.oauthAccount as Record<string, unknown> | undefined;
     if (oauth) {
@@ -321,7 +317,7 @@ export function parseAccountData(workspacePath?: string): AccountData {
   // — profiles.ts returns metadata with a credentials hash, not the
   // token itself.
   const savedProfiles = listProfiles();
-  const activeProfileSlug = getActiveProfileSlug();
+  const activeProfileSlug = getActiveProfileSlug(savedProfiles);
   return {
     profile: parseProfile(),
     usage: parseUsage(),
@@ -334,10 +330,15 @@ export function parseAccountData(workspacePath?: string): AccountData {
       id: m.id,
       isLatest: m.isLatest,
     })),
-    activeModel: readStatuslineCache()?.model?.displayName || undefined,
+    // Session-aware: with concurrent sessions on DIFFERENT models
+    // (per-session /model overrides), the last statusline writer's
+    // model is a coin flip — resolveActiveModel returns null then, so
+    // the dropdown says "Default (auto)" instead of a wrong claim.
+    activeModel: resolveActiveModel(readStatuslineCache(), Date.now()) || undefined,
     savedProfiles,
     activeProfileSlug,
     settingsSnapshots: listAllSnapshots(workspacePath),
+    usageWarming: isUsageAggregateWarming(),
   };
 }
 

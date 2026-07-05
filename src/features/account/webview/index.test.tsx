@@ -72,6 +72,7 @@ function makeAccount() {
     savedProfiles: [],
     activeProfileSlug: null,
     settingsSnapshots: [],
+    usageWarming: false,
   };
 }
 

@@ -17,8 +17,7 @@
  * every CLI boot.
  */
 import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
+import { CLAUDE_MANAGER_DIR, SESSION_ACTIVE_FILE } from "../../core/config";
 
 interface ActiveEntry {
   sessionId: string;
@@ -103,8 +102,8 @@ async function main(): Promise<void> {
   const sessionId = s(payload.session_id);
   if (!sessionId) return;
 
-  const dir = path.join(os.homedir(), ".claude", ".claude-manager");
-  const file = path.join(dir, "active-sessions.json");
+  const dir = CLAUDE_MANAGER_DIR;
+  const file = SESSION_ACTIVE_FILE;
 
   try {
     fs.mkdirSync(dir, { recursive: true });

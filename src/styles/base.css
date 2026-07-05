@@ -30,9 +30,9 @@ body {
    --input-bg, --input-fg, --input-border                    Form inputs
    --accent, --link                                          Accent colors
    --btn-bg, --btn-fg, --btn-hover                           Button colors
-   --badge-bg, --badge-fg                                    Badge colors
+   --badge-bg, --badge-fg                                    Native count/avatar
+   --badge-neutral-bg, --badge-neutral-fg                    Neutral scope/tag chips
    --dropdown-bg, --dropdown-border                          Dropdown colors
-   --overlay-hover                                           Overlay hover
    --menu-bg, --menu-fg, --menu-border                       Context menu
    --green, --green-bg                                       Success/resume
    --red, --red-bg                                           Danger/delete
@@ -73,6 +73,21 @@ body {
    meaning bordered inputs and border-less buttons land on the same
    pixel row without manually subtracting 2px. */
 *, *::before, *::after { box-sizing: border-box; }
+
+/* Button normalize. Every button in the webview is themed by a class
+   (.btn, .back-btn, or a feature class); a bare <button> must NOT fall back
+   to the platform's raised ButtonFace chrome — that light box is unreadable on
+   a dark theme (it was showing behind the commands "Documentation" link). Strip
+   the UA appearance and inherit type context; class rules layer their own
+   fill/border/height on top. */
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -296,4 +311,71 @@ button,
 .acct-scope-toggle, .acct-scope-toggle * {
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* ── Host busy bar ─────────────────────────────────────────────────
+ * Thin indeterminate progress strip pinned to the top of the panel,
+ * shown while a webview→host request has been outstanding for >300ms
+ * (see webview/shared/model/hostBusy.ts). Gives every slow action
+ * visible progress instead of a seemingly dead panel. */
+.host-busy-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 1000;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--vscode-progressBar-background) 25%, transparent);
+}
+
+.host-busy-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  background: var(--vscode-progressBar-background);
+  animation: host-busy-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes host-busy-slide {
+  0% { left: -30%; }
+  100% { left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .host-busy-bar::after {
+    animation: none;
+    width: 100%;
+    left: 0;
+    opacity: 0.6;
+  }
+}
+
+/* ── Load-deadline notice ──────────────────────────────────────────
+ * Replaces a tab skeleton once its first load overruns the deadline
+ * (see webview/shared/ui/LoadDeadline). */
+.load-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.load-notice-title {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.load-notice-hint {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  max-width: 320px;
+}
+
+.load-notice-retry {
+  margin-top: 8px;
 }

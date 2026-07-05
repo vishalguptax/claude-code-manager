@@ -77,6 +77,7 @@ function makeAccount(email: string, slug: string | null): AccountData {
     savedProfiles: [],
     activeProfileSlug: slug,
     settingsSnapshots: [],
+    usageWarming: false,
   };
 }
 

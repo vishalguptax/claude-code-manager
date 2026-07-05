@@ -61,6 +61,82 @@ interface JsonlEntry {
   };
 }
 
+/**
+ * Minimal projection of one JSONL line — everything `AggState` consumes
+ * and nothing else. Cached per file (keyed on mtime+size) so an append
+ * to one live transcript re-reads only that file; every other file
+ * replays its compact entries without touching disk or JSON.parse.
+ * Kept small on purpose: no message content, no raw line.
+ */
+interface CompactEntry {
+  type?: string;
+  uuid?: string;
+  /** Assistant fallback dedup key when the line lacks a uuid. */
+  messageId?: string;
+  tsMs: number;
+  /** Local YYYY-MM-DD of the timestamp, "" when unparseable. */
+  date: string;
+  sessionId?: string;
+  cwd?: string;
+  isSidechain?: boolean;
+  /** Token buckets — present only for assistant lines with usage. */
+  model?: string;
+  input?: number;
+  output?: number;
+  cacheRead?: number;
+  cacheCreation?: number;
+  /** tool_use block names on assistant lines. */
+  toolNames?: string[];
+}
+
+/** Parse one raw JSONL line into its compact projection. Null when the
+ * line is empty or malformed JSON. */
+function compactLine(line: string): CompactEntry | null {
+  if (!line) return null;
+  let entry: JsonlEntry;
+  try {
+    entry = JSON.parse(line) as JsonlEntry;
+  } catch {
+    return null;
+  }
+  const out: CompactEntry = {
+    tsMs: parseTs(entry.timestamp),
+    date: isoLocalDate(entry.timestamp),
+  };
+  if (typeof entry.type === "string") out.type = entry.type;
+  if (typeof entry.uuid === "string" && entry.uuid) out.uuid = entry.uuid;
+  if (typeof entry.sessionId === "string" && entry.sessionId) {
+    out.sessionId = entry.sessionId;
+  }
+  if (typeof entry.cwd === "string" && entry.cwd) out.cwd = entry.cwd;
+  if (entry.isSidechain === true) out.isSidechain = true;
+  const msg = entry.message;
+  if (entry.type === "assistant" && msg) {
+    if (typeof msg.id === "string") out.messageId = msg.id;
+    if (msg.usage && typeof msg.model === "string") {
+      out.model = msg.model;
+      out.input = numOr0(msg.usage.input_tokens);
+      out.output = numOr0(msg.usage.output_tokens);
+      out.cacheRead = numOr0(msg.usage.cache_read_input_tokens);
+      out.cacheCreation = numOr0(msg.usage.cache_creation_input_tokens);
+    }
+    if (Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (
+          block &&
+          typeof block === "object" &&
+          (block as { type?: string }).type === "tool_use"
+        ) {
+          const name = (block as { name?: string }).name ?? "";
+          if (!name) continue;
+          (out.toolNames ??= []).push(name);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 /** Per-day per-model token split. Used by usage.ts to compute the
  *  post-cutoff delta when merging with stats-cache.json's lifetime
  *  byModel — the alternative (max-merge) loses today's activity until
@@ -145,6 +221,20 @@ interface SessionTimes {
 let cachedFingerprint = -1;
 let cachedResult: UsageAggregate | null = null;
 
+/**
+ * Per-file compact-entry cache keyed on mtime+size. When one live
+ * transcript appends, only that file is re-read and re-parsed; every
+ * other file's entries replay from memory. The replay itself (not the
+ * IO/parse) is what preserves the cross-file uuid dedup that a naive
+ * per-file rollup merge would break.
+ */
+interface FileCacheEntry {
+  mtimeMs: number;
+  size: number;
+  entries: CompactEntry[];
+}
+const fileCache = new Map<string, FileCacheEntry>();
+
 /** In-flight background aggregation, deduped so bursts share one pass. */
 let warming: Promise<UsageAggregate> | null = null;
 
@@ -190,7 +280,12 @@ export async function warmUsageAggregate(): Promise<UsageAggregate> {
       // (exactly what an active session does) leaves the parent dir mtime
       // untouched, so a dir-only fingerprint would freeze the usage tab.
       let fp = 0;
-      const allFiles: Array<{ slug: string; filePath: string }> = [];
+      const allFiles: Array<{
+        slug: string;
+        filePath: string;
+        mtimeMs: number;
+        size: number;
+      }> = [];
       for (const projectsDir of dirs) {
         let slugs: string[];
         try {
@@ -213,25 +308,43 @@ export async function warmUsageAggregate(): Promise<UsageAggregate> {
             try {
               const st = await fs.promises.stat(filePath);
               fp += st.mtimeMs + st.size;
+              allFiles.push({ slug, filePath, mtimeMs: st.mtimeMs, size: st.size });
             } catch {
               continue;
             }
-            allFiles.push({ slug, filePath });
           }
         }
       }
       if (cachedResult && fp === cachedFingerprint) return cachedResult;
 
+      // Evict cache entries for deleted files so memory tracks the corpus.
+      const livePaths = new Set(allFiles.map((f) => f.filePath));
+      for (const key of fileCache.keys()) {
+        if (!livePaths.has(key)) fileCache.delete(key);
+      }
+
       const state = new AggState();
       let i = 0;
-      for (const { slug, filePath } of allFiles) {
-        let raw: string;
-        try {
-          raw = await fs.promises.readFile(filePath, "utf-8");
-        } catch {
-          continue;
+      for (const { slug, filePath, mtimeMs, size } of allFiles) {
+        let cached = fileCache.get(filePath);
+        if (!cached || cached.mtimeMs !== mtimeMs || cached.size !== size) {
+          // Changed or new — the only files that pay IO + JSON.parse.
+          let raw: string;
+          try {
+            raw = await fs.promises.readFile(filePath, "utf-8");
+          } catch {
+            fileCache.delete(filePath);
+            continue;
+          }
+          const entries: CompactEntry[] = [];
+          for (const line of raw.split("\n")) {
+            const e = compactLine(line);
+            if (e) entries.push(e);
+          }
+          cached = { mtimeMs, size, entries };
+          fileCache.set(filePath, cached);
         }
-        state.ingest(raw, slug);
+        state.ingestEntries(cached.entries, slug);
         // Yield to the event loop periodically so a huge corpus doesn't
         // block UI messages while the (synchronous) JSON parse runs.
         if (++i % 8 === 0) await new Promise((r) => setImmediate(r));
@@ -248,11 +361,24 @@ export async function warmUsageAggregate(): Promise<UsageAggregate> {
   return warming;
 }
 
+/**
+ * True while no aggregate has been computed yet (cold start, or just
+ * reset by a reload / account switch). The Usage UI uses this to show
+ * "indexing usage history" instead of presenting the empty aggregate's
+ * zeros as final numbers. Once a result exists, later re-warms refresh
+ * in the background and this stays false — stale-but-real data beats a
+ * spinner.
+ */
+export function isUsageAggregateWarming(): boolean {
+  return cachedResult === null;
+}
+
 /** Reset the memo. Tests and forced refresh paths call this. */
 export function resetUsageAggregateCache(): void {
   cachedFingerprint = -1;
   cachedResult = null;
   warming = null;
+  fileCache.clear();
 }
 
 /** Backwards-compatible alias kept for the existing test surface. */
@@ -311,40 +437,38 @@ class AggState {
   ingest(raw: string, slug: string): void {
     const acc = this.projectAcc(slug);
     for (const line of raw.split("\n")) {
-      if (!line) continue;
-      let entry: JsonlEntry;
-      try {
-        entry = JSON.parse(line) as JsonlEntry;
-      } catch {
-        continue;
-      }
-      this.ingestEntry(entry, acc);
+      const entry = compactLine(line);
+      if (entry) this.ingestCompact(entry, acc);
     }
   }
 
-  private ingestEntry(entry: JsonlEntry, acc: ProjectAcc): void {
+  /** Replay pre-parsed compact entries for one file. */
+  ingestEntries(entries: CompactEntry[], slug: string): void {
+    const acc = this.projectAcc(slug);
+    for (const entry of entries) this.ingestCompact(entry, acc);
+  }
+
+  private ingestCompact(entry: CompactEntry, acc: ProjectAcc): void {
     // Dedup: uuid first (covers user + assistant), message.id as a
-    // belt-and-braces for assistants whose lines lack uuid.
-    if (typeof entry.uuid === "string" && entry.uuid) {
+    // belt-and-braces for assistants whose lines lack uuid. Global
+    // across files — a resumed session re-appends prior turns into a
+    // new transcript with the same uuids.
+    if (entry.uuid) {
       if (this.seenUuids.has(entry.uuid)) return;
       this.seenUuids.add(entry.uuid);
-    } else if (
-      entry.type === "assistant" &&
-      typeof entry.message?.id === "string"
-    ) {
-      const id = entry.message.id;
-      if (this.seenMessageIds.has(id)) return;
-      this.seenMessageIds.add(id);
+    } else if (entry.type === "assistant" && entry.messageId) {
+      if (this.seenMessageIds.has(entry.messageId)) return;
+      this.seenMessageIds.add(entry.messageId);
     }
 
-    if (acc.path === acc.slug && typeof entry.cwd === "string" && entry.cwd) {
+    if (acc.path === acc.slug && entry.cwd) {
       acc.path = entry.cwd;
     }
 
-    const tsMs = parseTs(entry.timestamp);
+    const tsMs = entry.tsMs;
     if (tsMs > 0 && tsMs < this.firstTsMs) this.firstTsMs = tsMs;
 
-    if (typeof entry.sessionId === "string" && entry.sessionId) {
+    if (entry.sessionId) {
       const sid = entry.sessionId;
       acc.sessions.add(sid);
       this.globalSessions.add(sid);
@@ -359,10 +483,10 @@ class AggState {
       }
     }
 
-    const date = isoLocalDate(entry.timestamp);
+    const date = entry.date;
     if (date && date > acc.lastActiveDate) acc.lastActiveDate = date;
     const day = date ? this.dayAcc(date) : null;
-    if (day && typeof entry.sessionId === "string" && entry.sessionId) {
+    if (day && entry.sessionId) {
       day.sessions.add(entry.sessionId);
     }
 
@@ -372,25 +496,22 @@ class AggState {
       if (day) day.messages++;
     }
 
-    if (entry.type === "assistant" && entry.message) {
+    if (entry.type === "assistant") {
       this.ingestAssistant(entry, acc, day);
     }
   }
 
   private ingestAssistant(
-    entry: JsonlEntry,
+    entry: CompactEntry,
     acc: ProjectAcc,
     day: DayAcc | null,
   ): void {
-    const msg = entry.message;
-    if (!msg) return;
-    const usage = msg.usage;
-    const model = msg.model;
-    if (usage && typeof model === "string") {
-      const inT = numOr0(usage.input_tokens);
-      const outT = numOr0(usage.output_tokens);
-      const crT = numOr0(usage.cache_read_input_tokens);
-      const ccT = numOr0(usage.cache_creation_input_tokens);
+    const model = entry.model;
+    if (typeof model === "string") {
+      const inT = entry.input ?? 0;
+      const outT = entry.output ?? 0;
+      const crT = entry.cacheRead ?? 0;
+      const ccT = entry.cacheCreation ?? 0;
       bump(acc.inputByModel, model, inT);
       bump(acc.outputByModel, model, outT);
       bump(acc.cacheReadByModel, model, crT);
@@ -417,28 +538,19 @@ class AggState {
         dm.cacheCreation += ccT;
       }
     }
-    const content = msg.content;
-    if (Array.isArray(content)) {
-      for (const block of content) {
-        if (
-          block &&
-          typeof block === "object" &&
-          (block as { type?: string }).type === "tool_use"
-        ) {
-          const name = (block as { name?: string }).name ?? "";
-          if (!name) continue;
-          this.toolCounts.set(name, (this.toolCounts.get(name) ?? 0) + 1);
-          if (day) day.toolCalls++;
-          const mcp = parseMcpTool(name);
-          if (mcp) {
-            let s = this.mcpServers.get(mcp.server);
-            if (!s) {
-              s = { calls: 0, tools: new Set() };
-              this.mcpServers.set(mcp.server, s);
-            }
-            s.calls++;
-            s.tools.add(mcp.tool);
+    if (entry.toolNames) {
+      for (const name of entry.toolNames) {
+        this.toolCounts.set(name, (this.toolCounts.get(name) ?? 0) + 1);
+        if (day) day.toolCalls++;
+        const mcp = parseMcpTool(name);
+        if (mcp) {
+          let s = this.mcpServers.get(mcp.server);
+          if (!s) {
+            s = { calls: 0, tools: new Set() };
+            this.mcpServers.set(mcp.server, s);
           }
+          s.calls++;
+          s.tools.add(mcp.tool);
         }
       }
     }

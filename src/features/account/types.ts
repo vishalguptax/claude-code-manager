@@ -328,6 +328,13 @@ export interface AccountData {
    * `restoreSettingsSnapshot` webview message.
    */
   settingsSnapshots: SettingsSnapshotInfo[];
+  /**
+   * True while the usage aggregate has never been computed this session
+   * (cold start / reload / account switch). The Usage section shows an
+   * "indexing" note instead of presenting the empty aggregate's zeros
+   * as final numbers; a fresh push flips it off when the warm lands.
+   */
+  usageWarming: boolean;
 }
 
 /**

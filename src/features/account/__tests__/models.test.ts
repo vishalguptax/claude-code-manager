@@ -38,7 +38,12 @@ vi.mock("child_process", async () => {
   };
 });
 
-import { discoverModelsFromCli, warmModelCache, clearModelCache } from "../models";
+import {
+  discoverModelsFromCli,
+  warmModelCache,
+  clearModelCache,
+  revalidateModelCache,
+} from "../models";
 
 afterAll(() => {
   fs.rmSync(tmpRoot, { recursive: true, force: true });
@@ -110,6 +115,67 @@ describe("discoverModelsFromCli", () => {
     expect(ids).toContain("claude-opus-4-7");
     expect(ids).toContain("claude-sonnet-4-6");
     expect(ids).toContain("claude-haiku-4-5");
+  });
+
+  it("discovers new model families (fable) without a hardcoded list", async () => {
+    const home = fs.mkdtempSync(path.join(tmpRoot, "fable-home-"));
+    ctx.home = home;
+
+    const binary = pkgRootBinary(
+      nodeModulesLayout(path.join(home, ".claude", "local")),
+      "linux-x64",
+    );
+    writeFakeBinary(binary, ["claude-fable-5", "claude-mythos-5", "claude-opus-4-8"]);
+
+    const models = await warmModelCache();
+    const fable = models.find((m) => m.family === "fable");
+    expect(fable).toMatchObject({
+      id: "claude-fable-5",
+      alias: "fable",
+      label: "Fable 5",
+      isLatest: true,
+    });
+    expect(models.map((m) => m.family)).toContain("mythos");
+    // Fable 5 (versionNum 5000) sorts above Opus 4.8 (4008).
+    expect(models[0].family).toBe("fable");
+  });
+
+  it("re-scans when the CLI binary changed (upgrade adds a new family)", async () => {
+    const home = fs.mkdtempSync(path.join(tmpRoot, "reval-home-"));
+    ctx.home = home;
+
+    const binary = pkgRootBinary(
+      nodeModulesLayout(path.join(home, ".claude", "local")),
+      "linux-x64",
+    );
+    writeFakeBinary(binary, ["claude-opus-4-8"]);
+    expect((await warmModelCache()).map((m) => m.family)).toEqual(["opus"]);
+
+    // Nothing changed — revalidate is a no-op.
+    expect(await revalidateModelCache()).toBe(false);
+
+    // "Upgrade" the CLI in place: new content (different size) with a
+    // new model family embedded.
+    writeFakeBinary(binary, ["claude-opus-4-8", "claude-fable-5"]);
+    expect(await revalidateModelCache()).toBe(true);
+    expect(discoverModelsFromCli().map((m) => m.family).sort()).toEqual([
+      "fable",
+      "opus",
+    ]);
+  });
+
+  it("filters non-model lookalikes like claude-code-2 and claude-instant-1", async () => {
+    const home = fs.mkdtempSync(path.join(tmpRoot, "lookalike-home-"));
+    ctx.home = home;
+
+    const binary = pkgRootBinary(
+      nodeModulesLayout(path.join(home, ".claude", "local")),
+      "linux-x64",
+    );
+    writeFakeBinary(binary, ["claude-code-2", "claude-instant-1", "claude-opus-4-8"]);
+
+    const families = (await warmModelCache()).map((m) => m.family);
+    expect(families).toEqual(["opus"]);
   });
 
   it("falls back to npm global root when ~/.claude/local is missing", async () => {

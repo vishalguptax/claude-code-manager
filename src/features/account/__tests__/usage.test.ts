@@ -379,3 +379,81 @@ describe("derivers", () => {
     expect(spanDays([])).toBe(0);
   });
 });
+
+describe("applyHistoryFill", () => {
+  const { applyHistoryFill, fromAggregate } = __internals;
+
+  function statsWithOneDay() {
+    return fromAggregate({
+      ...emptyAggregate(),
+      daily: [{ date: "2026-07-01", messageCount: 4, sessionCount: 2, toolCallCount: 1 }],
+      dailyTokens: [{ date: "2026-07-01", total: 300 }],
+      byModel: [
+        {
+          model: "claude-opus-4-8",
+          inputTokens: 100,
+          outputTokens: 200,
+          totalTokens: 300,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          costUsd: 0.0055,
+        },
+      ],
+      totalSessions: 2,
+      totalMessages: 4,
+      totalInputTokens: 100,
+      totalOutputTokens: 200,
+      totalTokens: 300,
+      firstSessionDate: "2026-07-01",
+    });
+  }
+
+  it("is a no-op without history", () => {
+    const stats = statsWithOneDay();
+    expect(applyHistoryFill(stats, null)).toBe(stats);
+  });
+
+  it("fills days the live sources no longer cover (purged transcripts)", () => {
+    const filled = applyHistoryFill(statsWithOneDay(), {
+      version: 1,
+      days: {
+        // Old day the JSONL purge removed.
+        "2026-05-01": {
+          messages: 10,
+          sessions: 3,
+          toolCalls: 5,
+          byModel: {
+            "claude-sonnet-4-6": { input: 1_000, output: 2_000, cacheRead: 0, cacheCreation: 0 },
+          },
+        },
+      },
+    });
+    expect(filled.daily.map((d) => d.date)).toEqual(["2026-05-01", "2026-07-01"]);
+    expect(filled.totalSessions).toBe(5);
+    expect(filled.totalMessages).toBe(14);
+    expect(filled.totalTokens).toBe(300 + 3_000);
+    expect(filled.firstSessionDate).toBe("2026-05-01");
+    const sonnet = filled.byModel.find((m) => m.model === "claude-sonnet-4-6")!;
+    expect(sonnet.inputTokens).toBe(1_000);
+    // Cost recomputed from the filled buckets: 1k in @ $3/M + 2k out @ $15/M.
+    expect(sonnet.costUsd).toBeCloseTo((1_000 * 3 + 2_000 * 15) / 1_000_000);
+  });
+
+  it("never double-counts a day the live sources already cover", () => {
+    const stats = statsWithOneDay();
+    const filled = applyHistoryFill(stats, {
+      version: 1,
+      days: {
+        "2026-07-01": {
+          messages: 999,
+          sessions: 999,
+          toolCalls: 999,
+          byModel: {
+            "claude-opus-4-8": { input: 9_999, output: 9_999, cacheRead: 0, cacheCreation: 0 },
+          },
+        },
+      },
+    });
+    expect(filled).toBe(stats);
+  });
+});

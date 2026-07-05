@@ -11,7 +11,13 @@ import { setSessionStorage } from "../features/sessions/commands";
 import { setExtensionUri } from "./terminal";
 import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
-import { selfHealStatusline } from "../features/account/statuslineInstall";
+import {
+  detectForeignProjectTap,
+  installStatusline,
+  isStatuslineInstalled,
+  removeForeignProjectTap,
+  selfHealStatusline,
+} from "../features/account/statuslineInstall";
 import { warmModelCache } from "../features/account/models";
 import { warmUsageAggregate } from "../features/account/projectStats";
 import { ensureSessionStartHook } from "../features/sessions/sessionTapInstall";
@@ -23,6 +29,26 @@ import { runDiagnosticsCommand } from "../features/diagnostics/commands";
 /**
  * Activate the Claude Manager extension.
  */
+/**
+ * Run one synchronous activation step, logging it when it exceeds the
+ * same threshold as the message-handler tripwire. Activation runs on
+ * the extension host's main thread — a slow step here delays every
+ * webview message behind it, which the user experiences as tabs stuck
+ * on skeletons. The log turns "the panel took minutes" reports into a
+ * named culprit in Output → Extension Host.
+ */
+function timedStep(label: string, fn: () => void): void {
+  const startedAt = Date.now();
+  try {
+    fn();
+  } finally {
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs > 250) {
+      console.warn(`[claude-manager] slow activation step: ${label} took ${elapsedMs}ms`);
+    }
+  }
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   setExtensionUri(context.extensionUri);
   // Wire persistent storage into the sessions commands module so the
@@ -31,7 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Ephemeral (temp) session cleanup: wire storage, then drain any
   // pending entries left behind by a prior VS Code crash or reload.
   setEphemeralStorage(context.globalState);
-  sweepOrphans();
+  timedStep("sweepOrphans", sweepOrphans);
 
   // Self-heal the statusline tap: if the user previously enabled live
   // quota but the project/local settings.json that holds our tap line
@@ -41,13 +67,26 @@ export function activate(context: vscode.ExtensionContext): void {
   // user never has to click Enable twice. No-op when sidecar is absent
   // or the tap is already wired. Failures must not block activation.
   try {
-    selfHealStatusline(
-      path.join(__dirname, "statusline-tap.js"),
-      getWorkspace() || undefined,
+    timedStep("selfHealStatusline", () =>
+      selfHealStatusline(
+        path.join(__dirname, "statusline-tap.js"),
+        getWorkspace() || undefined,
+      ),
     );
   } catch (err) {
     console.warn("[claude-manager] statusline self-heal failed:", err);
   }
+
+  // Poisoned shared settings: a tap command (ours or another machine's)
+  // committed into the project's .claude/settings.json breaks the
+  // statusline for every contributor. Self-heal repairs it only for
+  // users who opted into quota; everyone else gets a one-click offer —
+  // it is their git-tracked file, so never modify it silently.
+  void offerForeignTapCleanup(getWorkspace() || undefined);
+
+  // One-time nudge: quota needs the (opt-in) statusline tap. Surface
+  // the choice once; the Quota card's Enable button remains for later.
+  void offerQuotaNudge(context);
 
   // SessionStart hook tap: install (idempotent) so Claude CLI writes
   // `{sessionId, ppid, cwd}` into our active-sessions registry on every
@@ -57,7 +96,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // terminal hosting that session, regardless of how it was started.
   // Failures must not block activation.
   try {
-    ensureSessionStartHook(path.join(__dirname));
+    timedStep("ensureSessionStartHook", () => ensureSessionStartHook(path.join(__dirname)));
   } catch (err) {
     console.warn("[claude-manager] session-start hook install failed:", err);
   }
@@ -74,9 +113,14 @@ export function activate(context: vscode.ExtensionContext): void {
   // Both used to run synchronously on the settings-handler click path and
   // froze the host for seconds. Re-push accountData once they resolve so a
   // panel opened mid-warm fills in.
-  void Promise.allSettled([warmModelCache(), warmUsageAggregate()]).then(() =>
-    provider.refreshAccountData(),
-  );
+  const warmStartedAt = Date.now();
+  void Promise.allSettled([warmModelCache(), warmUsageAggregate()]).then(() => {
+    const elapsedMs = Date.now() - warmStartedAt;
+    if (elapsedMs > 2_000) {
+      console.warn(`[claude-manager] slow activation warm took ${elapsedMs}ms`);
+    }
+    provider.refreshAccountData();
+  });
 
   context.subscriptions.push(startActiveSessionWatcher(provider.terminals));
 
@@ -364,6 +408,78 @@ export function activate(context: vscode.ExtensionContext): void {
   statusBarItem.command = "claudeManager.open";
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
+}
+
+/**
+ * Offer to remove a tap command committed into the shared project
+ * settings (the machine-absolute-path bug). Fires only when the entry
+ * is still present after self-heal — i.e. for users who never enabled
+ * quota themselves and inherited a teammate's entry via git. Their
+ * declining is remembered per workspace so the prompt doesn't nag.
+ */
+async function offerForeignTapCleanup(workspacePath?: string): Promise<void> {
+  try {
+    if (!workspacePath || !detectForeignProjectTap(workspacePath)) return;
+    const pick = await vscode.window.showWarningMessage(
+      "This project's shared .claude/settings.json contains a machine-specific " +
+        "statusline entry (written by Claude Code Manager on another machine). " +
+        "It breaks the statusline for other contributors. Remove it?",
+      "Remove",
+      "Not now",
+    );
+    if (pick === "Remove") {
+      removeForeignProjectTap(workspacePath);
+      vscode.window.showInformationMessage(
+        "Removed the statusline entry from .claude/settings.json — remember to commit the change.",
+      );
+    }
+  } catch (err) {
+    console.warn("[claude-manager] foreign tap cleanup failed:", err);
+  }
+}
+
+/** globalState key for the one-time quota nudge. */
+const QUOTA_NUDGE_KEY = "quotaNudge.shown";
+
+/**
+ * One-time offer to enable live quota. Quota data only exists via the
+ * opt-in statusline tap, and the Enable button lives inside a tab the
+ * user may never open — surface the choice once at first activation.
+ */
+async function offerQuotaNudge(context: vscode.ExtensionContext): Promise<void> {
+  try {
+    if (context.globalState.get<boolean>(QUOTA_NUDGE_KEY)) return;
+    if (isStatuslineInstalled(getWorkspace() || undefined)) return;
+    // Mark before prompting: whatever the user picks (including
+    // dismissing the toast), we ask exactly once.
+    await context.globalState.update(QUOTA_NUDGE_KEY, true);
+    const pick = await vscode.window.showInformationMessage(
+      "Claude Code Manager can show your live 5h/7d quota — read locally from " +
+        "Claude Code's statusline, no network calls. Enable it? (One click to " +
+        "undo in the Account tab; your existing statusline keeps working.)",
+      "Enable",
+      "Not now",
+    );
+    if (pick === "Enable") {
+      const res = installStatusline(
+        path.join(__dirname, "statusline-tap.js"),
+        getWorkspace() || undefined,
+      );
+      if (res.ok) {
+        vscode.window.showInformationMessage(
+          "Live quota enabled — data appears after your next Claude Code turn.",
+        );
+      } else if (res.error === "managed-by-org") {
+        vscode.window.showWarningMessage(
+          "Can't enable live quota: your organization's managed settings define the statusline.",
+        );
+      } else {
+        vscode.window.showErrorMessage(`Enabling live quota failed: ${res.error}`);
+      }
+    }
+  } catch (err) {
+    console.warn("[claude-manager] quota nudge failed:", err);
+  }
 }
 
 /**

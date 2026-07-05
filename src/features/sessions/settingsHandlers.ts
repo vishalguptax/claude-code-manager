@@ -6,6 +6,7 @@
  * the caller try the next handler.
  */
 import * as vscode from "vscode";
+import { postAccountData } from "./accountPush";
 import * as path from "path";
 import * as fs from "fs";
 import {
@@ -53,7 +54,7 @@ export async function handleSettingsMessage(
     case "setModel": {
       writeSettingsValue("model", msg.model || undefined);
       const workspace = getWorkspace();
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
@@ -67,7 +68,7 @@ export async function handleSettingsMessage(
       if (input && input.trim()) {
         writeSettingsValue("model", input.trim());
         const workspace = getWorkspace();
-        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        postAccountData(wv, parseAccountData(workspace || undefined));
       }
       break;
     }
@@ -90,7 +91,7 @@ export async function handleSettingsMessage(
           `Restored ~/.claude.json from backup (${path.basename(restoredFrom)}).`,
         );
         const workspace = getWorkspace();
-        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        postAccountData(wv, parseAccountData(workspace || undefined));
       } else {
         vscode.window.showErrorMessage(
           "No valid backup found in ~/.claude/backups. You may need to re-run Claude to regenerate the config.",
@@ -108,7 +109,7 @@ export async function handleSettingsMessage(
       writeSettingsValue("voiceEnabled", msg.value);
       writeSettingsValue("voice.enabled", msg.value);
       const workspace = getWorkspace();
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
@@ -118,7 +119,7 @@ export async function handleSettingsMessage(
       // key (writeSettingsValue handles that case).
       writeSettingsValue(msg.key, msg.value, msg.scope ?? "global", getWorkspace() || undefined);
       const workspace = getWorkspace();
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
@@ -153,10 +154,7 @@ export async function handleSettingsMessage(
       );
       if (confirm !== "Remove") break;
       removePermissionEntry(permScope, tool, permList, getWorkspace() || undefined);
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(getWorkspace() || undefined),
-      });
+      postAccountData(wv, parseAccountData(getWorkspace() || undefined));
       break;
     }
 
@@ -190,10 +188,7 @@ export async function handleSettingsMessage(
             `${scope} settings file was already empty.`,
           );
         }
-        wv.postMessage({
-          type: "accountData",
-          data: parseAccountData(workspace || undefined),
-        });
+        postAccountData(wv, parseAccountData(workspace || undefined));
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(`Reset failed: ${errMsg}.`);
@@ -228,24 +223,21 @@ export async function handleSettingsMessage(
         "global",
         workspace || undefined,
       );
-      wv.postMessage({
-        type: "accountData",
-        data: parseAccountData(workspace || undefined),
-      });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
     case "setCommitAttribution": {
       writeSettingsValue("attribution.commit", msg.value);
       const workspace = getWorkspace();
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
     case "setPrAttribution": {
       writeSettingsValue("attribution.pr", msg.value);
       const workspace = getWorkspace();
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
@@ -270,7 +262,7 @@ export async function handleSettingsMessage(
     case "addPermission": {
       const workspace = getWorkspace();
       addPermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
@@ -326,7 +318,7 @@ export async function handleSettingsMessage(
 
       if (tool && tool.trim()) {
         addPermissionEntry(scope, tool.trim(), list, workspace || undefined);
-        wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+        postAccountData(wv, parseAccountData(workspace || undefined));
       }
       break;
     }
@@ -334,7 +326,7 @@ export async function handleSettingsMessage(
     case "removePermission": {
       const workspace = getWorkspace();
       removePermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);
-      wv.postMessage({ type: "accountData", data: parseAccountData(workspace || undefined) });
+      postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 

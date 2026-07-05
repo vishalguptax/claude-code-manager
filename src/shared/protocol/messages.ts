@@ -130,6 +130,7 @@ export type Message =
   | { type: "sessionDetail"; data: unknown }
   | { type: "fullTextResults"; query: string; ids: string[] }
   | { type: "error"; message: string }
+  | { type: "ack" }
   | { type: "reloadComplete" }
   | { type: "projects"; data: string[] }
   | { type: "accountData"; data: unknown }
@@ -274,6 +275,7 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "sessionDetail",
   "fullTextResults",
   "error",
+  "ack",
   "reloadComplete",
   "projects",
   "accountData",
