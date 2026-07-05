@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.5.2] - 2026-07-06
+
+Fixes a regression where Account/Config could hang on a skeleton for 10-20s, and removes the stalls that made account switching feel slow.
+
+See [docs/releases/v2.5.2.md](docs/releases/v2.5.2.md) for full details.
+
 ## [2.5.1] - 2026-07-05
 
 Quota card no longer reads as broken when idle, and the SessionStart hook stops duplicating (and triggering Claude Code's broken-command prompt) on machines that sync ~/.claude/settings.json.
