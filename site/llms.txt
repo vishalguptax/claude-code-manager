@@ -25,3 +25,7 @@ Claude Code Manager reads the shared `~/.claude/` directory used by Claude Code 
 - [Claude Code usage tracker](https://claudecodemanager.vishalg.in/usage/): tokens by model/project/tool and real 5-hour / 7-day quota
 - [Claude account switcher](https://claudecodemanager.vishalg.in/accounts/): swap logins without /logout /login
 - [Claude Code MCP manager](https://claudecodemanager.vishalg.in/mcp/): toggle and inspect MCP servers without JSON editing
+- [Claude Code skills manager](https://claudecodemanager.vishalg.in/skills/): browse global, project, and plugin skills by scope
+- [Claude Code slash commands manager](https://claudecodemanager.vishalg.in/commands/): browse and run built-in and custom commands
+- [Claude Code hooks manager](https://claudecodemanager.vishalg.in/hooks/): every automation hook by scope with full command preview
+- [Claude Code agents manager](https://claudecodemanager.vishalg.in/agents/): browse project and plugin subagents with model badges

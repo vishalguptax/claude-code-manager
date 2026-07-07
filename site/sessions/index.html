@@ -18,6 +18,7 @@
   <meta property="og:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Claude Code session manager — search, resume, fork">
+  <meta name="twitter:description" content="Full-text search across every Claude Code session, git-branch-aware resume, forking, and import/export. Free, 100% local.">
   <meta name="twitter:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
 
   <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
@@ -27,6 +28,30 @@
   <link rel="preload" href="/assets/fonts/instrument-serif-italic-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css">
 
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Claude Code Manager — Session Manager",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "VS Code, Cursor, Windsurf, VSCodium",
+        "url": "https://claudecodemanager.vishalg.in/sessions/",
+        "description": "Search every Claude Code session full-text, resume on the right git branch, fork conversations, and move sessions between machines. Free VS Code extension, 100% local.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Vishal Gupta" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Claude Code Manager", "item": "https://claudecodemanager.vishalg.in/" },
+          { "@type": "ListItem", "position": 2, "name": "Session Manager", "item": "https://claudecodemanager.vishalg.in/sessions/" }
+        ]
+      }
+    ]
+  }
+  </script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -158,6 +183,10 @@
         <a href="/usage/">Usage tracking</a>
         <a href="/accounts/">Account switching</a>
         <a href="/mcp/">MCP servers</a>
+        <a href="/skills/">Skills manager</a>
+        <a href="/commands/">Slash commands</a>
+        <a href="/hooks/">Hooks manager</a>
+        <a href="/agents/">Agents manager</a>
         <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
         <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
       </p>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a09">
+
+  <title>Claude Code Slash Commands Manager for VS Code — Browse &amp; Run | Claude Code Manager</title>
+  <meta name="description" content="Browse every built-in and custom Claude Code slash command, preview what it does, and run it from the sidebar — no memorizing. Free VS Code extension, 100% local.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://claudecodemanager.vishalg.in/commands/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Code Manager">
+  <meta property="og:url" content="https://claudecodemanager.vishalg.in/commands/">
+  <meta property="og:title" content="Claude Code slash commands manager — browse & run">
+  <meta property="og:description" content="Browse every built-in and custom Claude Code slash command, preview what it does, and run it from the sidebar. Free, 100% local.">
+  <meta property="og:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Code slash commands manager — browse & run">
+  <meta name="twitter:description" content="Browse every built-in and custom Claude Code slash command, preview what it does, and run it from the sidebar. Free, 100% local.">
+  <meta name="twitter:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/marketplace-icon.png">
+
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/instrument-serif-italic-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Claude Code Manager — Slash Commands Manager",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "VS Code, Cursor, Windsurf, VSCodium",
+        "url": "https://claudecodemanager.vishalg.in/commands/",
+        "description": "Browse every built-in and custom Claude Code slash command, preview what it does, and run it from the sidebar. Free VS Code extension, 100% local.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Vishal Gupta" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Claude Code Manager", "item": "https://claudecodemanager.vishalg.in/" },
+          { "@type": "ListItem", "position": 2, "name": "Slash Commands Manager", "item": "https://claudecodemanager.vishalg.in/commands/" }
+        ]
+      }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "Which slash commands does it show?", "acceptedAnswer": { "@type": "Answer", "text": "Both kinds: the built-in Claude Code commands and your own custom commands defined in ~/.claude/commands/ and the project's .claude/commands/, plus commands added by plugins. Each is tagged with its scope." } },
+      { "@type": "Question", "name": "Can I run a command from the sidebar?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Pick a command from the list and run it without typing the slash name from memory. You can preview what a command does before you run it." } },
+      { "@type": "Question", "name": "Can I see what a custom command actually does?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every command shows its definition, so you can read the prompt or steps it runs before invoking it — useful for commands a plugin or teammate added." } },
+      { "@type": "Question", "name": "Is it 100% local?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Claude Code Manager reads your local ~/.claude/ and project .claude/ directories and renders in a VS Code webview under a strict CSP. No network calls, no telemetry, no credentials stored." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <main id="main" class="page">
+
+    <section class="sheet sheet-hero">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="/"><img src="/assets/icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>Claude Code Manager</span></a>
+        <div class="nav-links">
+          <a href="/sessions/">Sessions</a>
+          <a href="/skills/">Skills</a>
+          <a href="/hooks/">Hooks</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install</a>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Free · open source · 100% local</p>
+          <h1>The Claude Code <em class="serif" data-scramble>slash command manager</em> for VS&nbsp;Code.</h1>
+          <p class="lede">Every built-in and custom slash command in one sidebar — preview what each one does, then run it. No memorizing names, no re-reading the docs to find the command you set up last month.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+            <a class="btn btn-ghost" href="/">See everything it does</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/screenshots/03-commands.webp" width="760" height="1128" alt="Claude Code slash commands manager sidebar listing built-in and custom commands with previews" loading="eager" fetchpriority="high">
+        </figure>
+      </div>
+    </section>
+
+    <section class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">COMMANDS:</p>
+        <h2>You made those commands. <em class="serif">Now find them.</em></h2>
+        <p class="sec-sub">Built-in commands, your custom ones in <code>.claude/commands/</code>, and commands plugins add — all browsable in one place, each with a preview of what it runs.</p>
+      </header>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Built-in and custom, side by side</h3>
+          <p>The commands Claude Code ships and the ones you wrote sit in the same list, tagged by scope. No more forgetting the name of that command you built two projects ago.</p>
+          <ul>
+            <li>Built-in, custom, and plugin commands unified</li>
+            <li>Scope badge on every command</li>
+            <li>Global and project commands both covered</li>
+          </ul>
+        </div>
+        <figure class="feat-shot"><img src="/assets/screenshots/03-commands.webp" alt="Built-in and custom Claude Code slash commands in one list" loading="lazy" width="760" height="1128"></figure>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Preview, then run</h3>
+          <p>See what a command actually does before you fire it — the prompt or steps behind the slash name. Then run it straight from the sidebar instead of typing it out.</p>
+          <ul>
+            <li>Read the definition before running</li>
+            <li>Run without retyping the slash name</li>
+            <li>Read-only: never edits your command files</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="sheet sheet-light">
+      <header class="sec-head">
+        <p class="sec-tag">FAQ:</p>
+        <h2>Command questions, <em class="serif">answered.</em></h2>
+      </header>
+      <div class="faq">
+        <details>
+          <summary>Which slash commands does it show?</summary>
+          <p>Both kinds: built-in Claude Code commands and your custom ones in <code>~/.claude/commands/</code> and <code>.claude/commands/</code>, plus plugin commands. Each tagged by scope.</p>
+        </details>
+        <details>
+          <summary>Can I run a command from the sidebar?</summary>
+          <p>Yes. Pick it from the list and run — no typing the slash name from memory. Preview what it does first.</p>
+        </details>
+        <details>
+          <summary>Can I see what a custom command does?</summary>
+          <p>Yes. Every command shows its definition, so you can read the prompt or steps before invoking it.</p>
+        </details>
+        <details>
+          <summary>Is it 100% local?</summary>
+          <p>Yes. It reads your local <code>~/.claude/</code> and project <code>.claude/</code> and renders under a strict CSP. No network, no telemetry, no stored credentials.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="sheet sheet-cta">
+      <h2>Stop memorizing slash names. <em class="serif">Just browse.</em></h2>
+      <p>Free, open source, reads only your local <code>~/.claude/</code>.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="foot-links">
+        <a href="/">Home</a>
+        <a href="/sessions/">Sessions</a>
+        <a href="/usage/">Usage</a>
+        <a href="/accounts/">Accounts</a>
+        <a href="/mcp/">MCP</a>
+        <a href="/skills/">Skills</a>
+        <a href="/hooks/">Hooks</a>
+        <a href="/agents/">Agents</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
+        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+      </p>
+      <p class="fine">Apache 2.0 © Vishal Gupta. Independent community project, not affiliated with Anthropic. <em>Claude</em> and <em>Claude Code</em> are trademarks of Anthropic, PBC.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

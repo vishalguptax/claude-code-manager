@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a09">
+
+  <title>Claude Code Hooks Manager for VS Code — Every Scope, No JSON | Claude Code Manager</title>
+  <meta name="description" content="Manage Claude Code automation hooks across every settings scope with full command preview — no hand-editing settings.json. Free VS Code extension, 100% local.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://claudecodemanager.vishalg.in/hooks/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Code Manager">
+  <meta property="og:url" content="https://claudecodemanager.vishalg.in/hooks/">
+  <meta property="og:title" content="Claude Code hooks manager — every scope, no JSON">
+  <meta property="og:description" content="Manage Claude Code automation hooks across every settings scope with full command preview — no hand-editing settings.json. Free, 100% local.">
+  <meta property="og:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Code hooks manager — every scope, no JSON">
+  <meta name="twitter:description" content="Manage Claude Code automation hooks across every settings scope with full command preview — no hand-editing settings.json. Free, 100% local.">
+  <meta name="twitter:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/marketplace-icon.png">
+
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/instrument-serif-italic-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Claude Code Manager — Hooks Manager",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "VS Code, Cursor, Windsurf, VSCodium",
+        "url": "https://claudecodemanager.vishalg.in/hooks/",
+        "description": "Manage Claude Code automation hooks across every settings scope with full command preview — no hand-editing settings.json. Free VS Code extension, 100% local.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Vishal Gupta" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Claude Code Manager", "item": "https://claudecodemanager.vishalg.in/" },
+          { "@type": "ListItem", "position": 2, "name": "Hooks Manager", "item": "https://claudecodemanager.vishalg.in/hooks/" }
+        ]
+      }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "Which hooks does Claude Code Manager show?", "acceptedAnswer": { "@type": "Answer", "text": "Every hook across every settings scope — user, project, and local — that Claude Code reads from settings.json. They are grouped by event so you can see exactly what fires on PreToolUse, PostToolUse, Stop, and the rest." } },
+      { "@type": "Question", "name": "Can I see the command a hook runs before it fires?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Each hook shows its full command preview, so you know exactly what shell command runs on which event — no digging through nested JSON to find out." } },
+      { "@type": "Question", "name": "Do I still have to hand-edit settings.json?", "acceptedAnswer": { "@type": "Answer", "text": "You get a readable view of every configured hook across scopes instead of parsing nested JSON by hand. The extension surfaces what is set and where, so you always know which scope a hook lives in." } },
+      { "@type": "Question", "name": "Is it 100% local?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Claude Code Manager reads your local ~/.claude/ and project .claude/ settings and renders in a VS Code webview under a strict CSP. No network calls, no telemetry, no credentials stored." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <main id="main" class="page">
+
+    <section class="sheet sheet-hero">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="/"><img src="/assets/icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>Claude Code Manager</span></a>
+        <div class="nav-links">
+          <a href="/sessions/">Sessions</a>
+          <a href="/commands/">Commands</a>
+          <a href="/mcp/">MCP</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install</a>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Free · open source · 100% local</p>
+          <h1>The Claude Code <em class="serif" data-scramble>hooks manager</em> for VS&nbsp;Code.</h1>
+          <p class="lede">Every automation hook across every settings scope, grouped by event, with the full command it runs shown up front. Stop parsing nested <code>settings.json</code> to find out what fires when.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+            <a class="btn btn-ghost" href="/">See everything it does</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/screenshots/04-hooks.webp" width="760" height="1128" alt="Claude Code hooks manager sidebar showing hooks by event and scope with full command preview" loading="eager" fetchpriority="high">
+        </figure>
+      </div>
+    </section>
+
+    <section class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">HOOKS:</p>
+        <h2>Hooks hide in JSON. <em class="serif">Bring them into the light.</em></h2>
+        <p class="sec-sub">Claude Code hooks live in nested <code>settings.json</code> across user, project, and local scopes. The extension reads all of it and shows each hook by event, with its command in plain sight.</p>
+      </header>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Every scope, grouped by event</h3>
+          <p>User, project, and local hooks all in one view, organized by the event that triggers them — PreToolUse, PostToolUse, Stop, and the rest. See what fires and when without opening a single settings file.</p>
+          <ul>
+            <li>User, project, and local scopes together</li>
+            <li>Grouped by trigger event</li>
+            <li>Know which scope every hook lives in</li>
+          </ul>
+        </div>
+        <figure class="feat-shot"><img src="/assets/screenshots/04-hooks.webp" alt="Claude Code hooks grouped by event across settings scopes" loading="lazy" width="760" height="1128"></figure>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>The command, in full, up front</h3>
+          <p>A hook is a shell command that runs on your machine. You should be able to read it before it fires — so every hook shows its full command preview, not a truncated blob buried in JSON.</p>
+          <ul>
+            <li>Full command preview per hook</li>
+            <li>Spot a surprise hook a plugin added</li>
+            <li>Read-only: never rewrites your settings</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="sheet sheet-light">
+      <header class="sec-head">
+        <p class="sec-tag">FAQ:</p>
+        <h2>Hook questions, <em class="serif">answered.</em></h2>
+      </header>
+      <div class="faq">
+        <details>
+          <summary>Which hooks does it show?</summary>
+          <p>Every hook across every settings scope — user, project, and local — grouped by event, so you see exactly what fires on PreToolUse, PostToolUse, Stop, and the rest.</p>
+        </details>
+        <details>
+          <summary>Can I see the command before it runs?</summary>
+          <p>Yes. Each hook shows its full command preview — you know exactly what shell command runs on which event, no digging through nested JSON.</p>
+        </details>
+        <details>
+          <summary>Do I still hand-edit settings.json?</summary>
+          <p>You get a readable view of every configured hook across scopes instead of parsing nested JSON by hand — always clear which scope a hook lives in.</p>
+        </details>
+        <details>
+          <summary>Is it 100% local?</summary>
+          <p>Yes. It reads your local <code>~/.claude/</code> and project <code>.claude/</code> settings and renders under a strict CSP. No network, no telemetry, no stored credentials.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="sheet sheet-cta">
+      <h2>Stop parsing <code>settings.json</code>. <em class="serif">Read the hook.</em></h2>
+      <p>Free, open source, reads only your local <code>~/.claude/</code>.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="foot-links">
+        <a href="/">Home</a>
+        <a href="/sessions/">Sessions</a>
+        <a href="/usage/">Usage</a>
+        <a href="/accounts/">Accounts</a>
+        <a href="/mcp/">MCP</a>
+        <a href="/skills/">Skills</a>
+        <a href="/commands/">Commands</a>
+        <a href="/agents/">Agents</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
+        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+      </p>
+      <p class="fine">Apache 2.0 © Vishal Gupta. Independent community project, not affiliated with Anthropic. <em>Claude</em> and <em>Claude Code</em> are trademarks of Anthropic, PBC.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

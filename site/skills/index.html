@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a09">
+
+  <title>Claude Code Skills Manager for VS Code — Global, Project, Plugin | Claude Code Manager</title>
+  <meta name="description" content="See every Claude Code skill in one place — global, project, and plugin-scoped — enable, inspect, and jump to the source. Free VS Code extension, 100% local.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://claudecodemanager.vishalg.in/skills/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Code Manager">
+  <meta property="og:url" content="https://claudecodemanager.vishalg.in/skills/">
+  <meta property="og:title" content="Claude Code skills manager — global, project, plugin">
+  <meta property="og:description" content="See every Claude Code skill in one place — global, project, and plugin-scoped — enable, inspect, and jump to the source. Free, 100% local.">
+  <meta property="og:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Code skills manager — global, project, plugin">
+  <meta name="twitter:description" content="See every Claude Code skill in one place — global, project, and plugin-scoped — enable, inspect, and jump to the source. Free, 100% local.">
+  <meta name="twitter:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/marketplace-icon.png">
+
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/instrument-serif-italic-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Claude Code Manager — Skills Manager",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "VS Code, Cursor, Windsurf, VSCodium",
+        "url": "https://claudecodemanager.vishalg.in/skills/",
+        "description": "See every Claude Code skill in one place — global, project, and plugin-scoped — enable, inspect, and jump to the source. Free VS Code extension, 100% local.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Vishal Gupta" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Claude Code Manager", "item": "https://claudecodemanager.vishalg.in/" },
+          { "@type": "ListItem", "position": 2, "name": "Skills Manager", "item": "https://claudecodemanager.vishalg.in/skills/" }
+        ]
+      }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "Where does Claude Code Manager find my skills?", "acceptedAnswer": { "@type": "Answer", "text": "It reads skills from every scope Claude Code uses: global skills in ~/.claude/skills/, project skills in .claude/skills/, and skills shipped by installed plugins. They all appear in one list, each tagged with its scope." } },
+      { "@type": "Question", "name": "Can I tell which skills come from plugins?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every skill carries a scope badge — global, project, or plugin — so you can see exactly where a skill is defined and which ones a plugin added." } },
+      { "@type": "Question", "name": "Can I open a skill's source from the sidebar?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Click through to the skill's SKILL.md and definition on disk. The extension reads your files; it never rewrites them." } },
+      { "@type": "Question", "name": "Is it 100% local?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Claude Code Manager reads your local ~/.claude/ and project .claude/ directories and renders in a VS Code webview under a strict CSP. No network calls, no telemetry, no credentials stored." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <main id="main" class="page">
+
+    <section class="sheet sheet-hero">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="/"><img src="/assets/icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>Claude Code Manager</span></a>
+        <div class="nav-links">
+          <a href="/sessions/">Sessions</a>
+          <a href="/commands/">Commands</a>
+          <a href="/agents/">Agents</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install</a>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Free · open source · 100% local</p>
+          <h1>The Claude Code <em class="serif" data-scramble>skills manager</em> for VS&nbsp;Code.</h1>
+          <p class="lede">Every Claude Code skill — global, project, and plugin-scoped — in one sidebar, each tagged by where it lives. Stop guessing which skill is active and where it was defined.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+            <a class="btn btn-ghost" href="/">See everything it does</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/screenshots/02-skills.webp" width="760" height="1128" alt="Claude Code skills manager sidebar listing global, project, and plugin skills with scope badges" loading="eager" fetchpriority="high">
+        </figure>
+      </div>
+    </section>
+
+    <section class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">SKILLS:</p>
+        <h2>Skills come from three places. <em class="serif">See them as one.</em></h2>
+        <p class="sec-sub">Global, project, and plugin skills normally live in different directories. The extension reads all three and shows them together, each with a badge for its scope.</p>
+      </header>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Global, project, plugin — unified</h3>
+          <p>Skills in <code>~/.claude/skills/</code>, in your project's <code>.claude/skills/</code>, and skills a plugin ships are all in one list. No more wondering which scope a skill came from.</p>
+          <ul>
+            <li>Every scope in a single view</li>
+            <li>Scope badge on each skill</li>
+            <li>Open the SKILL.md source in a click</li>
+          </ul>
+        </div>
+        <figure class="feat-shot"><img src="/assets/screenshots/02-skills.webp" alt="Claude Code skills grouped by scope with badges" loading="lazy" width="760" height="1128"></figure>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Inspect before you trust</h3>
+          <p>A skill is only as safe as its instructions. Read what a skill actually does — its description and definition — straight from the sidebar, before it runs on your repo.</p>
+          <ul>
+            <li>Read descriptions and definitions inline</li>
+            <li>Spot plugin-added skills at a glance</li>
+            <li>Read-only: never edits your skill files</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="sheet sheet-light">
+      <header class="sec-head">
+        <p class="sec-tag">FAQ:</p>
+        <h2>Skill questions, <em class="serif">answered.</em></h2>
+      </header>
+      <div class="faq">
+        <details>
+          <summary>Where does it find my skills?</summary>
+          <p>Every scope Claude Code uses: global in <code>~/.claude/skills/</code>, project in <code>.claude/skills/</code>, and skills shipped by installed plugins — all in one list, each tagged by scope.</p>
+        </details>
+        <details>
+          <summary>Can I tell which skills come from plugins?</summary>
+          <p>Yes. Every skill carries a scope badge — global, project, or plugin — so you see exactly where each one is defined.</p>
+        </details>
+        <details>
+          <summary>Can I open a skill's source?</summary>
+          <p>Yes. Click through to the skill's <code>SKILL.md</code> and definition on disk. It reads your files; it never rewrites them.</p>
+        </details>
+        <details>
+          <summary>Is it 100% local?</summary>
+          <p>Yes. It reads your local <code>~/.claude/</code> and project <code>.claude/</code> and renders under a strict CSP. No network, no telemetry, no stored credentials.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="sheet sheet-cta">
+      <h2>One list for every skill. <em class="serif">Every scope.</em></h2>
+      <p>Free, open source, reads only your local <code>~/.claude/</code>.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="foot-links">
+        <a href="/">Home</a>
+        <a href="/sessions/">Sessions</a>
+        <a href="/usage/">Usage</a>
+        <a href="/accounts/">Accounts</a>
+        <a href="/mcp/">MCP</a>
+        <a href="/commands/">Commands</a>
+        <a href="/hooks/">Hooks</a>
+        <a href="/agents/">Agents</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
+        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+      </p>
+      <p class="fine">Apache 2.0 © Vishal Gupta. Independent community project, not affiliated with Anthropic. <em>Claude</em> and <em>Claude Code</em> are trademarks of Anthropic, PBC.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

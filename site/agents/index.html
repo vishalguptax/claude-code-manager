@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0c0a09">
+
+  <title>Claude Code Agents Manager for VS Code — Models &amp; Scopes | Claude Code Manager</title>
+  <meta name="description" content="Browse and manage every Claude Code subagent — project, plugin, and global — with model badges and scope at a glance. Free VS Code extension, 100% local.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://claudecodemanager.vishalg.in/agents/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Claude Code Manager">
+  <meta property="og:url" content="https://claudecodemanager.vishalg.in/agents/">
+  <meta property="og:title" content="Claude Code agents manager — models, scopes, badges">
+  <meta property="og:description" content="Browse every Claude Code subagent — project, plugin, and global — with model badges and scope at a glance. Free, 100% local.">
+  <meta property="og:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Code agents manager — models, scopes, badges">
+  <meta name="twitter:description" content="Browse every Claude Code subagent — project, plugin, and global — with model badges and scope at a glance. Free, 100% local.">
+  <meta name="twitter:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
+
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+  <link rel="apple-touch-icon" href="/assets/marketplace-icon.png">
+
+  <link rel="preload" href="/assets/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/assets/fonts/instrument-serif-italic-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "Claude Code Manager — Agents Manager",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "VS Code, Cursor, Windsurf, VSCodium",
+        "url": "https://claudecodemanager.vishalg.in/agents/",
+        "description": "Browse and manage every Claude Code subagent — project, plugin, and global — with model badges and scope at a glance. Free VS Code extension, 100% local.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Vishal Gupta" }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Claude Code Manager", "item": "https://claudecodemanager.vishalg.in/" },
+          { "@type": "ListItem", "position": 2, "name": "Agents Manager", "item": "https://claudecodemanager.vishalg.in/agents/" }
+        ]
+      }
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "Where does Claude Code Manager find my agents?", "acceptedAnswer": { "@type": "Answer", "text": "It reads agent definitions from every scope Claude Code uses: project agents in .claude/agents/, plugin agents from installed plugins, and global agents in ~/.claude/agents/. All of them show up in one list with a badge for where each one lives." } },
+      { "@type": "Question", "name": "Can I see which model an agent uses?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Each agent shows a model badge parsed from its frontmatter, so you can tell at a glance whether it runs on Opus, Sonnet, Haiku, or inherits the session model — without opening the file." } },
+      { "@type": "Question", "name": "Does this change how agents run?", "acceptedAnswer": { "@type": "Answer", "text": "No. The extension only reads and displays your agent files. Agents still run through Claude Code exactly as before — this is a browser for what already exists on disk." } },
+      { "@type": "Question", "name": "Is it 100% local?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Claude Code Manager reads your local ~/.claude/ and project .claude/ directories and renders in a VS Code webview under a strict CSP. No network calls, no telemetry, no credentials stored." } }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <main id="main" class="page">
+
+    <section class="sheet sheet-hero">
+      <nav class="nav" aria-label="Primary">
+        <a class="brand" href="/"><img src="/assets/icon.svg" width="22" height="22" alt="" aria-hidden="true"><span>Claude Code Manager</span></a>
+        <div class="nav-links">
+          <a href="/sessions/">Sessions</a>
+          <a href="/skills/">Skills</a>
+          <a href="/mcp/">MCP</a>
+          <a href="/#faq">FAQ</a>
+        </div>
+        <a class="nav-cta" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install</a>
+      </nav>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="hero-kicker">Free · open source · 100% local</p>
+          <h1>The Claude Code <em class="serif" data-scramble>agents manager</em> for VS&nbsp;Code.</h1>
+          <p class="lede">Every Claude Code subagent — project, plugin, and global — in one sidebar, each tagged with its scope and the model it runs on. No hunting through <code>.claude/agents/</code> to remember what you built.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+            <a class="btn btn-ghost" href="/">See everything it does</a>
+          </div>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/screenshots/06-agents.webp" width="760" height="1128" alt="Claude Code agents manager sidebar listing project and plugin subagents with model badges and scope" loading="eager" fetchpriority="high">
+        </figure>
+      </div>
+    </section>
+
+    <section class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">AGENTS:</p>
+        <h2>Your subagents are files too. <em class="serif">See them all at once.</em></h2>
+        <p class="sec-sub">Claude Code loads agents from your project, your installed plugins, and your global config. The extension reads every scope and puts them in one browsable list.</p>
+      </header>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Every scope in one list</h3>
+          <p>Project agents in <code>.claude/agents/</code>, agents shipped by plugins, and global agents in <code>~/.claude/</code> — normally scattered across directories. Here they sit together, each with a badge for where it comes from.</p>
+          <ul>
+            <li>Project, plugin, and global agents unified</li>
+            <li>Scope badge on every agent</li>
+            <li>Jump straight to the source file</li>
+          </ul>
+        </div>
+        <figure class="feat-shot"><img src="/assets/screenshots/06-agents.webp" alt="Claude Code subagents grouped by scope with model badges" loading="lazy" width="760" height="1128"></figure>
+      </article>
+
+      <article class="feat">
+        <div class="feat-copy">
+          <h3>Model badges, no file-opening</h3>
+          <p>Each agent shows the model it runs on, parsed from its frontmatter. Tell an Opus reviewer from a Haiku scout at a glance — before you delegate the wrong task to the wrong model.</p>
+          <ul>
+            <li>Opus / Sonnet / Haiku badge per agent</li>
+            <li>Inherited-model agents flagged clearly</li>
+            <li>Read-only: never rewrites your definitions</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="sheet sheet-light">
+      <header class="sec-head">
+        <p class="sec-tag">FAQ:</p>
+        <h2>Agent questions, <em class="serif">answered.</em></h2>
+      </header>
+      <div class="faq">
+        <details>
+          <summary>Where does it find my agents?</summary>
+          <p>Every scope Claude Code uses: project agents in <code>.claude/agents/</code>, plugin agents from installed plugins, and global agents in <code>~/.claude/agents/</code>. All in one list, each badged by scope.</p>
+        </details>
+        <details>
+          <summary>Can I see which model an agent uses?</summary>
+          <p>Yes. Each agent shows a model badge from its frontmatter — Opus, Sonnet, Haiku, or inherited — without opening the file.</p>
+        </details>
+        <details>
+          <summary>Does this change how agents run?</summary>
+          <p>No. The extension only reads and displays your agent files. They still run through Claude Code exactly as before.</p>
+        </details>
+        <details>
+          <summary>Is it 100% local?</summary>
+          <p>Yes. It reads your local <code>~/.claude/</code> and project <code>.claude/</code> and renders under a strict CSP. No network, no telemetry, no stored credentials.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="sheet sheet-cta">
+      <h2>Stop grepping <code>.claude/agents/</code>. <em class="serif">Just look.</em></h2>
+      <p>Free, open source, reads only your local <code>~/.claude/</code>.</p>
+      <div class="cta-row center">
+        <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Install for VS&nbsp;Code</a>
+        <a class="btn btn-ghost" href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p class="foot-links">
+        <a href="/">Home</a>
+        <a href="/sessions/">Sessions</a>
+        <a href="/usage/">Usage</a>
+        <a href="/accounts/">Accounts</a>
+        <a href="/mcp/">MCP</a>
+        <a href="/skills/">Skills</a>
+        <a href="/commands/">Commands</a>
+        <a href="/hooks/">Hooks</a>
+        <a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager" target="_blank" rel="noopener">Marketplace</a>
+        <a href="https://github.com/vishalguptax/claude-code-manager" target="_blank" rel="noopener">GitHub</a>
+      </p>
+      <p class="fine">Apache 2.0 © Vishal Gupta. Independent community project, not affiliated with Anthropic. <em>Claude</em> and <em>Claude Code</em> are trademarks of Anthropic, PBC.</p>
+    </footer>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
