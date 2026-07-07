@@ -273,6 +273,11 @@ export type ExtensionMessage =
    */
   | { type: "fullTextResults"; query: string; ids: string[] }
   /**
+   * Session IDs currently backed by a temp (ephemeral) run — the webview
+   * marks these rows with a "Temp" badge and offers "Make permanent".
+   */
+  | { type: "tempSessions"; ids: string[] }
+  /**
    * Sent after a `reloadAll` round-trip finishes (or after the
    * `claudeManager.reload` command runs). The webview clears its
    * browser-side caches (quota cache, full-text result echoes) and
@@ -299,6 +304,7 @@ export type WebviewMessage =
   | { type: "viewTerminal"; sessionId: string }
   | { type: "newSession" }
   | { type: "newTempSession" }
+  | { type: "promoteTempSession"; sessionId: string }
   | { type: "openProject"; projectPath: string }
   | { type: "forkSession"; sessionId: string }
   | { type: "pinSession"; sessionId: string }

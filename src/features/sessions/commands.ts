@@ -68,7 +68,7 @@ export async function newSession(): Promise<void> {
  * Requires a workspace folder: without a project path we cannot scope
  * the snapshot/diff that drives cleanup.
  */
-export async function newTempSession(): Promise<void> {
+export async function newTempSession(onCleaned?: () => void): Promise<void> {
   const ws = getWorkspace();
   if (!ws) {
     vscode.window.showWarningMessage(
@@ -77,7 +77,9 @@ export async function newTempSession(): Promise<void> {
     return;
   }
   const term = createTerminal("Claude (temp)", ws);
-  registerEphemeralTerminal(term, ws);
+  // onCleaned reparses + re-pushes the list on close, since the file watcher
+  // does not reliably observe cleanup's own unlink + history rewrite.
+  registerEphemeralTerminal(term, ws, onCleaned);
   term.show();
   term.sendText("claude");
 }

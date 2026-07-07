@@ -35,6 +35,7 @@ function renderItem(s: Session, props: Partial<Parameters<typeof SessionItem>[0]
       isSelected: false,
       bulkMode: false,
       hasOpenTerminal: false,
+      isTemp: false,
       isDiffProject: false,
       onSelect: noop,
       onResume: noop,
@@ -74,6 +75,14 @@ describe("SessionItem", () => {
     const { container } = renderItem(session({ id: "a", name: "My session" }));
     expect(container.querySelector(".item-name")?.textContent).toBe("My session");
     expect(container.querySelector(".item-prompt")?.textContent).toBe("do the thing");
+  });
+
+  it("renders a Temp badge only when isTemp", () => {
+    const plain = renderItem(session({ id: "a" }));
+    expect(plain.container.querySelector(".tag-temp")).toBeNull();
+
+    const temp = renderItem(session({ id: "b" }), { isTemp: true });
+    expect(temp.container.querySelector(".tag-temp")?.textContent).toBe("Temp");
   });
 
   it("renders a live dot with status when live", () => {

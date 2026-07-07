@@ -268,6 +268,14 @@ const terminalSessions = v.object({
   type: v.literal("terminalSessions"),
   ids: v.array(v.string()),
 });
+const tempSessions = v.object({
+  type: v.literal("tempSessions"),
+  ids: v.array(v.string()),
+});
+const promoteTempSession = v.object({
+  type: v.literal("promoteTempSession"),
+  sessionId: v.string(),
+});
 const viewTerminal = v.object({
   type: v.literal("viewTerminal"),
   sessionId: v.string(),
@@ -280,6 +288,7 @@ export const messageSchema = v.variant("type", [
   refresh,
   newSession,
   newTempSession,
+  promoteTempSession,
   continueLastSession,
   resumeSession,
   resumeMultiple,
@@ -381,6 +390,7 @@ export const messageSchema = v.variant("type", [
   openFile,
   sessionsDelta,
   terminalSessions,
+  tempSessions,
   viewTerminal,
   // === END SESSIONS MESSAGES ===
 ]);

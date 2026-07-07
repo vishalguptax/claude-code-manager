@@ -76,4 +76,19 @@ describe("buildSessionMenuItems", () => {
     const del = buildSessionMenuItems("sid", false).find((i) => i.label === "Delete session");
     expect(del?.danger).toBe(true);
   });
+
+  it("omits Make permanent for a non-temp session", () => {
+    const labels = buildSessionMenuItems("sid", false, false).map((i) => i.label);
+    expect(labels).not.toContain("Make permanent");
+  });
+
+  it("leads with Make permanent for a temp session and posts promoteTempSession", () => {
+    const items = buildSessionMenuItems("sid", false, true);
+    expect(items[0].label).toBe("Make permanent");
+    items[0].onSelect();
+    expect(post.mock.calls.at(-1)?.[0]).toEqual({
+      type: "promoteTempSession",
+      sessionId: "sid",
+    });
+  });
 });

@@ -24,6 +24,8 @@ import {
   cleanupEphemeral,
   setEphemeralStorage,
   sweepOrphans,
+  getTempSessionIds,
+  promoteTempSession,
 } from "../ephemeralSession";
 import { slugifyProjectPath } from "../../features/sessions/portable";
 
@@ -148,6 +150,88 @@ describe("cleanupEphemeral", () => {
       .split("\n")
       .map((l) => JSON.parse(l).sessionId);
     expect(ids).toEqual(["pre-existing"]);
+  });
+});
+
+/** Wire a fresh in-memory globalState seeded with the given pending entries. */
+function setPending(entries: unknown[]): Map<string, unknown> {
+  const store = new Map<string, unknown>();
+  store.set("claudeManager.pendingTempSessions", entries);
+  setEphemeralStorage({
+    get: (k: string, d?: unknown) => (store.has(k) ? store.get(k) : d),
+    update: async (k: string, v: unknown) => {
+      store.set(k, v);
+    },
+    keys: () => Array.from(store.keys()),
+  } as unknown as Parameters<typeof setEphemeralStorage>[0]);
+  return store;
+}
+
+describe("getTempSessionIds", () => {
+  beforeEach(setup);
+
+  it("returns new (post-snapshot) ids across pending entries, excluding promoted", () => {
+    writeSession("pre");
+    writeSession("temp-a");
+    writeSession("temp-b");
+    setPending([
+      {
+        slug: SLUG,
+        startedAt: Date.now() - 10_000,
+        snapshotIds: ["pre"],
+        promotedIds: ["temp-b"],
+      },
+    ]);
+
+    expect(getTempSessionIds().sort()).toEqual(["temp-a"]);
+  });
+
+  it("is empty when nothing is pending", () => {
+    setPending([]);
+    expect(getTempSessionIds()).toEqual([]);
+  });
+});
+
+describe("promoteTempSession", () => {
+  beforeEach(setup);
+
+  it("keeps a promoted session out of both the temp set and cleanup", () => {
+    writeSession("pre");
+    writeSession("keep-me");
+    writeSession("toss-me");
+    writeHistory([
+      { sessionId: "pre", display: "old" },
+      { sessionId: "keep-me", display: "keep" },
+      { sessionId: "toss-me", display: "toss" },
+    ]);
+    setPending([{ slug: SLUG, startedAt: Date.now() - 10_000, snapshotIds: ["pre"] }]);
+
+    expect(promoteTempSession("keep-me")).toBe(true);
+    // No longer badged as temp.
+    expect(getTempSessionIds().sort()).toEqual(["toss-me"]);
+
+    // Close-time cleanup must spare the promoted session, delete the rest.
+    cleanupEphemeral({
+      slug: SLUG,
+      startedAt: Date.now() - 10_000,
+      snapshotIds: ["pre"],
+      promotedIds: ["keep-me"],
+    });
+    expect(fs.existsSync(path.join(PROJECTS_DIR, SLUG, "keep-me.jsonl"))).toBe(true);
+    expect(fs.existsSync(path.join(PROJECTS_DIR, SLUG, "toss-me.jsonl"))).toBe(false);
+    const ids = fs
+      .readFileSync(HISTORY_FILE, "utf-8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l).sessionId)
+      .sort();
+    expect(ids).toEqual(["keep-me", "pre"]);
+  });
+
+  it("returns false for an unknown id", () => {
+    writeSession("pre");
+    setPending([{ slug: SLUG, startedAt: Date.now() - 10_000, snapshotIds: ["pre"] }]);
+    expect(promoteTempSession("nope")).toBe(false);
   });
 });
 

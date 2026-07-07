@@ -27,6 +27,7 @@ import {
   applyLiveState,
 } from "./parser";
 import { loadState } from "./state";
+import { getTempSessionIds } from "../../extension/ephemeralSession";
 import { CLAUDE_MANAGER_DIR, STATUSLINE_CACHE_FILE } from "../../core/config";
 import { getWorkspace } from "../../extension/workspace";
 import { parseAccountData } from "../account/parser";
@@ -282,6 +283,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
       stats: getStats(ctx.getSessions()),
     });
     wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
+    wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
     const warning = getLastParseWarning();
     if (warning) wv.postMessage({ type: "error", message: warning });
     ctx.buildSearchIndex();
@@ -352,6 +354,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
           stats: getStats(sessions),
         });
         wv.postMessage({ type: "projects", data: getUniqueProjects(sessions) });
+        wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
         ctx.buildSearchIndex();
       } catch (err) {
         console.warn("[claude-manager] sessions reparse failed:", err);

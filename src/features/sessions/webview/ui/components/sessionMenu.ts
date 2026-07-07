@@ -20,16 +20,30 @@ import {
   sendExportSession,
   sendForkSession,
   sendPinSession,
+  sendPromoteTemp,
   sendRenameSession,
   sendUnpinSession,
 } from "../../api";
 
 /**
  * Construct the ordered menu items for one session. `isPinned` flips the
- * pin/unpin row's label, icon, and target message — matching v1.
+ * pin/unpin row's label, icon, and target message — matching v1. `isTemp`
+ * adds a "Make permanent" action that keeps an ephemeral session's transcript.
  */
-export function buildSessionMenuItems(sessionId: string, isPinned: boolean): ContextMenuItem[] {
-  return [
+export function buildSessionMenuItems(
+  sessionId: string,
+  isPinned: boolean,
+  isTemp = false,
+): ContextMenuItem[] {
+  const items: ContextMenuItem[] = [];
+  if (isTemp) {
+    items.push({
+      label: "Make permanent",
+      icon: "save",
+      onSelect: () => sendPromoteTemp(sessionId),
+    });
+  }
+  items.push(
     {
       label: "Rename session",
       icon: "pencil",
@@ -70,5 +84,6 @@ export function buildSessionMenuItems(sessionId: string, isPinned: boolean): Con
       separatorBefore: true,
       onSelect: () => sendConfirmDelete(sessionId),
     },
-  ];
+  );
+  return items;
 }

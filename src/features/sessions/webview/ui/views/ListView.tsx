@@ -24,6 +24,7 @@ import {
   detailLoadingSignal,
   getFiltered,
   openTerminalsSignal,
+  tempSessionsSignal,
   pinnedSignal,
   searchQuerySignal,
   selectAll,
@@ -58,6 +59,7 @@ export function ListView() {
   const bulk = bulkModeSignal.value;
   const query = searchQuerySignal.value;
   const openTerminals = openTerminalsSignal.value;
+  const tempSessions = tempSessionsSignal.value;
   const currentProject = currentProjectSignal.value;
   const [menu, setMenu] = useState<MenuState | null>(null);
 
@@ -161,6 +163,7 @@ export function ListView() {
                 isSelected={selection.has(row.session.id)}
                 bulkMode={bulk}
                 hasOpenTerminal={openTerminals.has(row.session.id)}
+                isTemp={tempSessions.has(row.session.id)}
                 isDiffProject={Boolean(currentProject && row.session.projectKey !== currentProject)}
                 onSelect={openDetail}
                 onResume={resume}
@@ -177,7 +180,13 @@ export function ListView() {
         x={menu?.x ?? 0}
         y={menu?.y ?? 0}
         items={
-          menu ? buildSessionMenuItems(menu.sessionId, pinned.has(menu.sessionId)) : []
+          menu
+            ? buildSessionMenuItems(
+                menu.sessionId,
+                pinned.has(menu.sessionId),
+                tempSessions.has(menu.sessionId),
+              )
+            : []
         }
         onClose={() => setMenu(null)}
       />

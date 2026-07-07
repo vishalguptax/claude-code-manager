@@ -36,6 +36,7 @@ export type Message =
   | { type: "refresh" }
   | { type: "newSession" }
   | { type: "newTempSession" }
+  | { type: "promoteTempSession"; sessionId: string }
   | { type: "continueLastSession" }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
   | { type: "resumeMultiple"; sessionIds: string[]; projectPaths?: string[] }
@@ -143,6 +144,7 @@ export type Message =
   | { type: "agents"; data: unknown; errors?: string[] }
   | { type: "quotaData"; result: unknown }
   | { type: "terminalSessions"; ids: string[] }
+  | { type: "tempSessions"; ids: string[] }
   | { type: "viewTerminal"; sessionId: string }
   // === SESSIONS MESSAGES ===
   // Inbound (webview → host) session messages handled in
@@ -178,6 +180,7 @@ type WebviewMessageType =
   | "refresh"
   | "newSession"
   | "newTempSession"
+  | "promoteTempSession"
   | "continueLastSession"
   | "resumeSession"
   | "resumeMultiple"
@@ -286,4 +289,5 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "quotaData",
   "sessions.delta",
   "terminalSessions",
+  "tempSessions",
 ];

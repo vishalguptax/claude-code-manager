@@ -36,6 +36,12 @@ interface PendingTempSession {
   slug: string;
   startedAt: number;
   snapshotIds: string[];
+  /**
+   * Session IDs the user chose to keep ("Make permanent"). Excluded from both
+   * the temp-id set shown in the UI and the close-time cleanup, so a promoted
+   * session survives as a regular session.
+   */
+  promotedIds?: string[];
 }
 
 const STORAGE_KEY = "claudeManager.pendingTempSessions";
@@ -145,11 +151,56 @@ export function stripHistoryLines(ids: string[]): void {
 }
 
 /**
+ * The set of session IDs currently considered temp: for every pending entry,
+ * the IDs its close-time cleanup WOULD delete (same snapshot+mtime diff),
+ * minus any the user promoted to permanent. This is what the webview marks
+ * with a "Temp" badge — no separate id bookkeeping needed, the cleanup logic
+ * IS the source of truth.
+ */
+export function getTempSessionIds(): string[] {
+  const out = new Set<string>();
+  for (const entry of readPending()) {
+    const promoted = new Set(entry.promotedIds ?? []);
+    for (const id of findEphemeralSessions(entry.slug, entry.snapshotIds, entry.startedAt)) {
+      if (!promoted.has(id)) out.add(id);
+    }
+  }
+  return [...out];
+}
+
+/**
+ * Promote a temp session to a regular one: mark its ID promoted on every
+ * pending entry that would otherwise clean it, so it is excluded from both the
+ * temp-id set and close-time deletion. Returns true if anything changed (the
+ * caller then re-pushes the session list). No-op for an unknown / already-
+ * promoted id.
+ */
+export function promoteTempSession(sessionId: string): boolean {
+  const pending = readPending();
+  let changed = false;
+  for (const entry of pending) {
+    const ids = findEphemeralSessions(entry.slug, entry.snapshotIds, entry.startedAt);
+    if (!ids.includes(sessionId)) continue;
+    const promoted = (entry.promotedIds ??= []);
+    if (!promoted.includes(sessionId)) {
+      promoted.push(sessionId);
+      changed = true;
+    }
+  }
+  if (changed) writePending(pending);
+  return changed;
+}
+
+/**
  * Delete every JSONL the temp run produced and prune history.jsonl.
- * Pure I/O — callable from the close handler and from sweep alike.
+ * Promoted (kept) sessions are excluded. Pure I/O — callable from the close
+ * handler and from sweep alike.
  */
 export function cleanupEphemeral(entry: PendingTempSession): void {
-  const ids = findEphemeralSessions(entry.slug, entry.snapshotIds, entry.startedAt);
+  const promoted = new Set(entry.promotedIds ?? []);
+  const ids = findEphemeralSessions(entry.slug, entry.snapshotIds, entry.startedAt).filter(
+    (id) => !promoted.has(id),
+  );
   for (const id of ids) {
     const file = path.join(PROJECTS_DIR, entry.slug, `${id}.jsonl`);
     try {
@@ -169,6 +220,7 @@ export function cleanupEphemeral(entry: PendingTempSession): void {
 export function registerEphemeralTerminal(
   term: vscode.Terminal,
   projectPath: string,
+  onCleaned?: () => void,
 ): vscode.Disposable {
   const slug = slugifyProjectPath(projectPath);
   const entry: PendingTempSession = {
@@ -183,13 +235,24 @@ export function registerEphemeralTerminal(
   const disp = vscode.window.onDidCloseTerminal((closed) => {
     if (closed !== term) return;
     try {
-      cleanupEphemeral(entry);
+      // Re-read the current entry so any "Make permanent" promotions recorded
+      // after registration are honored (the captured `entry` is stale).
+      const current =
+        readPending().find(
+          (p) => p.slug === entry.slug && p.startedAt === entry.startedAt,
+        ) ?? entry;
+      cleanupEphemeral(current);
     } finally {
       const remaining = readPending().filter(
         (p) => !(p.slug === entry.slug && p.startedAt === entry.startedAt),
       );
       writePending(remaining);
       disp.dispose();
+      // Cleanup mutates files but VS Code's FileSystemWatcher does not reliably
+      // deliver events for our own unlink + atomic history-rename, so the row
+      // would linger (and Resume would hit a deleted transcript). Tell the view
+      // to reparse + re-push explicitly.
+      onCleaned?.();
     }
   });
   return disp;

@@ -92,6 +92,13 @@ export function setOpenTerminals(ids: string[]): void {
   openTerminalsSignal.value = new Set(ids);
 }
 
+/** Session ids backed by a temp (ephemeral) run — rendered with a Temp badge. */
+export const tempSessionsSignal = signal<Set<string>>(new Set());
+
+export function setTempSessions(ids: string[]): void {
+  tempSessionsSignal.value = new Set(ids);
+}
+
 // ── Setters with derived side effects ──
 
 /**
@@ -434,4 +441,5 @@ export function _resetSessionsSignals(): void {
   selectionSignal.value = new Set();
   restoreWindowMinutesSignal.value = 30;
   openTerminalsSignal.value = new Set();
+  tempSessionsSignal.value = new Set();
 }

@@ -39,6 +39,7 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "bulkDeleteSessions", ids: ["1"] });
     roundTrip({ type: "bulkExportSessions", ids: ["1"] });
     roundTrip({ type: "searchFullText", query: "needle" });
+    roundTrip({ type: "promoteTempSession", sessionId: "s" });
   });
 
   it("accepts skills messages", () => {
@@ -175,6 +176,8 @@ describe("parseMessage — host to webview", () => {
     roundTrip({ type: "agents", data: [] });
     roundTrip({ type: "agents", data: [], errors: ["Failed to read agents dir: bad"] });
     roundTrip({ type: "quotaData", result: { ok: true } });
+    roundTrip({ type: "terminalSessions", ids: ["a", "b"] });
+    roundTrip({ type: "tempSessions", ids: ["t1", "t2"] });
   });
 
   it("accepts settings message with arbitrary extra keys", () => {

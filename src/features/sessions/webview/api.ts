@@ -30,6 +30,10 @@ export const sendNewSession = (): void => post({ type: "newSession" });
 /** Start an ephemeral session whose transcript is wiped on exit. */
 export const sendNewTempSession = (): void => post({ type: "newTempSession" });
 
+/** Keep a temp session — promote it to a regular (non-ephemeral) session. */
+export const sendPromoteTemp = (sessionId: string): void =>
+  post({ type: "promoteTempSession", sessionId });
+
 /** Continue the most recent session in the current workspace. */
 export const sendContinueLastSession = (): void => post({ type: "continueLastSession" });
 
