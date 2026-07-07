@@ -8,6 +8,7 @@
  * it, so payloads are already validated here.
  */
 import type { Message } from "../../../../shared/protocol/messages";
+import { maybeShowIntro } from "../../../../webview/shared/model";
 import type { Session, SessionDetail, SessionGroup, Stats } from "../../types";
 import { flattenGroups } from "../lib";
 import {
@@ -94,11 +95,15 @@ export function handleMessage(msg: Message): void {
         restoreWindowMinutes?: number;
         defaultFilter?: string;
         defaultProject?: string;
+        demoSeen?: boolean;
       };
       if (typeof m.restoreWindowMinutes === "number") {
         restoreWindowMinutesSignal.value = m.restoreWindowMinutes;
       }
       applyDefaultFilters(m.defaultFilter, m.defaultProject);
+      // First-run intro plays once per install; the host gates it via the
+      // persisted demoSeen flag carried on this settings push.
+      if (typeof m.demoSeen === "boolean") maybeShowIntro(m.demoSeen);
       break;
     }
     default:

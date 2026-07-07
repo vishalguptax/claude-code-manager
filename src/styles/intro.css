@@ -1,0 +1,100 @@
+/*
+ * First-run welcome overlay (src/webview/app/Intro). Renders inside the
+ * shared Modal, so the backdrop / dialog chrome comes from components.css;
+ * these rules own only the welcome content — header, the 8-surface grid,
+ * and the CTA. Theme-aware via --vscode-* vars (this is in-app UI, unlike
+ * the exported share card, which carries its own fixed palette).
+ */
+
+.intro {
+  max-width: 30rem;
+}
+
+.intro-header {
+  margin-bottom: var(--space-4, 1rem);
+}
+
+.intro-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.intro-sub {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--vscode-descriptionForeground);
+}
+
+.intro-sub code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.8em;
+}
+
+.intro-grid {
+  list-style: none;
+  margin: 0 0 var(--space-4, 1rem);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.intro-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.08));
+  border: 1px solid var(--vscode-editorWidget-border, transparent);
+  /* Staggered entrance — --i is the tab's index, set inline. */
+  opacity: 0;
+  transform: translateY(6px);
+  animation: intro-item-in 0.32s ease forwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+.intro-item-icon {
+  flex: 0 0 auto;
+  color: var(--vscode-textLink-foreground, var(--vscode-foreground));
+  line-height: 0;
+  margin-top: 1px;
+}
+
+.intro-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.intro-item-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.intro-item-blurb {
+  font-size: 0.75rem;
+  color: var(--vscode-descriptionForeground);
+}
+
+.intro-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@keyframes intro-item-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-item {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

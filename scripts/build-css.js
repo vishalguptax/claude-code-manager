@@ -31,6 +31,7 @@ const FILES = [
   // tokens; the atom shimmer itself lives in base.css.
   "skeleton.css",
   "tabs.css",
+  "intro.css",
   "sessions.css",
   "skills.css",
   "commands.css",

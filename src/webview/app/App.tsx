@@ -8,6 +8,7 @@ import { activeTab } from "../shared/model";
 import { hostBusy } from "../shared/model/hostBusy";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Footer } from "./Footer";
+import { Intro } from "./Intro";
 import { TabBar, TabPanel } from "./tabs";
 
 export function App() {
@@ -26,6 +27,8 @@ export function App() {
       {/* Shell chrome, not feature content — visible on every tab, not just
           Sessions (where it lived before this was the app's shared footer). */}
       <Footer />
+      {/* First-run welcome; renders nothing once seen (auto-plays once). */}
+      <Intro />
     </ErrorBoundary>
   );
 }

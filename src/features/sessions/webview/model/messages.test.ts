@@ -130,4 +130,20 @@ describe("sessions message handling", () => {
     handleMessage({ type: "tempSessions", ids: [] } as Message);
     expect(tempSessionsSignal.value.size).toBe(0);
   });
+
+  it("opens the first-run intro when settings carries demoSeen=false", async () => {
+    const { introVisible, _resetIntro } = await import("../../../../webview/shared/model");
+    _resetIntro();
+    handleMessage({ type: "settings", demoSeen: false } as unknown as Message);
+    expect(introVisible.value).toBe(true);
+    _resetIntro();
+  });
+
+  it("leaves the intro closed when settings carries demoSeen=true", async () => {
+    const { introVisible, _resetIntro } = await import("../../../../webview/shared/model");
+    _resetIntro();
+    handleMessage({ type: "settings", demoSeen: true } as unknown as Message);
+    expect(introVisible.value).toBe(false);
+    _resetIntro();
+  });
 });
