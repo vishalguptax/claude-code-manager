@@ -28,7 +28,6 @@ import {
   getBranchOptions,
   getProjectOptions,
   searchQuerySignal,
-  visibleCountSignal,
 } from "../../model";
 
 /**
@@ -53,7 +52,6 @@ function SearchBox() {
   const onQuery = (raw: string): void => {
     const q = raw.toLowerCase();
     searchQuerySignal.value = q;
-    visibleCountSignal.value = 30;
     if (q.length >= FULLTEXT_MIN_CHARS) sendSearchFullText(q);
     else clearFullTextHits();
   };
@@ -96,7 +94,6 @@ function ProjectSelect() {
         // previous project would have zero matching sessions here.
         filterProjectSignal.value = next;
         filterBranchSignal.value = "all";
-        visibleCountSignal.value = 30;
       }}
     />
   );
@@ -124,7 +121,6 @@ function BranchSelect() {
       options={options}
       onChange={(next) => {
         filterBranchSignal.value = next;
-        visibleCountSignal.value = 30;
       }}
     />
   );
@@ -139,7 +135,6 @@ function DateChips() {
         options={DATE_OPTIONS}
         onChange={(next) => {
           filterDateSignal.value = next;
-          visibleCountSignal.value = 30;
         }}
       />
     </div>

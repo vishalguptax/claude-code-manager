@@ -45,6 +45,9 @@ export interface SessionItemProps {
   isSelected: boolean;
   bulkMode: boolean;
   hasOpenTerminal: boolean;
+  /** True when this row is backed by a temp (ephemeral) run — its transcript
+   * is deleted when the terminal closes unless promoted to permanent. */
+  isTemp: boolean;
   /**
    * True when this session belongs to a different project than the current
    * workspace. Resuming isn't possible from the row in that case — the detail
@@ -67,6 +70,7 @@ export function SessionItem({
   isSelected,
   bulkMode,
   hasOpenTerminal,
+  isTemp,
   isDiffProject,
   onSelect,
   onResume,
@@ -174,6 +178,14 @@ export function SessionItem({
       ) : null}
 
       <div class="item-row2">
+        {isTemp ? (
+          <span
+            class="tag tag-temp"
+            title="Temp session — its transcript is deleted when the terminal closes. Right-click → Make permanent to keep it."
+          >
+            Temp
+          </span>
+        ) : null}
         {branch ? (
           <span class="tag" title={branch}>
             {branch}

@@ -15,15 +15,16 @@
  */
 import { useEffect, useState } from "preact/hooks";
 import { Button, ContextMenu, EmptyState, VirtualList } from "../../../../../webview/shared/ui";
-import { buildRows } from "../../lib";
 import {
   bulkModeSignal,
   clearFullTextHits,
   clearSelection,
   currentProjectSignal,
   detailLoadingSignal,
-  getFiltered,
+  filteredSignal,
   openTerminalsSignal,
+  rowsSignal,
+  tempSessionsSignal,
   pinnedSignal,
   searchQuerySignal,
   selectAll,
@@ -50,7 +51,7 @@ interface MenuState {
 }
 
 export function ListView() {
-  const filtered = getFiltered();
+  const filtered = filteredSignal.value;
   const total = filtered.length;
   const pinned = pinnedSignal.value;
   const selectedId = selectedIdSignal.value;
@@ -58,10 +59,11 @@ export function ListView() {
   const bulk = bulkModeSignal.value;
   const query = searchQuerySignal.value;
   const openTerminals = openTerminalsSignal.value;
+  const tempSessions = tempSessionsSignal.value;
   const currentProject = currentProjectSignal.value;
   const [menu, setMenu] = useState<MenuState | null>(null);
 
-  const rows = buildRows(filtered, pinned);
+  const rows = rowsSignal.value;
 
   // Bulk-mode keyboard shortcuts, scoped to bulk mode so they're inert
   // otherwise. Ignored when focus is in an input/textarea (verbatim v1 listView
@@ -78,7 +80,7 @@ export function ListView() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         if (inField) return;
         e.preventDefault();
-        selectAll(getFiltered().map((s) => s.id));
+        selectAll(filteredSignal.value.map((s) => s.id));
       } else if (e.key === "Escape") {
         if (inField) return;
         clearSelection();
@@ -161,6 +163,7 @@ export function ListView() {
                 isSelected={selection.has(row.session.id)}
                 bulkMode={bulk}
                 hasOpenTerminal={openTerminals.has(row.session.id)}
+                isTemp={tempSessions.has(row.session.id)}
                 isDiffProject={Boolean(currentProject && row.session.projectKey !== currentProject)}
                 onSelect={openDetail}
                 onResume={resume}
@@ -177,7 +180,13 @@ export function ListView() {
         x={menu?.x ?? 0}
         y={menu?.y ?? 0}
         items={
-          menu ? buildSessionMenuItems(menu.sessionId, pinned.has(menu.sessionId)) : []
+          menu
+            ? buildSessionMenuItems(
+                menu.sessionId,
+                pinned.has(menu.sessionId),
+                tempSessions.has(menu.sessionId),
+              )
+            : []
         }
         onClose={() => setMenu(null)}
       />

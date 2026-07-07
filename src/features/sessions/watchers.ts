@@ -27,6 +27,7 @@ import {
   applyLiveState,
 } from "./parser";
 import { loadState } from "./state";
+import { getTempSessionIds } from "../../extension/ephemeralSession";
 import { CLAUDE_MANAGER_DIR, STATUSLINE_CACHE_FILE } from "../../core/config";
 import { getWorkspace } from "../../extension/workspace";
 import { parseAccountData } from "../account/parser";
@@ -69,6 +70,18 @@ export interface WatcherContext {
  */
 const TRANSCRIPT_FLOOD_THRESHOLD = 10;
 
+/** Trailing-debounce window for the session reparse. */
+const SESSIONS_REPARSE_DEBOUNCE_MS = 1000;
+/**
+ * Hard ceiling on how long the reparse may be deferred once a burst starts. A
+ * live session appends its transcript roughly once a second, so a pure trailing
+ * debounce at ~append cadence either starves (never fires while generating) or
+ * fires on every append. Capping the wait flushes at a bounded interval under
+ * sustained writes so the list + usage stay fresh mid-generation without
+ * reparsing on every single append.
+ */
+const SESSIONS_REPARSE_MAX_WAIT_MS = 3000;
+
 /**
  * Extract `<sessionId>` from `…/projects/<slug>/<sessionId>.jsonl`.
  * Returns null when the path is not a transcript file (e.g. history.jsonl
@@ -90,6 +103,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   const watchers: vscode.FileSystemWatcher[] = [];
   let accountReparseTimer: NodeJS.Timeout | undefined;
   let sessionsReparseTimer: NodeJS.Timeout | undefined;
+  let sessionsBurstStartedAt = 0;
   let quotaCacheTimer: NodeJS.Timeout | undefined;
   const pendingSessionPaths = new Set<string>();
 
@@ -282,15 +296,15 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
       stats: getStats(ctx.getSessions()),
     });
     wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
+    wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
     const warning = getLastParseWarning();
     if (warning) wv.postMessage({ type: "error", message: warning });
     ctx.buildSearchIndex();
   };
 
-  const onSessionChange = (uri: vscode.Uri): void => {
-    pendingSessionPaths.add(uri.fsPath);
-    if (sessionsReparseTimer) clearTimeout(sessionsReparseTimer);
-    sessionsReparseTimer = setTimeout(() => {
+  const runSessionsReparse = (): void => {
+    sessionsReparseTimer = undefined;
+    {
       const paths = Array.from(pendingSessionPaths);
       pendingSessionPaths.clear();
       const wv = ctx.getWebview();
@@ -352,6 +366,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
           stats: getStats(sessions),
         });
         wv.postMessage({ type: "projects", data: getUniqueProjects(sessions) });
+        wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
         ctx.buildSearchIndex();
       } catch (err) {
         console.warn("[claude-manager] sessions reparse failed:", err);
@@ -367,7 +382,22 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
           void pushAccountUsage();
         }
       }
-    }, 1000);
+    }
+  };
+
+  const onSessionChange = (uri: vscode.Uri): void => {
+    pendingSessionPaths.add(uri.fsPath);
+    const now = Date.now();
+    if (sessionsReparseTimer) clearTimeout(sessionsReparseTimer);
+    else sessionsBurstStartedAt = now;
+    // Trailing debounce, capped so a continuous append stream can't defer the
+    // flush past SESSIONS_REPARSE_MAX_WAIT_MS since the burst began.
+    const waited = now - sessionsBurstStartedAt;
+    const delay = Math.max(
+      0,
+      Math.min(SESSIONS_REPARSE_DEBOUNCE_MS, SESSIONS_REPARSE_MAX_WAIT_MS - waited),
+    );
+    sessionsReparseTimer = setTimeout(runSessionsReparse, delay);
   };
 
   const historyWatcher = vscode.workspace.createFileSystemWatcher(historyPattern);

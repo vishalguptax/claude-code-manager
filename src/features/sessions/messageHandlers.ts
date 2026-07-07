@@ -46,6 +46,7 @@ import {
   exportSessionFile,
   bulkExportSessionFiles,
   importSessionFile,
+  importMultipleSessionFiles,
   resolveClaudeTarget,
 } from "./commands";
 import {
@@ -53,6 +54,7 @@ import {
   openPromptInExtension,
 } from "../../extension/claudeCodeExtension";
 import { createTerminal } from "../../extension/terminal";
+import { getTempSessionIds, promoteTempSession } from "../../extension/ephemeralSession";
 import { handleFeatureMessage } from "./featureHandlers";
 import { handleAccountMessage } from "./accountHandlers";
 import { handleSettingsMessage } from "./settingsHandlers";
@@ -219,6 +221,27 @@ function makeAgentHost(ctx: HostContext): AgentHostContext {
 }
 
 /**
+ * Reparse the corpus and re-push the session list (list + projects + temp-id
+ * set + search index). Shared by the flows that mutate transcripts/history
+ * outside the file-watcher's reliable reach — import and temp-session cleanup
+ * / promotion — so the row set never depends on a watcher event landing.
+ */
+function reparseAndPushSessions(ctx: HostContext): void {
+  ctx.setSessions(parseSessions(loadState().renames));
+  const wv = ctx.getWebview();
+  if (!wv) return;
+  ctx.postWorkspacePath();
+  wv.postMessage({
+    type: "sessions",
+    data: groupSessions(ctx.getSessions()),
+    stats: getStats(ctx.getSessions()),
+  });
+  wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
+  wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
+  ctx.buildSearchIndex();
+}
+
+/**
  * Handle the core session-list / detail / lifecycle messages plus the
  * generic file-open. Returns true when the message was handled.
  */
@@ -243,6 +266,7 @@ async function handleSessionMessage(
       wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
       wv.postMessage({ type: "userState", ...loadState() });
       wv.postMessage({ type: "terminalSessions", ids: ctx.terminals.ids() });
+      wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
       const warning = getLastParseWarning();
       if (warning) wv.postMessage({ type: "error", message: warning });
       // Kick off the full-text index in the background — the webview
@@ -294,11 +318,13 @@ async function handleSessionMessage(
       break;
 
     case "searchFullText": {
-      // Transcript content search runs synchronously on the pre-built
-      // lowercased index. The reply carries the echo-query so the webview
-      // can drop stale results if the user has since typed more.
-      const ids = searchContent(msg.query);
-      wv.postMessage({ type: "fullTextResults", query: msg.query, ids });
+      // Transcript content search scans the pre-built lowercased index, yielding
+      // periodically so a large index doesn't block the host. The reply carries
+      // the echo-query so the webview can drop stale results if the user has
+      // since typed more.
+      const ids = await searchContent(msg.query);
+      // The webview may have been torn down while we yielded.
+      ctx.getWebview()?.postMessage({ type: "fullTextResults", query: msg.query, ids });
       break;
     }
 
@@ -361,8 +387,17 @@ async function handleSessionMessage(
       break;
 
     case "newTempSession":
-      await newTempSession();
+      await newTempSession(() => reparseAndPushSessions(ctx));
       break;
+
+    case "promoteTempSession": {
+      // Keep this temp session as a regular one, then re-push so its "Temp"
+      // badge + "Make permanent" action drop immediately.
+      if (promoteTempSession(msg.sessionId)) {
+        wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
+      }
+      break;
+    }
 
     case "continueLastSession":
       await continueLastSession(ctx.getSessions());
@@ -496,23 +531,15 @@ async function handleSessionMessage(
       break;
 
     case "importSession":
-      await importSessionFile(ctx.getSessions(), () => {
-        // Re-parse so the imported session shows up in the list. We
-        // route through the existing reload path instead of duplicating
-        // the message-build logic — this also re-posts workspace path
-        // and surfaces any schema-drift warning.
-        ctx.setSessions(parseSessions(loadState().renames));
-        const wv2 = ctx.getWebview();
-        if (!wv2) return;
-        ctx.postWorkspacePath();
-        wv2.postMessage({
-          type: "sessions",
-          data: groupSessions(ctx.getSessions()),
-          stats: getStats(ctx.getSessions()),
-        });
-        wv2.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
-        ctx.buildSearchIndex();
-      });
+      // Re-parse so the imported session shows up in the list. The shared
+      // helper also re-posts workspace path + temp ids and rebuilds the index.
+      await importSessionFile(ctx.getSessions(), () => reparseAndPushSessions(ctx));
+      break;
+
+    case "importMultipleSessions":
+      // Bulk import (zip and/or loose jsonl). Same reload callback so every
+      // imported session appears; no terminals are launched.
+      await importMultipleSessionFiles(ctx.getSessions(), () => reparseAndPushSessions(ctx));
       break;
 
     case "openUrl":

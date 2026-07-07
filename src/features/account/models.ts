@@ -202,10 +202,10 @@ export function discoverModelsFromCli(): DiscoveredModel[] {
 }
 
 /**
- * Scan one CLI file body for `claude-{family}-{major}[-{minor}]` model IDs,
- * folding hits into the shared `seen` map. Called once per candidate so each
- * (large — the native binary is ~236 MB) body can be freed before the next
- * read, keeping peak memory to a single file instead of all of them.
+ * Scan one text slice for `claude-{family}-{major}[-{minor}]` model IDs,
+ * folding hits into the shared `seen` map. Called once per streamed chunk by
+ * {@link scanFileInto}; `seen` dedupes across chunks and candidates so the
+ * inter-chunk overlap never double-counts.
  */
 /**
  * Strings that fit the claude-{word}-{digit} shape but are not model
@@ -259,6 +259,51 @@ function scanInto(content: string, seen: Map<string, DiscoveredModel>): void {
   }
 }
 
+/** Chunk size for the streaming binary scan. */
+const SCAN_CHUNK_BYTES = 4 * 1024 * 1024;
+/**
+ * Overlap carried between chunks so a model ID straddling a chunk boundary is
+ * still matched in the next pass. The longest ID is ~25 chars
+ * ("claude-{12-char family}-99-99"); 64 is a comfortable margin. scanInto
+ * dedupes by (family, versionNum), so re-seeing a match in the overlap can
+ * never double-count.
+ */
+const SCAN_OVERLAP_CHARS = 64;
+
+/**
+ * Read + scan one candidate CLI file in bounded chunks, folding model-ID hits
+ * into `seen`. Streaming (rather than a single `readFile`) keeps peak memory to
+ * one chunk instead of the whole ~236 MB binary, and — critically — the
+ * `setImmediate` yield between chunks hands the event loop back so queued
+ * webview messages (getAccountData, quotaData, the Config panel's reads) are
+ * not starved while a large binary is regex-scanned. Doing the scan in one
+ * synchronous pass blocked the host for minutes, leaving the Account/Config
+ * panels stuck on their loading skeletons.
+ */
+async function scanFileInto(
+  filePath: string,
+  seen: Map<string, DiscoveredModel>,
+): Promise<void> {
+  const handle = await fs.promises.open(filePath, "r");
+  try {
+    const buf = Buffer.allocUnsafe(SCAN_CHUNK_BYTES);
+    let carry = "";
+    for (;;) {
+      const { bytesRead } = await handle.read(buf, 0, SCAN_CHUNK_BYTES, null);
+      if (bytesRead === 0) break;
+      // Read as latin1 so binary bytes round-trip as single-byte chars,
+      // keeping the regex valid on both JS source and native binaries.
+      const text = carry + buf.toString("latin1", 0, bytesRead);
+      scanInto(text, seen);
+      carry = text.slice(-SCAN_OVERLAP_CHARS);
+      // Yield so message handling interleaves with the CPU-heavy regex pass.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  } finally {
+    await handle.close();
+  }
+}
+
 /** Order newest-first and mark the newest of each family as the alias target. */
 function finalizeModels(seen: Map<string, DiscoveredModel>): DiscoveredModel[] {
   // Sort newest to oldest across all families — the user scans the
@@ -298,9 +343,9 @@ export async function warmModelCache(): Promise<DiscoveredModel[]> {
     const fingerprints: typeof scannedCandidates = [];
     for (const cliPath of candidates) {
       try {
-        // Read as latin1 so binary bytes round-trip as single-byte chars,
-        // keeping the regex valid on both JS source and native binaries.
-        scanInto(await fs.promises.readFile(cliPath, "latin1"), seen);
+        // Streamed + yielding so a ~236 MB binary scan never monopolises the
+        // event loop (see scanFileInto).
+        await scanFileInto(cliPath, seen);
         const st = await fs.promises.stat(cliPath);
         fingerprints.push({ path: cliPath, mtimeMs: st.mtimeMs, size: st.size });
       } catch {

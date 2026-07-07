@@ -178,6 +178,31 @@ describe("discoverModelsFromCli", () => {
     expect(families).toEqual(["opus"]);
   });
 
+  it("streams a multi-chunk binary and catches an ID straddling a chunk boundary", async () => {
+    // Regression: the scan used to readFile the whole ~236 MB binary and regex
+    // it in one synchronous pass, blocking the host event loop for minutes
+    // (Account/Config panels hung on their skeletons). It now streams in 4 MiB
+    // chunks with an inter-chunk overlap. Prove a model ID that lands exactly
+    // on a chunk boundary is still discovered.
+    const home = fs.mkdtempSync(path.join(tmpRoot, "big-home-"));
+    ctx.home = home;
+    const binary = pkgRootBinary(
+      nodeModulesLayout(path.join(home, ".claude", "local")),
+      "linux-x64",
+    );
+    fs.mkdirSync(path.dirname(binary), { recursive: true });
+
+    const CHUNK = 4 * 1024 * 1024;
+    const id = "claude-opus-4-8";
+    // ID starts 8 bytes before the first chunk boundary, so it spans chunk 1
+    // and chunk 2. Non-word bytes on both sides satisfy the scanner's \b.
+    const content = " ".repeat(CHUNK - 8) + ` ${id} ` + " ".repeat(2048);
+    fs.writeFileSync(binary, content, "latin1");
+
+    const models = await warmModelCache();
+    expect(models.map((m) => m.id)).toContain(id);
+  });
+
   it("falls back to npm global root when ~/.claude/local is missing", async () => {
     const npmRoot = fs.mkdtempSync(path.join(tmpRoot, "npm-root-"));
     ctx.execImpl = (cmd: string) => {

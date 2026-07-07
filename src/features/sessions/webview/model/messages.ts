@@ -24,6 +24,7 @@ import {
   setDeleted,
   setFullTextHits,
   setOpenTerminals,
+  setTempSessions,
   setPinned,
   setWorkspacePath,
   statsSignal,
@@ -76,6 +77,9 @@ export function handleMessage(msg: Message): void {
       break;
     case "fullTextResults":
       setFullTextHits(msg.query, msg.ids);
+      break;
+    case "tempSessions":
+      setTempSessions(msg.ids);
       break;
     case "terminalSessions":
       setOpenTerminals(msg.ids);

@@ -117,6 +117,12 @@ export function _fireTerminalClose(t: unknown): void {
   for (const l of _terminalCloseListeners) l(t);
 }
 
+const _shellExecStartListeners: Array<(e: { terminal: unknown }) => void> = [];
+
+export function _fireShellExecutionStart(terminal: unknown): void {
+  for (const l of _shellExecStartListeners) l({ terminal });
+}
+
 interface MockTabGroup {
   viewColumn: number;
   tabs: MockTab[];
@@ -149,6 +155,17 @@ export const window = {
   onDidOpenTerminal: (_listener: (t: unknown) => void): MockDisposable => ({
     dispose: () => {},
   }),
+  onDidStartTerminalShellExecution: (
+    listener: (e: { terminal: unknown }) => void,
+  ): MockDisposable => {
+    _shellExecStartListeners.push(listener);
+    return {
+      dispose: () => {
+        const idx = _shellExecStartListeners.indexOf(listener);
+        if (idx >= 0) _shellExecStartListeners.splice(idx, 1);
+      },
+    };
+  },
   onDidCloseTerminal: (listener: (t: unknown) => void): MockDisposable => {
     _terminalCloseListeners.push(listener);
     return {

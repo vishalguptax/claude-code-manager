@@ -70,6 +70,7 @@ import {
   filterSessions,
   getLastParseWarning,
   reparseOneSession,
+  reparseSessionsBatch,
   invalidateSessionMetaCache,
   clearMetaCaches,
   clearOrphanCache,
@@ -527,6 +528,22 @@ describe("applyLiveState", () => {
     ]);
     expect(applyLiveState(sessions, live)).toBe(true);
     expect(sessions[0].status).toBe("idle");
+  });
+
+  it("a heartbeat-only bump (updatedAt changes, status/isLive same) does NOT flag a push", () => {
+    // The CLI heartbeats every few seconds, bumping updatedAt without changing
+    // liveness or status. Treating that as 'changed' re-serialized + re-pushed
+    // the whole session tree on every heartbeat. It must return false while
+    // still keeping liveUpdatedAt current for internal correctness.
+    const sessions = [mkSession("s1", true, "busy")];
+    sessions[0].liveUpdatedAt = 100;
+    const live = new Map([
+      ["s1", { pid: 1, status: "busy", updatedAt: 250 }],
+    ]);
+    expect(applyLiveState(sessions, live)).toBe(false);
+    expect(sessions[0].liveUpdatedAt).toBe(250);
+    expect(sessions[0].status).toBe("busy");
+    expect(sessions[0].isLive).toBe(true);
   });
 
   it("skips orphan files that have no user messages (empty / queue-only shells)", () => {
@@ -1286,6 +1303,19 @@ describe("groupSessions", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].label).toBe("Today");
   });
+
+  it("trims prompts to the first for the webview payload without mutating the input", () => {
+    const now = Date.now();
+    const input = makeSession("a", now);
+    input.prompts = ["first prompt", "second (huge)", "third"];
+
+    const groups = groupSessions([input]);
+    const shipped = groups[0].sessions[0];
+    // Payload carries only prompts[0] (the sole field the list renders).
+    expect(shipped.prompts).toEqual(["first prompt"]);
+    // The host's own session object is untouched — searchSessions still works.
+    expect(input.prompts).toEqual(["first prompt", "second (huge)", "third"]);
+  });
 });
 
 describe("getStats", () => {
@@ -1505,6 +1535,49 @@ describe("reparseOneSession", () => {
     clearMetaCaches();
 
     expect(parseSessions().find((s) => s.id === "rep-3")?.branch).toBe("new");
+  });
+});
+
+describe("reparseSessionsBatch — stale directory index recovery", () => {
+  beforeEach(setup);
+
+  it("recovers a brand-new session whose create did not bump the subdir mtime", () => {
+    clearMetaCaches();
+    const now = Date.now();
+    const subdir = path.join(PROJECTS_DIR, "cx-hash");
+    // Fixed, whole-second timestamp so setting it before priming and again
+    // after the new file lands is byte-for-byte identical — no sub-second
+    // truncation that would accidentally look "changed" and force a rebuild.
+    const frozen = new Date(Math.floor((now - 5 * 86400000) / 1000) * 1000);
+
+    // Existing session A in the project subdir — prime the sessionId->path index.
+    writeHistoryEntry({ display: "a", timestamp: now, project: "/projects/cx", sessionId: "cx-a" });
+    writeSessionFile("cx-hash", "cx-a", [
+      { gitBranch: "main", sessionId: "cx-a" },
+      { message: { role: "user", content: "a" }, timestamp: new Date(now).toISOString() },
+    ]);
+    fs.utimesSync(subdir, frozen, frozen);
+    parseSessions(); // caches the subdir mtime (= frozen) in the file index
+
+    // A new session B lands in the SAME subdir. Simulate a coarse-mtime
+    // filesystem (NFS/SMB/exFAT/WSL) by pinning the subdir mtime back to the
+    // exact value the index cached, so its freshness check wrongly passes and
+    // the cached index omits cx-b.
+    writeHistoryEntry({ display: "b", timestamp: now + 1, project: "/projects/cx", sessionId: "cx-b" });
+    writeSessionFile("cx-hash", "cx-b", [
+      { gitBranch: "feature", sessionId: "cx-b" },
+      { message: { role: "user", content: "b" }, timestamp: new Date(now + 1).toISOString() },
+    ]);
+    fs.utimesSync(subdir, frozen, frozen);
+
+    // Targeted watcher path. Without the force-rebuild-on-miss guard, the
+    // stale index misses cx-b, anyKnown stays false, and the new session is
+    // dropped (mapped to null).
+    const batch = reparseSessionsBatch(["cx-b"]);
+    const fresh = batch.get("cx-b");
+    expect(fresh).not.toBeNull();
+    expect(fresh!.id).toBe("cx-b");
+    expect(fresh!.branch).toBe("feature");
   });
 });
 

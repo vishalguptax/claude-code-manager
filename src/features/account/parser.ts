@@ -22,6 +22,7 @@ import * as os from "os";
 import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
 import { readCredentials } from "./credentials";
+import { readClaudeJsonParsed } from "./claudeJsonCache";
 import { computeUsageStats } from "./usage";
 import { readStatuslineCache } from "./quota";
 import { resolveActiveModel } from "./statuslineCore";
@@ -70,7 +71,9 @@ function readClaudeJson(): {
     }
   };
 
-  const primary = tryParse(CLAUDE_JSON);
+  // Primary read goes through the mtime/size cache so the several reads a
+  // single account-watcher tick makes don't each re-parse the multi-MB file.
+  const primary = readClaudeJsonParsed();
   if (primary) return { data: primary, primaryCorrupted: false };
 
   // Primary file is empty / corrupt / missing — walk the backups

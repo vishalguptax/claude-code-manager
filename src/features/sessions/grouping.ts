@@ -26,6 +26,21 @@ function getDateGroup(timestamp: number): string {
 }
 
 /**
+ * Trim a session to what the LIST needs before it crosses the postMessage
+ * boundary. The list renders only `prompts[0]`, and its search runs off the
+ * pre-lowered `searchHaystack`; the full `prompts` array (each entry can be
+ * 50 KB+) is never read webview-side and only bloats the serialized payload
+ * and the webview's retained copy. The host keeps the full array in its own
+ * cache (`ctx.getSessions()`), so the `search` message's `searchSessions`
+ * capability is unaffected. Sessions with a single prompt pass through
+ * unchanged (no needless clone).
+ */
+function trimForList(s: Session): Session {
+  if (s.prompts.length <= 1) return s;
+  return { ...s, prompts: [s.prompts[0]] };
+}
+
+/**
  * Group sessions by date label (Today, Yesterday, This Week, This Month, Older).
  * Groups are returned in chronological order; only non-empty groups are included.
  */
@@ -36,7 +51,7 @@ export function groupSessions(sessions: Session[]): SessionGroup[] {
   for (const session of sessions) {
     const label = getDateGroup(session.endTime);
     const group = groups.get(label) ?? [];
-    group.push(session);
+    group.push(trimForList(session));
     groups.set(label, group);
   }
 

@@ -30,6 +30,10 @@ export const sendNewSession = (): void => post({ type: "newSession" });
 /** Start an ephemeral session whose transcript is wiped on exit. */
 export const sendNewTempSession = (): void => post({ type: "newTempSession" });
 
+/** Keep a temp session — promote it to a regular (non-ephemeral) session. */
+export const sendPromoteTemp = (sessionId: string): void =>
+  post({ type: "promoteTempSession", sessionId });
+
 /** Continue the most recent session in the current workspace. */
 export const sendContinueLastSession = (): void => post({ type: "continueLastSession" });
 
@@ -101,6 +105,10 @@ export const sendExportSession = (sessionId: string): void =>
 
 /** Import a portable session .jsonl. */
 export const sendImportSession = (): void => post({ type: "importSession" });
+
+/** Import many sessions at once from a .zip archive and/or several .jsonl files. */
+export const sendImportMultipleSessions = (): void =>
+  post({ type: "importMultipleSessions" });
 
 /** Open a chat tab pre-filled with a prompt. */
 export const sendLaunchChatWithPrompt = (prompt: string): void =>

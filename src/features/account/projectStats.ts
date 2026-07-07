@@ -31,6 +31,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { CLAUDE_DIR } from "../../core/config";
+import { LRU } from "../../core/lru";
 import { compareModelRecencyDesc, computeModelCost } from "../../core/pricing";
 import type {
   DailyActivity,
@@ -233,7 +234,15 @@ interface FileCacheEntry {
   size: number;
   entries: CompactEntry[];
 }
-const fileCache = new Map<string, FileCacheEntry>();
+/**
+ * Bound the per-file replay cache by file count, matching the sibling session
+ * caches. Without a cap this Map held one CompactEntry per transcript LINE for
+ * every file ever aggregated — the one cache in the codebase unbounded by
+ * session count (150-500 MB resident for a heavy, long-open install). Evicted
+ * files simply re-read on the next aggregate pass; totals are unaffected.
+ */
+const FILE_CACHE_MAX = 2000;
+const fileCache = new LRU<string, FileCacheEntry>(FILE_CACHE_MAX);
 
 /** In-flight background aggregation, deduped so bursts share one pass. */
 let warming: Promise<UsageAggregate> | null = null;

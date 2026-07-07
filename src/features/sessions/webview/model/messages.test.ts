@@ -122,4 +122,12 @@ describe("sessions message handling", () => {
     handleMessage({ type: "terminalSessions", ids: [] } as Message);
     expect(openTerminalsSignal.value.size).toBe(0);
   });
+
+  it("stores the temp-session id set from a tempSessions push", async () => {
+    const { tempSessionsSignal } = await import("./signals");
+    handleMessage({ type: "tempSessions", ids: ["t1", "t2"] } as Message);
+    expect([...tempSessionsSignal.value].sort()).toEqual(["t1", "t2"]);
+    handleMessage({ type: "tempSessions", ids: [] } as Message);
+    expect(tempSessionsSignal.value.size).toBe(0);
+  });
 });

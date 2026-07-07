@@ -50,4 +50,9 @@ describe("sessions api senders", () => {
     api.sendConfirmDelete("id", "cb");
     expect(post).toHaveBeenCalledWith({ type: "confirmDelete", sessionId: "id", callback: "cb" });
   });
+
+  it("sendImportMultipleSessions posts the bulk-import request", () => {
+    api.sendImportMultipleSessions();
+    expect(post).toHaveBeenCalledWith({ type: "importMultipleSessions" });
+  });
 });

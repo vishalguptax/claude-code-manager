@@ -8,7 +8,7 @@ import * as os from "os";
 import * as path from "path";
 import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
 import { setSessionStorage } from "../features/sessions/commands";
-import { setExtensionUri } from "./terminal";
+import { setExtensionUri, initTerminalReuseGuard } from "./terminal";
 import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
 import {
@@ -51,6 +51,12 @@ function timedStep(label: string, fn: () => void): void {
 
 export function activate(context: vscode.ExtensionContext): void {
   setExtensionUri(context.extensionUri);
+  // Protect every terminal alive right now (restored running `claude`
+  // sessions after a reload, pre-existing user terminals) from the
+  // empty-terminal reuse heuristic, and keep protecting any terminal the
+  // moment it runs a command. Without this, an action like MCP reconnect or
+  // login could inject `claude` + a slash command into a live session.
+  context.subscriptions.push(initTerminalReuseGuard());
   // Wire persistent storage into the sessions commands module so the
   // export/import dialogs can remember the last folder the user chose.
   setSessionStorage(context.globalState);

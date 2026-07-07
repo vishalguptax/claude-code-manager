@@ -188,6 +188,61 @@ describe("ClaudeSessionViewProvider", () => {
     expect(workspaceMsgs[workspaceMsgs.length - 1].data).toBe("/home/user/proj");
   });
 
+  it("re-posts the workspace path on ready after the webview is re-resolved", async () => {
+    // Regression: a webview recreation (window reload, panel move, context
+    // eviction) resets the webview's derived currentProject to empty, but the
+    // provider's workspace-path dedupe cache survives. If ready doesn't force a
+    // fresh post, the new webview never learns its project and the "This
+    // Project" filter silently shows every project's sessions.
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+
+    // Workspace is already open at resolve time (the common case).
+    ws.workspaceFolders = [
+      { uri: { fsPath: "/home/user/proj" }, name: "proj", index: 0 },
+    ];
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    // First webview lifecycle: ready delivers the path.
+    const first = makeFakeView();
+    provider.resolveWebviewView(first as unknown as vscode.WebviewView);
+    await first.webview._msgHandler!({ type: "ready" });
+    expect(
+      first.webview.posted.filter((m) => m.type === "workspacePath").map((m) => m.data),
+    ).toContain("/home/user/proj");
+
+    // Webview recreated with the SAME workspace. The dedupe cache must not
+    // suppress the re-post — the new webview starts with an empty project.
+    const second = makeFakeView();
+    provider.resolveWebviewView(second as unknown as vscode.WebviewView);
+    await second.webview._msgHandler!({ type: "ready" });
+    expect(
+      second.webview.posted.filter((m) => m.type === "workspacePath").map((m) => m.data),
+    ).toContain("/home/user/proj");
+  });
+
   it("refreshSettings posts the current settings message to the webview", async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],

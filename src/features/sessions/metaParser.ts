@@ -299,6 +299,19 @@ export function clearMetaCaches(): void {
   sessionFileIndex = null;
 }
 
+/**
+ * Drop only the `sessionId -> path` directory index (not the per-file meta
+ * LRU). Used to recover from a stale index on coarse-granularity filesystems
+ * (NFS/SMB/exFAT, some virtualized mounts) where creating a new transcript
+ * does not bump the parent subdirectory's mtime, so {@link getSessionFileIndex}
+ * would wrongly serve a cached index that omits the new file. Forcing a rebuild
+ * runs a fresh readdirSync, which reflects the true current directory contents
+ * regardless of mtime.
+ */
+export function invalidateSessionFileIndex(): void {
+  sessionFileIndex = null;
+}
+
 function computeSessionMeta(filePath: string): SessionMeta {
   const result = { branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "" };
   let fd: number;

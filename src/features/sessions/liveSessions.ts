@@ -331,15 +331,19 @@ export function applyLiveState(
     const nextIsLive = info !== undefined;
     const nextStatus = nextIsLive ? refineStatus(s.id, info?.status) : undefined;
     const nextUpdatedAt = info?.updatedAt ?? undefined;
-    if (
-      Boolean(s.isLive) !== nextIsLive ||
-      s.status !== nextStatus ||
-      s.liveUpdatedAt !== nextUpdatedAt
-    ) {
+    // Only a change to a field the UI actually renders (isLive / status) forces
+    // a re-push. The CLI heartbeats every few seconds, bumping `updatedAt`
+    // without changing liveness or status; treating that as "changed" made
+    // refreshLiveState re-serialize + re-push the ENTIRE grouped session tree
+    // on every heartbeat. `liveUpdatedAt` has no reader, so keep it current
+    // but do not let it, alone, trigger a push.
+    if (Boolean(s.isLive) !== nextIsLive || s.status !== nextStatus) {
       s.isLive = nextIsLive;
       s.status = nextStatus;
       s.liveUpdatedAt = nextUpdatedAt;
       changed = true;
+    } else if (s.liveUpdatedAt !== nextUpdatedAt) {
+      s.liveUpdatedAt = nextUpdatedAt;
     }
   }
   return changed;

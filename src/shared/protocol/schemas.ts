@@ -67,6 +67,7 @@ const bulkExportSessions = v.object({
   type: v.literal("bulkExportSessions"),
   ids: v.array(v.string()),
 });
+const importMultipleSessions = v.object({ type: v.literal("importMultipleSessions") });
 const getSkills = v.object({ type: v.literal("getSkills") });
 const getSkillDetail = v.object({ type: v.literal("getSkillDetail"), skillId: v.string() });
 const openSkillFile = v.object({ type: v.literal("openSkillFile"), skillPath: v.string() });
@@ -268,6 +269,14 @@ const terminalSessions = v.object({
   type: v.literal("terminalSessions"),
   ids: v.array(v.string()),
 });
+const tempSessions = v.object({
+  type: v.literal("tempSessions"),
+  ids: v.array(v.string()),
+});
+const promoteTempSession = v.object({
+  type: v.literal("promoteTempSession"),
+  sessionId: v.string(),
+});
 const viewTerminal = v.object({
   type: v.literal("viewTerminal"),
   sessionId: v.string(),
@@ -280,6 +289,7 @@ export const messageSchema = v.variant("type", [
   refresh,
   newSession,
   newTempSession,
+  promoteTempSession,
   continueLastSession,
   resumeSession,
   resumeMultiple,
@@ -301,6 +311,7 @@ export const messageSchema = v.variant("type", [
   bulkPinSessions,
   bulkDeleteSessions,
   bulkExportSessions,
+  importMultipleSessions,
   getSkills,
   getSkillDetail,
   openSkillFile,
@@ -381,6 +392,7 @@ export const messageSchema = v.variant("type", [
   openFile,
   sessionsDelta,
   terminalSessions,
+  tempSessions,
   viewTerminal,
   // === END SESSIONS MESSAGES ===
 ]);

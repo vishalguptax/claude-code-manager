@@ -59,11 +59,55 @@ const VIEW_COLUMN_MAP: Record<string, vscode.ViewColumn> = {
   three: vscode.ViewColumn.Three,
 };
 
-// Terminals we've already handed out. Belt-and-suspenders against
-// `state.isInteractedWith` not flipping for extension-driven sendText —
-// without this, we could hijack an active session with an injected cd +
-// resume command. WeakSet lets VS Code GC disposed terminals.
+// Terminals we've already handed out, or that we otherwise must never reuse.
+// Belt-and-suspenders against `state.isInteractedWith` not flipping for
+// extension-driven sendText — without this, we could hijack an active session
+// with an injected cd + resume command. WeakSet lets VS Code GC disposed
+// terminals. Seeded + extended by initTerminalReuseGuard (see below).
 const sentTo = new WeakSet<vscode.Terminal>();
+
+interface ShellExecutionStartEvent {
+  terminal: vscode.Terminal;
+}
+interface ShellExecutionApi {
+  onDidStartTerminalShellExecution?: (
+    listener: (e: ShellExecutionStartEvent) => void,
+  ) => vscode.Disposable;
+}
+
+/**
+ * Harden the empty-terminal reuse heuristic against hijacking a terminal that
+ * already hosts a running process — most importantly a live `claude` REPL.
+ * Every command the extension sends (`reconnectMcp`, login/logout, run-command,
+ * ask, new-chat, resume, hooks, imports) funnels through {@link createTerminal},
+ * so this one guard protects them all.
+ *
+ * Two gaps make the `isInteractedWith` + `sentTo` check unsafe on its own:
+ *  1. `sentTo` is in-memory, so a window reload clears it while VS Code
+ *     restores the still-running `claude` terminals — they'd look "empty" again
+ *     and the next action would inject `claude` + a slash command into the
+ *     live session. This is the reported "started on an already running
+ *     session" bug.
+ *  2. `isInteractedWith` only flips on USER keystrokes, so a session driven by
+ *     the extension's own sendText (or a script/task) reads as never-interacted.
+ *
+ * So: (a) at activation, mark every already-open terminal ineligible for reuse
+ * — anything alive at startup is either a restored session or a pre-existing
+ * user terminal, neither safe to inject into; and (b) mark any terminal
+ * ineligible the instant it runs a foreground command (a shell execution is
+ * the reliable "not empty" signal that survives even without keystrokes).
+ *
+ * Call once at activation. Returns a Disposable for the shell-execution
+ * subscription; no-ops on VS Code builds without the shell-integration API.
+ */
+export function initTerminalReuseGuard(): vscode.Disposable {
+  for (const t of vscode.window.terminals) sentTo.add(t);
+
+  const api = vscode.window as unknown as ShellExecutionApi;
+  const subscribe = api.onDidStartTerminalShellExecution;
+  if (typeof subscribe !== "function") return { dispose: () => {} };
+  return subscribe((e) => sentTo.add(e.terminal));
+}
 
 /**
  * Find an editor ViewColumn that already hosts a terminal tab, if any.

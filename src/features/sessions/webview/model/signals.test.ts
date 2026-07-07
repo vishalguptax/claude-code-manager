@@ -3,6 +3,7 @@ import type { Session } from "../../types";
 import { initPersistence } from "../../../../webview/persistence";
 import type { VSCodeAPI } from "../../../../webview/types";
 import {
+  applyDefaultFilters,
   applyDelta,
   clearSelection,
   currentBranchSignal,
@@ -11,6 +12,7 @@ import {
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
+  filteredSignal,
   getBranches,
   getBranchOptions,
   getFiltered,
@@ -20,6 +22,7 @@ import {
   initFilterPersistence,
   loadPersistedFilters,
   pinnedSignal,
+  rowsSignal,
   searchQuerySignal,
   selectAll,
   selectionSignal,
@@ -110,6 +113,18 @@ describe("sessions signals", () => {
       expect(out).toHaveLength(21);
     });
 
+    it("branch filter is literal — a pinned session on another branch is hidden (matches badge)", () => {
+      sessionsSignal.value = [
+        session({ id: "onX", branch: "x", endTime: 100 }),
+        session({ id: "pinnedOnY", branch: "y", endTime: 200 }),
+      ];
+      pinnedSignal.value = new Set(["pinnedOnY"]);
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      filterBranchSignal.value = "x";
+      expect(getFiltered().map((s) => s.id)).toEqual(["onX"]);
+    });
+
     it("filters by branch with the (no branch) sentinel", () => {
       sessionsSignal.value = [
         session({ id: "a", branch: "feature" }),
@@ -152,6 +167,30 @@ describe("sessions signals", () => {
       // Reply for an old query must not leak in.
       setFullTextHits("old", ["body"]);
       expect(getFiltered()).toHaveLength(0);
+    });
+  });
+
+  describe("filteredSignal / rowsSignal memoization", () => {
+    it("reuses the cached filtered list across a non-filter signal change", () => {
+      sessionsSignal.value = [session({ id: "a" }), session({ id: "b" })];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      const first = filteredSignal.value;
+      // selection is not read by getFiltered → must NOT recompute (same ref).
+      selectionSignal.value = new Set(["a"]);
+      expect(filteredSignal.value).toBe(first);
+      // A data/filter change DOES recompute (new ref).
+      sessionsSignal.value = [session({ id: "a" })];
+      expect(filteredSignal.value).not.toBe(first);
+    });
+
+    it("rowsSignal is memoized against non-filter changes too", () => {
+      sessionsSignal.value = [session({ id: "a", endTime: Date.now() })];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      const rows1 = rowsSignal.value;
+      selectionSignal.value = new Set(["a"]);
+      expect(rowsSignal.value).toBe(rows1);
     });
   });
 
@@ -258,10 +297,16 @@ describe("sessions signals", () => {
       expect(currentProjectSignal.value).toBe("myapp");
     });
 
-    it("falls back to the all-projects filter when no workspace", () => {
+    it("leaves the project filter untouched when no workspace (getFiltered shows all)", () => {
+      // Regression: flipping "current" -> "all" here was captured by the
+      // persistence effect and durably corrupted the user's "This Project"
+      // choice on the cold-start race where the workspace reads empty for one
+      // tick. The filter must stay "current"; getFiltered handles the empty
+      // currentProject by showing everything.
       filterProjectSignal.value = "current";
       setWorkspacePath("");
-      expect(filterProjectSignal.value).toBe("all");
+      expect(filterProjectSignal.value).toBe("current");
+      expect(currentProjectSignal.value).toBe("");
     });
   });
 
@@ -358,6 +403,20 @@ describe("sessions signals", () => {
       expect(filterProjectSignal.value).toBe("current");
       expect(filterDateSignal.value).toBe("recent");
       expect(filterBranchSignal.value).toBe("all");
+    });
+
+    it("the eager first run does not persist defaults, so host defaultFilter/defaultProject still apply", () => {
+      // Regression: `effect` runs its body immediately on creation. If that run
+      // wrote the default signal values into persisted state, every key would
+      // read as "defined" and applyDefaultFilters would skip — silently killing
+      // the configured settings for a fresh user.
+      initPersistence(makeApi());
+      loadPersistedFilters(); // fresh user — nothing stored, signals at defaults
+      initFilterPersistence(); // eager run must NOT write
+      applyDefaultFilters("month", "all"); // host settings arrive after ready
+      stopFilterPersistence();
+      expect(filterDateSignal.value).toBe("month");
+      expect(filterProjectSignal.value).toBe("all");
     });
   });
 });

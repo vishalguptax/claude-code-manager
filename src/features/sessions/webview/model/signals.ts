@@ -16,8 +16,10 @@ import type { Session, SessionDetail, Stats } from "../../types";
 import {
   type BranchOption,
   type ProjectOption,
+  type Row,
   buildBranchOptions,
   buildProjectOptions,
+  buildRows,
   listBranches,
   orderProjects,
 } from "../lib";
@@ -70,9 +72,6 @@ export const filterDateSignal = signal<DateFilter>("recent");
 /** Active branch filter: "all" or a concrete branch name. */
 export const filterBranchSignal = signal<string>("all");
 
-/** Number of list rows shown before the virtual list caps further. */
-export const visibleCountSignal = signal<number>(30);
-
 /** Workspace folder path, used to derive the current project name. */
 export const workspacePathSignal = signal<string>("");
 /** Lowercased current project name derived from the workspace path. */
@@ -95,20 +94,30 @@ export function setOpenTerminals(ids: string[]): void {
   openTerminalsSignal.value = new Set(ids);
 }
 
+/** Session ids backed by a temp (ephemeral) run — rendered with a Temp badge. */
+export const tempSessionsSignal = signal<Set<string>>(new Set());
+
+export function setTempSessions(ids: string[]): void {
+  tempSessionsSignal.value = new Set(ids);
+}
+
 // ── Setters with derived side effects ──
 
 /**
  * Set the workspace path and derive the (lowercased) current project name.
- * Falls back to the "all" project filter when no workspace is open so the
- * panel still shows something useful rather than an empty list.
+ * When no workspace is open the derived name is empty and getFiltered shows
+ * all sessions — the filter selection itself is left untouched.
  */
 export function setWorkspacePath(p: string): void {
   workspacePathSignal.value = p;
   const tail = p.replace(/\\/g, "/").split("/").filter(Boolean).pop() || "";
   currentProjectSignal.value = tail.toLowerCase();
-  if (!currentProjectSignal.value && filterProjectSignal.value === "current") {
-    filterProjectSignal.value = "all";
-  }
+  // Do NOT mutate filterProjectSignal here. getFiltered already shows every
+  // session when currentProject is empty (it narrows only when a project is
+  // known), so an unresolved/empty workspace needs no filter change. Flipping
+  // "current" -> "all" would be captured by the persistence effect and
+  // durably corrupt the user's "This Project" choice on the common cold-start
+  // race where workspaceFolders reads empty for one tick before resolving.
 }
 
 /** Replace pinned ids from a host userState message. */
@@ -197,10 +206,12 @@ export function getFiltered(): Session[] {
   }
 
   if (branch !== "all") {
-    list = list.filter((s) => {
-      if (pinned.has(s.id)) return true;
-      return (s.branch || "(no branch)") === branch;
-    });
+    // Branch is an explicit narrowing: show that branch only. Unlike the date
+    // cutoff (which pins bypass so they don't age out), a pinned session on a
+    // *different* branch must not leak into a branch view — that made the row
+    // count exceed the branch dropdown's badge and surprised users who picked
+    // a branch expecting just that branch.
+    list = list.filter((s) => (s.branch || "(no branch)") === branch);
   }
 
   if (query) {
@@ -289,8 +300,23 @@ export function getBranchOptions(): BranchOption[] {
   );
 }
 
+/**
+ * Memoized filtered list. `computed` recomputes only when a signal `getFiltered`
+ * actually reads changes (session data + the filter/search signals) — NOT on
+ * selection, bulk-mode, or context-menu re-renders, which don't touch those
+ * inputs. Before this, ListView called getFiltered() in its render body, so
+ * every checkbox click re-ran the full filter+sort over all N sessions.
+ */
+export const filteredSignal = computed(getFiltered);
+
+/** Memoized header+session rows for the virtual list, derived from the
+ *  filtered list + pins. Same memoization benefit as {@link filteredSignal}. */
+export const rowsSignal = computed<Row[]>(() =>
+  buildRows(filteredSignal.value, pinnedSignal.value),
+);
+
 /** Reactive count of the filtered list — handy for headers. */
-export const filteredCount = computed(() => getFiltered().length);
+export const filteredCount = computed(() => filteredSignal.value.length);
 
 // ── Delta application ──
 
@@ -356,10 +382,16 @@ export function loadPersistedFilters(): void {
  * persisted state, not the live signal.
  */
 export function applyDefaultFilters(defaultFilter?: string, defaultProject?: string): void {
-  if (defaultFilter && getPersisted<DateFilter>(PERSIST_KEY_FILTER_DATE) === undefined) {
+  // Snapshot BOTH "unset" checks before mutating either signal. The active
+  // persistence effect fires synchronously on the first mutation and writes
+  // all three keys, so checking `project` after setting `date` would see a
+  // freshly-persisted "current" and wrongly skip the configured defaultProject.
+  const dateUnset = getPersisted<DateFilter>(PERSIST_KEY_FILTER_DATE) === undefined;
+  const projectUnset = getPersisted<string>(PERSIST_KEY_FILTER_PROJECT) === undefined;
+  if (defaultFilter && dateUnset) {
     filterDateSignal.value = defaultFilter as DateFilter;
   }
-  if (defaultProject && getPersisted<string>(PERSIST_KEY_FILTER_PROJECT) === undefined) {
+  if (defaultProject && projectUnset) {
     filterProjectSignal.value = defaultProject;
   }
 }
@@ -374,10 +406,26 @@ let _persistDisposer: (() => void) | null = null;
  */
 export function initFilterPersistence(): void {
   _persistDisposer?.();
+  let primed = false;
   _persistDisposer = effect(() => {
-    setPersisted(PERSIST_KEY_FILTER_PROJECT, filterProjectSignal.value);
-    setPersisted(PERSIST_KEY_FILTER_DATE, filterDateSignal.value);
-    setPersisted(PERSIST_KEY_FILTER_BRANCH, filterBranchSignal.value);
+    // Read all three up front so the effect subscribes to each signal — a
+    // signals effect only tracks what it reads on the run that returns.
+    const project = filterProjectSignal.value;
+    const date = filterDateSignal.value;
+    const branch = filterBranchSignal.value;
+    // Skip the eager first run. `effect` invokes its body immediately on
+    // creation; writing the current (default) values into persisted state
+    // before the host's `settings` message arrives would make every key
+    // "defined", defeating applyDefaultFilters's "persisted wins" guard and
+    // silently killing the `sessions.defaultFilter` / `defaultProject`
+    // settings. Only genuine user changes (subsequent runs) get persisted.
+    if (!primed) {
+      primed = true;
+      return;
+    }
+    setPersisted(PERSIST_KEY_FILTER_PROJECT, project);
+    setPersisted(PERSIST_KEY_FILTER_DATE, date);
+    setPersisted(PERSIST_KEY_FILTER_BRANCH, branch);
   });
 }
 
@@ -403,7 +451,6 @@ export function _resetSessionsSignals(): void {
   filterProjectSignal.value = "current";
   filterDateSignal.value = "recent";
   filterBranchSignal.value = "all";
-  visibleCountSignal.value = 30;
   workspacePathSignal.value = "";
   currentProjectSignal.value = "";
   currentBranchSignal.value = "";
@@ -411,4 +458,5 @@ export function _resetSessionsSignals(): void {
   selectionSignal.value = new Set();
   restoreWindowMinutesSignal.value = 30;
   openTerminalsSignal.value = new Set();
+  tempSessionsSignal.value = new Set();
 }

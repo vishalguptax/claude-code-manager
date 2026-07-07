@@ -214,6 +214,16 @@
   background: var(--bg-hover);
   color: var(--fg-dim);
 }
+/* Temp (ephemeral) session marker — a quiet amber pill so it reads as a
+   transient state, not an error. Non-mono to sit apart from the branch tag. */
+.tag.tag-temp {
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #d49a00) 18%, transparent);
+  color: var(--vscode-editorWarning-foreground, #d49a00);
+  flex: none;
+}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
