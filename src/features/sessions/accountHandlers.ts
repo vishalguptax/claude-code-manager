@@ -15,6 +15,7 @@ import {
   deleteSettingsSnapshot as deleteSettingsSnapshotFile,
 } from "../account/parser";
 import { readQuota } from "../account/quota";
+import { revalidateModelCache } from "../account/models";
 import { installStatusline, uninstallStatusline } from "../account/statuslineInstall";
 import {
   saveProfile as saveProfileSnapshot,
@@ -37,6 +38,18 @@ export async function handleAccountMessage(
       const workspace = getWorkspace();
       const data = parseAccountData(workspace || undefined);
       postAccountData(wv, data);
+      // A CLI upgrade rewrites the binary in place but touches no account
+      // file, so the model list can go stale while idle — revalidation
+      // otherwise only runs on the transcript-write tick, which never fires
+      // for a user who isn't mid-session. Re-check on panel open and re-push
+      // only if the scan actually changed. Cheap: an mtime/size stat unless
+      // the binary moved.
+      void revalidateModelCache().then((changed) => {
+        const live = ctx.getWebview();
+        if (changed && live) {
+          postAccountData(live, parseAccountData(getWorkspace() || undefined));
+        }
+      });
       break;
     }
 
