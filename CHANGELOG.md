@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.6.0] - 2026-07-07
+
+Bulk session import lands — move many sessions between machines in one pass from a `.zip` or loose `.jsonl` files — plus a broad performance pass across the sessions and account panels.
+
+See [docs/releases/v2.6.0.md](docs/releases/v2.6.0.md) for full details.
+
 ## [2.5.2] - 2026-07-06
 
 Fixes a regression where Account/Config could hang on a skeleton for 10-20s, and removes the stalls that made account switching feel slow.
