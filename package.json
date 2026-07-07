@@ -1,6 +1,6 @@
 {
   "name": "claude-manager",
-  "displayName": "Claude Code Manager: Sessions, MCP & Usage",
+  "displayName": "Claude Code Manager — Sessions, Usage, MCP & Agents",
   "description": "Manage Claude Code sessions, MCP servers, skills, slash commands, hooks, agents, account switching & usage tracking from your VS Code sidebar. Resume with git branch detection. 100% local, zero telemetry.",
   "version": "2.6.0",
   "publisher": "vishalguptax",

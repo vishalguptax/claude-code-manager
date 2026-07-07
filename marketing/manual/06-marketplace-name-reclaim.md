@@ -1,6 +1,6 @@
 # 6 — Reclaim exact "Claude Code Manager" display name
 
-The exact display name is held by `ClaudecodemanagerbyPrudkoArtur.claude-code-manager` — v0.1.2, 56 installs, published 2026-04, untouched since. Marketplace enforces unique display names, which is why we ship suffixed ("…: Sessions, MCP & Usage"). If Microsoft releases the name, we drop the suffix.
+The exact display name is held by `ClaudecodemanagerbyPrudkoArtur.claude-code-manager` — v0.1.2, 56 installs, published 2026-04, untouched since. Marketplace enforces unique display names, which is why we ship suffixed ("… — Sessions, Usage, MCP & Agents"). If Microsoft releases the name, we drop the suffix.
 
 Low odds, five minutes, worth the email.
 
