@@ -317,11 +317,13 @@ async function handleSessionMessage(
       break;
 
     case "searchFullText": {
-      // Transcript content search runs synchronously on the pre-built
-      // lowercased index. The reply carries the echo-query so the webview
-      // can drop stale results if the user has since typed more.
-      const ids = searchContent(msg.query);
-      wv.postMessage({ type: "fullTextResults", query: msg.query, ids });
+      // Transcript content search scans the pre-built lowercased index, yielding
+      // periodically so a large index doesn't block the host. The reply carries
+      // the echo-query so the webview can drop stale results if the user has
+      // since typed more.
+      const ids = await searchContent(msg.query);
+      // The webview may have been torn down while we yielded.
+      ctx.getWebview()?.postMessage({ type: "fullTextResults", query: msg.query, ids });
       break;
     }
 

@@ -200,16 +200,26 @@ export function pruneIndex(activeIds: Set<string>): void {
  * Empty or whitespace-only queries return an empty list — callers
  * decide what "no query" means in their UX.
  */
-export function searchContent(query: string): string[] {
+/** Entries scanned between event-loop yields during a full-text search. */
+const SEARCH_SCAN_YIELD_EVERY = 256;
+
+export async function searchContent(query: string): Promise<string[]> {
   const q = query.trim().toLowerCase();
   if (!q) return [];
+  // Snapshot the entries (id + content refs — no string copies, so cheap) so
+  // the scan is stable even if the background indexer mutates the LRU while we
+  // yield. entries() is non-promoting; matched ids are promoted afterwards via
+  // index.get() so a session the user keeps searching for survives eviction.
+  const snapshot = [...index.entries()];
   const hits: string[] = [];
-  // Scan via entries() (a non-promoting read view) so we don't mutate
-  // recency ordering mid-iteration. Matched ids are promoted afterwards
-  // via index.get() so a session the user keeps searching for survives
-  // eviction as part of the hot working set.
-  for (const [id, entry] of index.entries()) {
+  for (let i = 0; i < snapshot.length; i++) {
+    const [id, entry] = snapshot[i];
     if (entry.content.includes(q)) hits.push(id);
+    // Yield periodically so a large index (up to ~2000 × 50 KB) does not
+    // monopolise the event loop mid-search on a heavy install.
+    if (i > 0 && i % SEARCH_SCAN_YIELD_EVERY === 0) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
   }
   for (const id of hits) index.get(id);
   return hits;

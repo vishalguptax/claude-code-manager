@@ -27,7 +27,7 @@ beforeEach(() => {
 });
 
 describe("searchIndex", () => {
-  it("indexes plain user/assistant message text", () => {
+  it("indexes plain user/assistant message text", async () => {
     const file = writeJsonl("a.jsonl", [
       {
         message: { role: "user", content: "Please refactor the parser for speed" },
@@ -40,20 +40,20 @@ describe("searchIndex", () => {
       },
     ]);
     indexSession("s1", file);
-    expect(searchContent("refactor the parser")).toEqual(["s1"]);
-    expect(searchContent("tokenizer")).toEqual(["s1"]);
+    expect(await searchContent("refactor the parser")).toEqual(["s1"]);
+    expect(await searchContent("tokenizer")).toEqual(["s1"]);
   });
 
-  it("is case-insensitive", () => {
+  it("is case-insensitive", async () => {
     const file = writeJsonl("b.jsonl", [
       { message: { role: "user", content: "Check Database Migration" } },
     ]);
     indexSession("s2", file);
-    expect(searchContent("DATABASE")).toEqual(["s2"]);
-    expect(searchContent("database migration")).toEqual(["s2"]);
+    expect(await searchContent("DATABASE")).toEqual(["s2"]);
+    expect(await searchContent("database migration")).toEqual(["s2"]);
   });
 
-  it("handles array content blocks", () => {
+  it("handles array content blocks", async () => {
     const file = writeJsonl("c.jsonl", [
       {
         message: {
@@ -67,11 +67,11 @@ describe("searchIndex", () => {
       },
     ]);
     indexSession("s3", file);
-    expect(searchContent("plan")).toEqual(["s3"]);
-    expect(searchContent("run the tests")).toEqual(["s3"]);
+    expect(await searchContent("plan")).toEqual(["s3"]);
+    expect(await searchContent("run the tests")).toEqual(["s3"]);
   });
 
-  it("skips sidechain and file-history-snapshot entries", () => {
+  it("skips sidechain and file-history-snapshot entries", async () => {
     const file = writeJsonl("d.jsonl", [
       {
         isSidechain: true,
@@ -86,39 +86,39 @@ describe("searchIndex", () => {
       },
     ]);
     indexSession("s4", file);
-    expect(searchContent("sidechain")).toEqual([]);
-    expect(searchContent("snapshot")).toEqual([]);
-    expect(searchContent("kept")).toEqual(["s4"]);
+    expect(await searchContent("sidechain")).toEqual([]);
+    expect(await searchContent("snapshot")).toEqual([]);
+    expect(await searchContent("kept")).toEqual(["s4"]);
   });
 
-  it("skips non-user/non-assistant roles", () => {
+  it("skips non-user/non-assistant roles", async () => {
     const file = writeJsonl("e.jsonl", [
       { message: { role: "system", content: "system prelude" } },
       { message: { role: "tool", content: "tool log" } },
       { message: { role: "user", content: "real user text" } },
     ]);
     indexSession("s5", file);
-    expect(searchContent("prelude")).toEqual([]);
-    expect(searchContent("tool log")).toEqual([]);
-    expect(searchContent("real user")).toEqual(["s5"]);
+    expect(await searchContent("prelude")).toEqual([]);
+    expect(await searchContent("tool log")).toEqual([]);
+    expect(await searchContent("real user")).toEqual(["s5"]);
   });
 
-  it("returns empty array for empty or whitespace queries", () => {
+  it("returns empty array for empty or whitespace queries", async () => {
     const file = writeJsonl("f.jsonl", [
       { message: { role: "user", content: "hello world" } },
     ]);
     indexSession("s6", file);
-    expect(searchContent("")).toEqual([]);
-    expect(searchContent("   ")).toEqual([]);
+    expect(await searchContent("")).toEqual([]);
+    expect(await searchContent("   ")).toEqual([]);
   });
 
-  it("tolerates missing files (no throw)", () => {
+  it("tolerates missing files (no throw)", async () => {
     expect(() => indexSession("missing", path.join(TMP, "does-not-exist.jsonl")))
       .not.toThrow();
-    expect(searchContent("anything")).toEqual([]);
+    expect(await searchContent("anything")).toEqual([]);
   });
 
-  it("tolerates malformed JSON lines (partial chunks)", () => {
+  it("tolerates malformed JSON lines (partial chunks)", async () => {
     fs.mkdirSync(TMP, { recursive: true });
     const file = path.join(TMP, "g.jsonl");
     fs.writeFileSync(
@@ -128,20 +128,20 @@ describe("searchIndex", () => {
         "\n",
     );
     indexSession("s7", file);
-    expect(searchContent("valid line")).toEqual(["s7"]);
+    expect(await searchContent("valid line")).toEqual(["s7"]);
   });
 
-  it("pruneIndex with an empty set drops all entries", () => {
+  it("pruneIndex with an empty set drops all entries", async () => {
     const file = writeJsonl("h.jsonl", [
       { message: { role: "user", content: "findme" } },
     ]);
     indexSession("s8", file);
-    expect(searchContent("findme")).toEqual(["s8"]);
+    expect(await searchContent("findme")).toEqual(["s8"]);
     pruneIndex(new Set());
-    expect(searchContent("findme")).toEqual([]);
+    expect(await searchContent("findme")).toEqual([]);
   });
 
-  it("pruneIndex keeps active ids and drops stale ones", () => {
+  it("pruneIndex keeps active ids and drops stale ones", async () => {
     const a = writeJsonl("p1.jsonl", [
       { message: { role: "user", content: "alpha" } },
     ]);
@@ -151,11 +151,11 @@ describe("searchIndex", () => {
     indexSession("A", a);
     indexSession("B", b);
     pruneIndex(new Set(["A"]));
-    expect(searchContent("alpha")).toEqual(["A"]);
-    expect(searchContent("beta")).toEqual([]);
+    expect(await searchContent("alpha")).toEqual(["A"]);
+    expect(await searchContent("beta")).toEqual([]);
   });
 
-  it("indexSession skips re-extraction when mtime is unchanged", () => {
+  it("indexSession skips re-extraction when mtime is unchanged", async () => {
     const original = JSON.stringify({
       message: { role: "user", content: "old version" },
     });
@@ -172,7 +172,7 @@ describe("searchIndex", () => {
     fs.utimesSync(file, fixedSec, fixedSec);
 
     indexSession("inc", file);
-    expect(searchContent("old version")).toEqual(["inc"]);
+    expect(await searchContent("old version")).toEqual(["inc"]);
 
     // Overwrite the bytes (same length so `size` stays stable), then
     // pin the mtime back to the same fixed value. Cache key unchanged
@@ -181,16 +181,16 @@ describe("searchIndex", () => {
     fs.utimesSync(file, fixedSec, fixedSec);
 
     indexSession("inc", file);
-    expect(searchContent("old version")).toEqual(["inc"]);
-    expect(searchContent("new vrsion")).toEqual([]);
+    expect(await searchContent("old version")).toEqual(["inc"]);
+    expect(await searchContent("new vrsion")).toEqual([]);
   });
 
-  it("indexSession re-extracts when the file mtime advances", () => {
+  it("indexSession re-extracts when the file mtime advances", async () => {
     const file = writeJsonl("inc2.jsonl", [
       { message: { role: "user", content: "old text" } },
     ]);
     indexSession("inc2", file);
-    expect(searchContent("old text")).toEqual(["inc2"]);
+    expect(await searchContent("old text")).toEqual(["inc2"]);
 
     // Bump mtime + content.
     fs.writeFileSync(
@@ -201,11 +201,11 @@ describe("searchIndex", () => {
     fs.utimesSync(file, future, future);
 
     indexSession("inc2", file);
-    expect(searchContent("new text")).toEqual(["inc2"]);
-    expect(searchContent("old text")).toEqual([]);
+    expect(await searchContent("new text")).toEqual(["inc2"]);
+    expect(await searchContent("old text")).toEqual([]);
   });
 
-  it("evicts the oldest entries past the 2000-entry LRU cap", () => {
+  it("evicts the oldest entries past the 2000-entry LRU cap", async () => {
     // Insert 2500 sessions in id order. The index is LRU-capped at 2000,
     // so after the 2500th insert the oldest 500 (s0000..s0499) must be
     // evicted while the most-recent 2000 (s0500..s2499) remain.
@@ -237,25 +237,25 @@ describe("searchIndex", () => {
     }
 
     // The most-recent 2000 ids (s0500..s2499) survive.
-    expect(searchContent("token-s2499")).toEqual(["s2499"]);
-    expect(searchContent("token-s0500")).toEqual(["s0500"]);
+    expect(await searchContent("token-s2499")).toEqual(["s2499"]);
+    expect(await searchContent("token-s0500")).toEqual(["s0500"]);
     // The oldest 500 (s0000..s0499) were evicted — no content remains.
-    expect(searchContent("token-s0000")).toEqual([]);
-    expect(searchContent("token-s0499")).toEqual([]);
+    expect(await searchContent("token-s0000")).toEqual([]);
+    expect(await searchContent("token-s0499")).toEqual([]);
   });
 
-  it("clearIndex drops every entry so a stale id no longer matches", () => {
+  it("clearIndex drops every entry so a stale id no longer matches", async () => {
     const file = writeJsonl("clr.jsonl", [
       { message: { role: "user", content: "find me before the clear" } },
     ]);
     indexSession("clr1", file);
-    expect(searchContent("find me")).toEqual(["clr1"]);
+    expect(await searchContent("find me")).toEqual(["clr1"]);
 
     clearIndex();
-    expect(searchContent("find me")).toEqual([]);
+    expect(await searchContent("find me")).toEqual([]);
   });
 
-  it("returns every matching id when multiple sessions match", () => {
+  it("returns every matching id when multiple sessions match", async () => {
     const a = writeJsonl("m1.jsonl", [
       { message: { role: "user", content: "shared keyword appears here" } },
     ]);
@@ -268,7 +268,7 @@ describe("searchIndex", () => {
     indexSession("A", a);
     indexSession("B", b);
     indexSession("C", c);
-    const hits = searchContent("shared keyword").sort();
+    const hits = (await searchContent("shared keyword")).sort();
     expect(hits).toEqual(["A", "B"]);
   });
 });

@@ -185,6 +185,25 @@ describe("createWatchers — transcript change refreshes the Usage tab", () => {
 
     disposable.dispose();
   });
+
+  it("flushes the reparse by the max-wait cap under continuous appends", () => {
+    // A live session appends ~1/sec. Firing every 900ms keeps resetting the
+    // 1000ms trailing debounce, so a pure trailing debounce would never flush
+    // while generating. The 3000ms max-wait cap must force a flush anyway.
+    const ctx = makeCtx();
+    const disposable = createWatchers(ctx);
+    const w = transcriptWatcher();
+    const uri = { fsPath: path.join(w.base, "slug", "live-1.jsonl") } as vscode.Uri;
+
+    for (let elapsed = 0; elapsed < 3000; elapsed += 900) {
+      for (const h of w.handlers) h(uri);
+      vi.advanceTimersByTime(900);
+    }
+
+    expect(posted.map((m) => m.type)).toContain("sessions");
+
+    disposable.dispose();
+  });
 });
 
 describe("createWatchers — config artifacts update live", () => {
