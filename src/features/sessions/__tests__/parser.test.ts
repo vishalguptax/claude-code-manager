@@ -70,6 +70,7 @@ import {
   filterSessions,
   getLastParseWarning,
   reparseOneSession,
+  reparseSessionsBatch,
   invalidateSessionMetaCache,
   clearMetaCaches,
   clearOrphanCache,
@@ -1505,6 +1506,49 @@ describe("reparseOneSession", () => {
     clearMetaCaches();
 
     expect(parseSessions().find((s) => s.id === "rep-3")?.branch).toBe("new");
+  });
+});
+
+describe("reparseSessionsBatch — stale directory index recovery", () => {
+  beforeEach(setup);
+
+  it("recovers a brand-new session whose create did not bump the subdir mtime", () => {
+    clearMetaCaches();
+    const now = Date.now();
+    const subdir = path.join(PROJECTS_DIR, "cx-hash");
+    // Fixed, whole-second timestamp so setting it before priming and again
+    // after the new file lands is byte-for-byte identical — no sub-second
+    // truncation that would accidentally look "changed" and force a rebuild.
+    const frozen = new Date(Math.floor((now - 5 * 86400000) / 1000) * 1000);
+
+    // Existing session A in the project subdir — prime the sessionId->path index.
+    writeHistoryEntry({ display: "a", timestamp: now, project: "/projects/cx", sessionId: "cx-a" });
+    writeSessionFile("cx-hash", "cx-a", [
+      { gitBranch: "main", sessionId: "cx-a" },
+      { message: { role: "user", content: "a" }, timestamp: new Date(now).toISOString() },
+    ]);
+    fs.utimesSync(subdir, frozen, frozen);
+    parseSessions(); // caches the subdir mtime (= frozen) in the file index
+
+    // A new session B lands in the SAME subdir. Simulate a coarse-mtime
+    // filesystem (NFS/SMB/exFAT/WSL) by pinning the subdir mtime back to the
+    // exact value the index cached, so its freshness check wrongly passes and
+    // the cached index omits cx-b.
+    writeHistoryEntry({ display: "b", timestamp: now + 1, project: "/projects/cx", sessionId: "cx-b" });
+    writeSessionFile("cx-hash", "cx-b", [
+      { gitBranch: "feature", sessionId: "cx-b" },
+      { message: { role: "user", content: "b" }, timestamp: new Date(now + 1).toISOString() },
+    ]);
+    fs.utimesSync(subdir, frozen, frozen);
+
+    // Targeted watcher path. Without the force-rebuild-on-miss guard, the
+    // stale index misses cx-b, anyKnown stays false, and the new session is
+    // dropped (mapped to null).
+    const batch = reparseSessionsBatch(["cx-b"]);
+    const fresh = batch.get("cx-b");
+    expect(fresh).not.toBeNull();
+    expect(fresh!.id).toBe("cx-b");
+    expect(fresh!.branch).toBe("feature");
   });
 });
 

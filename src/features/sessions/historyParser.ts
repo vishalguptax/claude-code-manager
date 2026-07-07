@@ -20,6 +20,7 @@ import { deslugifyProjectPath } from "./portable";
 import {
   extractProjectName,
   getSessionFile,
+  invalidateSessionFileIndex,
   invalidateSessionMetaCache,
   parseJsonlFile,
   readSessionMeta,
@@ -560,9 +561,20 @@ export function reparseSessionsBatch(
 ): Map<string, Session | null> {
   const result = new Map<string, Session | null>();
   let anyKnown = false;
+  let forcedIndexRebuild = false;
   for (const id of sessionIds) {
     result.set(id, null);
-    const filePath = getSessionFile(id);
+    let filePath = getSessionFile(id);
+    if (!filePath && !forcedIndexRebuild) {
+      // A miss can mean the session was deleted, OR the directory index is
+      // stale — on coarse-mtime filesystems a brand-new transcript may not
+      // bump the parent subdir mtime, so the cached index omits it and this
+      // new session would be silently dropped. Force one rebuild (fresh
+      // readdir) and retry before trusting the miss.
+      invalidateSessionFileIndex();
+      forcedIndexRebuild = true;
+      filePath = getSessionFile(id);
+    }
     if (!filePath) continue;
     anyKnown = true;
     // Drop the stale cache entries so the next readSessionMeta picks up
