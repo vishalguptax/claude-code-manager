@@ -30,6 +30,7 @@ function stubApi(): AccountApi {
     uninstallStatusline: vi.fn(),
     promptSaveProfile: vi.fn(),
     openAccountSwitcher: vi.fn(),
+    saveStatsImage: vi.fn(),
   };
 }
 

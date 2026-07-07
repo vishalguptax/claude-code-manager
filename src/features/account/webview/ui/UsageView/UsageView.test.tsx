@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { h } from "preact";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountData, UsageStats } from "../../../types";
+import { setVscodeApi } from "../../../../../webview/shared/hooks";
 import { _resetAccountState, timePeriod } from "../../model";
 import { UsageView } from "./UsageView";
 
@@ -67,6 +68,36 @@ describe("UsageView", () => {
     // become inline tokens, not full label/value rows.
     expect(screen.getByText(/Favorite:\s*Opus 4\.7/)).toBeTruthy();
     expect(screen.getByText(/streak\s+1d/)).toBeTruthy();
+  });
+
+  it("renders the Share stats button", () => {
+    render(h(UsageView, { data: dataWith(makeUsage()) }));
+    expect(screen.getByText("Share stats")).toBeTruthy();
+  });
+
+  it("renders a PNG and posts saveStatsImage (prefix stripped) on click", () => {
+    const post = vi.fn();
+    setVscodeApi({ postMessage: post });
+    // happy-dom's canvas is a no-op, so stub the 2d context + toDataURL to
+    // drive the click path deterministically.
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue({
+        fillRect: vi.fn(),
+        fillText: vi.fn(),
+      } as unknown as CanvasRenderingContext2D);
+    const toDataURL = vi
+      .spyOn(HTMLCanvasElement.prototype, "toDataURL")
+      .mockReturnValue("data:image/png;base64,QUJD");
+
+    render(h(UsageView, { data: dataWith(makeUsage()) }));
+    fireEvent.click(screen.getByText("Share stats"));
+
+    expect(post).toHaveBeenCalledWith({ type: "saveStatsImage", pngBase64: "QUJD" });
+
+    getContext.mockRestore();
+    toDataURL.mockRestore();
+    setVscodeApi(null);
   });
 
   it("switches the time period when a toggle is clicked", () => {

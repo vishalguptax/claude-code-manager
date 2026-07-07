@@ -27,6 +27,14 @@ export {
   type UsageTotals,
 } from "./format";
 export {
+  buildShareCard,
+  SHARE_CARD_FOOTER,
+  SHARE_CARD_HEIGHT,
+  SHARE_CARD_WIDTH,
+  type ShareCardModel,
+} from "./shareCard";
+export { renderShareCard } from "./shareCardRender";
+export {
   buildHeatmap,
   cutoffDaysForPeriod,
   type BuildHeatmapOptions,

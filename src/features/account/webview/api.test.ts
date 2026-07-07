@@ -29,6 +29,7 @@ describe("useAccountApi (typed Preact bridge)", () => {
     api.setPrAttribution("by me");
     api.openSettingsFile("project");
     api.promptAddPermission("local", "allow");
+    api.saveStatsImage("QUJD");
 
     expect(post).toHaveBeenCalledWith({ type: "getAccountData" });
     expect(post).toHaveBeenCalledWith({ type: "fetchQuota" });
@@ -42,6 +43,7 @@ describe("useAccountApi (typed Preact bridge)", () => {
       tool: "Bash(rm)",
       list: "deny",
     });
-    expect(post).toHaveBeenCalledTimes(15);
+    expect(post).toHaveBeenCalledWith({ type: "saveStatsImage", pngBase64: "QUJD" });
+    expect(post).toHaveBeenCalledTimes(16);
   });
 });

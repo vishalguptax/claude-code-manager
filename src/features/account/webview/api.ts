@@ -26,6 +26,9 @@ export interface AccountApi {
   uninstallStatusline(): void;
   promptSaveProfile(): void;
   openAccountSwitcher(): void;
+  /** Hand a rendered stats-card PNG (bare base64, no data-URL prefix) to
+   * the host to save via a native dialog. */
+  saveStatsImage(pngBase64: string): void;
 }
 
 /**
@@ -54,5 +57,6 @@ export function useAccountApi(): AccountApi {
     uninstallStatusline: () => send({ type: "uninstallStatusline" }),
     promptSaveProfile: () => send({ type: "promptSaveProfile" }),
     openAccountSwitcher: () => send({ type: "openAccountSwitcher" }),
+    saveStatsImage: (pngBase64) => send({ type: "saveStatsImage", pngBase64 }),
   };
 }

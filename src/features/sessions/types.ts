@@ -412,6 +412,13 @@ export type WebviewMessage =
    */
   | { type: "openAccountSwitcher" }
   /**
+   * Render the shareable "My Claude Code year" stats card in-webview to a
+   * PNG (canvas, no network) and hand the raw base64 to the host to write
+   * via a native Save dialog. `pngBase64` is the bare base64 payload — the
+   * `data:image/png;base64,` prefix is stripped webview-side before send.
+   */
+  | { type: "saveStatsImage"; pngBase64: string }
+  /**
    * Search inside session transcripts (content of every message), not just
    * metadata. The extension replies with matching IDs via `fullTextResults`.
    * Metadata search still runs client-side on `searchHaystack`; these two

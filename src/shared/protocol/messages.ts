@@ -113,6 +113,7 @@ export type Message =
   | { type: "uninstallStatusline" }
   | { type: "promptSaveProfile" }
   | { type: "openAccountSwitcher" }
+  | { type: "saveStatsImage"; pngBase64: string }
   | { type: "setSetting"; key: string; value: unknown; scope?: SettingsScope }
   | { type: "promptAddDirectory" }
   | { type: "openExtensionSettings" }
@@ -248,6 +249,7 @@ type WebviewMessageType =
   | "uninstallStatusline"
   | "promptSaveProfile"
   | "openAccountSwitcher"
+  | "saveStatsImage"
   | "setSetting"
   | "promptAddDirectory"
   | "openExtensionSettings"

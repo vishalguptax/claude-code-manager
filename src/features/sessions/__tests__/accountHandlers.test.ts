@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Mock the module graph handleAccountMessage pulls in so the test exercises
 // only the getAccountData dispatch + model-revalidation re-push, not real disk
@@ -30,6 +30,10 @@ vi.mock("../../account/profiles", () => ({
   listProfiles: () => [],
 }));
 
+import * as vscode from "vscode";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { handleAccountMessage } from "../accountHandlers";
 import type { HostContext } from "../hostContext";
 import type { WebviewMessage } from "../types";
@@ -87,5 +91,63 @@ describe("handleAccountMessage — getAccountData model revalidation", () => {
     await flush();
 
     expect(postAccountData).toHaveBeenCalledTimes(1);
+  });
+});
+
+// fs is a native ESM namespace and can't be spied on, so this test writes
+// to a real temp file (the repo convention — see account/profiles.test.ts)
+// and reads it back to prove the base64 was decoded and persisted.
+describe("handleAccountMessage — saveStatsImage", () => {
+  const PNG_B64 = Buffer.from("fake-png-bytes").toString("base64");
+  const targets: string[] = [];
+
+  function tmpTarget(): string {
+    const p = path.join(os.tmpdir(), `csm-share-${Date.now()}-${Math.random().toString(36).slice(2)}.png`);
+    targets.push(p);
+    return p;
+  }
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    workspace = "/ws";
+  });
+
+  afterEach(() => {
+    for (const p of targets.splice(0)) {
+      try {
+        fs.unlinkSync(p);
+      } catch {
+        /* already gone */
+      }
+    }
+  });
+
+  it("decodes the base64, writes the chosen file, and toasts success", async () => {
+    const target = tmpTarget();
+    const info = vi.spyOn(vscode.window, "showInformationMessage").mockResolvedValue(undefined);
+    vi.spyOn(vscode.window, "showSaveDialog").mockResolvedValue({
+      fsPath: target,
+    } as unknown as vscode.Uri);
+
+    await handleAccountMessage(
+      { type: "saveStatsImage", pngBase64: PNG_B64 } as WebviewMessage,
+      makeCtx(),
+    );
+
+    expect(fs.existsSync(target)).toBe(true);
+    expect(fs.readFileSync(target).toString()).toBe("fake-png-bytes");
+    expect(info).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes nothing when the user cancels the save dialog", async () => {
+    const target = tmpTarget();
+    vi.spyOn(vscode.window, "showSaveDialog").mockResolvedValue(undefined);
+
+    await handleAccountMessage(
+      { type: "saveStatsImage", pngBase64: PNG_B64 } as WebviewMessage,
+      makeCtx(),
+    );
+
+    expect(fs.existsSync(target)).toBe(false);
   });
 });

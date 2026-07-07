@@ -1175,6 +1175,17 @@
 }
 .acct-show-more:hover { text-decoration: underline; }
 
+/* "Share stats" export row — right-aligned under the stat tiles so the
+   export affordance sits with the numbers it captures. */
+.acct-share-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-xs);
+}
+.acct-share-btn {
+  font-size: var(--fs-sm);
+}
+
 /* MCP rows: name + two pill badges. */
 .acct-mcp-row {
   display: flex;

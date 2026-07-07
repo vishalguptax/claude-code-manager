@@ -23,9 +23,11 @@
 
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
-import { Segmented, type SegmentedOption } from "../../../../../webview/shared/ui";
+import { Button, Segmented, type SegmentedOption } from "../../../../../webview/shared/ui";
+import { useAccountApi } from "../../api";
 import type { AccountData, McpServerUsage, ModelStats, ProjectStats, UsageStats } from "../../../types";
 import {
+  buildShareCard,
   cacheHitTooltip,
   computeUsageTotals,
   displayToolName,
@@ -35,6 +37,7 @@ import {
   formatMoneyCompact,
   formatNumber,
   formatPct,
+  renderShareCard,
   shortenProjectPath,
 } from "../../lib";
 import { isSectionCollapsed, timePeriod, toggleSection, type TimePeriod } from "../../model";
@@ -130,7 +133,27 @@ function UsageEmpty() {
   );
 }
 
+/**
+ * Render the shareable "My Claude Code year" card to a PNG entirely
+ * in-webview (canvas 2d is CSP-safe; `connect-src 'none'` means no
+ * network) and hand the bare base64 to the host to save. The offscreen
+ * canvas is created here — the pure model builder + renderer stay free
+ * of DOM so they unit-test without a canvas.
+ */
+function shareStatsCard(u: UsageStats, save: (pngBase64: string) => void): void {
+  const model = buildShareCard(u);
+  const canvas = document.createElement("canvas");
+  canvas.width = model.width;
+  canvas.height = model.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  renderShareCard(ctx, model);
+  const dataUrl = canvas.toDataURL("image/png");
+  save(dataUrl.replace(/^data:image\/png;base64,/, ""));
+}
+
 function UsageBody({ u }: { u: UsageStats }) {
+  const api = useAccountApi();
   const period = timePeriod.value;
   const totals = computeUsageTotals(u, period);
   return (
@@ -152,6 +175,17 @@ function UsageBody({ u }: { u: UsageStats }) {
         <StatTile value={formatNumber(totals.sessions)} label="sessions" />
         <StatTile value={formatNumber(totals.messages)} label="messages" />
         <StatTile value={formatPct(u.cacheHitRatio)} label="cache hit" title={cacheHitTooltip(u)} />
+      </div>
+
+      <div class="acct-share-row">
+        <Button
+          class="acct-share-btn"
+          iconName="download"
+          onClick={() => shareStatsCard(u, api.saveStatsImage)}
+          title="Export a shareable image of your Claude Code year"
+        >
+          Share stats
+        </Button>
       </div>
 
       <InfoRibbon u={u} totals={totals} />

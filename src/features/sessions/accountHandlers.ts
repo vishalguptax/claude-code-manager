@@ -9,6 +9,8 @@
 import * as vscode from "vscode";
 import { postAccountData } from "./accountPush";
 import * as path from "path";
+import * as fs from "fs";
+import * as os from "os";
 import {
   parseAccountData,
   restoreSettingsSnapshot as restoreSettingsSnapshotFile,
@@ -184,6 +186,32 @@ export async function handleAccountMessage(
     case "openAccountSwitcher":
       await ctx.openAccountSwitcher();
       break;
+
+    case "saveStatsImage": {
+      // The webview rendered the "My Claude Code year" card to a PNG via
+      // canvas (no network) and sent the bare base64. Decode to a Buffer
+      // and write it through a native Save dialog — mirrors the Brain
+      // export flow (showSaveDialog → fs write → info toast).
+      const buf = Buffer.from(msg.pngBase64, "base64");
+      const workspace = getWorkspace();
+      const defaultDir = workspace || os.homedir();
+      const target = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(path.join(defaultDir, "claude-code-year.png")),
+        filters: { "PNG image (*.png)": ["png"] },
+        saveLabel: "Save stats card",
+      });
+      if (!target) break;
+      try {
+        fs.writeFileSync(target.fsPath, buf);
+        vscode.window.showInformationMessage(
+          `Stats card saved to ${path.basename(target.fsPath)}.`,
+        );
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        vscode.window.showErrorMessage(`Couldn't save stats card: ${detail}.`);
+      }
+      break;
+    }
 
     case "restoreSettingsSnapshot": {
       const workspace = getWorkspace();
