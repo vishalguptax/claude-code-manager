@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as vscode from "vscode";
 import type { MockTerminal } from "../../__mocks__/vscode";
-import { createTerminal, setExtensionUri, validateGitRef } from "../terminal";
+import { _fireShellExecutionStart } from "../../__mocks__/vscode";
+import {
+  createTerminal,
+  initTerminalReuseGuard,
+  setExtensionUri,
+  validateGitRef,
+} from "../terminal";
 
 function makeTerminal(overrides: Partial<MockTerminal> = {}): MockTerminal {
   const t: MockTerminal = {
@@ -90,6 +96,55 @@ describe("createTerminal — reuse", () => {
     // isInteractedWith stays false in the mock because sendText doesn't flip
     // it — which is exactly the edge case the WeakSet guard exists for.
     expect(vscode.window.terminals).toHaveLength(2);
+  });
+});
+
+describe("createTerminal — reuse guard (running sessions)", () => {
+  it("does not reuse a terminal that was alive at activation (reload-restored session)", () => {
+    // Simulate a window reload: VS Code restores a terminal whose `claude`
+    // process is still running. `isInteractedWith` is false (the user drove
+    // it through the REPL, not by typing at the shell) and the in-memory
+    // sentTo WeakSet was wiped by the reload — so the old heuristic would
+    // hijack it. The activation guard must mark it ineligible.
+    const restored = makeTerminal({ name: "claude" });
+    vscode.window.terminals.push(restored);
+
+    const guard = initTerminalReuseGuard();
+    const term = createTerminal("mcp");
+
+    expect(term).not.toBe(restored);
+    expect(restored.sentText).toEqual([]); // nothing injected into the session
+    expect(vscode.window.terminals).toHaveLength(2);
+    guard.dispose();
+  });
+
+  it("does not reuse a terminal once it has run a foreground command", () => {
+    // A session started after activation without user keystrokes (script/task
+    // launched `claude`). isInteractedWith stays false, but the shell
+    // execution marks the terminal not-empty.
+    const guard = initTerminalReuseGuard(); // no terminals yet
+    const running = makeTerminal({ name: "bash" });
+    vscode.window.terminals.push(running);
+    _fireShellExecutionStart(running);
+
+    const term = createTerminal("login");
+
+    expect(term).not.toBe(running);
+    expect(running.sentText).toEqual([]);
+    expect(vscode.window.terminals).toHaveLength(2);
+    guard.dispose();
+  });
+
+  it("still reuses a genuinely empty terminal opened after activation", () => {
+    const guard = initTerminalReuseGuard(); // seeds nothing
+    const scratch = makeTerminal({ name: "bash" });
+    vscode.window.terminals.push(scratch);
+
+    const term = createTerminal("mcp");
+
+    expect(term).toBe(scratch); // the reuse optimization still works
+    expect(vscode.window.terminals).toHaveLength(1);
+    guard.dispose();
   });
 });
 
