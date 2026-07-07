@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.0] - 2026-07-08
+
+Turn your usage into a shareable "My Claude Code year" card, and meet a first-run welcome that shows off everything the sidebar can do.
+
+See [docs/releases/v2.7.0.md](docs/releases/v2.7.0.md) for full details.
+
 ## [2.6.0] - 2026-07-07
 
 Bulk session import lands — move many sessions between machines in one pass from a `.zip` or loose `.jsonl` files — plus a broad performance pass across the sessions and account panels.
