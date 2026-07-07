@@ -35,7 +35,7 @@ Claude Code is powerful, but the terminal isn't built for *managing* it. Finding
 
 **⏳ Temp sessions** — Launch Claude with your full skills/agents/hooks for a throwaway task; the transcript wipes itself when the terminal closes.
 
-**On privacy:** local-first — zero telemetry, zero accounts, no background traffic. Reads straight from `~/.claude/`. The *one* exception is opt-in: the quota card fetches usage from Anthropic's own API with your own token, only when you click Refresh. Don't click it, nothing leaves your machine.
+**On privacy:** local-first — zero telemetry, zero accounts, zero network calls, ever. Reads straight from `~/.claude/`. Even the opt-in quota card is local: it shows the 5-hour and 7-day numbers Claude Code already computes in its own statusline, read from a local file. It never calls Anthropic and never touches your OAuth token.
 
 Apache 2.0. Works in **VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod** — and with both the Claude Code CLI and the official VS Code extension (sessions from either show up together).
 
@@ -62,7 +62,7 @@ I use Claude Code daily and kept losing track of sessions, MCP servers, and cust
 - Account: multi-login switcher, token usage stats, permissions editor
 - Brain backup/restore (export your whole config and rehydrate on another machine) and throwaway "Temp" sessions that wipe their transcript on close
 
-Local-first: no telemetry, no accounts. Reads from ~/.claude/. The only network call is an opt-in usage fetch to Anthropic's own API with your own token. Works with both the CLI and the official extension, and in any VS Code-based editor. Apache 2.0.
+Local-first: no telemetry, no accounts, no network calls at all. Reads from ~/.claude/. Even the opt-in quota card is local — it reads the usage numbers Claude Code already computes in its statusline from a local file, never the network, never your OAuth token. Works with both the CLI and the official extension, and in any VS Code-based editor. Apache 2.0.
 
 Repo: https://github.com/vishalguptax/claude-code-manager
 Marketplace: https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager
@@ -107,7 +107,7 @@ I built **Claude Code Manager**, a free and open-source VS Code extension that b
 • Skills, slash commands, hooks, agents — all in one place
 • Account — multi-login switcher, token usage stats, permissions editor
 
-Design principle: local-first. Zero telemetry, zero accounts — reads from ~/.claude/ and never phones home (one opt-in usage fetch aside). Works in VS Code, Cursor, Windsurf, VSCodium, and more.
+Design principle: local-first. Zero telemetry, zero accounts, zero network calls — reads from ~/.claude/ and never phones home. Even the opt-in quota card stays local, reading numbers Claude Code already computes in its statusline. Works in VS Code, Cursor, Windsurf, VSCodium, and more.
 
 Apache 2.0, free for everyone. Link in comments.
 
