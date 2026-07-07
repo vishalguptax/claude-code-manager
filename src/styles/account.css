@@ -786,13 +786,6 @@
   gap: var(--space-md);
   padding: var(--space-xs) 0;
 }
-/* Freshness caption under the bars — anchors the numbers to a capture
-   time so a no-change Re-read never reads as a broken button. */
-.acct-quota-freshness {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--fg-dim);
-}
 .acct-quota-row {
   display: flex;
   flex-direction: column;
@@ -868,30 +861,36 @@
  * before the refresh button. Xs size + muted fg so it reads as
  * metadata. No icon — keeps the header lean.
  */
-/* Quota freshness status dot — sits in the section header beside the
-   Refresh button. Live: a calm green pulse while Claude is rendering.
-   Idle: a muted static dot once the capture ages out. The "last render
-   Xm ago" detail rides the element's tooltip, so the header needs no
-   timestamp text. */
+/* Quota freshness cluster — sits in the section header, just before the
+   Refresh button: a quiet "Updated <age>" stamp with the status dot on its
+   right, grouped so they read as one unit. Spacing is owned by the group's
+   own gap (and the header's gap to the button), so no per-item margins that
+   would double up and look uneven. */
+.acct-quota-meta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.acct-quota-freshness-inline {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+/* Static dot — no pulse. The animation read as a distracting blink; a solid
+   dot communicates "live" just as well, and the muted variant signals idle.
+   Slightly inset from the baseline so it optically centres with the text. */
 .acct-quota-live-dot {
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  margin-right: var(--space-xs);
   background: var(--vscode-testing-iconPassed, #3fb950);
-  animation: acct-quota-pulse 2s ease-in-out infinite;
 }
 .acct-quota-live-dot.is-stale {
   background: var(--fg-muted);
-  animation: none;
-}
-@keyframes acct-quota-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .acct-quota-live-dot { animation: none; }
 }
 
 /* Error state — icon + title + message + retry, laid out in a row so

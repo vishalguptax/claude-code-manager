@@ -87,13 +87,17 @@ describe("QuotaView", () => {
     expect(screen.queryByText(/refreshes when Claude Code runs/)).toBeNull();
   });
 
-  it("captions a stale capture with the honest 'refreshes when Claude Code runs' hint", () => {
+  it("marks a stale capture with the idle (muted) status dot, still stamped in the header", () => {
     setQuotaSuccess({
       ...SUCCESS,
       quota: { ...SUCCESS.quota, capturedAt: new Date(Date.now() - 60 * 60_000).toISOString() },
     });
     render(h(QuotaView, { api: stubApi() }));
-    expect(screen.getByText(/refreshes when Claude Code runs/)).toBeTruthy();
+    const dot = screen.getByTitle(/Idle · last render/);
+    expect(dot.classList.contains("is-stale")).toBe(true);
+    // The capture age still shows in the header stamp; the "refreshes when
+    // Claude runs" nuance now rides the dot's tooltip, not body text.
+    expect(screen.getByText(/^Updated/)).toBeTruthy();
   });
 
   it("no-data state shows the hint and refreshes on click", () => {

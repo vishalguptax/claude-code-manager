@@ -86,16 +86,27 @@ export function QuotaView({ api }: QuotaViewProps) {
   // Read the shared clock so the dot re-evaluates live (flips to idle when the
   // capture ages out) instead of freezing at its last-render state.
   const fresh = captured && !preSwitch ? quotaFreshness(captured, now.value) : null;
-  const liveDot = fresh ? (
-    <span
-      class={`acct-quota-live-dot${fresh.stale ? " is-stale" : ""}`}
-      title={
-        fresh.stale
-          ? `Idle · last render ${fresh.text}. Updates when Claude runs.`
-          : `Live · last render ${fresh.text}`
-      }
-      aria-label={fresh.stale ? "Quota idle" : "Quota live"}
-    />
+  // Freshness cluster: a quiet "Updated <age>" stamp with the status dot on
+  // its right, grouped as one unit in the header so the capture age reads at a
+  // glance (no scrolling to the card's bottom). The stamp is plain text; the
+  // live-vs-idle nuance rides the dot's colour + tooltip. Only rendered when
+  // there's an in-scope capture, so it vanishes cleanly across an account
+  // switch or before the first render.
+  const freshness = fresh ? (
+    <span class="acct-quota-meta">
+      <span class="acct-quota-freshness-inline" aria-live="polite">
+        Updated {fresh.text}
+      </span>
+      <span
+        class={`acct-quota-live-dot${fresh.stale ? " is-stale" : ""}`}
+        title={
+          fresh.stale
+            ? `Idle · last render ${fresh.text}. Updates when Claude runs.`
+            : `Live · last render ${fresh.text}`
+        }
+        aria-label={fresh.stale ? "Quota idle" : "Quota live"}
+      />
+    </span>
   ) : null;
 
   const refreshBtn =
@@ -113,7 +124,7 @@ export function QuotaView({ api }: QuotaViewProps) {
   return (
     <section class="acct-section">
       <SectionHeader id="quota" title="Quota" collapsed={collapsed} onToggle={toggleSection}>
-        {liveDot}
+        {freshness}
         {refreshBtn}
       </SectionHeader>
       {collapsed ? null : (
@@ -212,24 +223,13 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
       </p>
     );
   }
-  // Always caption the bars with when they were captured — read the
-  // shared clock so it stays live. This is what keeps the card from
-  // reading as "broken": the numbers are visibly anchored to a moment,
-  // so a Re-read that returns the same figures shows "Updated just now"
-  // rather than looking like a dead button. When the capture has aged
-  // out, the caption also states plainly that fresh numbers only arrive
-  // when Claude Code next runs — Anthropic exposes them no other way.
-  const fresh = data.quota.capturedAt ? quotaFreshness(data.quota.capturedAt, now.value) : null;
+  // The capture-age stamp now lives in the section header (left of the
+  // status dot) — see QuotaView's freshnessLabel — so the bars body carries
+  // just the bars.
   return (
     <div class="acct-quota-bars">
       {fiveHour ? <QuotaBar label="5-hour window" window={fiveHour} /> : null}
       {sevenDay ? <QuotaBar label="7-day window" window={sevenDay} /> : null}
-      {fresh ? (
-        <p class="acct-quota-freshness">
-          Updated {fresh.text}
-          {fresh.stale ? " · refreshes when Claude Code runs" : ""}
-        </p>
-      ) : null}
     </div>
   );
 }
