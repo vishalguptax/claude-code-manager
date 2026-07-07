@@ -16,8 +16,10 @@ import type { Session, SessionDetail, Stats } from "../../types";
 import {
   type BranchOption,
   type ProjectOption,
+  type Row,
   buildBranchOptions,
   buildProjectOptions,
+  buildRows,
   listBranches,
   orderProjects,
 } from "../lib";
@@ -298,8 +300,23 @@ export function getBranchOptions(): BranchOption[] {
   );
 }
 
+/**
+ * Memoized filtered list. `computed` recomputes only when a signal `getFiltered`
+ * actually reads changes (session data + the filter/search signals) — NOT on
+ * selection, bulk-mode, or context-menu re-renders, which don't touch those
+ * inputs. Before this, ListView called getFiltered() in its render body, so
+ * every checkbox click re-ran the full filter+sort over all N sessions.
+ */
+export const filteredSignal = computed(getFiltered);
+
+/** Memoized header+session rows for the virtual list, derived from the
+ *  filtered list + pins. Same memoization benefit as {@link filteredSignal}. */
+export const rowsSignal = computed<Row[]>(() =>
+  buildRows(filteredSignal.value, pinnedSignal.value),
+);
+
 /** Reactive count of the filtered list — handy for headers. */
-export const filteredCount = computed(() => getFiltered().length);
+export const filteredCount = computed(() => filteredSignal.value.length);
 
 // ── Delta application ──
 

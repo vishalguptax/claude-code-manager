@@ -530,6 +530,22 @@ describe("applyLiveState", () => {
     expect(sessions[0].status).toBe("idle");
   });
 
+  it("a heartbeat-only bump (updatedAt changes, status/isLive same) does NOT flag a push", () => {
+    // The CLI heartbeats every few seconds, bumping updatedAt without changing
+    // liveness or status. Treating that as 'changed' re-serialized + re-pushed
+    // the whole session tree on every heartbeat. It must return false while
+    // still keeping liveUpdatedAt current for internal correctness.
+    const sessions = [mkSession("s1", true, "busy")];
+    sessions[0].liveUpdatedAt = 100;
+    const live = new Map([
+      ["s1", { pid: 1, status: "busy", updatedAt: 250 }],
+    ]);
+    expect(applyLiveState(sessions, live)).toBe(false);
+    expect(sessions[0].liveUpdatedAt).toBe(250);
+    expect(sessions[0].status).toBe("busy");
+    expect(sessions[0].isLive).toBe(true);
+  });
+
   it("skips orphan files that have no user messages (empty / queue-only shells)", () => {
     writeSessionFile("-home-user-empty", "empty-sess", [
       { type: "queue-operation", operation: "enqueue", sessionId: "empty-sess" },
@@ -1286,6 +1302,19 @@ describe("groupSessions", () => {
     // Should only have "Today", not Yesterday/This Week/etc.
     expect(groups).toHaveLength(1);
     expect(groups[0].label).toBe("Today");
+  });
+
+  it("trims prompts to the first for the webview payload without mutating the input", () => {
+    const now = Date.now();
+    const input = makeSession("a", now);
+    input.prompts = ["first prompt", "second (huge)", "third"];
+
+    const groups = groupSessions([input]);
+    const shipped = groups[0].sessions[0];
+    // Payload carries only prompts[0] (the sole field the list renders).
+    expect(shipped.prompts).toEqual(["first prompt"]);
+    // The host's own session object is untouched — searchSessions still works.
+    expect(input.prompts).toEqual(["first prompt", "second (huge)", "third"]);
   });
 });
 

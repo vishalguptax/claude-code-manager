@@ -12,6 +12,7 @@ import {
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
+  filteredSignal,
   getBranches,
   getBranchOptions,
   getFiltered,
@@ -21,6 +22,7 @@ import {
   initFilterPersistence,
   loadPersistedFilters,
   pinnedSignal,
+  rowsSignal,
   searchQuerySignal,
   selectAll,
   selectionSignal,
@@ -165,6 +167,30 @@ describe("sessions signals", () => {
       // Reply for an old query must not leak in.
       setFullTextHits("old", ["body"]);
       expect(getFiltered()).toHaveLength(0);
+    });
+  });
+
+  describe("filteredSignal / rowsSignal memoization", () => {
+    it("reuses the cached filtered list across a non-filter signal change", () => {
+      sessionsSignal.value = [session({ id: "a" }), session({ id: "b" })];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      const first = filteredSignal.value;
+      // selection is not read by getFiltered → must NOT recompute (same ref).
+      selectionSignal.value = new Set(["a"]);
+      expect(filteredSignal.value).toBe(first);
+      // A data/filter change DOES recompute (new ref).
+      sessionsSignal.value = [session({ id: "a" })];
+      expect(filteredSignal.value).not.toBe(first);
+    });
+
+    it("rowsSignal is memoized against non-filter changes too", () => {
+      sessionsSignal.value = [session({ id: "a", endTime: Date.now() })];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      const rows1 = rowsSignal.value;
+      selectionSignal.value = new Set(["a"]);
+      expect(rowsSignal.value).toBe(rows1);
     });
   });
 

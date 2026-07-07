@@ -15,15 +15,15 @@
  */
 import { useEffect, useState } from "preact/hooks";
 import { Button, ContextMenu, EmptyState, VirtualList } from "../../../../../webview/shared/ui";
-import { buildRows } from "../../lib";
 import {
   bulkModeSignal,
   clearFullTextHits,
   clearSelection,
   currentProjectSignal,
   detailLoadingSignal,
-  getFiltered,
+  filteredSignal,
   openTerminalsSignal,
+  rowsSignal,
   tempSessionsSignal,
   pinnedSignal,
   searchQuerySignal,
@@ -51,7 +51,7 @@ interface MenuState {
 }
 
 export function ListView() {
-  const filtered = getFiltered();
+  const filtered = filteredSignal.value;
   const total = filtered.length;
   const pinned = pinnedSignal.value;
   const selectedId = selectedIdSignal.value;
@@ -63,7 +63,7 @@ export function ListView() {
   const currentProject = currentProjectSignal.value;
   const [menu, setMenu] = useState<MenuState | null>(null);
 
-  const rows = buildRows(filtered, pinned);
+  const rows = rowsSignal.value;
 
   // Bulk-mode keyboard shortcuts, scoped to bulk mode so they're inert
   // otherwise. Ignored when focus is in an input/textarea (verbatim v1 listView
@@ -80,7 +80,7 @@ export function ListView() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         if (inField) return;
         e.preventDefault();
-        selectAll(getFiltered().map((s) => s.id));
+        selectAll(filteredSignal.value.map((s) => s.id));
       } else if (e.key === "Escape") {
         if (inField) return;
         clearSelection();
