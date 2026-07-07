@@ -106,6 +106,10 @@ export const sendExportSession = (sessionId: string): void =>
 /** Import a portable session .jsonl. */
 export const sendImportSession = (): void => post({ type: "importSession" });
 
+/** Import many sessions at once from a .zip archive and/or several .jsonl files. */
+export const sendImportMultipleSessions = (): void =>
+  post({ type: "importMultipleSessions" });
+
 /** Open a chat tab pre-filled with a prompt. */
 export const sendLaunchChatWithPrompt = (prompt: string): void =>
   post({ type: "launchChatWithPrompt", prompt });

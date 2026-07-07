@@ -38,6 +38,7 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "bulkPinSessions", ids: ["1"], pin: true });
     roundTrip({ type: "bulkDeleteSessions", ids: ["1"] });
     roundTrip({ type: "bulkExportSessions", ids: ["1"] });
+    roundTrip({ type: "importMultipleSessions" });
     roundTrip({ type: "searchFullText", query: "needle" });
     roundTrip({ type: "promoteTempSession", sessionId: "s" });
   });

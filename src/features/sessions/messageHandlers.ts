@@ -46,6 +46,7 @@ import {
   exportSessionFile,
   bulkExportSessionFiles,
   importSessionFile,
+  importMultipleSessionFiles,
   resolveClaudeTarget,
 } from "./commands";
 import {
@@ -533,6 +534,12 @@ async function handleSessionMessage(
       // Re-parse so the imported session shows up in the list. The shared
       // helper also re-posts workspace path + temp ids and rebuilds the index.
       await importSessionFile(ctx.getSessions(), () => reparseAndPushSessions(ctx));
+      break;
+
+    case "importMultipleSessions":
+      // Bulk import (zip and/or loose jsonl). Same reload callback so every
+      // imported session appears; no terminals are launched.
+      await importMultipleSessionFiles(ctx.getSessions(), () => reparseAndPushSessions(ctx));
       break;
 
     case "openUrl":

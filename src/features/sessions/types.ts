@@ -449,6 +449,11 @@ export type WebviewMessage =
    */
   | { type: "bulkExportSessions"; ids: string[] }
   /**
+   * Bulk import sessions from a .zip archive and/or several loose .jsonl
+   * files. Existing sessions are never touched; each import gets a fresh id.
+   */
+  | { type: "importMultipleSessions" }
+  /**
    * Restore the live settings.json for a scope from a saved
    * snapshot. Host shows a confirm modal before overwriting; the
    * snapshot module makes a fresh snapshot of the *current* live

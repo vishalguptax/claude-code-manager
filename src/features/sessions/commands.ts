@@ -28,7 +28,7 @@ import {
   defaultExportFilename,
   type KnownProject,
 } from "./portable";
-import { writeZip, type ZipEntry } from "../brain/zip";
+import { writeZip, readZip, type ZipEntry } from "../brain/zip";
 
 /**
  * Open a project folder in a new VS Code window.
@@ -766,6 +766,201 @@ export async function importSessionFile(
   // in the list (it lives under target.path's slug, not necessarily the
   // current workspace).
   onImportComplete();
+}
+
+/**
+ * Bulk import sessions from one or more portable files, without disturbing
+ * any session already on disk. Accepts either the `.zip` archive produced by
+ * bulk export (a `manifest.json` + `sessions/<id>.jsonl` members) or one or
+ * more loose `.jsonl` files — the user can multi-select and mix both.
+ *
+ * Placement is hybrid, because a session's original project path frequently
+ * does not exist on the destination machine:
+ *   - If a session carries an original project path (from the zip manifest)
+ *     and that directory still exists here, it is restored under that
+ *     project's slug — it lands exactly where it came from.
+ *   - Otherwise it is routed to a single fallback project the user picks once
+ *     (defaults to the current workspace). Per-message `cwd` fields are not
+ *     validated by Claude (see portable.ts), so a relocated session still
+ *     resumes cleanly from the fallback directory.
+ *
+ * Every imported session is written with a fresh UUID (both filename and
+ * internal `sessionId`), so an import can never collide with — or overwrite —
+ * an existing session, and pinned/deleted state keyed by id stays intact.
+ * Unlike single import this does not auto-resume: one terminal per session
+ * does not scale, so the user resumes individually from the refreshed list.
+ */
+export async function importMultipleSessionFiles(
+  sessions: Session[],
+  onImportComplete: () => void,
+): Promise<void> {
+  // 1. File picker — accept the export zip and/or loose jsonl, multi-select.
+  const lastImportDir = readLastDir(STORAGE_KEY_LAST_IMPORT_DIR);
+  const picked = await vscode.window.showOpenDialog({
+    title: "Import Claude sessions",
+    defaultUri: lastImportDir ? vscode.Uri.file(lastImportDir) : undefined,
+    canSelectFiles: true,
+    canSelectFolders: false,
+    canSelectMany: true,
+    filters: { "Claude sessions": ["zip", "jsonl"] },
+    openLabel: "Import",
+  });
+  if (!picked || picked.length === 0) return; // user cancelled
+
+  rememberLastDir(STORAGE_KEY_LAST_IMPORT_DIR, picked[0].fsPath);
+
+  // 2. Expand every picked file into candidate sessions. A zip yields its
+  //    `sessions/*.jsonl` members (with the manifest's project path as a
+  //    restore hint); a loose file is a single candidate with no hint.
+  type Candidate = { content: string; originalPath?: string; label: string };
+  const candidates: Candidate[] = [];
+  let skipped = 0;
+
+  for (const uri of picked) {
+    const filePath = uri.fsPath;
+    if (filePath.toLowerCase().endsWith(".zip")) {
+      let entries: ZipEntry[];
+      try {
+        entries = readZip(fs.readFileSync(filePath));
+      } catch {
+        skipped++; // not a readable STORE-only archive
+        continue;
+      }
+      // manifest.json maps "<id>.jsonl" → original projectPath. A zip without
+      // one still imports; those sessions just always take the fallback path.
+      const pathByFile = new Map<string, string>();
+      const manifest = entries.find((e) => e.path === "manifest.json");
+      if (manifest) {
+        try {
+          const parsed = JSON.parse(manifest.data.toString("utf-8")) as {
+            sessions?: Array<{ file?: string; projectPath?: string }>;
+          };
+          for (const s of parsed.sessions ?? []) {
+            if (typeof s.file === "string" && typeof s.projectPath === "string") {
+              pathByFile.set(s.file, s.projectPath);
+            }
+          }
+        } catch {
+          // Corrupt manifest — proceed with no hints, still importable.
+        }
+      }
+      for (const e of entries) {
+        if (!e.path.startsWith("sessions/") || !e.path.endsWith(".jsonl")) continue;
+        const base = path.posix.basename(e.path);
+        candidates.push({
+          content: e.data.toString("utf-8"),
+          originalPath: pathByFile.get(base),
+          label: base,
+        });
+      }
+    } else {
+      try {
+        candidates.push({
+          content: fs.readFileSync(filePath, "utf-8"),
+          label: path.basename(filePath),
+        });
+      } catch {
+        skipped++; // unreadable file
+      }
+    }
+  }
+
+  // 3. Validate. Drop anything that is not a real single-session transcript.
+  type Valid = { content: string; sessionId: string; originalPath?: string };
+  const valid: Valid[] = [];
+  for (const c of candidates) {
+    const v = validatePortableSession(c.content);
+    if (!v.ok) {
+      skipped++;
+      continue;
+    }
+    valid.push({ content: c.content, sessionId: v.sessionId, originalPath: c.originalPath });
+  }
+
+  if (valid.length === 0) {
+    vscode.window.showErrorMessage(
+      `No importable sessions found${skipped > 0 ? ` (${skipped} skipped).` : "."}`,
+    );
+    return;
+  }
+
+  // 4. Resolve placement. A session restores to its original project only
+  //    when that directory still exists here; otherwise it needs the
+  //    fallback project, which we ask for once.
+  const needFallback = valid.some((s) => !s.originalPath || !fs.existsSync(s.originalPath));
+  let fallback: KnownProject | null = null;
+  if (needFallback) {
+    fallback = await pickImportTarget(sessions);
+    if (!fallback) return; // user cancelled
+    if (!fs.existsSync(fallback.path)) {
+      vscode.window.showErrorMessage(
+        `The chosen project path does not exist on this machine:\n${fallback.path}`,
+      );
+      return;
+    }
+  }
+
+  const targets = valid.map((s) => {
+    const useOriginal = Boolean(s.originalPath && fs.existsSync(s.originalPath));
+    return {
+      ...s,
+      projectPath: useOriginal ? (s.originalPath as string) : (fallback as KnownProject).path,
+      restored: useOriginal,
+    };
+  });
+  const restoredCount = targets.filter((t) => t.restored).length;
+  const fallbackCount = targets.length - restoredCount;
+
+  // 5. Confirmation — show the full breakdown before touching disk.
+  const detailLines: string[] = [];
+  if (restoredCount > 0) {
+    detailLines.push(
+      `${restoredCount} restored to their original project${restoredCount === 1 ? "" : "s"}.`,
+    );
+  }
+  if (fallbackCount > 0 && fallback) {
+    detailLines.push(`${fallbackCount} imported into ${fallback.name}.`);
+  }
+  if (skipped > 0) detailLines.push(`${skipped} skipped (not a valid session).`);
+  detailLines.push("", "Existing sessions are untouched. Nothing is overwritten.");
+
+  const confirm = await vscode.window.showInformationMessage(
+    `Import ${targets.length} session${targets.length === 1 ? "" : "s"}?`,
+    { modal: true, detail: detailLines.join("\n") },
+    "Import",
+  );
+  if (confirm !== "Import") return;
+
+  // 6. Write each session under a fresh UUID so it never collides with — or
+  //    overwrites — an existing session on disk.
+  let written = 0;
+  let failed = 0;
+  for (const t of targets) {
+    const newId = crypto.randomUUID();
+    const targetDir = path.join(PROJECTS_DIR, slugifyProjectPath(t.projectPath));
+    try {
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(targetDir, `${newId}.jsonl`),
+        rewriteSessionId(t.content, t.sessionId, newId),
+      );
+      written++;
+    } catch {
+      failed++;
+    }
+  }
+
+  // 7. Report + refresh. No terminals launched — the user resumes from the
+  //    list, which the reload callback repopulates.
+  if (written > 0) {
+    const tail = failed > 0 ? ` (${failed} failed to write)` : "";
+    vscode.window.showInformationMessage(
+      `Imported ${written} session${written === 1 ? "" : "s"}${tail}.`,
+    );
+    onImportComplete();
+  } else {
+    vscode.window.showErrorMessage("Failed to import any sessions.");
+  }
 }
 
 /**

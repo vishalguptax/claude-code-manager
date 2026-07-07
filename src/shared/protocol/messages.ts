@@ -58,6 +58,7 @@ export type Message =
   | { type: "bulkPinSessions"; ids: string[]; pin: boolean }
   | { type: "bulkDeleteSessions"; ids: string[] }
   | { type: "bulkExportSessions"; ids: string[] }
+  | { type: "importMultipleSessions" }
   | { type: "getSkills" }
   | { type: "getSkillDetail"; skillId: string }
   | { type: "openSkillFile"; skillPath: string }
@@ -202,6 +203,7 @@ type WebviewMessageType =
   | "bulkPinSessions"
   | "bulkDeleteSessions"
   | "bulkExportSessions"
+  | "importMultipleSessions"
   | "getSkills"
   | "getSkillDetail"
   | "openSkillFile"

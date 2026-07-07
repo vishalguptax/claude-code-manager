@@ -1,7 +1,7 @@
 /**
  * Top row of session-launch actions: new session, temp session, continue
- * last, restore the last working set of terminals, and import a portable
- * session file.
+ * last, restore the last working set of terminals, import one portable
+ * session file, and bulk-import many at once.
  *
  * Each action is a shared <Button>; "New" leads as the primary call to action,
  * the rest are secondary. The `.actions-bar` grid (shared CSS) lays them out in
@@ -10,6 +10,7 @@
 import { Button } from "../../../../../webview/shared/ui";
 import {
   sendContinueLastSession,
+  sendImportMultipleSessions,
   sendImportSession,
   sendNewSession,
   sendNewTempSession,
@@ -58,10 +59,17 @@ export function ActionsBar() {
       </Button>
       <Button
         iconName="download"
-        title="Import a session exported from another machine"
+        title="Import a single session exported from another machine (resumes it immediately)"
         onClick={() => sendImportSession()}
       >
         Import
+      </Button>
+      <Button
+        iconName="package"
+        title="Import many sessions at once from a .zip archive and/or several .jsonl files — existing sessions are kept"
+        onClick={() => sendImportMultipleSessions()}
+      >
+        Import Many
       </Button>
     </div>
   );

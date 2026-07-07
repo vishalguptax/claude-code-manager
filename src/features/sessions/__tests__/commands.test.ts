@@ -63,9 +63,11 @@ vi.mock("../../../extension/terminal", async () => {
 import {
   exportSessionFile,
   importSessionFile,
+  importMultipleSessionFiles,
   resumeSession,
   setSessionStorage,
 } from "../commands";
+import { writeZip, type ZipEntry } from "../../brain/zip";
 import type { Session } from "../types";
 
 /** Build a fake Memento backed by an in-memory Map for tests. */
@@ -358,6 +360,198 @@ describe("importSessionFile", () => {
     expect(writtenFiles[0]).not.toBe(writtenFiles[1]);
     expect(sentTextCalls).toHaveLength(2);
     expect(sentTextCalls[0]).not.toBe(sentTextCalls[1]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// importMultipleSessionFiles (bulk import)
+// ─────────────────────────────────────────────────────────────────────
+
+describe("importMultipleSessionFiles", () => {
+  /** One valid single-user-message transcript for the given id. */
+  function portable(id: string): string {
+    return `{"sessionId":"${id}","message":{"role":"user","content":"hi"}}\n`;
+  }
+
+  /** Build a bulk-export-shaped zip with a manifest + sessions/ members. */
+  function makeZip(members: Array<{ id: string; projectPath?: string }>): Buffer {
+    const entries: ZipEntry[] = [
+      {
+        path: "manifest.json",
+        data: Buffer.from(
+          JSON.stringify({
+            version: 1,
+            sessions: members.map((m) => ({
+              id: m.id,
+              file: `${m.id}.jsonl`,
+              projectPath: m.projectPath,
+            })),
+          }),
+        ),
+      },
+    ];
+    for (const m of members) {
+      entries.push({ path: `sessions/${m.id}.jsonl`, data: Buffer.from(portable(m.id)) });
+    }
+    return writeZip(entries);
+  }
+
+  function writeFile(name: string, data: Buffer | string): string {
+    const file = path.join(EXPORT_DIR, name);
+    fs.writeFileSync(file, data);
+    return file;
+  }
+
+  function mockOpen(...files: string[]): void {
+    vi.spyOn(vscode.window, "showOpenDialog").mockResolvedValue(
+      files.map((f) => vscode.Uri.file(f) as unknown as vscode.Uri),
+    );
+  }
+
+  /** pickImportTarget → the first QuickPick item, i.e. Current Workspace. */
+  function mockFallbackCurrent(): void {
+    vi.spyOn(vscode.window, "showQuickPick").mockImplementation(
+      async (items: unknown) => (items as Array<{ project?: unknown }>)[0],
+    );
+  }
+
+  function mockConfirm(answer: string | undefined): void {
+    vi.spyOn(vscode.window, "showInformationMessage").mockResolvedValue(
+      answer as unknown as undefined,
+    );
+  }
+
+  function mockWorkspace(folder: string): void {
+    interface MutableWs {
+      workspaceFolders: Array<{ uri: { fsPath: string }; name: string; index: number }>;
+    }
+    (vscode.workspace as unknown as MutableWs).workspaceFolders = [
+      { uri: { fsPath: folder }, name: path.basename(folder), index: 0 },
+    ];
+  }
+
+  function jsonlFilesUnder(projectPath: string): string[] {
+    const dir = path.join(PROJECTS_DIR, projectPath.replace(/[/\\:]/g, "-"));
+    if (!fs.existsSync(dir)) return [];
+    return fs.readdirSync(dir).filter((f) => f.endsWith(".jsonl"));
+  }
+
+  it("restores sessions to their original project when the path exists here", async () => {
+    const origProject = fs.realpathSync(path.join(EXPORT_DIR)); // an existing dir
+    const zip = writeFile("bundle.zip", makeZip([{ id: "aaaaaaaa-0000-0000-0000-000000000001", projectPath: origProject }]));
+    mockWorkspace(origProject);
+    mockOpen(zip);
+    mockConfirm("Import");
+    const qp = vi.spyOn(vscode.window, "showQuickPick");
+
+    let reloaded = false;
+    await importMultipleSessionFiles([], () => {
+      reloaded = true;
+    });
+
+    // All paths exist → no fallback picker shown.
+    expect(qp).not.toHaveBeenCalled();
+    const written = jsonlFilesUnder(origProject);
+    expect(written).toHaveLength(1);
+    // Fresh UUID, not the source id.
+    expect(written[0]).not.toContain("aaaaaaaa-0000");
+    expect(reloaded).toBe(true);
+    // No terminal launched for bulk import.
+    expect(sentTextCalls).toHaveLength(0);
+  });
+
+  it("routes sessions whose original path is missing to the picked fallback", async () => {
+    const zip = writeFile(
+      "bundle.zip",
+      makeZip([{ id: "bbbbbbbb-0000-0000-0000-000000000002", projectPath: "/does/not/exist/here" }]),
+    );
+    mockWorkspace(EXPORT_DIR);
+    mockOpen(zip);
+    mockFallbackCurrent();
+    mockConfirm("Import");
+
+    await importMultipleSessionFiles([], () => {});
+
+    expect(jsonlFilesUnder(EXPORT_DIR)).toHaveLength(1);
+    expect(jsonlFilesUnder("/does/not/exist/here")).toHaveLength(0);
+  });
+
+  it("imports loose .jsonl files into the fallback project", async () => {
+    const a = writeFile("a.jsonl", portable("cccccccc-0000-0000-0000-000000000003"));
+    const b = writeFile("b.jsonl", portable("dddddddd-0000-0000-0000-000000000004"));
+    mockWorkspace(EXPORT_DIR);
+    mockOpen(a, b);
+    mockFallbackCurrent();
+    mockConfirm("Import");
+
+    await importMultipleSessionFiles([], () => {});
+
+    expect(jsonlFilesUnder(EXPORT_DIR)).toHaveLength(2);
+  });
+
+  it("skips invalid entries but still imports the valid ones", async () => {
+    const zip = writeFile("bundle.zip", makeZip([{ id: "eeeeeeee-0000-0000-0000-000000000005" }]));
+    const empty = writeFile("empty.jsonl", "");
+    mockWorkspace(EXPORT_DIR);
+    mockOpen(zip, empty);
+    mockFallbackCurrent();
+    mockConfirm("Import");
+
+    await importMultipleSessionFiles([], () => {});
+
+    expect(jsonlFilesUnder(EXPORT_DIR)).toHaveLength(1);
+  });
+
+  it("errors and writes nothing when no importable session is found", async () => {
+    const empty = writeFile("empty.jsonl", "");
+    mockWorkspace(EXPORT_DIR);
+    mockOpen(empty);
+    const errSpy = vi.spyOn(vscode.window, "showErrorMessage").mockResolvedValue(undefined);
+
+    let reloaded = false;
+    await importMultipleSessionFiles([], () => {
+      reloaded = true;
+    });
+
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("No importable sessions"));
+    expect(reloaded).toBe(false);
+  });
+
+  it("does nothing when the user cancels the file picker", async () => {
+    vi.spyOn(vscode.window, "showOpenDialog").mockResolvedValue(undefined);
+    const errSpy = vi.spyOn(vscode.window, "showErrorMessage").mockResolvedValue(undefined);
+
+    await importMultipleSessionFiles([], () => {});
+
+    expect(errSpy).not.toHaveBeenCalled();
+    expect(jsonlFilesUnder(EXPORT_DIR)).toHaveLength(0);
+  });
+
+  it("writes nothing when the user cancels the confirmation", async () => {
+    const zip = writeFile("bundle.zip", makeZip([{ id: "ffffffff-0000-0000-0000-000000000006" }]));
+    mockWorkspace(EXPORT_DIR);
+    mockOpen(zip);
+    mockFallbackCurrent();
+    mockConfirm(undefined); // dismissed
+
+    await importMultipleSessionFiles([], () => {});
+
+    expect(jsonlFilesUnder(EXPORT_DIR)).toHaveLength(0);
+  });
+
+  it("never overwrites an existing session — fresh UUID each import", async () => {
+    const zip = writeFile("bundle.zip", makeZip([{ id: "99999999-0000-0000-0000-000000000009" }]));
+    mockWorkspace(EXPORT_DIR);
+    mockFallbackCurrent();
+    mockConfirm("Import");
+    mockOpen(zip);
+    await importMultipleSessionFiles([], () => {});
+    mockOpen(zip);
+    await importMultipleSessionFiles([], () => {});
+
+    const files = jsonlFilesUnder(EXPORT_DIR);
+    expect(files).toHaveLength(2);
+    expect(files[0]).not.toBe(files[1]);
   });
 });
 
