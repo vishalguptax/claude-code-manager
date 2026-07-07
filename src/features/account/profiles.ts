@@ -48,6 +48,7 @@ import * as os from "os";
 import * as crypto from "crypto";
 import { CLAUDE_DIR } from "../../core/config";
 import { createMtimeCache } from "../../core/mtimeCache";
+import { readClaudeJsonRaw } from "./claudeJsonCache";
 import {
   readCredentials,
   writeCredentials,
@@ -172,13 +173,8 @@ function readLivePairRaceSafe(): {
   for (let attempt = 0; attempt < 2; attempt++) {
     const pre = readCredentials();
     if (!pre) return null;
-    let claudeJsonRaw: string;
-    try {
-      claudeJsonRaw = fs.readFileSync(CLAUDE_JSON, "utf-8");
-    } catch {
-      return null;
-    }
-    if (!claudeJsonRaw.trim()) return null;
+    const claudeJsonRaw = readClaudeJsonRaw();
+    if (claudeJsonRaw === null || !claudeJsonRaw.trim()) return null;
     const post = readCredentials();
     if (!post) return null;
     if (post.hash === pre.hash) {
@@ -372,12 +368,10 @@ function readLiveIdentity(): LiveIdentity | null {
   if (!live) return null;
   const tokenIdentity = extractIdentityFromToken(live.raw);
   if (tokenIdentity) return tokenIdentity;
-  try {
-    const claudeJsonRaw = fs.readFileSync(CLAUDE_JSON, "utf-8");
+  const claudeJsonRaw = readClaudeJsonRaw();
+  if (claudeJsonRaw !== null) {
     const fromJson = extractIdentity(claudeJsonRaw);
     if (fromJson.accountUuid || fromJson.userID || fromJson.email) return fromJson;
-  } catch {
-    // .claude.json missing — nothing left to try.
   }
   return null;
 }
