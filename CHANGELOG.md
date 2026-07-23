@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.8.0] - 2026-07-23
+
+Sessions now understand git worktrees — see which worktree a session ran in, group every worktree of a repo together, and resume into the right checkout without a forced branch switch.
+
+See [docs/releases/v2.8.0.md](docs/releases/v2.8.0.md) for full details.
+
 ## [2.7.0] - 2026-07-08
 
 Turn your usage into a shareable "My Claude Code year" card, and meet a first-run welcome that shows off everything the sidebar can do.
