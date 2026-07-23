@@ -201,7 +201,7 @@ describe("ActionsBar", () => {
     sessionsSignal.value = [session("x", { endTime: now }), session("y", { endTime: now - 1000 })];
     filterProjectSignal.value = "all";
     const { getByText } = render(h(ActionsBar, {}));
-    fireEvent.click(getByText("Restore Workspace"));
+    fireEvent.click(getByText("Restore"));
     expect(post).toHaveBeenCalledWith(
       expect.objectContaining({ type: "resumeMultiple" }),
     );

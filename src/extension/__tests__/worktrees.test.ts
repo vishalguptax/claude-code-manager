@@ -10,6 +10,7 @@ import {
   classifyWorktree,
   resolveWorktree,
   resolveWorktrees,
+  resolveMissingClaudeWorktree,
   findWorktreeForBranch,
   clearWorktreeCache,
 } from "../worktrees";
@@ -170,6 +171,39 @@ describe("resolveWorktree", () => {
     clearWorktreeCache();
     resolveWorktree("/repo");
     expect(listCalls()).toBe(2); // re-spawned after clear
+  });
+});
+
+describe("resolveMissingClaudeWorktree", () => {
+  it("synthesizes an exists:false ref for a removed Claude worktree when the repo root is a git repo", () => {
+    // Only the repo-root show-toplevel probe is expected — the worktree dir
+    // itself is gone, so live resolution never runs here.
+    mockGit({ [TOP]: "/repo\n" });
+    const ref = resolveMissingClaudeWorktree("/repo/.claude/worktrees/gone", "worktree-gone");
+    expect(ref).toEqual({
+      path: "/repo/.claude/worktrees/gone",
+      branch: "worktree-gone",
+      kind: "claude",
+      exists: false,
+      locked: false,
+      repoRoot: "/repo",
+    });
+  });
+
+  it("returns null when the path is not under .claude/worktrees/", () => {
+    expect(resolveMissingClaudeWorktree("/repo/some/dir", "b")).toBeNull();
+  });
+
+  it("returns null when the derived repo root is not a git repo", () => {
+    mockGit({ [TOP]: new Error("fatal: not a git repository") });
+    expect(resolveMissingClaudeWorktree("/nope/.claude/worktrees/x", "b")).toBeNull();
+  });
+
+  it("derives the repo root from a Windows-style path", () => {
+    mockGit({ [TOP]: "C:/repo\n" });
+    const ref = resolveMissingClaudeWorktree("C:\\repo\\.claude\\worktrees\\gone", "b");
+    expect(ref?.repoRoot).toBe("C:/repo");
+    expect(ref?.path).toBe("C:\\repo\\.claude\\worktrees\\gone");
   });
 });
 

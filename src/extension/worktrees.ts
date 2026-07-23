@@ -243,6 +243,46 @@ export function findWorktreeForBranch(dir: string, branch: string): WorktreeRef 
   };
 }
 
+/** Path fragment marking a Claude Code-created worktree checkout. */
+const CLAUDE_WT_MARKER = "/.claude/worktrees/";
+
+/**
+ * Synthesize a WorktreeRef for a Claude-created worktree whose directory no
+ * longer exists on disk (Claude cleaned it up, or the user pruned it). Live
+ * detection via {@link resolveWorktree} can only see worktrees that still
+ * exist — git fails on a missing directory — so a removed worktree would
+ * otherwise vanish from the UI with no way to recreate it.
+ *
+ * Only claims the directory when it matches Claude's `.claude/worktrees/<name>`
+ * convention AND the repo root derived from it (the segment before the marker)
+ * is a real git repository. That guard stops us inventing a worktree for an
+ * arbitrary deleted path. `branch` is carried from the session so the recreate
+ * flow (`git worktree add <path> <branch>`) knows which branch to restore.
+ *
+ * Returns a ref with `exists: false`; null when the path is not a Claude
+ * worktree or the derived repo root is not a git repo.
+ */
+export function resolveMissingClaudeWorktree(dir: string, branch: string): WorktreeRef | null {
+  if (!dir) return null;
+  // Forward-slash form preserves length + case, so the lowercase marker index
+  // is a valid slice point into the original-case string.
+  const fwd = dir.replace(/\\/g, "/");
+  const idx = fwd.toLowerCase().indexOf(CLAUDE_WT_MARKER);
+  if (idx <= 0) return null;
+  const repoRoot = fwd.slice(0, idx);
+  const top = git(repoRoot, ["rev-parse", "--path-format=absolute", "--show-toplevel"]);
+  if (!top) return null;
+
+  return {
+    path: dir,
+    branch,
+    kind: "claude",
+    exists: false,
+    locked: false,
+    repoRoot,
+  };
+}
+
 /**
  * Resolve worktrees for many directories at once, returning a map keyed by the
  * exact input directory string. Directories that are not in a repo are omitted

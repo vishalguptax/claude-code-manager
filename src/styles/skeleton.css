@@ -43,7 +43,7 @@
    button blocks distribute the same way and wrap identically on narrow panels. */
 .skeleton-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-2xl);
   flex-shrink: 0;

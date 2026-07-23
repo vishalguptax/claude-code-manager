@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { WorktreeRef } from "../../../extension/worktrees";
 
-// Mock the extension-host worktree resolver so these tests exercise the
-// mapping/fan-out logic without spawning git.
+// Mock the extension-host worktree resolvers so these tests exercise the
+// mapping/fan-out logic without spawning git. resolveMissingClaudeWorktree
+// defaults to null (no removed worktree) unless a test opts in.
 const resolveWorktrees = vi.fn();
+const resolveMissingClaudeWorktree = vi.fn(() => null);
 vi.mock("../../../extension/worktrees", () => ({
   resolveWorktrees: (...args: unknown[]) => resolveWorktrees(...args),
+  resolveMissingClaudeWorktree: (...args: unknown[]) => resolveMissingClaudeWorktree(...args),
 }));
 
 import { buildWorktreeMap, postWorktrees } from "../worktreeEnrichment";
@@ -42,6 +45,8 @@ function ref(path: string): WorktreeRef {
 
 beforeEach(() => {
   resolveWorktrees.mockReset();
+  resolveMissingClaudeWorktree.mockReset();
+  resolveMissingClaudeWorktree.mockReturnValue(null);
 });
 
 describe("buildWorktreeMap", () => {
@@ -79,6 +84,44 @@ describe("buildWorktreeMap", () => {
   it("returns an empty map when nothing resolves", () => {
     resolveWorktrees.mockReturnValue(new Map());
     expect(buildWorktreeMap([makeSession("a", "/repo/wt")])).toEqual({});
+  });
+
+  it("recovers a removed Claude worktree via the missing-worktree probe", () => {
+    resolveWorktrees.mockReturnValue(new Map()); // live resolution finds nothing
+    const removed: WorktreeRef = {
+      path: "/repo/.claude/worktrees/gone",
+      branch: "main",
+      kind: "claude",
+      exists: false,
+      locked: false,
+      repoRoot: "/repo",
+    };
+    resolveMissingClaudeWorktree.mockReturnValue(removed);
+
+    const map = buildWorktreeMap([makeSession("g", "/repo/.claude/worktrees/gone")]);
+
+    expect(map).toEqual({ g: removed });
+    expect(resolveMissingClaudeWorktree).toHaveBeenCalledWith(
+      "/repo/.claude/worktrees/gone",
+      "main",
+    );
+  });
+
+  it("probes a missing directory only once even across sessions sharing it", () => {
+    resolveWorktrees.mockReturnValue(new Map());
+    buildWorktreeMap([
+      makeSession("a", "/repo/.claude/worktrees/gone"),
+      makeSession("b", "/repo/.claude/worktrees/gone"),
+    ]);
+    expect(resolveMissingClaudeWorktree).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefers live resolution over the missing-worktree probe", () => {
+    const live = ref("/repo/.claude/worktrees/x");
+    resolveWorktrees.mockReturnValue(new Map([["/repo/.claude/worktrees/x", live]]));
+    const map = buildWorktreeMap([makeSession("a", "/repo/.claude/worktrees/x")]);
+    expect(map).toEqual({ a: live });
+    expect(resolveMissingClaudeWorktree).not.toHaveBeenCalled();
   });
 });
 

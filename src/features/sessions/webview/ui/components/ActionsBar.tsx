@@ -55,7 +55,7 @@ export function ActionsBar() {
           }
         }}
       >
-        Restore Workspace
+        Restore
       </Button>
       <Button
         iconName="download"

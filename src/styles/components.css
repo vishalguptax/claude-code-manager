@@ -105,14 +105,14 @@
 
 .actions-bar {
   /* Grid instead of flex-wrap so the toolbar buttons distribute evenly
-     when they wrap. The min track must fit the longest button's full
-     content — icon + gap + "Restore Workspace" label + button padding,
-     which measures ~154px, not the label alone. 135px clipped it at the
-     wrap boundary (the column sits exactly at the min just before another
-     column is added). At narrower widths the grid drops to a single
-     stacked column, cleaner than truncating text. */
+     when they wrap. Min track 135px fits every button's full content
+     (icon + gap + label + padding) — labels are kept short on purpose
+     ("Restore", not "Restore Workspace") so the track stays small: a
+     larger track fits fewer columns on a narrow panel, stacking the bar
+     into extra rows that shove the session list down. At narrower widths
+     the grid drops to a single stacked column. */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
   gap: var(--space-xs);
   /* Align the toolbar's left/right edge to the list rows + search box so the
      panel reads as one column, and use the same vertical rhythm as the
