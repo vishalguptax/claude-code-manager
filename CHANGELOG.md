@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.8.1] - 2026-07-24
+
+Keeps the session actions bar compact on narrow sidebars — "Restore Workspace" is now "Restore" so the toolbar packs more buttons per row instead of pushing the session list down.
+
+See [docs/releases/v2.8.1.md](docs/releases/v2.8.1.md) for full details.
+
 ## [2.8.0] - 2026-07-23
 
 Sessions now understand git worktrees — see which worktree a session ran in, group every worktree of a repo together, and resume into the right checkout without a forced branch switch.
