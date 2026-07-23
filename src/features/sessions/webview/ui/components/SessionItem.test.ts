@@ -2,8 +2,20 @@
 import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render } from "@testing-library/preact";
-import type { Session } from "../../../types";
+import type { Session, WorktreeRef } from "../../../types";
 import { SessionItem, liveTitleForStatus } from "./SessionItem";
+
+function ref(over: Partial<WorktreeRef> = {}): WorktreeRef {
+  return {
+    path: "/repo/.claude/worktrees/feat",
+    branch: "worktree-feat",
+    kind: "claude",
+    exists: true,
+    locked: false,
+    repoRoot: "/repo",
+    ...over,
+  };
+}
 
 function session(over: Partial<Session> & { id: string }): Session {
   const base: Session = {
@@ -153,6 +165,33 @@ describe("SessionItem", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("offers View (not Resume) for a live session with no tracked terminal", () => {
+    const onResume = vi.fn();
+    const onView = vi.fn();
+    const { container } = renderItem(session({ id: "a", isLive: true, status: "idle" }), {
+      hasOpenTerminal: false,
+      onResume,
+      onView,
+    });
+    const btn = container.querySelector(".item-resume") as HTMLButtonElement;
+    expect(btn.getAttribute("title")).toBe("Session is running — reveal its terminal");
+    fireEvent.click(btn);
+    expect(onView).toHaveBeenCalledWith("a");
+    expect(onResume).not.toHaveBeenCalled();
+  });
+
+  it("offers Resume (play) only for a session that is neither live nor terminal-backed", () => {
+    const onResume = vi.fn();
+    const { container } = renderItem(session({ id: "a", isLive: false }), {
+      hasOpenTerminal: false,
+      onResume,
+    });
+    const btn = container.querySelector(".item-resume") as HTMLButtonElement;
+    expect(btn.getAttribute("title")).toBe("Resume session");
+    fireEvent.click(btn);
+    expect(onResume).toHaveBeenCalledWith("a");
+  });
+
   it("toggles selection instead of selecting in bulk mode", () => {
     const onSelect = vi.fn();
     const onToggleSelect = vi.fn();
@@ -204,5 +243,68 @@ describe("SessionItem", () => {
     const { container } = renderItem(session({ id: "a" }), { bulkMode: true, onContextMenu });
     fireEvent.contextMenu(container.querySelector(".session-item") as Element);
     expect(onContextMenu).not.toHaveBeenCalled();
+  });
+
+  describe("worktree badge", () => {
+    it("renders a Claude worktree badge with the bot icon, short name and branch", () => {
+      const { container } = renderItem(session({ id: "a" }), {
+        worktree: ref({ path: "/repo/.claude/worktrees/feat", branch: "worktree-feat", kind: "claude" }),
+      });
+      const badge = container.querySelector(".tag-wt");
+      expect(badge).toBeTruthy();
+      expect(badge?.classList.contains("tag-wt--claude")).toBe(true);
+      expect(badge?.querySelector("[data-icon='bot']")).toBeTruthy();
+      expect(container.querySelector(".tag-wt__name")?.textContent).toBe("feat");
+      expect(container.querySelector(".tag-wt__branch")?.textContent).toBe("worktree-feat");
+    });
+
+    it("renders a user worktree badge with the branch icon", () => {
+      const { container } = renderItem(session({ id: "a" }), {
+        worktree: ref({ path: "/repo/wt/mine", kind: "user" }),
+      });
+      const badge = container.querySelector(".tag-wt");
+      expect(badge?.classList.contains("tag-wt--user")).toBe(true);
+      expect(badge?.querySelector("[data-icon='git-branch']")).toBeTruthy();
+      expect(container.querySelector(".tag-wt__name")?.textContent).toBe("mine");
+    });
+
+    it("suppresses the plain branch tag when a worktree badge is shown (no duplicate branch)", () => {
+      const { container } = renderItem(session({ id: "a", branch: "worktree-feat" }), {
+        worktree: ref({ branch: "worktree-feat" }),
+      });
+      // The only .tag in row2 is the worktree badge itself.
+      const tags = container.querySelectorAll(".item-row2 .tag");
+      expect(tags).toHaveLength(1);
+      expect(tags[0].classList.contains("tag-wt")).toBe(true);
+    });
+
+    it("shows no badge for a main-checkout ref (keeps the plain branch tag)", () => {
+      const { container } = renderItem(session({ id: "a", branch: "main" }), {
+        worktree: ref({ kind: "main", branch: "main" }),
+      });
+      expect(container.querySelector(".tag-wt")).toBeNull();
+      expect(container.querySelector(".item-row2 .tag")?.textContent).toBe("main");
+    });
+
+    it("shows no badge when the session is not in a worktree", () => {
+      const { container } = renderItem(session({ id: "a" }));
+      expect(container.querySelector(".tag-wt")).toBeNull();
+    });
+
+    it("marks a removed worktree with the missing modifier", () => {
+      const { container } = renderItem(session({ id: "a" }), {
+        worktree: ref({ exists: false }),
+      });
+      expect(container.querySelector(".tag-wt")?.classList.contains("tag-wt--missing")).toBe(true);
+    });
+
+    it("flags a locked (in-use) worktree", () => {
+      const { container } = renderItem(session({ id: "a" }), {
+        worktree: ref({ locked: true }),
+      });
+      const badge = container.querySelector(".tag-wt");
+      expect(badge?.classList.contains("tag-wt--locked")).toBe(true);
+      expect(badge?.getAttribute("title")).toContain("in active use");
+    });
   });
 });

@@ -43,12 +43,14 @@ import {
   confirmDeleteSession,
   promptRenameSession,
   resumeSession,
+  createWorktreeForSession,
   exportSessionFile,
   bulkExportSessionFiles,
   importSessionFile,
   importMultipleSessionFiles,
   resolveClaudeTarget,
 } from "./commands";
+import { postWorktrees } from "./worktreeEnrichment";
 import {
   isClaudeCodeExtensionInstalled,
   openPromptInExtension,
@@ -236,6 +238,7 @@ function reparseAndPushSessions(ctx: HostContext): void {
     data: groupSessions(ctx.getSessions()),
     stats: getStats(ctx.getSessions()),
   });
+  postWorktrees(wv, ctx.getSessions());
   wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
   wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
   ctx.buildSearchIndex();
@@ -263,6 +266,7 @@ async function handleSessionMessage(
       ctx.postWorkspacePath();
       ctx.refreshSettings();
       wv.postMessage({ type: "sessions", data: groupSessions(ctx.getSessions()), stats: getStats(ctx.getSessions()) });
+      postWorktrees(wv, ctx.getSessions());
       wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
       wv.postMessage({ type: "userState", ...loadState() });
       wv.postMessage({ type: "terminalSessions", ids: ctx.terminals.ids() });
@@ -294,6 +298,7 @@ async function handleSessionMessage(
       const sessions = ctx.getSessions();
       const filtered = msg.query ? searchSessions(sessions, msg.query) : sessions;
       wv.postMessage({ type: "sessions", data: groupSessions(filtered), stats: getStats(filtered) });
+      postWorktrees(wv, filtered);
       break;
     }
 
@@ -304,12 +309,14 @@ async function handleSessionMessage(
         dateRange: msg.dateRange,
       });
       wv.postMessage({ type: "sessions", data: groupSessions(filtered), stats: getStats(filtered) });
+      postWorktrees(wv, filtered);
       break;
     }
 
     case "refresh":
       ctx.setSessions(parseSessions(loadState().renames));
       wv.postMessage({ type: "sessions", data: groupSessions(ctx.getSessions()), stats: getStats(ctx.getSessions()) });
+      postWorktrees(wv, ctx.getSessions());
       ctx.buildSearchIndex();
       break;
 
@@ -450,6 +457,7 @@ async function handleSessionMessage(
         const target = sessions.find((s) => s.id === msg.sessionId);
         if (target) target.name = newName.trim();
         wv.postMessage({ type: "sessions", data: groupSessions(sessions), stats: getStats(sessions) });
+        postWorktrees(wv, sessions);
         wv.postMessage({ type: "userState", ...state });
         // Refresh detail view if showing this session
         if (target) {
@@ -468,8 +476,23 @@ async function handleSessionMessage(
       await resumeSession(msg.sessionId, false, ctx.getSessions());
       break;
 
+    case "createWorktree":
+      // Recreate a Claude worktree that was removed from disk (behind a
+      // confirm modal) and resume the session inside it — or just resume
+      // if the worktree is still present.
+      await createWorktreeForSession(msg.sessionId, ctx.getSessions());
+      break;
+
     case "viewTerminal":
-      ctx.terminals.view(msg.sessionId);
+      // Focus the tracked terminal. When the session is live but its terminal
+      // was never registered (started outside VS Code, or shell-integration
+      // never linked it), there is nothing to focus — tell the user rather
+      // than silently doing nothing or spawning a conflicting resume.
+      if (!ctx.terminals.view(msg.sessionId)) {
+        vscode.window.showInformationMessage(
+          "This session is running, but its terminal isn't tracked by the extension — it may be in another window or was started outside VS Code.",
+        );
+      }
       break;
 
     case "resumeMultiple":

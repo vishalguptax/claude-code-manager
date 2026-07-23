@@ -131,6 +131,9 @@ let __htmlGen = 0;
 vi.mock("../../../extension/html", () => ({
   getWebviewHtml: () => `<html data-gen="${++__htmlGen}"></html>`,
 }));
+// Worktree enrichment spawns git off a setImmediate; stub it so the provider
+// tests don't depend on child_process or the runner's own git state.
+vi.mock("../worktreeEnrichment", () => ({ postWorktrees: vi.fn() }));
 
 beforeEach(() => {
   vi.restoreAllMocks();

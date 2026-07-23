@@ -60,6 +60,15 @@ vi.mock("../../../extension/terminal", async () => {
   };
 });
 
+// Worktree resolution spawns git; the resume tests here all exercise
+// main-checkout sessions, so report "no worktree". Worktree-aware resume and
+// createWorktree are covered in resumeWorktree.test.ts / createWorktree.test.ts.
+vi.mock("../../../extension/worktrees", () => ({
+  resolveWorktree: vi.fn(() => null),
+  findWorktreeForBranch: vi.fn(() => null),
+  clearWorktreeCache: vi.fn(),
+}));
+
 import {
   exportSessionFile,
   importSessionFile,

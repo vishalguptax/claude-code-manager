@@ -20,6 +20,7 @@ import {
   clearFullTextHits,
   clearSelection,
   currentProjectSignal,
+  currentRepoRootSignal,
   detailLoadingSignal,
   filteredSignal,
   openTerminalsSignal,
@@ -33,7 +34,9 @@ import {
   sessionsSignal,
   toggleSelected,
   viewSignal,
+  worktreesSignal,
 } from "../../model";
+import { isSameRepo } from "../../lib";
 import { sendGetSessionDetail, sendResumeSession, sendViewTerminal } from "../../api";
 import { ActionsBar } from "../components/ActionsBar";
 import { Filters } from "../components/Filters";
@@ -61,6 +64,8 @@ export function ListView() {
   const openTerminals = openTerminalsSignal.value;
   const tempSessions = tempSessionsSignal.value;
   const currentProject = currentProjectSignal.value;
+  const worktrees = worktreesSignal.value;
+  const repoRoot = currentRepoRootSignal.value;
   const [menu, setMenu] = useState<MenuState | null>(null);
 
   const rows = rowsSignal.value;
@@ -164,7 +169,13 @@ export function ListView() {
                 bulkMode={bulk}
                 hasOpenTerminal={openTerminals.has(row.session.id)}
                 isTemp={tempSessions.has(row.session.id)}
-                isDiffProject={Boolean(currentProject && row.session.projectKey !== currentProject)}
+                worktree={worktrees[row.session.id]}
+                isDiffProject={
+                  Boolean(currentProject && row.session.projectKey !== currentProject) &&
+                  // A sibling worktree of the current repo is resumable (its
+                  // checkout path is intact), so it is NOT a "different project".
+                  !isSameRepo(row.session, worktrees, repoRoot)
+                }
                 onSelect={openDetail}
                 onResume={resume}
                 onView={view}

@@ -147,6 +147,14 @@ export type Message =
   | { type: "quotaData"; result: unknown }
   | { type: "terminalSessions"; ids: string[] }
   | { type: "tempSessions"; ids: string[] }
+  /**
+   * Git-worktree metadata for the current session list, keyed by session id.
+   * Posted after the `sessions` message so the list renders instantly and
+   * worktree badges + repo grouping fill in once git resolution finishes.
+   * Values pass through as `unknown` to keep the shared protocol free of the
+   * feature-local `WorktreeRef` type; the sessions feature narrows on receipt.
+   */
+  | { type: "worktrees"; map: Record<string, unknown> }
   | { type: "viewTerminal"; sessionId: string }
   // === SESSIONS MESSAGES ===
   // Inbound (webview → host) session messages handled in
@@ -159,6 +167,11 @@ export type Message =
   | { type: "deleteSession"; sessionId: string }
   | { type: "copyMarkdown"; sessionId: string }
   | { type: "openFile"; path: string }
+  /**
+   * Recreate a Claude-created worktree removed from disk, then resume the
+   * session inside it. The host runs `git worktree add` behind a confirm modal.
+   */
+  | { type: "createWorktree"; sessionId: string }
   /**
    * Host → webview incremental session-list update. Carries only changed
    * rows so a file-watcher tick does not re-post the entire tree. The
@@ -264,6 +277,7 @@ type WebviewMessageType =
   | "deleteSession"
   | "copyMarkdown"
   | "openFile"
+  | "createWorktree"
   | "viewTerminal";
 // === END SESSIONS MESSAGES ===
 
@@ -294,4 +308,5 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "sessions.delta",
   "terminalSessions",
   "tempSessions",
+  "worktrees",
 ];

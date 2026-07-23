@@ -9,7 +9,7 @@
  */
 import type { Message } from "../../../../shared/protocol/messages";
 import { maybeShowIntro } from "../../../../webview/shared/model";
-import type { Session, SessionDetail, SessionGroup, Stats } from "../../types";
+import type { Session, SessionDetail, SessionGroup, Stats, WorktreeRef } from "../../types";
 import { flattenGroups } from "../lib";
 import {
   type SessionsDelta,
@@ -28,6 +28,7 @@ import {
   setTempSessions,
   setPinned,
   setWorkspacePath,
+  setWorktrees,
   statsSignal,
   viewSignal,
 } from "./signals";
@@ -81,6 +82,11 @@ export function handleMessage(msg: Message): void {
       break;
     case "tempSessions":
       setTempSessions(msg.ids);
+      break;
+    case "worktrees":
+      // Values pass through the shared protocol as `unknown`; the feature owns
+      // the WorktreeRef shape and narrows here.
+      setWorktrees(msg.map as Record<string, WorktreeRef>);
       break;
     case "terminalSessions":
       setOpenTerminals(msg.ids);

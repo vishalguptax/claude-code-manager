@@ -12,21 +12,28 @@
 import { computed, effect, signal } from "@preact/signals";
 import { getPersisted, setPersisted } from "../../../../webview/persistence";
 import type { DateFilter, View } from "../../../../webview/types";
-import type { Session, SessionDetail, Stats } from "../../types";
+import type { Session, SessionDetail, Stats, WorktreeRef } from "../../types";
 import {
   type BranchOption,
   type ProjectOption,
   type Row,
+  type WorktreeFilter,
+  type WorktreeMap,
+  type WorktreeOption,
   buildBranchOptions,
   buildProjectOptions,
   buildRows,
+  buildWorktreeOptions,
+  currentRepoRoot,
+  hasWorktrees,
   listBranches,
+  matchesWorktreeFilter,
   orderProjects,
 } from "../lib";
 
 // Re-export the option types so consumers can keep importing them from the
 // model surface alongside the selectors that produce them.
-export type { BranchOption, ProjectOption };
+export type { BranchOption, ProjectOption, WorktreeFilter, WorktreeOption };
 
 const EMPTY_STATS: Stats = { totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 };
 
@@ -64,6 +71,13 @@ export const fullTextSignal = signal<{ query: string; ids: Set<string> }>({
   query: "",
   ids: new Set(),
 });
+/**
+ * True while a host transcript scan is in flight for the current query.
+ * The list shows metadata (haystack) matches immediately; full-text hits
+ * arrive a beat later, so this drives a small "searching" spinner so the
+ * user knows more results may still be coming.
+ */
+export const fullTextLoadingSignal = signal<boolean>(false);
 
 /** Active project filter: "current", "all", or a concrete project name. */
 export const filterProjectSignal = signal<string>("current");
@@ -71,6 +85,16 @@ export const filterProjectSignal = signal<string>("current");
 export const filterDateSignal = signal<DateFilter>("recent");
 /** Active branch filter: "all" or a concrete branch name. */
 export const filterBranchSignal = signal<string>("all");
+/** Active worktree-kind filter: "all", "main", "claude", or "user". */
+export const filterWorktreeSignal = signal<WorktreeFilter>("all");
+
+/**
+ * Git-worktree metadata keyed by session id, from the host's `worktrees` push.
+ * Arrives AFTER the `sessions` message, so it starts empty and the list groups
+ * by project path exactly as before until it lands. Sessions absent from the
+ * map are not inside a resolved worktree.
+ */
+export const worktreesSignal = signal<WorktreeMap>({});
 
 /** Workspace folder path, used to derive the current project name. */
 export const workspacePathSignal = signal<string>("");
@@ -100,6 +124,26 @@ export const tempSessionsSignal = signal<Set<string>>(new Set());
 export function setTempSessions(ids: string[]): void {
   tempSessionsSignal.value = new Set(ids);
 }
+
+/** Replace the worktree map from a host `worktrees` push. */
+export function setWorktrees(map: WorktreeMap): void {
+  worktreesSignal.value = map;
+}
+
+/** The resolved worktree for a session, or undefined when it isn't in one. */
+export function getWorktree(sessionId: string): WorktreeRef | undefined {
+  return worktreesSignal.value[sessionId];
+}
+
+/**
+ * repoRoot of the worktree the workspace itself lives in, or null. Single
+ * source of truth for the repo-scoped "This Project" behaviour — read by
+ * getFiltered, getProjectOptions, and the list/detail views so a worktree
+ * session resolves the same way everywhere.
+ */
+export const currentRepoRootSignal = computed<string | null>(() =>
+  currentRepoRoot(worktreesSignal.value, workspacePathSignal.value),
+);
 
 // ── Setters with derived side effects ──
 
@@ -138,11 +182,20 @@ export function setDeleted(ids: string[]): void {
 export function setFullTextHits(query: string, ids: string[]): void {
   if (query !== searchQuerySignal.value) return;
   fullTextSignal.value = { query, ids: new Set(ids) };
+  // The scan for the live query has landed — stop the spinner. Stale replies
+  // (guarded out above) leave the spinner running for the newer query.
+  fullTextLoadingSignal.value = false;
 }
 
 /** Drop pending full-text hits — called when the query falls below the scan threshold. */
 export function clearFullTextHits(): void {
   fullTextSignal.value = { query: "", ids: new Set() };
+  fullTextLoadingSignal.value = false;
+}
+
+/** Signal that a host transcript scan has been dispatched for `query`. */
+export function markFullTextLoading(): void {
+  fullTextLoadingSignal.value = true;
 }
 
 /** Enter or leave bulk mode, clearing the selection on exit. */
@@ -187,16 +240,31 @@ export function getFiltered(): Session[] {
   const branch = filterBranchSignal.value;
   const query = searchQuerySignal.value;
   const ft = fullTextSignal.value;
+  const worktrees = worktreesSignal.value;
+  const worktreeFilter = filterWorktreeSignal.value;
+  const repoRoot = currentRepoRootSignal.value;
 
   let list = all.filter((s) => !deleted.has(s.id));
 
   if (project === "current") {
-    // Only narrow when the current project is known; a cold-start race
+    // Only narrow when the current scope is known; a cold-start race
     // (workspace not resolved yet) shows everything rather than an
-    // empty list that reads like "no sessions".
-    if (currentProject) list = list.filter((s) => s.projectKey === currentProject);
+    // empty list that reads like "no sessions". When the workspace is a
+    // worktree, "current" spans the whole repo (every sibling worktree);
+    // otherwise it narrows to the workspace project exactly as before.
+    if (repoRoot) {
+      list = list.filter((s) => worktrees[s.id]?.repoRoot === repoRoot);
+    } else if (currentProject) {
+      list = list.filter((s) => s.projectKey === currentProject);
+    }
   } else if (project !== "all") {
-    list = list.filter((s) => s.project === project);
+    // A concrete selection is either a repoRoot (worktree repo, collapsed in
+    // the dropdown) or a plain project name. Worktree sessions match their
+    // repoRoot; everything else matches its project name (verbatim old rule).
+    list = list.filter((s) => {
+      const ref = worktrees[s.id];
+      return ref ? ref.repoRoot === project : s.project === project;
+    });
   }
 
   if (date === "week" || date === "month") {
@@ -214,6 +282,12 @@ export function getFiltered(): Session[] {
     list = list.filter((s) => (s.branch || "(no branch)") === branch);
   }
 
+  if (worktreeFilter !== "all") {
+    // Narrow to a single worktree kind (main / claude / user). Sessions with no
+    // ref match no concrete kind, so they only appear under "All checkouts".
+    list = list.filter((s) => matchesWorktreeFilter(s, worktrees, worktreeFilter));
+  }
+
   if (query) {
     const hits = ft.query === query ? ft.ids : null;
     list = list.filter(
@@ -228,7 +302,10 @@ export function getFiltered(): Session[] {
     return b.endTime - a.endTime;
   });
 
-  if (date === "recent") {
+  // The "recent" view caps to the 20 newest non-pinned rows — but only when
+  // NOT searching. A search that silently dropped the 21st+ match reads as
+  // "search can't find it"; an active query must surface every match.
+  if (date === "recent" && !query) {
     const pin = list.filter((s) => pinned.has(s.id));
     const rest = list.filter((s) => !pinned.has(s.id)).slice(0, 20);
     return [...pin, ...rest];
@@ -283,7 +360,26 @@ export function getProjectOptions(): ProjectOption[] {
     sessionsSignal.value,
     deletedSignal.value,
     currentProjectSignal.value,
+    worktreesSignal.value,
+    currentRepoRootSignal.value,
   );
+}
+
+/**
+ * Worktree-kind filter options with per-kind counts. Thin signal-reading
+ * wrapper over the pure `buildWorktreeOptions` lib helper.
+ */
+export function getWorktreeOptions(): WorktreeOption[] {
+  return buildWorktreeOptions(sessionsSignal.value, deletedSignal.value, worktreesSignal.value);
+}
+
+/**
+ * Whether the worktree filter is worth showing — true only when a Claude- or
+ * user-created worktree session is present (mirrors the branch dropdown's
+ * hide-when-nothing-to-filter rule).
+ */
+export function hasWorktreeSessions(): boolean {
+  return hasWorktrees(sessionsSignal.value, deletedSignal.value, worktreesSignal.value);
 }
 
 /**
@@ -448,9 +544,12 @@ export function _resetSessionsSignals(): void {
   selectedIdSignal.value = null;
   searchQuerySignal.value = "";
   fullTextSignal.value = { query: "", ids: new Set() };
+  fullTextLoadingSignal.value = false;
   filterProjectSignal.value = "current";
   filterDateSignal.value = "recent";
   filterBranchSignal.value = "all";
+  filterWorktreeSignal.value = "all";
+  worktreesSignal.value = {};
   workspacePathSignal.value = "";
   currentProjectSignal.value = "";
   currentBranchSignal.value = "";

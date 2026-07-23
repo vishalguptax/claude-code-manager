@@ -4,6 +4,9 @@
  */
 
 import type { HooksWebviewMessage } from "../hooks/types";
+import type { WorktreeRef } from "../../extension/worktrees";
+
+export type { WorktreeRef } from "../../extension/worktrees";
 
 // ── Session Data ──
 
@@ -37,10 +40,11 @@ export interface Session {
    */
   projectKey: string;
   /**
-   * Lowercased concatenation of name + project + branch + summary, joined by
-   * "\n". Used as the haystack for search queries so each filter pass runs
-   * one `includes()` per session instead of four `.toLowerCase().includes()`
-   * calls. Built once at parse time.
+   * Lowercased concatenation of name + project + branch + summary + every
+   * user prompt, joined by "\n". Used as the haystack for search queries so
+   * each filter pass runs one `includes()` per session, and so a keyword the
+   * user typed matches instantly without waiting on the async transcript
+   * scan. Built once at parse time.
    */
   searchHaystack: string;
   /**
@@ -273,6 +277,14 @@ export type ExtensionMessage =
    */
   | { type: "fullTextResults"; query: string; ids: string[] }
   /**
+   * Git-worktree metadata for the current session list, keyed by session id.
+   * Resolved host-side (one `git worktree list` per repo) and posted after the
+   * `sessions` message so the list renders instantly and worktree badges +
+   * repo grouping fill in when git resolution finishes. Sessions absent from
+   * the map are not inside a git worktree and group by project path as before.
+   */
+  | { type: "worktrees"; map: Record<string, WorktreeRef> }
+  /**
    * Session IDs currently backed by a temp (ephemeral) run — the webview
    * marks these rows with a "Temp" badge and offers "Make permanent".
    */
@@ -300,6 +312,13 @@ export type WebviewMessage =
   | { type: "search"; query: string }
   | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
+  /**
+   * Recreate a Claude-created worktree that has since been removed from disk,
+   * then resume the session inside it. Host runs `git worktree add <path>
+   * <branch>` behind a confirm modal (mutates the repo) and only when the
+   * session's recorded worktree path + branch are known.
+   */
+  | { type: "createWorktree"; sessionId: string }
   | { type: "resumeMultiple"; sessionIds: string[]; projectPaths?: string[] }
   | { type: "viewTerminal"; sessionId: string }
   | { type: "newSession" }

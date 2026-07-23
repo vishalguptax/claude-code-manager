@@ -55,4 +55,9 @@ describe("sessions api senders", () => {
     api.sendImportMultipleSessions();
     expect(post).toHaveBeenCalledWith({ type: "importMultipleSessions" });
   });
+
+  it("sendCreateWorktree posts the recreate request with the session id", () => {
+    api.sendCreateWorktree("sess-1");
+    expect(post).toHaveBeenCalledWith({ type: "createWorktree", sessionId: "sess-1" });
+  });
 });

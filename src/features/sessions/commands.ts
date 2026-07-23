@@ -5,11 +5,17 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import { execFileSync } from "child_process";
 import type { Session, SessionDetail } from "./types";
 import { parseSessionDetail, getSessionFile } from "./parser";
 import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
 import { createTerminal, validateGitRef } from "../../extension/terminal";
+import {
+  resolveWorktree,
+  findWorktreeForBranch,
+  clearWorktreeCache,
+} from "../../extension/worktrees";
 import { registerEphemeralTerminal } from "../../extension/ephemeralSession";
 import { getWorkspace } from "../../extension/workspace";
 import {
@@ -310,7 +316,12 @@ export async function resolveClaudeTarget(sess: Session | undefined): Promise<Re
  *   - forceTerminal → always terminal (the extension chat tab is single-instance,
  *     so a multi-session restore routed through it would collapse every session
  *     into one panel and only the last would survive).
- *   - Branch mismatch → always terminal (branch switching is terminal-native).
+ *   - Worktree session (ran in a still-live worktree) → resume in place, no
+ *     branch check: the worktree already sits on the session's branch.
+ *   - Main-checkout session with a branch mismatch → if the session's branch is
+ *     live in a *different* worktree, offer to open that worktree (git can't
+ *     check the branch out in two places); otherwise offer the in-place
+ *     `git checkout` / Resume-Anyway flow.
  *   - Same project, no branch issue → consult the resumeIn setting.
  */
 export async function resumeSession(
@@ -355,40 +366,75 @@ export async function resumeSession(
     return;
   }
 
-  // Same project or no workspace: check branch before resuming. Branch
-  // switching uses `git checkout` in the terminal, so a mismatch always
-  // takes the terminal path.
-  if (sessBranch && sessBranch !== "HEAD") {
+  // Same project or no workspace. Worktree-aware from here: a session may have
+  // run inside a git worktree, in which case that checkout already holds the
+  // right branch and resuming there needs no `git checkout`. Clear the cache
+  // first so a worktree created/removed since the last resolve is re-detected.
+  clearWorktreeCache();
+  const wt = cwd ? resolveWorktree(cwd) : null;
+  const inLiveWorktree = Boolean(wt && wt.exists && wt.kind !== "main");
+
+  // Branch-mismatch handling only applies to main-checkout sessions. A session
+  // that ran in a live worktree is already on its branch there, so skip the
+  // checkout/mismatch flow entirely and fall through to the router (which
+  // resumes in place — createTerminal opens at cwd = the worktree path).
+  if (!inLiveWorktree && sessBranch && sessBranch !== "HEAD") {
     const currentBranch = getCurrentBranch();
     if (currentBranch && currentBranch !== sessBranch) {
-      const choice = await vscode.window.showWarningMessage(
-        `This session was on branch "${sessBranch}", but you're on "${currentBranch}".`,
-        {
-          modal: true,
-          detail: "The session may not work correctly on a different branch.",
-        },
-        "Switch & Resume",
-        "Resume Anyway",
-      );
-
-      if (!choice) {
-        return;
-      }
-
-      if (choice === "Switch & Resume") {
-        const safe = validateGitRef(sessBranch);
-        if (!safe) {
-          vscode.window.showErrorMessage(
-            `Refusing to switch branches: "${sessBranch}" is not a valid git ref name.`,
-          );
+      // git refuses to check out a branch that is already live in another
+      // worktree, so an in-place switch would fail. When the session's branch
+      // lives in a sibling worktree, redirect the resume there instead.
+      const other = findWorktreeForBranch(ws || cwd, sessBranch);
+      if (other && normPath(other.path) !== normPath(cwd)) {
+        const choice = await vscode.window.showWarningMessage(
+          `Branch "${sessBranch}" is checked out in another worktree.`,
+          {
+            modal: true,
+            detail:
+              `This session's branch is live in the worktree at ${other.path}. ` +
+              `Open that worktree and resume there? Your current checkout stays on "${currentBranch}".`,
+          },
+          "Open worktree",
+          "Resume Anyway",
+        );
+        if (!choice) return;
+        if (choice === "Open worktree") {
+          const term = createTerminal(termName, other.path, sessionId);
+          term.show();
+          term.sendText(cmd);
           return;
         }
-        const term = createTerminal(termName, cwd, sessionId);
-        term.show();
-        term.sendText(`git checkout '${safe}' && ${cmd}`);
-        return;
+        // "Resume Anyway" falls through to the router below (resume in place).
+      } else {
+        const choice = await vscode.window.showWarningMessage(
+          `This session was on branch "${sessBranch}", but you're on "${currentBranch}".`,
+          {
+            modal: true,
+            detail: "The session may not work correctly on a different branch.",
+          },
+          "Switch & Resume",
+          "Resume Anyway",
+        );
+
+        if (!choice) {
+          return;
+        }
+
+        if (choice === "Switch & Resume") {
+          const safe = validateGitRef(sessBranch);
+          if (!safe) {
+            vscode.window.showErrorMessage(
+              `Refusing to switch branches: "${sessBranch}" is not a valid git ref name.`,
+            );
+            return;
+          }
+          const term = createTerminal(termName, cwd, sessionId);
+          term.show();
+          term.sendText(`git checkout '${safe}' && ${cmd}`);
+          return;
+        }
+        // "Resume Anyway" falls through to the router below.
       }
-      // "Resume Anyway" falls through to the router below.
     }
   }
 
@@ -398,6 +444,114 @@ export async function resumeSession(
   }
 
   const term = createTerminal(termName, cwd, sessionId);
+  term.show();
+  term.sendText(cmd);
+}
+
+/**
+ * Recreate a Claude-created worktree that was removed from disk, then resume
+ * the session inside it. Claude Code places its worktrees at
+ * `<repoRoot>/.claude/worktrees/<name>`, so the repo root is recovered from
+ * that convention and `git worktree add <path> <branch>` is run in it.
+ *
+ * Guard rails, in order:
+ *   - the session must exist and its recorded path must live under
+ *     `.claude/worktrees/` — we only auto-recreate Claude's own worktrees,
+ *     never an arbitrary user-created one whose layout we can't assume;
+ *   - if the worktree directory is still on disk, resume in it rather than
+ *     recreate (git would reject an existing path anyway);
+ *   - the branch must pass validateGitRef — it flows into a git argument;
+ *   - the derived repo root must still exist and be a git repo.
+ *
+ * Security: the git invocation uses an argument array with no shell, so a path
+ * or branch containing shell metacharacters cannot inject a command. On failure
+ * the git stderr is surfaced verbatim.
+ */
+export async function createWorktreeForSession(
+  sessionId: string,
+  sessions: Session[],
+): Promise<void> {
+  const sess = sessions.find((s) => s.id === sessionId);
+  if (!sess) {
+    vscode.window.showErrorMessage("Session not found in the current list.");
+    return;
+  }
+
+  const wtPath = sess.projectPath;
+  const termName = buildTerminalName(sess, sessionId);
+  const cmd = `claude --resume ${sessionId}`;
+
+  // Worktree still on disk → nothing to recreate, just resume in it.
+  if (wtPath && fs.existsSync(wtPath)) {
+    const term = createTerminal(termName, wtPath, sessionId);
+    term.show();
+    term.sendText(cmd);
+    return;
+  }
+
+  // Recover the repo root from Claude's worktree convention. Anything not under
+  // `.claude/worktrees/` we refuse: recreating an arbitrary user worktree is
+  // out of scope and its intended layout is unknown. normPath aligns Windows
+  // separators before the marker search.
+  const marker = "/.claude/worktrees/";
+  const norm = normPath(wtPath);
+  const idx = norm.indexOf(marker);
+  if (!wtPath || idx === -1) {
+    vscode.window.showErrorMessage(
+      "This session's folder isn't a Claude-created worktree, so it can't be recreated automatically.",
+    );
+    return;
+  }
+  const repoRoot = norm.slice(0, idx);
+
+  const branch = validateGitRef(sess.branch);
+  if (!branch) {
+    vscode.window.showErrorMessage(
+      `Cannot recreate worktree: "${sess.branch}" is not a valid git branch name.`,
+    );
+    return;
+  }
+
+  if (!fs.existsSync(repoRoot) || !fs.existsSync(path.join(repoRoot, ".git"))) {
+    vscode.window.showErrorMessage(
+      `Cannot recreate worktree: the repository at ${repoRoot} no longer exists on this machine.`,
+    );
+    return;
+  }
+
+  const confirm = await vscode.window.showWarningMessage(
+    "Recreate this session's worktree?",
+    {
+      modal: true,
+      detail:
+        `The worktree was removed from disk. Claude Code Manager will recreate it at:\n\n` +
+        `${norm}\n\n` +
+        `on branch "${branch}" (from the repository at ${repoRoot}), then resume the session there.`,
+    },
+    "Recreate & Resume",
+  );
+  if (confirm !== "Recreate & Resume") return;
+
+  try {
+    execFileSync("git", ["-C", repoRoot, "worktree", "add", norm, branch], {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 10000,
+      windowsHide: true,
+    });
+  } catch (err) {
+    // Prefer git's own stderr — it explains "already exists", "invalid
+    // reference", etc. better than the generic spawn error message.
+    const stderr =
+      err && typeof err === "object" && "stderr" in err
+        ? String((err as { stderr?: unknown }).stderr ?? "")
+        : "";
+    const message = stderr.trim() || (err instanceof Error ? err.message : String(err));
+    vscode.window.showErrorMessage(`Failed to recreate worktree: ${message}`);
+    return;
+  }
+
+  const term = createTerminal(termName, norm, sessionId);
   term.show();
   term.sendText(cmd);
 }

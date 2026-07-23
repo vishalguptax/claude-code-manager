@@ -297,6 +297,30 @@ describe("aggregateProjectStats", () => {
     expect(out.totalInputTokens).toBe(35);
   });
 
+  it("stays all-hit past the old 2000-file cap — a change re-reads only that file (no LRU thrash)", async () => {
+    // Regression: a count-bounded LRU(2000) here turned every aggregate pass
+    // into a full-corpus re-read once the corpus exceeded the cap, because the
+    // pass scans every file in order and evicts entries it still needs. With
+    // an unbounded per-file memo, a large corpus re-reads only what changed.
+    const N = 2100; // > the old cap
+    for (let i = 0; i < N; i++) {
+      setupProject(`p-${i}`, "s.jsonl", [
+        assistantLine({ sessionId: `s-${i}`, input: 1, output: 0 }),
+      ]);
+    }
+    await warmUsageAggregate();
+    expect(vfs.reads.length).toBe(N); // cold pass reads every file once
+
+    // Touch exactly one file; the next pass must re-read only it.
+    vfs.reads = [];
+    const changed = path.join(PROJECTS_DIR, "p-0", "s.jsonl");
+    vfs.files[changed] += "\n" + assistantLine({ sessionId: "s-0", input: 4, output: 0 });
+    vfs.mtimes[changed] = 2000;
+
+    await warmUsageAggregate();
+    expect(vfs.reads).toEqual([changed]);
+  });
+
   it("recomputes when a new transcript file appears", async () => {
     setupProject("p", "s.jsonl", [
       assistantLine({ sessionId: "s1", input: 1, output: 1 }),

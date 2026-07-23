@@ -20,6 +20,9 @@ vi.mock("../../agents/parser", () => ({
   parseAgents: () => ({ agents: [{ name: "ag1" }], errors: [] }),
 }));
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => undefined }));
+// Worktree enrichment spawns git; stub it so these wiring tests stay
+// deterministic and never touch child_process.
+vi.mock("../worktreeEnrichment", () => ({ postWorktrees: vi.fn() }));
 
 import { reloadFeature, type ConfigFeature } from "../providerActions";
 

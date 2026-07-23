@@ -273,6 +273,16 @@ const tempSessions = v.object({
   type: v.literal("tempSessions"),
   ids: v.array(v.string()),
 });
+// Worktree map values pass through as `unknown` — the sessions feature owns
+// and narrows the WorktreeRef shape (mirrors the `sessions` data: unknown).
+const worktrees = v.object({
+  type: v.literal("worktrees"),
+  map: v.record(v.string(), v.unknown()),
+});
+const createWorktree = v.object({
+  type: v.literal("createWorktree"),
+  sessionId: v.string(),
+});
 const promoteTempSession = v.object({
   type: v.literal("promoteTempSession"),
   sessionId: v.string(),
@@ -393,6 +403,8 @@ export const messageSchema = v.variant("type", [
   sessionsDelta,
   terminalSessions,
   tempSessions,
+  worktrees,
+  createWorktree,
   viewTerminal,
   // === END SESSIONS MESSAGES ===
 ]);

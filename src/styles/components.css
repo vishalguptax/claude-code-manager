@@ -105,12 +105,14 @@
 
 .actions-bar {
   /* Grid instead of flex-wrap so the toolbar buttons distribute evenly
-     when they wrap. The min track size must accommodate the longest
-     label ("Restore Workspace" ≈ 135px) — anything smaller would clip
-     the label inside its column. At widths below 270px the grid drops
-     to a single stacked column, which is cleaner than truncating text. */
+     when they wrap. The min track must fit the longest button's full
+     content — icon + gap + "Restore Workspace" label + button padding,
+     which measures ~154px, not the label alone. 135px clipped it at the
+     wrap boundary (the column sits exactly at the min just before another
+     column is added). At narrower widths the grid drops to a single
+     stacked column, cleaner than truncating text. */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
   gap: var(--space-xs);
   /* Align the toolbar's left/right edge to the list rows + search box so the
      panel reads as one column, and use the same vertical rhythm as the
@@ -223,6 +225,55 @@
   background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #d49a00) 18%, transparent);
   color: var(--vscode-editorWarning-foreground, #d49a00);
   flex: none;
+}
+
+/* Worktree badge — a compact pill naming the git worktree a session ran in.
+   The leading icon distinguishes Claude-created (bot) from user-created
+   (branch) worktrees; the two spans layer the short name + branch. Reuses the
+   .tag base box (see above) for sizing/ellipsis. */
+.tag.tag-wt {
+  gap: var(--space-xs);
+  max-width: 200px;
+  font-family: inherit;
+}
+.tag.tag-wt .icon {
+  flex: none;
+}
+.tag-wt__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag-wt__branch {
+  font-family: var(--mono);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag-wt__branch::before {
+  content: "·";
+  margin: 0 var(--space-xs);
+  opacity: 0.6;
+}
+.tag.tag-wt--claude {
+  background: color-mix(in srgb, var(--accent, #3794ff) 16%, transparent);
+  color: var(--accent, #3794ff);
+}
+.tag.tag-wt--user {
+  background: var(--bg-hover);
+  color: var(--fg-dim);
+}
+/* Locked = git holds a lock (session likely running): a subtle ring. */
+.tag.tag-wt--locked {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+}
+/* Removed from disk: dim + strike the name so it reads as gone. */
+.tag.tag-wt--missing {
+  opacity: 0.55;
+}
+.tag.tag-wt--missing .tag-wt__name {
+  text-decoration: line-through;
 }
 
 
@@ -572,6 +623,25 @@
   width: var(--h-control);
   height: var(--h-control);
   flex-shrink: 0;
+}
+
+/* Inline "scanning transcripts" spinner shown between the search field and the
+   refresh button while a host full-text scan is in flight. Metadata matches
+   render instantly; this signals that more (transcript) matches may still land. */
+.search-spinner {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--role-text-secondary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.7;
+  animation: search-spinner-spin 700ms linear infinite;
+}
+@keyframes search-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 

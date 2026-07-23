@@ -24,6 +24,16 @@ vi.mock("../../../extension/terminal", () => ({
       sentText.push(t);
     },
   }),
+  validateGitRef: (name: string) => (/^[A-Za-z0-9._/-]+$/.test(name) ? name : null),
+}));
+
+// Worktree resolution spawns git; every routing test here is a plain
+// main-checkout session, so stub it to report "no worktree". The dedicated
+// worktree-aware branches are covered in resumeWorktree.test.ts.
+vi.mock("../../../extension/worktrees", () => ({
+  resolveWorktree: vi.fn(() => null),
+  findWorktreeForBranch: vi.fn(() => null),
+  clearWorktreeCache: vi.fn(),
 }));
 
 // Import under test AFTER mocks.

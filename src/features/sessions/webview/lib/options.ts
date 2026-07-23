@@ -7,6 +7,7 @@
  * model segment wraps them in thin selectors that read the live signal values.
  */
 import type { Session } from "../../types";
+import { pathTail, type WorktreeMap } from "./worktrees";
 
 /**
  * All project names, current project first, then by most recent activity.
@@ -61,37 +62,74 @@ export interface ProjectOption {
 
 /**
  * Project-filter options with per-project session counts — restores the v1
- * count badges. Leads with "This Project" (count of current-project sessions)
+ * count badges. Leads with "This Project" (count of current-scope sessions)
  * and "All Projects" (total non-deleted), then every project by recency.
  * Single O(N) pass over sessions, mirroring v1 `updateDropdown`.
+ *
+ * Worktree-aware: a session that ran in a worktree groups under its shared
+ * `repoRoot` (option value = repoRoot, label = repo basename) so every worktree
+ * of one repo collapses into a single entry instead of fragmenting into N
+ * look-alike checkout-dir "projects". Sessions with no ref keep grouping by
+ * their project name — with an empty `worktrees` map this is byte-for-byte the
+ * pre-worktree behaviour. When the workspace itself is a worktree, pass its
+ * `repoRoot` so "This Project" counts the whole repo (matches getFiltered).
  */
 export function buildProjectOptions(
   sessions: Session[],
   deleted: Set<string>,
   currentProject: string,
+  worktrees: WorktreeMap = {},
+  repoRoot: string | null = null,
 ): ProjectOption[] {
   const counts = new Map<string, number>();
-  const keyByProject = new Map<string, string>();
+  const labelByValue = new Map<string, string>();
+  const keyByValue = new Map<string, string>();
+  const latest = new Map<string, number>();
+  const isRepoValue = new Set<string>();
   let currentCount = 0;
   let totalCount = 0;
   for (const s of sessions) {
     if (deleted.has(s.id)) continue;
     totalCount++;
-    counts.set(s.project, (counts.get(s.project) ?? 0) + 1);
-    if (!keyByProject.has(s.project)) keyByProject.set(s.project, s.projectKey);
-    if (currentProject && s.projectKey === currentProject) currentCount++;
+    const ref = worktrees[s.id];
+    // Worktree sessions collapse under repoRoot; others keep their project name.
+    const value = ref ? ref.repoRoot : s.project;
+    if (ref) isRepoValue.add(value);
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+    if (!labelByValue.has(value)) labelByValue.set(value, ref ? pathTail(ref.repoRoot) : s.project);
+    if (!keyByValue.has(value)) keyByValue.set(value, ref ? "" : s.projectKey);
+    if (s.endTime > (latest.get(value) ?? 0)) latest.set(value, s.endTime);
+    // "This Project" counts the current scope: the whole repo when the
+    // workspace is a worktree, else the workspace project (verbatim old rule).
+    const inCurrent = repoRoot
+      ? ref?.repoRoot === repoRoot
+      : Boolean(currentProject) && s.projectKey === currentProject;
+    if (inCurrent) currentCount++;
   }
+
+  const isCurrentValue = (value: string): boolean =>
+    isRepoValue.has(value)
+      ? repoRoot !== null && value === repoRoot
+      : Boolean(currentProject) && keyByValue.get(value) === currentProject;
+
+  // Current group first, then by most recent activity — the orderProjects
+  // comparator, applied over the (possibly repo-collapsed) group values.
+  const values = [...counts.keys()].sort((a, b) => {
+    if (isCurrentValue(a)) return -1;
+    if (isCurrentValue(b)) return 1;
+    return (latest.get(b) ?? 0) - (latest.get(a) ?? 0);
+  });
 
   const opts: ProjectOption[] = [
     { value: "current", label: "This Project", count: currentCount, isCurrent: false },
     { value: "all", label: "All Projects", count: totalCount, isCurrent: false },
   ];
-  for (const p of orderProjects(sessions, deleted, currentProject)) {
+  for (const value of values) {
     opts.push({
-      value: p,
-      label: p,
-      count: counts.get(p) ?? 0,
-      isCurrent: Boolean(currentProject) && keyByProject.get(p) === currentProject,
+      value,
+      label: labelByValue.get(value) ?? value,
+      count: counts.get(value) ?? 0,
+      isCurrent: isCurrentValue(value),
     });
   }
   return opts;

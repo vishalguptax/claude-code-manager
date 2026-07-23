@@ -27,6 +27,9 @@ vi.mock("../parser", () => ({
 
 vi.mock("../state", () => ({ loadState: () => ({ renames: {} }) }));
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => undefined }));
+// Worktree enrichment spawns git off a setImmediate; stub it so the
+// self-heal push assertions stay deterministic.
+vi.mock("../worktreeEnrichment", () => ({ postWorktrees: vi.fn() }));
 
 import { refreshLiveState } from "../providerActions";
 

@@ -23,6 +23,7 @@ import { fmtDuration, fmtTime } from "../../../../../webview/utils";
 import {
   sendConfirmDelete,
   sendCopyCommand,
+  sendCreateWorktree,
   sendExportSession,
   sendForkSession,
   sendGetSessionDetail,
@@ -38,16 +39,19 @@ import {
 import {
   clearSelection,
   currentProjectSignal,
+  currentRepoRootSignal,
   detailLoadingSignal,
   detailSignal,
   openTerminalsSignal,
   pinnedSignal,
   selectedIdSignal,
   viewSignal,
+  worktreesSignal,
 } from "../../model";
+import { isSameRepo, pathTail } from "../../lib";
 import { MessageItem, fmtTokens } from "../components/MessageItem";
 import { DetailSkeleton } from "./DetailSkeleton";
-import type { SessionDetail } from "../../../types";
+import type { SessionDetail, WorktreeRef } from "../../../types";
 
 /** Matches DETAIL_PAGE_SIZE in parser.ts — toggle only meaningful past this. */
 const PAGE_SIZE_FOR_TOGGLE = 50;
@@ -115,12 +119,67 @@ function Actions({
   isPinned,
   isDiffProject,
   hasOpenTerminal,
+  worktree,
 }: {
   d: SessionDetail;
   isPinned: boolean;
   isDiffProject: boolean;
   hasOpenTerminal: boolean;
+  worktree?: WorktreeRef;
 }) {
+  // A worktree removed from disk can't be resumed (its checkout path is gone).
+  // Offer to recreate it when Claude made it (the host can `git worktree add`
+  // it back); a user-made worktree can only be re-added by the user, so we just
+  // explain the situation. Handled before the cross-project branch so the
+  // recreate affordance shows regardless of which folder is currently open.
+  if (worktree && !worktree.exists) {
+    const claude = worktree.kind === "claude";
+    return (
+      <>
+        <div class="d-notice">
+          <Icon name="circle-alert" />
+          <span>
+            This {claude ? "Claude " : ""}worktree (<strong>{pathTail(worktree.path)}</strong>) was
+            removed from disk.
+            {claude
+              ? " Recreate it to resume the session there."
+              : " Its checkout is gone, so the session can't be resumed in place."}
+          </span>
+        </div>
+        <div class="d-actions">
+          {claude ? (
+            <Button
+              variant="primary"
+              iconName="plus"
+              title="Recreate the worktree (git worktree add) and resume the session in it"
+              onClick={() => sendCreateWorktree(d.id)}
+            >
+              Recreate worktree
+            </Button>
+          ) : null}
+          <Button iconName="pencil" onClick={() => sendRenameSession(d.id)}>
+            Rename
+          </Button>
+          <Button
+            iconName={isPinned ? "pin-off" : "pin"}
+            onClick={() => (isPinned ? sendUnpinSession(d.id) : sendPinSession(d.id))}
+          >
+            {isPinned ? "Unpin" : "Pin"}
+          </Button>
+          <Button
+            iconName="upload"
+            title="Save this session as a portable .jsonl"
+            onClick={() => sendExportSession(d.id)}
+          >
+            Export
+          </Button>
+          <Button class="del" iconName="trash-2" onClick={() => sendConfirmDelete(d.id)}>
+            Delete
+          </Button>
+        </div>
+      </>
+    );
+  }
   if (isDiffProject) {
     return (
       <>
@@ -181,9 +240,14 @@ function Actions({
         <Button
           variant="primary"
           iconName="play"
+          title={
+            worktree && worktree.kind !== "main"
+              ? `Resume in worktree ${pathTail(worktree.path)}`
+              : undefined
+          }
           onClick={() => sendResumeSession(d.id, d.entrypoint, d.projectPath)}
         >
-          Resume
+          {worktree && worktree.kind !== "main" ? "Resume in worktree" : "Resume"}
         </Button>
       )}
       <Button iconName="pencil" onClick={() => sendRenameSession(d.id)}>
@@ -252,8 +316,19 @@ export function DetailView() {
   const date = new Date(d.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const branch = d.branch && d.branch !== "HEAD" ? d.branch : "";
   const currentProject = currentProjectSignal.value;
-  const isDiffProject = Boolean(currentProject && d.projectKey !== currentProject);
+  const worktrees = worktreesSignal.value;
+  const worktree = worktrees[d.id];
+  const repoRoot = currentRepoRootSignal.value;
+  // A sibling worktree of the current repo is resumable in place, so it is not
+  // treated as a "different project" (that would hide Resume and offer "Open").
+  const isDiffProject =
+    Boolean(currentProject && d.projectKey !== currentProject) &&
+    !isSameRepo(d, worktrees, repoRoot);
   const isPinned = pinnedSignal.value.has(d.id);
+  // Detail info row only for real (non-main) worktrees — the main checkout is
+  // the default and needs no callout.
+  const wtInfo = worktree && worktree.kind !== "main" ? worktree : null;
+  const wtKindLabel = worktree?.kind === "claude" ? "Claude-created" : "User-created";
 
   const total = d.totalMessages ?? d.messages.length;
   const activeQuery = debouncedQuery.trim().toLowerCase();
@@ -267,8 +342,12 @@ export function DetailView() {
   // message after any reversal.
   const indexed = d.messages.map((m, origIdx) => ({ m, origIdx }));
   const ordered = !isSearching && mode === "last" ? indexed.slice().reverse() : indexed;
-  const windowed = ordered.slice(0, windowSize);
-  const hasMore = ordered.length > windowSize;
+  // While searching, `d.messages` already holds only the matches (the host
+  // filters the whole transcript), so render all of them — never truncate a
+  // match set behind "Show more", which reads as "search didn't find it".
+  const effectiveWindow = isSearching ? ordered.length : windowSize;
+  const windowed = ordered.slice(0, effectiveWindow);
+  const hasMore = !isSearching && ordered.length > windowSize;
 
   const copy = (index: number): void => {
     const msg = d.messages[index];
@@ -311,13 +390,48 @@ export function DetailView() {
           </span>
         </div>
         <StatStrip d={d} />
+        {wtInfo ? (
+          <div class={cx("d-worktree", { "d-worktree--missing": !wtInfo.exists })}>
+            <div class="d-worktree__title">
+              <Icon name={wtInfo.kind === "claude" ? "bot" : "git-branch"} size={13} />
+              <span>{wtKindLabel} worktree</span>
+              {wtInfo.exists && wtInfo.locked ? (
+                <span class="d-worktree__flag" title="git holds a lock — likely in active use">
+                  in use
+                </span>
+              ) : null}
+              {!wtInfo.exists ? (
+                <span class="d-worktree__flag d-worktree__flag--gone" title="Removed from disk">
+                  removed
+                </span>
+              ) : null}
+            </div>
+            <div class="d-worktree__row">
+              <span class="d-worktree__k">Worktree</span>
+              <span class="d-worktree__v" title={wtInfo.path}>
+                {wtInfo.path}
+              </span>
+            </div>
+            <div class="d-worktree__row">
+              <span class="d-worktree__k">Branch</span>
+              <span class="d-worktree__v">{wtInfo.branch || "(detached)"}</span>
+            </div>
+            <div class="d-worktree__row">
+              <span class="d-worktree__k">Repo</span>
+              <span class="d-worktree__v" title={wtInfo.repoRoot}>
+                {wtInfo.repoRoot}
+              </span>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <Actions
         d={d}
         isPinned={isPinned}
         isDiffProject={isDiffProject}
-        hasOpenTerminal={openTerminalsSignal.value.has(d.id)}
+        hasOpenTerminal={openTerminalsSignal.value.has(d.id) || Boolean(d.isLive)}
+        worktree={worktree}
       />
 
       <div class="d-scroll">

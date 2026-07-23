@@ -31,7 +31,6 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { CLAUDE_DIR } from "../../core/config";
-import { LRU } from "../../core/lru";
 import { compareModelRecencyDesc, computeModelCost } from "../../core/pricing";
 import type {
   DailyActivity,
@@ -235,14 +234,19 @@ interface FileCacheEntry {
   entries: CompactEntry[];
 }
 /**
- * Bound the per-file replay cache by file count, matching the sibling session
- * caches. Without a cap this Map held one CompactEntry per transcript LINE for
- * every file ever aggregated — the one cache in the codebase unbounded by
- * session count (150-500 MB resident for a heavy, long-open install). Evicted
- * files simply re-read on the next aggregate pass; totals are unaffected.
+ * Per-file replay cache, keyed by path. Deliberately unbounded (pruned only
+ * when a file leaves the corpus, below) because the aggregate pass is a FULL
+ * SCAN of every transcript in list order. A count-bounded LRU is the wrong
+ * tool here: once the corpus exceeds the cap, a full scan touches every key
+ * cyclically, so each `set` evicts a file the same pass will need again —
+ * degenerating to a 100% miss rate that re-reads and re-`JSON.parse`s the
+ * entire corpus on every pass (and this pass reruns every ~10s while a session
+ * is live). That regressed the account/usage tab into seconds of disk+CPU per
+ * open for heavy users. All-hit replay requires the cache to span the working
+ * set, so it stays a plain Map; memory is bounded by the live corpus and the
+ * dead-file prune keeps it tracking reality.
  */
-const FILE_CACHE_MAX = 2000;
-const fileCache = new LRU<string, FileCacheEntry>(FILE_CACHE_MAX);
+const fileCache = new Map<string, FileCacheEntry>();
 
 /** In-flight background aggregation, deduped so bursts share one pass. */
 let warming: Promise<UsageAggregate> | null = null;

@@ -23,16 +23,24 @@ import * as fs from "fs";
 import { LRU } from "../../core/lru";
 import type { SessionEntry } from "./types";
 
-/** Cap per-session content to keep total memory bounded. */
-const MAX_CONTENT_BYTES = 50 * 1024;
+/**
+ * Cap per-session content to keep total memory bounded. Raised from 50 KB:
+ * at 50 KB a keyword past the first ~50 KB of extracted text in a long
+ * session was silently unsearchable, which reads as "search is broken."
+ * 150 KB covers the vast majority of real sessions; extracted text averages
+ * well under 10 KB, so the LRU-bounded worst case (2000 × 150 KB ≈ 300 MB)
+ * is a ceiling almost never approached in practice.
+ */
+const MAX_CONTENT_BYTES = 150 * 1024;
 
 /** Bytes to read per JSONL chunk while streaming — same tuning as parseJsonlFile. */
 const READ_CHUNK = 64 * 1024;
 
 /**
  * Maximum indexed sessions held in memory at once. Each entry caps at
- * MAX_CONTENT_BYTES (50 KB) so 2000 entries bound the index at ~100 MB
- * worst case — a hard ceiling for users with thousands of sessions.
+ * MAX_CONTENT_BYTES so 2000 entries bound the index at ~300 MB worst
+ * case — a hard ceiling for users with thousands of sessions (real
+ * usage sits far below it since extracted text averages under 10 KB).
  * The LRU evicts the least-recently-touched session when a 2001st is
  * indexed; an evicted session is silently re-extracted the next time it
  * is indexed or searched against.

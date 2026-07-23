@@ -25,10 +25,16 @@ import {
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
+  filterWorktreeSignal,
+  fullTextLoadingSignal,
   getBranchOptions,
   getProjectOptions,
+  getWorktreeOptions,
+  hasWorktreeSessions,
+  markFullTextLoading,
   searchQuerySignal,
 } from "../../model";
+import type { WorktreeFilter } from "../../model";
 
 /**
  * Minimum query length before asking the host for a transcript scan. Below
@@ -52,8 +58,12 @@ function SearchBox() {
   const onQuery = (raw: string): void => {
     const q = raw.toLowerCase();
     searchQuerySignal.value = q;
-    if (q.length >= FULLTEXT_MIN_CHARS) sendSearchFullText(q);
-    else clearFullTextHits();
+    if (q.length >= FULLTEXT_MIN_CHARS) {
+      markFullTextLoading();
+      sendSearchFullText(q);
+    } else {
+      clearFullTextHits();
+    }
   };
 
   return (
@@ -65,6 +75,9 @@ function SearchBox() {
         placeholder="Search sessions..."
         ariaLabel="Search sessions"
       />
+      {fullTextLoadingSignal.value ? (
+        <span class="search-spinner" role="status" aria-label="Searching transcripts" />
+      ) : null}
       <Button
         variant="icon"
         class="search-side-btn"
@@ -126,6 +139,31 @@ function BranchSelect() {
   );
 }
 
+function WorktreeSelect() {
+  // Hidden unless the list actually contains Claude/user worktree sessions —
+  // with none present the control would only ever offer "All" (mirrors the
+  // branch dropdown's hide-when-nothing-to-filter behaviour).
+  if (!hasWorktreeSessions()) return null;
+  const value = filterWorktreeSignal.value;
+  const options: DropdownOption[] = getWorktreeOptions().map((o) => ({
+    value: o.value,
+    label: o.label,
+    badge: o.count,
+  }));
+  return (
+    <Dropdown
+      ariaLabel="Filter by worktree"
+      title="Filter sessions by git worktree"
+      icon="split-square-horizontal"
+      value={value}
+      options={options}
+      onChange={(next) => {
+        filterWorktreeSignal.value = next as WorktreeFilter;
+      }}
+    />
+  );
+}
+
 function DateChips() {
   return (
     <div class="date-chips">
@@ -148,6 +186,7 @@ export function Filters() {
       <div class="filter-row">
         <ProjectSelect />
         <BranchSelect />
+        <WorktreeSelect />
       </div>
       <DateChips />
     </>

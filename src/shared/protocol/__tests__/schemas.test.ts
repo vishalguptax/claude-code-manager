@@ -41,6 +41,7 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "importMultipleSessions" });
     roundTrip({ type: "searchFullText", query: "needle" });
     roundTrip({ type: "promoteTempSession", sessionId: "s" });
+    roundTrip({ type: "createWorktree", sessionId: "s" });
   });
 
   it("accepts skills messages", () => {
@@ -179,6 +180,20 @@ describe("parseMessage — host to webview", () => {
     roundTrip({ type: "quotaData", result: { ok: true } });
     roundTrip({ type: "terminalSessions", ids: ["a", "b"] });
     roundTrip({ type: "tempSessions", ids: ["t1", "t2"] });
+    roundTrip({
+      type: "worktrees",
+      map: {
+        s1: {
+          path: "/repo/.claude/worktrees/feat",
+          branch: "worktree-feat",
+          kind: "claude",
+          exists: true,
+          locked: false,
+          repoRoot: "/repo",
+        },
+      },
+    });
+    roundTrip({ type: "worktrees", map: {} });
   });
 
   it("accepts settings message with arbitrary extra keys", () => {

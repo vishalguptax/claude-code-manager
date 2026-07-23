@@ -28,6 +28,8 @@ import {
   clearPendingCache,
 } from "./parser";
 import { indexSession, pruneIndex, clearIndex } from "./searchIndex";
+import { postWorktrees } from "./worktreeEnrichment";
+import { clearWorktreeCache } from "../../extension/worktrees";
 import { slugifyProjectPath } from "./portable";
 import { PROJECTS_DIR } from "../../core/config";
 import { loadState } from "./state";
@@ -184,6 +186,7 @@ export function refreshLiveState(ctx: ProviderActionsContext): void {
           data: groupSessions(sessions),
           stats: getStats(sessions),
         });
+        postWorktrees(wv, sessions);
         if (added) {
           // A new session widens the project set and needs indexing for search.
           wv.postMessage({ type: "projects", data: getUniqueProjects(sessions) });
@@ -297,6 +300,9 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   clearOrphanCache();
   clearPendingCache();
   clearIndex();
+  // Drop the worktree list cache too so a full reload re-detects worktrees
+  // created, pruned, or relocated since the last resolve.
+  clearWorktreeCache();
   // Account caches the session-lifetime CLI model scan and a
   // fingerprint-memoised usage aggregate. Neither is keyed to the
   // reload button, so without these the Refresh action silently
@@ -361,6 +367,7 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
       data: groupSessions(ctx.getSessions()),
       stats: getStats(ctx.getSessions()),
     });
+    postWorktrees(wv, ctx.getSessions());
     wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
     wv.postMessage({ type: "userState", ...loadState() });
     const warning = getLastParseWarning();

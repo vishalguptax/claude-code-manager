@@ -131,6 +131,25 @@ describe("sessions message handling", () => {
     expect(tempSessionsSignal.value.size).toBe(0);
   });
 
+  it("stores the worktree map from a worktrees push", async () => {
+    const { worktreesSignal } = await import("./signals");
+    handleMessage({
+      type: "worktrees",
+      map: {
+        a: {
+          path: "/repo/.claude/worktrees/feat",
+          branch: "worktree-feat",
+          kind: "claude",
+          exists: true,
+          locked: false,
+          repoRoot: "/repo",
+        },
+      },
+    } as Message);
+    expect(worktreesSignal.value.a?.repoRoot).toBe("/repo");
+    expect(worktreesSignal.value.a?.kind).toBe("claude");
+  });
+
   it("opens the first-run intro when settings carries demoSeen=false", async () => {
     const { introVisible, _resetIntro } = await import("../../../../webview/shared/model");
     _resetIntro();

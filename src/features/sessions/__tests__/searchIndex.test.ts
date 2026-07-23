@@ -44,6 +44,17 @@ describe("searchIndex", () => {
     expect(await searchContent("tokenizer")).toEqual(["s1"]);
   });
 
+  it("indexes content past the old 50 KB cap (raised to 150 KB)", async () => {
+    // ~100 KB of filler precedes the keyword. Under the old 50 KB cap the
+    // extractor stopped before reaching it; at 150 KB the keyword is indexed.
+    const file = writeJsonl("cap.jsonl", [
+      { message: { role: "user", content: "x".repeat(100 * 1024) } },
+      { message: { role: "assistant", content: "needle-past-old-cap" } },
+    ]);
+    indexSession("scap", file);
+    expect(await searchContent("needle-past-old-cap")).toEqual(["scap"]);
+  });
+
   it("is case-insensitive", async () => {
     const file = writeJsonl("b.jsonl", [
       { message: { role: "user", content: "Check Database Migration" } },

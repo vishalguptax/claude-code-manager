@@ -504,6 +504,56 @@
 .d-notice strong             { color: var(--fg); }
 
 /*
+ * Worktree info block — shown in the detail header for a session that ran in a
+ * Claude/user git worktree. Names the checkout path, branch, and shared repo
+ * root so the worktree relationship is legible at a glance.
+ */
+.d-worktree {
+  margin-top: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+}
+.d-worktree--missing { opacity: 0.7; }
+.d-worktree__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--fg);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+}
+.d-worktree__title .icon { flex: none; color: var(--link); }
+.d-worktree__flag {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--badge-neutral-bg);
+  color: var(--fg-dim);
+}
+.d-worktree__flag--gone {
+  background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #d49a00) 18%, transparent);
+  color: var(--vscode-editorWarning-foreground, #d49a00);
+}
+.d-worktree__row {
+  display: flex;
+  gap: var(--space-md);
+  line-height: 1.7;
+  min-width: 0;
+}
+.d-worktree__k { flex: none; width: 68px; color: var(--fg-muted); }
+.d-worktree__v {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+}
+
+/*
  * Detail-view action buttons. One responsive grid containing every
  * button. Only the *primary* action spans the full top row — every
  * other button (including Delete) flows through the auto-fit grid so

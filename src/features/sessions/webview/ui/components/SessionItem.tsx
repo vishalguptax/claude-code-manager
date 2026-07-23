@@ -11,7 +11,8 @@ import { Button, Icon } from "../../../../../webview/shared/ui";
 import { fmtRelativeTime } from "../../../../../webview/utils";
 import { cx } from "../../../../../webview/shared/lib";
 import { now } from "../../../../../webview/shared/model";
-import type { Session } from "../../../types";
+import { pathTail } from "../../lib";
+import type { Session, WorktreeRef } from "../../../types";
 
 /**
  * Map a CLI-reported lifecycle status to a tooltip. Known values get a
@@ -55,6 +56,13 @@ export interface SessionItemProps {
    * affordance rather than offering an action that can't do what it says.
    */
   isDiffProject: boolean;
+  /**
+   * Resolved git worktree for this session, when it ran inside one. Drives the
+   * worktree badge (Claude- vs user-created) — undefined for sessions not in a
+   * worktree, and "main"-kind refs render no badge (the primary checkout is the
+   * unremarkable default).
+   */
+  worktree?: WorktreeRef;
   onSelect: (id: string) => void;
   onResume: (id: string) => void;
   onView: (id: string) => void;
@@ -72,6 +80,7 @@ export function SessionItem({
   hasOpenTerminal,
   isTemp,
   isDiffProject,
+  worktree,
   onSelect,
   onResume,
   onView,
@@ -80,6 +89,17 @@ export function SessionItem({
 }: SessionItemProps) {
   const displayName = session.name || session.prompts[0] || "Untitled session";
   const branch = session.branch && session.branch !== "HEAD" ? session.branch : "";
+  // Badge only for Claude/user worktrees — the main checkout is the default and
+  // gets no badge. The badge carries the branch, so the plain branch tag below
+  // is suppressed when a badge shows to avoid printing the branch twice.
+  const wt = worktree && (worktree.kind === "claude" || worktree.kind === "user") ? worktree : null;
+  const wtName = wt ? pathTail(wt.path) : "";
+  const wtBranch = wt && wt.branch && wt.branch !== "HEAD" ? wt.branch : "";
+  const wtKindLabel = wt?.kind === "claude" ? "Claude-created" : "User-created";
+  const wtTitle = wt
+    ? `${wtKindLabel} worktree · ${wtName}${wtBranch ? ` · ${wtBranch}` : ""}` +
+      (!wt.exists ? " · removed from disk" : wt.locked ? " · in active use" : "")
+    : "";
   // Read the shared clock so "5m" → "6m" ticks live without a data change.
   const relTime = fmtRelativeTime(session.endTime, now.value);
   const absDate = new Date(session.endTime).toLocaleString("en-US", {
@@ -145,12 +165,18 @@ export function SessionItem({
 
       {bulkMode ? null : (
         <div class="item-actions">
-          {hasOpenTerminal ? (
+          {/* A running/idle session already has a process — offer "view"
+              (reveal its terminal), never "resume" (which would spawn a
+              second, conflicting `claude --resume`). hasOpenTerminal is the
+              tracked case; session.isLive covers a session running in a
+              terminal the extension never registered (host informs on click
+              when it can't be focused). */}
+          {hasOpenTerminal || session.isLive ? (
             <Button
               variant="icon"
               class="item-resume"
               iconName="terminal"
-              title="View open terminal"
+              title={hasOpenTerminal ? "View open terminal" : "Session is running — reveal its terminal"}
               onClick={(e) => {
                 e.stopPropagation();
                 onView(session.id);
@@ -186,7 +212,21 @@ export function SessionItem({
             Temp
           </span>
         ) : null}
-        {branch ? (
+        {wt ? (
+          <span
+            class={cx("tag tag-wt", {
+              "tag-wt--claude": wt.kind === "claude",
+              "tag-wt--user": wt.kind === "user",
+              "tag-wt--missing": !wt.exists,
+              "tag-wt--locked": wt.exists && wt.locked,
+            })}
+            title={wtTitle}
+          >
+            <Icon name={wt.kind === "claude" ? "bot" : "git-branch"} size={12} />
+            <span class="tag-wt__name">{wtName}</span>
+            {wtBranch ? <span class="tag-wt__branch">{wtBranch}</span> : null}
+          </span>
+        ) : branch ? (
           <span class="tag" title={branch}>
             {branch}
           </span>

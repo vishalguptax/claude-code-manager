@@ -101,6 +101,44 @@ describe("buildProjectOptions", () => {
     const opts = buildProjectOptions(sessions, NONE, "");
     expect(opts.find((o) => o.value === "alpha")?.isCurrent).toBe(false);
   });
+
+  it("collapses every worktree of one repo into a single repoRoot entry", () => {
+    // Three checkout dirs (feat / hotfix / main) all share repoRoot /repo.
+    const sessions = [
+      session({ id: "a", project: "feat", projectKey: "feat", endTime: 100 }),
+      session({ id: "b", project: "hotfix", projectKey: "hotfix", endTime: 200 }),
+      session({ id: "c", project: "repo", projectKey: "repo", endTime: 300 }),
+      session({ id: "z", project: "other", projectKey: "other", endTime: 50 }),
+    ];
+    const worktrees = {
+      a: { path: "/repo/feat", branch: "worktree-feat", kind: "claude" as const, exists: true, locked: false, repoRoot: "/repo" },
+      b: { path: "/repo/hotfix", branch: "worktree-hotfix", kind: "user" as const, exists: true, locked: false, repoRoot: "/repo" },
+      c: { path: "/repo", branch: "main", kind: "main" as const, exists: true, locked: false, repoRoot: "/repo" },
+    };
+    const opts = buildProjectOptions(sessions, NONE, "", worktrees);
+    // One collapsed repo entry labelled by its basename, counting all 3 worktree sessions.
+    const repo = opts.find((o) => o.value === "/repo");
+    expect(repo).toMatchObject({ label: "repo", count: 3 });
+    // The non-worktree project stays its own entry, and the checkout-dir names
+    // never appear as separate options.
+    expect(opts.find((o) => o.value === "other")?.count).toBe(1);
+    expect(opts.some((o) => o.value === "feat" || o.value === "hotfix")).toBe(false);
+  });
+
+  it("marks the repo entry current and counts the whole repo when the workspace is a worktree", () => {
+    const sessions = [
+      session({ id: "a", project: "feat", projectKey: "feat", endTime: 100 }),
+      session({ id: "b", project: "main", projectKey: "main", endTime: 200 }),
+    ];
+    const worktrees = {
+      a: { path: "/repo/feat", branch: "worktree-feat", kind: "claude" as const, exists: true, locked: false, repoRoot: "/repo" },
+      b: { path: "/repo", branch: "main", kind: "main" as const, exists: true, locked: false, repoRoot: "/repo" },
+    };
+    // Workspace is the feat worktree → repoRoot "/repo" is the current scope.
+    const opts = buildProjectOptions(sessions, NONE, "feat", worktrees, "/repo");
+    expect(opts[0]).toMatchObject({ value: "current", count: 2 });
+    expect(opts.find((o) => o.value === "/repo")).toMatchObject({ isCurrent: true });
+  });
 });
 
 describe("buildBranchOptions", () => {

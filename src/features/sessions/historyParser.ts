@@ -159,7 +159,11 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     // allocate strings on every keystroke. searchHaystack joins fields with
     // "\n" so that user input cannot accidentally match across boundaries.
     const projectKey = data.project.toLowerCase();
-    const searchHaystack = `${name}\n${data.project}\n${branch}\n${summary}`.toLowerCase();
+    // Include every user prompt so a keyword the user typed matches instantly
+    // client-side, without waiting on the async host transcript scan. Prompts
+    // are already held in memory on the Session, so this adds no new reads.
+    const searchHaystack =
+      `${name}\n${data.project}\n${branch}\n${summary}\n${prompts.join("\n")}`.toLowerCase();
 
     // Canonicalize projectPath casing: same project typed with
     // different casings collapses into one entry. First sighting wins.

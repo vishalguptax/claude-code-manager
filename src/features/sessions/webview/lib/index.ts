@@ -11,3 +11,15 @@ export {
   type BranchOption,
   type ProjectOption,
 } from "./options";
+export {
+  buildWorktreeOptions,
+  currentRepoRoot,
+  hasWorktrees,
+  isSameRepo,
+  matchesWorktreeFilter,
+  pathTail,
+  projectGroupValue,
+  type WorktreeFilter,
+  type WorktreeMap,
+  type WorktreeOption,
+} from "./worktrees";

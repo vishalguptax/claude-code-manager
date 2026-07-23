@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Session } from "../../types";
+import type { Session, WorktreeRef } from "../../types";
 import { initPersistence } from "../../../../webview/persistence";
 import type { VSCodeAPI } from "../../../../webview/types";
 import {
@@ -12,13 +12,20 @@ import {
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
+  filterWorktreeSignal,
   filteredSignal,
+  fullTextLoadingSignal,
+  clearFullTextHits,
+  markFullTextLoading,
   getBranches,
   getBranchOptions,
   getFiltered,
   getLastSessionGroup,
   getProjects,
   getProjectOptions,
+  getWorktree,
+  getWorktreeOptions,
+  hasWorktreeSessions,
   initFilterPersistence,
   loadPersistedFilters,
   pinnedSignal,
@@ -31,10 +38,25 @@ import {
   setFullTextHits,
   setPinned,
   setWorkspacePath,
+  setWorktrees,
   stopFilterPersistence,
   toggleSelected,
+  workspacePathSignal,
+  worktreesSignal,
   _resetSessionsSignals,
 } from "./signals";
+
+function ref(over: Partial<WorktreeRef> = {}): WorktreeRef {
+  return {
+    path: "/repo/.claude/worktrees/feat",
+    branch: "worktree-feat",
+    kind: "claude",
+    exists: true,
+    locked: false,
+    repoRoot: "/repo",
+    ...over,
+  };
+}
 
 function session(over: Partial<Session> & { id: string }): Session {
   const base: Session = {
@@ -113,6 +135,19 @@ describe("sessions signals", () => {
       expect(out).toHaveLength(21);
     });
 
+    it("bypasses the recent-20 cap while a search query is active", () => {
+      const many = Array.from({ length: 30 }, (_, i) =>
+        session({ id: `s${i}`, endTime: i, searchHaystack: "widget" }),
+      );
+      sessionsSignal.value = many;
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "recent";
+      searchQuerySignal.value = "widget";
+      // Without the search-bypass this would clamp to 20; every match must show.
+      expect(getFiltered()).toHaveLength(30);
+      searchQuerySignal.value = "";
+    });
+
     it("branch filter is literal — a pinned session on another branch is hidden (matches badge)", () => {
       sessionsSignal.value = [
         session({ id: "onX", branch: "x", endTime: 100 }),
@@ -157,6 +192,25 @@ describe("sessions signals", () => {
       searchQuerySignal.value = "deploy";
       setFullTextHits("deploy", ["body"]);
       expect(getFiltered().map((s) => s.id).sort()).toEqual(["body", "meta"]);
+    });
+
+    it("full-text loading: set on dispatch, cleared when the live query's result lands", () => {
+      searchQuerySignal.value = "deploy";
+      markFullTextLoading();
+      expect(fullTextLoadingSignal.value).toBe(true);
+      // A stale reply keeps the spinner running for the newer query.
+      setFullTextHits("old", []);
+      expect(fullTextLoadingSignal.value).toBe(true);
+      // The reply for the live query stops it.
+      setFullTextHits("deploy", ["x"]);
+      expect(fullTextLoadingSignal.value).toBe(false);
+      searchQuerySignal.value = "";
+    });
+
+    it("full-text loading: cleared when the query drops below the scan threshold", () => {
+      markFullTextLoading();
+      clearFullTextHits();
+      expect(fullTextLoadingSignal.value).toBe(false);
     });
 
     it("ignores stale full-text hits for a superseded query", () => {
@@ -364,6 +418,116 @@ describe("sessions signals", () => {
       filterProjectSignal.value = "all";
       const opts = getBranchOptions();
       expect(opts.some((o) => o.value === "(no branch)")).toBe(true);
+    });
+  });
+
+  describe("worktrees", () => {
+    it("setWorktrees / getWorktree round-trip a ref by session id", () => {
+      setWorktrees({ a: ref({ repoRoot: "/repo" }) });
+      expect(getWorktree("a")?.repoRoot).toBe("/repo");
+      expect(getWorktree("missing")).toBeUndefined();
+    });
+
+    it("current-scope collapses every sibling worktree of the workspace's repo", () => {
+      // Three checkouts of /repo (feat, hotfix, main) plus an unrelated project.
+      sessionsSignal.value = [
+        session({ id: "feat", project: "feat", projectKey: "feat" }),
+        session({ id: "hotfix", project: "hotfix", projectKey: "hotfix" }),
+        session({ id: "main", project: "repo", projectKey: "repo" }),
+        session({ id: "other", project: "other", projectKey: "other" }),
+      ];
+      setWorktrees({
+        feat: ref({ path: "/repo/feat", repoRoot: "/repo", kind: "claude" }),
+        hotfix: ref({ path: "/repo/hotfix", repoRoot: "/repo", kind: "user" }),
+        main: ref({ path: "/repo", repoRoot: "/repo", kind: "main" }),
+      });
+      // Workspace is the feat worktree → "current" spans the whole repo.
+      workspacePathSignal.value = "/repo/feat";
+      filterProjectSignal.value = "current";
+      filterDateSignal.value = "all";
+      expect(getFiltered().map((s) => s.id).sort()).toEqual(["feat", "hotfix", "main"]);
+    });
+
+    it("selecting a repoRoot value matches all its worktrees, excluding others", () => {
+      sessionsSignal.value = [
+        session({ id: "feat", project: "feat", projectKey: "feat" }),
+        session({ id: "other", project: "other", projectKey: "other" }),
+      ];
+      setWorktrees({ feat: ref({ path: "/repo/feat", repoRoot: "/repo" }) });
+      filterProjectSignal.value = "/repo";
+      filterDateSignal.value = "all";
+      expect(getFiltered().map((s) => s.id)).toEqual(["feat"]);
+    });
+
+    it("worktree-kind filter narrows the list by ref kind", () => {
+      sessionsSignal.value = [
+        session({ id: "c", endTime: 3 }),
+        session({ id: "u", endTime: 2 }),
+        session({ id: "plain", endTime: 1 }),
+      ];
+      setWorktrees({
+        c: ref({ kind: "claude" }),
+        u: ref({ kind: "user" }),
+      });
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      filterWorktreeSignal.value = "claude";
+      expect(getFiltered().map((s) => s.id)).toEqual(["c"]);
+      filterWorktreeSignal.value = "user";
+      expect(getFiltered().map((s) => s.id)).toEqual(["u"]);
+      // A session with no ref never matches a concrete kind.
+      filterWorktreeSignal.value = "main";
+      expect(getFiltered()).toHaveLength(0);
+    });
+
+    it("behaviour is unchanged with an empty worktree map", () => {
+      // Byte-for-byte with the pre-worktree path: no map, no workspace repo.
+      sessionsSignal.value = [
+        session({ id: "a", projectKey: "alpha", project: "alpha" }),
+        session({ id: "b", projectKey: "beta", project: "beta" }),
+      ];
+      currentProjectSignal.value = "alpha";
+      filterProjectSignal.value = "current";
+      filterDateSignal.value = "all";
+      expect(getFiltered().map((s) => s.id)).toEqual(["a"]);
+    });
+
+    it("getProjectOptions collapses worktrees into one repo entry", () => {
+      sessionsSignal.value = [
+        session({ id: "feat", project: "feat", projectKey: "feat", endTime: 100 }),
+        session({ id: "main", project: "repo", projectKey: "repo", endTime: 200 }),
+      ];
+      setWorktrees({
+        feat: ref({ path: "/repo/feat", repoRoot: "/repo", kind: "claude" }),
+        main: ref({ path: "/repo", repoRoot: "/repo", kind: "main" }),
+      });
+      const repo = getProjectOptions().find((o) => o.value === "/repo");
+      expect(repo).toMatchObject({ label: "repo", count: 2 });
+    });
+
+    it("hasWorktreeSessions is true only for claude/user worktrees", () => {
+      sessionsSignal.value = [session({ id: "m" })];
+      setWorktrees({ m: ref({ kind: "main" }) });
+      expect(hasWorktreeSessions()).toBe(false);
+      setWorktrees({ m: ref({ kind: "claude" }) });
+      expect(hasWorktreeSessions()).toBe(true);
+    });
+
+    it("getWorktreeOptions leads with All and counts present kinds", () => {
+      sessionsSignal.value = [session({ id: "c" }), session({ id: "u" })];
+      setWorktrees({ c: ref({ kind: "claude" }), u: ref({ kind: "user" }) });
+      const opts = getWorktreeOptions();
+      expect(opts[0]).toMatchObject({ value: "all", count: 2 });
+      expect(opts.find((o) => o.value === "claude")?.count).toBe(1);
+      expect(opts.find((o) => o.value === "user")?.count).toBe(1);
+    });
+
+    it("_resetSessionsSignals clears worktree state", () => {
+      setWorktrees({ a: ref() });
+      filterWorktreeSignal.value = "claude";
+      _resetSessionsSignals();
+      expect(worktreesSignal.value).toEqual({});
+      expect(filterWorktreeSignal.value).toBe("all");
     });
   });
 

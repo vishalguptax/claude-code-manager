@@ -57,6 +57,14 @@ export const sendForkSession = (sessionId: string): void =>
   post({ type: "forkSession", sessionId });
 
 /**
+ * Ask the host to recreate a Claude-created worktree that was removed from
+ * disk, then resume the session inside it. The host confirms before mutating
+ * the repo (`git worktree add`).
+ */
+export const sendCreateWorktree = (sessionId: string): void =>
+  post({ type: "createWorktree", sessionId });
+
+/**
  * Request a page of a session transcript.
  *  - `mode` chooses first-N or last-N (default "last").
  *  - `query` switches the host to full-transcript search; matches return

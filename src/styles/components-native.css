@@ -237,6 +237,16 @@
   padding-right: 0;
 }
 
+/* Chromium (the webview runtime) draws its own ::-webkit-search-cancel-button
+   — a second X — inside any non-empty type=search input. We render our own
+   .vsc-search-clear in the content-after slot, so suppress the native one;
+   otherwise the field shows two clear buttons at mismatched insets. */
+.tf.vsc-search .tf-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 /* Leading magnifier — centred in the box, sits at the canonical inset from the
    left edge (mirroring a plain field's text start and the clear button's inset
    from the right edge). */

@@ -895,6 +895,26 @@ describe("Session pre-computed search keys", () => {
     expect(h).not.toContain("BUG");
   });
 
+  it("includes every user prompt in searchHaystack, not just the first", () => {
+    const ts = Date.now();
+    writeHistoryEntry({
+      display: "first prompt about setup",
+      timestamp: ts,
+      project: "/home/user/proj",
+      sessionId: "sess-multiprompt",
+    });
+    writeHistoryEntry({
+      display: "later prompt mentions kubernetes",
+      timestamp: ts + 1000,
+      project: "/home/user/proj",
+      sessionId: "sess-multiprompt",
+    });
+    const sessions = parseSessions();
+    const s = sessions.find((x) => x.id === "sess-multiprompt");
+    // A keyword only in the second prompt must be searchable client-side.
+    expect(s?.searchHaystack.includes("kubernetes")).toBe(true);
+  });
+
   it("uses \\n separators in searchHaystack so cross-field matches do not happen", () => {
     writeHistoryEntry({
       display: "summary text",
