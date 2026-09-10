@@ -137,7 +137,7 @@ The extension exposes these user-configurable settings (search "Claude Manager" 
 | Editor Position | `claudeManager.terminal.editorPosition` | `beside` | `beside`, `active`, `one`, `two`, `three` |
 | Default Date Filter | `claudeManager.sessions.defaultFilter` | `recent` | `recent`, `week`, `month`, `all` |
 | Default Project Filter | `claudeManager.sessions.defaultProject` | `current` | `current`, `all` |
-| Restore Window | `claudeManager.sessions.restoreWindowMinutes` | `30` | 5–120 |
+| Restore Count | `claudeManager.sessions.restoreCount` | `4` | 1–12 |
 | Resume Destination | `claudeManager.sessions.resumeIn` | `auto` | `auto`, `terminal`, `extension`, `ask` |
 
 ---

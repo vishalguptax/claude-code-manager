@@ -26,6 +26,7 @@ import {
   buildWorktreeOptions,
   currentRepoRoot,
   hasWorktrees,
+  isVolatileLabel,
   listBranches,
   matchesWorktreeFilter,
   orderProjects,
@@ -108,8 +109,22 @@ export const bulkModeSignal = signal<boolean>(false);
 /** Bulk-selected session ids. */
 export const selectionSignal = signal<Set<string>>(new Set());
 
-/** Window into the workspace-restore cluster (minutes). */
-export const restoreWindowMinutesSignal = signal<number>(30);
+/** How many recent sessions the Restore action reopens. */
+export const restoreCountSignal = signal<number>(4);
+
+/**
+ * Section labels the user has collapsed in the list. Keyed by label rather than
+ * by index so the choice survives new sessions arriving, a re-filter, and the
+ * day ladder re-bucketing overnight.
+ */
+export const collapsedGroupsSignal = signal<Set<string>>(new Set());
+
+/** Collapse or expand one list section. */
+export function toggleGroupCollapsed(label: string): void {
+  const next = new Set(collapsedGroupsSignal.value);
+  if (!next.delete(label)) next.add(label);
+  collapsedGroupsSignal.value = next;
+}
 
 /** Session ids that currently have an open terminal in the editor/panel. */
 export const openTerminalsSignal = signal<Set<string>>(new Set());
@@ -315,23 +330,39 @@ export function getFiltered(): Session[] {
 }
 
 /**
- * The "last working session group" — sessions active within
- * `restoreWindowMinutes` of the most recent one, scoped to the current
- * project when known. Sorted oldest-first so terminals reopen in start
- * order. Backs the Restore Workspace action.
+ * The last working set — the `restoreCount` most recently active sessions in
+ * the current scope, oldest-first so terminals reopen in start order. Backs
+ * the Restore action.
+ *
+ * Count-based, not time-based: the previous rule kept only sessions ending
+ * within `restoreWindowMinutes` of the *newest* one, so a normal workday (one
+ * session this morning, the rest yesterday evening) collapsed to a single
+ * session and Restore opened one terminal. A fixed count always reopens a
+ * usable working set.
+ *
+ * Scope matches getFiltered's "This Project": when the workspace is a
+ * worktree, the whole repo (every sibling worktree) counts; otherwise the
+ * workspace project. Restore used a bare projectKey match, which silently
+ * excluded sibling-worktree sessions the list was showing.
  */
 export function getLastSessionGroup(): Session[] {
-  const windowMs = restoreWindowMinutesSignal.value * 60 * 1000;
   const deleted = deletedSignal.value;
   const currentProject = currentProjectSignal.value;
+  const repoRoot = currentRepoRootSignal.value;
+  const worktrees = worktreesSignal.value;
 
   let candidates = sessionsSignal.value.filter((s) => !deleted.has(s.id));
-  if (currentProject) candidates = candidates.filter((s) => s.projectKey === currentProject);
-  if (candidates.length === 0) return [];
+  if (repoRoot) {
+    candidates = candidates.filter((s) => worktrees[s.id]?.repoRoot === repoRoot);
+  } else if (currentProject) {
+    candidates = candidates.filter((s) => s.projectKey === currentProject);
+  }
 
-  const anchor = Math.max(...candidates.map((s) => s.endTime));
-  const cutoff = anchor - windowMs;
-  return candidates.filter((s) => s.endTime >= cutoff).sort((a, b) => a.endTime - b.endTime);
+  return candidates
+    .slice()
+    .sort((a, b) => b.endTime - a.endTime)
+    .slice(0, Math.max(1, restoreCountSignal.value))
+    .reverse();
 }
 
 /**
@@ -393,6 +424,8 @@ export function getBranchOptions(): BranchOption[] {
     currentBranchSignal.value,
     filterProjectSignal.value,
     currentProjectSignal.value,
+    worktreesSignal.value,
+    currentRepoRootSignal.value,
   );
 }
 
@@ -408,7 +441,10 @@ export const filteredSignal = computed(getFiltered);
 /** Memoized header+session rows for the virtual list, derived from the
  *  filtered list + pins. Same memoization benefit as {@link filteredSignal}. */
 export const rowsSignal = computed<Row[]>(() =>
-  buildRows(filteredSignal.value, pinnedSignal.value),
+  // `now` comes from the clock here rather than being threaded through: the
+  // list re-derives on every session/filter change anyway, so the day buckets
+  // refresh on the next interaction after midnight.
+  buildRows(filteredSignal.value, pinnedSignal.value, collapsedGroupsSignal.value, Date.now()),
 );
 
 /** Reactive count of the filtered list — handy for headers. */
@@ -451,6 +487,7 @@ export function applyDelta(list: Session[], delta: SessionsDelta): Session[] {
 const PERSIST_KEY_FILTER_PROJECT = "sessions.filterProject";
 const PERSIST_KEY_FILTER_DATE = "sessions.filterDate";
 const PERSIST_KEY_FILTER_BRANCH = "sessions.filterBranch";
+const PERSIST_KEY_COLLAPSED = "sessions.collapsedGroups";
 
 /**
  * Restore persisted filter choices into the signals. Call once during the
@@ -467,6 +504,14 @@ export function loadPersistedFilters(): void {
 
   const branch = getPersisted<string>(PERSIST_KEY_FILTER_BRANCH);
   if (typeof branch === "string") filterBranchSignal.value = branch;
+
+  const collapsed = getPersisted<string[]>(PERSIST_KEY_COLLAPSED);
+  if (Array.isArray(collapsed)) {
+    // Drop volatile labels on the way in as well as on the way out. A build
+    // that persisted "Today" before this filter existed must not keep hiding
+    // today's work forever.
+    collapsedGroupsSignal.value = new Set(collapsed.filter((l) => !isVolatileLabel(l)));
+  }
 }
 
 /**
@@ -509,6 +554,7 @@ export function initFilterPersistence(): void {
     const project = filterProjectSignal.value;
     const date = filterDateSignal.value;
     const branch = filterBranchSignal.value;
+    const collapsed = collapsedGroupsSignal.value;
     // Skip the eager first run. `effect` invokes its body immediately on
     // creation; writing the current (default) values into persisted state
     // before the host's `settings` message arrives would make every key
@@ -522,6 +568,12 @@ export function initFilterPersistence(): void {
     setPersisted(PERSIST_KEY_FILTER_PROJECT, project);
     setPersisted(PERSIST_KEY_FILTER_DATE, date);
     setPersisted(PERSIST_KEY_FILTER_BRANCH, branch);
+    // Volatile labels are session-only: persisting a collapsed "Today" would
+    // hide tomorrow's work behind a preference set about today's.
+    setPersisted(
+      PERSIST_KEY_COLLAPSED,
+      [...collapsed].filter((l) => !isVolatileLabel(l)),
+    );
   });
 }
 
@@ -555,7 +607,8 @@ export function _resetSessionsSignals(): void {
   currentBranchSignal.value = "";
   bulkModeSignal.value = false;
   selectionSignal.value = new Set();
-  restoreWindowMinutesSignal.value = 30;
+  collapsedGroupsSignal.value = new Set();
+  restoreCountSignal.value = 4;
   openTerminalsSignal.value = new Set();
   tempSessionsSignal.value = new Set();
 }

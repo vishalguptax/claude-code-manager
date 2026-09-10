@@ -4,14 +4,15 @@
  * app footer.
  *
  * The list is virtualized (special-consideration B) so 5,000+ sessions scroll
- * in constant time. Date-group headers (Today / Yesterday / This Week / older)
- * are restored by interleaving header rows into the same flat, fixed-height
- * row array the virtualizer renders — see `buildRows` (sessions `lib`). Keeping
- * every row a uniform `ITEM_HEIGHT` lets us reuse the shared fixed-height
- * VirtualList untouched (no variable-height rewrite that would ripple into the
- * other features' lists) while preserving pinned-first ordering: pinned
- * sessions are grouped under a "Pinned" header first, then the rest by date
- * label.
+ * in constant time. Section headers are interleaved into the same row array
+ * the virtualizer renders — see `buildRows` (sessions `lib`) for the section
+ * order and the day/week/month ladder. `ITEM_HEIGHT` is only the pre-measure
+ * estimate: VirtualList measures each rendered row, so the short header rows
+ * and taller session rows coexist without offset drift.
+ *
+ * Headers are collapsible. Collapsing a section drops its rows from
+ * `buildRows` output entirely, so the virtualizer never sees them — no
+ * per-row hidden state, and the row count shrinks with the view.
  */
 import { useEffect, useState } from "preact/hooks";
 import { Button, ContextMenu, EmptyState, VirtualList } from "../../../../../webview/shared/ui";
@@ -32,6 +33,7 @@ import {
   selectedIdSignal,
   selectionSignal,
   sessionsSignal,
+  toggleGroupCollapsed,
   toggleSelected,
   viewSignal,
   worktreesSignal,
@@ -40,6 +42,7 @@ import { isSameRepo } from "../../lib";
 import { sendGetSessionDetail, sendResumeSession, sendViewTerminal } from "../../api";
 import { ActionsBar } from "../components/ActionsBar";
 import { Filters } from "../components/Filters";
+import { GroupHeader } from "../components/GroupHeader";
 import { ListHeader } from "../components/ListHeader";
 import { SessionItem } from "../components/SessionItem";
 import { buildSessionMenuItems } from "../components/sessionMenu";
@@ -156,9 +159,13 @@ export function ListView() {
           itemHeight={ITEM_HEIGHT}
           renderItem={(row) =>
             row.kind === "header" ? (
-              <div class="group-label" key={`h:${row.label}`}>
-                {row.label}
-              </div>
+              <GroupHeader
+                key={`h:${row.label}`}
+                label={row.label}
+                count={row.count}
+                collapsed={row.collapsed}
+                onToggle={toggleGroupCollapsed}
+              />
             ) : (
               <SessionItem
                 key={row.session.id}

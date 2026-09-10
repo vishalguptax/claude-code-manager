@@ -26,8 +26,10 @@ import {
   getWorktree,
   getWorktreeOptions,
   hasWorktreeSessions,
+  collapsedGroupsSignal,
   initFilterPersistence,
   loadPersistedFilters,
+  toggleGroupCollapsed,
   pinnedSignal,
   rowsSignal,
   searchQuerySignal,
@@ -42,6 +44,7 @@ import {
   stopFilterPersistence,
   toggleSelected,
   workspacePathSignal,
+  restoreCountSignal,
   worktreesSignal,
   _resetSessionsSignals,
 } from "./signals";
@@ -269,15 +272,86 @@ describe("sessions signals", () => {
   });
 
   describe("getLastSessionGroup", () => {
-    it("returns sessions within the restore window, oldest first", () => {
+    it("returns the N most recent sessions, oldest first", () => {
       const now = Date.now();
       sessionsSignal.value = [
-        session({ id: "recent1", endTime: now }),
-        session({ id: "recent2", endTime: now - 5 * 60_000 }),
-        session({ id: "stale", endTime: now - 60 * 60_000 }),
+        session({ id: "newest", endTime: now }),
+        session({ id: "mid", endTime: now - 5 * 60_000 }),
+        session({ id: "old", endTime: now - 60 * 60_000 }),
       ];
       currentProjectSignal.value = "";
-      expect(getLastSessionGroup().map((s) => s.id)).toEqual(["recent2", "recent1"]);
+      restoreCountSignal.value = 2;
+      expect(getLastSessionGroup().map((s) => s.id)).toEqual(["mid", "newest"]);
+    });
+
+    it("ignores the gap between sessions — a long break must not shrink the set", () => {
+      // The old time-window rule anchored on the newest session, so one session
+      // today plus yesterday's work collapsed to a single terminal.
+      const now = Date.now();
+      sessionsSignal.value = [
+        session({ id: "today", endTime: now }),
+        session({ id: "yesterday1", endTime: now - 12 * 3600_000 }),
+        session({ id: "yesterday2", endTime: now - 13 * 3600_000 }),
+      ];
+      currentProjectSignal.value = "";
+      restoreCountSignal.value = 3;
+      expect(getLastSessionGroup().map((s) => s.id)).toEqual([
+        "yesterday2",
+        "yesterday1",
+        "today",
+      ]);
+    });
+
+    it("excludes deleted sessions", () => {
+      sessionsSignal.value = [
+        session({ id: "a", endTime: 30 }),
+        session({ id: "b", endTime: 20 }),
+      ];
+      deletedSignal.value = new Set(["a"]);
+      currentProjectSignal.value = "";
+      restoreCountSignal.value = 4;
+      expect(getLastSessionGroup().map((s) => s.id)).toEqual(["b"]);
+    });
+
+    it("narrows to the current project by projectKey outside a worktree", () => {
+      sessionsSignal.value = [
+        session({ id: "mine", projectKey: "alpha", endTime: 30 }),
+        session({ id: "other", projectKey: "beta", endTime: 40 }),
+      ];
+      currentProjectSignal.value = "alpha";
+      restoreCountSignal.value = 4;
+      expect(getLastSessionGroup().map((s) => s.id)).toEqual(["mine"]);
+    });
+
+    it("spans the whole repo when the workspace is a worktree", () => {
+      // Matches getFiltered's "This Project" rule; the old projectKey-only
+      // match dropped sibling-worktree sessions the list was showing.
+      sessionsSignal.value = [
+        session({ id: "main", projectKey: "repo", endTime: 10 }),
+        session({ id: "wt", projectKey: "feature-x", endTime: 20 }),
+        session({ id: "elsewhere", projectKey: "other", endTime: 30 }),
+      ];
+      setWorktrees({
+        main: {
+          repoRoot: "/repo",
+          path: "/repo",
+          branch: "main",
+          kind: "main",
+          exists: true,
+          locked: false,
+        },
+        wt: {
+          repoRoot: "/repo",
+          path: "/repo/.claude/worktrees/feature-x",
+          branch: "feature-x",
+          kind: "claude",
+          exists: true,
+          locked: false,
+        },
+      });
+      setWorkspacePath("/repo/.claude/worktrees/feature-x");
+      restoreCountSignal.value = 4;
+      expect(getLastSessionGroup().map((s) => s.id)).toEqual(["main", "wt"]);
     });
 
     it("returns empty when there are no candidates", () => {
@@ -531,6 +605,30 @@ describe("sessions signals", () => {
     });
   });
 
+  describe("toggleGroupCollapsed", () => {
+    it("collapses then expands the same label", () => {
+      toggleGroupCollapsed("Pinned");
+      expect(collapsedGroupsSignal.value.has("Pinned")).toBe(true);
+      toggleGroupCollapsed("Pinned");
+      expect(collapsedGroupsSignal.value.has("Pinned")).toBe(false);
+    });
+
+    it("tracks sections independently", () => {
+      toggleGroupCollapsed("Pinned");
+      toggleGroupCollapsed("August 2026");
+      expect([...collapsedGroupsSignal.value].sort()).toEqual(["August 2026", "Pinned"]);
+      toggleGroupCollapsed("Pinned");
+      expect([...collapsedGroupsSignal.value]).toEqual(["August 2026"]);
+    });
+
+    it("replaces the Set rather than mutating it, so computed rows re-derive", () => {
+      const before = collapsedGroupsSignal.value;
+      toggleGroupCollapsed("Pinned");
+      expect(collapsedGroupsSignal.value).not.toBe(before);
+      expect(before.has("Pinned")).toBe(false);
+    });
+  });
+
   describe("filter persistence", () => {
     function makeApi(): VSCodeAPI {
       let state: Record<string, unknown> = {};
@@ -567,6 +665,46 @@ describe("sessions signals", () => {
       expect(filterProjectSignal.value).toBe("current");
       expect(filterDateSignal.value).toBe("recent");
       expect(filterBranchSignal.value).toBe("all");
+    });
+
+    it("round-trips collapsed sections across a simulated reload", () => {
+      initPersistence(makeApi());
+      initFilterPersistence();
+      toggleGroupCollapsed("Pinned");
+      toggleGroupCollapsed("August 2026");
+      stopFilterPersistence();
+
+      _resetSessionsSignals();
+      expect(collapsedGroupsSignal.value.size).toBe(0);
+      loadPersistedFilters();
+      expect([...collapsedGroupsSignal.value].sort()).toEqual(["August 2026", "Pinned"]);
+    });
+
+    it("never persists a collapsed Today, so tomorrow's work is not pre-hidden", () => {
+      // "Today" means different sessions tomorrow. Storing it would hide the
+      // next day's work behind a preference set about a different day — the
+      // exact problem the day sections exist to fix.
+      initPersistence(makeApi());
+      initFilterPersistence();
+      toggleGroupCollapsed("Today");
+      toggleGroupCollapsed("Yesterday");
+      toggleGroupCollapsed("Active");
+      toggleGroupCollapsed("Mon, Sep 7");
+      stopFilterPersistence();
+
+      _resetSessionsSignals();
+      loadPersistedFilters();
+      expect([...collapsedGroupsSignal.value]).toEqual(["Mon, Sep 7"]);
+    });
+
+    it("drops a volatile label already in stored state", () => {
+      // A build that stored "Today" before the filter existed must not keep
+      // hiding today's work forever.
+      const api = makeApi();
+      initPersistence(api);
+      api.setState?.({ "sessions.collapsedGroups": ["Today", "Pinned"] });
+      loadPersistedFilters();
+      expect([...collapsedGroupsSignal.value]).toEqual(["Pinned"]);
     });
 
     it("the eager first run does not persist defaults, so host defaultFilter/defaultProject still apply", () => {

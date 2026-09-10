@@ -275,7 +275,7 @@ describe("ClaudeSessionViewProvider", () => {
         const values: Record<string, unknown> = {
           defaultFilter: "month",
           defaultProject: "all",
-          restoreWindowMinutes: 60,
+          restoreCount: 6,
         };
         return key in values ? values[key] : defaultValue;
       },
@@ -294,7 +294,7 @@ describe("ClaudeSessionViewProvider", () => {
     expect(settingsMsgs).toHaveLength(1);
     expect(settingsMsgs[0].defaultFilter).toBe("month");
     expect(settingsMsgs[0].defaultProject).toBe("all");
-    expect(settingsMsgs[0].restoreWindowMinutes).toBe(60);
+    expect(settingsMsgs[0].restoreCount).toBe(6);
   });
 
   it("posts the current branch alongside workspace path on folder change", async () => {

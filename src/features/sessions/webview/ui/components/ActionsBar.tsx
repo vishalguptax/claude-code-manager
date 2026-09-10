@@ -44,15 +44,17 @@ export function ActionsBar() {
       </Button>
       <Button
         iconName="split-square-horizontal"
-        title="Reopen all terminals from your last working session"
+        title="Reopen terminals for your most recent sessions in this project"
         onClick={() => {
+          // Always post, even for an empty group: the host owns every
+          // user-facing message (only it can call the vscode dialog API), so
+          // it reports "nothing to restore" rather than this click silently
+          // doing nothing.
           const group = getLastSessionGroup();
-          if (group.length) {
-            sendResumeMultiple(
-              group.map((s) => s.id),
-              group.map((s) => s.projectPath),
-            );
-          }
+          sendResumeMultiple(
+            group.map((s) => s.id),
+            group.map((s) => s.projectPath),
+          );
         }}
       >
         Restore

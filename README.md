@@ -177,7 +177,7 @@ Open Settings (<kbd>Ctrl</kbd>+<kbd>,</kbd>) and search **Claude Code Manager**.
 | `terminal.editorPosition` | `beside` | Which editor group terminals land in |
 | `sessions.defaultFilter` | `recent` | Default date filter (recent / week / month / all) |
 | `sessions.defaultProject` | `current` | Default project scope (current workspace or all projects) |
-| `sessions.restoreWindowMinutes` | `30` | Time window used to group terminals for **Restore Workspace** |
+| `sessions.restoreCount` | `4` | How many recent sessions **Restore** reopens |
 | `sessions.resumeIn` | `auto` | Where Resume / New / Continue opens Claude: `auto` (match the session's origin), `terminal`, `extension` (Claude Code chat tab), or `ask` (prompt each time) |
 | `marketplaceSkillsUrl` | unset | Override URL for the in-panel Skills marketplace link |
 | `marketplaceMcpUrl` | unset | Override URL for the in-panel MCP marketplace link |

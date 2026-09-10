@@ -155,11 +155,23 @@ export function buildBranchOptions(
   currentBranch: string,
   project: string,
   currentProject: string,
+  worktrees: WorktreeMap = {},
+  repoRoot: string | null = null,
 ): BranchOption[] {
+  // Scope must match getFiltered exactly, or the counts describe a different
+  // list than the one on screen. Two worktree cases were missing: "current" in
+  // a worktree workspace spans the whole repo, and a concrete selection may be
+  // a repoRoot (buildProjectOptions collapses each repo's worktrees under one
+  // option whose value IS the repoRoot) — comparing that against s.project
+  // matched nothing, so picking a collapsed repo emptied the branch dropdown.
   const inScope = (s: Session): boolean => {
     if (project === "all") return true;
-    if (project === "current") return !currentProject || s.projectKey === currentProject;
-    return s.project === project;
+    if (project === "current") {
+      if (repoRoot) return worktrees[s.id]?.repoRoot === repoRoot;
+      return !currentProject || s.projectKey === currentProject;
+    }
+    const ref = worktrees[s.id];
+    return ref ? ref.repoRoot === project : s.project === project;
   };
 
   const counts = new Map<string, number>();

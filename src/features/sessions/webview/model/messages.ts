@@ -19,7 +19,7 @@ import {
   detailLoadingSignal,
   detailSignal,
   loadedSignal,
-  restoreWindowMinutesSignal,
+  restoreCountSignal,
   selectedIdSignal,
   sessionsSignal,
   setDeleted,
@@ -92,19 +92,19 @@ export function handleMessage(msg: Message): void {
       setOpenTerminals(msg.ids);
       break;
     case "settings": {
-      // Host-pushed sessions config: apply the configured restore-workspace
-      // window, and seed the initial date/project filters from the user's
-      // defaults (persisted selections still win — see applyDefaultFilters).
+      // Host-pushed sessions config: apply the configured restore count, and
+      // seed the initial date/project filters from the user's defaults
+      // (persisted selections still win — see applyDefaultFilters).
       // v1 handled this in main.ts; the v2 sessions handler had dropped it, so
-      // restoreWindowMinutes/defaultFilter/defaultProject settings did nothing.
+      // restoreCount/defaultFilter/defaultProject settings did nothing.
       const m = msg as {
-        restoreWindowMinutes?: number;
+        restoreCount?: number;
         defaultFilter?: string;
         defaultProject?: string;
         demoSeen?: boolean;
       };
-      if (typeof m.restoreWindowMinutes === "number") {
-        restoreWindowMinutesSignal.value = m.restoreWindowMinutes;
+      if (typeof m.restoreCount === "number") {
+        restoreCountSignal.value = m.restoreCount;
       }
       applyDefaultFilters(m.defaultFilter, m.defaultProject);
       // First-run intro plays once per install; the host gates it via the

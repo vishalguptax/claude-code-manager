@@ -100,21 +100,64 @@ describe("ListView", () => {
       session("old", { endTime: now - 40 * 86400000 }),
     ];
     const { container } = render(h(ListView, {}));
-    const headers = Array.from(container.querySelectorAll(".group-label")).map((h) =>
-      h.textContent,
+    const headers = Array.from(container.querySelectorAll(".session-group-label")).map(
+      (h) => h.textContent,
     );
     expect(headers).toContain("Today");
     // The 40-day-old session falls into a Month Year bucket, not Today.
     expect(headers.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("groups pinned sessions under a leading Pinned header", () => {
+  it("shows a row count on each section header", () => {
     const now = Date.now();
-    sessionsSignal.value = [session("a", { endTime: now }), session("b", { endTime: now })];
-    pinnedSignal.value = new Set(["a"]);
+    sessionsSignal.value = [
+      session("a", { endTime: now }),
+      session("b", { endTime: now }),
+    ];
     const { container } = render(h(ListView, {}));
-    const first = container.querySelector(".group-label");
-    expect(first?.textContent).toBe("Pinned");
+    expect(container.querySelector(".session-group-count")?.textContent).toBe("2");
+  });
+
+  it("puts Today ahead of Pinned so today's work leads the list", () => {
+    const now = Date.now();
+    sessionsSignal.value = [
+      session("todays", { endTime: now }),
+      session("old-pin", { endTime: now - 20 * 86400000 }),
+    ];
+    pinnedSignal.value = new Set(["old-pin"]);
+    const { container } = render(h(ListView, {}));
+    const headers = Array.from(container.querySelectorAll(".session-group-label")).map(
+      (h) => h.textContent,
+    );
+    expect(headers[0]).toBe("Today");
+    expect(headers).toContain("Pinned");
+    expect(headers.indexOf("Pinned")).toBeGreaterThan(0);
+  });
+
+  it("collapses a section on header click and hides only its rows", () => {
+    const now = Date.now();
+    sessionsSignal.value = [
+      session("todays", { endTime: now }),
+      session("older", { endTime: now - 20 * 86400000 }),
+    ];
+    const { container, rerender } = render(h(ListView, {}));
+    expect(container.querySelectorAll(".session-item")).toHaveLength(2);
+
+    const todayHeader = container.querySelector(".session-group-header") as Element;
+    expect(todayHeader.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(todayHeader);
+    rerender(h(ListView, {}));
+
+    // Today's row is gone; the older section is untouched, and the collapsed
+    // header still reports what it holds.
+    expect(container.querySelectorAll(".session-item")).toHaveLength(1);
+    const header = container.querySelector(".session-group-header") as Element;
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(header.querySelector(".session-group-count")?.textContent).toBe("1");
+
+    fireEvent.click(header);
+    rerender(h(ListView, {}));
+    expect(container.querySelectorAll(".session-item")).toHaveLength(2);
   });
 
   it("opens the action menu on right-clicking a row", () => {

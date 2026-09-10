@@ -2,7 +2,13 @@
  * Barrel for the sessions `lib` segment — pure, signal-free list/option shaping
  * helpers. No JSX, no signal reads.
  */
-export { buildRows, flattenGroups, type Row } from "./groups";
+export {
+  buildRows,
+  flattenGroups,
+  isVolatileLabel,
+  sessionDayLabel,
+  type Row,
+} from "./groups";
 export {
   buildBranchOptions,
   buildProjectOptions,

@@ -196,14 +196,26 @@ describe("ActionsBar", () => {
     expect(post).toHaveBeenCalledWith({ type: "importSession" });
   });
 
-  it("restore workspace resumes the last session group", () => {
+  it("restore resumes the recent session group, oldest first", () => {
     const now = Date.now();
     sessionsSignal.value = [session("x", { endTime: now }), session("y", { endTime: now - 1000 })];
     filterProjectSignal.value = "all";
     const { getByText } = render(h(ActionsBar, {}));
     fireEvent.click(getByText("Restore"));
     expect(post).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "resumeMultiple" }),
+      expect.objectContaining({ type: "resumeMultiple", sessionIds: ["y", "x"] }),
     );
+  });
+
+  it("restore still posts with an empty group so the host can explain why", () => {
+    // A silent no-op read as a broken button; the host owns the toast.
+    sessionsSignal.value = [];
+    const { getByText } = render(h(ActionsBar, {}));
+    fireEvent.click(getByText("Restore"));
+    expect(post).toHaveBeenCalledWith({
+      type: "resumeMultiple",
+      sessionIds: [],
+      projectPaths: [],
+    });
   });
 });

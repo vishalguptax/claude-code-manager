@@ -249,7 +249,7 @@ export function refreshSettings(ctx: ProviderActionsContext): void {
     type: "settings",
     defaultFilter: sessConfig.get<string>("defaultFilter", "recent"),
     defaultProject: sessConfig.get<string>("defaultProject", "current"),
-    restoreWindowMinutes: sessConfig.get<number>("restoreWindowMinutes", 30),
+    restoreCount: sessConfig.get<number>("restoreCount", 4),
     // Flags the webview uses to conditionally surface extension-only
     // actions. Re-pushed on extension install/uninstall so the UI tracks
     // reality without a panel reload.

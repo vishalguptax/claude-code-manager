@@ -169,4 +169,38 @@ describe("buildBranchOptions", () => {
     expect(opts[0]).toMatchObject({ value: "all", count: 1 });
     expect(opts.some((o) => o.value === "dev")).toBe(false);
   });
+
+  it("scopes to a repoRoot selection, matching the collapsed project option", () => {
+    // buildProjectOptions collapses a repo's worktrees under an option whose
+    // value IS the repoRoot, so the branch scope must accept that value —
+    // comparing it against s.project matched nothing and emptied the dropdown.
+    const sessions = [
+      session({ id: "a", project: "feat", projectKey: "feat", branch: "worktree-feat" }),
+      session({ id: "b", project: "proj", projectKey: "proj", branch: "main" }),
+      session({ id: "c", project: "other", projectKey: "other", branch: "dev" }),
+    ];
+    const worktrees = {
+      a: { path: "/repo/feat", branch: "worktree-feat", kind: "claude" as const, exists: true, locked: false, repoRoot: "/repo" },
+      b: { path: "/repo", branch: "main", kind: "main" as const, exists: true, locked: false, repoRoot: "/repo" },
+    };
+    const opts = buildBranchOptions(sessions, NONE, "", "/repo", "", worktrees, null);
+    expect(opts[0]).toMatchObject({ value: "all", count: 2 });
+    expect(opts.map((o) => o.value)).toContain("worktree-feat");
+    expect(opts.some((o) => o.value === "dev")).toBe(false);
+  });
+
+  it("spans the whole repo for \"current\" when the workspace is a worktree", () => {
+    const sessions = [
+      session({ id: "a", project: "feat", projectKey: "feat", branch: "worktree-feat" }),
+      session({ id: "b", project: "proj", projectKey: "proj", branch: "main" }),
+      session({ id: "c", project: "other", projectKey: "other", branch: "dev" }),
+    ];
+    const worktrees = {
+      a: { path: "/repo/feat", branch: "worktree-feat", kind: "claude" as const, exists: true, locked: false, repoRoot: "/repo" },
+      b: { path: "/repo", branch: "main", kind: "main" as const, exists: true, locked: false, repoRoot: "/repo" },
+    };
+    const opts = buildBranchOptions(sessions, NONE, "", "current", "feat", worktrees, "/repo");
+    expect(opts[0]).toMatchObject({ value: "all", count: 2 });
+    expect(opts.some((o) => o.value === "dev")).toBe(false);
+  });
 });

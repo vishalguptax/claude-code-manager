@@ -100,6 +100,11 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
       `[claude-manager] Rejected malformed webview message (${String((msg as { type?: unknown }).type)}):`,
       detail,
     );
+    // Still ack. The webview armed its busy indicator when it posted;
+    // dropping the message without a reply leaves that indicator lit
+    // until the client-side stuck timeout fires. A rejected message is
+    // a finished message as far as the request/ack pairing goes.
+    wv.postMessage({ type: "ack" });
     return;
   }
 
@@ -495,7 +500,39 @@ async function handleSessionMessage(
       }
       break;
 
-    case "resumeMultiple":
+    case "resumeMultiple": {
+      if (msg.sessionIds.length === 0) {
+        vscode.window.showInformationMessage(
+          "Nothing to restore — no sessions recorded for this project yet.",
+        );
+        break;
+      }
+
+      const sessions = ctx.getSessions();
+      const byId = new Map(sessions.map((s) => [s.id, s]));
+
+      // Split before doing anything: a session that is already live has a
+      // running `claude` process, and a second `claude --resume` on the same id
+      // fights it. Focus its terminal instead — the same Resume/View swap the
+      // single-session row does when isLive or a terminal is tracked.
+      const focus: string[] = [];
+      const toResume: string[] = [];
+      for (const id of msg.sessionIds) {
+        if (byId.get(id)?.isLive || ctx.terminals.has(id)) focus.push(id);
+        else toResume.push(id);
+      }
+
+      // Spawning several terminals at once rearranges the editor, so confirm
+      // past a handful rather than surprising the user with 8 new tabs.
+      if (toResume.length > 4) {
+        const choice = await vscode.window.showWarningMessage(
+          `Restore ${toResume.length} sessions?`,
+          { modal: true, detail: `This opens ${toResume.length} terminals in this window.` },
+          "Restore",
+        );
+        if (choice !== "Restore") break;
+      }
+
       // Sequential with a short delay between iterations: VS Code
       // registers a new terminal's tab in tabGroups.all asynchronously,
       // so calling createTerminal() in a tight loop made the second
@@ -507,11 +544,23 @@ async function handleSessionMessage(
       // Force the terminal path: the Claude Code extension chat tab is
       // single-instance, so routing a multi-session restore through it
       // collapses every session into one panel and only the last survives.
-      for (let i = 0; i < msg.sessionIds.length; i++) {
+      for (let i = 0; i < toResume.length; i++) {
         if (i > 0) await new Promise((r) => setTimeout(r, 80));
-        await resumeSession(msg.sessionIds[i], false, ctx.getSessions(), true);
+        await resumeSession(toResume[i], false, sessions, true);
+      }
+
+      // Focus the already-running terminals only when nothing new was
+      // spawned; otherwise revealing them would steal focus from the terminals
+      // this click just created. A note explains why they were skipped.
+      if (toResume.length === 0) {
+        for (const id of focus) ctx.terminals.view(id);
+      } else if (focus.length > 0) {
+        vscode.window.showInformationMessage(
+          `${focus.length} session${focus.length === 1 ? " was" : "s were"} already running — left untouched.`,
+        );
       }
       break;
+    }
 
     case "copyMarkdown":
       copyMarkdown(msg.sessionId, ctx.getSessions());

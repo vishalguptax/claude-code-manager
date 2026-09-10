@@ -194,12 +194,20 @@
           ],
           "description": "Default project filter when opening the sessions tab."
         },
+        "claudeManager.sessions.restoreCount": {
+          "type": "number",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 12,
+          "description": "How many of the most recent sessions the Restore action reopens."
+        },
         "claudeManager.sessions.restoreWindowMinutes": {
           "type": "number",
           "default": 30,
           "minimum": 5,
           "maximum": 120,
-          "description": "Time window (in minutes) for Restore Workspace. Sessions active within this window are grouped together."
+          "description": "No longer used. Restore now reopens a fixed number of recent sessions.",
+          "markdownDeprecationMessage": "Replaced by `#claudeManager.sessions.restoreCount#`. The time-window rule collapsed to a single session whenever your last two sessions were more than the window apart."
         },
         "claudeManager.marketplaceSkillsUrl": {
           "type": "string",

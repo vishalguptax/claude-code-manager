@@ -18,7 +18,7 @@ keeps working with no edits:
 | `claudeManager.terminal.editorPosition` | unchanged |
 | `claudeManager.sessions.defaultFilter` | unchanged |
 | `claudeManager.sessions.defaultProject` | unchanged |
-| `claudeManager.sessions.restoreWindowMinutes` | unchanged |
+| `claudeManager.sessions.restoreWindowMinutes` | deprecated in 2.9 — replaced by `claudeManager.sessions.restoreCount` |
 | `claudeManager.sessions.resumeIn` | unchanged |
 | `claudeManager.marketplaceSkillsUrl` | unchanged |
 | `claudeManager.marketplaceMcpUrl` | unchanged |

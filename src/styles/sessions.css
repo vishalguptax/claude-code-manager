@@ -8,6 +8,66 @@
    Session List Items
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* Collapsible section header in the session list (Active / Today / Pinned /
+   the day-week-month ladder). A separate class from the shared `.group-label`
+   used by agents and skills — those headers are not interactive, and turning
+   the shared rule into a button would ripple into both. The padding matches
+   `.group-label` exactly so every list in the extension keeps one section
+   rhythm. */
+.session-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  /* Reset the UA button box so the header sits on the list's own grid. */
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-section);
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+}
+.session-group-header:hover {
+  color: var(--fg);
+}
+.session-group-header:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* One chevron path is shipped (chevron-down); the collapsed state rotates it
+   rather than adding a second icon to the bundle. */
+.session-group-chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  transition: transform 120ms ease;
+}
+.session-group-header.collapsed .session-group-chevron {
+  transform: rotate(-90deg);
+}
+
+.session-group-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The count keeps its own weight so a collapsed section still reports what it
+   holds — collapsing hides rows, never information. */
+.session-group-count {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+
 .group-label {
   font-size: var(--fs-sm);
   font-weight: 700;
