@@ -24,6 +24,26 @@ describe("ConfigTab", () => {
     expect(container.querySelector(".skeleton-field")).toBeTruthy();
   });
 
+  it("requests data exactly once, even as the reply re-renders it", async () => {
+    // Regression: `useApi()` used to return a fresh object per render,
+    // so the mount effect's dep array changed every render. The host
+    // reply set a signal, that re-rendered, the effect re-ran and
+    // re-requested — an unbounded request loop that held the global
+    // busy bar on for as long as the tab stayed mounted (which is
+    // forever: TabPanel keeps tabs alive).
+    render(<ConfigTab />);
+    configData.value = makeConfigData();
+    loading.value = false;
+    await waitFor(() => expect(screen.getByText("Behavior")).toBeTruthy());
+    configData.value = makeConfigData();
+    await waitFor(() => expect(screen.getByText("Behavior")).toBeTruthy());
+
+    const requests = post.mock.calls.filter(
+      ([m]) => (m as { type: string }).type === "getAccountData",
+    );
+    expect(requests).toHaveLength(1);
+  });
+
   it("renders all four sections once data arrives", async () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();

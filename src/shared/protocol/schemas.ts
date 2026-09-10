@@ -176,6 +176,12 @@ const installStatusline = v.object({ type: v.literal("installStatusline") });
 const uninstallStatusline = v.object({ type: v.literal("uninstallStatusline") });
 const promptSaveProfile = v.object({ type: v.literal("promptSaveProfile") });
 const openAccountSwitcher = v.object({ type: v.literal("openAccountSwitcher") });
+/** Share-card export: the webview renders the PNG and hands the host the
+ * base64 payload to write via a native save dialog. */
+const saveStatsImage = v.object({
+  type: v.literal("saveStatsImage"),
+  pngBase64: v.string(),
+});
 const setSetting = v.object({
   type: v.literal("setSetting"),
   key: v.string(),
@@ -366,6 +372,7 @@ export const messageSchema = v.variant("type", [
   uninstallStatusline,
   promptSaveProfile,
   openAccountSwitcher,
+  saveStatsImage,
   setSetting,
   promptAddDirectory,
   openExtensionSettings,

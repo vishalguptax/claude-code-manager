@@ -212,6 +212,20 @@ describe("parseMessage — host to webview", () => {
   });
 });
 
+describe("parseMessage — saveStatsImage", () => {
+  // The handler shipped without a schema entry, so every share-card
+  // export was dropped at the gate: the PNG never reached the host and
+  // the webview's busy bar hung waiting for an ack that never came.
+  it("accepts the share-card export payload", () => {
+    const msg = { type: "saveStatsImage" as const, pngBase64: "QUJD" };
+    expect(parseMessage(msg)).toEqual(msg);
+  });
+
+  it("rejects it without the payload", () => {
+    expect(() => parseMessage({ type: "saveStatsImage" })).toThrow();
+  });
+});
+
 describe("parseMessage — negative", () => {
   it("throws on unknown type", () => {
     expect(() => parseMessage({ type: "nonexistent" })).toThrow();
