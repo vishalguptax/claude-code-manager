@@ -24,8 +24,9 @@ import { useState } from "preact/hooks";
 import { Button, Icon } from "../../../../../webview/shared/ui";
 import { now } from "../../../../../webview/shared/model";
 import type { QuotaError, QuotaSuccess } from "../../../quota";
+import type { PromptCacheStats } from "../../../statuslineCore";
 import type { AccountApi } from "../../api";
-import { quotaFreshness } from "../../lib";
+import { formatNumber, quotaFreshness } from "../../lib";
 import {
   isSectionCollapsed,
   quotaAccountSince,
@@ -230,6 +231,42 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
     <div class="acct-quota-bars">
       {fiveHour ? <QuotaBar label="5-hour window" window={fiveHour} /> : null}
       {sevenDay ? <QuotaBar label="7-day window" window={sevenDay} /> : null}
+      <PromptCacheRow stats={data.live.promptCache} />
+    </div>
+  );
+}
+
+/**
+ * Prompt-cache effectiveness for the session that last rendered.
+ *
+ * Worth its own row because it is the only local signal that explains
+ * WHY a window is filling up: a warm prefix served from cache costs a
+ * tenth of the same tokens re-read, so a low hit ratio with repeated
+ * rebuilds is the difference between a cheap session and an expensive
+ * one. Renders nothing until Claude has reported it.
+ */
+function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
+  if (!stats || stats.requests === 0) return null;
+  const pct = Math.round(stats.hitRatio * 100);
+  const wasted = stats.missRecacheTokens;
+  const detail: string[] = [`${stats.requests} requests`];
+  if (stats.misses > 0) detail.push(`${stats.misses} missed`);
+  if (stats.expectedRebuilds > 0) {
+    detail.push(`${stats.expectedRebuilds} rebuilt`);
+  }
+  if (wasted > 0) detail.push(`${formatNumber(wasted)} tokens re-cached`);
+  const title = stats.lastMissCause
+    ? `Last miss: ${stats.lastMissCause}`
+    : undefined;
+  return (
+    <div class="acct-quota-cache" title={title}>
+      <div class="acct-quota-cache-head">
+        <span class="acct-quota-cache-label">
+          Prompt cache{stats.ttl ? ` (${stats.ttl})` : ""}
+        </span>
+        <span class="acct-quota-cache-value">{pct}% hit</span>
+      </div>
+      <div class="acct-quota-cache-detail">{detail.join(" · ")}</div>
     </div>
   );
 }

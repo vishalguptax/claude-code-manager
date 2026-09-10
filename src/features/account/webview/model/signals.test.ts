@@ -28,6 +28,7 @@ const SUCCESS: QuotaSuccess = {
     linesRemoved: 179,
     version: "2.1.86",
     capturedAt: new Date().toISOString(),
+    promptCache: null,
   },
 };
 

@@ -20,7 +20,11 @@
 import * as fs from "fs";
 import { STATUSLINE_CACHE_FILE } from "../../core/config";
 import { isStatuslineInstalled } from "./statuslineInstall";
-import type { RateWindow, StatuslineCache } from "./statuslineCore";
+import type {
+  PromptCacheStats,
+  RateWindow,
+  StatuslineCache,
+} from "./statuslineCore";
 
 /** One rate-limit window as the UI renders it. */
 export interface QuotaWindow {
@@ -60,6 +64,13 @@ export interface LiveSession {
   version: string;
   /** ISO time Claude Code last rendered the statusline. */
   capturedAt: string;
+  /**
+   * Prompt-cache effectiveness for the rendering session, or null when
+   * Claude hasn't reported it yet. Surfaced because it is the only
+   * local signal that explains token burn: a warm cache with a high hit
+   * ratio is cheap, a prefix that rebuilds every turn is not.
+   */
+  promptCache: PromptCacheStats | null;
 }
 
 /** Combined payload — quota + live session, both from one cache read. */
@@ -164,6 +175,7 @@ export function readQuota(workspacePath?: string): QuotaResult {
         linesRemoved: cache.cost?.linesRemoved ?? null,
         version: cache.version,
         capturedAt: captured,
+        promptCache: cache.promptCache ?? null,
       },
     },
   };

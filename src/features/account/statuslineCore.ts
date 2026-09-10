@@ -21,6 +21,17 @@ export interface SessionCapture {
   model: { id: string; displayName: string } | null;
   /** Epoch ms of that render. */
   capturedAt: number;
+  /**
+   * Claude Code's own running cost for that session, in USD.
+   *
+   * This is the authoritative figure: Claude computes it from the real
+   * response usage with the correct cache-TTL and per-model rates, so
+   * it needs no pricing table of ours. Undefined on captures written by
+   * an older tap.
+   */
+  costUsd?: number;
+  /** Context-window usage percentage at that render. */
+  contextPercent?: number;
 }
 
 /** Normalised subset of the statusline payload we persist + render. */
@@ -55,6 +66,37 @@ export interface StatuslineCache {
    * written by older tap versions predate it.
    */
   sessions?: Record<string, SessionCapture>;
+  /**
+   * Prompt-cache effectiveness for the rendering session, straight from
+   * Claude Code's own accounting. Nothing else exposes this locally,
+   * and it is the one number that explains WHY a session burns tokens:
+   * a low hit ratio with repeated rebuilds means the prefix is being
+   * invalidated every turn. Null when the payload omitted the block
+   * (no requests yet, or an older CLI).
+   */
+  promptCache: PromptCacheStats | null;
+}
+
+/** Prompt-cache effectiveness over the rendering session. */
+export interface PromptCacheStats {
+  /** Fraction 0-1 of requests served from a warm cache. */
+  hitRatio: number;
+  /** Requests observed in the window. */
+  requests: number;
+  /** Requests that missed. */
+  misses: number;
+  /** Prefix rebuilds Claude expects the misses to have cost. */
+  expectedRebuilds: number;
+  /** Tokens written into the cache. */
+  cacheWriteTokens: number;
+  /** Tokens re-written purely because a miss invalidated the prefix. */
+  missRecacheTokens: number;
+  /** Cache TTL in force ("5m" / "1h"), or "" when unreported. */
+  ttl: string;
+  /** Why the last miss happened, or "" when unreported. */
+  lastMissCause: string;
+  /** True while the cache is warm. */
+  warm: boolean;
 }
 
 /** A single rolling rate-limit window. */
@@ -85,6 +127,17 @@ interface StatuslinePayload {
     five_hour?: RatePayload | null;
     seven_day?: RatePayload | null;
   } | null;
+  prompt_cache?: {
+    warm?: unknown;
+    ttl?: unknown;
+    requests?: unknown;
+    misses?: unknown;
+    expected_rebuilds?: unknown;
+    hit_ratio?: unknown;
+    cache_write_tokens?: unknown;
+    miss_recache_tokens?: unknown;
+    last_miss_cause?: unknown;
+  } | null;
 }
 
 interface RatePayload {
@@ -103,6 +156,25 @@ function str(v: unknown): string {
 function window(raw: RatePayload | null | undefined): RateWindow | null {
   if (!raw || typeof raw.used_percentage !== "number") return null;
   return { usedPercent: num(raw.used_percentage), resetsAt: num(raw.resets_at) };
+}
+
+function promptCacheOf(
+  raw: StatuslinePayload["prompt_cache"],
+): PromptCacheStats | null {
+  // `requests` is the block's own liveness signal — Claude Code omits
+  // the whole block until at least one request has been observed.
+  if (!raw || typeof raw.requests !== "number") return null;
+  return {
+    hitRatio: num(raw.hit_ratio),
+    requests: num(raw.requests),
+    misses: num(raw.misses),
+    expectedRebuilds: num(raw.expected_rebuilds),
+    cacheWriteTokens: num(raw.cache_write_tokens),
+    missRecacheTokens: num(raw.miss_recache_tokens),
+    ttl: str(raw.ttl),
+    lastMissCause: str(raw.last_miss_cause),
+    warm: raw.warm === true,
+  };
 }
 
 /**
@@ -133,14 +205,22 @@ export function extractCache(raw: string, now: number): StatuslineCache | null {
       ? { id: str(model.id), displayName: str(model.display_name) }
       : null;
   const sessionId = str(payload.session_id);
+  const sessionCapture: SessionCapture = { model: modelCapture, capturedAt: now };
+  // Per-session cost and context, so a multi-session cache can report
+  // real spend per session instead of only the last writer's.
+  if (cost && typeof cost.total_cost_usd === "number") {
+    sessionCapture.costUsd = num(cost.total_cost_usd);
+  }
+  if (ctx && typeof ctx.used_percentage === "number") {
+    sessionCapture.contextPercent = num(ctx.used_percentage);
+  }
 
   return {
     capturedAt: now,
     version: str(payload.version),
     model: modelCapture,
-    sessions: sessionId
-      ? { [sessionId]: { model: modelCapture, capturedAt: now } }
-      : {},
+    sessions: sessionId ? { [sessionId]: sessionCapture } : {},
+    promptCache: promptCacheOf(payload.prompt_cache),
     context:
       ctx && typeof ctx.used_percentage === "number"
         ? {

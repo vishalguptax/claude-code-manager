@@ -813,6 +813,40 @@
   color: var(--fg-muted);
 }
 
+/* Prompt-cache effectiveness — a text row, not a bar. The rate-limit
+   bars above answer "how much is left"; this answers "why is it going
+   down", so it deliberately reads as a footnote to them rather than
+   competing for the same visual weight. Separated by a hairline so it
+   is legible as a different kind of fact. */
+.acct-quota-cache {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border);
+}
+.acct-quota-cache-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.acct-quota-cache-label {
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  font-weight: 500;
+}
+.acct-quota-cache-value {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.acct-quota-cache-detail {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+
 /* Progress bar — rounded track with an absolute fill. 200ms ease-out
    so a refresh animates in rather than snapping, which reinforces the
    "something changed" moment without feeling slow. */

@@ -126,6 +126,70 @@ describe("extractCache — sessions", () => {
     const cache = extractCache(JSON.stringify({ model: { id: "x" } }), NOW)!;
     expect(cache.sessions).toEqual({});
   });
+
+  it("records Claude's own cost and context against the session", () => {
+    // Claude computes this cost from real usage with the right cache-TTL
+    // and per-model rates, so it needs no pricing table of ours — and it
+    // must be per-session, since the top-level slot is last-writer-wins
+    // across concurrent sessions.
+    const cache = extractCache(
+      JSON.stringify({
+        session_id: "s-1",
+        model: { id: "claude-opus-5", display_name: "Opus 5" },
+        cost: { total_cost_usd: 2.5 },
+        context_window: { used_percentage: 9, context_window_size: 1_000_000 },
+      }),
+      NOW,
+    )!;
+    expect(cache.sessions!["s-1"].costUsd).toBe(2.5);
+    expect(cache.sessions!["s-1"].contextPercent).toBe(9);
+  });
+
+  it("omits cost and context from the capture when the payload lacks them", () => {
+    const cache = extractCache(JSON.stringify({ session_id: "s-1" }), NOW)!;
+    expect(cache.sessions!["s-1"].costUsd).toBeUndefined();
+    expect(cache.sessions!["s-1"].contextPercent).toBeUndefined();
+  });
+});
+
+describe("extractCache — prompt cache", () => {
+  it("captures the prompt-cache block", () => {
+    const cache = extractCache(
+      JSON.stringify({
+        prompt_cache: {
+          warm: true,
+          ttl: "1h",
+          requests: 40,
+          misses: 3,
+          expected_rebuilds: 2,
+          hit_ratio: 0.925,
+          cache_write_tokens: 12_000,
+          miss_recache_tokens: 8_000,
+          last_miss_cause: "prefix_changed",
+        },
+      }),
+      NOW,
+    )!;
+    expect(cache.promptCache).toEqual({
+      warm: true,
+      ttl: "1h",
+      requests: 40,
+      misses: 3,
+      expectedRebuilds: 2,
+      hitRatio: 0.925,
+      cacheWriteTokens: 12_000,
+      missRecacheTokens: 8_000,
+      lastMissCause: "prefix_changed",
+    });
+  });
+
+  it("is null when Claude has not reported any requests yet", () => {
+    expect(extractCache("{}", NOW)!.promptCache).toBeNull();
+    expect(
+      extractCache(JSON.stringify({ prompt_cache: { warm: false } }), NOW)!
+        .promptCache,
+    ).toBeNull();
+  });
 });
 
 describe("mergeCaches", () => {

@@ -50,6 +50,7 @@ const SUCCESS: QuotaSuccess = {
     linesRemoved: 2,
     version: "2.1.86",
     capturedAt: new Date().toISOString(),
+    promptCache: null,
   },
 };
 
@@ -176,5 +177,56 @@ describe("QuotaView", () => {
     render(h(QuotaView, { api: stubApi() }));
     const dot = screen.getByTitle(/Idle · last render/);
     expect(dot.classList.contains("is-stale")).toBe(true);
+  });
+
+  describe("prompt cache row", () => {
+    const withCache = (over: Record<string, unknown>): QuotaSuccess => ({
+      ...SUCCESS,
+      live: {
+        ...SUCCESS.live,
+        promptCache: {
+          warm: true,
+          ttl: "1h",
+          requests: 40,
+          misses: 4,
+          expectedRebuilds: 2,
+          hitRatio: 0.9,
+          cacheWriteTokens: 12_000,
+          missRecacheTokens: 1_500_000,
+          lastMissCause: "prefix_changed",
+          ...over,
+        },
+      },
+    });
+
+    it("renders the hit ratio, TTL and what the misses cost", () => {
+      setQuotaSuccess(withCache({}));
+      render(h(QuotaView, { api: stubApi() }));
+      expect(screen.getByText("Prompt cache (1h)")).toBeTruthy();
+      expect(screen.getByText("90% hit")).toBeTruthy();
+      expect(
+        screen.getByText("40 requests · 4 missed · 2 rebuilt · 1.5M tokens re-cached"),
+      ).toBeTruthy();
+    });
+
+    it("renders nothing until Claude has reported a request", () => {
+      setQuotaSuccess(SUCCESS);
+      const { container } = render(h(QuotaView, { api: stubApi() }));
+      expect(container.querySelector(".acct-quota-cache")).toBeNull();
+
+      _resetAccountState();
+      setQuotaSuccess(withCache({ requests: 0 }));
+      const zero = render(h(QuotaView, { api: stubApi() }));
+      expect(zero.container.querySelector(".acct-quota-cache")).toBeNull();
+    });
+
+    it("omits the miss segments when the cache never missed", () => {
+      setQuotaSuccess(
+        withCache({ misses: 0, expectedRebuilds: 0, missRecacheTokens: 0, hitRatio: 1 }),
+      );
+      render(h(QuotaView, { api: stubApi() }));
+      expect(screen.getByText("40 requests")).toBeTruthy();
+      expect(screen.getByText("100% hit")).toBeTruthy();
+    });
   });
 });
