@@ -132,7 +132,9 @@ describe("computeUsageStats — JSONL primary", () => {
     expect(r.totalMessages).toBe(25);
     expect(r.totalTokens).toBe(6_000);
     expect(r.totalCacheReadTokens).toBe(500);
-    expect(r.cacheHitRatio).toBeCloseTo(500 / (500 + 2_000));
+    // Denominator counts cache writes too — every cached token is
+    // written before it can be read.
+    expect(r.cacheHitRatio).toBeCloseTo(500 / (500 + 100 + 2_000));
     expect(r.favoriteModel).toBe("claude-opus-4-7");
     expect(r.activeDays).toBe(3);
     expect(r.mostActiveDay).toBe("2026-05-11");
@@ -353,10 +355,13 @@ describe("derivers", () => {
     expect(currentStreakOf([])).toBe(0);
   });
 
-  it("cacheHitRatioOf — input/cacheRead split", () => {
-    expect(cacheHitRatioOf(500, 1_500)).toBeCloseTo(0.25);
-    expect(cacheHitRatioOf(0, 0)).toBe(0);
-    expect(cacheHitRatioOf(1_000, 0)).toBe(1);
+  it("cacheHitRatioOf — reads over reads + writes + uncached input", () => {
+    expect(cacheHitRatioOf(500, 0, 1_500)).toBeCloseTo(0.25);
+    // Writes belong in the denominator: a session that re-warms its
+    // prefix as often as it reads it is at 50%, not 100%.
+    expect(cacheHitRatioOf(1_000, 1_000, 0)).toBeCloseTo(0.5);
+    expect(cacheHitRatioOf(0, 0, 0)).toBe(0);
+    expect(cacheHitRatioOf(1_000, 0, 0)).toBe(1);
   });
 
   it("mostActiveDayOf — picks the day with the most messages", () => {

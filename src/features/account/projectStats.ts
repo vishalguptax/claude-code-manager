@@ -56,6 +56,15 @@ interface JsonlEntry {
       output_tokens?: number;
       cache_read_input_tokens?: number;
       cache_creation_input_tokens?: number;
+      /** Per-TTL split of the cache write. Present on current CLI
+       * transcripts; absent on older ones. */
+      cache_creation?: {
+        ephemeral_5m_input_tokens?: number;
+        ephemeral_1h_input_tokens?: number;
+      };
+      /** Server-side tool counters. Only web search is billed per
+       * request; web fetch costs nothing beyond its tokens. */
+      server_tool_use?: { web_search_requests?: number };
     };
     content?: unknown;
   };
@@ -85,6 +94,11 @@ interface CompactEntry {
   output?: number;
   cacheRead?: number;
   cacheCreation?: number;
+  /** Subset of `cacheCreation` written at the 1h TTL (priced 2x base
+   * input, vs 1.25x for the 5m TTL). */
+  cacheCreation1h?: number;
+  /** Billable server-side web searches on this message. */
+  webSearches?: number;
   /** tool_use block names on assistant lines. */
   toolNames?: string[];
 }
@@ -119,6 +133,10 @@ function compactLine(line: string): CompactEntry | null {
       out.output = numOr0(msg.usage.output_tokens);
       out.cacheRead = numOr0(msg.usage.cache_read_input_tokens);
       out.cacheCreation = numOr0(msg.usage.cache_creation_input_tokens);
+      const split = msg.usage.cache_creation;
+      if (split) out.cacheCreation1h = numOr0(split.ephemeral_1h_input_tokens);
+      const server = msg.usage.server_tool_use;
+      if (server) out.webSearches = numOr0(server.web_search_requests);
     }
     if (Array.isArray(msg.content)) {
       for (const block of msg.content) {
@@ -151,6 +169,12 @@ export interface DailyModelTokens {
       output: number;
       cacheRead: number;
       cacheCreation: number;
+      /** Subset of cacheCreation written at the 1h TTL. Carried so the
+       * post-cutoff merge in usage.ts can price cache writes by TTL
+       * instead of assuming the cheaper 5m rate. */
+      cacheCreation1h: number;
+      /** Billable server-side web searches. */
+      webSearches: number;
     }
   >;
 }
@@ -183,10 +207,10 @@ interface ProjectAcc {
   slug: string;
   sessions: Set<string>;
   messages: number;
-  inputByModel: Map<string, number>;
-  outputByModel: Map<string, number>;
-  cacheReadByModel: Map<string, number>;
-  cacheCreationByModel: Map<string, number>;
+  /** model id -> token buckets for this project. One map rather than
+   * four parallel ones so a new billable dimension is a field, not a
+   * fifth map to keep in sync. */
+  byModel: Map<string, ModelAcc>;
   lastActiveDate: string;
 }
 
@@ -206,6 +230,10 @@ interface ModelAcc {
   output: number;
   cacheRead: number;
   cacheCreation: number;
+  /** Subset of cacheCreation written at the 1h TTL (2x base input). */
+  cacheCreation1h: number;
+  /** Billable server-side web searches ($10 / 1,000). */
+  webSearches: number;
 }
 
 interface SessionTimes {
@@ -439,6 +467,19 @@ class AggState {
   /** Backup dedup for assistants by API message.id — older transcripts
    * sometimes lack a per-line uuid. */
   private readonly seenMessageIds = new Set<string>();
+  /**
+   * API message ids whose `usage` has already been counted.
+   *
+   * Current Claude Code writes ONE JSONL line per content-block group,
+   * so a single API response arrives as two lines (thinking, then
+   * tool_use) that share `message.id`, carry distinct `uuid`s, and each
+   * repeat the SAME `usage` object. Line-level uuid dedup lets both
+   * through, which counted most assistant turns twice — measured at
+   * 1.7-1.9x on real transcripts. Token accounting is therefore keyed
+   * on message.id, while tool_use blocks stay line-keyed (each line
+   * holds different blocks, so those must all be walked).
+   */
+  private readonly countedUsageIds = new Set<string>();
 
   private readonly projects = new Map<string, ProjectAcc>();
   private readonly days = new Map<string, DayAcc>();
@@ -527,35 +568,30 @@ class AggState {
     day: DayAcc | null,
   ): void {
     const model = entry.model;
-    if (typeof model === "string") {
+    // Usage is repeated verbatim on every line of a multi-block
+    // response; count it for the first line that carries it and skip
+    // the rest. Lines without a message.id (very old transcripts) fall
+    // back to the line-level uuid dedup already applied upstream.
+    const usageIsNew =
+      !entry.messageId || !this.countedUsageIds.has(entry.messageId);
+    if (entry.messageId) this.countedUsageIds.add(entry.messageId);
+    if (typeof model === "string" && usageIsNew) {
       const inT = entry.input ?? 0;
       const outT = entry.output ?? 0;
       const crT = entry.cacheRead ?? 0;
       const ccT = entry.cacheCreation ?? 0;
-      bump(acc.inputByModel, model, inT);
-      bump(acc.outputByModel, model, outT);
-      bump(acc.cacheReadByModel, model, crT);
-      bump(acc.cacheCreationByModel, model, ccT);
-      const m = this.modelAcc(model);
-      m.input += inT;
-      m.output += outT;
-      m.cacheRead += crT;
-      m.cacheCreation += ccT;
+      const cc1hT = entry.cacheCreation1h ?? 0;
+      const wsT = entry.webSearches ?? 0;
+      addTokens(bucketFor(acc.byModel, model), inT, outT, crT, ccT, cc1hT, wsT);
+      addTokens(this.modelAcc(model), inT, outT, crT, ccT, cc1hT, wsT);
       if (day) {
         // Per-day token total is input + output only — matches Claude
         // CLI's `dailyModelTokens.tokensByModel` semantic. Cache tokens
         // tracked separately on day.byModel so the post-cutoff delta
         // can fold full bucket detail into the cache merge.
         day.tokens += inT + outT;
-        let dm = day.byModel.get(model);
-        if (!dm) {
-          dm = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-          day.byModel.set(model, dm);
-        }
-        dm.input += inT;
-        dm.output += outT;
-        dm.cacheRead += crT;
-        dm.cacheCreation += ccT;
+        const dm = bucketFor(day.byModel, model);
+        addTokens(dm, inT, outT, crT, ccT, cc1hT, wsT);
       }
     }
     if (entry.toolNames) {
@@ -584,10 +620,7 @@ class AggState {
         slug,
         sessions: new Set(),
         messages: 0,
-        inputByModel: new Map(),
-        outputByModel: new Map(),
-        cacheReadByModel: new Map(),
-        cacheCreationByModel: new Map(),
+        byModel: new Map(),
         lastActiveDate: "",
       };
       this.projects.set(slug, acc);
@@ -612,12 +645,7 @@ class AggState {
   }
 
   private modelAcc(model: string): ModelAcc {
-    let m = this.modelTotals.get(model);
-    if (!m) {
-      m = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-      this.modelTotals.set(model, m);
-    }
-    return m;
+    return bucketFor(this.modelTotals, model);
   }
 
   finalise(): UsageAggregate {
@@ -684,25 +712,10 @@ class AggState {
       let inputTotal = 0;
       let outputTotal = 0;
       let costUsd = 0;
-      const models = new Set([
-        ...acc.inputByModel.keys(),
-        ...acc.outputByModel.keys(),
-        ...acc.cacheReadByModel.keys(),
-        ...acc.cacheCreationByModel.keys(),
-      ]);
-      for (const model of models) {
-        const input = acc.inputByModel.get(model) ?? 0;
-        const output = acc.outputByModel.get(model) ?? 0;
-        const cacheRead = acc.cacheReadByModel.get(model) ?? 0;
-        const cacheWrite = acc.cacheCreationByModel.get(model) ?? 0;
-        inputTotal += input;
-        outputTotal += output;
-        costUsd += computeModelCost(model, {
-          input,
-          output,
-          cacheRead,
-          cacheWrite,
-        });
+      for (const [model, m] of acc.byModel.entries()) {
+        inputTotal += m.input;
+        outputTotal += m.output;
+        costUsd += costOf(model, m);
       }
       if (acc.sessions.size === 0 && inputTotal + outputTotal === 0) continue;
       out.push({
@@ -723,7 +736,12 @@ class AggState {
     const out: ModelStats[] = [];
     for (const [model, m] of this.modelTotals.entries()) {
       const totalTokens = m.input + m.output;
-      if (totalTokens === 0 && m.cacheRead + m.cacheCreation === 0) continue;
+      // A model row is empty only when nothing billable landed on it.
+      // Web searches are billed per request, so a turn that only ran
+      // searches still has a cost to report.
+      const billable =
+        totalTokens + m.cacheRead + m.cacheCreation + m.webSearches;
+      if (billable === 0) continue;
       out.push({
         model,
         inputTokens: m.input,
@@ -731,12 +749,7 @@ class AggState {
         totalTokens,
         cacheReadTokens: m.cacheRead,
         cacheCreationTokens: m.cacheCreation,
-        costUsd: computeModelCost(model, {
-          input: m.input,
-          output: m.output,
-          cacheRead: m.cacheRead,
-          cacheWrite: m.cacheCreation,
-        }),
+        costUsd: costOf(model, m),
       });
     }
     out.sort(compareModelRecencyDesc);
@@ -772,6 +785,8 @@ class AggState {
           output: m.output,
           cacheRead: m.cacheRead,
           cacheCreation: m.cacheCreation,
+          cacheCreation1h: m.cacheCreation1h,
+          webSearches: m.webSearches,
         };
       }
       out.push({ date: d.date, byModel });
@@ -789,9 +804,51 @@ function parseMcpTool(name: string): { server: string; tool: string } | null {
   return { server: rest.slice(0, sep), tool: rest.slice(sep + 2) };
 }
 
-function bump(map: Map<string, number>, key: string, n: number): void {
-  if (n === 0) return;
-  map.set(key, (map.get(key) ?? 0) + n);
+/** Fetch (creating on first touch) the token bucket for one model. */
+function bucketFor(map: Map<string, ModelAcc>, model: string): ModelAcc {
+  let acc = map.get(model);
+  if (!acc) {
+    acc = {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreation: 0,
+      cacheCreation1h: 0,
+      webSearches: 0,
+    };
+    map.set(model, acc);
+  }
+  return acc;
+}
+
+/** Fold one message's billable counters into a bucket. */
+function addTokens(
+  acc: ModelAcc,
+  input: number,
+  output: number,
+  cacheRead: number,
+  cacheCreation: number,
+  cacheCreation1h: number,
+  webSearches: number,
+): void {
+  acc.input += input;
+  acc.output += output;
+  acc.cacheRead += cacheRead;
+  acc.cacheCreation += cacheCreation;
+  acc.cacheCreation1h += cacheCreation1h;
+  acc.webSearches += webSearches;
+}
+
+/** Cost for one model's accumulated buckets. */
+function costOf(model: string, acc: ModelAcc): number {
+  return computeModelCost(model, {
+    input: acc.input,
+    output: acc.output,
+    cacheRead: acc.cacheRead,
+    cacheWrite: acc.cacheCreation,
+    cacheWrite1h: acc.cacheCreation1h,
+    webSearchRequests: acc.webSearches,
+  });
 }
 
 function numOr0(v: unknown): number {

@@ -104,6 +104,8 @@ function assistantLine(opts: {
   cwd?: string;
   uuid?: string;
   messageId?: string;
+  cacheCreation1h?: number;
+  webSearches?: number;
 }): string {
   const content = (opts.tools ?? []).map((name) => ({ type: "tool_use", name }));
   return JSON.stringify({
@@ -120,6 +122,18 @@ function assistantLine(opts: {
         output_tokens: opts.output ?? 0,
         cache_read_input_tokens: opts.cacheRead ?? 0,
         cache_creation_input_tokens: opts.cacheCreation ?? 0,
+        ...(opts.cacheCreation1h === undefined
+          ? {}
+          : {
+              cache_creation: {
+                ephemeral_1h_input_tokens: opts.cacheCreation1h,
+                ephemeral_5m_input_tokens:
+                  (opts.cacheCreation ?? 0) - opts.cacheCreation1h,
+              },
+            }),
+        ...(opts.webSearches === undefined
+          ? {}
+          : { server_tool_use: { web_search_requests: opts.webSearches } }),
       },
       content,
     },
@@ -500,6 +514,86 @@ describe("aggregateUsage — dedup", () => {
     vfs.files[path.join(projDir, "f2.jsonl")] = b;
     const out = await warmUsageAggregate();
     expect(out.totalTokens).toBe(30); // counted once
+  });
+
+  it("counts usage once when one API message spans several lines", async () => {
+    // Current Claude Code splits one assistant response across a
+    // thinking line and a tool_use line. Both carry distinct uuids and
+    // repeat the SAME usage object, which double-counted every turn.
+    const shared = {
+      id: "msg-split",
+      model: "claude-opus-4-7",
+      usage: {
+        input_tokens: 10,
+        output_tokens: 100,
+        cache_read_input_tokens: 5_000,
+        cache_creation_input_tokens: 200,
+      },
+    };
+    const thinkingLine = JSON.stringify({
+      type: "assistant",
+      uuid: "uuid-thinking",
+      timestamp: "2026-05-10T09:00:00Z",
+      sessionId: "s1",
+      message: { ...shared, content: [{ type: "thinking" }] },
+    });
+    const toolLine = JSON.stringify({
+      type: "assistant",
+      uuid: "uuid-tool",
+      timestamp: "2026-05-10T09:00:00Z",
+      sessionId: "s1",
+      message: {
+        ...shared,
+        content: [{ type: "tool_use", name: "Bash" }],
+      },
+    });
+    setupProject("a", "f.jsonl", [thinkingLine, toolLine]);
+    const out = await warmUsageAggregate();
+
+    expect(out.totalInputTokens).toBe(10);
+    expect(out.totalOutputTokens).toBe(100);
+    expect(out.totalCacheReadTokens).toBe(5_000);
+    expect(out.totalCacheCreationTokens).toBe(200);
+    // Tool calls still come from every line — the second line is where
+    // the tool_use block lives, so dedup must not drop the whole entry.
+    expect(out.byTool).toEqual([{ name: "Bash", count: 1 }]);
+  });
+});
+
+describe("aggregateUsage — billable detail", () => {
+  // Opus: 1M cache-write tokens costs $6.25 at the 5m rate, $10 at 1h.
+  // Before the split was read, every write was priced at 5m.
+  it("prices a 5m cache write at 1.25x base input", async () => {
+    setupProject("a", "f.jsonl", [
+      assistantLine({
+        sessionId: "s1",
+        cacheCreation: 1_000_000,
+        cacheCreation1h: 0,
+      }),
+    ]);
+    const out = await warmUsageAggregate();
+    expect(out.totalCostUsd).toBeCloseTo(6.25, 6);
+  });
+
+  it("prices a 1h cache write at 2x base input", async () => {
+    setupProject("a", "f.jsonl", [
+      assistantLine({
+        sessionId: "s1",
+        cacheCreation: 1_000_000,
+        cacheCreation1h: 1_000_000,
+      }),
+    ]);
+    const out = await warmUsageAggregate();
+    expect(out.totalCostUsd).toBeCloseTo(10, 6);
+  });
+
+  it("bills server-side web searches per request", async () => {
+    setupProject("a", "f.jsonl", [
+      assistantLine({ sessionId: "s1", webSearches: 100 }),
+    ]);
+    const out = await warmUsageAggregate();
+    // $10 per 1,000 searches.
+    expect(out.totalCostUsd).toBeCloseTo(1, 6);
   });
 });
 

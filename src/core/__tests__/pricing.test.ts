@@ -3,6 +3,7 @@ import {
   ratesForModel,
   computeModelCost,
   PRICES_EFFECTIVE_DATE,
+  WEB_SEARCH_USD_PER_REQUEST,
 } from "../pricing";
 
 describe("ratesForModel", () => {
@@ -49,6 +50,38 @@ describe("ratesForModel", () => {
   it("prices mythos identically to fable (same tier)", () => {
     expect(ratesForModel("claude-mythos-5")).toEqual(ratesForModel("claude-fable-5"));
   });
+
+  it("prices Sonnet 5 below Sonnet 4.6 — the family row alone got this wrong", () => {
+    const s5 = ratesForModel("claude-sonnet-5");
+    expect(s5.input).toBe(2);
+    expect(s5.output).toBe(10);
+    expect(s5.input).toBeLessThan(ratesForModel("claude-sonnet-4-6").input);
+  });
+
+  it("gives Fable 5.1 the 0.025x cache-read rate, not the standard 0.1x", () => {
+    expect(ratesForModel("claude-fable-5-1").cacheRead).toBe(0.25);
+    expect(ratesForModel("claude-fable-5").cacheRead).toBe(1);
+  });
+
+  it("prices cache writes by TTL — 1.25x base input at 5m, 2x at 1h", () => {
+    for (const id of ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"]) {
+      const r = ratesForModel(id);
+      expect(r.cacheWrite5m).toBeCloseTo(r.input * 1.25, 6);
+      expect(r.cacheWrite1h).toBeCloseTo(r.input * 2, 6);
+    }
+  });
+
+  it("keeps retired Opus 4 / 4.1 on their own $15 tier", () => {
+    expect(ratesForModel("claude-opus-4-1-20250805").input).toBe(15);
+    expect(ratesForModel("claude-opus-4-20250514").input).toBe(15);
+    // Current Opus must not be caught by that row.
+    expect(ratesForModel("claude-opus-5").input).toBe(5);
+    expect(ratesForModel("claude-opus-4-8").input).toBe(5);
+  });
+
+  it("resolves the 1M-context suffix Claude Code appends to opus ids", () => {
+    expect(ratesForModel("claude-opus-5[1m]").input).toBe(5);
+  });
 });
 
 describe("computeModelCost", () => {
@@ -82,6 +115,44 @@ describe("computeModelCost", () => {
     const single = computeModelCost("claude-haiku-4-5", { input: 1_000_000 });
     const triple = computeModelCost("claude-haiku-4-5", { input: 3_000_000 });
     expect(triple).toBeCloseTo(single * 3, 6);
+  });
+
+  it("charges 1h cache writes at 2x input, not the 5m 1.25x", () => {
+    const at5m = computeModelCost("claude-opus-5", { cacheWrite: 1_000_000 });
+    const at1h = computeModelCost("claude-opus-5", {
+      cacheWrite: 1_000_000,
+      cacheWrite1h: 1_000_000,
+    });
+    expect(at5m).toBeCloseTo(6.25, 6);
+    expect(at1h).toBeCloseTo(10, 6);
+  });
+
+  it("splits a mixed cache write across both TTL rates", () => {
+    const cost = computeModelCost("claude-opus-5", {
+      cacheWrite: 1_000_000,
+      cacheWrite1h: 400_000,
+    });
+    expect(cost).toBeCloseTo((600_000 * 6.25 + 400_000 * 10) / 1_000_000, 6);
+  });
+
+  it("treats a 1h subset larger than the total as all-1h rather than going negative", () => {
+    const cost = computeModelCost("claude-opus-5", {
+      cacheWrite: 1_000,
+      cacheWrite1h: 9_999,
+    });
+    expect(cost).toBeCloseTo((1_000 * 10) / 1_000_000, 9);
+  });
+
+  it("adds $10 per 1,000 web searches on top of tokens", () => {
+    expect(WEB_SEARCH_USD_PER_REQUEST).toBeCloseTo(0.01, 9);
+    const cost = computeModelCost("claude-opus-5", { webSearchRequests: 250 });
+    expect(cost).toBeCloseTo(2.5, 6);
+  });
+
+  it("applies no long-context surcharge — the 1M window bills at standard rates", () => {
+    const small = computeModelCost("claude-opus-5", { input: 9_000 });
+    const large = computeModelCost("claude-opus-5", { input: 900_000 });
+    expect(large).toBeCloseTo(small * 100, 6);
   });
 });
 

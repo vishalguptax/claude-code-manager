@@ -12,11 +12,32 @@ import { cutoffDaysForPeriod, type Period } from "./heatmap";
 // tab is identity-only now (Profile + Quota + Usage); model selection
 // moved to the Config tab. Kept the file lean — no dead dropdown logic.
 
-/** Format large numbers as 1.2M / 345.2K / 1234. */
+/**
+ * Compact large numbers: 1.2B / 345M / 12.4K / 987.
+ *
+ * Scales through B because lifetime cache-read totals cross a billion
+ * tokens on heavy use, and without a B step those rendered as a
+ * five-digit "M" figure that no one can read at a glance.
+ *
+ * One decimal, and a trailing ".0" is trimmed — "2M" beats "2.0M" in a
+ * stat tile, and three significant digits is as much precision as a
+ * summary number earns. Negatives keep their sign; anything
+ * non-finite renders as "0" rather than "NaN".
+ */
 export function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  if (!Number.isFinite(n)) return "0";
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000_000) return `${sign}${trimTenth(abs / 1_000_000_000)}B`;
+  if (abs >= 1_000_000) return `${sign}${trimTenth(abs / 1_000_000)}M`;
+  if (abs >= 1_000) return `${sign}${trimTenth(abs / 1_000)}K`;
   return n.toLocaleString();
+}
+
+/** One decimal place, with a redundant ".0" dropped. */
+function trimTenth(v: number): string {
+  const s = v.toFixed(1);
+  return s.endsWith(".0") ? s.slice(0, -2) : s;
 }
 
 /** Format a ratio in [0, 1] as an integer percent. Falls back to "—". */
@@ -35,15 +56,23 @@ export function formatDuration(ms: number): string {
   return `${mins}m`;
 }
 
-/** Shorten model name like "claude-sonnet-4-5-20250929" → "Sonnet 4.5". */
+/**
+ * Shorten a model id: "claude-sonnet-4-5-20250929" -> "Sonnet 4.5",
+ * "claude-opus-5[1m]" -> "Opus 5 (1M)".
+ *
+ * The family is matched as any word rather than a fixed list, so a
+ * family released after this build still renders as a name instead of
+ * a raw id. The `[1m]` suffix Claude Code appends for the 1M-context
+ * variant is surfaced, not swallowed — two rows both reading "Opus 5"
+ * would be indistinguishable in the breakdown.
+ */
 export function formatModelName(model: string): string {
-  const m = model.match(/claude-(opus|sonnet|haiku)-(\d+)-?(\d*)/i);
-  if (m) {
-    const name = m[1].charAt(0).toUpperCase() + m[1].slice(1);
-    const version = m[3] ? `${m[2]}.${m[3]}` : m[2];
-    return `${name} ${version}`;
-  }
-  return model;
+  const m = model.match(/claude-([a-z]{3,12})-(\d+)-?(\d*)/i);
+  if (!m) return model;
+  const name = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+  const version = m[3] ? `${m[2]}.${m[3]}` : m[2];
+  const variant = /\[1m\]/i.test(model) ? " (1M)" : "";
+  return `${name} ${version}${variant}`;
 }
 
 /**

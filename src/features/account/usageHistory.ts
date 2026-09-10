@@ -28,6 +28,10 @@ export interface HistoryModelTokens {
   output: number;
   cacheRead: number;
   cacheCreation: number;
+  /** Subset of cacheCreation written at the 1h TTL. */
+  cacheCreation1h: number;
+  /** Billable server-side web searches. */
+  webSearches: number;
 }
 
 /** One remembered day. */
@@ -39,7 +43,15 @@ export interface HistoryDay {
 }
 
 export interface UsageHistory {
-  version: 1;
+  /**
+   * Bumped to 2 when the aggregator's double-count was fixed. A v1 file
+   * was written from inflated token counts, and the element-wise MAX
+   * merge would keep those peaks forever — so v1 is discarded rather
+   * than migrated. The cost is history older than the transcript
+   * retention window, rebuilt from the next aggregate pass onward;
+   * keeping it would mean showing numbers we know are ~1.8x too high.
+   */
+  version: 2;
   /** YYYY-MM-DD → rollup. */
   days: Record<string, HistoryDay>;
 }
@@ -57,7 +69,7 @@ export function readUsageHistory(): UsageHistory | null {
     if (
       typeof parsed !== "object" ||
       parsed === null ||
-      parsed.version !== 1 ||
+      parsed.version !== 2 ||
       typeof parsed.days !== "object" ||
       parsed.days === null
     ) {
@@ -87,7 +99,7 @@ function emptyDay(): HistoryDay {
 export function recordUsageHistory(agg: UsageAggregate): UsageHistory | null {
   if (agg.daily.length === 0 && agg.dailyByModel.length === 0) return null;
   try {
-    const history = readUsageHistory() ?? { version: 1 as const, days: {} };
+    const history = readUsageHistory() ?? { version: 2 as const, days: {} };
     let changed = false;
     const max = <T, K extends keyof T>(obj: T, key: K, v: T[K] & number): void => {
       if (v > (obj[key] as number)) {
@@ -110,11 +122,15 @@ export function recordUsageHistory(agg: UsageAggregate): UsageHistory | null {
           output: 0,
           cacheRead: 0,
           cacheCreation: 0,
+          cacheCreation1h: 0,
+          webSearches: 0,
         });
         max(m, "input", t.input);
         max(m, "output", t.output);
         max(m, "cacheRead", t.cacheRead);
         max(m, "cacheCreation", t.cacheCreation);
+        max(m, "cacheCreation1h", t.cacheCreation1h);
+        max(m, "webSearches", t.webSearches);
       }
     }
 

@@ -100,11 +100,26 @@ function applyHistoryFill(
     messagesDelta += day.messages;
     let dayTokens = 0;
     for (const t of Object.values(day.byModel)) {
-      dayTokens += t.input + t.output;
+      dayTokens += (t.input ?? 0) + (t.output ?? 0);
     }
     if (dayTokens > 0) dailyTokens.push({ date, total: dayTokens });
     if (Object.keys(day.byModel).length > 0) {
-      historyByModel.push({ date, byModel: day.byModel });
+      // Normalise: this is the one mergeByModel input that comes from
+      // disk, so a file written by an older build (or hand-edited) can
+      // be missing the newer buckets. Left undefined they propagate
+      // through the sum as NaN and blank out the whole cost column.
+      const byModel: DailyModelTokens["byModel"] = {};
+      for (const [model, t] of Object.entries(day.byModel)) {
+        byModel[model] = {
+          input: t.input ?? 0,
+          output: t.output ?? 0,
+          cacheRead: t.cacheRead ?? 0,
+          cacheCreation: t.cacheCreation ?? 0,
+          cacheCreation1h: t.cacheCreation1h ?? 0,
+          webSearches: t.webSearches ?? 0,
+        };
+      }
+      historyByModel.push({ date, byModel });
     }
   }
   daily.sort((a, b) => a.date.localeCompare(b.date));
@@ -146,7 +161,11 @@ function applyHistoryFill(
     totalCostUsd: byModel.reduce((s, m) => s + m.costUsd, 0),
     totalCacheReadTokens: totalCacheRead,
     totalCacheCreationTokens: totalCacheCreation,
-    cacheHitRatio: cacheHitRatioOf(totalCacheRead, totalInput),
+    cacheHitRatio: cacheHitRatioOf(
+      totalCacheRead,
+      totalCacheCreation,
+      totalInput,
+    ),
   };
 }
 
@@ -269,7 +288,11 @@ function mergeCacheWithJsonl(
     pricesEffectiveDate: PRICES_EFFECTIVE_DATE,
     totalCacheReadTokens: totalCacheRead,
     totalCacheCreationTokens: totalCacheCreation,
-    cacheHitRatio: cacheHitRatioOf(totalCacheRead, totalInput),
+    cacheHitRatio: cacheHitRatioOf(
+      totalCacheRead,
+      totalCacheCreation,
+      totalInput,
+    ),
     byProject: agg.byProject,
     byTool: agg.byTool,
     byMcpServer: agg.byMcpServer,
@@ -297,6 +320,12 @@ function mergeByModel(
     output: number;
     cacheRead: number;
     cacheCreation: number;
+    /** Subset of cacheCreation known to be 1h-TTL. Only the JSONL delta
+     * contributes here — Claude's stats-cache reports a single combined
+     * cache-write figure with no TTL split, so its share stays priced at
+     * the 5m rate. */
+    cacheCreation1h: number;
+    webSearches: number;
   };
   const buckets = new Map<string, Bucket>();
   for (const m of cacheModels) {
@@ -305,6 +334,8 @@ function mergeByModel(
       output: m.outputTokens,
       cacheRead: m.cacheReadTokens,
       cacheCreation: m.cacheCreationTokens,
+      cacheCreation1h: 0,
+      webSearches: 0,
     });
   }
   for (const day of dailyByModel) {
@@ -315,13 +346,22 @@ function mergeByModel(
     for (const [model, t] of Object.entries(day.byModel)) {
       let b = buckets.get(model);
       if (!b) {
-        b = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+        b = {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheCreation: 0,
+          cacheCreation1h: 0,
+          webSearches: 0,
+        };
         buckets.set(model, b);
       }
       b.input += t.input;
       b.output += t.output;
       b.cacheRead += t.cacheRead;
       b.cacheCreation += t.cacheCreation;
+      b.cacheCreation1h += t.cacheCreation1h;
+      b.webSearches += t.webSearches;
     }
   }
   const out: ModelStats[] = [];
@@ -338,6 +378,8 @@ function mergeByModel(
         output: b.output,
         cacheRead: b.cacheRead,
         cacheWrite: b.cacheCreation,
+        cacheWrite1h: b.cacheCreation1h,
+        webSearchRequests: b.webSearches,
       }),
     });
   }
@@ -402,6 +444,7 @@ function fromAggregate(agg: UsageAggregate): UsageStats {
     totalCacheCreationTokens: agg.totalCacheCreationTokens,
     cacheHitRatio: cacheHitRatioOf(
       agg.totalCacheReadTokens,
+      agg.totalCacheCreationTokens,
       agg.totalInputTokens,
     ),
     byProject: agg.byProject,
@@ -410,8 +453,23 @@ function fromAggregate(agg: UsageAggregate): UsageStats {
   };
 }
 
-function cacheHitRatioOf(cacheRead: number, input: number): number {
-  const denom = cacheRead + input;
+/**
+ * Share of all prompt-input tokens that were served from cache.
+ *
+ * The denominator must include cache WRITES. Every cached token is
+ * written once (a miss) before it can be read, so leaving writes out
+ * compares reads only against the handful of never-cached input tokens
+ * — a ratio that pins at ~100% for every user regardless of how well
+ * their cache is actually performing, which is what it did. With writes
+ * counted, a session that keeps re-warming its prefix shows writes
+ * rivalling reads and the number drops the way it should.
+ */
+function cacheHitRatioOf(
+  cacheRead: number,
+  cacheWrite: number,
+  input: number,
+): number {
+  const denom = cacheRead + cacheWrite + input;
   return denom > 0 ? cacheRead / denom : 0;
 }
 
@@ -509,6 +567,7 @@ function projectCache(cache: StatsCacheShape): UsageStats {
   result.totalTokens = result.totalInputTokens + result.totalOutputTokens;
   result.cacheHitRatio = cacheHitRatioOf(
     result.totalCacheReadTokens,
+    result.totalCacheCreationTokens,
     result.totalInputTokens,
   );
 

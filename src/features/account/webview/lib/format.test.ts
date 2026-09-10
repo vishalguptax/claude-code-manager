@@ -24,8 +24,20 @@ describe("formatNumber", () => {
     expect(formatNumber(2_500_000)).toBe("2.5M");
     expect(formatNumber(12_300)).toBe("12.3K");
   });
+  it("scales to billions — lifetime cache-read totals cross 1e9", () => {
+    expect(formatNumber(1_240_000_000)).toBe("1.2B");
+    expect(formatNumber(3_000_000_000)).toBe("3B");
+  });
+  it("drops a redundant .0", () => {
+    expect(formatNumber(2_000_000)).toBe("2M");
+    expect(formatNumber(5_000)).toBe("5K");
+  });
   it("uses locale string under 1000", () => {
     expect(formatNumber(999)).toBe("999");
+  });
+  it("keeps the sign and never renders NaN", () => {
+    expect(formatNumber(-1_500_000)).toBe("-1.5M");
+    expect(formatNumber(Number.NaN)).toBe("0");
   });
 });
 
@@ -60,6 +72,16 @@ describe("formatModelName", () => {
   });
   it("returns the input verbatim when it doesn't match", () => {
     expect(formatModelName("gpt-4o")).toBe("gpt-4o");
+  });
+  it("names families beyond the original three", () => {
+    expect(formatModelName("claude-fable-5-1")).toBe("Fable 5.1");
+    expect(formatModelName("claude-opus-5")).toBe("Opus 5");
+  });
+  it("surfaces the 1M-context suffix instead of collapsing two rows", () => {
+    expect(formatModelName("claude-opus-5[1m]")).toBe("Opus 5 (1M)");
+    expect(formatModelName("claude-opus-5")).not.toBe(
+      formatModelName("claude-opus-5[1m]"),
+    );
   });
 });
 

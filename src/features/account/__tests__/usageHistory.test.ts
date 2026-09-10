@@ -105,7 +105,9 @@ describe("readUsageHistory", () => {
   it("returns null on malformed JSON or wrong version", () => {
     vfs.files[USAGE_HISTORY_FILE] = "{not json";
     expect(readUsageHistory()).toBeNull();
-    vfs.files[USAGE_HISTORY_FILE] = JSON.stringify({ version: 2, days: {} });
+    vfs.files[USAGE_HISTORY_FILE] = JSON.stringify({ version: 1, days: {} });
+    expect(readUsageHistory()).toBeNull();
+    vfs.files[USAGE_HISTORY_FILE] = JSON.stringify({ version: 3, days: {} });
     expect(readUsageHistory()).toBeNull();
     vfs.files[USAGE_HISTORY_FILE] = JSON.stringify({ days: {} });
     expect(readUsageHistory()).toBeNull();
