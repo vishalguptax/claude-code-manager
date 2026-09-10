@@ -56,4 +56,39 @@ describe("KNOWN_HOOK_EVENTS", () => {
       ]),
     );
   });
+
+  it("covers the events Claude Code 2.1 added since the catalog was written", () => {
+    const names = KNOWN_HOOK_EVENTS.map((e) => e.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        "PostToolBatch",
+        "UserPromptExpansion",
+        "StopFailure",
+        "PreModelSwitch",
+        "PostModelSwitch",
+        "Setup",
+        "TeammateIdle",
+        "TaskCreated",
+        "TaskCompleted",
+        "Elicitation",
+        "ElicitationResult",
+        "ConfigChange",
+        "WorktreeCreate",
+        "WorktreeRemove",
+        "InstructionsLoaded",
+        "CwdChanged",
+        "FileChanged",
+        "DirectoryAdded",
+        "MessageDisplay",
+      ]),
+    );
+  });
+
+  it("does not treat the newer non-tool events as matcher events", () => {
+    // Claude Code's matcher-eligible set is unchanged; showing a matcher
+    // input for these would imply filtering the event can't do.
+    for (const name of ["PostToolBatch", "TeammateIdle", "ConfigChange", "FileChanged"]) {
+      expect(eventUsesMatcher(name)).toBe(false);
+    }
+  });
 });
