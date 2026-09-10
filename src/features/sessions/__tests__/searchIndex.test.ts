@@ -4,10 +4,14 @@ import * as os from "os";
 import * as fs from "fs";
 import {
   indexSession,
+  indexedCharCount,
   pruneIndex,
   searchContent,
   clearIndex,
 } from "../searchIndex";
+
+/** Per-session index cap in searchIndex.ts. Text past it is tail-scanned. */
+const MAX_CONTENT_CHARS = 2 * 1024 * 1024;
 
 const TMP = path.join(os.tmpdir(), ".claude-test-searchindex");
 
@@ -44,11 +48,11 @@ describe("searchIndex", () => {
     expect(await searchContent("tokenizer")).toEqual(["s1"]);
   });
 
-  it("indexes content past the old 50 KB cap (raised to 150 KB)", async () => {
-    // ~100 KB of filler precedes the keyword. Under the old 50 KB cap the
-    // extractor stopped before reaching it; at 150 KB the keyword is indexed.
+  it("indexes content past the old 50 KB and 150 KB caps", async () => {
+    // ~400 KB of filler precedes the keyword. The 50 KB cap stopped before it;
+    // so did 150 KB, which is what made search look broken on long sessions.
     const file = writeJsonl("cap.jsonl", [
-      { message: { role: "user", content: "x".repeat(100 * 1024) } },
+      { message: { role: "user", content: "x".repeat(400 * 1024) } },
       { message: { role: "assistant", content: "needle-past-old-cap" } },
     ]);
     indexSession("scap", file);
@@ -281,5 +285,96 @@ describe("searchIndex", () => {
     indexSession("C", c);
     const hits = (await searchContent("shared keyword")).sort();
     expect(hits).toEqual(["A", "B"]);
+  });
+});
+
+describe("searchIndex — text beyond the per-session cap", () => {
+  /**
+   * A session whose extractable text exceeds MAX_CONTENT_CHARS. The overflow
+   * sits in the FIRST message so the un-indexed remainder starts at file
+   * offset 0 — the case that a `tailOffset > 0` truncation test would miss.
+   */
+  function oversized(name: string, tail: unknown[]): string {
+    return writeJsonl(name, [
+      { message: { role: "user", content: "x".repeat(MAX_CONTENT_CHARS + 1024) } },
+      ...tail,
+    ]);
+  }
+
+  it("finds a keyword in the un-indexed tail via the on-demand scan", async () => {
+    const file = oversized("tail.jsonl", [
+      { message: { role: "assistant", content: "needle-beyond-the-cap" } },
+      { message: { role: "user", content: "second-tail-needle" } },
+    ]);
+    indexSession("big", file);
+    expect(await searchContent("needle-beyond-the-cap")).toEqual(["big"]);
+    expect(await searchContent("second-tail-needle")).toEqual(["big"]);
+  });
+
+  it("does not report a false match for a token absent from the tail", async () => {
+    const file = oversized("tail-miss.jsonl", [
+      { message: { role: "assistant", content: "present-token" } },
+    ]);
+    indexSession("big2", file);
+    expect(await searchContent("absent-token")).toEqual([]);
+  });
+
+  it("finds a keyword inside a tail message longer than one read chunk", async () => {
+    // READ_CHUNK is 64 KB, so this message spans several reads. scanTail must
+    // reassemble the line from its leftover before matching — matching each
+    // raw read on its own would split the keyword and miss it.
+    const NEEDLE = "needle-mid-long-message";
+    const padded = `${"y".repeat(200 * 1024)}${NEEDLE}${"z".repeat(200 * 1024)}`;
+    const file = oversized("tail-long.jsonl", [{ message: { role: "user", content: padded } }]);
+    indexSession("big3", file);
+    expect(await searchContent(NEEDLE)).toEqual(["big3"]);
+  });
+
+  it("does not match a query spanning two adjacent messages", async () => {
+    // Messages are joined by "\n" both in the index and in the tail scan, so a
+    // query cannot bridge them. Keeps tail results consistent with indexed ones.
+    const file = oversized("tail-span.jsonl", [
+      { message: { role: "user", content: "first-half" } },
+      { message: { role: "assistant", content: "second-half" } },
+    ]);
+    indexSession("big5", file);
+    expect(await searchContent("first-half second-half")).toEqual([]);
+    expect(await searchContent("first-half")).toEqual(["big5"]);
+  });
+
+  it("skips the tail scan for sessions that fit the cap", async () => {
+    // A small session must never touch disk during search. Deleting its file
+    // after indexing proves the search answered from memory alone.
+    const file = writeJsonl("small.jsonl", [
+      { message: { role: "user", content: "in-memory-only" } },
+    ]);
+    indexSession("small", file);
+    fs.rmSync(file);
+    expect(await searchContent("in-memory-only")).toEqual(["small"]);
+  });
+});
+
+describe("searchIndex — memory accounting", () => {
+  it("tracks indexed characters and releases them on prune and clear", async () => {
+    const file = writeJsonl("acct.jsonl", [
+      { message: { role: "user", content: "counted content" } },
+    ]);
+    indexSession("acct", file);
+    const after = indexedCharCount();
+    expect(after).toBeGreaterThan(0);
+
+    // Re-indexing the same id must replace, not double-count.
+    const future = new Date(Date.now() + 60_000);
+    fs.utimesSync(file, future, future);
+    indexSession("acct", file);
+    expect(indexedCharCount()).toBe(after);
+
+    pruneIndex(new Set());
+    expect(indexedCharCount()).toBe(0);
+
+    indexSession("acct2", file);
+    expect(indexedCharCount()).toBeGreaterThan(0);
+    clearIndex();
+    expect(indexedCharCount()).toBe(0);
   });
 });

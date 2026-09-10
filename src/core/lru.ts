@@ -20,6 +20,16 @@ export class LRU<K, V> {
     }
   }
 
+  /**
+   * Read an entry WITHOUT promoting it. Needed by callers that maintain
+   * their own eviction accounting: they must inspect the least-recently-used
+   * entry to subtract its weight before deleting it, and `get` would promote
+   * that entry to most-recently-used — making it un-evictable.
+   */
+  peek(key: K): V | undefined {
+    return this.map.get(key);
+  }
+
   has(key: K): boolean {
     return this.map.has(key);
   }

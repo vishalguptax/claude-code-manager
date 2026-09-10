@@ -108,4 +108,31 @@ describe("LRU", () => {
     expect(cache.has(500)).toBe(true);
     expect(cache.has(2499)).toBe(true);
   });
+
+  it("peek reads a value without promoting it", () => {
+    const cache = new LRU<string, number>(2);
+    cache.set("a", 1);
+    cache.set("b", 2);
+    expect(cache.peek("a")).toBe(1);
+    // "a" is still least-recently-used, so the next insert evicts it. `get`
+    // here would have promoted "a" and evicted "b" instead — the distinction
+    // callers doing their own eviction accounting depend on.
+    cache.set("c", 3);
+    expect(cache.has("a")).toBe(false);
+    expect(cache.has("b")).toBe(true);
+  });
+
+  it("peek returns undefined for a missing key", () => {
+    const cache = new LRU<string, number>(2);
+    expect(cache.peek("nope")).toBeUndefined();
+  });
+
+  it("never evicts when constructed with an unbounded max", () => {
+    // searchIndex disables the built-in eviction this way so it can enforce a
+    // byte budget itself without entries vanishing unaccounted for.
+    const cache = new LRU<number, number>(Number.POSITIVE_INFINITY);
+    for (let i = 0; i < 5000; i++) cache.set(i, i);
+    expect(cache.size).toBe(5000);
+    expect(cache.has(0)).toBe(true);
+  });
 });

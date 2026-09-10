@@ -6,46 +6,61 @@
  * the webview for a client-side match would blow both memory and the
  * postMessage payload limit. Instead we keep a compact searchable
  * string per session in the extension host — lowercased text content
- * only, capped at MAX_CONTENT_BYTES so total memory stays bounded.
+ * only, capped per session and bounded in total (see the constants below).
  *
  * The cache is populated lazily (after the first parseSessions call)
  * and updated incrementally: when a single session file changes, only
  * that session is re-extracted — not the whole corpus.
  *
  * Search itself is plain substring match (`includes`) on the already-
- * lowercased content. With a typical cap of 50 KB × 5000 sessions =
- * 250 MB of content, a full scan is ~500 ms on a modern machine. In
- * practice session content averages <10 KB after extraction (most of
- * the JSONL is tool-call metadata we skip), so scans are well under
- * 100 ms even at that scale.
+ * lowercased content, plus a streaming tail scan for the rare session
+ * whose text exceeds the per-session cap — so a match is never missed
+ * just because the session is long.
  */
 import * as fs from "fs";
 import { LRU } from "../../core/lru";
 import type { SessionEntry } from "./types";
 
 /**
- * Cap per-session content to keep total memory bounded. Raised from 50 KB:
- * at 50 KB a keyword past the first ~50 KB of extracted text in a long
- * session was silently unsearchable, which reads as "search is broken."
- * 150 KB covers the vast majority of real sessions; extracted text averages
- * well under 10 KB, so the LRU-bounded worst case (2000 × 150 KB ≈ 300 MB)
- * is a ceiling almost never approached in practice.
+ * Cap per-session indexed text. Sessions past this are indexed up to the cap
+ * and their remainder is searched on demand (see {@link scanTail}), so the cap
+ * bounds *memory*, never *correctness*.
+ *
+ * History: 50 KB, then 150 KB. Both silently dropped most of a long session's
+ * text — measured on a real corpus, 21% of sessions exceeded 150 KB and the
+ * worst had only 11% of its text indexed, so a keyword the user could see in
+ * the transcript returned nothing. That reads as "search is broken", which it
+ * effectively was. 2 MB covers every session in that corpus outright; the tail
+ * scan covers anything beyond it.
  */
-const MAX_CONTENT_BYTES = 150 * 1024;
+const MAX_CONTENT_CHARS = 2 * 1024 * 1024;
 
 /** Bytes to read per JSONL chunk while streaming — same tuning as parseJsonlFile. */
 const READ_CHUNK = 64 * 1024;
 
 /**
- * Maximum indexed sessions held in memory at once. Each entry caps at
- * MAX_CONTENT_BYTES so 2000 entries bound the index at ~300 MB worst
- * case — a hard ceiling for users with thousands of sessions (real
- * usage sits far below it since extracted text averages under 10 KB).
- * The LRU evicts the least-recently-touched session when a 2001st is
- * indexed; an evicted session is silently re-extracted the next time it
- * is indexed or searched against.
+ * Hard ceiling on indexed sessions, independent of size. A secondary guard:
+ * with the character budget below doing the real work, this only bounds
+ * per-entry bookkeeping overhead for installs with thousands of sessions.
  */
 const INDEX_MAX_ENTRIES = 2000;
+
+/**
+ * Total indexed characters held across every entry. This — not the
+ * per-session cap — is what bounds index memory: raising MAX_CONTENT_CHARS to
+ * 2 MB would allow 2000 × 2 MB with an entry-count bound alone, so the budget
+ * evicts least-recently-used sessions until the total fits. At ~85 KB of
+ * extracted text per session (real-corpus average) 256M characters holds
+ * roughly 3000 sessions fully indexed.
+ *
+ * Known limit: an evicted session has no entry, so it is skipped by search
+ * entirely — the tail scan only covers sessions that ARE indexed. Past ~3000
+ * sessions the coldest ones stop matching. Not addressed here because it needs
+ * a persisted on-disk index to fix properly, and the alternative (an entry
+ * stub per evicted session, tail-scanned on demand) trades that silence for a
+ * search that streams thousands of files.
+ */
+const INDEX_MAX_CHARS = 256 * 1024 * 1024;
 
 /**
  * sessionId -> { mtimeMs of the source file, lowercased searchable
@@ -56,61 +71,136 @@ const INDEX_MAX_ENTRIES = 2000;
  * Without this, every parseSessions() tick re-streamed every JSONL
  * even when only one session had been touched.
  *
- * Backed by an LRU so the index can never grow past INDEX_MAX_ENTRIES.
- * `indexSession` (set) and `searchContent` (get) both promote on access,
- * so the hot working set survives eviction and only cold sessions are
- * dropped under pressure.
+ * Backed by an LRU for its recency ordering only — its own size eviction is
+ * disabled (unbounded `max`) because it would drop entries without telling us,
+ * leaving the character accounting below permanently over-counted. Both bounds
+ * are enforced by {@link trimIndex} instead. `indexSession` (set) and
+ * `searchContent` (get) promote on access, so the hot working set survives
+ * eviction and only cold sessions are dropped under pressure.
  */
 interface IndexEntry {
   mtimeMs: number;
   content: string;
+  /**
+   * True when the per-session cap cut extraction short, so `tailOffset` marks
+   * un-indexed text that `searchContent` must scan on demand. A separate flag
+   * rather than `tailOffset > 0`: a session whose very first message overflows
+   * the cap resumes at offset 0, which that test would read as "complete".
+   */
+  truncated: boolean;
+  /** File offset just past the last indexed line. Meaningful when truncated. */
+  tailOffset: number;
+  /** Source path, kept so the tail scan can reopen the file without a lookup. */
+  filePath: string;
 }
-const index = new LRU<string, IndexEntry>(INDEX_MAX_ENTRIES);
+const index = new LRU<string, IndexEntry>(Number.POSITIVE_INFINITY);
 
 /**
- * Extract lowercased, search-friendly text from a single session's
- * JSONL file. We skip tool-use / tool-result blocks (they're usually
- * file paths and JSON noise) and keep plain user + assistant text
- * content only. The file is read in chunks so a 50 MB session never
- * sits in memory all at once — we drop chunks as soon as the running
- * content buffer hits MAX_CONTENT_BYTES.
- *
- * Returns an empty string if the file is missing or unreadable —
- * callers treat that as "no content to search."
+ * Running sum of `content.length` across every live entry. Maintained by
+ * {@link setEntry} / {@link dropEntry} rather than recomputed, since the
+ * budget is checked on every insert during a full index build.
  */
-function extractContent(filePath: string): string {
+let indexedChars = 0;
+
+/** Insert (or replace) an entry, keeping the character accounting exact. */
+function setEntry(sessionId: string, entry: IndexEntry): void {
+  const prev = index.peek(sessionId);
+  if (prev) indexedChars -= prev.content.length;
+  index.set(sessionId, entry);
+  indexedChars += entry.content.length;
+  trimIndex();
+}
+
+/** Remove an entry, keeping the character accounting exact. */
+function dropEntry(sessionId: string): void {
+  const prev = index.peek(sessionId);
+  if (!prev) return;
+  indexedChars -= prev.content.length;
+  index.delete(sessionId);
+}
+
+/**
+ * Evict least-recently-used entries until the index fits both bounds.
+ * `peek` (not `get`) reads the victim inside dropEntry — `get` would promote
+ * it to most-recently-used and make the loop spin on the same entry forever.
+ */
+function trimIndex(): void {
+  while (indexedChars > INDEX_MAX_CHARS || index.size > INDEX_MAX_ENTRIES) {
+    const oldest = index.keys().next();
+    if (oldest.done) break;
+    dropEntry(oldest.value);
+  }
+}
+
+/** Text extracted from a session file, plus where to resume if it was cut short. */
+interface Extracted {
+  content: string;
+  /** True when the cap stopped extraction before the end of the file. */
+  truncated: boolean;
+  /** File offset just past the last line folded into `content`. */
+  tailOffset: number;
+}
+
+/**
+ * Extract lowercased, search-friendly text from a session's JSONL file,
+ * starting at `startOffset`. We skip tool-use / tool-result blocks (they're
+ * usually file paths and JSON noise) and keep plain user + assistant text
+ * content only. The file is read in chunks so a 50 MB session never sits in
+ * memory all at once — we stop as soon as the running content buffer hits
+ * MAX_CONTENT_CHARS and report the offset to resume from.
+ *
+ * The resume offset is tracked line by line so it lands exactly after the
+ * line that overflowed the cap. Resuming at the enclosing chunk's start would
+ * be simpler but re-reads that line, and a single message larger than the cap
+ * makes that "chunk" the whole file — turning every tail scan into a full
+ * re-read of a 50 MB transcript.
+ *
+ * Returns empty content if the file is missing or unreadable — callers treat
+ * that as "no content to search."
+ */
+function extractContent(filePath: string, startOffset = 0): Extracted {
   let fd: number;
   try {
     fd = fs.openSync(filePath, "r");
   } catch {
-    return "";
+    return { content: "", truncated: false, tailOffset: 0 };
   }
 
   const parts: string[] = [];
-  let bytesSoFar = 0;
+  let charsSoFar = 0;
   const buf = Buffer.alloc(READ_CHUNK);
   let leftover = "";
   let bytesRead: number;
+  let pos = startOffset;
+  // Offset of the next unconsumed line. Starts as the leftover's own start,
+  // since the leftover is the beginning of a line carried across a read.
+  let lineOffset = startOffset;
+  let truncated = false;
 
   try {
     do {
-      bytesRead = fs.readSync(fd, buf, 0, READ_CHUNK, null);
+      bytesRead = fs.readSync(fd, buf, 0, READ_CHUNK, pos);
       if (bytesRead === 0) break;
+      pos += bytesRead;
       const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
       const lines = chunk.split("\n");
       leftover = lines.pop() ?? "";
       for (const line of lines) {
+        lineOffset += Buffer.byteLength(line) + 1; // + the "\n" we split on
         if (!line.trim()) continue;
         const text = extractLineText(line);
         if (!text) continue;
         parts.push(text);
-        bytesSoFar += text.length + 1;
-        if (bytesSoFar >= MAX_CONTENT_BYTES) break;
+        charsSoFar += text.length + 1;
+        if (charsSoFar >= MAX_CONTENT_CHARS) break;
       }
-      if (bytesSoFar >= MAX_CONTENT_BYTES) break;
+      if (charsSoFar >= MAX_CONTENT_CHARS) {
+        truncated = true;
+        break;
+      }
     } while (bytesRead === READ_CHUNK);
 
-    if (bytesSoFar < MAX_CONTENT_BYTES && leftover.trim()) {
+    if (!truncated && leftover.trim()) {
       const text = extractLineText(leftover);
       if (text) parts.push(text);
     }
@@ -118,7 +208,11 @@ function extractContent(filePath: string): string {
     fs.closeSync(fd);
   }
 
-  return parts.join("\n").toLowerCase().slice(0, MAX_CONTENT_BYTES);
+  return {
+    content: parts.join("\n").toLowerCase().slice(0, MAX_CONTENT_CHARS),
+    truncated,
+    tailOffset: lineOffset,
+  };
 }
 
 /**
@@ -168,12 +262,14 @@ export function indexSession(sessionId: string, filePath: string): void {
   try {
     mtimeMs = fs.statSync(filePath).mtimeMs;
   } catch {
-    index.set(sessionId, { mtimeMs: 0, content: extractContent(filePath) });
+    const { content, truncated, tailOffset } = extractContent(filePath);
+    setEntry(sessionId, { mtimeMs: 0, content, truncated, tailOffset, filePath });
     return;
   }
   const cached = index.get(sessionId);
   if (cached && cached.mtimeMs === mtimeMs) return;
-  index.set(sessionId, { mtimeMs, content: extractContent(filePath) });
+  const { content, truncated, tailOffset } = extractContent(filePath);
+  setEntry(sessionId, { mtimeMs, content, truncated, tailOffset, filePath });
 }
 
 /**
@@ -184,6 +280,7 @@ export function indexSession(sessionId: string, filePath: string): void {
  */
 export function clearIndex(): void {
   index.clear();
+  indexedChars = 0;
 }
 
 /**
@@ -198,7 +295,62 @@ export function pruneIndex(activeIds: Set<string>): void {
   // backing Map's live key iterator is allowed by spec, but a snapshot
   // keeps intent obvious and is cheap (ids only).
   for (const id of [...index.keys()]) {
-    if (!activeIds.has(id)) index.delete(id);
+    if (!activeIds.has(id)) dropEntry(id);
+  }
+}
+
+/** Entries scanned between event-loop yields during a full-text search. */
+const SEARCH_SCAN_YIELD_EVERY = 256;
+
+/**
+ * Stream the un-indexed remainder of one session file looking for `q`
+ * (already lowercased). Used only for sessions whose text exceeded
+ * MAX_CONTENT_CHARS, so the common case never pays for it.
+ *
+ * Nothing is retained: one 64 KB buffer plus the partial line carried between
+ * reads. That `leftover` is what makes chunking safe — a message longer than a
+ * chunk is reassembled before matching, so a keyword is never split across two
+ * reads. Matching stays within one message, exactly as it does against the
+ * in-memory index (both join messages with "\n" so a query cannot span them).
+ */
+async function scanTail(filePath: string, startOffset: number, q: string): Promise<boolean> {
+  let fd: number;
+  try {
+    fd = fs.openSync(filePath, "r");
+  } catch {
+    return false;
+  }
+
+  const buf = Buffer.alloc(READ_CHUNK);
+  let leftover = "";
+  let pos = startOffset;
+  let bytesRead: number;
+
+  try {
+    do {
+      bytesRead = fs.readSync(fd, buf, 0, READ_CHUNK, pos);
+      if (bytesRead === 0) break;
+      pos += bytesRead;
+      const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
+      const lines = chunk.split("\n");
+      leftover = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const text = extractLineText(line);
+        if (text && text.toLowerCase().includes(q)) return true;
+      }
+      // Yield between chunks: a multi-megabyte tail must not block the host
+      // while the user is still typing.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    } while (bytesRead === READ_CHUNK);
+
+    if (leftover.trim()) {
+      const text = extractLineText(leftover);
+      if (text && text.toLowerCase().includes(q)) return true;
+    }
+    return false;
+  } finally {
+    fs.closeSync(fd);
   }
 }
 
@@ -207,10 +359,13 @@ export function pruneIndex(activeIds: Set<string>): void {
  * is lowercased before matching since the index is pre-lowered.
  * Empty or whitespace-only queries return an empty list — callers
  * decide what "no query" means in their UX.
+ *
+ * Two passes: every entry's indexed content first (fast, in memory), then the
+ * un-indexed tail of any capped session that did not already match. The second
+ * pass is what makes a long session searchable to its end; it touches disk, so
+ * it runs only for the sessions that need it and only after the cheap pass has
+ * ruled them out.
  */
-/** Entries scanned between event-loop yields during a full-text search. */
-const SEARCH_SCAN_YIELD_EVERY = 256;
-
 export async function searchContent(query: string): Promise<string[]> {
   const q = query.trim().toLowerCase();
   if (!q) return [];
@@ -220,15 +375,25 @@ export async function searchContent(query: string): Promise<string[]> {
   // index.get() so a session the user keeps searching for survives eviction.
   const snapshot = [...index.entries()];
   const hits: string[] = [];
+  const tails: Array<[string, IndexEntry]> = [];
   for (let i = 0; i < snapshot.length; i++) {
     const [id, entry] = snapshot[i];
     if (entry.content.includes(q)) hits.push(id);
-    // Yield periodically so a large index (up to ~2000 × 50 KB) does not
-    // monopolise the event loop mid-search on a heavy install.
+    else if (entry.truncated) tails.push([id, entry]);
+    // Yield periodically so a large index does not monopolise the event loop
+    // mid-search on a heavy install.
     if (i > 0 && i % SEARCH_SCAN_YIELD_EVERY === 0) {
       await new Promise<void>((resolve) => setImmediate(resolve));
     }
   }
+  for (const [id, entry] of tails) {
+    if (await scanTail(entry.filePath, entry.tailOffset, q)) hits.push(id);
+  }
   for (const id of hits) index.get(id);
   return hits;
+}
+
+/** Indexed character total. Exported for tests asserting the memory budget. */
+export function indexedCharCount(): number {
+  return indexedChars;
 }
