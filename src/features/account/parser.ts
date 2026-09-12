@@ -29,6 +29,7 @@ import { resolveActiveModel } from "./statuslineCore";
 import { writeFileAtomic } from "../../core/atomicWrite";
 import { snapshotSettings, listSnapshots, restoreSnapshot, deleteSnapshot } from "./snapshots";
 import type { SettingsSnapshot } from "./snapshots";
+import { isPermissionDefaultMode } from "./types";
 import type {
   AccountData,
   AccountProfile,
@@ -250,7 +251,7 @@ function parseSettings(): AccountSettings {
     const permissions = data.permissions as Record<string, unknown> | undefined;
     if (permissions) {
       const mode = permissions.defaultMode;
-      if (mode === "default" || mode === "acceptEdits" || mode === "plan" || mode === "bypassPermissions") {
+      if (isPermissionDefaultMode(mode)) {
         result.defaultMode = mode;
       }
       const dirs = permissions.additionalDirectories;

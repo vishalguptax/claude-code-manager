@@ -6,6 +6,7 @@
 export {
   accountKey,
   cacheHitTooltip,
+  tokenTotalTooltip,
   computeUsageTotals,
   currencyFractionDigits,
   displayToolName,

@@ -29,6 +29,7 @@ import type { AccountData, McpServerUsage, ModelStats, ProjectStats, UsageStats 
 import {
   buildShareCard,
   cacheHitTooltip,
+  tokenTotalTooltip,
   computeUsageTotals,
   displayToolName,
   formatDuration,
@@ -171,7 +172,11 @@ function UsageBody({ u }: { u: UsageStats }) {
       <Heatmap daily={u.daily} dailyTokens={u.dailyTokens} lastComputedDate={u.lastComputedDate} />
 
       <div class="acct-stats-grid">
-        <StatTile value={formatNumber(totals.tokenTotal)} label="tokens" />
+        <StatTile
+          value={formatNumber(totals.tokenTotal)}
+          label="tokens"
+          title={tokenTotalTooltip(u)}
+        />
         <StatTile value={formatNumber(totals.sessions)} label="sessions" />
         <StatTile value={formatNumber(totals.messages)} label="messages" />
         <StatTile value={formatPct(u.cacheHitRatio)} label="cache hit" title={cacheHitTooltip(u)} />
@@ -288,10 +293,16 @@ function ModelsBlock({ u }: { u: UsageStats }) {
       <BlockHeading>Cost &amp; models</BlockHeading>
       {u.totalCostUsd > 0 ? (
         <div class="acct-cost-headline">
-          <span class="acct-cost-label">Total est. cost</span>
+          {/* "If billed via API" is not a hedge — it is what the figure
+              is. These token counts get priced with the public per-MTok
+              API rates, which is the only calculation possible locally.
+              A Pro/Max subscriber pays a flat fee and owes none of it,
+              and on a cache-heavy profile the number runs to five
+              figures, so labelling it "total cost" read as a bill. */}
+          <span class="acct-cost-label">If billed via API</span>
           <span
             class="acct-cost-amount"
-            title={formatMoney(Math.round(u.totalCostUsd * 100), "USD")}
+            title={`${formatMoney(Math.round(u.totalCostUsd * 100), "USD")} — what these tokens would cost at public API rates. Subscription plans bill a flat fee instead.`}
           >
             {formatMoneyCompact(Math.round(u.totalCostUsd * 100), "USD")}
           </span>

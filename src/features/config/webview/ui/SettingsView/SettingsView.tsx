@@ -152,7 +152,11 @@ export function SettingsView({ data, api }: SettingsViewProps) {
               setRetention(Number.isFinite(n) && n > 0 ? n : "");
             }}
           />
-          <div class="acct-field-hint">Transcripts older than this auto-delete. Blank = no expiry.</div>
+          <div class="acct-field-hint">
+            Transcripts older than this auto-delete. Blank uses Claude Code's
+            default of 30 days — to keep them longer, set a large number
+            (e.g. 3650 for ~10 years).
+          </div>
         </div>
 
         {s.statusLineCommand ? (

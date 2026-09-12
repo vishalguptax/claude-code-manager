@@ -416,7 +416,11 @@ describe("aggregateUsage — totals + daily", () => {
     expect(out.totalMessages).toBe(2);
     expect(out.totalInputTokens).toBe(110);
     expect(out.totalOutputTokens).toBe(290);
-    expect(out.totalTokens).toBe(400);
+    // totalTokens sums every bucket, cache included — see
+    // TOKEN_TOTAL_SEMANTICS. 110 + 290 + 50 cacheRead + 20 cacheCreation.
+    expect(out.totalCacheReadTokens).toBe(50);
+    expect(out.totalCacheCreationTokens).toBe(20);
+    expect(out.totalTokens).toBe(470);
     expect(out.totalCacheReadTokens).toBe(50);
     expect(out.totalCacheCreationTokens).toBe(20);
     expect(out.firstSessionDate).toBe("2026-05-10");
@@ -623,5 +627,6 @@ describe("aggregateUsage — CLAUDE_CONFIG_DIRS", () => {
     expect(out.totalSessions).toBe(2);
     expect(out.totalTokens).toBe(400);
     expect(out.byProject.map((p) => p.slug).sort()).toEqual(["a", "z"]);
+
   });
 });

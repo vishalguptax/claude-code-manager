@@ -270,13 +270,32 @@ export function displayToolName(name: string): string {
 
 /** Tooltip for the cache-hit tile — explains the prompt-cache math. */
 export function cacheHitTooltip(u: UsageStats): string {
-  if (u.totalCacheReadTokens + u.totalInputTokens === 0) {
-    return "No cache activity recorded yet.";
-  }
+  const denom =
+    u.totalCacheReadTokens + u.totalCacheCreationTokens + u.totalInputTokens;
+  if (denom === 0) return "No cache activity recorded yet.";
+  // Denominator matches cacheHitRatioOf exactly — writes included,
+  // since a token is written once before it can ever be read.
   return (
     `${formatNumber(u.totalCacheReadTokens)} tokens served from prompt cache out of ` +
-    `${formatNumber(u.totalCacheReadTokens + u.totalInputTokens)} effective input tokens. ` +
-    `Cache writes: ${formatNumber(u.totalCacheCreationTokens)}.`
+    `${formatNumber(denom)} prompt-input tokens ` +
+    `(${formatNumber(u.totalCacheCreationTokens)} written to cache, ` +
+    `${formatNumber(u.totalInputTokens)} never cached).`
+  );
+}
+
+/**
+ * Explains what the "tokens" tile counts. Cache reads dominate on any
+ * cache-heavy profile, so a bare 9-figure number invites the reading
+ * "I generated this much", which is off by orders of magnitude.
+ */
+export function tokenTotalTooltip(u: UsageStats): string {
+  const own = u.totalInputTokens + u.totalOutputTokens;
+  return (
+    `All tokens: ${formatNumber(own)} input + output, ` +
+    `${formatNumber(u.totalCacheReadTokens)} read from prompt cache, ` +
+    `${formatNumber(u.totalCacheCreationTokens)} written to it. ` +
+    `Cache reads are counted because Claude Code's own per-day history ` +
+    `stores one combined figure that cannot be broken apart.`
   );
 }
 

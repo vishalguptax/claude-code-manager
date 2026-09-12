@@ -11,6 +11,7 @@ import {
   formatModelName,
   formatMoney,
   formatNumber,
+  tokenTotalTooltip,
   formatPct,
   formatPlan,
   formatResetsIn,
@@ -260,7 +261,26 @@ describe("cacheHitTooltip", () => {
     });
     const out = cacheHitTooltip(u);
     expect(out).toContain("served from prompt cache");
-    expect(out).toContain("Cache writes");
+    // Denominator must be the one cacheHitRatioOf uses — reads + writes
+    // + never-cached input (1000 + 200 + 3000), not reads + input.
+    expect(out).toContain("4.2K prompt-input tokens");
+    expect(out).toContain("200 written to cache");
+    expect(out).toContain("3K never cached");
+  });
+});
+
+describe("tokenTotalTooltip", () => {
+  it("breaks the total into own tokens versus cache traffic", () => {
+    const u = makeUsage({
+      totalInputTokens: 3_000,
+      totalOutputTokens: 2_000,
+      totalCacheReadTokens: 1_000_000,
+      totalCacheCreationTokens: 50_000,
+    });
+    const out = tokenTotalTooltip(u);
+    expect(out).toContain("5K input + output");
+    expect(out).toContain("1M read from prompt cache");
+    expect(out).toContain("50K written to it");
   });
 });
 

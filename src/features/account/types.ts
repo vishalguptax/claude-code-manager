@@ -112,12 +112,35 @@ export interface McpServerUsage {
   uniqueTools: number;
 }
 
+/**
+ * TOKEN_TOTAL_SEMANTICS — one definition, used by every "tokens" figure
+ * in the Usage tab: `input + output + cacheRead + cacheCreation`.
+ *
+ * Cache reads are included, and that is forced rather than chosen.
+ * Claude CLI's `stats-cache.json` stores `dailyModelTokens.tokensByModel`
+ * as a single combined per-day sum with no per-bucket breakdown, and it
+ * owns every day up to `lastComputedDate`. There is no way to subtract
+ * cache reads back out of that history, so the only self-consistent
+ * choice is to count them everywhere.
+ *
+ * The cost of getting this wrong was not cosmetic. While the JSONL half
+ * of the pipeline counted input+output and the cache half counted
+ * everything, the three period buttons each reported a different
+ * quantity — all-time (30.8M) came out 320x SMALLER than 30-day (9.9B)
+ * on a real profile — and the heatmap showed a 300-500x cliff at the
+ * cutoff date that made recent work look like idle days.
+ *
+ * Practical consequence: on a cache-heavy profile this number is mostly
+ * cache reads (15.3B of 15.5B in the case above). The UI must say so
+ * rather than implying these are tokens the user "spent".
+ */
+
 /** Per-model cumulative stats from stats-cache.json modelUsage. */
 export interface ModelStats {
   model: string;
   inputTokens: number;
   outputTokens: number;
-  /** input + output (what Claude CLI shows as "total") */
+  /** All buckets summed — see TOKEN_TOTAL_SEMANTICS above. */
   totalTokens: number;
   /** Tokens served from the prompt cache. 0 when the model never cached. */
   cacheReadTokens: number;
@@ -159,7 +182,7 @@ export interface UsageStats {
   totalInputTokens: number;
   /** Grand total output tokens across all models */
   totalOutputTokens: number;
-  /** Grand total (input + output) across all models — matches CLI */
+  /** Grand total across all models — see TOKEN_TOTAL_SEMANTICS. */
   totalTokens: number;
   /** Total sessions (from stats-cache.totalSessions) */
   totalSessions: number;
@@ -215,16 +238,43 @@ export interface UsageStats {
  * Controls how the CLI handles tool-use confirmations:
  *   - "default"          — prompt per tool call (safest)
  *   - "acceptEdits"      — auto-approve file edits
+ *   - "auto"             — a model classifier approves/denies each prompt
  *   - "plan"             — plan-first mode; requires explicit proceed
+ *   - "dontAsk"          — never prompt; deny anything not pre-approved
  *   - "bypassPermissions"— no prompts (most permissive; security risk)
  * Empty string = unset in settings.json (falls back to CLI default).
+ *
+ * The list must stay in step with the CLI. While "auto" and "dontAsk"
+ * were missing, a user who had either one set saw the picker showing
+ * "Use CLI default" — and changing any other value in that dropdown
+ * silently replaced their real mode.
  */
 export type PermissionDefaultMode =
   | ""
   | "default"
   | "acceptEdits"
+  | "auto"
   | "plan"
+  | "dontAsk"
   | "bypassPermissions";
+
+/** Every non-empty {@link PermissionDefaultMode}, in CLI order. */
+export const PERMISSION_DEFAULT_MODES = [
+  "default",
+  "acceptEdits",
+  "auto",
+  "plan",
+  "dontAsk",
+  "bypassPermissions",
+] as const satisfies ReadonlyArray<Exclude<PermissionDefaultMode, "">>;
+
+/** Narrow an unknown settings value to a known permission mode. */
+export function isPermissionDefaultMode(v: unknown): v is PermissionDefaultMode {
+  return (
+    typeof v === "string" &&
+    (PERMISSION_DEFAULT_MODES as readonly string[]).includes(v)
+  );
+}
 
 /** Parsed settings from ~/.claude/settings.json. */
 export interface AccountSettings {

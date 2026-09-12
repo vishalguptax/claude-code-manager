@@ -132,7 +132,9 @@ describe("UsageView", () => {
     });
     render(h(UsageView, { data: dataWith(usage) }));
     expect(screen.getByText(/Cost\s+&\s+models/)).toBeTruthy();
-    expect(screen.getByText("Total est. cost")).toBeTruthy();
+    // Labelled as an API-rate projection, not a bill: subscription
+    // users owe a flat fee and none of this number.
+    expect(screen.getByText("If billed via API")).toBeTruthy();
   });
 
   it("renders the projects, tools, and MCP breakdowns", () => {

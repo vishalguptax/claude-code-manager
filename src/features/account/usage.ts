@@ -100,7 +100,11 @@ function applyHistoryFill(
     messagesDelta += day.messages;
     let dayTokens = 0;
     for (const t of Object.values(day.byModel)) {
-      dayTokens += (t.input ?? 0) + (t.output ?? 0);
+      dayTokens +=
+        (t.input ?? 0) +
+        (t.output ?? 0) +
+        (t.cacheRead ?? 0) +
+        (t.cacheCreation ?? 0);
     }
     if (dayTokens > 0) dailyTokens.push({ date, total: dayTokens });
     if (Object.keys(day.byModel).length > 0) {
@@ -150,7 +154,7 @@ function applyHistoryFill(
     favoriteModel: pickFavoriteModel(byModel),
     totalInputTokens: totalInput,
     totalOutputTokens: totalOutput,
-    totalTokens: totalInput + totalOutput,
+    totalTokens: totalInput + totalOutput + totalCacheRead + totalCacheCreation,
     totalSessions: stats.totalSessions + sessionsDelta,
     totalMessages: stats.totalMessages + messagesDelta,
     firstSessionDate: pickFirstDate(stats.firstSessionDate, missing[0]),
@@ -276,7 +280,7 @@ function mergeCacheWithJsonl(
     favoriteModel: pickFavoriteModel(byModelMerged),
     totalInputTokens: totalInput,
     totalOutputTokens: totalOutput,
-    totalTokens: totalInput + totalOutput,
+    totalTokens: totalInput + totalOutput + totalCacheRead + totalCacheCreation,
     totalSessions: base.totalSessions + sessionsDelta,
     totalMessages: base.totalMessages + messagesDelta,
     longestSessionMs: Math.max(base.longestSessionMs, agg.longestSessionMs),
@@ -370,7 +374,7 @@ function mergeByModel(
       model,
       inputTokens: b.input,
       outputTokens: b.output,
-      totalTokens: b.input + b.output,
+      totalTokens: b.input + b.output + b.cacheRead + b.cacheCreation,
       cacheReadTokens: b.cacheRead,
       cacheCreationTokens: b.cacheCreation,
       costUsd: computeModelCost(model, {
@@ -549,7 +553,7 @@ function projectCache(cache: StatsCacheShape): UsageStats {
         model,
         inputTokens,
         outputTokens,
-        totalTokens: inputTokens + outputTokens,
+        totalTokens: inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens,
         cacheReadTokens,
         cacheCreationTokens,
         costUsd,
@@ -564,7 +568,11 @@ function projectCache(cache: StatsCacheShape): UsageStats {
   modelList.sort(compareModelRecencyDesc);
   result.byModel = modelList;
   result.favoriteModel = pickFavoriteModel(modelList);
-  result.totalTokens = result.totalInputTokens + result.totalOutputTokens;
+  result.totalTokens =
+    result.totalInputTokens +
+    result.totalOutputTokens +
+    result.totalCacheReadTokens +
+    result.totalCacheCreationTokens;
   result.cacheHitRatio = cacheHitRatioOf(
     result.totalCacheReadTokens,
     result.totalCacheCreationTokens,

@@ -585,11 +585,15 @@ class AggState {
       addTokens(bucketFor(acc.byModel, model), inT, outT, crT, ccT, cc1hT, wsT);
       addTokens(this.modelAcc(model), inT, outT, crT, ccT, cc1hT, wsT);
       if (day) {
-        // Per-day token total is input + output only — matches Claude
-        // CLI's `dailyModelTokens.tokensByModel` semantic. Cache tokens
-        // tracked separately on day.byModel so the post-cutoff delta
-        // can fold full bucket detail into the cache merge.
-        day.tokens += inT + outT;
+        // Per-day token total counts EVERY bucket, cache included, to
+        // match Claude CLI's `dailyModelTokens.tokensByModel` — which is
+        // a single combined sum per day with no breakdown, so the
+        // historical half of the series cannot be made to mean anything
+        // else. Counting only input+output here put a 300-500x cliff at
+        // the cache cutoff date: days Claude had computed read ~400M,
+        // the days after read ~1M, and the heatmap showed recent work as
+        // blank. See TOKEN_TOTAL_SEMANTICS in types.ts.
+        day.tokens += inT + outT + crT + ccT;
         const dm = bucketFor(day.byModel, model);
         addTokens(dm, inT, outT, crT, ccT, cc1hT, wsT);
       }
@@ -696,7 +700,11 @@ class AggState {
       totalMessages: this.totalMessages,
       totalInputTokens,
       totalOutputTokens,
-      totalTokens: totalInputTokens + totalOutputTokens,
+      totalTokens:
+        totalInputTokens +
+        totalOutputTokens +
+        totalCacheReadTokens +
+        totalCacheCreationTokens,
       totalCacheReadTokens,
       totalCacheCreationTokens,
       totalCostUsd,
@@ -712,9 +720,11 @@ class AggState {
       let inputTotal = 0;
       let outputTotal = 0;
       let costUsd = 0;
+      let tokenTotal = 0;
       for (const [model, m] of acc.byModel.entries()) {
         inputTotal += m.input;
         outputTotal += m.output;
+        tokenTotal += m.input + m.output + m.cacheRead + m.cacheCreation;
         costUsd += costOf(model, m);
       }
       if (acc.sessions.size === 0 && inputTotal + outputTotal === 0) continue;
@@ -723,7 +733,7 @@ class AggState {
         slug: acc.slug,
         sessions: acc.sessions.size,
         messages: acc.messages,
-        tokens: inputTotal + outputTotal,
+        tokens: tokenTotal,
         costUsd,
         lastActiveDate: acc.lastActiveDate,
       });
@@ -735,12 +745,11 @@ class AggState {
   private buildByModel(): ModelStats[] {
     const out: ModelStats[] = [];
     for (const [model, m] of this.modelTotals.entries()) {
-      const totalTokens = m.input + m.output;
+      const totalTokens = m.input + m.output + m.cacheRead + m.cacheCreation;
       // A model row is empty only when nothing billable landed on it.
       // Web searches are billed per request, so a turn that only ran
       // searches still has a cost to report.
-      const billable =
-        totalTokens + m.cacheRead + m.cacheCreation + m.webSearches;
+      const billable = totalTokens + m.webSearches;
       if (billable === 0) continue;
       out.push({
         model,

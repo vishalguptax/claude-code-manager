@@ -41,11 +41,15 @@ export interface SettingOption<V extends string = string> {
   desc: string;
 }
 
+// Descriptions are Claude Code's own, from the CLI's permission-mode
+// documentation — not paraphrased from the value names.
 export const DEFAULT_MODE_OPTIONS: Array<SettingOption<PermissionDefaultMode>> = [
   { value: "", label: "Use CLI default", desc: "Fall back to whatever Claude CLI decides" },
   { value: "default", label: "Prompt per tool call", desc: "Safest — confirm every non-allowed action" },
   { value: "acceptEdits", label: "Auto-approve file edits", desc: "Skip confirmation for Write / Edit operations" },
+  { value: "auto", label: "Auto (classifier)", desc: "A model classifier approves or denies each permission prompt" },
   { value: "plan", label: "Plan first", desc: "Claude plans before acting; requires explicit proceed" },
+  { value: "dontAsk", label: "Never ask", desc: "No prompts — anything not pre-approved is denied" },
   { value: "bypassPermissions", label: "Bypass permissions (risky)", desc: "No prompts at all — full tool access" },
 ];
 
@@ -56,8 +60,11 @@ export const EFFORT_OPTIONS: Array<SettingOption> = [
   { value: "high", label: "High", desc: "More thinking for harder problems" },
   { value: "xhigh", label: "XHigh", desc: "Deep reasoning — slower, more tokens" },
   { value: "max", label: "Max", desc: "Largest budget — slowest, most thorough" },
-  { value: "auto", label: "Auto", desc: "CLI picks tier based on task" },
 ];
+// No "auto" tier: Claude Code accepts low | medium | high | xhigh | max
+// and nothing else, so offering one wrote a value the CLI rejects. A
+// user who already has an unrecognised tier set keeps seeing it —
+// buildEffortOptions appends whatever is current.
 
 /**
  * Effort options for the current value. If the CLI reports a tier we don't
