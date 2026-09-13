@@ -66,4 +66,36 @@ describe("stylesheet integrity", () => {
     // `#fff` on a solid danger fill is theme-independent and deliberate.
     expect(bare.filter((c) => c.toLowerCase() !== "#fff")).toEqual([]);
   });
+
+  // A stray comment terminator is the quietest way to break a stylesheet.
+  // Braces stay balanced, so the brace guard above passes, but the prose left
+  // dangling outside the comment is invalid CSS and the parser discards
+  // whatever declaration follows it. That is exactly how --role-selected-bg
+  // was lost: an edit closed one comment, ran on in plain text, then closed
+  // again, which silently deleted the token and left every selected segment
+  // unpainted while the tests stayed green.
+  it.each(FILES)("%s has no unbalanced comment markers", (name) => {
+    const css = fs.readFileSync(path.join(STYLES, name), "utf-8");
+    let i = 0;
+    let opens = 0;
+    let closes = 0;
+    while (i < css.length - 1) {
+      if (css[i] === "/" && css[i + 1] === "*") {
+        opens++;
+        const end = css.indexOf("*/", i + 2);
+        if (end === -1) break;
+        closes++;
+        i = end + 2;
+        continue;
+      }
+      // A `*/` reached OUTSIDE a comment is the bug: it means an earlier
+      // comment already closed and this one terminates nothing.
+      if (css[i] === "*" && css[i + 1] === "/") {
+        const line = css.slice(0, i).split("\n").length;
+        throw new Error(`${name}: stray "*/" outside a comment at line ${line}`);
+      }
+      i++;
+    }
+    expect(opens).toBe(closes);
+  });
 });

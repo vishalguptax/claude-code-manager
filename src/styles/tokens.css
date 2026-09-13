@@ -156,24 +156,32 @@
   --role-danger-hover-bg: var(--red-bg);
 
   /* SELECTED / ACTIVE — segmented controls, filter tabs, scope toggles.
-     Deliberately NOT primary blue. The selected segment gets a subtle raised
-     fill (list active-selection bg) with normal foreground; unselected
-     segments are transparent with the muted description colour. The whole
-     control sits in a track (faint fill + 1px edge), mirroring VS Code's own
-     segmented toggles (Settings table/JSON switch, search filters). */
-     `list.activeSelectionBackground` used to be first in this chain, which
-     defeated the whole intent: in Dark Modern (and most shipped themes) that
-     token IS the blue selection fill, so every segmented control rendered the
-     exact primary-blue block this role exists to avoid. The secondary-button
-     fill is the neutral raised surface actually wanted here. */
-  --role-selected-bg: var(--vscode-button-secondaryBackground,
-    var(--vscode-toolbar-activeBackground,
-      /* Last resort must still PAINT. Every earlier link in this chain is a
-         theme colour a theme is allowed to omit, and when they were all absent
-         the selected state resolved to nothing — a selected segment or active
-         tab identical to an unselected one. Mixing the foreground into the
-         surface always yields a visible step, in light themes and dark. */
-      color-mix(in srgb, var(--vscode-foreground, #808080) 14%, transparent)));
+     Deliberately NOT primary blue; unselected segments are transparent with
+     the muted description colour, and the whole control sits in a track
+     (faint fill + 1px edge), mirroring VS Code's own segmented toggles.
+
+     The selected pill sits INSIDE that track, so it has to contrast with the
+     TRACK, not with the panel — and naming a theme colour cannot guarantee
+     that. Two attempts proved it: `list.activeSelectionBackground` IS the blue
+     selection fill in most shipped themes, which is the primary-blue block
+     this role exists to avoid; `button.secondaryBackground` is, in many
+     themes, the very value the track already uses, which left the selected
+     segment invisible — bold text and nothing else.
+
+     Mixing the foreground INTO the track is the only form that guarantees a
+     step in every theme: lighter than the track in a dark theme, darker in a
+     light one, always by the same amount. */
+  --role-selected-bg: color-mix(
+    in srgb,
+    var(--vscode-foreground, #cccccc) 16%,
+    var(--vscode-editorWidget-background, var(--bg-hover))
+  );
+  /* One step stronger again, so the pill reads as raised off the track. */
+  --role-selected-border: color-mix(
+    in srgb,
+    var(--vscode-foreground, #cccccc) 26%,
+    var(--vscode-editorWidget-background, var(--bg-hover))
+  );
   --role-selected-fg: var(--vscode-foreground, var(--fg));
   --role-unselected-fg: var(--vscode-descriptionForeground, var(--fg-dim));
   /* Track: the recessed channel the segments sit in. */

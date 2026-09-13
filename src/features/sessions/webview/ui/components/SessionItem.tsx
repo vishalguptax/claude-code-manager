@@ -234,12 +234,12 @@ export function SessionItem({
         ) : branch ? (
           <span class="tag" title={branch}>
             <Icon name="git-branch" size={12} />
-            {branch}
+            <span class="tag-text">{branch}</span>
           </span>
         ) : null}
         <span class="item-proj" title={session.project}>
           <Icon name="folder" size={12} />
-          {session.project}
+          <span class="tag-text">{session.project}</span>
         </span>
         {isPinned ? (
           <span class="pin-icon" title="Pinned">

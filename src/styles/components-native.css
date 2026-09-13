@@ -718,7 +718,9 @@
      single-row controls look exactly as before. */
   min-width: min-content;
   padding: 0 var(--space-md);
-  border: none;
+  /* Transparent rather than none: the active segment adds a hairline, and a
+     border appearing from nothing would resize the segment on selection. */
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: none;
   color: var(--role-unselected-fg);
@@ -736,7 +738,12 @@
 .vsc-segmented-seg.active {
   background: var(--role-selected-bg);
   color: var(--role-selected-fg);
-  font-weight: 500;
+  /* Raised: a hairline plus a contact shadow, so the selected segment reads as
+     sitting ON the track rather than being a slightly different shade of it.
+     Weight alone was carrying this and weight alone is not a selected state. */
+  border: 1px solid var(--role-selected-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  font-weight: 600;
 }
 .vsc-segmented-seg:focus-visible {
   outline: var(--focus-ring, 1px solid var(--accent));

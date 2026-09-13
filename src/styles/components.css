@@ -542,6 +542,18 @@
  * text, guaranteed readable. This is the pattern the whole neutral-badge
  * system was standardised on (over the low-contrast --badge-* pair).
  */
+/* The label inside a chip that also carries a glyph. The chip is a flex
+   container, so its bare text would be an ANONYMOUS flex item — and
+   `text-overflow: ellipsis` does not apply to one, which makes a too-long
+   branch or project clip hard mid-word instead of ellipsising. The full value
+   is always on the chip's `title`, so the tooltip has it either way. */
+.tag-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tag {
   font-family: var(--mono);
   background: var(--badge-neutral-bg);
@@ -1181,16 +1193,45 @@
   position: fixed;
   z-index: 60;
   visibility: hidden;
-  max-width: 260px;
-  padding: var(--space-xs) var(--space-md);
-  border-radius: var(--radius-sm);
+  /* Wide enough for a branch name or a path, narrow enough to stay inside a
+     ~300px sidebar. Long unbroken values (paths, URLs) wrap rather than force
+     the box past the panel edge. */
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 5px var(--space-lg);
+  border-radius: var(--radius);
   background: var(--vscode-editorHoverWidget-background, var(--bg-hover));
   color: var(--vscode-editorHoverWidget-foreground, var(--fg));
   border: 1px solid var(--vscode-editorHoverWidget-border, var(--border));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.36);
+  /* Two layers: a tight contact shadow so the box sits ON the panel, and a
+     soft ambient one so it reads as floating above it. */
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.28),
+    0 4px 14px rgba(0, 0, 0, 0.34);
   font-size: var(--fs-sm);
-  line-height: 1.4;
+  line-height: 1.45;
+  text-align: left;
   pointer-events: none;
-  white-space: normal;
+  white-space: pre-line;
   overflow-wrap: anywhere;
+  /* Fades in where it lands rather than appearing hard, which at a 500ms
+     dwell otherwise reads as a flicker. */
+  animation: tooltip-in 90ms ease-out;
+}
+/* A title may carry several lines (the worktree chip, the health dot); the
+   first line is the label and the rest is detail, so it is set apart. */
+.tooltip {
+  --tooltip-detail: var(--fg-dim);
+}
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tooltip { animation: none; }
 }
