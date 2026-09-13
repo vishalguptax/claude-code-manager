@@ -1,0 +1,1707 @@
+<title>Claude Manager Sidebar Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE SHELL TOKENS — light is the base set; dark redefines the same names.
+   The VS Code mock inside the frame carries its OWN palette (the .vsc block
+   further down) so the mock's theme is independent of the reader's theme.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --ground:#f4f5f8; --surface:#ffffff; --surface-2:#eceef3; --surface-3:#e3e6ed;
+  --line:#dcdfe7; --line-2:#c4c9d6;
+  --ink:#14161c; --ink-2:#535a6b; --ink-3:#7c8496;
+  --accent:#b34a1f; --accent-2:#8e3714; --accent-soft:#fae9e1;
+  --ok:#1b6b45; --ok-soft:#e1f1e8;
+  --warn:#8a5a00; --warn-soft:#f9eed0;
+  --crit:#a52217; --crit-soft:#fae4e1;
+  --shadow:0 1px 2px rgba(16,18,26,.06), 0 8px 24px -16px rgba(16,18,26,.28);
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:#0d0e13; --surface:#15171e; --surface-2:#1c1f28; --surface-3:#232733;
+    --line:#262a35; --line-2:#353a49;
+    --ink:#e9ebf2; --ink-2:#a3aabc; --ink-3:#7b8295;
+    --accent:#e08a63; --accent-2:#f2a884; --accent-soft:#2c1c13;
+    --ok:#5cc08a; --ok-soft:#12251c;
+    --warn:#e0b45a; --warn-soft:#2a2113;
+    --crit:#f0776a; --crit-soft:#2c1614;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 32px -18px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:#0d0e13; --surface:#15171e; --surface-2:#1c1f28; --surface-3:#232733;
+  --line:#262a35; --line-2:#353a49;
+  --ink:#e9ebf2; --ink-2:#a3aabc; --ink-3:#7b8295;
+  --accent:#e08a63; --accent-2:#f2a884; --accent-soft:#2c1c13;
+  --ok:#5cc08a; --ok-soft:#12251c;
+  --warn:#e0b45a; --warn-soft:#2a2113;
+  --crit:#f0776a; --crit-soft:#2c1614;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 12px 32px -18px rgba(0,0,0,.7);
+}
+
+*,*::before,*::after{box-sizing:border-box;}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0; text-wrap:balance; letter-spacing:-.015em; line-height:1.2;}
+p{margin:0;}
+a{color:var(--accent); text-underline-offset:3px;}
+code,kbd{font-family:var(--mono);}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;}
+
+/* ── Page header ─────────────────────────────────────────────────────── */
+.hdr{
+  border-bottom:1px solid var(--line); background:var(--surface);
+  padding-block:20px; padding-inline:clamp(16px,4vw,40px);
+  display:flex; flex-wrap:wrap; gap:18px 28px; align-items:flex-end;
+  justify-content:space-between;
+}
+.hdr-id{display:flex; flex-direction:column; gap:5px; min-width:min(100%,300px);}
+.hdr-kicker{
+  font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--accent);
+}
+.hdr h1{font-size:clamp(22px,3.4vw,30px); font-weight:800;}
+.hdr-sub{font-size:14px; color:var(--ink-2); max-width:62ch;}
+.controls{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center;}
+.ctl{display:flex; flex-direction:column; gap:5px;}
+.ctl-label{font-size:10px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3);}
+.seg{
+  display:flex; background:var(--surface-2); border:1px solid var(--line);
+  border-radius:8px; padding:2px; gap:2px;
+}
+.seg button{
+  font:inherit; font-size:12.5px; font-weight:600; color:var(--ink-2);
+  background:none; border:0; padding:5px 11px; border-radius:6px; cursor:pointer;
+  transition:background .14s ease, color .14s ease;
+}
+.seg button:hover{color:var(--ink);}
+.seg button[aria-pressed="true"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow);}
+
+/* ── App grid ────────────────────────────────────────────────────────── */
+.app{
+  display:grid; grid-template-columns:196px minmax(0,1fr) 330px;
+  gap:clamp(16px,2.4vw,32px); align-items:start;
+  padding-block:28px 40px; padding-inline:clamp(16px,4vw,40px);
+}
+@media (max-width:1240px){ .app{grid-template-columns:180px minmax(0,1fr);} .notes{grid-column:1/-1;} }
+@media (max-width:800px){ .app{grid-template-columns:minmax(0,1fr);} }
+
+/* ── Screen rail ─────────────────────────────────────────────────────── */
+.rail{position:sticky; top:20px; display:flex; flex-direction:column; gap:2px;}
+@media (max-width:800px){
+  .rail{position:static; flex-direction:row; overflow-x:auto; padding-bottom:6px; gap:6px;}
+  .rail-head{display:none;}
+}
+.rail-head{
+  font-size:10px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--ink-3); padding:0 10px 8px;
+}
+.rail button{
+  font:inherit; font-size:13.5px; font-weight:500; text-align:left; white-space:nowrap;
+  color:var(--ink-2); background:none; border:0; border-radius:7px;
+  padding:7px 10px; cursor:pointer; display:flex; align-items:center; gap:9px;
+  transition:background .14s ease, color .14s ease;
+}
+.rail button:hover{background:var(--surface-2); color:var(--ink);}
+.rail button[aria-current="true"]{background:var(--surface); color:var(--ink); font-weight:600; box-shadow:var(--shadow);}
+.rail button svg{width:15px; height:15px; flex:none; opacity:.75;}
+.rail button[aria-current="true"] svg{opacity:1; color:var(--accent);}
+
+/* ── Stage ───────────────────────────────────────────────────────────── */
+.stage{display:flex; flex-direction:column; gap:14px; min-width:0;}
+.stage-head{display:flex; flex-wrap:wrap; gap:8px 14px; align-items:baseline;}
+.stage-head h2{font-size:19px; font-weight:700;}
+.stage-head .path{font-family:var(--mono); font-size:11.5px; color:var(--ink-3);}
+
+/* Editor mock frame */
+.frame{
+  background:var(--surface); border:1px solid var(--line); border-radius:12px;
+  overflow:hidden; box-shadow:var(--shadow);
+}
+.frame-bar{
+  display:flex; align-items:center; gap:8px; padding:9px 12px;
+  border-bottom:1px solid var(--line); background:var(--surface-2);
+}
+.dot3{display:flex; gap:6px;}
+.dot3 i{width:9px; height:9px; border-radius:50%; background:var(--line-2); display:block;}
+.frame-title{font-size:11.5px; color:var(--ink-3); font-family:var(--mono);}
+.frame-body{display:flex; background:#1f1f1f; height:756px;}
+.frame-body[data-vtheme="light"]{background:#ffffff;}
+
+/* activity bar */
+.actbar{
+  width:48px; flex:none; background:#181818; display:flex; flex-direction:column;
+  align-items:center; gap:4px; padding:8px 0; border-right:1px solid #2b2b2b;
+}
+[data-vtheme="light"] .actbar{background:#f8f8f8; border-right-color:#e5e5e5;}
+.actbar i{display:flex; width:32px; height:32px; align-items:center; justify-content:center; color:#8a8a8a; border-radius:5px;}
+.actbar i svg{width:18px; height:18px;}
+.actbar i.on{color:#e6e6e6; box-shadow:inset 2px 0 0 #e08a63;}
+[data-vtheme="light"] .actbar i{color:#616161;}
+[data-vtheme="light"] .actbar i.on{color:#1f1f1f; box-shadow:inset 2px 0 0 #b34a1f;}
+
+/* editor sliver */
+.sliver{flex:1; min-width:0; padding:14px 16px; overflow:hidden; display:flex; flex-direction:column; gap:7px;}
+@media (max-width:1000px){ .sliver{display:none;} }
+.sliver span{display:block; height:7px; border-radius:3px; background:#2c2c2c;}
+[data-vtheme="light"] .sliver span{background:#ececec;}
+
+/* Width snaps rather than animating: transitioning `width` relayouts the whole
+   panel every frame, and a real sidebar drag is instant anyway. */
+.panel-w{width:340px; flex:none;}
+.frame-body[data-w="280"] .panel-w{width:280px;}
+.frame-body[data-w="420"] .panel-w{width:420px;}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VS CODE SIDEBAR MOCK — self-contained palette, dark by default, light via
+   [data-vtheme="light"]. Values mirror Dark Modern / Light Modern.
+   ═══════════════════════════════════════════════════════════════════════ */
+.vsc{
+  --bg:#181818; --fg:#cccccc; --fg-dim:#9d9d9d; --fg-mute:#767676;
+  --hover:#2a2d2e; --sel:#04395e; --sel-fg:#ffffff;
+  --edge:#2b2b2b; --edge-soft:#232323;
+  --focus:#0078d4; --btn:#0078d4; --btn-fg:#ffffff;
+  --input:#313131; --input-edge:#3c3c3c;
+  --neutral:rgba(150,150,150,.22);
+  --g:#4ec9a0; --b:#6fb3ff; --p:#c08cf0; --a:#e2b04a; --r:#f0776a;
+  --track:#202020;
+  --vf:11px; --vs:12px; --vm:13px; --vl:15px; --vx:18px;
+  background:var(--bg); color:var(--fg);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  font-size:var(--vm); height:100%; display:flex; flex-direction:column;
+  border-right:1px solid var(--edge); overflow:hidden;
+}
+.vsc[data-vtheme="light"]{
+  --bg:#f8f8f8; --fg:#3b3b3b; --fg-dim:#616161; --fg-mute:#767676;
+  --hover:#e8e8e8; --sel:#e4e6f1; --sel-fg:#1f1f1f;
+  --edge:#e5e5e5; --edge-soft:#ededed;
+  --focus:#005fb8; --btn:#005fb8; --btn-fg:#ffffff;
+  --input:#ffffff; --input-edge:#cecece;
+  --neutral:rgba(90,90,90,.14);
+  --g:#1a7f4b; --b:#1f6fd0; --p:#8250df; --a:#8a5a00; --r:#c02a1c;
+  --track:#ededed;
+}
+.vsc *{box-sizing:border-box;}
+.vsc button{font:inherit; color:inherit; background:none; border:0; cursor:pointer;}
+
+/* — tab bar (AFTER: icon rail + active label) — */
+.v-tabs{
+  display:flex; align-items:center; gap:1px; padding:6px 6px 0;
+  border-bottom:1px solid var(--edge); flex:none; overflow:hidden;
+}
+.v-tab{
+  display:flex; align-items:center; gap:6px; padding:7px 8px; border-radius:5px 5px 0 0;
+  color:var(--fg-mute); position:relative; flex:none;
+  transition:background .14s ease, color .14s ease;
+}
+.v-tab svg{width:16px; height:16px; flex:none;}
+.v-tab span{display:none; font-size:var(--vs); font-weight:600; letter-spacing:-.005em;}
+.v-tab:hover{color:var(--fg); background:var(--hover);}
+.v-tab.on{color:var(--fg); box-shadow:inset 0 -2px 0 var(--focus);}
+.v-tab.on span{display:inline;}
+.v-tabs .spacer{flex:1;}
+.v-tab-more{color:var(--fg-mute); padding:7px; border-radius:5px;}
+.v-tab-more:hover{background:var(--hover); color:var(--fg);}
+
+/* — toolbar / controls — */
+.v-bar{display:flex; align-items:center; gap:6px; padding:8px 10px 0; flex:none;}
+.v-bar + .v-bar{padding-top:6px;}
+.v-btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  height:28px; padding:0 11px; border-radius:5px; font-size:var(--vs); font-weight:600;
+  background:var(--neutral); color:var(--fg); white-space:nowrap;
+  transition:background .14s ease;
+}
+.v-btn:hover{background:var(--hover);}
+.v-btn svg{width:14px; height:14px;}
+.v-btn.primary{background:var(--btn); color:var(--btn-fg);}
+.v-btn.primary:hover{filter:brightness(1.1);}
+.v-btn.grow{flex:1;}
+.v-btn.split{padding-right:5px;}
+.v-btn.split .car{border-left:1px solid rgba(255,255,255,.3); padding-left:6px; margin-left:2px; display:flex;}
+.v-icon{
+  width:28px; height:28px; flex:none; border-radius:5px; display:inline-flex;
+  align-items:center; justify-content:center; color:var(--fg-dim);
+  transition:background .14s ease, color .14s ease;
+}
+.v-icon:hover{background:var(--hover); color:var(--fg);}
+.v-icon svg{width:15px; height:15px;}
+.v-icon.danger:hover{color:var(--r);}
+.v-search{
+  flex:1; min-width:0; height:28px; display:flex; align-items:center; gap:7px;
+  background:var(--input); border:1px solid var(--input-edge); border-radius:5px; padding:0 9px;
+}
+.v-search svg{width:14px; height:14px; color:var(--fg-mute); flex:none;}
+.v-search input{
+  flex:1; min-width:0; background:none; border:0; outline:none; color:var(--fg);
+  font:inherit; font-size:var(--vs);
+}
+.v-search input::placeholder{color:var(--fg-mute);}
+
+/* segmented */
+.v-seg{display:flex; gap:2px; background:var(--track); border:1px solid var(--edge); border-radius:6px; padding:2px; margin:8px 10px 0; flex:none;}
+.v-seg button{
+  flex:1; padding:4px 6px; border-radius:4px; font-size:var(--vf); font-weight:600;
+  color:var(--fg-mute); display:flex; align-items:center; justify-content:center; gap:4px;
+  transition:background .14s ease, color .14s ease;
+}
+.v-seg button:hover{color:var(--fg);}
+.v-seg button.on{background:var(--sel); color:var(--sel-fg);}
+.v-seg .n{font-size:10px; opacity:.7; font-variant-numeric:tabular-nums;}
+
+/* active-filter chip row */
+.v-filterbar{display:flex; flex-wrap:wrap; gap:5px; padding:8px 10px 0; flex:none;}
+.v-fchip{
+  display:inline-flex; align-items:center; gap:5px; height:22px; padding:0 6px 0 8px;
+  border-radius:11px; background:var(--neutral); color:var(--fg); font-size:var(--vf); font-weight:500;
+}
+.v-fchip svg{width:11px; height:11px; opacity:.6;}
+.v-fchip button{display:flex; opacity:.55; border-radius:50%;}
+.v-fchip button:hover{opacity:1;}
+.v-fchip.add{background:none; border:1px dashed var(--input-edge); color:var(--fg-dim); padding:0 8px;}
+
+/* — list scroll area — */
+.v-list{flex:1; min-height:0; overflow-y:auto; padding-bottom:10px;}
+.v-list::-webkit-scrollbar{width:9px;}
+.v-list::-webkit-scrollbar-thumb{background:rgba(130,130,130,.35); border-radius:5px; border:2px solid transparent; background-clip:padding-box;}
+.v-count{font-size:var(--vf); color:var(--fg-mute); padding:9px 12px 3px; display:flex; align-items:center; justify-content:space-between;}
+.v-count button{font-size:var(--vf); font-weight:600; color:var(--fg-dim); display:flex; align-items:center; gap:4px;}
+.v-count button:hover{color:var(--fg);}
+.v-count svg{width:11px; height:11px;}
+
+.v-group{
+  display:flex; align-items:center; gap:6px; padding:12px 12px 5px;
+  font-size:var(--vf); font-weight:700; letter-spacing:.055em; text-transform:uppercase;
+  color:var(--fg-mute); position:sticky; top:0; background:var(--bg); z-index:2;
+}
+.v-group svg{width:11px; height:11px; opacity:.7;}
+.v-group .n{
+  font-weight:600; letter-spacing:0; font-size:10px; color:var(--fg-mute);
+  background:var(--neutral); border-radius:9px; padding:1px 6px; text-transform:none;
+}
+
+/* — the row: the core primitive — */
+.v-row{
+  display:block; width:100%; text-align:left; position:relative;
+  padding:8px 12px; border-radius:0; color:inherit;
+  transition:background .14s ease;
+}
+.v-row:hover{background:var(--hover);}
+.v-row.on{background:var(--sel); color:var(--sel-fg);}
+.v-row.on .r-sub,.v-row.on .r-meta{color:inherit; opacity:.72;}
+.r-top{display:flex; align-items:center; gap:7px; min-width:0;}
+.r-name{
+  flex:1; min-width:0; font-size:var(--vm); font-weight:500; letter-spacing:-.005em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.r-name.mono{font-family:var(--mono); font-size:12.5px;}
+.r-time{font-size:var(--vf); color:var(--fg-mute); flex:none; font-variant-numeric:tabular-nums;}
+.v-row.on .r-time{color:inherit; opacity:.72;}
+.r-sub{
+  font-size:var(--vs); color:var(--fg-dim); margin-top:2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.r-sub.mono{font-family:var(--mono); font-size:11.5px;}
+.r-meta{display:flex; align-items:center; gap:6px; margin-top:5px; font-size:var(--vf); color:var(--fg-mute); min-width:0;}
+.r-proj{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+/* reserved action gutter: actions fade in, nothing is ever hidden to make room */
+.r-act{
+  position:absolute; right:8px; top:6px; display:flex; gap:2px;
+  opacity:0; transition:opacity .14s ease;
+}
+.v-row:hover .r-act,.v-row:focus-within .r-act{opacity:1;}
+.r-act .v-icon{width:24px; height:24px; background:var(--bg);}
+.v-row:hover .r-act .v-icon{background:var(--hover);}
+.r-act .v-icon:hover{background:var(--neutral);}
+
+/* status dot: shape + color, never color alone (label sits in the tooltip + chip) */
+.dot{width:7px; height:7px; border-radius:50%; flex:none; background:var(--g); box-shadow:0 0 0 3px color-mix(in srgb,var(--g) 20%,transparent);}
+.dot.idle{background:var(--fg-mute); box-shadow:none;}
+.dot.wait{background:var(--a); box-shadow:0 0 0 3px color-mix(in srgb,var(--a) 22%,transparent);}
+.dot.err{background:var(--r); box-shadow:0 0 0 3px color-mix(in srgb,var(--r) 22%,transparent);}
+.dot.ring{background:none; border:1.5px solid var(--fg-mute); box-shadow:none;}
+
+/* — ONE chip primitive, five tones — */
+.chip{
+  display:inline-flex; align-items:center; gap:4px; height:18px; padding:0 6px;
+  border-radius:4px; font-size:10.5px; font-weight:600; letter-spacing:.01em;
+  background:var(--neutral); color:var(--fg); flex:none; max-width:130px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.chip svg{width:10px; height:10px; opacity:.8;}
+.chip.mono{font-family:var(--mono); font-weight:500; letter-spacing:0;}
+.chip.project{background:color-mix(in srgb,var(--g) 16%,transparent); color:var(--g);}
+.chip.global{background:var(--neutral); color:var(--fg-dim);}
+.chip.plugin{background:color-mix(in srgb,var(--p) 18%,transparent); color:var(--p);}
+.chip.builtin{background:color-mix(in srgb,var(--b) 18%,transparent); color:var(--b);}
+.chip.local{background:color-mix(in srgb,var(--a) 18%,transparent); color:var(--a);}
+.chip.warn{background:color-mix(in srgb,var(--a) 18%,transparent); color:var(--a);}
+.chip.danger{background:color-mix(in srgb,var(--r) 18%,transparent); color:var(--r);}
+.chip.outline{background:none; border:1px solid var(--input-edge); color:var(--fg-dim); font-weight:500;}
+
+/* — banners / empty / skeleton — */
+.v-banner{
+  display:flex; gap:8px; align-items:flex-start; margin:8px 10px 0; padding:9px 10px;
+  border-radius:6px; background:color-mix(in srgb,var(--a) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--a) 32%,transparent); font-size:var(--vs);
+  text-align:left; width:calc(100% - 20px);
+}
+.v-banner svg{width:14px; height:14px; color:var(--a); flex:none; margin-top:1px;}
+.v-banner b{display:block; font-weight:600;}
+.v-banner span{color:var(--fg-dim);}
+.v-banner .go{margin-left:auto; color:var(--b); font-weight:600; white-space:nowrap; align-self:center;}
+
+.v-empty{display:flex; flex-direction:column; align-items:center; text-align:center; gap:7px; padding:44px 26px;}
+.v-empty .glyph{
+  width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+  background:var(--neutral); color:var(--fg-mute); margin-bottom:2px;
+}
+.v-empty .glyph svg{width:20px; height:20px;}
+.v-empty h4{font-size:var(--vm); font-weight:600; margin:0;}
+.v-empty p{font-size:var(--vs); color:var(--fg-dim); max-width:30ch; line-height:1.5; margin:0;}
+.v-empty code{font-family:var(--mono); font-size:11px; background:var(--neutral); padding:1px 4px; border-radius:3px;}
+
+.sk{background:var(--neutral); border-radius:4px; position:relative; overflow:hidden;}
+.sk::after{
+  content:''; position:absolute; inset:0; transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--fg) 9%,transparent),transparent);
+  animation:shim 1.5s ease-in-out infinite;
+}
+@keyframes shim{100%{transform:translateX(100%);}}
+@media (prefers-reduced-motion: reduce){ .sk::after{animation:none;} }
+
+/* — sections (Account / Config share one primitive) — */
+.v-sec{border-bottom:1px solid var(--edge-soft);}
+.v-sec:last-child{border-bottom:0;}
+.v-sec-h{
+  display:flex; align-items:center; gap:7px; width:100%; padding:11px 12px;
+  font-size:var(--vf); font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--fg-dim);
+}
+.v-sec-h > svg:first-child{width:12px; height:12px; opacity:.7;}
+.v-sec-h .grow{flex:1; text-align:left;}
+.v-sec-b{padding:0 12px 14px; display:flex; flex-direction:column; gap:12px;}
+
+.v-profile{display:flex; align-items:center; gap:10px;}
+.v-av{
+  width:38px; height:38px; border-radius:10px; flex:none; display:flex; align-items:center;
+  justify-content:center; font-size:16px; font-weight:700; background:var(--btn); color:var(--btn-fg);
+}
+.v-pname{font-size:var(--vl); font-weight:600; letter-spacing:-.01em;}
+.v-pmail{font-size:var(--vs); color:var(--fg-dim);}
+
+.v-field{display:flex; flex-direction:column; gap:5px;}
+.v-label{font-size:var(--vf); font-weight:600; color:var(--fg-dim);}
+.v-hint{font-size:var(--vf); color:var(--fg-mute); line-height:1.45;}
+.v-select{
+  height:28px; display:flex; align-items:center; gap:7px; padding:0 9px; border-radius:5px;
+  background:var(--input); border:1px solid var(--input-edge); font-size:var(--vs);
+}
+.v-select .grow{flex:1; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.v-select svg{width:13px; height:13px; opacity:.6; flex:none;}
+.v-check{display:flex; align-items:center; gap:8px; font-size:var(--vs);}
+.v-check i{
+  width:15px; height:15px; border-radius:3px; border:1px solid var(--input-edge);
+  display:flex; align-items:center; justify-content:center; flex:none; background:var(--input);
+}
+.v-check i.on{background:var(--btn); border-color:var(--btn); color:#fff;}
+.v-check i svg{width:10px; height:10px;}
+
+/* quota + usage viz */
+.v-quota{display:flex; flex-direction:column; gap:5px;}
+.v-quota-h{display:flex; align-items:baseline; gap:6px; font-size:var(--vs);}
+.v-quota-h .grow{flex:1; font-weight:600;}
+.v-quota-h .pct{font-variant-numeric:tabular-nums; font-weight:700;}
+.v-quota-h .sub{font-size:var(--vf); color:var(--fg-mute);}
+.v-track{height:6px; border-radius:3px; background:var(--track); overflow:hidden;}
+.v-track i{display:block; height:100%; border-radius:3px; background:var(--b);}
+.v-track i.hi{background:var(--a);}
+.v-track i.max{background:var(--r);}
+
+.v-tiles{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1px; background:var(--edge-soft); border-radius:7px; overflow:hidden;}
+.v-tile{background:var(--bg); padding:9px 10px;}
+.v-tile .v{font-size:var(--vx); font-weight:700; letter-spacing:-.02em; font-variant-numeric:tabular-nums;}
+.v-tile .k{font-size:var(--vf); color:var(--fg-mute);}
+
+.heat{display:flex; gap:2px; overflow:hidden;}
+.heat-col{display:flex; flex-direction:column; gap:2px;}
+.heat-col i{width:9px; height:9px; border-radius:2px; background:var(--track); display:block;}
+.heat-scale{display:flex; align-items:center; gap:4px; font-size:10px; color:var(--fg-mute); margin-top:6px;}
+.heat-scale i{width:9px; height:9px; border-radius:2px; display:block;}
+
+.v-bars{display:flex; flex-direction:column; gap:8px;}
+.v-bar-row{display:flex; flex-direction:column; gap:3px;}
+.v-bar-top{display:flex; gap:8px; font-size:var(--vs);}
+.v-bar-top .grow{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.v-bar-top .num{color:var(--fg-dim); font-variant-numeric:tabular-nums; flex:none;}
+.v-stack{display:flex; height:8px; border-radius:4px; overflow:hidden; background:var(--track);}
+.v-stack i{display:block; height:100%;}
+.v-legend{display:flex; flex-wrap:wrap; gap:4px 12px; font-size:var(--vf); color:var(--fg-dim);}
+.v-legend span{display:inline-flex; align-items:center; gap:5px;}
+.v-legend i{width:8px; height:8px; border-radius:2px; display:block;}
+
+/* detail view */
+.v-back{display:flex; align-items:center; gap:6px; padding:8px 10px 0; font-size:var(--vs); color:var(--fg-dim); font-weight:600;}
+.v-back svg{width:14px; height:14px;}
+.v-dhead{padding:8px 12px 0;}
+.v-dtitle{font-size:var(--vl); font-weight:600; letter-spacing:-.015em; line-height:1.3;}
+.v-dmeta{display:flex; flex-wrap:wrap; gap:5px; margin-top:7px;}
+.v-acts{display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 0;}
+.v-msg{padding:10px 12px; border-bottom:1px solid var(--edge-soft);}
+.v-msg-h{display:flex; align-items:center; gap:6px; font-size:var(--vf); font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--fg-mute);}
+.v-msg-h .t{margin-left:auto; letter-spacing:0; text-transform:none; font-weight:500;}
+.v-msg-b{font-size:var(--vs); line-height:1.55; margin-top:5px; color:var(--fg);}
+.v-msg-b.dim{color:var(--fg-dim);}
+.v-tool{display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11px; color:var(--fg-dim); background:var(--neutral); border-radius:4px; padding:2px 6px; margin-top:6px;}
+.v-pre{font-family:var(--mono); font-size:11px; line-height:1.5; background:var(--track); border-radius:5px; padding:8px 9px; white-space:pre-wrap; word-break:break-word; color:var(--fg-dim);}
+
+/* command palette overlay */
+.v-pal{position:absolute; inset:0; background:rgba(0,0,0,.45); display:flex; justify-content:center; padding-top:52px;}
+.v-pal-box{width:calc(100% - 28px); max-height:340px; background:var(--input); border:1px solid var(--input-edge); border-radius:8px; box-shadow:0 12px 40px -12px rgba(0,0,0,.75); overflow:hidden; display:flex; flex-direction:column;}
+.v-pal-in{display:flex; align-items:center; gap:8px; padding:10px 11px; border-bottom:1px solid var(--edge);}
+.v-pal-in svg{width:14px; height:14px; color:var(--fg-mute);}
+.v-pal-in span{font-size:var(--vm);}
+.v-pal-in .cursor{width:1px; height:15px; background:var(--fg); animation:blink 1.1s steps(1) infinite;}
+@keyframes blink{50%{opacity:0;}}
+@media (prefers-reduced-motion: reduce){ .v-pal-in .cursor{animation:none;} }
+.v-pal-list{overflow-y:auto; padding:5px 0;}
+.v-pal-g{font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--fg-mute); padding:7px 12px 3px;}
+.v-pal-r{display:flex; align-items:center; gap:9px; padding:6px 12px; font-size:var(--vs); width:100%; text-align:left;}
+.v-pal-r svg{width:14px; height:14px; color:var(--fg-mute); flex:none;}
+.v-pal-r .grow{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.v-pal-r.on{background:var(--sel); color:var(--sel-fg);}
+.v-pal-r.on svg{color:inherit;}
+.v-pal-r kbd{font-size:10px; background:var(--neutral); border-radius:3px; padding:1px 5px; color:var(--fg-dim);}
+
+.states-grid{display:flex; flex-direction:column;}
+.states-grid > div{border-bottom:1px solid var(--edge);}
+.states-lbl{font-size:10px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--fg-mute); padding:10px 12px 0;}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BEFORE MODE — restores today's shipped treatment so the two read side by
+   side. Every rule here names a real pattern in src/styles/*.css.
+   ═══════════════════════════════════════════════════════════════════════ */
+.only-before{display:none;}
+[data-mode="before"] .only-before{display:revert;}
+[data-mode="before"] .only-after{display:none;}
+[data-mode="before"] .vsc{--vf:10px; --vs:11px; --vm:12px; --vl:14px; --vx:16px;}      /* flat 10/11/12/13/14 scale */
+[data-mode="before"] .v-tab span{display:inline;}                                       /* all 8 labels, strip scrolls */
+[data-mode="before"] .v-tabs{overflow-x:auto; padding:0; gap:0;}
+[data-mode="before"] .v-tab{padding:8px 12px; border-radius:0;}
+[data-mode="before"] .v-tab.on{box-shadow:inset 0 -2px 0 var(--focus);}
+[data-mode="before"] .v-row{border-bottom:1px solid var(--edge); padding:10px 14px;}     /* rule under every row */
+[data-mode="before"] .v-row:hover .r-time{visibility:hidden;}                            /* time vanishes on hover */
+[data-mode="before"] .v-row:hover .r-pin{visibility:hidden;}
+[data-mode="before"] .r-act{
+  top:0; bottom:0; right:0; height:auto; align-items:center; padding-right:10px; padding-left:28px;
+  background:linear-gradient(to right,transparent,var(--hover) 28px);
+}
+[data-mode="before"] .r-act .v-icon{background:none;}
+[data-mode="before"] .chip{border-radius:3px; height:18px; font-family:var(--mono); font-weight:400; font-size:10px;}
+[data-mode="before"] .chip.plugin,[data-mode="before"] .chip.builtin{font-family:inherit; text-transform:uppercase; letter-spacing:.04em;}
+[data-mode="before"] .v-group{position:static;}
+[data-mode="before"] .v-sec-b{gap:9px;}
+[data-mode="before"] .v-tiles{background:none; gap:6px; grid-template-columns:repeat(4,minmax(0,1fr));}
+[data-mode="before"] .v-tile{background:var(--neutral); border-radius:4px; padding:6px 4px; text-align:center;}
+[data-mode="before"] .v-tile .v{font-size:13px;}
+[data-mode="before"] .v-tile .k{font-size:9px;}
+[data-mode="before"] .v-empty .glyph{background:none;}
+[data-mode="before"] .v-foot{display:flex;}
+
+.v-foot{
+  display:none; align-items:center; justify-content:space-between; padding:9px 12px;
+  border-top:1px solid var(--edge); font-size:var(--vf); color:var(--fg-mute); flex:none;
+}
+.v-foot .links{display:flex; gap:4px;}
+.v-foot .links i{display:flex; width:20px; height:20px; align-items:center; justify-content:center;}
+.v-foot svg{width:13px; height:13px;}
+
+/* ── Notes column ────────────────────────────────────────────────────── */
+.notes{position:sticky; top:20px; display:flex; flex-direction:column; gap:12px; min-width:0;}
+@media (max-width:1240px){ .notes{position:static;} }
+.note{display:none; flex-direction:column; gap:12px;}
+.note.on{display:flex;}
+.note-card{background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:15px 16px; box-shadow:var(--shadow);}
+.note-card h3{font-size:12.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); margin-bottom:10px;}
+.chg{display:flex; flex-direction:column; gap:12px;}
+.chg li{list-style:none; display:flex; flex-direction:column; gap:3px;}
+.chg ul{margin:0; padding:0;}
+.chg .t{font-size:13.5px; font-weight:600; line-height:1.35;}
+.chg .d{font-size:12.5px; color:var(--ink-2); line-height:1.5;}
+.chg .t::before{
+  content:attr(data-sev); font-family:var(--mono); font-size:10px; font-weight:500;
+  margin-right:7px; padding:1px 5px; border-radius:4px; vertical-align:1px;
+  background:var(--surface-2); color:var(--ink-3);
+}
+.chg .t[data-sev="P0"]::before{background:var(--crit-soft); color:var(--crit);}
+.chg .t[data-sev="P1"]::before{background:var(--warn-soft); color:var(--warn);}
+.chg .t[data-sev="P2"]::before{background:var(--ok-soft); color:var(--ok);}
+.metric{display:flex; align-items:baseline; gap:8px; padding-top:10px; margin-top:12px; border-top:1px solid var(--line);}
+.metric .big{font-size:26px; font-weight:800; letter-spacing:-.03em; color:var(--accent); font-variant-numeric:tabular-nums;}
+.metric .lbl{font-size:12.5px; color:var(--ink-2); line-height:1.35;}
+
+/* ── Report ──────────────────────────────────────────────────────────── */
+.report{
+  border-top:1px solid var(--line); background:var(--surface);
+  padding-block:44px 64px; padding-inline:clamp(16px,4vw,40px);
+}
+.report-in{max-width:920px; margin:0 auto; display:flex; flex-direction:column; gap:40px;}
+.report h2{font-size:24px; font-weight:800;}
+.report h3{font-size:16px; font-weight:700; margin-bottom:10px;}
+.report p{font-size:14.5px; color:var(--ink-2); max-width:72ch;}
+.report ul{margin:8px 0 0; padding-left:19px; display:flex; flex-direction:column; gap:6px;}
+.report li{font-size:14px; color:var(--ink-2); max-width:70ch;}
+.report li b,.report p b{color:var(--ink); font-weight:600;}
+.tbl-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px;}
+table{border-collapse:collapse; width:100%; min-width:540px; font-size:13.5px;}
+th,td{text-align:left; padding:9px 13px; border-bottom:1px solid var(--line); vertical-align:top;}
+th{font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3); background:var(--surface-2);}
+tbody tr:last-child td{border-bottom:0;}
+td.s{font-variant-numeric:tabular-nums; font-weight:700; width:52px;}
+td.s[data-v="1"],td.s[data-v="2"]{color:var(--crit);}
+td.s[data-v="3"]{color:var(--warn);}
+td.s[data-v="4"]{color:var(--ok);}
+tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
+.issue{border:1px solid var(--line); border-radius:11px; padding:16px 18px; display:flex; flex-direction:column; gap:8px;}
+.issue-h{display:flex; flex-wrap:wrap; align-items:baseline; gap:9px;}
+.sev{font-family:var(--mono); font-size:11px; font-weight:500; padding:2px 7px; border-radius:5px; background:var(--surface-2); color:var(--ink-3);}
+.sev[data-v="P0"]{background:var(--crit-soft); color:var(--crit);}
+.sev[data-v="P1"]{background:var(--warn-soft); color:var(--warn);}
+.sev[data-v="P2"]{background:var(--ok-soft); color:var(--ok);}
+.issue-h h4{font-size:15.5px; font-weight:700;}
+.issue dl{margin:0; display:grid; grid-template-columns:64px minmax(0,1fr); gap:5px 12px; font-size:13.5px;}
+.issue dt{font-weight:600; color:var(--ink-3); font-size:11px; letter-spacing:.05em; text-transform:uppercase; padding-top:2px;}
+.issue dd{margin:0; color:var(--ink-2);}
+.issue dd code,.report code{font-size:12px; background:var(--surface-2); padding:1.5px 5px; border-radius:4px; color:var(--ink);}
+.issues{display:flex; flex-direction:column; gap:14px;}
+.persona{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px;}
+.persona > div{border:1px solid var(--line); border-radius:11px; padding:15px 16px;}
+.persona h4{font-size:14.5px; font-weight:700; margin-bottom:7px;}
+.persona p{font-size:13px;}
+.foot{font-size:12.5px; color:var(--ink-3); border-top:1px solid var(--line); padding-top:18px;}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<g id="i-msg"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></g>
+<g id="i-spark"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18 15.5 18.8 17.7 21 18.5 18.8 19.3 18 21.5 17.2 19.3 15 18.5 17.2 17.7z"/></g>
+<g id="i-plug"><path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5"/></g>
+<g id="i-bot"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M8 2h8"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></g>
+<g id="i-term"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></g>
+<g id="i-hook"><circle cx="12" cy="7" r="3"/><path d="M12 10v5a3 3 0 0 0 3 3h3"/><circle cx="19" cy="18" r="3"/><circle cx="6" cy="18" r="3"/><path d="M9 18h.5"/></g>
+<g id="i-user"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 19a6 6 0 0 1 11 0"/></g>
+<g id="i-cog"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 9 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></g>
+<g id="i-search"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></g>
+<g id="i-refresh"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></g>
+<g id="i-plus"><path d="M12 5v14M5 12h14"/></g>
+<g id="i-play"><path d="M6 4.5 19 12 6 19.5z"/></g>
+<g id="i-chev-d"><path d="m6 9 6 6 6-6"/></g>
+<g id="i-chev-r"><path d="m9 6 6 6-6 6"/></g>
+<g id="i-chev-l"><path d="m15 6-6 6 6 6"/></g>
+<g id="i-pin"><path d="M12 17v5M9 3h6l-1 6 3 3v1H7v-1l3-3z"/></g>
+<g id="i-copy"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></g>
+<g id="i-trash"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></g>
+<g id="i-x"><path d="M18 6 6 18M6 6l12 12"/></g>
+<g id="i-filter"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></g>
+<g id="i-branch"><circle cx="6" cy="5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="8" r="2.5"/><path d="M6 7.5v9M18 10.5c0 4-6 2.5-6 6.5"/></g>
+<g id="i-shield"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></g>
+<g id="i-down"><path d="M12 3v12M7 11l5 5 5-5M4 20h16"/></g>
+<g id="i-check"><path d="m4 12 5 5L20 6"/></g>
+<g id="i-alert"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></g>
+<g id="i-ghost"><path d="M12 3a7 7 0 0 0-7 7v11l3-2 2 2 2-2 2 2 2-2 3 2V10a7 7 0 0 0-7-7z"/><circle cx="9.5" cy="10.5" r="1"/><circle cx="14.5" cy="10.5" r="1"/></g>
+<g id="i-hist"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></g>
+<g id="i-dots"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></g>
+<g id="i-cmd"><path d="M6 3a3 3 0 1 0 3 3v12a3 3 0 1 1-3-3h12a3 3 0 1 0-3-3V6a3 3 0 1 1 3 3H6z"/></g>
+<g id="i-ext"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></g>
+<g id="i-inbox"><path d="M3 13h5l2 3h4l2-3h5M5 5h14l2 8v6H3v-6z"/></g>
+<g id="i-globe"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></g>
+<g id="i-book"><path d="M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3z"/><path d="M18 7h2v13H7"/></g>
+<g id="i-save"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h7V3M8 21v-6h8v6"/></g>
+</defs></svg>
+
+<header class="hdr">
+  <div class="hdr-id">
+    <span class="hdr-kicker">UI audit &amp; redesign</span>
+    <h1>Claude Manager Sidebar</h1>
+    <p class="hdr-sub">Ten screens of the extension webview, rebuilt at true sidebar width. Flip <b>Before / After</b> to compare against what ships today, and drag the panel to 280px to see which layout survives a narrow sidebar.</p>
+  </div>
+  <div class="controls">
+    <div class="ctl">
+      <span class="ctl-label" id="l-mode">Design</span>
+      <div class="seg" role="group" aria-labelledby="l-mode">
+        <button type="button" data-mode-btn="before" aria-pressed="false">Before</button>
+        <button type="button" data-mode-btn="after" aria-pressed="true">After</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl-label" id="l-theme">Editor theme</span>
+      <div class="seg" role="group" aria-labelledby="l-theme">
+        <button type="button" data-vt-btn="dark" aria-pressed="true">Dark</button>
+        <button type="button" data-vt-btn="light" aria-pressed="false">Light</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <span class="ctl-label" id="l-w">Panel width</span>
+      <div class="seg" role="group" aria-labelledby="l-w">
+        <button type="button" data-w-btn="280" aria-pressed="false">280</button>
+        <button type="button" data-w-btn="340" aria-pressed="true">340</button>
+        <button type="button" data-w-btn="420" aria-pressed="false">420</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="app">
+  <nav class="rail" aria-label="Screens">
+    <span class="rail-head">Screens</span>
+    <button type="button" data-go="sessions" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-msg"/></svg>Sessions</button>
+    <button type="button" data-go="detail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-book"/></svg>Transcript</button>
+    <button type="button" data-go="skills"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-spark"/></svg>Skills</button>
+    <button type="button" data-go="mcp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-plug"/></svg>MCP</button>
+    <button type="button" data-go="agents"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bot"/></svg>Agents</button>
+    <button type="button" data-go="commands"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-term"/></svg>Commands</button>
+    <button type="button" data-go="hooks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-hook"/></svg>Hooks</button>
+    <button type="button" data-go="account"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg>Account</button>
+    <button type="button" data-go="config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cog"/></svg>Config</button>
+    <button type="button" data-go="states"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-inbox"/></svg>States</button>
+  </nav>
+
+  <section class="stage" id="stage" data-mode="after">
+    <div class="stage-head">
+      <h2 id="stage-title">Sessions</h2>
+      <span class="path" id="stage-path">src/features/sessions/webview/ui/views/ListView.tsx</span>
+    </div>
+
+    <div class="frame">
+      <div class="frame-bar">
+        <span class="dot3"><i></i><i></i><i></i></span>
+        <span class="frame-title">claude-code-manager — Visual Studio Code</span>
+      </div>
+      <div class="frame-body" id="fbody" data-vtheme="dark" data-w="340">
+        <div class="actbar">
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg></i>
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg></i>
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg></i>
+          <i class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-spark"/></svg></i>
+          <i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-ext"/></svg></i>
+        </div>
+
+        <div class="panel-w">
+          <div class="vsc" id="vsc" data-vtheme="dark">
+            <!-- tab bar -->
+            <div class="v-tabs" id="tabs" role="tablist"></div>
+
+            <!-- ═══ SESSIONS ═══ -->
+            <div class="screen" data-screen="sessions" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+              <div class="only-after">
+                <div class="v-bar">
+                  <button class="v-btn primary grow split" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-plus"/></svg>New session<span class="car"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg></span></button>
+                  <button class="v-icon" type="button" title="Continue last session"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-hist"/></svg></button>
+                  <button class="v-icon" type="button" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></button>
+                  <button class="v-icon" type="button" title="More actions"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-dots"/></svg></button>
+                </div>
+                <div class="v-bar">
+                  <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input id="s-search" type="search" placeholder="Search sessions and transcripts"></label>
+                  <button class="v-icon" type="button" title="Filters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><use href="#i-filter"/></svg></button>
+                </div>
+                <div class="v-filterbar">
+                  <span class="v-fchip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>main<button type="button" aria-label="Remove branch filter"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><use href="#i-x"/></svg></button></span>
+                  <span class="v-fchip">Last 7 days<button type="button" aria-label="Remove date filter"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><use href="#i-x"/></svg></button></span>
+                  <span class="v-fchip add">+ Filter</span>
+                </div>
+              </div>
+
+              <div class="only-before">
+                <div class="v-bar" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:4px;">
+                  <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-plus"/></svg>New</button>
+                  <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><use href="#i-ghost"/></svg>Temp</button>
+                  <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-hist"/></svg>Continue</button>
+                  <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 4v16M20 4v16M12 6v12"/></svg>Restore</button>
+                  <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg>Import</button>
+                  <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg>Import Many</button>
+                </div>
+                <div class="v-bar">
+                  <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input type="search" placeholder="Search sessions..."></label>
+                  <button class="v-icon" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></button>
+                </div>
+                <div class="v-bar">
+                  <span class="v-select" style="flex:1;min-width:0;"><span class="grow">All Projects (48)</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg></span>
+                  <span class="v-select" style="flex:1;min-width:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg><span class="grow">All Branches</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg></span>
+                </div>
+                <div class="v-seg">
+                  <button class="on" type="button">Recent</button><button type="button">Week</button><button type="button">Month</button><button type="button">All</button>
+                </div>
+              </div>
+
+              <div class="v-list">
+                <div class="v-count"><span>24 sessions</span><button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg>Select</button></div>
+
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Today<span class="n">4</span></div>
+
+                <button class="v-row" type="button">
+                  <span class="r-top"><i class="dot" title="Session is busy"></i><span class="r-name">Refuse to rewrite unparsable hook configs</span><span class="r-time">2m</span></span>
+                  <span class="r-meta"><span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>main</span><span class="r-proj">claude-code-manager</span></span>
+                  <span class="r-act"><span class="v-icon" title="View terminal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-term"/></svg></span></span>
+                </button>
+
+                <button class="v-row on" type="button">
+                  <span class="r-top"><i class="dot wait" title="Awaiting permission"></i><span class="r-name">Quota bar live refresh</span><span class="r-time">18m</span></span>
+                  <span class="r-sub">read the rate-limit headers off the OAuth refresh and cache them</span>
+                  <span class="r-meta"><span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>feat/quota-live</span><span class="r-proj">claude-code-manager</span></span>
+                </button>
+
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Segmented filters clip their labels</span><span class="r-time">1h</span></span>
+                  <span class="r-meta"><span class="chip project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-bot"/></svg>wt/filters</span><span class="r-proj">claude-code-manager</span><i class="r-pin" style="margin-left:auto;opacity:.65;display:flex;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pin"/></svg></i></span>
+                  <span class="r-act"><span class="v-icon" title="Resume session" style="color:var(--g)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#i-play"/></svg></span></span>
+                </button>
+
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Hero heave during load animation</span><span class="r-time">3h</span></span>
+                  <span class="r-meta"><span class="chip warn">Temp</span><span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>main</span><span class="r-proj">claudecodemanager.site</span></span>
+                  <span class="r-act"><span class="v-icon" title="Resume session" style="color:var(--g)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#i-play"/></svg></span></span>
+                </button>
+
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Yesterday<span class="n">3</span></div>
+
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Stop corrupting settings.json on install</span><span class="r-time">Tue 18:40</span></span>
+                  <span class="r-meta"><span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>main</span><span class="r-proj">claude-code-manager</span></span>
+                  <span class="r-act"><span class="v-icon" title="Resume session" style="color:var(--g)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#i-play"/></svg></span></span>
+                </button>
+
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Release 1.9.0 notes</span><span class="r-time">Tue 15:02</span></span>
+                  <span class="r-meta"><span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>main</span><span class="r-proj">claude-code-manager</span></span>
+                  <span class="r-act"><span class="v-icon" title="Resume session" style="color:var(--g)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#i-play"/></svg></span></span>
+                </button>
+
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Heatmap month labels drift</span><span class="r-time">Tue 11:19</span></span>
+                  <span class="r-meta"><span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>fix/heatmap</span><span class="r-proj">claude-code-manager</span></span>
+                  <span class="r-act"><span class="v-icon" title="Resume session" style="color:var(--g)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#i-play"/></svg></span></span>
+                </button>
+
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Earlier this week<span class="n">17</span></div>
+
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Worktree badge for sibling checkouts</span><span class="r-time">Mon</span></span>
+                  <span class="r-meta"><span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>main</span><span class="r-proj">claude-code-manager</span></span>
+                  <span class="r-act"><span class="v-icon" title="Resume session" style="color:var(--g)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#i-play"/></svg></span></span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">MCP form validates stdio args</span><span class="r-time">Mon</span></span>
+                  <span class="r-meta"><span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>main</span><span class="r-proj">claude-code-manager</span></span>
+                  <span class="r-act"><span class="v-icon" title="Resume session" style="color:var(--g)"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#i-play"/></svg></span></span>
+                </button>
+              </div>
+              <div class="v-foot"><span>Claude Manager</span><span class="links"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><use href="#i-book"/></svg></i><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><use href="#i-globe"/></svg></i></span></div>
+            </div>
+
+            <!-- ═══ TRANSCRIPT ═══ -->
+            <div class="screen" data-screen="detail" style="display:none;flex-direction:column;flex:1;min-height:0;">
+              <div class="v-back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-l"/></svg>All sessions</div>
+              <div class="v-dhead">
+                <div class="v-dtitle">Quota bar live refresh</div>
+                <div class="v-dmeta">
+                  <span class="chip"><i class="dot wait" style="width:6px;height:6px;box-shadow:none;"></i>Awaiting permission</span>
+                  <span class="chip mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-branch"/></svg>feat/quota-live</span>
+                  <span class="chip outline">claude-code-manager</span>
+                </div>
+              </div>
+              <div class="v-acts">
+                <button class="v-btn primary" type="button"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><use href="#i-play"/></svg>Resume</button>
+                <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-pin"/></svg>Pin</button>
+                <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg>Export</button>
+                <button class="v-icon" type="button" title="More"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-dots"/></svg></button>
+              </div>
+              <div style="padding:12px 12px 0;">
+                <div class="v-tiles">
+                  <div class="v-tile"><div class="v">38</div><div class="k">messages</div></div>
+                  <div class="v-tile"><div class="v">1h 12m</div><div class="k">duration</div></div>
+                  <div class="v-tile"><div class="v">412k</div><div class="k">tokens</div></div>
+                  <div class="v-tile"><div class="v">$1.84</div><div class="k">cost</div></div>
+                </div>
+              </div>
+              <div class="v-bar" style="padding-top:12px;">
+                <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input type="search" placeholder="Find in transcript"></label>
+              </div>
+              <div class="v-list" style="margin-top:8px;">
+                <div class="v-msg">
+                  <div class="v-msg-h"><span>You</span><span class="t">18:02</span></div>
+                  <div class="v-msg-b">Read the rate-limit headers off the OAuth refresh response and cache them next to the credential, so the quota bar has real numbers before the first API call.</div>
+                </div>
+                <div class="v-msg">
+                  <div class="v-msg-h"><span>Claude</span><span class="t">18:02</span></div>
+                  <div class="v-msg-b dim">Thinking · checked how the refresh path stores credentials</div>
+                  <div class="v-msg-b">The refresh already round-trips through <code>~/.claude/.credentials.json</code>. I will write the three rate-limit headers into a sibling key so nothing in the credential shape changes.</div>
+                  <span class="v-tool"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-search"/></svg>Grep · anthropic-ratelimit</span>
+                </div>
+                <div class="v-msg">
+                  <div class="v-msg-h"><span>Claude</span><span class="t">18:04</span></div>
+                  <div class="v-pre">src/features/account/quota.ts
+  + parseRateLimitHeaders(res)
+  + QUOTA_CACHE_TTL_MS = 60_000</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ═══ SKILLS ═══ -->
+            <div class="screen" data-screen="skills" style="display:none;flex-direction:column;flex:1;min-height:0;">
+              <div class="v-bar">
+                <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input type="search" placeholder="Search skills"></label>
+                <button class="v-icon" type="button" title="Browse community skills"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><use href="#i-globe"/></svg></button>
+                <button class="v-icon" type="button" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></button>
+              </div>
+              <div class="v-seg">
+                <button class="on" type="button">All <span class="n">18</span></button>
+                <button type="button">Project <span class="n">6</span></button>
+                <button type="button">Global <span class="n">9</span></button>
+                <button type="button">Plugin <span class="n">3</span></button>
+              </div>
+              <div class="v-list">
+                <div class="v-count"><span>18 skills</span></div>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Project<span class="n">6</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">release</span><span class="chip project">project</span></span>
+                  <span class="r-sub">Curate a release: categorize commits, write notes, bump the version</span>
+                  <span class="r-meta"><span class="chip outline">changelog</span><span class="chip outline">vsce</span></span>
+                  <span class="r-act"><span class="v-icon" title="Run /release in chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-msg"/></svg></span><span class="v-icon" title="Copy /release"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-copy"/></svg></span></span>
+                </button>
+                <button class="v-row on" type="button">
+                  <span class="r-top"><span class="r-name">frontend-conventions</span><span class="chip project">project</span></span>
+                  <span class="r-sub">Webview conventions: vanilla DOM, CSP sandbox, src/styles</span>
+                  <span class="r-meta"><span class="chip outline">preact</span><span class="chip outline">css</span></span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">backend-conventions</span><span class="chip project">project</span></span>
+                  <span class="r-sub">Extension-host conventions for src/extension and src/core</span>
+                  <span class="r-act"><span class="v-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-msg"/></svg></span><span class="v-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-copy"/></svg></span></span>
+                </button>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Global<span class="n">9</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">impeccable</span><span class="chip global">global</span></span>
+                  <span class="r-sub">Design, critique and polish frontend interfaces</span>
+                  <span class="r-act"><span class="v-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-msg"/></svg></span><span class="v-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-copy"/></svg></span></span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">technical-writing</span><span class="chip global">global</span></span>
+                  <span class="r-sub">Structured writing methodology for document review</span>
+                </button>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Plugin · caveman<span class="n">3</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">caveman-commit</span><span class="chip plugin">plugin</span></span>
+                  <span class="r-sub">Generate terse commit messages</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">caveman-review</span><span class="chip plugin">plugin</span></span>
+                  <span class="r-sub">One-line code review comments</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- ═══ MCP ═══ -->
+            <div class="screen" data-screen="mcp" style="display:none;flex-direction:column;flex:1;min-height:0;">
+              <button class="v-banner" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><use href="#i-alert"/></svg>
+                <span><b>1 server failed to connect</b><span>media-context · connection closed</span></span>
+                <span class="go">Open /mcp</span>
+              </button>
+              <div class="v-bar">
+                <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input type="search" placeholder="Search servers"></label>
+                <button class="v-icon" type="button" title="Add server"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-plus"/></svg></button>
+                <button class="v-icon" type="button" title="More"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><use href="#i-dots"/></svg></button>
+              </div>
+              <div class="v-seg">
+                <button class="on" type="button">All <span class="n">7</span></button>
+                <button type="button">Project <span class="n">2</span></button>
+                <button type="button">Global <span class="n">4</span></button>
+                <button type="button">Plugin <span class="n">1</span></button>
+              </div>
+              <div class="v-list">
+                <div class="v-count"><span>7 servers · 6 connected</span></div>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Project<span class="n">2</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><i class="dot" title="Connected"></i><span class="r-name">github</span><span class="chip builtin">http</span><span class="chip project">project</span></span>
+                  <span class="r-sub mono">https://api.githubcopilot.com/mcp/</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><i class="dot err" title="Connection closed"></i><span class="r-name">media-context</span><span class="chip builtin">stdio</span><span class="chip danger">failed</span></span>
+                  <span class="r-sub mono">node ./scripts/media-mcp.js</span>
+                  <span class="r-act"><span class="v-icon" title="Retry connection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></span></span>
+                </button>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Global<span class="n">4</span></div>
+                <button class="v-row on" type="button">
+                  <span class="r-top"><i class="dot" title="Connected"></i><span class="r-name">claude-in-chrome</span><span class="chip builtin">stdio</span></span>
+                  <span class="r-sub mono">npx @anthropic-ai/claude-in-chrome-mcp</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><i class="dot" title="Connected"></i><span class="r-name">figma</span><span class="chip builtin">sse</span></span>
+                  <span class="r-sub mono">https://mcp.figma.com/sse</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><i class="dot ring" title="Disabled"></i><span class="r-name">slack</span><span class="chip builtin">http</span><span class="chip">disabled</span></span>
+                  <span class="r-sub mono">https://mcp.slack.com/</span>
+                </button>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Plugin · claude-seo<span class="n">1</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><i class="dot" title="Connected"></i><span class="r-name">dataforseo</span><span class="chip plugin">read-only</span></span>
+                  <span class="r-sub mono">npx dataforseo-mcp-server</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- ═══ AGENTS ═══ -->
+            <div class="screen" data-screen="agents" style="display:none;flex-direction:column;flex:1;min-height:0;">
+              <div class="v-bar">
+                <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input type="search" placeholder="Search agents"></label>
+                <button class="v-icon" type="button" title="New agent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-plus"/></svg></button>
+                <button class="v-icon" type="button" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></button>
+              </div>
+              <div class="v-seg">
+                <button class="on" type="button">All <span class="n">6</span></button>
+                <button type="button">Sonnet <span class="n">3</span></button>
+                <button type="button">Opus <span class="n">2</span></button>
+                <button type="button">Inherit <span class="n">1</span></button>
+              </div>
+              <div class="v-list">
+                <div class="v-count"><span>6 agents</span></div>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Project<span class="n">6</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">backend</span><span class="chip builtin">sonnet</span></span>
+                  <span class="r-sub">Extension-host implementation for /auto-build scope execution</span>
+                  <span class="r-meta"><span class="chip outline">Read</span><span class="chip outline">Write</span><span class="chip outline">Bash</span><span class="chip outline">+3</span></span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">frontend</span><span class="chip builtin">sonnet</span></span>
+                  <span class="r-sub">Webview implementation: browser, DOM, CSS</span>
+                  <span class="r-meta"><span class="chip outline">Read</span><span class="chip outline">Write</span><span class="chip outline">+4</span></span>
+                </button>
+                <button class="v-row on" type="button">
+                  <span class="r-top"><span class="r-name">verifier</span><span class="chip local">opus</span></span>
+                  <span class="r-sub">Read-only reviewer. Cannot edit files, enforced mechanically</span>
+                  <span class="r-meta"><span class="chip outline">Read</span><span class="chip outline">Grep</span><span class="chip outline">Glob</span></span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><i class="dot wait" title="No description"></i><span class="r-name">simplifier</span><span class="chip local">opus</span></span>
+                  <span class="r-sub" style="color:var(--a)">No description — Claude cannot tell when to delegate here</span>
+                  <span class="r-act"><span class="v-icon" title="Edit agent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-ext"/></svg></span></span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">test-architect</span><span class="chip builtin">sonnet</span></span>
+                  <span class="r-sub">Scaffolds acceptance test files from scope requirements</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">technical-writer</span><span class="chip">inherit</span></span>
+                  <span class="r-sub">Document structure review and editorial guidance</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- ═══ COMMANDS ═══ -->
+            <div class="screen" data-screen="commands" style="display:none;flex-direction:column;flex:1;min-height:0;">
+              <div class="v-bar">
+                <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input type="search" placeholder="Search commands"></label>
+                <button class="v-icon" type="button" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></button>
+              </div>
+              <div class="v-seg">
+                <button class="on" type="button">All <span class="n">31</span></button>
+                <button type="button">Project <span class="n">4</span></button>
+                <button type="button">Global <span class="n">12</span></button>
+                <button type="button">Built-in <span class="n">15</span></button>
+              </div>
+              <div class="v-list">
+                <div class="v-count"><span>31 commands</span></div>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Project<span class="n">4</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name mono">/shape</span><span class="chip project">project</span></span>
+                  <span class="r-sub">Bound the problem, de-risk it, produce a pitch document</span>
+                  <span class="r-act"><span class="v-icon" title="Run in chat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-msg"/></svg></span><span class="v-icon" title="Copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-copy"/></svg></span></span>
+                </button>
+                <button class="v-row on" type="button">
+                  <span class="r-top"><span class="r-name mono">/auto-build</span><span class="chip project">project</span></span>
+                  <span class="r-sub">Autonomous execution with 12-gate mechanical enforcement</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name mono">/ship</span><span class="chip project">project</span></span>
+                  <span class="r-sub">Merge the MR, mark the pitch shipped, clean up worktrees</span>
+                </button>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Built-in<span class="n">15</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name mono">/init</span><span class="chip builtin">built-in</span></span>
+                  <span class="r-sub">Initialize a new CLAUDE.md with codebase documentation</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name mono">/security-review</span><span class="chip builtin">built-in</span></span>
+                  <span class="r-sub">Security review of the pending changes on this branch</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name mono">/code-review</span><span class="chip builtin">built-in</span></span>
+                  <span class="r-sub">Review the current diff for correctness and cleanup</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- ═══ HOOKS ═══ -->
+            <div class="screen" data-screen="hooks" style="display:none;flex-direction:column;flex:1;min-height:0;">
+              <div class="v-bar">
+                <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input type="search" placeholder="Search hooks"></label>
+                <button class="v-icon" type="button" title="Add hook"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-plus"/></svg></button>
+                <button class="v-icon" type="button" title="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg></button>
+              </div>
+              <div class="v-seg">
+                <button class="on" type="button">All <span class="n">9</span></button>
+                <button type="button">Global <span class="n">3</span></button>
+                <button type="button">Project <span class="n">5</span></button>
+                <button type="button">Local <span class="n">1</span></button>
+              </div>
+              <div class="v-list">
+                <div class="v-count"><span>9 hooks · 1 disabled</span></div>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Session start<span class="n">2</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Caveman mode</span><span class="chip global">global</span></span>
+                  <span class="r-sub mono">~/.claude/hooks/caveman-activate.sh</span>
+                  <span class="r-act"><span class="v-icon" title="Disable"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 6h4v12H6zM14 6h4v12h-4z"/></svg></span><span class="v-icon danger" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-trash"/></svg></span></span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Load build state</span><span class="chip project">project</span></span>
+                  <span class="r-sub mono">.binaryos/scripts/session-start.sh</span>
+                </button>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Pre tool use<span class="n">4</span></div>
+                <button class="v-row on" type="button">
+                  <span class="r-top"><span class="chip mono">Bash</span><span class="r-name">Block force-push to main</span><span class="chip project">project</span></span>
+                  <span class="r-sub mono">.claude/hooks/guard-push.sh</span>
+                </button>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="chip mono">Write|Edit</span><span class="r-name">Format on write</span><span class="chip project">project</span></span>
+                  <span class="r-sub mono">pnpm exec prettier --write "$FILE"</span>
+                </button>
+                <button class="v-row" type="button" style="opacity:.55;">
+                  <span class="r-top"><span class="chip mono">*</span><span class="r-name" style="text-decoration:line-through">Log every tool call</span><span class="chip">disabled</span></span>
+                  <span class="r-sub mono">.claude/hooks/trace.sh</span>
+                </button>
+                <div class="v-group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg>Subagent stop<span class="n">1</span></div>
+                <button class="v-row" type="button">
+                  <span class="r-top"><span class="r-name">Gate check</span><span class="chip local">local</span></span>
+                  <span class="r-sub mono">.binaryos/scripts/subagent-stop.sh</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- ═══ ACCOUNT ═══ -->
+            <div class="screen" data-screen="account" style="display:none;flex-direction:column;flex:1;min-height:0;">
+              <div class="v-list">
+                <section class="v-sec">
+                  <div class="v-sec-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg><span class="grow">Profile</span></div>
+                  <div class="v-sec-b">
+                    <div class="v-profile">
+                      <div class="v-av">V</div>
+                      <div style="flex:1;min-width:0;">
+                        <div class="v-pname">Vishal Gupta</div>
+                        <div class="v-pmail">shankar.k@keus.in</div>
+                      </div>
+                      <span class="chip local">Max 20&times;</span>
+                    </div>
+                    <div class="v-hint">Session expires in 27 days · credential from <code style="font-family:var(--mono)">~/.claude/.credentials.json</code></div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                      <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>Switch account</button>
+                      <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><use href="#i-save"/></svg>Save profile</button>
+                      <button class="v-icon danger" type="button" title="Log out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><use href="#i-x"/></svg></button>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="v-sec">
+                  <div class="v-sec-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg><span class="grow">Quota</span><span class="chip"><i class="dot" style="width:6px;height:6px;box-shadow:none;"></i>live</span></div>
+                  <div class="v-sec-b">
+                    <div class="v-quota">
+                      <div class="v-quota-h"><span class="grow">5-hour window</span><span class="pct">62%</span></div>
+                      <div class="v-track"><i style="width:62%"></i></div>
+                      <div class="v-hint">Resets 19:00 · about 3h 40m of headroom left at today's pace</div>
+                    </div>
+                    <div class="v-quota">
+                      <div class="v-quota-h"><span class="grow">Weekly (all models)</span><span class="pct" style="color:var(--a)">88%</span></div>
+                      <div class="v-track"><i class="hi" style="width:88%"></i></div>
+                      <div class="v-hint">Resets Sunday 05:30</div>
+                    </div>
+                    <div class="v-quota">
+                      <div class="v-quota-h"><span class="grow">Weekly (Opus)</span><span class="pct">41%</span></div>
+                      <div class="v-track"><i style="width:41%"></i></div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="v-sec">
+                  <div class="v-sec-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg><span class="grow">Usage</span><button class="v-icon" type="button" title="Export share card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-down"/></svg></button></div>
+                  <div class="v-sec-b">
+                    <div class="v-seg" style="margin:0;">
+                      <button type="button">7 days</button><button class="on" type="button">30 days</button><button type="button">All time</button>
+                    </div>
+                    <div>
+                      <div class="heat" id="heat"></div>
+                      <div class="heat-scale"><span>Less</span><i style="background:var(--track)"></i><i style="background:color-mix(in srgb,var(--g) 30%,transparent)"></i><i style="background:color-mix(in srgb,var(--g) 55%,transparent)"></i><i style="background:color-mix(in srgb,var(--g) 80%,transparent)"></i><i style="background:var(--g)"></i><span>More</span></div>
+                    </div>
+                    <div class="v-tiles">
+                      <div class="v-tile"><div class="v">18.4M</div><div class="k">tokens</div></div>
+                      <div class="v-tile"><div class="v">214</div><div class="k">sessions</div></div>
+                      <div class="v-tile"><div class="v">3,981</div><div class="k">messages</div></div>
+                      <div class="v-tile"><div class="v">$142.60</div><div class="k">est. cost</div></div>
+                    </div>
+                    <div class="v-field">
+                      <span class="v-label">By model</span>
+                      <div class="v-stack">
+                        <i style="width:54%;background:var(--b)"></i><i style="width:31%;background:var(--a)"></i><i style="width:15%;background:var(--g)"></i>
+                      </div>
+                      <div class="v-legend">
+                        <span><i style="background:var(--b)"></i>Opus 5 · 54%</span>
+                        <span><i style="background:var(--a)"></i>Sonnet 5 · 31%</span>
+                        <span><i style="background:var(--g)"></i>Haiku 4.5 · 15%</span>
+                      </div>
+                    </div>
+                    <div class="v-field">
+                      <span class="v-label">Top projects</span>
+                      <div class="v-bars">
+                        <div class="v-bar-row"><div class="v-bar-top"><span class="grow">claude-code-manager</span><span class="num">9.2M</span></div><div class="v-track"><i style="width:100%"></i></div></div>
+                        <div class="v-bar-row"><div class="v-bar-top"><span class="grow">claudecodemanager.site</span><span class="num">4.1M</span></div><div class="v-track"><i style="width:45%"></i></div></div>
+                        <div class="v-bar-row"><div class="v-bar-top"><span class="grow">keus-ops-agent</span><span class="num">2.8M</span></div><div class="v-track"><i style="width:30%"></i></div></div>
+                        <div class="v-bar-row"><div class="v-bar-top"><span class="grow">dotfiles</span><span class="num">1.1M</span></div><div class="v-track"><i style="width:12%"></i></div></div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <!-- ═══ CONFIG ═══ -->
+            <div class="screen" data-screen="config" style="display:none;flex-direction:column;flex:1;min-height:0;">
+              <div class="v-bar">
+                <label class="v-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><input type="search" placeholder="Search settings and permissions"></label>
+              </div>
+              <div class="v-list" style="margin-top:8px;">
+                <section class="v-sec">
+                  <div class="v-sec-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg><span class="grow">How Claude thinks</span><button class="v-icon" type="button" title="Open settings.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-ext"/></svg></button></div>
+                  <div class="v-sec-b">
+                    <div class="v-field">
+                      <span class="v-label">Model</span>
+                      <span class="v-select"><span class="grow">Opus 5 (1M context)</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg></span>
+                      <span class="v-hint">Used for every new session in this workspace.</span>
+                    </div>
+                    <div class="v-field">
+                      <span class="v-label">Effort</span>
+                      <span class="v-select"><span class="grow">High</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg></span>
+                      <span class="v-hint">More reasoning before acting. Slower first token.</span>
+                    </div>
+                    <div class="v-field">
+                      <span class="v-check"><i class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><use href="#i-check"/></svg></i>Show thinking in the transcript</span>
+                      <span class="v-hint">Writes reasoning blocks into the session file.</span>
+                    </div>
+                  </div>
+                </section>
+                <section class="v-sec">
+                  <div class="v-sec-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-d"/></svg><span class="grow">Permissions</span><span class="chip">62</span></div>
+                  <div class="v-sec-b">
+                    <div class="v-seg" style="margin:0;">
+                      <button class="on" type="button">Global</button><button type="button">Project</button><button type="button">Local</button>
+                    </div>
+                    <div class="v-field">
+                      <span class="v-label" style="display:flex;align-items:center;gap:6px;"><i class="dot" style="width:6px;height:6px;box-shadow:none;"></i>Allowed<span class="chip">48</span></span>
+                      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                        <span class="chip mono outline">Bash(git status:*)</span>
+                        <span class="chip mono outline">Bash(pnpm test:*)</span>
+                        <span class="chip mono outline">Read(src/**)</span>
+                        <span class="chip mono outline">mcp__github__*</span>
+                        <span class="chip outline">+44 more</span>
+                      </div>
+                    </div>
+                    <div class="v-field">
+                      <span class="v-label" style="display:flex;align-items:center;gap:6px;"><i class="dot err" style="width:6px;height:6px;box-shadow:none;"></i>Denied<span class="chip">14</span></span>
+                      <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                        <span class="chip mono outline">Bash(rm -rf:*)</span>
+                        <span class="chip mono outline">Bash(git push --force:*)</span>
+                        <span class="chip outline">+12 more</span>
+                      </div>
+                    </div>
+                    <div class="v-hint">Wildcards live inside the parentheses. A bare tool name such as <code style="font-family:var(--mono)">Bash</code> matches every invocation.</div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                      <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-plus"/></svg>Allow a tool</button>
+                      <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><use href="#i-x"/></svg>Deny a tool</button>
+                    </div>
+                  </div>
+                </section>
+                <section class="v-sec">
+                  <div class="v-sec-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-r"/></svg><span class="grow">Settings history</span><span class="chip">6 snapshots</span></div>
+                </section>
+                <section class="v-sec">
+                  <div class="v-sec-h"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-chev-r"/></svg><span class="grow">Backup and restore</span></div>
+                </section>
+              </div>
+            </div>
+
+            <!-- ═══ STATES ═══ -->
+            <div class="screen" data-screen="states" style="display:none;flex-direction:column;flex:1;min-height:0;position:relative;">
+              <div class="v-list states-grid">
+                <div>
+                  <div class="states-lbl">Empty · teaches the format</div>
+                  <div class="v-empty">
+                    <span class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><use href="#i-hook"/></svg></span>
+                    <h4>No hooks yet</h4>
+                    <p>A hook is a shell command Claude runs at a lifecycle event. They live under <code>hooks</code> in <code>settings.json</code>.</p>
+                    <button class="v-btn primary" type="button" style="margin-top:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><use href="#i-plus"/></svg>Add your first hook</button>
+                  </div>
+                </div>
+                <div>
+                  <div class="states-lbl">Loading · skeleton mirrors the real row</div>
+                  <div style="padding:10px 12px;display:flex;flex-direction:column;gap:14px;">
+                    <div style="display:flex;flex-direction:column;gap:6px;"><div class="sk" style="height:11px;width:62%;"></div><div class="sk" style="height:9px;width:84%;"></div><div class="sk" style="height:8px;width:38%;"></div></div>
+                    <div style="display:flex;flex-direction:column;gap:6px;"><div class="sk" style="height:11px;width:48%;"></div><div class="sk" style="height:9px;width:72%;"></div><div class="sk" style="height:8px;width:44%;"></div></div>
+                    <div style="display:flex;flex-direction:column;gap:6px;"><div class="sk" style="height:11px;width:70%;"></div><div class="sk" style="height:8px;width:34%;"></div></div>
+                  </div>
+                </div>
+                <div>
+                  <div class="states-lbl">Error · names the file and the fix</div>
+                  <div style="padding:6px 0 12px;">
+                    <div class="v-banner" style="border-color:color-mix(in srgb,var(--r) 38%,transparent);background:color-mix(in srgb,var(--r) 11%,transparent);">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" style="color:var(--r)"><use href="#i-alert"/></svg>
+                      <span><b>settings.json could not be parsed</b><span>Line 14: trailing comma after "model". Nothing was written; your file is untouched.</span></span>
+                    </div>
+                    <div style="padding:8px 10px 0;display:flex;gap:6px;">
+                      <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-ext"/></svg>Open line 14</button>
+                      <button class="v-btn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-refresh"/></svg>Retry</button>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="states-lbl">Search across every tab &nbsp;·&nbsp; <kbd style="font-family:var(--mono);font-size:10px;">Cmd K</kbd></div>
+                  <div style="height:230px;position:relative;overflow:hidden;">
+                    <div class="v-pal" style="position:absolute;padding-top:18px;">
+                      <div class="v-pal-box">
+                        <div class="v-pal-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><use href="#i-search"/></svg><span>quota</span><span class="cursor"></span></div>
+                        <div class="v-pal-list">
+                          <div class="v-pal-g">Sessions</div>
+                          <button class="v-pal-r on" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-msg"/></svg><span class="grow">Quota bar live refresh</span><kbd>18m</kbd></button>
+                          <button class="v-pal-r" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-msg"/></svg><span class="grow">Quota cache invalidation</span><kbd>Mon</kbd></button>
+                          <div class="v-pal-g">Account</div>
+                          <button class="v-pal-r" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg><span class="grow">Weekly quota · 88% used</span></button>
+                          <div class="v-pal-g">Settings</div>
+                          <button class="v-pal-r" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-cog"/></svg><span class="grow">Enable live quota polling</span></button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="sliver">
+          <span style="width:42%"></span><span style="width:70%"></span><span style="width:58%"></span>
+          <span style="width:34%"></span><span style="width:66%"></span><span style="width:50%"></span>
+          <span style="width:74%"></span><span style="width:28%"></span><span style="width:62%"></span>
+          <span style="width:46%"></span><span style="width:68%"></span><span style="width:40%"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="notes" aria-label="Notes for the current screen">
+    <div class="note on" data-note="sessions">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P0">One primary action, not six peers</span><span class="d">Temp, Restore, Import and Import&nbsp;Many move into the split-button menu. Six equal-weight buttons in a 135px auto-fit grid wrap to three rows at 280px and answer no question about what to click first.</span></li>
+          <li><span class="t" data-sev="P0">Filters collapse to what is actually on</span><span class="d">Project, branch, worktree and date used three permanent rows. Now the bar shows only active filters as removable chips; the funnel opens the rest.</span></li>
+          <li><span class="t" data-sev="P1">Row separators removed</span><span class="d">A 1px rule under every row turns a session list into a ledger. Sticky group headers and the hover fill carry the structure instead.</span></li>
+          <li><span class="t" data-sev="P1">Nothing disappears on hover</span><span class="d">Today the timestamp and pin are set to <code>visibility:hidden</code> on hover and the action rides a gradient over the title. Actions now sit in a reserved gutter.</span></li>
+        </ul>
+        <div class="metric"><span class="big">118px</span><span class="lbl">of chrome reclaimed above the first row at 340px wide, before any scrolling</span></div>
+      </div>
+    </div>
+    <div class="note" data-note="detail">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P1">Status reads as a labelled chip</span><span class="d">A coloured dot alone carries the live state today. The chip pairs the dot with the word, so the state survives colour blindness and a screenshot.</span></li>
+          <li><span class="t" data-sev="P2">Stats become a 2&times;2 tile block</span><span class="d">Four numbers in one row at 280px gave each 60px. Two columns keep the figures readable at every width.</span></li>
+          <li><span class="t" data-sev="P2">Transcript gets real typographic roles</span><span class="d">Role label, body, tool call and code block are four distinct treatments rather than four sizes of grey.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="note" data-note="skills">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P1">One scope colour map, five tabs</span><span class="d">Project is green, global is neutral, plugin is purple, built-in is blue, local is amber. Today Skills, Commands, Hooks and MCP each paint the same four scopes differently.</span></li>
+          <li><span class="t" data-sev="P1">Description truncation moves to CSS</span><span class="d">Slicing at 60 characters in JS cuts mid-word and ignores the panel width. <code>text-overflow</code> cuts at the actual edge.</span></li>
+          <li><span class="t" data-sev="P2">Tags read as outline chips</span><span class="d">Filled neutral for scope, outline for free tags. Two roles, two shapes, no third badge vocabulary.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="note" data-note="mcp">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P0">Connection state is on the row</span><span class="d">A failed server is the single most useful thing this tab can tell you, and today it only appears in a banner for claude.ai connectors. Every row now carries a live / failed / disabled dot plus a retry action.</span></li>
+          <li><span class="t" data-sev="P1">Four icon buttons become two</span><span class="d">Add stays; globe and refresh move into the overflow. Three unlabelled glyphs beside a search box is recall, not recognition.</span></li>
+          <li><span class="t" data-sev="P2">Count line reports health</span><span class="d">&ldquo;7 servers · 6 connected&rdquo; answers the question the tab exists for before you read a single row.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="note" data-note="agents">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P1">The validity warning says what is wrong</span><span class="d">The amber dot for a missing description is invisible without a hover. The row now states the consequence: Claude cannot tell when to delegate.</span></li>
+          <li><span class="t" data-sev="P2">Tool grants are visible in the list</span><span class="d">Which tools an agent holds is the second thing you want to know and currently requires opening the detail view.</span></li>
+          <li><span class="t" data-sev="P2">Model chips share the scope palette</span><span class="d">No separate ModelBadge colour system.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="note" data-note="commands">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P1">Monospace only on the command name</span><span class="d">The name is a literal you type, so it is mono. The description is prose, so it is not. Today both sit in the same grey.</span></li>
+          <li><span class="t" data-sev="P2">Run and copy share the row-action gutter</span><span class="d">Same position, same size, same reveal as every other tab.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="note" data-note="hooks">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P1">The hook gets a name</span><span class="d">A row headed by a truncated shell command is unreadable. The first comment line, or the script filename, becomes the title; the command drops to the mono subtitle.</span></li>
+          <li><span class="t" data-sev="P1">Disable is not a pin-off icon</span><span class="d">The toggle currently borrows <code>pin-off</code>, which means nothing here. Pause and play read correctly.</span></li>
+          <li><span class="t" data-sev="P2">Matcher keeps its mono chip</span><span class="d">It is a pattern, so it stays mono, capped at 45% of the row.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="note" data-note="account">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P0">Quota comes before usage history</span><span class="d">&ldquo;How much have I got left&rdquo; is the question this tab is opened for. Ninety days of history is context, not the headline.</span></li>
+          <li><span class="t" data-sev="P1">Donut becomes a stacked bar</span><span class="d">A five-slice donut at 300px cannot label itself. A single stacked bar with a legend reads at 280px and drops the hand-rolled SVG.</span></li>
+          <li><span class="t" data-sev="P1">Stat tiles share one grid</span><span class="d">Four tiles across a 280px panel give each 62px, so 18.4M wraps. Two columns, hairline-separated.</span></li>
+          <li><span class="t" data-sev="P2">Percentages get a plain-language line</span><span class="d">&ldquo;88%&rdquo; is a number. &ldquo;Resets Sunday 05:30&rdquo; is a decision.</span></li>
+        </ul>
+        <div class="metric"><span class="big">1,366</span><span class="lbl">lines in account.css today, most of it re-implementing Section, Field, Tile and Bar. Those move to shared/ui.</span></div>
+      </div>
+    </div>
+    <div class="note" data-note="config">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P1">One search across settings and permissions</span><span class="d">Config has four stacked sections and one search box buried in the middle of Permissions.</span></li>
+          <li><span class="t" data-sev="P1">Permission lists become chips</span><span class="d">Sixty-two one-per-row entries push Settings history below three screenfuls. Chips with a &ldquo;+44 more&rdquo; keep the section scannable.</span></li>
+          <li><span class="t" data-sev="P1">Config stops borrowing <code>acct-*</code> classes</span><span class="d">The Config tab styles itself out of <code>account.css</code> today. Section, Field, Label and Hint become shared primitives with honest names.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="note" data-note="states">
+      <div class="note-card">
+        <h3>What changed</h3>
+        <ul class="chg">
+          <li><span class="t" data-sev="P1">One empty state, not six</span><span class="d">There are currently six parallel implementations: <code>.empty</code>, <code>.empty-state</code>, <code>.state-empty</code>, <code>.cmd-empty</code>, <code>.agent-empty</code>, <code>.acct-empty</code>.</span></li>
+          <li><span class="t" data-sev="P1">Skeletons that mirror the row</span><span class="d">The shimmer is <code>rgba(255,255,255,.08)</code>, which is close to invisible on a light theme. Switch it to a <code>color-mix</code> of the foreground.</span></li>
+          <li><span class="t" data-sev="P1">Errors name the file, the line and the fix</span><span class="d">And state plainly that nothing was written, which is the reassurance the recent settings.json fixes earned.</span></li>
+          <li><span class="t" data-sev="P0">One search for the whole extension</span><span class="d">Eight tabs, each with its own box that only searches itself. A single palette over sessions, skills, commands, agents, servers and settings is the highest-leverage addition here.</span></li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<section class="report">
+  <div class="report-in">
+
+    <div>
+      <h2>The audit</h2>
+      <p style="margin-top:10px;">Read across all eight tabs, 5,929 lines of CSS and roughly ninety Preact components. The deterministic anti-pattern scan over every webview source file returned zero findings, which is genuinely rare, and the token layer in <code>src/styles/tokens.css</code> is better documented than most design systems that ship with a Figma file. The problems are not taste problems. They are density, hierarchy and repetition problems.</p>
+    </div>
+
+    <div>
+      <h3>Design health</h3>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Heuristic</th><th>Score</th><th>Key issue</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>Visibility of system status</td><td class="s" data-v="4">4</td><td>Host busy bar, load deadline with retry, live dots, per-tab skeletons. Best-in-class.</td></tr>
+            <tr><td>2</td><td>Match with the real world</td><td class="s" data-v="3">3</td><td>Hook rows are headed by a truncated shell command; the disable toggle borrows a <code>pin-off</code> glyph.</td></tr>
+            <tr><td>3</td><td>User control and freedom</td><td class="s" data-v="3">3</td><td>No undo surface for a permission removal or a hook delete; the host confirm dialog is the only gate.</td></tr>
+            <tr><td>4</td><td>Consistency and standards</td><td class="s" data-v="2">2</td><td>Four badge vocabularies, six empty states, per-tab scope colour maps, Config styled from <code>account.css</code>.</td></tr>
+            <tr><td>5</td><td>Error prevention</td><td class="s" data-v="4">4</td><td>Recent work refuses every write into an unparsable config. Exactly right.</td></tr>
+            <tr><td>6</td><td>Recognition over recall</td><td class="s" data-v="2">2</td><td>Eight tabs overflow a 340px strip with the scrollbar hidden; up to four unlabelled icon buttons per toolbar.</td></tr>
+            <tr><td>7</td><td>Flexibility and efficiency</td><td class="s" data-v="2">2</td><td>No global search, no keyboard shortcuts beyond arrow keys in the tab strip, no jump between tabs.</td></tr>
+            <tr><td>8</td><td>Aesthetic and minimalist design</td><td class="s" data-v="2">2</td><td>Up to 230px of stacked chrome before the first session row; a rule under every row; a nearly flat 10–16px type scale.</td></tr>
+            <tr><td>9</td><td>Error recovery</td><td class="s" data-v="3">3</td><td>Parse errors surface in a banner but do not name the line or offer to open it.</td></tr>
+            <tr><td>10</td><td>Help and documentation</td><td class="s" data-v="3">3</td><td>Empty states teach the file format well. Nothing teaches the tabs themselves.</td></tr>
+          </tbody>
+          <tfoot><tr><td></td><td>Total</td><td class="s">28</td><td>/40 — solid engineering, undifferentiated surface</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div>
+      <h3>Does it look AI-generated?</h3>
+      <p>No. The deterministic scan over <code>src/webview</code> and all eight feature webview directories returned an empty finding set: no gradient text, no side-stripe accents, no eyebrow scaffolding, no identical card grids. Every colour resolves through a <code>--vscode-*</code> variable with a documented fallback chain, which is the opposite of generated CSS.</p>
+      <p style="margin-top:10px;">The failure mode here is the product-register one instead: <b>strangeness without purpose</b>. Four chip shapes that are similar but not identical. The same scope concept painted green on one tab and blue on the next. Six ways to say &ldquo;nothing here&rdquo;. A user fluent in Linear or Raycast would not call this AI-made; they would pause at each of those seams.</p>
+    </div>
+
+    <div>
+      <h3>What is working</h3>
+      <ul>
+        <li><b>The role-token layer.</b> <code>--role-primary-*</code>, <code>--role-selected-*</code>, <code>--role-ghost-*</code> with a comment explaining why selection is deliberately not primary blue. That reasoning is worth more than the tokens.</li>
+        <li><b>Accessibility is not an afterthought.</b> Roving tabindex on a real <code>tablist</code>, wrapping arrow keys, <code>prefers-reduced-motion</code> on every animation, a neutral badge token introduced specifically because the native <code>badge.background</code> pair fails contrast on light themes.</li>
+        <li><b>Loading is honest.</b> Skeletons on first paint, an indeterminate bar after 300ms, and a deadline that swaps the shimmer for a status line and a retry. Most extensions ship a spinner and hope.</li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>Priority issues</h3>
+      <div class="issues">
+
+        <div class="issue">
+          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>Eight tabs do not fit a sidebar</h4></div>
+          <dl>
+            <dt>What</dt><dd>Eight labelled tabs at roughly 85px each need about 680px. The default sidebar is 300–400px, so half the product is off-screen, and <code>.tab-list::-webkit-scrollbar { display: none }</code> removes the only hint that it continues. Account and Config, the two tabs a returning user opens most, sit last.</dd>
+            <dt>Fix</dt><dd>Icon-only tabs with the label revealed on the active tab, which fits all eight at 280px with room to spare. Keep the arrow-key roving tabindex; add the tooltip as the label for the seven inactive ones.</dd>
+            <dt>Command</dt><dd><code>/impeccable layout</code></dd>
+          </dl>
+        </div>
+
+        <div class="issue">
+          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>Up to 230px of chrome before the first session</h4></div>
+          <dl>
+            <dt>What</dt><dd>The Sessions tab stacks an action grid of six buttons (which wraps to two or three rows under 420px), a search row, a filter row of dropdowns, a date segmented control and a count header. On a 900px-tall sidebar that is a quarter of the viewport spent before any content, every single time.</dd>
+            <dt>Fix</dt><dd>One primary split button, a search row, and a chip bar that renders only the filters that are actually set. The date range and the project, branch and worktree pickers move behind the funnel.</dd>
+            <dt>Command</dt><dd><code>/impeccable distill</code></dd>
+          </dl>
+        </div>
+
+        <div class="issue">
+          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>No way to search across tabs</h4></div>
+          <dl>
+            <dt>What</dt><dd>Each of the eight tabs has its own search field that only searches its own list. Finding a session when you are on Config means switching tabs, waiting for a lazy mount, and typing again.</dd>
+            <dt>Fix</dt><dd>One palette on <kbd>Cmd K</kbd> over sessions, skills, commands, agents, servers, hooks and settings keys, grouped by source. Every feature already has its filtered signal, so the aggregation is cheap.</dd>
+            <dt>Command</dt><dd><code>/impeccable craft</code></dd>
+          </dl>
+        </div>
+
+        <div class="issue">
+          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Four badge systems and per-tab scope colours</h4></div>
+          <dl>
+            <dt>What</dt><dd><code>.tag</code>, <code>.vsc-badge</code>, <code>.hook-matcher</code> and <code>.acct-plan-badge</code> are four near-identical 18px pills with different fonts, radii and colour rules. Worse, the same scope means different colours per tab: Commands paints built-in blue and project green, Skills has no built-in at all, MCP uses blue for transport rather than scope, and Hooks routes through its own <code>scopeClass</code>.</dd>
+            <dt>Fix</dt><dd>One <code>Chip</code> primitive with one size and five tones, and one exported scope-to-tone map imported by all five list features.</dd>
+            <dt>Command</dt><dd><code>/impeccable extract</code></dd>
+          </dl>
+        </div>
+
+        <div class="issue">
+          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Hovering a row destroys information</h4></div>
+          <dl>
+            <dt>What</dt><dd><code>.session-item:hover .item-time { visibility: hidden }</code> and the same rule for <code>.pin-icon</code>. The action cluster then rides a gradient over the title tail. Pointing at the row you are reading removes the timestamp, the pin marker, and the end of the name.</dd>
+            <dt>Fix</dt><dd>Reserve a 28px action gutter on every row across every tab. The buttons fade in; nothing fades out.</dd>
+            <dt>Command</dt><dd><code>/impeccable polish</code></dd>
+          </dl>
+        </div>
+
+        <div class="issue">
+          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>A nearly flat type scale doing no work</h4></div>
+          <dl>
+            <dt>What</dt><dd>10 / 11 / 12 / 13 / 14 / 16px, a ratio of 1.08 between the two most-used steps. Hierarchy therefore rests entirely on colour, and the colour ramp is <code>--fg</code>, <code>--fg-dim</code>, <code>--fg-muted</code>, all muted by design. Nothing on a row is emphatic.</dd>
+            <dt>Fix</dt><dd>11 / 12 / 13 / 15 / 18 with weight carrying the rest: 600 for names, 500 for body, 400 for meta. Same density, real hierarchy.</dd>
+            <dt>Command</dt><dd><code>/impeccable typeset</code></dd>
+          </dl>
+        </div>
+
+        <div class="issue">
+          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Config is styled out of account.css</h4></div>
+          <dl>
+            <dt>What</dt><dd>The Config tab renders <code>.acct-section</code>, <code>.acct-field</code>, <code>.acct-label</code>, <code>.acct-field-hint</code> and <code>.acct-actions</code>. Those names are a leak: there is no shared Section or Field primitive, so the second feature that needed one reached across the boundary. <code>account.css</code> is 1,366 lines, the largest file in the project, and Config depends on all of it.</dd>
+            <dt>Fix</dt><dd>Promote <code>Section</code>, <code>Field</code>, <code>Label</code>, <code>Hint</code>, <code>StatTile</code> and <code>MetaRow</code> into <code>src/webview/shared/ui</code> with neutral class names, then migrate both tabs.</dd>
+            <dt>Command</dt><dd><code>/impeccable extract</code></dd>
+          </dl>
+        </div>
+
+        <div class="issue">
+          <div class="issue-h"><span class="sev" data-v="P2">P2</span><h4>The skeleton shimmer is invisible on light themes</h4></div>
+          <dl>
+            <dt>What</dt><dd><code>.skeleton-el::after</code> sweeps <code>rgba(255,255,255,0.08)</code> across a <code>--bg-hover</code> base. On a light theme that is white on near-white, so half the users see a static grey bar where the other half see motion.</dd>
+            <dt>Fix</dt><dd><code>color-mix(in srgb, var(--fg) 9%, transparent)</code>, which tracks the theme in both directions. Same one-line change fixes the focus ring: <code>--focus-ring: 1px</code> falls short of the 2px minimum WCAG 2.2 asks for on focus appearance.</dd>
+            <dt>Command</dt><dd><code>/impeccable audit</code></dd>
+          </dl>
+        </div>
+
+      </div>
+    </div>
+
+    <div>
+      <h3>Who this breaks for</h3>
+      <div class="persona">
+        <div>
+          <h4>The returning power user</h4>
+          <p>Opens the sidebar twenty times a day to resume a session. Pays the 230px chrome tax every time, cannot jump to a session from the Config tab without losing their place, and has no keyboard path to Account, which is off-screen at default width. They will pin the panel wider than they want to, or stop opening it.</p>
+        </div>
+        <div>
+          <h4>The first-run installer</h4>
+          <p>Installed after a Google search, deciding in under a minute whether this is safe. Lands on Sessions, sees six unexplained buttons and three filter rows, and never discovers Skills, MCP or Hooks because those tabs are past the right edge of a strip with no scrollbar.</p>
+        </div>
+        <div>
+          <h4>Anyone on a light theme</h4>
+          <p>Gets a static skeleton instead of a shimmer, a 1px focus ring on a light ground, and low-contrast neutral chips wherever a feature still uses the old <code>--badge-*</code> pair rather than <code>--badge-neutral-*</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3>Smaller things worth a pass</h3>
+      <ul>
+        <li>Descriptions truncate at 60 characters in Skills and 80 in Agents using <code>String.slice</code>, which cuts mid-word and ignores the real panel width. <code>text-overflow: ellipsis</code> already does this correctly and responsively.</li>
+        <li>The hook disable toggle uses the <code>pin-off</code> icon. It means nothing in that context; pause and play do.</li>
+        <li>The app footer costs about 32px on every tab for two links. Those belong in the tab-strip overflow.</li>
+        <li>Five features hard-code a virtualization threshold of 50 and a fixed row height (64, 84, 48, 56, 56) that has to be kept in sync with CSS by hand. One measured-row virtual list would remove five sources of drift.</li>
+        <li>Group-header rows in Sessions are collapsible; the same headers in Skills, Commands, MCP, Agents and Hooks are not. Same visual, different behaviour.</li>
+      </ul>
+    </div>
+
+    <div>
+      <h3>Questions worth answering before building</h3>
+      <ul>
+        <li>Do Commands and Skills need to be separate tabs? Both are <code>/name</code> invocations backed by a markdown file, and merging them would take the strip to seven.</li>
+        <li>If the palette lands, does the per-tab search box still earn its 36px?</li>
+        <li>What does this look like at 220px, which is where a developer with a split editor actually leaves the sidebar?</li>
+      </ul>
+    </div>
+
+    <p class="foot">Scored against Nielsen's ten heuristics with the bundled anti-pattern detector as the second, independent pass. Screens above are interactive mockups, not the shipping build. Sample data is illustrative.</p>
+  </div>
+</section>
+
+<script>
+(function () {
+  var TABS = [
+    ['sessions','Sessions','i-msg','src/features/sessions/webview/ui/views/ListView.tsx'],
+    ['skills','Skills','i-spark','src/features/skills/webview/ui/ListView/ListView.tsx'],
+    ['mcp','MCP','i-plug','src/features/mcp/webview/ui/ListView/ListView.tsx'],
+    ['agents','Agents','i-bot','src/features/agents/webview/ui/AgentListView/AgentListView.tsx'],
+    ['commands','Commands','i-term','src/features/commands/webview/ui/CommandsListView/CommandsListView.tsx'],
+    ['hooks','Hooks','i-hook','src/features/hooks/webview/ui/ListView/ListView.tsx'],
+    ['account','Account','i-user','src/features/account/webview/index.tsx'],
+    ['config','Config','i-cog','src/features/config/webview/index.tsx']
+  ];
+  var EXTRA = {
+    detail: ['Transcript','src/features/sessions/webview/ui/views/DetailView.tsx'],
+    states: ['Empty, loading, error, palette','src/webview/shared/ui/EmptyState + Skeleton']
+  };
+  var TAB_OF = { detail: 'sessions', states: 'hooks' };
+
+  var stage = document.getElementById('stage');
+  var fbody = document.getElementById('fbody');
+  var vsc = document.getElementById('vsc');
+  var tabsEl = document.getElementById('tabs');
+  var titleEl = document.getElementById('stage-title');
+  var pathEl = document.getElementById('stage-path');
+  var current = 'sessions';
+
+  // Build the sidebar tab strip once, then mark the active one.
+  TABS.forEach(function (t) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'v-tab';
+    b.setAttribute('role', 'tab');
+    b.title = t[1];
+    b.dataset.tab = t[0];
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#' + t[2] + '"/></svg><span>' + t[1] + '</span>';
+    b.addEventListener('click', function () { go(t[0]); });
+    tabsEl.appendChild(b);
+  });
+  var sp = document.createElement('span');
+  sp.className = 'spacer';
+  tabsEl.appendChild(sp);
+  var more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'v-tab-more';
+  more.title = 'Refresh and extension links';
+  more.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><use href="#i-dots"/></svg>';
+  tabsEl.appendChild(more);
+
+  function go(id) {
+    current = id;
+    document.querySelectorAll('.screen').forEach(function (s) {
+      var on = s.dataset.screen === id;
+      s.style.display = on ? 'flex' : 'none';
+    });
+    var tabId = TAB_OF[id] || id;
+    tabsEl.querySelectorAll('.v-tab').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.tab === tabId);
+      b.setAttribute('aria-selected', b.dataset.tab === tabId ? 'true' : 'false');
+    });
+    document.querySelectorAll('.rail button').forEach(function (b) {
+      b.setAttribute('aria-current', b.dataset.go === id ? 'true' : 'false');
+    });
+    document.querySelectorAll('.note').forEach(function (n) {
+      n.classList.toggle('on', n.dataset.note === id);
+    });
+    var meta = EXTRA[id];
+    if (!meta) {
+      var t = TABS.filter(function (x) { return x[0] === id; })[0];
+      meta = [t[1], t[3]];
+    }
+    titleEl.textContent = meta[0];
+    pathEl.textContent = meta[1];
+  }
+
+  document.querySelectorAll('.rail button').forEach(function (b) {
+    b.addEventListener('click', function () { go(b.dataset.go); });
+  });
+
+  function pressGroup(attr, apply) {
+    document.querySelectorAll('[' + attr + ']').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('[' + attr + ']').forEach(function (o) {
+          o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+        });
+        apply(b.getAttribute(attr));
+      });
+    });
+  }
+  pressGroup('data-mode-btn', function (v) { stage.dataset.mode = v; });
+  pressGroup('data-vt-btn', function (v) {
+    fbody.dataset.vtheme = v;
+    vsc.dataset.vtheme = v;
+  });
+  pressGroup('data-w-btn', function (v) { fbody.dataset.w = v; });
+
+  // Activity heatmap: 20 weeks of deterministic sample activity, weekends quiet.
+  var heat = document.getElementById('heat');
+  if (heat) {
+    var seed = 7;
+    function rnd() { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
+    for (var w = 0; w < 20; w++) {
+      var col = document.createElement('div');
+      col.className = 'heat-col';
+      for (var d = 0; d < 7; d++) {
+        var cell = document.createElement('i');
+        var weekend = d === 0 || d === 6;
+        var v = rnd() * (weekend ? 0.45 : 1);
+        if (v > 0.14) {
+          var pct = Math.min(100, Math.round(24 + v * 80));
+          cell.style.background = 'color-mix(in srgb, var(--g) ' + pct + '%, transparent)';
+        }
+        cell.title = v > 0.14 ? Math.round(v * 26) + ' sessions' : 'No activity';
+        col.appendChild(cell);
+      }
+      heat.appendChild(col);
+    }
+  }
+
+  go('sessions');
+})();
+</script>
