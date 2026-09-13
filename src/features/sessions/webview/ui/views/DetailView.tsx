@@ -97,7 +97,7 @@ function StatStrip({ d }: { d: SessionDetail }) {
     // Same tiles the Account tab uses for its usage figures. These were a flat
     // row of four, which at a 340px sidebar gave each figure ~75px — not
     // enough for "397.2k" above the word "tokens".
-    <StatTileGrid>
+    <StatTileGrid class="d-stat-grid">
       <StatTile
         value={fmtTokens(totalMsgs)}
         label={`message${totalMsgs === 1 ? "" : "s"}`}
@@ -307,7 +307,8 @@ function DetailOverflow({ d }: { d: SessionDetail }) {
   return (
     <div ref={ref} class="d-actions-more">
       <Button
-        variant="icon"
+        variant="ghost"
+        class="d-actions-overflow"
         iconName="more-horizontal"
         title="More actions"
         ariaLabel="More session actions"
@@ -454,7 +455,6 @@ export function DetailView() {
             {date} at {fmtTime(d.startTime)}
           </span>
         </div>
-        <StatStrip d={d} />
         {wtInfo ? (
           <div class={cx("d-worktree", { "d-worktree--missing": !wtInfo.exists })}>
             <div class="d-worktree__title">
@@ -491,6 +491,10 @@ export function DetailView() {
         ) : null}
       </div>
 
+      {/* Actions sit above the figures. Opening a session is almost always a
+          decision to resume, view or export it; the counts are context for
+          that decision, not the reason you came. Stats first pushed the one
+          control anybody wants below a block of numbers. */}
       <Actions
         d={d}
         isPinned={isPinned}
@@ -498,6 +502,7 @@ export function DetailView() {
         hasOpenTerminal={openTerminalsSignal.value.has(d.id) || Boolean(d.isLive)}
         worktree={worktree}
       />
+      <StatStrip d={d} />
 
       <div class="d-scroll">
         <div class="d-section">
@@ -523,7 +528,7 @@ export function DetailView() {
                 type="text"
                 autocomplete="off"
                 spellcheck={false}
-                placeholder="Search messages..."
+                placeholder="Find in transcript"
                 aria-label="Search messages"
                 value={rawQuery}
                 onInput={(e) => setRawQuery((e.target as HTMLInputElement).value)}

@@ -14,6 +14,7 @@
  * caller to use two.
  */
 import type { ComponentChildren } from "preact";
+import { cx } from "../../lib";
 
 export interface StatTileProps {
   /** The figure, already formatted — this component does not format. */
@@ -34,6 +35,8 @@ export function StatTile({ value, label, title }: StatTileProps) {
 }
 
 export interface StatTileGridProps {
+  /** Placement only — the grid owns its dividers, callers own their insets. */
+  class?: string;
   children?: ComponentChildren;
 }
 
@@ -42,6 +45,6 @@ export interface StatTileGridProps {
  * allowed, which at a typical width was three — orphaning a fourth tile on a
  * row of its own so the block read as a mistake.
  */
-export function StatTileGrid({ children }: StatTileGridProps) {
-  return <div class="stat-tile-grid">{children}</div>;
+export function StatTileGrid({ class: cls, children }: StatTileGridProps) {
+  return <div class={cx("stat-tile-grid", cls)}>{children}</div>;
 }

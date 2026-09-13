@@ -569,6 +569,46 @@
    target. Applied uniformly so refresh / globe / back / resume and every
    feature toolbar icon share one affordance. NO permanent resting border or
    background — that would read as non-native. */
+/* ── Action rows are chromeless ─────────────────────────────────────────
+ * One filled primary per surface; everything beside it is chromeless until
+ * hovered. A row of bordered secondaries competes with its own primary, and
+ * because each is sized by its label the row wraps into ragged columns — which
+ * is what the session detail, the account actions and every detail view looked
+ * like: a pile of boxes where there should be one decision and its
+ * alternatives.
+ *
+ * Scoped to action ROWS. A `.btn-secondary` inside a form or a dialog still
+ * needs its edge to read as a control in isolation, which is exactly why the
+ * --role-secondary-border chain exists; this does not touch those.
+ */
+.d-actions > .btn-secondary,
+.actions-row > .btn-secondary,
+.agent-detail-actions > .btn-secondary,
+.cmd-detail-actions > .btn-secondary,
+.mcp-detail-actions > .btn-secondary {
+  background: none;
+  border-color: transparent;
+  color: var(--role-text-secondary);
+}
+.d-actions > .btn-secondary:hover,
+.actions-row > .btn-secondary:hover,
+.agent-detail-actions > .btn-secondary:hover,
+.cmd-detail-actions > .btn-secondary:hover,
+.mcp-detail-actions > .btn-secondary:hover {
+  background: var(--role-ghost-hover-bg);
+  color: var(--role-text-primary);
+}
+/* Danger keeps its red label and loses its box with the rest — the colour is
+   the warning, the border was never doing that work. */
+.d-actions > .btn-danger,
+.actions-row > .btn-danger,
+.agent-detail-actions > .btn-danger,
+.cmd-detail-actions > .btn-danger,
+.mcp-detail-actions > .btn-danger {
+  background: none;
+  border-color: transparent;
+}
+
 /* GHOST — icon + label, no border, no fill until hover. A secondary action
    standing beside a primary one: still obviously a control, but it does not
    put a second box next to the box that matters. */

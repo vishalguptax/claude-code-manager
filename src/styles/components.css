@@ -992,29 +992,26 @@
 .stat-tile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* Hairlines, not boxes. The separator is the 1px gap letting the border
-     colour show through, so four figures read as one block divided up rather
-     than as four filled cards stacked in a column. Filled tiles put a heavy
-     rounded rectangle around each number, and four of them dominate a panel
-     whose actual subject is the transcript below. */
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
 }
+/* Dividers BETWEEN the figures, and no box around them. A filled tile, or even
+   an outer border, draws a container the figures do not need — they are four
+   readings of one session, not four separate objects. So each cell rules its
+   own right and bottom edge and the outer edges are left open, which lets the
+   block sit in the page instead of on it. */
 .stat-tile {
-  /* Panel colour, so only the gap reads as a line. */
-  background: var(--bg);
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-md) var(--space-lg) var(--space-md) 0;
   min-width: 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
-/* An odd number of tiles would leave the last cell empty — a bordered box
-   around nothing, which reads as a missing figure rather than as a grid that
-   happens not to divide by two. The transcript hits this whenever a session
-   reports no token total: messages, tools and duration make three. */
+/* Right column has nothing to its right; bottom row nothing below. */
+.stat-tile:nth-child(2n) { border-right: none; padding-left: var(--space-lg); }
+.stat-tile:nth-last-child(-n + 2):nth-child(2n + 1),
+.stat-tile:last-child { border-bottom: none; }
+/* An odd count would leave the last cell empty — a divider around nothing. */
 .stat-tile:last-child:nth-child(odd) {
   grid-column: 1 / -1;
+  border-right: none;
 }
 .stat-tile-value {
   font-size: var(--fs-xl);
