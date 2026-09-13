@@ -134,7 +134,7 @@ describe("buildWorktreeOptions", () => {
       c1: ref({ kind: "claude" }),
       c2: ref({ kind: "claude" }),
     };
-    const opts = buildWorktreeOptions(sessions, NONE, wt);
+    const opts = buildWorktreeOptions(sessions, wt, () => true);
     expect(opts[0]).toEqual({ value: "all", label: "All checkouts", count: 4 });
     expect(opts.find((o) => o.value === "main")).toEqual({
       value: "main",
@@ -146,10 +146,12 @@ describe("buildWorktreeOptions", () => {
     expect(opts.find((o) => o.value === "user")).toBeUndefined();
   });
 
-  it("excludes deleted sessions from the counts", () => {
+  it("counts only sessions the caller's scope admits", () => {
+    // The caller passes every other active filter as a predicate, so a
+    // deleted (or date-excluded, or branch-excluded) session is never counted.
     const sessions = [session({ id: "c1" }), session({ id: "c2" })];
     const wt: WorktreeMap = { c1: ref({ kind: "claude" }), c2: ref({ kind: "claude" }) };
-    const opts = buildWorktreeOptions(sessions, new Set(["c2"]), wt);
+    const opts = buildWorktreeOptions(sessions, wt, (s) => s.id !== "c2");
     expect(opts[0].count).toBe(1);
     expect(opts.find((o) => o.value === "claude")?.count).toBe(1);
   });

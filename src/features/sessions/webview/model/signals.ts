@@ -20,6 +20,7 @@ import {
   type WorktreeFilter,
   type WorktreeMap,
   type WorktreeOption,
+  type FilterScope,
   buildBranchOptions,
   buildProjectOptions,
   buildRows,
@@ -28,7 +29,8 @@ import {
   hasWorktrees,
   isVolatileLabel,
   listBranches,
-  matchesWorktreeFilter,
+  matchesProject,
+  matchesScope,
   orderProjects,
 } from "../lib";
 
@@ -259,49 +261,10 @@ export function getFiltered(): Session[] {
   const worktreeFilter = filterWorktreeSignal.value;
   const repoRoot = currentRepoRootSignal.value;
 
-  let list = all.filter((s) => !deleted.has(s.id));
-
-  if (project === "current") {
-    // Only narrow when the current scope is known; a cold-start race
-    // (workspace not resolved yet) shows everything rather than an
-    // empty list that reads like "no sessions". When the workspace is a
-    // worktree, "current" spans the whole repo (every sibling worktree);
-    // otherwise it narrows to the workspace project exactly as before.
-    if (repoRoot) {
-      list = list.filter((s) => worktrees[s.id]?.repoRoot === repoRoot);
-    } else if (currentProject) {
-      list = list.filter((s) => s.projectKey === currentProject);
-    }
-  } else if (project !== "all") {
-    // A concrete selection is either a repoRoot (worktree repo, collapsed in
-    // the dropdown) or a plain project name. Worktree sessions match their
-    // repoRoot; everything else matches its project name (verbatim old rule).
-    list = list.filter((s) => {
-      const ref = worktrees[s.id];
-      return ref ? ref.repoRoot === project : s.project === project;
-    });
-  }
-
-  if (date === "week" || date === "month") {
-    const now = Date.now();
-    const cutoff = date === "week" ? now - 7 * 86400000 : now - 30 * 86400000;
-    list = list.filter((s) => s.endTime >= cutoff || pinned.has(s.id));
-  }
-
-  if (branch !== "all") {
-    // Branch is an explicit narrowing: show that branch only. Unlike the date
-    // cutoff (which pins bypass so they don't age out), a pinned session on a
-    // *different* branch must not leak into a branch view — that made the row
-    // count exceed the branch dropdown's badge and surprised users who picked
-    // a branch expecting just that branch.
-    list = list.filter((s) => (s.branch || "(no branch)") === branch);
-  }
-
-  if (worktreeFilter !== "all") {
-    // Narrow to a single worktree kind (main / claude / user). Sessions with no
-    // ref match no concrete kind, so they only appear under "All checkouts".
-    list = list.filter((s) => matchesWorktreeFilter(s, worktrees, worktreeFilter));
-  }
+  // Project / date / branch / worktree all live in `matchesScope`, which the
+  // filter dropdowns read too. Keeping one definition is what stops the
+  // counts in those dropdowns from describing a different list than this one.
+  let list = all.filter((s) => matchesScope(s, currentScope()));
 
   if (query) {
     const hits = ft.query === query ? ft.ids : null;
@@ -327,6 +290,25 @@ export function getFiltered(): Session[] {
   }
 
   return list;
+}
+
+/**
+ * Snapshot every filter dimension into the shared {@link FilterScope} the
+ * list and the dropdowns both evaluate against.
+ */
+export function currentScope(): FilterScope {
+  return {
+    deleted: deletedSignal.value,
+    pinned: pinnedSignal.value,
+    project: filterProjectSignal.value,
+    currentProject: currentProjectSignal.value,
+    date: filterDateSignal.value,
+    branch: filterBranchSignal.value,
+    worktree: filterWorktreeSignal.value,
+    worktrees: worktreesSignal.value,
+    repoRoot: currentRepoRootSignal.value,
+    now: Date.now(),
+  };
 }
 
 /**
@@ -387,13 +369,7 @@ export function getBranches(): string[] {
  * wrapper over the pure `buildProjectOptions` lib helper.
  */
 export function getProjectOptions(): ProjectOption[] {
-  return buildProjectOptions(
-    sessionsSignal.value,
-    deletedSignal.value,
-    currentProjectSignal.value,
-    worktreesSignal.value,
-    currentRepoRootSignal.value,
-  );
+  return buildProjectOptions(sessionsSignal.value, currentScope());
 }
 
 /**
@@ -401,7 +377,10 @@ export function getProjectOptions(): ProjectOption[] {
  * wrapper over the pure `buildWorktreeOptions` lib helper.
  */
 export function getWorktreeOptions(): WorktreeOption[] {
-  return buildWorktreeOptions(sessionsSignal.value, deletedSignal.value, worktreesSignal.value);
+  const scope = currentScope();
+  return buildWorktreeOptions(sessionsSignal.value, scope.worktrees, (s) =>
+    matchesScope(s, scope, "worktree"),
+  );
 }
 
 /**
@@ -420,12 +399,8 @@ export function hasWorktreeSessions(): boolean {
 export function getBranchOptions(): BranchOption[] {
   return buildBranchOptions(
     sessionsSignal.value,
-    deletedSignal.value,
     currentBranchSignal.value,
-    filterProjectSignal.value,
-    currentProjectSignal.value,
-    worktreesSignal.value,
-    currentRepoRootSignal.value,
+    currentScope(),
   );
 }
 
@@ -534,6 +509,43 @@ export function applyDefaultFilters(defaultFilter?: string, defaultProject?: str
   }
   if (defaultProject && projectUnset) {
     filterProjectSignal.value = defaultProject;
+  }
+}
+
+/**
+ * Drop a persisted project / branch selection that no longer matches anything.
+ *
+ * Both are stored verbatim and survive reloads, so a selection can outlive the
+ * data behind it: a branch that only existed in another repo, or — because the
+ * project dropdown keys its options by repoRoot once the deferred `worktrees`
+ * message resolves, and by plain project name before that — a project value
+ * chosen in the window before resolution. The list then renders empty with no
+ * indication why, and no amount of reopening fixes it because the dead value
+ * is what gets restored.
+ *
+ * Called after sessions and worktrees land. "current"/"all" are always valid.
+ */
+export function pruneUnmatchedFilters(): void {
+  const sessions = sessionsSignal.value;
+  if (sessions.length === 0) return;
+
+  const project = filterProjectSignal.value;
+  if (project !== "current" && project !== "all") {
+    const scope = { ...currentScope(), project };
+    if (!sessions.some((s) => matchesProject(s, scope))) {
+      filterProjectSignal.value = "current";
+    }
+  }
+
+  const branch = filterBranchSignal.value;
+  if (branch !== "all") {
+    const inScope = { ...currentScope(), branch: "all" };
+    const reachable = sessions.some(
+      (s) =>
+        matchesScope(s, inScope, "branch") &&
+        (s.branch || "(no branch)") === branch,
+    );
+    if (!reachable) filterBranchSignal.value = "all";
   }
 }
 

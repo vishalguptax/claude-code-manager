@@ -29,6 +29,7 @@ import {
   setPinned,
   setWorkspacePath,
   setWorktrees,
+  pruneUnmatchedFilters,
   statsSignal,
   viewSignal,
 } from "./signals";
@@ -46,6 +47,10 @@ export function handleMessage(msg: Message): void {
       // First list (even an empty one) ends the cold-start loading gate so the
       // list/empty-state can render. Subsequent pushes keep it loaded.
       loadedSignal.value = true;
+      // A persisted project/branch choice can name something this data set has
+      // nothing under; drop it rather than render an unexplained empty list
+      // the user cannot escape by reopening.
+      pruneUnmatchedFilters();
       break;
     }
     case "error": {
@@ -87,6 +92,9 @@ export function handleMessage(msg: Message): void {
       // Values pass through the shared protocol as `unknown`; the feature owns
       // the WorktreeRef shape and narrows here.
       setWorktrees(msg.map as Record<string, WorktreeRef>);
+      // Worktree refs re-key the project dropdown (project name -> repoRoot),
+      // so re-check the selection now that the mapping is final.
+      pruneUnmatchedFilters();
       break;
     case "terminalSessions":
       setOpenTerminals(msg.ids);

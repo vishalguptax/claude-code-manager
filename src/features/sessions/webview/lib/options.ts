@@ -8,6 +8,7 @@
  */
 import type { Session } from "../../types";
 import { pathTail, type WorktreeMap } from "./worktrees";
+import { matchesScope, type FilterScope } from "./scope";
 
 /**
  * All project names, current project first, then by most recent activity.
@@ -76,11 +77,9 @@ export interface ProjectOption {
  */
 export function buildProjectOptions(
   sessions: Session[],
-  deleted: Set<string>,
-  currentProject: string,
-  worktrees: WorktreeMap = {},
-  repoRoot: string | null = null,
+  scope: FilterScope,
 ): ProjectOption[] {
+  const { currentProject, worktrees, repoRoot } = scope;
   const counts = new Map<string, number>();
   const labelByValue = new Map<string, string>();
   const keyByValue = new Map<string, string>();
@@ -88,8 +87,10 @@ export function buildProjectOptions(
   const isRepoValue = new Set<string>();
   let currentCount = 0;
   let totalCount = 0;
+  // Every dimension except project, so each project's count reflects the
+  // date / branch / worktree filters the user already has applied.
   for (const s of sessions) {
-    if (deleted.has(s.id)) continue;
+    if (!matchesScope(s, scope, "project")) continue;
     totalCount++;
     const ref = worktrees[s.id];
     // Worktree sessions collapse under repoRoot; others keep their project name.
@@ -151,12 +152,8 @@ export interface BranchOption {
  */
 export function buildBranchOptions(
   sessions: Session[],
-  deleted: Set<string>,
   currentBranch: string,
-  project: string,
-  currentProject: string,
-  worktrees: WorktreeMap = {},
-  repoRoot: string | null = null,
+  scope: FilterScope,
 ): BranchOption[] {
   // Scope must match getFiltered exactly, or the counts describe a different
   // list than the one on screen. Two worktree cases were missing: "current" in
@@ -164,21 +161,15 @@ export function buildBranchOptions(
   // a repoRoot (buildProjectOptions collapses each repo's worktrees under one
   // option whose value IS the repoRoot) — comparing that against s.project
   // matched nothing, so picking a collapsed repo emptied the branch dropdown.
-  const inScope = (s: Session): boolean => {
-    if (project === "all") return true;
-    if (project === "current") {
-      if (repoRoot) return worktrees[s.id]?.repoRoot === repoRoot;
-      return !currentProject || s.projectKey === currentProject;
-    }
-    const ref = worktrees[s.id];
-    return ref ? ref.repoRoot === project : s.project === project;
-  };
+  // Every dimension except branch — so each option's count is what the list
+  // would show if the user picked it, with the date and worktree filters they
+  // already have applied still in force.
+  const inScope = (s: Session): boolean => matchesScope(s, scope, "branch");
 
   const counts = new Map<string, number>();
   const latest = new Map<string, number>();
   let total = 0;
   for (const s of sessions) {
-    if (deleted.has(s.id)) continue;
     if (!inScope(s)) continue;
     total++;
     const key = s.branch || "(no branch)";

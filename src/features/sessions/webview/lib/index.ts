@@ -10,6 +10,15 @@ export {
   type Row,
 } from "./groups";
 export {
+  matchesScope,
+  matchesProject,
+  matchesDate,
+  matchesBranch,
+  matchesWorktree,
+  type FilterDimension,
+  type FilterScope,
+} from "./scope";
+export {
   buildBranchOptions,
   buildProjectOptions,
   listBranches,

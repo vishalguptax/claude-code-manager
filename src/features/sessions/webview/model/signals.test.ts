@@ -28,6 +28,7 @@ import {
   hasWorktreeSessions,
   collapsedGroupsSignal,
   initFilterPersistence,
+  pruneUnmatchedFilters,
   loadPersistedFilters,
   toggleGroupCollapsed,
   pinnedSignal,
@@ -719,6 +720,46 @@ describe("sessions signals", () => {
       stopFilterPersistence();
       expect(filterDateSignal.value).toBe("month");
       expect(filterProjectSignal.value).toBe("all");
+    });
+  });
+
+  describe("pruneUnmatchedFilters", () => {
+    it("drops a project selection nothing matches", () => {
+      // A value persisted before the deferred `worktrees` message re-keyed
+      // the dropdown from project name to repoRoot would otherwise render an
+      // empty list forever — reopening restores the same dead value.
+      sessionsSignal.value = [session({ id: "a", project: "alpha", projectKey: "alpha" })];
+      filterProjectSignal.value = "/gone/repo";
+      pruneUnmatchedFilters();
+      expect(filterProjectSignal.value).toBe("current");
+    });
+
+    it("keeps a project selection that still matches", () => {
+      sessionsSignal.value = [session({ id: "a", project: "alpha", projectKey: "alpha" })];
+      filterProjectSignal.value = "alpha";
+      pruneUnmatchedFilters();
+      expect(filterProjectSignal.value).toBe("alpha");
+    });
+
+    it("drops a branch that no in-scope session has", () => {
+      sessionsSignal.value = [session({ id: "a", branch: "main" })];
+      filterBranchSignal.value = "released-long-ago";
+      pruneUnmatchedFilters();
+      expect(filterBranchSignal.value).toBe("all");
+    });
+
+    it("keeps a branch that is reachable in the current scope", () => {
+      sessionsSignal.value = [session({ id: "a", branch: "main" })];
+      filterBranchSignal.value = "main";
+      pruneUnmatchedFilters();
+      expect(filterBranchSignal.value).toBe("main");
+    });
+
+    it("does nothing before any sessions have arrived", () => {
+      sessionsSignal.value = [];
+      filterProjectSignal.value = "alpha";
+      pruneUnmatchedFilters();
+      expect(filterProjectSignal.value).toBe("alpha");
     });
   });
 });

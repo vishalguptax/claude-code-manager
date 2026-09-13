@@ -105,13 +105,16 @@ export interface WorktreeOption {
  */
 export function buildWorktreeOptions(
   sessions: Session[],
-  deleted: Set<string>,
   worktrees: WorktreeMap,
+  // Takes a predicate rather than the FilterScope itself: scope.ts already
+  // imports this module for matchesWorktreeFilter, so depending on it here
+  // would close a cycle. The caller supplies the scope minus this dimension.
+  inScope: (s: Session) => boolean,
 ): WorktreeOption[] {
   let total = 0;
   const counts: Record<"main" | "claude" | "user", number> = { main: 0, claude: 0, user: 0 };
   for (const s of sessions) {
-    if (deleted.has(s.id)) continue;
+    if (!inScope(s)) continue;
     total++;
     const kind = worktrees[s.id]?.kind;
     if (kind) counts[kind]++;
