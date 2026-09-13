@@ -326,7 +326,11 @@ button,
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  padding: var(--space-lg) var(--space-2xl);
+  /* Tight vertical padding: this is persistent chrome on every tab, and at
+     --space-lg top and bottom it stood taller than a session row while
+     carrying a wordmark and two links. Horizontal inset still matches the
+     rows above it. */
+  padding: var(--space-xs) var(--space-2xl);
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));

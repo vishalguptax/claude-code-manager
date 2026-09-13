@@ -106,7 +106,7 @@ function SearchBox() {
       value={searchQuerySignal.value}
       onInput={onQuery}
       debounceMs={SEARCH_DEBOUNCE_MS}
-      placeholder="Search sessions and transcripts"
+      placeholder="Search"
       ariaLabel="Search sessions"
     />
   );

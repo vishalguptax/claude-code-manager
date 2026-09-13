@@ -5,14 +5,24 @@
  * so section headers stay simple.
  *
  * Search uses the shared <SearchInput> (debounced) and the refresh affordance
- * is a shared icon <Button>; the model filter is the shared <ScopeFilter>
- * segmented control. All three live in the standard `.search-row` chrome.
+ * is a shared icon <Button>; the model filter is the shared <Dropdown>, the
+ * same control the sessions project filter uses, with each model's count as a
+ * trailing badge.
+ *
+ * It was a segmented control, which is the right primitive for two to four
+ * short, fixed options. This filter is neither: five options that each carry a
+ * count ("Sonnet (18)") need ~440px of track, so in a 300px sidebar it always
+ * wrapped onto a second line and no layout rule made two ragged rows read as
+ * one control. The option set is also open-ended — it grows with every model
+ * Claude Code ships. A dropdown costs one line at any width and any number of
+ * models.
  */
 import {
   Button,
   EmptyState,
+  Dropdown,
+  type DropdownOption,
   ErrorBanner,
-  ScopeFilter,
   SearchInput,
   VirtualList,
 } from "../../../../../webview/shared/ui";
@@ -43,7 +53,7 @@ const VIRTUALIZE_THRESHOLD = 50;
  */
 const ROW_HEIGHT = 56;
 
-/** Model filter segments (label + value); counts are injected per render. */
+/** Model filter options (label + value); counts are injected per render. */
 const MODEL_OPTIONS: ReadonlyArray<{ value: ModelFilterValue; label: string }> = [
   { value: "all", label: "All" },
   { value: "sonnet", label: "Sonnet" },
@@ -71,7 +81,11 @@ export function AgentListView({ onRefresh, onNew }: AgentListViewProps) {
     filterModel.value = value;
   };
 
-  const modelOptions = MODEL_OPTIONS.map((opt) => ({ ...opt, count: counts[opt.value] }));
+  const modelOptions: DropdownOption[] = MODEL_OPTIONS.map((opt) => ({
+    value: opt.value,
+    label: opt.label,
+    badge: counts[opt.value],
+  }));
 
   return (
     <div class="panel">
@@ -82,7 +96,7 @@ export function AgentListView({ onRefresh, onNew }: AgentListViewProps) {
           onInput={(v) => {
             searchQuery.value = v.toLowerCase();
           }}
-          placeholder="Search agents..."
+          placeholder="Search"
           ariaLabel="Search agents"
           debounceMs={150}
         />
@@ -102,11 +116,18 @@ export function AgentListView({ onRefresh, onNew }: AgentListViewProps) {
         />
       </div>
       {all.length > 0 ? (
-        <ScopeFilter<ModelFilterValue>
-          value={filterModel.value}
-          options={modelOptions}
-          onChange={onModelChange}
-        />
+        <div class="filter-row">
+          <Dropdown
+            ariaLabel="Filter by model"
+            icon="bot"
+            value={filterModel.value}
+            options={modelOptions}
+            // Dropdown is not generic over its value type; the options come
+            // from MODEL_OPTIONS, so every value it can emit is a
+            // ModelFilterValue.
+            onChange={(next) => onModelChange(next as ModelFilterValue)}
+          />
+        </div>
       ) : null}
       <div class="list agent-list">
         {all.length === 0 ? (

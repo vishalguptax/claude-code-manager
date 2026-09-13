@@ -526,7 +526,7 @@ export function DetailView() {
                 type="text"
                 autocomplete="off"
                 spellcheck={false}
-                placeholder="Find in transcript"
+                placeholder="Search"
                 aria-label="Search messages"
                 value={rawQuery}
                 onInput={(e) => setRawQuery((e.target as HTMLInputElement).value)}

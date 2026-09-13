@@ -84,7 +84,7 @@ export function PermissionsView({
           <div class="field">
             <SearchInput
               value={search}
-              placeholder="Search tools..."
+              placeholder="Search"
               ariaLabel="Search tools"
               onInput={onSearchChange}
             />

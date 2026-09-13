@@ -97,7 +97,7 @@ export function CommandsListView() {
         <SearchInput
           value={searchQuery.value}
           onInput={onSearch}
-          placeholder="Search commands..."
+          placeholder="Search"
           ariaLabel="Search commands"
         />
         <Button

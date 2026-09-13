@@ -167,7 +167,13 @@
      exact primary-blue block this role exists to avoid. The secondary-button
      fill is the neutral raised surface actually wanted here. */
   --role-selected-bg: var(--vscode-button-secondaryBackground,
-    var(--vscode-toolbar-activeBackground, var(--btn-sec-bg)));
+    var(--vscode-toolbar-activeBackground,
+      /* Last resort must still PAINT. Every earlier link in this chain is a
+         theme colour a theme is allowed to omit, and when they were all absent
+         the selected state resolved to nothing — a selected segment or active
+         tab identical to an unselected one. Mixing the foreground into the
+         surface always yields a visible step, in light themes and dark. */
+      color-mix(in srgb, var(--vscode-foreground, #808080) 14%, transparent)));
   --role-selected-fg: var(--vscode-foreground, var(--fg));
   --role-unselected-fg: var(--vscode-descriptionForeground, var(--fg-dim));
   /* Track: the recessed channel the segments sit in. */

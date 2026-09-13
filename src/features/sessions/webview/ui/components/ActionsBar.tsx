@@ -83,7 +83,7 @@ export function ActionsBar() {
         title="Start a new Claude Code session in a fresh terminal"
         onClick={() => sendNewSession()}
       >
-        New session
+        New Session
       </Button>
       <Button
         variant="icon"

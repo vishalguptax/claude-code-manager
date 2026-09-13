@@ -72,7 +72,7 @@ export function ListView() {
         <SearchInput
           value={searchQuery.value}
           ariaLabel="Search hooks"
-          placeholder="Search hooks..."
+          placeholder="Search"
           debounceMs={150}
           onInput={(v) => {
             // Lowercased to match the signal's case-insensitive contract.

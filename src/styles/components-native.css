@@ -672,20 +672,20 @@
   height: auto;
   min-height: var(--h-control);
   box-sizing: border-box;
-  /* Hug the content instead of spanning the panel. With full-width segments
-     that each took an equal share of their OWN row, a set that wrapped came
-     out ragged: three wide segments above two wider ones, each row centred on
-     a different grid. Content-sized segments pack from the left, so a wrapped
-     row reads as a continuation of the one above it. */
-  width: fit-content;
-  max-width: 100%;
 }
+/* Wrapped onto a second line. Each line divides its OWN width between however
+   few segments landed on it, so a wrapped set came out ragged — segments on
+   the short line far wider than those above. When wrapped the segments stop
+   growing and pack from the left instead, so the second line reads as a
+   continuation of the first. Set by <Segmented>, which measures the wrap. */
+.vsc-segmented.is-packed { justify-content: flex-start; }
+.vsc-segmented.is-packed .vsc-segmented-seg { flex: 0 0 auto; }
 
 
 .vsc-segmented-seg {
-  /* Content-sized. These used to be `flex: 1 1 0` so the control spanned the
-     panel, which is what made a wrapped set ragged (see the track above). */
-  flex: 0 1 auto;
+  /* Fill the track when the segments fit on one line; `.is-packed` above
+     switches this off for the wrapped case. */
+  flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;

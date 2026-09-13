@@ -36,6 +36,7 @@
    read as a second, broken indicator. TabBar scrolls the active tab into view
    instead, so the overflow is never a dead end. */
 .tab-list::-webkit-scrollbar { display: none; }
+.tab-list { scrollbar-width: none; }
 
 /* Global reload affordance — pinned right, never scrolls with the tabs.
    Ghost toolbar chrome: transparent at rest (no border/fill — unlike the
@@ -87,7 +88,11 @@
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  color: var(--fg-dim);
+  /* The panel-title colours, which is what this strip is. A theme tunes the
+     active/inactive pair for exactly this job; --fg / --fg-dim resolved to
+     sideBar-foreground vs descriptionForeground, which in most dark themes are
+     close enough that the active tab barely read as active. */
+  color: var(--vscode-panelTitle-inactiveForeground, var(--fg-dim));
   font-size: var(--fs-base);
   font-family: inherit;
   cursor: pointer;
@@ -106,8 +111,8 @@
     border-color var(--transition-control),
     width 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
-.tab-btn:hover {
-  color: var(--fg);
+.tab-btn:hover:not(.active) {
+  color: var(--vscode-panelTitle-activeForeground, var(--fg));
   background: var(--role-ghost-hover-bg);
 }
 .tab-btn:focus-visible {
@@ -115,8 +120,12 @@
   outline-offset: -1px;
 }
 .tab-btn.active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
+  color: var(--vscode-panelTitle-activeForeground, var(--fg));
+  /* Text weight and colour alone were carrying the selected state. A fill
+     makes the cell itself the indicator, so the active tab is obvious at a
+     glance in any theme rather than on close inspection. */
+  background: var(--role-selected-bg);
+  border-bottom-color: var(--vscode-panelTitle-activeBorder, var(--accent));
   font-weight: 600;
   /* Grows to fit its label; every other tab stays a 30px cell. */
   width: auto;

@@ -310,7 +310,7 @@ function openMore(container: ParentNode): void {
 describe("ActionsBar", () => {
   it("leads with one primary action and two icon affordances", () => {
     const { container, getByText } = render(h(ActionsBar, {}));
-    expect(getByText("New session")).toBeTruthy();
+    expect(getByText("New Session")).toBeTruthy();
     // Everything else in the row is an icon: no second labelled button
     // competing with the primary.
     const labelled = Array.from(container.querySelectorAll(".actions-bar .btn")).filter(
@@ -321,7 +321,7 @@ describe("ActionsBar", () => {
 
   it("posts newSession from the primary action", () => {
     const { getByText } = render(h(ActionsBar, {}));
-    fireEvent.click(getByText("New session"));
+    fireEvent.click(getByText("New Session"));
     expect(post).toHaveBeenCalledWith({ type: "newSession" });
   });
 

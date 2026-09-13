@@ -109,7 +109,7 @@ export function ListView() {
           onInput={(v) => {
             searchQuery.value = v.toLowerCase();
           }}
-          placeholder="Search skills..."
+          placeholder="Search"
           ariaLabel="Search skills"
           debounceMs={150}
         />

@@ -520,6 +520,9 @@
 .agent-model-badge {
   display: inline-flex;
   align-items: center;
+  /* Chips may carry a leading glyph (the branch tag, the worktree tag), so the
+     gap belongs to the shared geometry rather than to each chip that adds one. */
+  gap: var(--space-xs);
   height: 18px;
   padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);

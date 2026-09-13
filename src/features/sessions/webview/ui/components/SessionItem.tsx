@@ -233,6 +233,7 @@ export function SessionItem({
           </span>
         ) : branch ? (
           <span class="tag" title={branch}>
+            <Icon name="git-branch" size={12} />
             {branch}
           </span>
         ) : null}

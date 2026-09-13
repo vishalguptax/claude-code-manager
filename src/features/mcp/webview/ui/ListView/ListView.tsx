@@ -164,7 +164,7 @@ export function ListView({
       <div class="search-row">
         <SearchInput
           value={query}
-          placeholder="Search servers..."
+          placeholder="Search"
           ariaLabel="Search MCP servers"
           onInput={(v) => {
             searchQuery.value = v.toLowerCase();

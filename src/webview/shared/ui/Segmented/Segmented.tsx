@@ -25,6 +25,7 @@
  * jump to the ends — matching VS Code's own segmented toggles and the WAI-ARIA
  * radio-group pattern.
  */
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { cx } from "../../lib";
 
 export interface SegmentedOption<V extends string = string> {
@@ -98,6 +99,22 @@ function Segment<V extends string>({
   );
 }
 
+/**
+ * Whether the segments have fallen onto more than one line.
+ *
+ * Segments never shrink below their own text (`min-width: min-content`), so
+ * where the lines break depends only on the labels and the available width —
+ * NOT on whether the segments are currently stretching to fill their row.
+ * That is what makes it safe to switch layout on this result: the answer is
+ * the same before and after the class is applied, so it cannot oscillate.
+ */
+function isWrapped(track: HTMLElement): boolean {
+  const segs = Array.from(track.children) as HTMLElement[];
+  if (segs.length < 2) return false;
+  const top = segs[0].getBoundingClientRect().top;
+  return segs.some((s) => Math.abs(s.getBoundingClientRect().top - top) > 0.5);
+}
+
 export function Segmented<V extends string = string>({
   value,
   options,
@@ -107,6 +124,29 @@ export function Segmented<V extends string = string>({
   disabled = false,
   class: cls,
 }: SegmentedProps<V>) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  // Segments fill the control when they fit on one line, and pack from the
+  // left when they do not. Filling a SECOND line divides that line's width
+  // between however few segments landed on it, so a wrapped set came out
+  // ragged — three segments above two much wider ones, each row on its own
+  // grid. Packing cannot be expressed in CSS (there is no "last line" selector
+  // and auto-fit needs a fixed column floor, which the labels do not have), so
+  // the wrap is measured.
+  const [packed, setPacked] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const measure = (): void => setPacked(isWrapped(el));
+    measure();
+    // The sidebar is resized by the user, so a control that fits today wraps
+    // tomorrow. No ResizeObserver in a test DOM — the first measure still runs.
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [options]);
+
   const move = (delta: number): void => {
     const i = options.findIndex((o) => o.value === value);
     if (i === -1) return;
@@ -144,9 +184,11 @@ export function Segmented<V extends string = string>({
       class={cx(
         "vsc-segmented",
         size === "sm" && "vsc-segmented--sm",
+        packed && "is-packed",
         disabled && "is-disabled",
         cls,
       )}
+      ref={trackRef}
       role="radiogroup"
       aria-label={ariaLabel}
       aria-disabled={disabled ? "true" : undefined}
