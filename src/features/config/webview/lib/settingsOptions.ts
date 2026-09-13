@@ -156,9 +156,28 @@ export function buildModelOptions(data: AccountData, currentModel: string): Arra
   // label for every account regardless of their real default.
   // Show what Default actually resolves to when the statusline knows the
   // running model; fall back to "(auto)" when it doesn't.
-  const defaultLabel = data.activeModel ? `Default (${data.activeModel})` : "Default (auto)";
+  //
+  // Only when nothing is pinned, though. `activeModel` is the model Claude
+  // Code is currently RUNNING, which with a pin in settings.json is just
+  // that pin echoed back — so "Default (Opus 5 (1M context))" sat directly
+  // above the pinned "Opus 5 · 1M context" row, two near-identical lines
+  // where the label claimed Default resolves to the very thing the user
+  // chose instead of it. With a pin we can say nothing true about what
+  // Default would give, so we say nothing.
+  const isPinned = Boolean(currentModel) && currentModel !== "default";
+  const defaultLabel = isPinned
+    ? "Default"
+    : data.activeModel
+      ? `Default (${data.activeModel})`
+      : "Default (auto)";
   const options: Array<SettingOption> = [
-    { value: "default", label: defaultLabel, desc: MODEL_DESCRIPTIONS.default },
+    {
+      value: "default",
+      label: defaultLabel,
+      desc: isPinned
+        ? "Clear the pinned model and follow your account default"
+        : MODEL_DESCRIPTIONS.default,
+    },
   ];
   const seenValues = new Set<string>(["default"]);
   // Dedup on label too, not just value: the CLI scan can surface the same

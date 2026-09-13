@@ -65,6 +65,21 @@ describe("buildModelOptions", () => {
     expect(opts[0].label).toBe("Default (Sonnet 4.5)");
   });
 
+  it("does not name Default after the running model when a model is pinned", () => {
+    // With a pin, activeModel is that pin echoed back from the statusline,
+    // so "Default (Opus 5)" would claim Default resolves to the very model
+    // the user selected instead of it.
+    const data = makeConfigData({
+      activeModel: "Opus 5 (1M context)",
+      availableModels: [
+        { alias: "opus", family: "opus", label: "Opus 5", id: "claude-opus-5", isLatest: true },
+      ],
+    });
+    const opts = buildModelOptions(data, "opus");
+    expect(opts[0].label).toBe("Default");
+    expect(opts[0].desc).toBe("Clear the pinned model and follow your account default");
+  });
+
   it("uses the alias as value for the latest model and dedupes", () => {
     const data = makeConfigData({
       availableModels: [
@@ -184,7 +199,10 @@ describe("buildModelOptions", () => {
       const opts = buildModelOptions(data, "opus[1m]");
       const labels = opts.map((o) => o.label);
       expect(labels).toEqual([
-        "Default (auto)",
+        // Bare "Default": with a model pinned, the statusline's running
+        // model IS that pin, so naming it here would put two identical
+        // lines next to each other.
+        "Default",
         "Fable 5.1",
         "Opus 5",
         "Opus 5 · 1M context",
