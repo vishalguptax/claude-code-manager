@@ -38,8 +38,11 @@ describe("HookItem", () => {
   });
 
   it("colours the scope badge like every other feature's scope badge", () => {
+    // Global takes the neutral fill from the shared scope variant; project,
+    // local, builtin and plugin get their colour from the same one map.
     renderItem({ hook: hook({ scope: "global" }) });
-    expect(screen.getByText("Global").classList.contains("hook-scope-global")).toBe(true);
+    expect(screen.getByText("Global").classList.contains("vsc-badge--scope")).toBe(true);
+    expect(screen.getByText("Global").classList.contains("vsc-badge--scope-global")).toBe(true);
   });
 
   it("shows the all-matcher placeholder when matcher is blank", () => {

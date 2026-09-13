@@ -68,7 +68,7 @@ export function SkillItem(props: SkillItemProps) {
             onCopy(skill.name);
           }}
         />
-        <Badge variant="scope" text={skill.scope} class={`skill-scope-badge scope-${skill.scope}`} />
+        <Badge text={skill.scope} scope={skill.scope} class="skill-scope-badge" />
       </div>
       {desc ? <div class="item-prompt" title={desc}>{desc}</div> : null}
       {skill.tags.length ? (

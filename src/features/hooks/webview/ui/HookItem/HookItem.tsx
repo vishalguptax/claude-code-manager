@@ -9,7 +9,7 @@ import { cx } from "../../../../../webview/shared/lib";
 import { Badge, Button } from "../../../../../webview/shared/ui";
 import type { Hook } from "../../../types";
 import { eventUsesMatcher } from "../../../events";
-import { scopeClass, scopeLabel } from "../../lib";
+import { scopeLabel } from "../../lib";
 
 export interface HookItemProps {
   hook: Hook;
@@ -55,7 +55,7 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
           variant="scope"
           text={scopeLabel(hook)}
           title={scopeLabel(hook)}
-          class={scopeClass(hook.scope)}
+          scope={hook.scope}
         />
         {hook.disabled ? <Badge variant="default" text="disabled" /> : null}
         {isPlugin ? (

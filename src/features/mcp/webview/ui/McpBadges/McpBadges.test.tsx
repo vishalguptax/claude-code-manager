@@ -15,7 +15,9 @@ describe("McpBadges", () => {
       ]),
     );
     const typeBadge = container.querySelector(".mcp-type-http");
-    const scopeBadge = container.querySelector(".mcp-scope-plugin");
+    // Scope colour is decided once by <Badge scope="…">, not by a per-feature
+    // class, so MCP asserts the shared modifier like every other tab.
+    const scopeBadge = container.querySelector(".vsc-badge--scope-plugin");
     expect(typeBadge?.textContent).toBe("http");
     expect(typeBadge?.classList.contains("vsc-badge")).toBe(true);
     expect(scopeBadge?.textContent).toBe("plugin");

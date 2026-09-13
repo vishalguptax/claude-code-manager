@@ -35,15 +35,14 @@ describe("SkillItem", () => {
   });
 
   it("renders the scope badge with the shared Badge chrome for cross-tab parity", () => {
-    // The scope chip must ride the shared `.vsc-badge`/`.vsc-badge--scope`
-    // primitive so its size matches the commands / MCP scope chips. Skills used
-    // to layer an uppercase 18px override that made it the lone outlier; the
-    // per-scope colour modifier (`scope-project`) is all skills adds now.
+    // The scope chip rides the shared primitive so its size AND colour match
+    // the commands / MCP / hooks chips. Both come from <Badge scope="…">;
+    // skills contributes only a shrink guard.
     renderItem({ scope: "project" });
     const badge = screen.getByText("project");
     expect(badge.classList.contains("vsc-badge")).toBe(true);
     expect(badge.classList.contains("vsc-badge--scope")).toBe(true);
-    expect(badge.classList.contains("scope-project")).toBe(true);
+    expect(badge.classList.contains("vsc-badge--scope-project")).toBe(true);
   });
 
   // `.item-prompt` ellipsizes at the row edge; the old 60-character cut

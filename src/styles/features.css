@@ -90,31 +90,6 @@
 .cmd-item.active .cmd-item-preview { color: var(--bg-active-fg); opacity: 0.65; }
 
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Commands — Scope Badge colours. The chip shape (display/font/padding/radius/
-   height) comes from the shared `.vsc-badge` that CommandItem renders; only the
-   per-scope colour modifiers live here so commands badges match the skills / MCP
-   scope chips exactly. (The former `.cmd-scope-badge` base block duplicated the
-   shared chrome with an uppercase 18px override that nothing rendered — removed.)
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.cmd-scope-global {
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-}
-
-.cmd-scope-project {
-  background: var(--green-bg);
-  color: var(--green);
-}
-
-.cmd-scope-builtin {
-  background: var(--color-blue-bg);
-  color: var(--color-blue);
-}
-
-/* .cmd-scope-plugin lives in commands.css (that file's documented job is
-   exactly this — the one scope colour this shared layer omits). */
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

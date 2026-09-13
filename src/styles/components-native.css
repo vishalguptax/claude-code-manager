@@ -474,6 +474,27 @@
   justify-content: center;
 }
 
+/* Scope colours — the single map behind <Badge scope="…">.
+   These were declared four times over (skills .scope-*, commands
+   .cmd-scope-* plus a fifth file for its plugin colour, hooks
+   .hook-scope-*, mcp .mcp-scope-*) with identical values. Features now pass
+   the scope and the colour is decided here. */
+.vsc-badge--scope-project,
+.vsc-badge--scope-local {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.vsc-badge--scope-builtin {
+  background: var(--color-blue-bg);
+  color: var(--color-blue);
+}
+.vsc-badge--scope-plugin {
+  background: var(--color-purple-bg);
+  color: var(--color-purple);
+}
+/* `global` is deliberately absent: it takes the neutral fill from
+   .vsc-badge--scope above, which is exactly what every feature gave it. */
+
 .vsc-badge--status {
   background: var(--color-blue-bg);
   color: var(--color-blue);

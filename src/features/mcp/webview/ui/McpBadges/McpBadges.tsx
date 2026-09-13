@@ -15,7 +15,7 @@ export function TypeBadge({ type }: { type: McpServerType }) {
 
 /** Configuration-scope badge (project / global / plugin). */
 export function ScopeBadge({ scope }: { scope: McpServerScope }) {
-  return <Badge text={scope} variant="scope" class={`mcp-scope-${scope}`} />;
+  return <Badge text={scope} scope={scope} />;
 }
 
 /** "disabled" pill shown on rows whose server is explicitly disabled. */
