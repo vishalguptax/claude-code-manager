@@ -172,14 +172,6 @@
    Agents — Structural (self-contained; no reliance on sibling feature CSS)
    ────────────────────────────────────────────────────────────────────────────── */
 
-/* Fixed-height wrapper for windowed rows. The 56px value is mirrored by
-   ROW_HEIGHT in AgentListView.tsx, which the VirtualList uses for its
-   offset math; keep the two in sync. */
-.agent-vrow {
-  height: 56px;
-  box-sizing: border-box;
-}
-
 /* Back action: uses the shared <BackButton> (`.back-btn` in components.css) —
    no agents-specific override. A prior `.panel > .back-btn` rule here was a
    global leak (every tab renders `.panel`) that clobbered other features' Back

@@ -33,7 +33,14 @@ import { AgentItem } from "../AgentItem";
 
 /** Above this many filtered agents, switch to windowed rendering. */
 const VIRTUALIZE_THRESHOLD = 50;
-/** Fixed row height (px) used for virtualization; matches `agents.css`. */
+/**
+ * Estimated row height (px) for the virtualizer. Only an estimate: VirtualList
+ * measures each rendered row and corrects its offsets, so this affects the
+ * scrollbar before the first measure and nothing after it. It deliberately
+ * does NOT have to match a CSS rule — the fixed-height wrapper that used to
+ * mirror it is gone, because pinning a height clipped any row whose content
+ * grew.
+ */
 const ROW_HEIGHT = 56;
 
 /** Model filter segments (label + value); counts are injected per render. */
@@ -206,15 +213,13 @@ function VirtualAgentRows({
         itemHeight={ROW_HEIGHT}
         renderItem={(row) =>
           row.kind === "header" ? (
-            <div class="group-label agent-vrow">{row.label}</div>
+            <div class="group-label">{row.label}</div>
           ) : (
-            <div class="agent-vrow">
-              <AgentItem
-                agent={row.agent}
-                active={selectedPath === row.agent.path}
-                onSelect={selectAgent}
-              />
-            </div>
+            <AgentItem
+              agent={row.agent}
+              active={selectedPath === row.agent.path}
+              onSelect={selectAgent}
+            />
           )
         }
       />

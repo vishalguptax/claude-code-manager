@@ -178,12 +178,12 @@
   overflow-y: auto;
 }
 
-.mcp-virtual .mcp-item,
-.mcp-virtual .mcp-group-label {
-  height: 48px;
-  box-sizing: border-box;
-}
-
+/* No fixed row height here. VirtualList MEASURES each rendered row and feeds
+   the real height into its offset cache — `itemHeight` is only the estimate
+   used before a row has been measured. Pinning 48px to mirror that constant
+   bought nothing and cost correctness: it is a border-box, so any rule that
+   adds vertical padding (the quiet density, a longer connection preview
+   wrapping) had its content clipped rather than growing the row. */
 .mcp-virtual .mcp-group-label {
   padding-top: var(--space-md);
   padding-bottom: var(--space-md);

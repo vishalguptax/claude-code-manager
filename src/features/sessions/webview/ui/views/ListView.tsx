@@ -47,7 +47,11 @@ import { ListHeader } from "../components/ListHeader";
 import { SessionItem } from "../components/SessionItem";
 import { buildSessionMenuItems } from "../components/sessionMenu";
 
-/** Fixed row height used by the virtualizer; matches the .session-item box. */
+/**
+ * Estimated row height for the virtualizer. VirtualList measures each rendered
+ * row, so short group headers and taller session rows coexist without drift —
+ * this only sizes the scrollbar before the first measure.
+ */
 const ITEM_HEIGHT = 64;
 
 interface MenuState {

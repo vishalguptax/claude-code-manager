@@ -32,7 +32,10 @@ import { HooksEmpty } from "../HooksEmpty";
 
 /** Above this many filtered rows, switch to the windowed flat list. */
 const VIRTUALIZE_THRESHOLD = 50;
-/** Fixed row height (px) used by the virtualizer. Matches hooks.css. */
+/**
+ * Estimated row height (px) for the virtualizer — a pre-measure guess, not a
+ * contract with the stylesheet. VirtualList measures each rendered row.
+ */
 const ITEM_HEIGHT = 64;
 
 export function ListView() {

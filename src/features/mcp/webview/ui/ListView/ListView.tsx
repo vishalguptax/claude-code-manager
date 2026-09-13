@@ -33,7 +33,13 @@ import { McpItem } from "../McpItem";
 
 /** Threshold above which the list windows its rows for scroll performance. */
 const VIRTUAL_THRESHOLD = 50;
-/** Fixed row height (px) used by the virtualized renderer. Must match CSS. */
+/**
+ * Estimated row height (px) for the virtualizer. VirtualList measures each
+ * rendered row and corrects its offsets from the real height, so this is the
+ * pre-measure guess and nothing more. It does NOT have to match a CSS rule:
+ * the stylesheet used to pin 48px to mirror it, which clipped any row whose
+ * content grew instead of letting the row grow.
+ */
 const ROW_HEIGHT = 48;
 
 export interface ListViewProps {

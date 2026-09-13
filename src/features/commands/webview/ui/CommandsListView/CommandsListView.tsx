@@ -29,7 +29,11 @@ import { CommandItem } from "../CommandItem";
 
 /** Above this flattened row count, the list is windowed for scroll perf. */
 const VIRTUALIZE_THRESHOLD = 50;
-/** Fixed row height (px) shared by header and item rows for virtualization. */
+/**
+ * Estimated row height (px) for the virtualizer. Header and item rows differ;
+ * VirtualList measures each one, so this only sizes the scrollbar before the
+ * first measure.
+ */
 const ROW_HEIGHT = 56;
 
 export function CommandsListView() {

@@ -32,7 +32,10 @@ import { SkillItem } from "../SkillItem";
 
 /** Above this count the list switches to windowed rendering. */
 const VIRTUAL_THRESHOLD = 50;
-/** Fixed row height (px) used only in virtualized mode. */
+/**
+ * Estimated row height (px) used only in virtualized mode. VirtualList
+ * measures each rendered row, so this is the pre-measure guess.
+ */
 const VIRTUAL_ROW_HEIGHT = 84;
 
 /** Flattened row model so headings and items share one virtualized list. */
