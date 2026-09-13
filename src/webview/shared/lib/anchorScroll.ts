@@ -16,6 +16,10 @@
  * does not work: the clamp is applied after the correction callback runs, so
  * the difference reads zero and nothing fires.
  *
+ * Only a header the user can SEE is held. If it is already scrolled out of
+ * view, the thing they were looking at is the content being removed, and
+ * pinning the offset would strand them below the whole panel in blank space.
+ *
  * Where the collapse leaves the content shorter than the panel there is no
  * offset left to hold: the maximum is 0. For that case the scroller is given
  * temporary room below its content, just enough to keep the anchor still. The
@@ -25,8 +29,10 @@
  * the real content ends, or when the content grows enough not to need it.
  */
 
-/** How many frames to wait for a collapse to land before correcting anyway. */
-const SETTLE_FRAMES = 10;
+/** How long to wait between checks that the collapse has landed. */
+const SETTLE_INTERVAL_MS = 16;
+/** How many checks before correcting anyway, for a toggle that resizes nothing. */
+const SETTLE_TRIES = 10;
 
 /** Numeric px of extra room currently held open on a scroller. */
 const EXTRA = "anchorExtra";
@@ -137,6 +143,20 @@ export function keepAnchored(anchor: HTMLElement | null, mutate: () => void): vo
 
   const top = anchor.getBoundingClientRect().top;
   const height = scroller.scrollHeight;
+
+  // Only hold an anchor the user can see. If the header is already off-screen
+  // — they scrolled down INTO the section and collapsed it from a keyboard
+  // shortcut or a header further up — then what they were looking at is the
+  // content being removed, and there is no position worth preserving. Holding
+  // the offset there would strand them in blank space below the panel's whole
+  // content. Let the browser settle it instead, which shows the shortened
+  // panel from the top.
+  const visible = top >= scroller.getBoundingClientRect().top && top <= window.innerHeight;
+  if (!visible) {
+    mutate();
+    return;
+  }
+
   mutate();
 
   const correct = (): void => {
@@ -159,27 +179,22 @@ export function keepAnchored(anchor: HTMLElement | null, mutate: () => void): vo
     if (room > 0) releaseWhenUnused(scroller);
   };
 
-  if (typeof requestAnimationFrame !== "function") {
-    correct();
-    return;
-  }
-
-  // Wait for the collapse to actually land. The caller sets a signal, and the
-  // component re-render it triggers does not necessarily happen before the
-  // next frame — correcting too early measures the OLD height, finds nothing
-  // to fix, and then the browser clamps the offset afterwards. So watch for
-  // the content height to change, and give up after a few frames so a toggle
-  // that does not resize anything still gets its drift pass.
-  let frames = 0;
+  // Timers, not animation frames. A frame is not guaranteed: a webview that is
+  // occluded, in a background window, or simply not compositing gets no
+  // rAF callbacks at all, and the correction would silently never run — which
+  // is exactly how the first version looked like it worked in one window and
+  // did nothing in another. Reading scrollHeight forces layout, so a timer
+  // sees the same settled geometry a frame would.
+  let waited = 0;
   const waitForLayout = (): void => {
-    if (scroller.scrollHeight !== height || frames >= SETTLE_FRAMES) {
+    if (scroller.scrollHeight !== height || waited >= SETTLE_TRIES) {
       correct();
       return;
     }
-    frames++;
-    requestAnimationFrame(waitForLayout);
+    waited++;
+    setTimeout(waitForLayout, SETTLE_INTERVAL_MS);
   };
-  requestAnimationFrame(waitForLayout);
+  setTimeout(waitForLayout, 0);
 }
 
 /**

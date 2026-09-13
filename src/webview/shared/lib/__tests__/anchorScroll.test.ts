@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { findScroller, keepAnchored } from "../anchorScroll";
 
 /**
@@ -45,14 +45,21 @@ function anchorIn(box: HTMLElement & { setContentHeight(n: number): void }, docu
   return { el, moveInDocument: (to: number) => { docTop = to; } };
 }
 
-const frame = (): void => {
-  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
-    cb(0);
-    return 1;
-  });
-};
+/**
+ * The correction is scheduled on timers rather than animation frames, so that
+ * an occluded webview — which gets no frames at all — still corrects. Tests
+ * drive those timers directly.
+ */
+function settle(): void {
+  vi.advanceTimersByTime(16 * 12);
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
 });
@@ -92,7 +99,6 @@ describe("findScroller", () => {
 
 describe("keepAnchored", () => {
   it("holds the header still when the collapse clamps the offset", () => {
-    frame();
     // The Account case: 1345px of content in a 570px panel, scrolled to 260,
     // collapsing Usage leaves 570px — so the offset would be forced to 0.
     const box = scroller({ content: 1345, clientHeight: 570 });
@@ -102,13 +108,14 @@ describe("keepAnchored", () => {
 
     keepAnchored(el, () => box.setContentHeight(570));
 
+    settle();
+
     expect(box.scrollTop).toBe(260);
     expect(el.getBoundingClientRect().top).toBe(115);
     expect(Number.parseFloat(box.style.paddingBottom)).toBeGreaterThan(0);
   });
 
   it("opens exactly the room the offset needs, shortfall included", () => {
-    frame();
     // 380px of content left in a 570px panel at offset 260: the offset cannot
     // move until the 190px shortfall is covered too, so 450px is needed. A
     // formula that measures from the current maximum offset asks for 260,
@@ -119,18 +126,21 @@ describe("keepAnchored", () => {
 
     keepAnchored(el, () => box.setContentHeight(380));
 
+    settle();
+
     expect(Number.parseFloat(box.style.paddingBottom)).toBe(450);
     expect(box.scrollTop).toBe(260);
     expect(el.getBoundingClientRect().top).toBe(115);
   });
 
   it("needs no room when the content still overflows", () => {
-    frame();
     const box = scroller({ content: 1345, clientHeight: 570 });
     box.scrollTop = 260;
     const { el } = anchorIn(box, 375);
 
     keepAnchored(el, () => box.setContentHeight(1200));
+
+    settle();
 
     expect(box.scrollTop).toBe(260);
     expect(el.getBoundingClientRect().top).toBe(115);
@@ -138,7 +148,6 @@ describe("keepAnchored", () => {
   });
 
   it("follows the anchor when something above it changes height", () => {
-    frame();
     const box = scroller({ content: 1345, clientHeight: 570 });
     box.scrollTop = 300;
     const a = anchorIn(box, 500);
@@ -146,28 +155,30 @@ describe("keepAnchored", () => {
 
     // A section above collapses by 60px, carrying this header up with it.
     keepAnchored(a.el, () => a.moveInDocument(440));
+    settle();
 
     expect(a.el.getBoundingClientRect().top).toBe(200);
     expect(box.scrollTop).toBe(240);
   });
 
   it("never opens more than one screenful", () => {
-    frame();
     const box = scroller({ content: 4000, clientHeight: 300 });
     box.scrollTop = 3000;
     const { el } = anchorIn(box, 3100);
 
     keepAnchored(el, () => box.setContentHeight(300));
 
+    settle();
+
     expect(Number.parseFloat(box.style.paddingBottom)).toBeLessThanOrEqual(300);
   });
 
   it("gives the room back once the user scrolls to the end of real content", () => {
-    frame();
     const box = scroller({ content: 1345, clientHeight: 570 });
     box.scrollTop = 260;
     const { el } = anchorIn(box, 375);
     keepAnchored(el, () => box.setContentHeight(570));
+    settle();
     expect(Number.parseFloat(box.style.paddingBottom)).toBeGreaterThan(0);
 
     box.scrollTop = 0;
@@ -177,27 +188,30 @@ describe("keepAnchored", () => {
   });
 
   it("gives the room back when the content grows again", () => {
-    frame();
     const box = scroller({ content: 1345, clientHeight: 570 });
     box.scrollTop = 260;
     const { el } = anchorIn(box, 375);
     keepAnchored(el, () => box.setContentHeight(570));
+    settle();
     expect(Number.parseFloat(box.style.paddingBottom)).toBeGreaterThan(0);
 
     keepAnchored(el, () => box.setContentHeight(1345));
+
+    settle();
 
     expect(box.style.paddingBottom).toBe("");
     expect(box.scrollTop).toBe(260);
   });
 
   it("preserves the element's own padding when it releases the room", () => {
-    frame();
     const box = scroller({ content: 1345, clientHeight: 570 });
     box.style.paddingBottom = "12px";
     box.scrollTop = 260;
     const { el } = anchorIn(box, 375);
 
     keepAnchored(el, () => box.setContentHeight(570));
+
+    settle();
     expect(Number.parseFloat(box.style.paddingBottom)).toBeGreaterThan(12);
 
     box.scrollTop = 0;
@@ -206,23 +220,25 @@ describe("keepAnchored", () => {
   });
 
   it("leaves an unscrolled panel alone", () => {
-    frame();
     const box = scroller({ content: 1345, clientHeight: 570 });
     const { el } = anchorIn(box, 100);
 
     keepAnchored(el, () => box.setContentHeight(570));
+
+    settle();
 
     expect(box.scrollTop).toBe(0);
     expect(box.style.paddingBottom).toBe("");
   });
 
   it("still performs the mutation with no scrollable ancestor", () => {
-    frame();
     const plain = scroller({ overflowY: "visible" });
     const { el } = anchorIn(plain, 100);
     const mutate = vi.fn();
 
     keepAnchored(el, mutate);
+
+    settle();
 
     expect(mutate).toHaveBeenCalledOnce();
   });
@@ -230,16 +246,20 @@ describe("keepAnchored", () => {
   it("still performs the mutation with no anchor", () => {
     const mutate = vi.fn();
     keepAnchored(null, mutate);
+    settle();
     expect(mutate).toHaveBeenCalledOnce();
   });
 
-  it("corrects immediately where there is no animation frame", () => {
+  it("corrects even when no frame is ever painted", () => {
+    // An occluded webview gets no rAF callbacks; timers still fire.
     vi.stubGlobal("requestAnimationFrame", undefined);
     const box = scroller({ content: 1345, clientHeight: 570 });
     box.scrollTop = 260;
     const { el } = anchorIn(box, 375);
 
     keepAnchored(el, () => box.setContentHeight(570));
+
+    settle();
 
     expect(box.scrollTop).toBe(260);
   });
