@@ -48,20 +48,6 @@
 
 /* Result count captions use the shared `.list-count` (components.css). */
 
-.cmd-group-label,
-.hook-group-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fg-section);
-  /* Unified section-header rhythm — see .group-label (sessions.css). */
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
 .cmd-item {
   padding: var(--space-lg) var(--space-2xl);
   cursor: pointer;

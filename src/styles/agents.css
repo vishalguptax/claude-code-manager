@@ -206,17 +206,6 @@
    Agents — Structural (self-contained; no reliance on sibling feature CSS)
    ────────────────────────────────────────────────────────────────────────────── */
 
-/* Scope section heading inside the agent list (Project / Global / Plugin). */
-.agent-list .group-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fg-section);
-  /* Unified section-header rhythm — see .group-label (sessions.css). */
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
-}
-
 /* Fixed-height wrapper for windowed rows. The 56px value is mirrored by
    ROW_HEIGHT in AgentListView.tsx, which the VirtualList uses for its
    offset math; keep the two in sync. */

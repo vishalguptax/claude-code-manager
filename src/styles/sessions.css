@@ -68,33 +68,6 @@
   color: var(--fg-muted);
 }
 
-.group-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fg-section);
-  /* Section-header rhythm: --space-lg above (matches the account/config
-     .acct-section-header top inset) and --space-sm below to the first row.
-     Shared by every list group-label (sessions/commands/hooks/mcp/agents) so
-     the uppercase group titles sit on one cross-tab rhythm. */
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
-}
-
-/*
- * Nested sub-group label under a scope header — shown only when a
- * skills directory contains subfolders. Lower visual weight than
- * `.group-label` so the scope (Project / Global) still reads as the
- * primary grouping; the folder path is contextual.
- */
-.group-sublabel {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  padding: var(--space-md) var(--space-2xl) 4px;
-  font-family: var(--font-mono, monospace);
-  letter-spacing: 0.2px;
-}
-
 .item {
   padding: var(--space-lg) var(--space-2xl);
   cursor: pointer;

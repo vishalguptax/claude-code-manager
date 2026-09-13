@@ -98,6 +98,52 @@
   padding: var(--space-xs) var(--space-2xl) var(--space-xs);
 }
 
+/* ──────────────────────────────────────────────────────────────────────────────
+   Section heading inside a grouped list ("TODAY", "PROJECT", "PRE TOOL USE", …).
+
+   One block, five class names. Sessions, Skills and Agents render
+   `.group-label`; Commands and Hooks render `.cmd-group-label` /
+   `.hook-group-label`; MCP renders `.mcp-group-label`. The markup differs
+   because each feature names its own rows, but the heading is one component,
+   and it used to be declared four separate times — in sessions.css,
+   features.css, mcp.css and agents.css — each copy carrying a comment pointing
+   at another copy as the reference. Four owners means four chances to drift.
+
+   Rhythm: --space-lg above (matching the account/config .acct-section-header
+   top inset) and --space-sm below to the first row, so every list heading in
+   the extension sits on one cross-tab cadence.
+
+   Feature files may still override this — they load later — but they now
+   override a definition instead of restating one. MCP's windowed list does
+   exactly that to pin a fixed row height (see mcp.css).
+   ────────────────────────────────────────────────────────────────────────────── */
+.group-label,
+.cmd-group-label,
+.hook-group-label,
+.mcp-group-label {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--fg-section);
+  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Nested sub-group heading under a scope header — shown only when a skills
+   directory contains subfolders. Lower visual weight than the group label
+   above, so the scope (Project / Global) still reads as the primary grouping
+   and the folder path reads as context. */
+.group-sublabel {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  padding: var(--space-md) var(--space-2xl) 4px;
+  font-family: var(--font-mono, monospace);
+  letter-spacing: 0.2px;
+}
+
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Quick Actions Bar
