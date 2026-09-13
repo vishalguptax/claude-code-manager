@@ -1,7 +1,19 @@
-import { describe, it, expect } from "vitest";
-import { activeTab, ready, theme } from "../globalSignals";
+import { describe, it, expect, beforeEach } from "vitest";
+import type { Message } from "../../../../shared/protocol/schemas";
+import { activeTab, applyShellSettings, density, ready, theme } from "../globalSignals";
+
+/** Build a `settings` message with an arbitrary density payload. The host
+ *  variant is a loose object, so density may be absent, or a value the
+ *  webview does not know. */
+function settingsMsg(value?: unknown): Message {
+  return { type: "settings", ...(value === undefined ? {} : { density: value }) } as Message;
+}
 
 describe("globalSignals", () => {
+  beforeEach(() => {
+    density.value = "comfortable";
+  });
+
   it("has sensible defaults", () => {
     expect(activeTab.value).toBe("sessions");
     expect(ready.value).toBe(false);
@@ -13,5 +25,55 @@ describe("globalSignals", () => {
     activeTab.value = "skills";
     expect(activeTab.value).toBe("skills");
     activeTab.value = prev;
+  });
+
+  describe("density", () => {
+    // The default has to match the setting's own default in package.json,
+    // otherwise the first paint is the wrong density until the host handshake
+    // lands, and the panel visibly re-skins on open.
+    it("defaults to comfortable, matching the setting default", () => {
+      expect(density.value).toBe("comfortable");
+    });
+
+    it("applies quiet from the host settings push", () => {
+      applyShellSettings(settingsMsg("quiet"));
+      expect(density.value).toBe("quiet");
+    });
+
+    it("applies comfortable, so switching the setting back re-skins", () => {
+      density.value = "quiet";
+      applyShellSettings(settingsMsg("comfortable"));
+      expect(density.value).toBe("comfortable");
+    });
+
+    // The value is stamped into the DOM and selected on by CSS. An unknown
+    // string would match no rule and silently render comfortable anyway, so
+    // normalise here and keep the signal's type honest for other readers.
+    it("falls back to comfortable for an unknown value", () => {
+      density.value = "quiet";
+      applyShellSettings(settingsMsg("spacious"));
+      expect(density.value).toBe("comfortable");
+    });
+
+    it("falls back to comfortable when the host omits density", () => {
+      density.value = "quiet";
+      applyShellSettings(settingsMsg());
+      expect(density.value).toBe("comfortable");
+    });
+
+    it("falls back to comfortable for a non-string value", () => {
+      density.value = "quiet";
+      applyShellSettings(settingsMsg(42));
+      expect(density.value).toBe("comfortable");
+    });
+
+    // The handler is registered against the "settings" type prefix, which
+    // also matches any future type starting with those characters. Ignoring
+    // anything that is not exactly `settings` keeps that safe.
+    it("ignores messages that are not settings", () => {
+      density.value = "quiet";
+      applyShellSettings({ type: "ack" } as Message);
+      expect(density.value).toBe("quiet");
+    });
   });
 });

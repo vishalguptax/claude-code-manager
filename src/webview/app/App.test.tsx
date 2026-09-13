@@ -10,13 +10,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { cleanup, render } from "@testing-library/preact";
-import { activeTab } from "../shared/model";
+import { activeTab, density } from "../shared/model";
 import { _resetHostBusy, hostBusy } from "../shared/model/hostBusy";
 import { App } from "./App";
 
 afterEach(() => {
   cleanup();
   activeTab.value = "sessions";
+  density.value = "comfortable";
   _resetHostBusy();
 });
 
@@ -55,5 +56,35 @@ describe("App", () => {
     hostBusy.value = true;
     const { container } = render(h(App, {}));
     expect(container.querySelector('.host-busy-bar[role="progressbar"]')).toBeTruthy();
+  });
+
+  // ── Density ─────────────────────────────────────────────────────
+  // The `claudeManager.density` setting reaches CSS as one attribute on the
+  // shell wrapper. Every quiet-mode rule in density.css is written as
+  // `[data-density="quiet"] .row-class`, so if the attribute stops being
+  // rendered the whole variant silently stops applying with nothing failing.
+
+  it("stamps the current density on the shell wrapper", () => {
+    const { container } = render(h(App, {}));
+    expect(container.querySelector('.app-shell[data-density="comfortable"]')).toBeTruthy();
+  });
+
+  it("re-stamps the wrapper when the density signal changes", () => {
+    density.value = "quiet";
+    const { container } = render(h(App, {}));
+    expect(container.querySelector('.app-shell[data-density="quiet"]')).toBeTruthy();
+  });
+
+  // The wrapper is display:contents, so it must not sit between #root and the
+  // shell chrome in any way that changes layout — everything still renders
+  // inside it, and there is exactly one of it.
+  it("keeps the shell chrome inside the single wrapper", () => {
+    const { container } = render(h(App, {}));
+    const shells = container.querySelectorAll(".app-shell");
+    expect(shells.length).toBe(1);
+    const shell = shells[0];
+    expect(shell.querySelector('[role="tablist"]')).toBeTruthy();
+    expect(shell.querySelector(".tab-content-area")).toBeTruthy();
+    expect(shell.querySelector(".app-footer")).toBeTruthy();
   });
 });

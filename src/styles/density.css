@@ -1,0 +1,46 @@
+/* ============================================================================
+   Row density — the `claudeManager.density` setting.
+
+   App stamps the setting on `.app-shell` as `data-density` (the wrapper itself
+   is declared in base.css beside #root, since it is shell layout rather than
+   density). Every override here hangs off that one attribute, so the whole
+   variant is one block that can be read, changed, or deleted in one place.
+
+   This file is loaded LAST by scripts/build-css.js, after every feature
+   stylesheet, so these rules override the feature declarations they target
+   without needing an id selector or !important to win.
+
+   "comfortable" is the default and needs no rules at all: it IS what the
+   feature stylesheets declare. Only the quiet variant appears below.
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Quiet — no rule between rows.
+
+   VS Code's own trees separate rows with whitespace and the hover highlight,
+   not hairlines. Our rows are two or three lines tall, so the section heading
+   above each group plus a little more internal leading carry the grouping: the
+   gap between two rows becomes the separator the hairline used to be.
+
+   Every selector here mirrors one in a feature stylesheet: `.item`
+   (sessions.css), `.cmd-item` / `.hook-item` (features.css), `.mcp-item`
+   (mcp.css), `.agent-item` (agents.css). Keep this list in step when a new
+   list feature lands — a row class missing from here keeps its rule in quiet
+   mode and reads as a bug.
+
+   Dividers that are NOT row separators stay put in both densities: the
+   `.list-header` toolbar edge, the `.d-msg-header` transcript search bar, and
+   the `.acct-section` / `.cfg-group` section edges all separate REGIONS, not
+   sibling rows, and removing them would merge distinct surfaces.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+[data-density="quiet"] .item,
+[data-density="quiet"] .cmd-item,
+[data-density="quiet"] .hook-item,
+[data-density="quiet"] .mcp-item,
+[data-density="quiet"] .agent-item {
+  border-bottom: none;
+  padding-top: var(--space-xl);
+  padding-bottom: var(--space-xl);
+}

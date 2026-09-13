@@ -4,7 +4,7 @@
  * tear down the rest of the shell.
  */
 
-import { activeTab } from "../shared/model";
+import { activeTab, density } from "../shared/model";
 import { hostBusy } from "../shared/model/hostBusy";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Footer } from "./Footer";
@@ -15,20 +15,29 @@ export function App() {
   const current = activeTab.value;
   return (
     <ErrorBoundary>
-      {/* Indeterminate bar shown while a host request runs longer than a
-          beat — the user's click always produces visible progress. */}
-      {hostBusy.value && <div class="host-busy-bar" role="progressbar" />}
-      <TabBar />
-      <div class="tab-content-area">
-        <div class="tab-content">
-          <TabPanel feature={current} />
+      {/* Carries the `claudeManager.density` setting for the whole panel;
+          density.css hangs every override off this one attribute. `display:
+          contents` (app.css) keeps the wrapper out of layout, so TabBar, the
+          content area and Footer stay direct flex children of #root exactly as
+          they were before — the same trick .tab-keepalive uses. Declarative
+          rather than an effect writing to document.body: Preact only ever
+          touches its own tree, and the attribute cannot drift from the signal. */}
+      <div class="app-shell" data-density={density.value}>
+        {/* Indeterminate bar shown while a host request runs longer than a
+            beat — the user's click always produces visible progress. */}
+        {hostBusy.value && <div class="host-busy-bar" role="progressbar" />}
+        <TabBar />
+        <div class="tab-content-area">
+          <div class="tab-content">
+            <TabPanel feature={current} />
+          </div>
         </div>
+        {/* Shell chrome, not feature content — visible on every tab, not just
+            Sessions (where it lived before this was the app's shared footer). */}
+        <Footer />
+        {/* First-run welcome; renders nothing once seen (auto-plays once). */}
+        <Intro />
       </div>
-      {/* Shell chrome, not feature content — visible on every tab, not just
-          Sessions (where it lived before this was the app's shared footer). */}
-      <Footer />
-      {/* First-run welcome; renders nothing once seen (auto-plays once). */}
-      <Intro />
     </ErrorBoundary>
   );
 }

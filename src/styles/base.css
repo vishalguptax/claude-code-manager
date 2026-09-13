@@ -16,6 +16,12 @@ body {
 }
 #root { height: 100vh; display: flex; flex-direction: column; }
 
+/* App root wrapper. Carries `data-density` for the whole panel (see
+   density.css). `display: contents` keeps it out of layout entirely, so the
+   tab bar, content area and footer remain direct flex children of #root —
+   the same mechanism .tab-keepalive uses for inactive tabs. */
+.app-shell { display: contents; }
+
 
 /* ============================================================================
    Claude Session Manager — Base Styles
