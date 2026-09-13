@@ -209,4 +209,25 @@ describe("DetailView", () => {
       expect(container.querySelector(".d-notice")?.textContent).toContain("removed from disk");
     });
   });
+
+  // The header's second line repeats the first when a session is named after
+  // its own opening prompt — the same defect the list row had, in the other
+  // component that renders the pair.
+  it("omits the summary line when it repeats the title", () => {
+    detailSignal.value = detail({ name: "Fix the parser", summary: "Fix the parser" });
+    const { container } = render(h(DetailView, {}));
+    expect(container.querySelector(".d-title")?.textContent).toBe("Fix the parser");
+    expect(container.querySelector(".d-subtitle")).toBeNull();
+  });
+
+  it("keeps the summary line when it adds something", () => {
+    detailSignal.value = detail({
+      name: "Fix the parser",
+      summary: "trailing comma in settings.json",
+    });
+    const { container } = render(h(DetailView, {}));
+    expect(container.querySelector(".d-subtitle")?.textContent).toBe(
+      "trailing comma in settings.json",
+    );
+  });
 });

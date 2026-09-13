@@ -371,7 +371,12 @@ export function DetailView() {
         <div class="d-title" title={d.name || d.summary}>
           {d.name || d.summary}
         </div>
-        {d.name && d.summary ? (
+        {/* The summary is a SECOND line, so it only earns its place when it
+            says something the title does not. The title already falls back to
+            the summary when a session has no name, so a session named after
+            its own opening prompt printed the identical sentence twice — the
+            same defect the list row had. */}
+        {d.name && d.summary && d.summary !== d.name ? (
           <div class="d-subtitle" title={d.summary}>
             {d.summary}
           </div>
