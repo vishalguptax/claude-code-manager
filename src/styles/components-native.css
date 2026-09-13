@@ -634,7 +634,15 @@
   background: var(--role-track-bg);
   border: 1px solid var(--role-track-border);
   border-radius: var(--radius);
-  height: var(--h-control);
+  /* Wrap to a second row rather than crushing the segments. The sidebar is
+     narrow and option sets vary: four short labels (Recent/Week/Month/All)
+     fit one row at any usable width, but five counted ones (All (27) /
+     Sonnet (18) / Opus (6) / Haiku (2) / Inherit (1)) need ~440px. Height
+     therefore has to grow with the rows — a fixed `height` clipped the
+     overflow row out of view. */
+  flex-wrap: wrap;
+  height: auto;
+  min-height: var(--h-control);
   box-sizing: border-box;
 }
 
@@ -646,7 +654,17 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-xs);
-  min-width: 0;
+  /* `min-content` — the label's own width — is what makes the track wrap.
+     With `min-width: 0` the `flex-basis: 0` above divided the track into N
+     equal slots however narrow, and each label was centred and then clipped
+     on BOTH sides: "Sonnet (18)" rendered as "onnet (18". Note that
+     `text-overflow` cannot rescue that — the button is a flex container, so
+     its text sits in an anonymous flex item where ellipsis does not apply,
+     and the overflow is a hard cut. Flooring the segment at its text width
+     means it never clips; when the row runs out of room the track wraps
+     instead. Segments still share space equally whenever they do fit, so the
+     single-row controls look exactly as before. */
+  min-width: min-content;
   padding: 0 var(--space-md);
   border: none;
   border-radius: var(--radius-sm);
@@ -656,7 +674,6 @@
   font-size: var(--fs-base);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   cursor: pointer;
   transition: background var(--transition-control), color var(--transition-control);
 }
@@ -687,7 +704,8 @@
 /* Compact variant — inline toggles (account usage period). Content-sized
    segments at a shorter height. */
 .vsc-segmented--sm {
-  height: var(--h-control-sm);
+  height: auto;
+  min-height: var(--h-control-sm);
   width: fit-content;
 }
 .vsc-segmented--sm .vsc-segmented-seg {
