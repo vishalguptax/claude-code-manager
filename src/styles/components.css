@@ -236,6 +236,37 @@
    Tags
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Chip geometry — the shared box behind every small inline label.
+
+   Three of these grew up separately and ended up almost, but not quite, the
+   same: `.vsc-badge` (scope/type/count chips) sized itself by padding alone
+   with no fixed height, `.tag` (branch, worktree, temp) pinned 18px with
+   zero vertical padding, and `.hook-matcher` pinned 18px but set its text a
+   point larger than both. Sitting side by side in one row — a matcher chip
+   beside a scope chip — they read as a wobble rather than a set.
+
+   One box here; each class below keeps only what it genuinely needs to
+   differ by (a monospace face, a different clamp width, a semantic fill).
+   ────────────────────────────────────────────────────────────────────────── */
+.vsc-badge,
+.tag,
+.hook-matcher {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* A chip is a label on a row, never the thing that decides the row's
+     width — it yields before the name it annotates does. */
+  flex-shrink: 0;
+}
+
 /*
  * Branch tag — the neutral-badge token pair. A semi-transparent gray that
  * lands as a mid-tone overlay on any background (light or dark) with --fg
@@ -243,19 +274,10 @@
  * system was standardised on (over the low-contrast --badge-* pair).
  */
 .tag {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
   font-family: var(--mono);
   background: var(--badge-neutral-bg);
   color: var(--badge-neutral-fg);
-  padding: 0 var(--space-sm);
-  border-radius: var(--radius-sm);
   max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  height: 18px;
 }
 .tag.folder {
   font-family: inherit;

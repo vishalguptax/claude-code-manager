@@ -73,6 +73,11 @@
   --color-purple-bg: rgba(163,113,247,0.15);
   --color-green-badge: #3fb950;
   --color-green-badge-bg: rgba(63,185,80,0.15);
+  /* Warm accent for the subscription-plan chip. Not --orange: that one is
+     wired to notificationsWarningIcon-foreground, so a Max plan would inherit
+     the editor's WARNING colour and read as a problem rather than a tier. */
+  --color-amber: #ff9966;
+  --color-amber-bg: rgba(255,153,102,0.15);
   --fs-xs: 10px;
   --fs-sm: 11px;
   --fs-base: 12px;

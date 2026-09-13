@@ -443,18 +443,11 @@
    that stay readable on any background.
    ────────────────────────────────────────────────────────────────────────── */
 
+/* Box comes from the shared chip base in components.css; only the medium
+   weight and the label clamp are the badge's own. */
 .vsc-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
   font-weight: 500;
-  line-height: 1.4;
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
   max-width: 16ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .vsc-badge--default,

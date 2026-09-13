@@ -164,10 +164,23 @@
   white-space: nowrap;
   flex-shrink: 0;
 }
-.acct-plan-badge.plan-max    { background: rgba(255,153,102,0.15); color: #FF9966; border: 1px solid rgba(255,153,102,0.3); }
-.acct-plan-badge.plan-pro    { background: rgba(88,166,255,0.15); color: #58a6ff; border: 1px solid rgba(88,166,255,0.3); }
-.acct-plan-badge.plan-team   { background: rgba(163,113,247,0.15); color: #a371f7; border: 1px solid rgba(163,113,247,0.3); }
-.acct-plan-badge.plan-free   { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
+/* Plan tiers. These were the last raw hex literals in the stylesheets
+   (#FF9966, #58a6ff, #a371f7, plus three rgba borders spelled out by hand).
+   The palette is unchanged — the same values already existed as tokens, or
+   have been added as one — but they now resolve through the token layer like
+   every other colour, so a future palette change reaches them too.
+
+   The border is derived from the text colour rather than restated, so a tone
+   cannot end up with a fill and an edge that disagree. */
+.acct-plan-badge.plan-max,
+.acct-plan-badge.plan-pro,
+.acct-plan-badge.plan-team {
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+.acct-plan-badge.plan-max  { background: var(--color-amber-bg); color: var(--color-amber); }
+.acct-plan-badge.plan-pro  { background: var(--color-blue-bg); color: var(--color-blue); }
+.acct-plan-badge.plan-team { background: var(--color-purple-bg); color: var(--color-purple); }
+.acct-plan-badge.plan-free { background: var(--badge-neutral-bg); color: var(--badge-neutral-fg); }
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Meta rows (key/value)
@@ -475,12 +488,17 @@
 }
 /* Single-hue ramp with monotonically increasing intensity. The previous
    ramp mixed bg-hover@0.4 (lvl-0) with orange@0.2 (lvl-1), which on dark
-   themes made a no-activity day look brighter than a 1-message day. */
-.acct-heat-cell.lvl-0 { background: rgba(255,153,102,0.08); }
-.acct-heat-cell.lvl-1 { background: rgba(255,153,102,0.30); }
-.acct-heat-cell.lvl-2 { background: rgba(255,153,102,0.55); }
-.acct-heat-cell.lvl-3 { background: rgba(255,153,102,0.80); }
-.acct-heat-cell.lvl-4 { background: #FF9966; }
+   themes made a no-activity day look brighter than a 1-message day.
+
+   Every step is the same hue at a different strength, so the hue is named
+   once (--color-amber) and each level mixes it. It used to be spelled out as
+   rgba(255,153,102,…) eight times across this block, with the top of the ramp
+   written as a bare #FF9966 — one hue, nine chances to mistype it. */
+.acct-heat-cell.lvl-0 { background: color-mix(in srgb, var(--color-amber) 8%, transparent); }
+.acct-heat-cell.lvl-1 { background: color-mix(in srgb, var(--color-amber) 30%, transparent); }
+.acct-heat-cell.lvl-2 { background: color-mix(in srgb, var(--color-amber) 55%, transparent); }
+.acct-heat-cell.lvl-3 { background: color-mix(in srgb, var(--color-amber) 80%, transparent); }
+.acct-heat-cell.lvl-4 { background: var(--color-amber); }
 /* State rules MUST come after lvl-* rules. Future/stale cells always
    carry lvl-0 (no intensity), and equal-specificity selectors fall back
    to source order — declared before .lvl-0, the state bg got overridden
@@ -497,17 +515,17 @@
   background:
     repeating-linear-gradient(
       45deg,
-      rgba(255, 153, 102, 0.10) 0,
-      rgba(255, 153, 102, 0.10) 2px,
+      color-mix(in srgb, var(--color-amber) 10%, transparent) 0,
+      color-mix(in srgb, var(--color-amber) 10%, transparent) 2px,
       transparent 2px,
       transparent 4px
     );
-  box-shadow: inset 0 0 0 1px rgba(255, 153, 102, 0.20);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-amber) 20%, transparent);
 }
 /* Today: subtle ring on whatever level the cell already has. Uses the
    same orange so it reads as part of the ramp, not a foreign accent. */
 .acct-heat-cell.state-today {
-  outline: 1.5px solid #FF9966;
+  outline: 1.5px solid var(--color-amber);
   outline-offset: 1px;
   position: relative;
   z-index: 1;
