@@ -47,6 +47,7 @@ export {
   type SkeletonProps,
   SkeletonRect,
 } from "./Skeleton";
+export { ShowMore, type ShowMoreProps } from "./ShowMore";
 export {
   StatTile,
   StatTileGrid,

@@ -9,12 +9,14 @@
  * uses <SearchInput>, group counts render as <Badge>, the action row uses
  * <Button>, and per-row removals use an icon <Button>.
  */
+import { useState } from "preact/hooks";
 import {
   Badge,
   Button,
   Icon,
   ScopeFilter,
   SearchInput,
+  ShowMore,
 } from "../../../../../webview/shared/ui";
 import type {
   AccountData,
@@ -120,10 +122,23 @@ interface PermissionListProps {
   api: ConfigApi;
 }
 
+/**
+ * Patterns shown before the list discloses the rest. A real global allow-list
+ * runs to sixty-odd entries, one per row, which pushed Settings history and
+ * Backup past three screenfuls of scrolling — the sections below became
+ * effectively undiscoverable.
+ */
+const PERMISSIONS_TOP_DEFAULT = 6;
+
 function PermissionList({ set, scope, list, label, query, api }: PermissionListProps) {
+  const [expanded, setExpanded] = useState(false);
   const all = set?.[list] ?? [];
   const items = all.filter((t) => !query || t.toLowerCase().includes(query));
   const total = all.length;
+  // A search is already a narrowing, so it shows everything it matched rather
+  // than hiding results behind a second disclosure.
+  const collapsed = !expanded && !query;
+  const visible = collapsed ? items.slice(0, PERMISSIONS_TOP_DEFAULT) : items;
 
   if (items.length === 0) {
     const empty =
@@ -147,7 +162,7 @@ function PermissionList({ set, scope, list, label, query, api }: PermissionListP
       <div class="cfg-perm-group-label">
         {label} <Badge text={countLabel} variant="count" />
       </div>
-      {items.map((t) => (
+      {visible.map((t) => (
         <div class="cfg-perm-row" key={t}>
           <span class="cfg-perm-name">{t}</span>
           <Button
@@ -160,6 +175,15 @@ function PermissionList({ set, scope, list, label, query, api }: PermissionListP
           />
         </div>
       ))}
+      {query ? null : (
+        <ShowMore
+          total={items.length}
+          threshold={PERMISSIONS_TOP_DEFAULT}
+          expanded={expanded}
+          onToggle={setExpanded}
+          noun="patterns"
+        />
+      )}
     </div>
   );
 }

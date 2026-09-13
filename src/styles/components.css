@@ -933,6 +933,23 @@
 }
 
 
+/* Progressive disclosure for a long list — backs <ShowMore>. A link, not a
+   button: it reveals more of what you are already reading rather than acting
+   on anything, and a filled control here would compete with the real actions
+   in the same section. */
+.show-more {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground, var(--link));
+  cursor: pointer;
+  padding: var(--space-xs) 0;
+  font-size: var(--fs-sm);
+  font-family: inherit;
+}
+.show-more:hover { text-decoration: underline; }
+.show-more:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
 /* ──────────────────────────────────────────────────────────────────────────
    Stat tiles — a figure with its label, in a tile. Backs <StatTile>.
 

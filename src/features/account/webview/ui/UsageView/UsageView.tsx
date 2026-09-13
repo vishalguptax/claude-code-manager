@@ -483,14 +483,14 @@ function ShowMore({
 }) {
   if (hidden > 0) {
     return (
-      <button type="button" class="acct-show-more" onClick={() => setShowAll(true)}>
+      <button type="button" class="show-more" onClick={() => setShowAll(true)}>
         Show {hidden} more
       </button>
     );
   }
   if (showAll && total > threshold) {
     return (
-      <button type="button" class="acct-show-more" onClick={() => setShowAll(false)}>
+      <button type="button" class="show-more" onClick={() => setShowAll(false)}>
         Show less
       </button>
     );

@@ -890,16 +890,6 @@
 }
 
 /* "Show N more" / "Show less" inline expander. Subtle, button-as-link. */
-.acct-show-more {
-  align-self: flex-start;
-  background: none;
-  border: none;
-  color: var(--vscode-textLink-foreground);
-  cursor: pointer;
-  padding: var(--space-xs) 0;
-  font-size: var(--fs-sm);
-}
-.acct-show-more:hover { text-decoration: underline; }
 
 /* "Share stats" export row — right-aligned under the stat tiles so the
    export affordance sits with the numbers it captures. */
