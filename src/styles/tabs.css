@@ -51,15 +51,9 @@
   height: 26px;
   min-width: 0;
   min-height: 0;
-  background: none;
-  border-color: transparent;
 }
-.tab-reload-btn.btn-icon:hover {
-  background: var(--vscode-toolbar-hoverBackground, var(--bg-hover));
-}
-.tab-reload-btn.btn-icon:active {
-  background: var(--vscode-toolbar-activeBackground, var(--bg-active));
-}
+/* The chromeless fill/border this used to set privately is now what every icon
+   button does (components-native.css); only the smaller box stays local. */
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

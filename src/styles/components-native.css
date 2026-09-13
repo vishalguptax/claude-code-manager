@@ -628,21 +628,32 @@
 .btn-ghost:active { background: var(--role-ghost-active-bg); }
 .btn-ghost:disabled { color: var(--fg-muted); background: none; }
 
+/* Chromeless until hovered, like VS Code's own view-title icons.
+ *
+ * These used to carry a secondary fill and a 1px border on the argument that
+ * an icon button should "read as a button, not a transparent ghost". The cost
+ * showed up once there were several in a row: the sessions toolbar put four
+ * bordered boxes beside a filled primary, the search row two more under it,
+ * and every list row another — a panel of outlines competing with the one
+ * control that matters. VS Code's own toolbars are chromeless for exactly this
+ * reason, and the tab strip's reload button and the row copy buttons had
+ * already each overridden this rule privately to get there.
+ *
+ * The affordance is the hover fill plus the tooltip every icon button already
+ * carries, and the hit area is unchanged. */
 .btn-icon {
   width: var(--h-control);
   min-width: 24px;
   min-height: 24px;
   padding: 0;
   justify-content: center;
-  /* Visible resting affordance (product call): icon buttons read as buttons
-     with a subtle secondary fill + border, not a transparent ghost. */
-  background: var(--vscode-button-secondaryBackground, var(--bg-hover));
+  background: none;
   color: var(--role-text-secondary);
-  border: 1px solid var(--vscode-button-border, var(--vscode-input-border, var(--border)));
+  border: 1px solid transparent;
   border-radius: var(--radius);
 }
 .btn-icon:hover {
-  background: var(--vscode-button-secondaryHoverBackground, var(--role-ghost-hover-bg));
+  background: var(--role-ghost-hover-bg);
   color: var(--role-text-primary);
 }
 .btn-icon:active {
