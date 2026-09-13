@@ -15,6 +15,7 @@ import { _resetPaletteSources } from "../shared/model/palette";
 import { TABS } from "./tabs/tabRegistry";
 import { _resetHostBusy, hostBusy } from "../shared/model/hostBusy";
 import { App } from "./App";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 afterEach(() => {
   cleanup();
@@ -132,6 +133,30 @@ describe("App", () => {
     fireEvent.mouseDown(row as HTMLElement);
     expect(activeTab.value).toBe("config");
     expect(container.querySelector(".palette")).toBeNull();
+  });
+
+  // ── Crash containment ────────────────────────────────────────────
+  // The boundary wraps the FEATURE, not the shell. It used to wrap everything,
+  // so one render error in one tab replaced the tab bar with "Something went
+  // wrong" and the only way out was reloading the window.
+
+  it("keeps the tab bar and footer alive when a feature crashes", () => {
+    const boom = () => {
+      throw new Error("feature exploded");
+    };
+    const { container } = render(
+      h(ErrorBoundary, { key: "sessions" }, h(boom as never, {})),
+    );
+    expect(container.querySelector(".empty-state-title")?.textContent).toBe(
+      "Something went wrong",
+    );
+
+    // And in the shell: the boundary sits inside .tab-content, below the strip.
+    const app = render(h(App, {}));
+    const boundaryHost = app.container.querySelector(".tab-content");
+    expect(boundaryHost).toBeTruthy();
+    expect(app.container.querySelector('[role="tablist"]')).toBeTruthy();
+    expect(app.container.querySelector(".app-footer")).toBeTruthy();
   });
 
   it("keeps the shell chrome inside the single wrapper", () => {

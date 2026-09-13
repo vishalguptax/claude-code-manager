@@ -1,7 +1,11 @@
 /**
- * Root component for the Preact webview. Hosts the tab bar and lazy-loaded
- * per-feature panel, wrapped in an ErrorBoundary so a feature crash does not
- * tear down the rest of the shell.
+ * Root component for the Preact webview. Hosts the tab bar and the lazy-loaded
+ * per-feature panel.
+ *
+ * Two error boundaries, deliberately. The inner one wraps the feature panel, so
+ * a crash in one tab leaves the tab bar and footer interactive and the user can
+ * switch away. The outer one is the last resort for a failure in the shell
+ * itself, where there is nothing left to keep interactive.
  */
 
 import { useEffect, useState } from "preact/hooks";
@@ -68,7 +72,19 @@ export function App() {
         <TabBar />
         <div class="tab-content-area">
           <div class="tab-content">
-            <TabPanel feature={current} />
+            {/* The boundary belongs HERE, around the feature, not around the
+                whole shell. It used to wrap everything — App's own comment said
+                it existed "so a feature crash does not tear down the rest of the
+                shell", and it did exactly that: one render error in Account
+                replaced the tab bar too, so the user could not switch away and
+                had to reload the window.
+
+                Keyed by tab id so switching tabs mounts a fresh boundary: a
+                crashed tab must not stay crashed after you leave and come back,
+                and a healthy tab must not inherit a sibling's error state. */}
+            <ErrorBoundary key={current}>
+              <TabPanel feature={current} />
+            </ErrorBoundary>
           </div>
         </div>
         {/* Shell chrome, not feature content — visible on every tab, not just

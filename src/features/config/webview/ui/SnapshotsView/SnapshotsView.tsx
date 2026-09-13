@@ -51,12 +51,17 @@ export function SnapshotsView({ snapshots, api }: SnapshotsViewProps) {
         </div>
         <div class="cfg-snap-list">
           {snapshots.map((s) => {
-            const keysLabel =
-              s.changedKeys.length === 0
+            // `settingsSnapshots` crosses the host boundary as `unknown` and is
+        // cast, so an older or partial payload can omit this array. Reading
+        // `.length` off undefined throws during render, which blanks the whole
+        // Config panel over one missing field.
+        const changedKeys = s.changedKeys ?? [];
+        const keysLabel =
+              changedKeys.length === 0
                 ? "no key diff"
-                : `${s.changedKeys.length} key${s.changedKeys.length === 1 ? "" : "s"}: ${s.changedKeys
+                : `${changedKeys.length} key${changedKeys.length === 1 ? "" : "s"}: ${changedKeys
                     .slice(0, 3)
-                    .join(", ")}${s.changedKeys.length > 3 ? "…" : ""}`;
+                    .join(", ")}${changedKeys.length > 3 ? "…" : ""}`;
             return (
               <div class="cfg-snap-row" key={s.id}>
                 <div class="cfg-snap-meta">
