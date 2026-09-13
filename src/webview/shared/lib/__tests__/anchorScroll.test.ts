@@ -3,31 +3,49 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { findScroller, keepAnchored } from "../anchorScroll";
 
 /**
- * happy-dom has no layout, so the two things the helper reads are stubbed: the
- * anchor's position (which the caller's mutation is expected to change) and
- * the candidate scrollers' overflow and size.
+ * happy-dom has no layout, so the scroller is modelled directly — and modelled
+ * as a REAL one: `scrollTop` clamps to the content, and `scrollHeight` grows
+ * with any padding the helper adds. Both matter. The first version of this
+ * helper passed a stub without clamping and still failed in the panel, because
+ * clamping is the entire problem it exists to undo.
  */
-function scroller({ scrollHeight = 1000, clientHeight = 500, overflowY = "auto" } = {}) {
+function scroller({ content = 1000, clientHeight = 500, overflowY = "auto" } = {}) {
   const el = document.createElement("div");
   el.style.overflowY = overflowY;
-  Object.defineProperty(el, "scrollHeight", { value: scrollHeight, configurable: true });
+  let height = content;
+  let top = 0;
+
+  const scrollHeight = (): number => height + (Number.parseFloat(el.style.paddingBottom) || 0);
+  Object.defineProperty(el, "scrollHeight", { get: scrollHeight, configurable: true });
   Object.defineProperty(el, "clientHeight", { value: clientHeight, configurable: true });
-  el.scrollTop = 0;
+  Object.defineProperty(el, "scrollTop", {
+    get: () => top,
+    set: (next: number) => {
+      top = Math.max(0, Math.min(next, Math.max(scrollHeight() - clientHeight, 0)));
+    },
+    configurable: true,
+  });
+
   document.body.appendChild(el);
-  return el;
+  return Object.assign(el, {
+    /** Collapse/expand: change the content height, then clamp like a browser. */
+    setContentHeight(next: number) {
+      height = next;
+      el.scrollTop = top;
+    },
+  });
 }
 
-/** An anchor whose reported top changes when `move` is called. */
-function anchorIn(parent: HTMLElement, top: number) {
+/** An anchor whose reported top follows the scroller's offset, as a real row does. */
+function anchorIn(box: HTMLElement & { setContentHeight(n: number): void }, documentTop: number) {
   const el = document.createElement("header");
-  let current = top;
-  el.getBoundingClientRect = () => ({ top: current }) as DOMRect;
-  parent.appendChild(el);
-  return { el, move: (to: number) => { current = to; } };
+  let docTop = documentTop;
+  el.getBoundingClientRect = () => ({ top: docTop - box.scrollTop }) as DOMRect;
+  box.appendChild(el);
+  return { el, moveInDocument: (to: number) => { docTop = to; } };
 }
 
 const frame = (): void => {
-  // The correction is deferred a frame; run it synchronously in tests.
   vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
     cb(0);
     return 1;
@@ -53,7 +71,7 @@ describe("findScroller", () => {
     // Every feature panel sets overflow-y: auto, so matching on overflow alone
     // would pick one whose offset cannot move.
     const real = scroller();
-    const idle = scroller({ scrollHeight: 400, clientHeight: 400 });
+    const idle = scroller({ content: 400, clientHeight: 400 });
     real.appendChild(idle);
     const leaf = document.createElement("span");
     idle.appendChild(leaf);
@@ -73,55 +91,136 @@ describe("findScroller", () => {
 });
 
 describe("keepAnchored", () => {
-  it("moves the scroll offset by however far the anchor drifted", () => {
+  it("holds the header still when the collapse clamps the offset", () => {
     frame();
-    const box = scroller();
+    // The Account case: 1345px of content in a 570px panel, scrolled to 260,
+    // collapsing Usage leaves 570px — so the offset would be forced to 0.
+    const box = scroller({ content: 1345, clientHeight: 570 });
     box.scrollTop = 260;
-    const { el, move } = anchorIn(box, 115);
+    const { el } = anchorIn(box, 375);
+    expect(el.getBoundingClientRect().top).toBe(115);
 
-    keepAnchored(el, () => move(375)); // the Account Usage case: 260px of drift
+    keepAnchored(el, () => box.setContentHeight(570));
 
-    expect(box.scrollTop).toBe(520);
+    expect(box.scrollTop).toBe(260);
+    expect(el.getBoundingClientRect().top).toBe(115);
+    expect(Number.parseFloat(box.style.paddingBottom)).toBeGreaterThan(0);
   });
 
-  it("pulls the offset back when the anchor rises", () => {
+  it("opens exactly the room the offset needs, shortfall included", () => {
     frame();
-    const box = scroller();
+    // 380px of content left in a 570px panel at offset 260: the offset cannot
+    // move until the 190px shortfall is covered too, so 450px is needed. A
+    // formula that measures from the current maximum offset asks for 260,
+    // under-provisions, and only lands by accident on a second pass.
+    const box = scroller({ content: 1345, clientHeight: 570 });
+    box.scrollTop = 260;
+    const { el } = anchorIn(box, 375);
+
+    keepAnchored(el, () => box.setContentHeight(380));
+
+    expect(Number.parseFloat(box.style.paddingBottom)).toBe(450);
+    expect(box.scrollTop).toBe(260);
+    expect(el.getBoundingClientRect().top).toBe(115);
+  });
+
+  it("needs no room when the content still overflows", () => {
+    frame();
+    const box = scroller({ content: 1345, clientHeight: 570 });
+    box.scrollTop = 260;
+    const { el } = anchorIn(box, 375);
+
+    keepAnchored(el, () => box.setContentHeight(1200));
+
+    expect(box.scrollTop).toBe(260);
+    expect(el.getBoundingClientRect().top).toBe(115);
+    expect(box.style.paddingBottom).toBe("");
+  });
+
+  it("follows the anchor when something above it changes height", () => {
+    frame();
+    const box = scroller({ content: 1345, clientHeight: 570 });
     box.scrollTop = 300;
-    const { el, move } = anchorIn(box, 200);
+    const a = anchorIn(box, 500);
+    expect(a.el.getBoundingClientRect().top).toBe(200);
 
-    keepAnchored(el, () => move(140));
+    // A section above collapses by 60px, carrying this header up with it.
+    keepAnchored(a.el, () => a.moveInDocument(440));
 
+    expect(a.el.getBoundingClientRect().top).toBe(200);
     expect(box.scrollTop).toBe(240);
   });
 
-  it("leaves the offset alone when nothing moved", () => {
+  it("never opens more than one screenful", () => {
     frame();
-    const box = scroller();
-    box.scrollTop = 120;
-    const { el } = anchorIn(box, 200);
+    const box = scroller({ content: 4000, clientHeight: 300 });
+    box.scrollTop = 3000;
+    const { el } = anchorIn(box, 3100);
 
-    keepAnchored(el, () => {});
+    keepAnchored(el, () => box.setContentHeight(300));
 
-    expect(box.scrollTop).toBe(120);
+    expect(Number.parseFloat(box.style.paddingBottom)).toBeLessThanOrEqual(300);
   });
 
-  it("ignores sub-pixel drift rather than fighting native anchoring", () => {
+  it("gives the room back once the user scrolls to the end of real content", () => {
     frame();
-    const box = scroller();
-    box.scrollTop = 120;
-    const { el, move } = anchorIn(box, 200);
+    const box = scroller({ content: 1345, clientHeight: 570 });
+    box.scrollTop = 260;
+    const { el } = anchorIn(box, 375);
+    keepAnchored(el, () => box.setContentHeight(570));
+    expect(Number.parseFloat(box.style.paddingBottom)).toBeGreaterThan(0);
 
-    keepAnchored(el, () => move(200.3));
+    box.scrollTop = 0;
+    box.dispatchEvent(new Event("scroll"));
 
-    expect(box.scrollTop).toBe(120);
+    expect(box.style.paddingBottom).toBe("");
+  });
+
+  it("gives the room back when the content grows again", () => {
+    frame();
+    const box = scroller({ content: 1345, clientHeight: 570 });
+    box.scrollTop = 260;
+    const { el } = anchorIn(box, 375);
+    keepAnchored(el, () => box.setContentHeight(570));
+    expect(Number.parseFloat(box.style.paddingBottom)).toBeGreaterThan(0);
+
+    keepAnchored(el, () => box.setContentHeight(1345));
+
+    expect(box.style.paddingBottom).toBe("");
+    expect(box.scrollTop).toBe(260);
+  });
+
+  it("preserves the element's own padding when it releases the room", () => {
+    frame();
+    const box = scroller({ content: 1345, clientHeight: 570 });
+    box.style.paddingBottom = "12px";
+    box.scrollTop = 260;
+    const { el } = anchorIn(box, 375);
+
+    keepAnchored(el, () => box.setContentHeight(570));
+    expect(Number.parseFloat(box.style.paddingBottom)).toBeGreaterThan(12);
+
+    box.scrollTop = 0;
+    box.dispatchEvent(new Event("scroll"));
+    expect(box.style.paddingBottom).toBe("12px");
+  });
+
+  it("leaves an unscrolled panel alone", () => {
+    frame();
+    const box = scroller({ content: 1345, clientHeight: 570 });
+    const { el } = anchorIn(box, 100);
+
+    keepAnchored(el, () => box.setContentHeight(570));
+
+    expect(box.scrollTop).toBe(0);
+    expect(box.style.paddingBottom).toBe("");
   });
 
   it("still performs the mutation with no scrollable ancestor", () => {
     frame();
     const plain = scroller({ overflowY: "visible" });
-    const { el, move } = anchorIn(plain, 100);
-    const mutate = vi.fn(() => move(400));
+    const { el } = anchorIn(plain, 100);
+    const mutate = vi.fn();
 
     keepAnchored(el, mutate);
 
@@ -136,12 +235,12 @@ describe("keepAnchored", () => {
 
   it("corrects immediately where there is no animation frame", () => {
     vi.stubGlobal("requestAnimationFrame", undefined);
-    const box = scroller();
-    box.scrollTop = 50;
-    const { el, move } = anchorIn(box, 100);
+    const box = scroller({ content: 1345, clientHeight: 570 });
+    box.scrollTop = 260;
+    const { el } = anchorIn(box, 375);
 
-    keepAnchored(el, () => move(130));
+    keepAnchored(el, () => box.setContentHeight(570));
 
-    expect(box.scrollTop).toBe(80);
+    expect(box.scrollTop).toBe(260);
   });
 });
