@@ -317,8 +317,15 @@ code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .88em;
 .js-reveal { opacity: 0; transform: translateY(20px); transition: opacity .65s var(--ease), transform .65s var(--ease); }
 .js-reveal.in { opacity: 1; transform: none; }
 
-/* scramble target keeps its box stable */
-[data-scramble] { display: inline-block; min-width: 0; }
+/* Animated text keeps its box stable. `inline-block` is the half of this that
+   CSS can do; the reserved size itself is a pixel measurement of the final
+   text, so app.js sets `min-width` at runtime (`lockWidth`). The `min-width: 0`
+   that used to sit here reserved nothing, which is why the headline still
+   re-wrapped on every scramble frame. */
+[data-scramble], [data-animate] { display: inline-block; }
+/* Counting up is right-aligned so the digits settle against the following
+   word instead of pushing it along. */
+[data-animate] { text-align: right; }
 
 /* ================= responsive ================= */
 @media (max-width: 940px) {
