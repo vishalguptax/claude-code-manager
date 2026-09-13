@@ -519,10 +519,12 @@
 
 .acct-stats-grid {
   display: grid;
-  /* auto-fit so the grid handles 3 (legacy) or 4 (with cache-hit tile)
-     stats without a layout change — narrow sidebars wrap to 2x2, wider
-     ones lay all four in a row. */
-  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  /* Fixed 2x2, not auto-fit. There are exactly four tiles, and auto-fit
+     picked whatever count the sidebar width allowed — at a typical width
+     that was three, orphaning the fourth on a short row of its own and
+     making the block read as a mistake. Two columns is stable at every
+     sidebar width and keeps the four as one square. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
 }
 
@@ -1211,13 +1213,45 @@
 
 /* "Share stats" export row — right-aligned under the stat tiles so the
    export affordance sits with the numbers it captures. */
-.acct-share-row {
+/* Collapsible breakdown blocks (Cost & models / Projects / Tools / MCP).
+   The Usage section is a long column; without a way to fold a block the
+   only route to the one you want is scrolling past the others. The
+   heading is the control, so it gets the button affordances. */
+.acct-block-head {
   display: flex;
-  justify-content: flex-end;
-  margin-top: var(--space-xs);
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
 }
-.acct-share-btn {
-  font-size: var(--fs-sm);
+.acct-block-head:hover .acct-section-subhead {
+  color: var(--fg);
+}
+.acct-block-chevron {
+  display: inline-flex;
+  color: var(--fg-muted);
+  transition: transform 150ms ease;
+}
+.acct-block-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+/* A count beside the heading so a folded block still says what is in it. */
+.acct-block-count {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .acct-block-chevron {
+    transition: none;
+  }
 }
 
 /* MCP rows: name + two pill badges. */

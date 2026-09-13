@@ -23,7 +23,8 @@
 
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
-import { Button, Segmented, type SegmentedOption } from "../../../../../webview/shared/ui";
+import { Button, Icon, Segmented, type SegmentedOption } from "../../../../../webview/shared/ui";
+import { cx } from "../../../../../webview/shared/lib";
 import { useAccountApi } from "../../api";
 import type { AccountData, McpServerUsage, ModelStats, ProjectStats, UsageStats } from "../../../types";
 import {
@@ -84,9 +85,30 @@ function modelFamilyColor(model: string): string {
 export function UsageView({ data }: UsageViewProps) {
   const collapsed = isSectionCollapsed("usage");
   const u = data.usage;
+  const api = useAccountApi();
+  const hasActivity = u.daily.length > 0;
+  // Share lives in the section header, beside the title, the way Quota's
+  // re-read does. It used to sit on a right-aligned row of its own
+  // between the stat tiles and the info ribbon — an action floating in
+  // the middle of a reading column, attached to nothing. stopPropagation
+  // keeps the click off the header's collapse toggle.
+  const share = (e: Event): void => {
+    e.stopPropagation();
+    shareStatsCard(u, api.saveStatsImage);
+  };
   return (
     <section class="acct-section">
-      <SectionHeader id="usage" title="Usage" collapsed={collapsed} onToggle={toggleSection} />
+      <SectionHeader id="usage" title="Usage" collapsed={collapsed} onToggle={toggleSection}>
+        {hasActivity && !collapsed ? (
+          <Button
+            variant="icon"
+            iconName="download"
+            ariaLabel="Share stats"
+            title="Export a shareable image of your Claude Code year"
+            onClick={share}
+          />
+        ) : null}
+      </SectionHeader>
       {collapsed ? null : (
         <div class="acct-section-body">
           {u.daily.length === 0 ? (
@@ -154,7 +176,6 @@ function shareStatsCard(u: UsageStats, save: (pngBase64: string) => void): void 
 }
 
 function UsageBody({ u }: { u: UsageStats }) {
-  const api = useAccountApi();
   const period = timePeriod.value;
   const totals = computeUsageTotals(u, period);
   return (
@@ -189,17 +210,6 @@ function UsageBody({ u }: { u: UsageStats }) {
           label="cache read"
           title={cacheHitTooltip(u)}
         />
-      </div>
-
-      <div class="acct-share-row">
-        <Button
-          class="acct-share-btn"
-          iconName="download"
-          onClick={() => shareStatsCard(u, api.saveStatsImage)}
-          title="Export a shareable image of your Claude Code year"
-        >
-          Share stats
-        </Button>
       </div>
 
       <InfoRibbon u={u} totals={totals} />
@@ -273,6 +283,51 @@ function BlockHeading({ children }: { children: ComponentChildren }) {
 }
 
 /**
+ * A breakdown block that can be folded away, with its row count shown on
+ * the heading.
+ *
+ * The Usage section stacks four of these under the heatmap and tiles.
+ * Fully expanded that is a long single column with no landmarks, so
+ * reaching MCP means scrolling past every model, project and tool. The
+ * count keeps a folded block informative — you can see there are 12
+ * tools without unfolding to find out.
+ *
+ * Collapse state rides the same persisted set the top-level sections
+ * use, under a namespaced id, so a fold survives a reload.
+ */
+function Block({
+  id,
+  title,
+  count,
+  children,
+}: {
+  id: string;
+  title: string;
+  count: number;
+  children: ComponentChildren;
+}) {
+  const key = `usage.${id}`;
+  const collapsed = isSectionCollapsed(key);
+  return (
+    <div class="acct-block">
+      <button
+        type="button"
+        class="acct-block-head"
+        aria-expanded={!collapsed}
+        onClick={() => toggleSection(key)}
+      >
+        <span class={cx("acct-block-chevron", collapsed && "collapsed")}>
+          <Icon name="chevron-down" size={12} />
+        </span>
+        <BlockHeading>{title}</BlockHeading>
+        <span class="acct-block-count">{count}</span>
+      </button>
+      {collapsed ? null : children}
+    </div>
+  );
+}
+
+/**
  * Models = share-of-cost story. Headline total + donut + legend rows.
  * Each legend row carries its colour swatch, model name, token share %,
  * and cost — replacing the per-row inline `· $X` noise from the old
@@ -298,8 +353,7 @@ function ModelsBlock({ u }: { u: UsageStats }) {
     color: modelFamilyColor(m.model),
   }));
   return (
-    <div class="acct-block">
-      <BlockHeading>Cost &amp; models</BlockHeading>
+    <Block id="models" title="Cost & models" count={shown.length}>
       {u.totalCostUsd > 0 ? (
         <div class="acct-cost-headline">
           {/* "If billed via API" is not a hedge — it is what the figure
@@ -328,7 +382,7 @@ function ModelsBlock({ u }: { u: UsageStats }) {
       {u.totalCostUsd > 0 ? (
         <div class="acct-meta-foot">Prices @ {u.pricesEffectiveDate}</div>
       ) : null}
-    </div>
+    </Block>
   );
 }
 
@@ -365,8 +419,7 @@ function ProjectsBlock({ byProject }: { byProject: ProjectStats[] }) {
   const list = showAll ? byProject : byProject.slice(0, PROJECT_TOP_DEFAULT);
   const hidden = byProject.length - list.length;
   return (
-    <div class="acct-block">
-      <BlockHeading>Projects</BlockHeading>
+    <Block id="projects" title="Projects" count={byProject.length}>
       {list.map((p) => (
         <div class="acct-data-row" key={p.slug} title={p.path}>
           <span class="acct-data-name">{shortenProjectPath(p.path)}</span>
@@ -383,7 +436,7 @@ function ProjectsBlock({ byProject }: { byProject: ProjectStats[] }) {
         total={byProject.length}
         threshold={PROJECT_TOP_DEFAULT}
       />
-    </div>
+    </Block>
   );
 }
 
@@ -392,8 +445,7 @@ function ToolsBlock({ byTool }: { byTool: UsageStats["byTool"] }) {
   const list = showAll ? byTool : byTool.slice(0, TOOL_TOP_DEFAULT);
   const hidden = byTool.length - list.length;
   return (
-    <div class="acct-block">
-      <BlockHeading>Tools</BlockHeading>
+    <Block id="tools" title="Tools" count={byTool.length}>
       {list.map((t) => (
         <div class="acct-data-row" key={t.name} title={t.name}>
           <span class="acct-data-name">{displayToolName(t.name)}</span>
@@ -407,7 +459,7 @@ function ToolsBlock({ byTool }: { byTool: UsageStats["byTool"] }) {
         total={byTool.length}
         threshold={TOOL_TOP_DEFAULT}
       />
-    </div>
+    </Block>
   );
 }
 
@@ -450,8 +502,7 @@ function ShowMore({
  */
 function McpBlock({ byMcpServer }: { byMcpServer: McpServerUsage[] }) {
   return (
-    <div class="acct-block">
-      <BlockHeading>MCP servers</BlockHeading>
+    <Block id="mcp" title="MCP servers" count={byMcpServer.length}>
       {byMcpServer.map((s) => (
         <div class="acct-mcp-row" key={s.server}>
           <span class="acct-mcp-name">{s.server}</span>
@@ -463,6 +514,6 @@ function McpBlock({ byMcpServer }: { byMcpServer: McpServerUsage[] }) {
           </span>
         </div>
       ))}
-    </div>
+    </Block>
   );
 }

@@ -73,9 +73,18 @@ describe("UsageView", () => {
     expect(screen.getByText(/streak\s+1d/)).toBeTruthy();
   });
 
-  it("renders the Share stats button", () => {
-    render(h(UsageView, { data: dataWith(makeUsage()) }));
-    expect(screen.getByText("Share stats")).toBeTruthy();
+  it("puts Share in the section header, not on a row of its own", () => {
+    // It used to sit right-aligned between the stat tiles and the info
+    // ribbon — an action floating mid-column, attached to nothing.
+    const { container } = render(h(UsageView, { data: dataWith(makeUsage()) }));
+    const header = container.querySelector(".acct-section-header") as HTMLElement;
+    expect(header.querySelector('[aria-label="Share stats"]')).toBeTruthy();
+    expect(container.querySelector(".acct-share-row")).toBeNull();
+  });
+
+  it("does not offer Share when there is nothing to share", () => {
+    const { container } = render(h(UsageView, { data: dataWith(makeUsage({ daily: [] })) }));
+    expect(container.querySelector('[aria-label="Share stats"]')).toBeNull();
   });
 
   it("renders a PNG and posts saveStatsImage (prefix stripped) on click", () => {
@@ -94,7 +103,7 @@ describe("UsageView", () => {
       .mockReturnValue("data:image/png;base64,QUJD");
 
     render(h(UsageView, { data: dataWith(makeUsage()) }));
-    fireEvent.click(screen.getByText("Share stats"));
+    fireEvent.click(screen.getByLabelText("Share stats"));
 
     expect(post).toHaveBeenCalledWith({ type: "saveStatsImage", pngBase64: "QUJD" });
 
@@ -181,5 +190,63 @@ describe("UsageView", () => {
     fireEvent.click(header);
     // Collapsed → stats grid gone.
     expect(screen.queryByText("tokens")).toBeNull();
+  });
+
+  describe("breakdown blocks fold away", () => {
+    /** Usage with every breakdown populated, so all four blocks render. */
+    const withBreakdowns = () =>
+      makeUsage({
+        byModel: [
+          {
+            model: "claude-opus-4-7",
+            inputTokens: 10,
+            outputTokens: 20,
+            totalTokens: 30,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+            costUsd: 1.5,
+          },
+        ],
+        byProject: [
+          { path: "/a", slug: "a", sessions: 1, messages: 2, tokens: 30, costUsd: 1, lastActiveDate: "2026-05-20" },
+          { path: "/b", slug: "b", sessions: 1, messages: 2, tokens: 20, costUsd: 1, lastActiveDate: "2026-05-20" },
+        ],
+        byTool: [{ name: "Bash", count: 4 }],
+        byMcpServer: [{ server: "github", toolCount: 5, uniqueTools: 1 }],
+      });
+
+    it("shows a row count on each heading so a folded block still says what is in it", () => {
+      const { container } = render(h(UsageView, { data: dataWith(withBreakdowns()) }));
+      const heads = Array.from(container.querySelectorAll(".acct-block-head"));
+      expect(heads.length).toBeGreaterThan(0);
+      for (const head of heads) {
+        expect(head.querySelector(".acct-block-count")?.textContent).toMatch(/^\d+$/);
+        expect(head.getAttribute("aria-expanded")).toBe("true");
+      }
+    });
+
+    it("hides a block's body when its heading is clicked, and remembers it", () => {
+      const { container } = render(h(UsageView, { data: dataWith(withBreakdowns()) }));
+      const head = container.querySelector(".acct-block-head") as HTMLElement;
+      const block = head.parentElement as HTMLElement;
+      const before = block.childElementCount;
+
+      fireEvent.click(head);
+      expect(head.getAttribute("aria-expanded")).toBe("false");
+      expect(block.childElementCount).toBeLessThan(before);
+      // The heading itself survives — a folded block is still navigable.
+      expect(block.querySelector(".acct-block-head")).toBeTruthy();
+
+      fireEvent.click(head);
+      expect(head.getAttribute("aria-expanded")).toBe("true");
+      expect(block.childElementCount).toBe(before);
+    });
+
+    it("is reachable from the keyboard", () => {
+      const { container } = render(h(UsageView, { data: dataWith(withBreakdowns()) }));
+      const head = container.querySelector(".acct-block-head") as HTMLElement;
+      // A real <button>, so Enter/Space come free — no role/tabindex shim.
+      expect(head.tagName).toBe("BUTTON");
+    });
   });
 });
