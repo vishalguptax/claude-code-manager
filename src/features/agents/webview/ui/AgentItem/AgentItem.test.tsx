@@ -71,4 +71,46 @@ describe("AgentItem", () => {
     );
     expect(container.querySelector(".agent-item.active")).toBeTruthy();
   });
+
+  // ── Tool grants ─────────────────────────────────────────────────────
+  // Which tools an agent holds is the second thing you want to know about it,
+  // and it used to require opening the detail view.
+
+  it("lists the agent's tools", () => {
+    const { container } = render(
+      h(AgentItem, {
+        agent: agent({ tools: ["Read", "Grep"] }),
+        active: false,
+        onSelect: () => {},
+      }),
+    );
+    const chips = [...container.querySelectorAll(".agent-item-tools .vsc-badge")].map(
+      (n) => n.textContent,
+    );
+    expect(chips).toEqual(["Read", "Grep"]);
+  });
+
+  it("folds a long tool list into a count and keeps the full list on hover", () => {
+    const tools = ["Read", "Write", "Edit", "Glob", "Grep", "Bash"];
+    const { container } = render(
+      h(AgentItem, { agent: agent({ tools }), active: false, onSelect: () => {} }),
+    );
+    const chips = [...container.querySelectorAll(".agent-item-tools .vsc-badge")].map(
+      (n) => n.textContent,
+    );
+    expect(chips).toEqual(["Read", "Write", "Edit", "Glob", "+2"]);
+    expect(container.querySelector(".agent-item-tools")?.getAttribute("title")).toBe(
+      "Tools: Read, Write, Edit, Glob, Grep, Bash",
+    );
+  });
+
+  // No `tools` in the frontmatter means the agent inherits the full set. That
+  // is the unremarkable default, so it says nothing rather than claiming
+  // "everything" in a chip.
+  it("shows nothing when the agent does not restrict its tools", () => {
+    const { container } = render(
+      h(AgentItem, { agent: agent({ tools: undefined }), active: false, onSelect: () => {} }),
+    );
+    expect(container.querySelector(".agent-item-tools")).toBeNull();
+  });
 });

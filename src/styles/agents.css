@@ -63,6 +63,16 @@
 }
 .agent-item.active .agent-item-name { color: var(--bg-active-fg); }
 
+/* Tool grants. A third line only when the agent restricts its tools — the
+   chips wrap rather than scroll, but the row caps how many it shows so it
+   stays one line at the narrow end of the sidebar. */
+.agent-item-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
 .agent-item-desc {
   font-size: var(--fs-sm);
   color: var(--fg-dim);
