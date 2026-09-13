@@ -78,12 +78,31 @@
      the editor's WARNING colour and read as a problem rather than a tier. */
   --color-amber: #ff9966;
   --color-amber-bg: rgba(255,153,102,0.15);
-  --fs-xs: 10px;
-  --fs-sm: 11px;
-  --fs-base: 12px;
-  --fs-md: 13px;
-  --fs-lg: 14px;
-  --fs-xl: 16px;
+  /* ── Type scale ──────────────────────────────────────────────────────
+     Every step is a ratio of the font size the USER configured, not a fixed
+     pixel count. It was six absolute px values, which meant a developer who
+     raised Editor Font Size to 16 still read a 10px chip: 109 of the 149
+     type-size usages in these stylesheets sit at --fs-xs or --fs-sm, so the
+     sidebar rendered almost entirely below the size they had asked for.
+
+     calc() against --fs-root, not `em`, is what makes this safe: `em` would
+     compound wherever a sized element nests inside another one (a compact
+     empty-state description inside an empty state, a hint inside a section),
+     silently shrinking the inner text. calc always resolves against the root.
+
+     The lower four ratios are the previous pixel values over the 13px default
+     (10, 11, 12, 13), so body, meta and chip text renders exactly as before at
+     the default setting. The top two step up on purpose: 14→15 and 16→18. They
+     have six call sites between them, all titles, and they were close enough
+     to the body size that a heading read as bold body text rather than as a
+     heading. Hierarchy costs nothing here because nothing else uses them. */
+  --fs-root: var(--vscode-font-size, 13px);
+  --fs-xs: calc(var(--fs-root) * 0.77);
+  --fs-sm: calc(var(--fs-root) * 0.85);
+  --fs-base: calc(var(--fs-root) * 0.92);
+  --fs-md: var(--fs-root);
+  --fs-lg: calc(var(--fs-root) * 1.15);
+  --fs-xl: calc(var(--fs-root) * 1.38);
   --radius-sm: 3px;
   --radius: 4px;
   --radius-md: 5px;
