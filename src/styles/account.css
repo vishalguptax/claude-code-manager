@@ -1233,8 +1233,21 @@
 .acct-block-head:hover .acct-section-subhead {
   color: var(--fg);
 }
+/* The subhead carries a bottom margin from its standalone use, where it
+   sat above the block's content. Inside this flex row that margin is
+   both doubled (the block already has a `gap`) and off-centre: it
+   pushed the label up while the chevron stayed centred, so the two never
+   lined up. `.acct-section-title` zeroes its own margin for exactly this
+   reason in the section header. */
+.acct-block-head .acct-section-subhead {
+  margin: 0;
+}
 .acct-block-chevron {
-  display: inline-flex;
+  /* flex + align-items, matching .acct-section-chevron — an inline-flex
+     box without it sits on the text baseline rather than the row's
+     centre, which is the other half of the misalignment. */
+  display: flex;
+  align-items: center;
   color: var(--fg-muted);
   transition: transform 150ms ease;
 }
@@ -1343,4 +1356,11 @@
 }
 .cfg-deprecated .acct-field-hint {
   flex: 1;
+  /* The hint's own margin-top exists to separate it from the control it
+     normally sits under. Here it sits BESIDE a button, so that margin
+     only pushes the text down and out of line with it. */
+  margin-top: 0;
+  /* Match the button's cap height so the first line of the notice reads
+     level with the label inside it, rather than with the button's box. */
+  align-self: center;
 }
