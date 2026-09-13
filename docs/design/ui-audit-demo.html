@@ -1317,8 +1317,8 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
         <ul class="chg">
           <li><span class="t" data-sev="P0">One primary action, not six peers</span><span class="d">Temp, Restore, Import and Import&nbsp;Many move into the split-button menu. Six equal-weight buttons in a 135px auto-fit grid wrap to three rows at 280px and answer no question about what to click first.</span></li>
           <li><span class="t" data-sev="P0">Filters collapse to what is actually on</span><span class="d">Project, branch, worktree and date used three permanent rows. Now the bar shows only active filters as removable chips; the funnel opens the rest.</span></li>
-          <li><span class="t" data-sev="P1">Row separators removed</span><span class="d">A 1px rule under every row turns a session list into a ledger. Sticky group headers and the hover fill carry the structure instead.</span></li>
-          <li><span class="t" data-sev="P1">Nothing disappears on hover</span><span class="d">Today the timestamp and pin are set to <code>visibility:hidden</code> on hover and the action rides a gradient over the title. Actions now sit in a reserved gutter.</span></li>
+          <li><span class="t" data-sev="P1">Row separators become a setting</span><span class="d">Whether a three-line row reads better ruled or unruled needs looking at in a real sidebar, so it shipped as <code>claudeManager.density</code>: comfortable keeps the rules, quiet drops them. Sticky headers were dropped entirely — <code>VirtualList</code> positions rows <code>absolute</code>, so <code>position: sticky</code> would be silently inert.</span></li>
+          <li><span class="t" data-sev="P2">Hover overlay: left alone</span><span class="d">An earlier draft of this audit called the hover behaviour a defect. It is VS Code Explorer’s own pattern, and the gradient is what stops the title hard-clipping. The screen above keeps it.</span></li>
         </ul>
         <div class="metric"><span class="big">118px</span><span class="lbl">of chrome reclaimed above the first row at 340px wide, before any scrolling</span></div>
       </div>
@@ -1468,11 +1468,11 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
       <div class="issues">
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>Eight tabs do not fit a sidebar</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P2">corrected</span><h4>The tab strip had two owners, and the later one squeezed the icons</h4></div>
           <dl>
-            <dt>What</dt><dd>Eight labelled tabs at roughly 85px each need about 680px. The default sidebar is 300–400px, so half the product is off-screen, and <code>.tab-list::-webkit-scrollbar { display: none }</code> removes the only hint that it continues. Account and Config, the two tabs a returning user opens most, sit last.</dd>
-            <dt>Fix</dt><dd>Icon-only tabs with the label revealed on the active tab, which fits all eight at 280px with room to spare. Keep the arrow-key roving tabindex; add the tooltip as the label for the seven inactive ones.</dd>
-            <dt>Command</dt><dd><code>/impeccable layout</code></dd>
+            <dt>Correction</dt><dd>First written up as “eight labelled tabs need 680px, so half the product is off-screen”. That was wrong: <code>components.css</code> already hid inactive labels, so the icon rail existed. Reasoning from one stylesheet instead of the concatenated bundle is what produced the mistake.</dd>
+            <dt>What</dt><dd>The real defect was a duplicate declaration. <code>components.css</code> sized a tab as a 32px square with <code>padding: 0</code>; <code>tabs.css</code> loads later in <code>build-css.js</code> and set <code>padding: 8px 12px</code> with no width. Border-box arithmetic: 32 − 24 = 8px of content for a 16px glyph, so every inactive icon overflowed its own cell.</dd>
+            <dt>Fixed</dt><dd>The whole tab family now lives in <code>tabs.css</code> alone; <code>components.css</code> keeps a pointer. The active tab is scrolled into view on change, since the strip can still overflow on a hand-narrowed panel and the scrollbar is deliberately hidden.</dd>
           </dl>
         </div>
 
@@ -1504,11 +1504,11 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
         </div>
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Hovering a row destroys information</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P2">withdrawn</span><h4>“Hovering a row destroys information”</h4></div>
           <dl>
-            <dt>What</dt><dd><code>.session-item:hover .item-time { visibility: hidden }</code> and the same rule for <code>.pin-icon</code>. The action cluster then rides a gradient over the title tail. Pointing at the row you are reading removes the timestamp, the pin marker, and the end of the name.</dd>
-            <dt>Fix</dt><dd>Reserve a 28px action gutter on every row across every tab. The buttons fade in; nothing fades out.</dd>
-            <dt>Command</dt><dd><code>/impeccable polish</code></dd>
+            <dt>Claim</dt><dd><code>.session-item:hover .item-time { visibility: hidden }</code>, the same rule for <code>.pin-icon</code>, and an action cluster riding a gradient over the title tail. Proposed fix: a reserved 28px action gutter on every row.</dd>
+            <dt>Why it was wrong</dt><dd>This is VS Code Explorer’s own pattern — row metadata yields to actions on hover — and the gradient exists precisely so the title dissolves instead of hard-clipping. A reserved gutter would cost every row 38px permanently, over 13% of a 280px sidebar, to “fix” behaviour that is native and deliberate.</dd>
+            <dt>Status</dt><dd>Not shipping. The overlay stays as it is.</dd>
           </dl>
         </div>
 
@@ -1580,7 +1580,7 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
       </ul>
     </div>
 
-    <p class="foot">Scored against Nielsen's ten heuristics with the bundled anti-pattern detector as the second, independent pass. Screens above are interactive mockups, not the shipping build. Sample data is illustrative.</p>
+    <p class="foot">Scored against Nielsen’s ten heuristics with the bundled anti-pattern detector as the second, independent pass. Screens above are interactive mockups, not the shipping build; sample data is illustrative. Two findings were withdrawn after reading the concatenated stylesheet rather than individual files. Both are kept above, marked <em>corrected</em> and <em>withdrawn</em>, rather than deleted — an audit that quietly drops its own mistakes is not one you can trust the rest of.</p>
   </div>
 </section>
 
