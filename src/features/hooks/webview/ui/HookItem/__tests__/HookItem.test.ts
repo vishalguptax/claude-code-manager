@@ -31,10 +31,12 @@ function renderItem(props: Partial<Parameters<typeof HookItem>[0]> = {}) {
 
 describe("HookItem", () => {
   it("renders matcher, scope badge and command preview", () => {
-    renderItem();
+    const { container } = renderItem();
     expect(screen.getByText("Write")).toBeTruthy();
     expect(screen.getByText("global")).toBeTruthy();
-    expect(screen.getByText("echo hi")).toBeTruthy();
+    // The name is derived from the command, so both now read "echo hi" —
+    // scope to the command line rather than matching on text alone.
+    expect(container.querySelector(".hook-item-command code")?.textContent).toBe("echo hi");
   });
 
   it("colours the scope badge like every other feature's scope badge", () => {
@@ -57,6 +59,21 @@ describe("HookItem", () => {
 
   // `.hook-item-command code` ellipsizes at the row edge, so the old
   // 60-character cut only truncated an already-truncated string.
+  // Hooks have no name field, so the row derives one from the command. Before
+  // this the row led with a scope chip and a file path — the only list in the
+  // extension you had to read a path to scan.
+  it("leads with a name derived from the command", () => {
+    const { container } = renderItem({
+      hook: hook({ command: ".claude/hooks/guard-push.sh" }),
+    });
+    expect(container.querySelector(".hook-item-name")?.textContent).toBe("guard push");
+  });
+
+  it("falls back to the event label when there is no command to name it after", () => {
+    const { container } = renderItem({ hook: hook({ command: "", event: "PreToolUse" }) });
+    expect(container.querySelector(".hook-item-name")?.textContent).toBe("Pre Tool Use");
+  });
+
   it("renders the full command and exposes it on hover", () => {
     const long = "x".repeat(120);
     const { container } = renderItem({ hook: hook({ command: long }) });
@@ -66,8 +83,8 @@ describe("HookItem", () => {
 
   it("opens on body click", () => {
     const onOpen = vi.fn();
-    renderItem({ onOpen });
-    fireEvent.click(screen.getByText("echo hi"));
+    const { container } = renderItem({ onOpen });
+    fireEvent.click(container.querySelector(".hook-item-name") as HTMLElement);
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 

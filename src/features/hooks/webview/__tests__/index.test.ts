@@ -45,9 +45,9 @@ describe("HooksTab", () => {
   });
 
   it("renders the list once a hooks message arrives via the bus", async () => {
-    render(h(HooksTab, {}));
+    const { container } = render(h(HooksTab, {}));
     dispatch({ type: "hooks", data: [hook({ command: "from-host" })] });
-    await waitFor(() => expect(screen.getByText("from-host")).toBeTruthy());
+    await waitFor(() => expect(container.querySelector(".hook-item-command code")).toBeTruthy());
     expect(screen.getByText("1 hook")).toBeTruthy();
   });
 
@@ -58,7 +58,7 @@ describe("HooksTab", () => {
   });
 
   it("shows the host's parse errors alongside the (possibly partial) list", async () => {
-    render(h(HooksTab, {}));
+    const { container } = render(h(HooksTab, {}));
     dispatch({
       type: "hooks",
       data: [hook({ command: "from-host" })],
@@ -67,7 +67,7 @@ describe("HooksTab", () => {
     await waitFor(() =>
       expect(screen.getByText("Failed to parse .claude/settings.json: bad")).toBeTruthy(),
     );
-    expect(screen.getByText("from-host")).toBeTruthy();
+    expect(container.querySelector(".hook-item-command code")).toBeTruthy();
   });
 
   it("clears the loader and surfaces a host error message", async () => {

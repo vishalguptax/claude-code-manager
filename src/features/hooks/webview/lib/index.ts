@@ -4,3 +4,4 @@
  */
 export { eventLabel, matcherDisplay, scopeLabel } from "./labels";
 export { hookKey } from "./hookKey";
+export { hookTitle } from "./hookTitle";

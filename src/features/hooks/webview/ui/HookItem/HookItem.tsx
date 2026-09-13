@@ -9,7 +9,7 @@ import { cx } from "../../../../../webview/shared/lib";
 import { Badge, Button } from "../../../../../webview/shared/ui";
 import type { Hook } from "../../../types";
 import { eventUsesMatcher } from "../../../events";
-import { scopeLabel } from "../../lib";
+import { eventLabel, hookTitle, scopeLabel } from "../../lib";
 
 export interface HookItemProps {
   hook: Hook;
@@ -27,6 +27,10 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
   // Pause/play, not pin-off: a crossed-out pushpin means "unpin", which is
   // not an action a hook has. These two say stop and resume this handler.
   const toggleIcon = hook.disabled ? "play" : "pause";
+  // Hooks carry no name, so the row used to lead with a scope chip and a file
+  // path — the only list in the extension you had to read a path to scan.
+  // Derived for display only; nothing is written back to settings.json.
+  const title = hookTitle(hook.command) || eventLabel(hook.event);
 
   return (
     <div
@@ -42,6 +46,9 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
       }}
     >
       <div class="hook-item-row1">
+        <span class="hook-item-name" title={title}>
+          {title}
+        </span>
         {eventUsesMatcher(hook.event) ? (
           hook.matcher ? (
             <span class="hook-matcher" title={`Matcher: ${hook.matcher}`}>

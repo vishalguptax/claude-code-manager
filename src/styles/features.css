@@ -135,6 +135,22 @@
   padding: 0;
 }
 
+/* The row's name. Takes the slack so the chips and hover actions keep their
+   size, and ellipsizes rather than wrapping — a hook row is one line. */
+.hook-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hook-item.is-disabled .hook-item-name {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
 .hook-item-row1 {
   display: flex;
   align-items: center;
