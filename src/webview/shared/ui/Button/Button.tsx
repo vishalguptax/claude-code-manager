@@ -8,6 +8,11 @@
  *   - "danger"    — destructive accent (red); equivalent to the legacy
  *     `class="del"` modifier, which still works.
  *   - "icon"      — square, chromeless icon-only button (toolbar/affordance).
+ *   - "ghost"     — chromeless icon + LABEL. For a secondary action that sits
+ *     beside a primary one: it reads as an action without putting a second box
+ *     next to the box that matters. A row of bordered secondaries competes
+ *     with its own primary and, because each is sized by its label, wraps into
+ *     ragged rows.
  *
  * Optional `iconName` renders a leading <Icon>; `loading` swaps the icon for a
  * spinner and disables the button. Content comes from `label` or `children`
@@ -18,7 +23,7 @@ import type { ComponentChildren } from "preact";
 import { cx } from "../../lib";
 import { Icon } from "../Icon";
 
-export type ButtonVariant = "primary" | "secondary" | "icon" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "icon" | "danger";
 
 export interface ButtonProps {
   variant?: ButtonVariant;

@@ -570,6 +570,18 @@
  * have no minimum — they all stretch to identical widths regardless
  * of label length, eliminating uneven wraps.
  */
+/* Keeps the overflow trigger from stretching in the action row's flex. */
+.d-actions-more { display: flex; flex-shrink: 0; }
+
+/* Live-state chip in the detail meta row: the dot keeps the colour coding the
+   list uses, the words carry the meaning. */
+.d-meta-pill-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.d-meta-pill-live .live-dot { flex-shrink: 0; }
+
 .d-actions {
   /* Flex-wrap so each button sizes to its content and wraps cleanly — never
      cropping. (Was an auto-fit grid with minmax(96px, 1fr); those equal narrow
@@ -786,6 +798,17 @@
   margin-bottom: var(--space-xs);
 }
 .d-msg-head .d-msg-role { margin-bottom: 0; flex: 1; }
+
+/* Timestamp sits hard right of the role, so the role labels read as one clean
+   left column down the transcript. Pushed there by taking the row's slack;
+   the hover actions that follow keep their own place. */
+.d-msg-time {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
 
 .d-msg-actions {
   display: inline-flex;

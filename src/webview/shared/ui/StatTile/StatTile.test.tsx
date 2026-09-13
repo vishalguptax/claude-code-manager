@@ -55,3 +55,33 @@ describe("StatTile", () => {
     expect(container.querySelectorAll(".stat-tile").length).toBe(2);
   });
 });
+
+describe("StatTileGrid with an odd count", () => {
+  // Three tiles in a two-column grid would leave the fourth cell empty — a
+  // bordered box around nothing, which reads as a missing figure. The
+  // transcript hits this whenever a session reports no token total.
+  it("marks the last tile so CSS can span it across both columns", () => {
+    const { container } = render(
+      <StatTileGrid>
+        <StatTile value="38" label="messages" />
+        <StatTile value="346" label="tools" />
+        <StatTile value="42m" label="duration" />
+      </StatTileGrid>,
+    );
+    const tiles = container.querySelectorAll(".stat-tile");
+    expect(tiles.length).toBe(3);
+    // :last-child:nth-child(odd) is the hook; assert the shape it relies on.
+    expect(tiles[2].matches(":last-child:nth-child(odd)")).toBe(true);
+  });
+
+  it("leaves an even count alone", () => {
+    const { container } = render(
+      <StatTileGrid>
+        <StatTile value="1" label="a" />
+        <StatTile value="2" label="b" />
+      </StatTileGrid>,
+    );
+    const tiles = container.querySelectorAll(".stat-tile");
+    expect(tiles[1].matches(":last-child:nth-child(odd)")).toBe(false);
+  });
+});

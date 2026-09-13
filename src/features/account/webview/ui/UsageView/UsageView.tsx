@@ -52,7 +52,7 @@ import {
   shortenProjectPath,
 } from "../../lib";
 import { isSectionCollapsed, timePeriod, toggleSection, type TimePeriod } from "../../model";
-import { Donut } from "../Donut";
+import { ShareBar } from "../ShareBar";
 import { Heatmap } from "../Heatmap";
 
 export interface UsageViewProps {
@@ -360,6 +360,7 @@ function ModelsBlock({ u }: { u: UsageStats }) {
   const total = shown.reduce((s, m) => s + m.totalTokens, 0);
   const segments = shown.map((m) => ({
     key: m.model,
+    label: formatModelName(m.model),
     value: m.totalTokens,
     color: modelFamilyColor(m.model),
   }));
@@ -382,13 +383,14 @@ function ModelsBlock({ u }: { u: UsageStats }) {
           </span>
         </div>
       ) : null}
-      <div class="acct-models-layout">
-        <Donut segments={segments} />
-        <div class="acct-model-legend">
-          {shown.map((m) => (
-            <ModelLegendRow key={m.model} m={m} total={total} />
-          ))}
-        </div>
+      {/* Proportion in the bar, figures in the legend under it. Side by side
+          with a donut, the ring was competing with a legend that already said
+          everything — and losing 88px of a 312px column to do it. */}
+      <ShareBar segments={segments} ariaLabel="Token share by model" />
+      <div class="acct-model-legend">
+        {shown.map((m) => (
+          <ModelLegendRow key={m.model} m={m} total={total} />
+        ))}
       </div>
       {u.totalCostUsd > 0 ? (
         <div class="acct-meta-foot">Prices @ {u.pricesEffectiveDate}</div>

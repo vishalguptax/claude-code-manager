@@ -9,6 +9,7 @@
  */
 import { Icon } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
+import { fmtTime } from "../../../../../webview/utils";
 import type { Message } from "../../../types";
 
 /** Compact token formatter — 980, 1.2k, 10.6k, 1.5M, 2.76B. */
@@ -85,6 +86,10 @@ export function MessageItem({
   const displayed =
     !query && m.content.length > 500 ? `${m.content.slice(0, 500)}…` : m.content;
 
+  // Transcripts store an ISO timestamp; a malformed or absent one parses to
+  // NaN and simply hides the time rather than printing "Invalid Date".
+  const msgTime = m.timestamp ? Date.parse(m.timestamp) : NaN;
+
   const usage = m.usage;
   const usageBits: string[] = [];
   if (usage) {
@@ -98,6 +103,15 @@ export function MessageItem({
     <div class={cx("d-msg", `d-msg-${m.role}`)}>
       <div class="d-msg-head">
         <span class="d-msg-role">{m.role === "user" ? "You" : "Claude"}</span>
+        {/* When a turn happened is the second thing you want from a transcript
+            after who said it, and the timestamp was already in the payload —
+            it just was not rendered. Right-aligned so the role labels stay a
+            clean left column down the page. */}
+        {Number.isFinite(msgTime) ? (
+          <span class="d-msg-time" title={new Date(msgTime).toLocaleString()}>
+            {fmtTime(msgTime)}
+          </span>
+        ) : null}
         <div class="d-msg-actions">
           <button
             type="button"

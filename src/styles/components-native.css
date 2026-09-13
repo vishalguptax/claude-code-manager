@@ -569,6 +569,25 @@
    target. Applied uniformly so refresh / globe / back / resume and every
    feature toolbar icon share one affordance. NO permanent resting border or
    background — that would read as non-native. */
+/* GHOST — icon + label, no border, no fill until hover. A secondary action
+   standing beside a primary one: still obviously a control, but it does not
+   put a second box next to the box that matters. */
+.btn-ghost {
+  height: var(--h-control);
+  padding: 0 var(--space-md);
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--role-text-secondary);
+  cursor: pointer;
+}
+.btn-ghost:hover {
+  background: var(--role-ghost-hover-bg);
+  color: var(--role-text-primary);
+}
+.btn-ghost:active { background: var(--role-ghost-active-bg); }
+.btn-ghost:disabled { color: var(--fg-muted); background: none; }
+
 .btn-icon {
   width: var(--h-control);
   min-width: 24px;

@@ -8,11 +8,13 @@
  * demand, keeping the DOM light for very long pages without inventing a host
  * message the decomposed host cannot answer.
  */
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   BackButton,
   Button,
   Icon,
+  Menu,
+  type MenuItem,
   Segmented,
   type SegmentedOption,
   StatTile,
@@ -52,6 +54,7 @@ import {
 } from "../../model";
 import { isSameRepo, pathTail } from "../../lib";
 import { MessageItem, fmtTokens } from "../components/MessageItem";
+import { liveTitleForStatus } from "../components/SessionItem";
 import { DetailSkeleton } from "./DetailSkeleton";
 import type { SessionDetail, WorktreeRef } from "../../../types";
 
@@ -251,31 +254,76 @@ function Actions({
           {worktree && worktree.kind !== "main" ? "Resume in worktree" : "Resume"}
         </Button>
       )}
-      <Button iconName="pencil" onClick={() => sendRenameSession(d.id)}>
-        Rename
-      </Button>
-      <Button iconName="git-fork" onClick={() => sendForkSession(d.id)}>
-        Fork
-      </Button>
+      {/* Two named seconds, then everything else behind the overflow. Seven
+          bordered buttons wrapped into ragged rows of three whose widths came
+          from their labels, so the block read as a pile of boxes above the
+          transcript rather than as one decision plus its alternatives. Pin and
+          Export are the two that get reached for; Rename, Fork, Copy Cmd and
+          Delete are occasional and cost nothing in a menu. */}
       <Button
+        variant="ghost"
         iconName={isPinned ? "pin-off" : "pin"}
         onClick={() => (isPinned ? sendUnpinSession(d.id) : sendPinSession(d.id))}
       >
         {isPinned ? "Unpin" : "Pin"}
       </Button>
-      <Button iconName="terminal" onClick={() => sendCopyCommand(d.id)}>
-        Copy Cmd
-      </Button>
       <Button
+        variant="ghost"
         iconName="upload"
         title="Save this session as a portable .jsonl"
         onClick={() => sendExportSession(d.id)}
       >
         Export
       </Button>
-      <Button class="del" iconName="trash-2" onClick={() => sendConfirmDelete(d.id)}>
-        Delete
-      </Button>
+      <DetailOverflow d={d} />
+    </div>
+  );
+}
+
+/**
+ * The occasional actions. Reuses the shared <Menu>, so this and the row's
+ * right-click menu are the same object in two places rather than two lists
+ * that drift.
+ */
+function DetailOverflow({ d }: { d: SessionDetail }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const items: MenuItem[] = [
+    { label: "Rename…", icon: "pencil", onSelect: () => sendRenameSession(d.id) },
+    { label: "Fork session", icon: "git-fork", onSelect: () => sendForkSession(d.id) },
+    {
+      label: "Copy resume command",
+      icon: "terminal",
+      onSelect: () => sendCopyCommand(d.id),
+    },
+    {
+      label: "Delete session",
+      icon: "trash-2",
+      danger: true,
+      separatorBefore: true,
+      onSelect: () => sendConfirmDelete(d.id),
+    },
+  ];
+  return (
+    <div ref={ref} class="d-actions-more">
+      <Button
+        variant="icon"
+        iconName="more-horizontal"
+        title="More actions"
+        ariaLabel="More session actions"
+        onClick={() => {
+          const r = ref.current?.getBoundingClientRect();
+          setAt({ x: r?.right ?? 0, y: r?.bottom ?? 0 });
+        }}
+      />
+      <Menu
+        open={at !== null}
+        x={at?.x ?? 0}
+        y={at?.y ?? 0}
+        items={items}
+        anchorRef={ref}
+        onClose={() => setAt(null)}
+      />
     </div>
   );
 }
@@ -308,7 +356,7 @@ export function DetailView() {
   if (loading || !d) {
     return (
       <div class="panel" id="detailView">
-        <BackButton onClick={backToList} />
+        <BackButton label="All sessions" onClick={backToList} />
         <DetailSkeleton />
       </div>
     );
@@ -365,7 +413,7 @@ export function DetailView() {
 
   return (
     <div class="panel" id="detailView">
-      <BackButton onClick={backToList} />
+      <BackButton label="All sessions" onClick={backToList} />
 
       <div class="d-head">
         <div class="d-title" title={d.name || d.summary}>
@@ -382,6 +430,17 @@ export function DetailView() {
           </div>
         ) : null}
         <div class="d-meta">
+          {/* Live state as a LABELLED chip, not a bare dot. The list row can
+              lean on a dot plus a tooltip because the rows around it give it
+              context; here it is the one place the session's state is stated,
+              and a coloured dot alone says nothing to someone who cannot
+              distinguish the colours or is reading a screenshot. */}
+          {d.isLive ? (
+            <span class="d-meta-pill d-meta-pill-live">
+              <i class="live-dot" data-status={d.status || undefined} />
+              {liveTitleForStatus(d.status)}
+            </span>
+          ) : null}
           <span class="d-meta-pill">{d.project}</span>
           {branch ? (
             <span class="d-meta-pill d-meta-pill-branch">

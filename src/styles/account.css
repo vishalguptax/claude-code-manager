@@ -823,30 +823,24 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Donut + legend laid out side-by-side. Legend takes remaining space. */
-.acct-models-layout {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-lg);
-  align-items: center;
+/* Proportion bar above the legend. Full width, because a share is easier to
+   compare by length than by angle and the legend below already carries every
+   figure — see ShareBar for why this replaced an 88px donut. */
+.acct-share-bar {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-hover);
+  margin-bottom: var(--space-md);
 }
-.acct-donut {
+.acct-share-seg {
   display: block;
-  flex-shrink: 0;
-}
-.acct-donut-track {
-  fill: none;
-  stroke: var(--vscode-panel-border, rgba(127, 127, 127, 0.2));
-  stroke-width: 12;
-}
-.acct-donut-arc {
-  fill: none;
-  stroke-width: 12;
-  stroke-linecap: butt;
+  height: 100%;
+  min-width: 2px;
 }
 
-/* Legend = grid row per model. Dot + name + share% + cost in fixed
-   columns so numbers line up vertically (tabular-nums on the numerics). */
 .acct-model-legend {
   display: flex;
   flex-direction: column;
