@@ -249,4 +249,25 @@ describe("UsageView", () => {
       expect(head.tagName).toBe("BUTTON");
     });
   });
+
+  // ── Info ribbon ─────────────────────────────────────────────────────
+  // Every entry is conditional on its own value. The streak line was pushed
+  // unconditionally, so a payload without that field rendered the literal
+  // string "streak undefinedd" — visible on screen, in a shipped build.
+
+  it("omits the streak rather than printing undefined", () => {
+    const usage = makeUsage();
+    delete (usage as Partial<typeof usage>).currentStreak;
+    delete (usage as Partial<typeof usage>).longestStreak;
+    const { container } = render(h(UsageView, { data: dataWith(usage) }));
+    expect(container.textContent).not.toContain("undefined");
+    expect(container.textContent).not.toContain("streak");
+  });
+
+  it("still shows the streak when the host sends one", () => {
+    const { container } = render(
+      h(UsageView, { data: dataWith(makeUsage({ currentStreak: 4 })) }),
+    );
+    expect(container.textContent).toContain("streak 4d");
+  });
 });

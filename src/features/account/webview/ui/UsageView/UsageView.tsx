@@ -265,11 +265,18 @@ function InfoRibbon({
   u: UsageStats;
   totals: ReturnType<typeof computeUsageTotals>;
 }) {
+  // Every entry is conditional on its own value being a real number. The
+  // streak line used to be pushed unconditionally, so a payload missing that
+  // field rendered the string "streak undefinedd" — `undefined` interpolated,
+  // then the unit stuck to the end of it. `accountData` crosses the host
+  // boundary as `unknown` and is cast, so a field can simply not be there.
   const items: string[] = [];
   if (u.favoriteModel) items.push(`Favorite: ${formatModelName(u.favoriteModel)}`);
   items.push(`${totals.activeInPeriod}/${totals.totalInPeriod} active`);
-  items.push(`streak ${u.currentStreak}d`);
-  if (u.longestStreak > u.currentStreak) items.push(`best ${u.longestStreak}d`);
+  if (Number.isFinite(u.currentStreak)) items.push(`streak ${u.currentStreak}d`);
+  if (Number.isFinite(u.longestStreak) && u.longestStreak > (u.currentStreak ?? 0)) {
+    items.push(`best ${u.longestStreak}d`);
+  }
   if (u.longestSessionMs > 0) items.push(`longest ${formatDuration(u.longestSessionMs)}`);
   return (
     <div class="acct-info-ribbon">
