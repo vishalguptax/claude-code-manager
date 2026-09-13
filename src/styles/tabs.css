@@ -1,21 +1,39 @@
+/* ============================================================================
+   Tab strip — the single owner of the tab family.
+
+   These rules used to be split across components.css ("Tab Bar (shared)") and
+   this file. components.css sized the button as a fixed 32px icon box with
+   `padding: 0`; tabs.css loads later in scripts/build-css.js, so its
+   `padding: 8px 12px` won and left 8px of content width for a 16px icon. Two
+   files owning one component is what produced that, so the whole family lives
+   here now and components.css carries only a pointer.
+   ============================================================================ */
+
 .tab-bar {
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
-  /* flex:0 0 auto so the tab strip stays its natural height. Overrides the
-     stray `.tab-bar { flex:1 }` in components.css (a v1 vertical-nav leftover)
-     that otherwise makes the strip grow to half the panel height. */
+  /* Natural height: the strip must not grow to fill the panel column. */
   flex: 0 0 auto;
 }
+
 /* The scrollable tab list. The global reload button is a flex sibling pinned
    to the right, so only the tabs scroll when the strip overflows. */
 .tab-list {
   display: flex;
+  align-items: center;
+  gap: 2px;
   flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
+/* No scrollbar under the strip: it would sit on the 2px active underline and
+   read as a second, broken indicator. TabBar scrolls the active tab into view
+   instead, so the overflow is never a dead end. */
 .tab-list::-webkit-scrollbar { display: none; }
+
 /* Global reload affordance — pinned right, never scrolls with the tabs.
    Ghost toolbar chrome: transparent at rest (no border/fill — unlike the
    bordered inline icon buttons in feature rows), hover-only background, like
@@ -39,35 +57,113 @@
 .tab-reload-btn.btn-icon:active {
   background: var(--vscode-toolbar-activeBackground, var(--bg-active));
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Tab button — icon rail
+
+   Eight labelled tabs need roughly 680px; the sidebar is 300-400px. So only
+   the ACTIVE tab spells its label and the other seven are a square icon cell,
+   which fits all eight inside ~330px.
+
+   The label is hidden in CSS, never dropped from the markup: every tab keeps
+   the aria-label and title TabBar sets, so the accessible name and the hover
+   tooltip are identical whether or not the label is painted.
+   ────────────────────────────────────────────────────────────────────────────── */
+
 .tab-btn {
-  background: transparent;
-  border: none;
-  color: var(--fg-dim);
-  padding: var(--space-md) var(--space-xl);
+  flex: 0 0 auto;
+  /* Icon cell: 32px wide leaves 8px of clearance each side of the 16px glyph.
+     The box is border-box and carries the 2px active underline, so the height
+     is the shared control height plus that underline — content stays exactly
+     --h-control tall whether or not the tab is active. */
+  width: 32px;
+  height: calc(var(--h-control) + 2px);
+  padding: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-sm);
-  cursor: pointer;
-  font-size: var(--fs-base);
+  background: none;
+  border: none;
   border-bottom: 2px solid transparent;
-  transition: var(--transition-control);
+  color: var(--fg-dim);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  /* Keep a scrolled-into-view tab clear of the strip edge and of the pinned
+     reload button beside it. */
+  scroll-margin-inline: var(--space-2xl);
+  transition:
+    color var(--transition-control),
+    background var(--transition-control),
+    border-color var(--transition-control),
+    width 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
-.tab-btn:hover { color: var(--fg); }
+.tab-btn:hover {
+  color: var(--fg);
+  background: var(--role-ghost-hover-bg);
+}
+.tab-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
 .tab-btn.active {
   color: var(--fg);
   border-bottom-color: var(--accent);
+  font-weight: 600;
+  /* Grows to fit its label; every other tab stays a 34px cell. */
+  width: auto;
+  padding: 0 var(--space-lg);
 }
-.tab-icon { display: inline-flex; }
-.tab-label { font-size: var(--fs-base); }
-.tab-content-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
-.tab-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .tab-btn { transition: none; }
+}
+
+.tab-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+/* The label belongs to the active tab alone. */
+.tab-label { display: none; }
+.tab-btn.active .tab-label { display: inline; }
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Tab content panes
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.tab-content-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .tab-content.hidden { display: none; }
+
+/* A feature's root panel owns its own scroll inside the pane. Descendant
+   selector, so it still applies through the keep-alive wrapper below. */
+.tab-content .panel {
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
 /* Keep-alive wrapper: each mounted tab sits in one of these. `display:
    contents` makes the wrapper vanish from layout, so the feature's own
    root (e.g. `.panel`) participates in `.tab-content`'s flex column
    exactly as it did when it was a direct child. Inactive tabs stay
-   mounted but are pulled from layout. The `.tab-content .panel` scroll
-   rule (components.css) is a descendant selector, so the panel keeps
-   its own scroll through the wrapper — no rule needed here. */
+   mounted but are pulled from layout. */
 .tab-keepalive { display: contents; }
 .tab-keepalive.hidden { display: none; }

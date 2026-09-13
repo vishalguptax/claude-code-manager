@@ -451,91 +451,16 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Tab Bar (shared)
+   Tab Bar — see tabs.css.
+
+   The tab strip, its buttons, the icon/label swap and the content panes all
+   live in ONE file now (src/styles/tabs.css). They used to be defined here
+   AND there: tabs.css loads later, so its `.tab-btn` padding won over this
+   block's `width: 32px` box and squeezed the icon into 8px of content. Two
+   owners for one component is how that happens; there is one owner now.
    ────────────────────────────────────────────────────────────────────────────── */
 
-.tab-bar {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  gap: 2px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.tab-bar::-webkit-scrollbar { display: none; }
 
-.tab-btn {
-  flex: 0 0 auto;
-  padding: 0;
-  width: 32px;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--fg-dim);
-  font-size: var(--fs-base);
-  font-family: inherit;
-  cursor: pointer;
-  transition:
-    color var(--transition-control),
-    border-color var(--transition-control),
-    width 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
-  white-space: nowrap;
-}
-.tab-btn:hover {
-  color: var(--fg);
-  background: var(--bg-hover);
-}
-.tab-btn:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-}
-.tab-btn.active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
-  font-weight: 600;
-  width: auto;
-  padding: 0 var(--space-lg);
-}
-.tab-icon {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-.tab-label {
-  display: none;
-}
-.tab-btn.active .tab-label {
-  display: inline;
-}
-@media (prefers-reduced-motion: reduce) {
-  .tab-btn { transition: none; }
-}
-
-.tab-content-area {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.tab-content {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-.tab-content .panel {
-  flex: 1;
-  min-height: 0;
-  max-height: 100%;
-  overflow-y: auto;
-}
 
 /* Windowed list (VirtualList). It MUST be the scroll container itself: the
    virtualizer reads scrollTop/clientHeight off this element and the inner

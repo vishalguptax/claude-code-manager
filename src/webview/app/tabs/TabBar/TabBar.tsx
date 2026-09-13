@@ -9,7 +9,7 @@
  * pattern so every tab/segment control in the webview behaves identically.
  */
 
-import { useRef } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import { cx } from "../../../shared/lib";
 import { activeTab } from "../../../shared/model";
 import { Icon } from "../../../shared/ui";
@@ -39,6 +39,19 @@ export function TabBar() {
       ref.current?.querySelector<HTMLButtonElement>(`[data-tab="${id}"]`)?.focus();
     });
   };
+
+  // Only the active tab spells its label (see the icon-rail block in
+  // tabs.css), so the strip fits every tab at the default sidebar width. It
+  // can still overflow on a hand-narrowed panel, and the active tab is
+  // restored from persisted state on mount — which may be the last tab, off
+  // the right edge. Pull it into view whenever it changes.
+  //
+  // `scrollIntoView` is not implemented in every test DOM, so the call is
+  // guarded rather than assumed.
+  useEffect(() => {
+    const el = ref.current?.querySelector<HTMLButtonElement>(`[data-tab="${current}"]`);
+    el?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [current]);
 
   const onKeyDown = (e: KeyboardEvent): void => {
     switch (e.key) {

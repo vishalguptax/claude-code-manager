@@ -66,4 +66,51 @@ describe("TabBar", () => {
     fireEvent.keyDown(list, { key: "End" });
     expect(activeTab.value).toBe(TABS[TABS.length - 1].id);
   });
+
+  // ── Icon rail ──────────────────────────────────────────────────
+  // Only the active tab spells its label (CSS hides the rest), so the
+  // accessible name has to come from somewhere that is NOT the label. Every
+  // tab keeps aria-label + title regardless of state; without those, seven of
+  // eight tabs would be unnamed to a screen reader and untitled on hover.
+
+  it("gives every tab an accessible name and a tooltip, active or not", () => {
+    const { container } = render(<TabBar />);
+    const tabs = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    expect(tabs.length).toBe(TABS.length);
+    for (const tab of tabs) {
+      const expected = TABS.find((t) => t.id === tab.dataset.tab)?.label;
+      expect(tab.getAttribute("aria-label")).toBe(expected);
+      expect(tab.getAttribute("title")).toBe(expected);
+    }
+  });
+
+  it("still renders the label element for every tab (CSS, not markup, hides it)", () => {
+    const { container } = render(<TabBar />);
+    const labels = Array.from(container.querySelectorAll(".tab-label")).map((n) => n.textContent);
+    expect(labels).toEqual(TABS.map((t) => t.label));
+  });
+
+  it("scrolls the active tab into view so a narrowed strip never clips it", () => {
+    activeTab.value = "sessions";
+    const { container } = render(<TabBar />);
+    const config = container.querySelector<HTMLButtonElement>('[data-tab="config"]');
+    const calls: unknown[] = [];
+    (config as HTMLButtonElement).scrollIntoView = (arg?: unknown) => {
+      calls.push(arg);
+    };
+    fireEvent.click(config as HTMLButtonElement);
+    expect(activeTab.value).toBe("config");
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[0]).toMatchObject({ block: "nearest", inline: "nearest" });
+  });
+
+  it("does not throw when the host DOM has no scrollIntoView", () => {
+    activeTab.value = "sessions";
+    const { container } = render(<TabBar />);
+    const mcp = container.querySelector<HTMLButtonElement>('[data-tab="mcp"]');
+    // Simulate a DOM implementation that omits the method entirely.
+    (mcp as unknown as { scrollIntoView?: unknown }).scrollIntoView = undefined;
+    expect(() => fireEvent.click(mcp as HTMLButtonElement)).not.toThrow();
+    expect(activeTab.value).toBe("mcp");
+  });
 });
