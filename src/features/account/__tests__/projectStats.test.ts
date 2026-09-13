@@ -179,7 +179,9 @@ describe("aggregateProjectStats", () => {
     const a = out.byProject.find((p) => p.slug === "proj-a")!;
     expect(a.path).toBe("C:/a");
     expect(a.sessions).toBe(2);
-    expect(a.messages).toBe(2);
+    // messages counts every transcript entry — Claude CLI's own unit.
+    // Two user lines + one assistant line here.
+    expect(a.messages).toBe(3);
     expect(a.tokens).toBe(300);
     // Opus rates: 100 input @ $5/M + 200 output @ $25/M = 0.0055
     expect(a.costUsd).toBeCloseTo((100 * 5 + 200 * 25) / 1_000_000);
@@ -384,8 +386,15 @@ describe("aggregateUsage — totals + daily", () => {
     ]);
     const out = await warmUsageAggregate();
     expect(out.daily.map((d) => d.date)).toEqual(["2026-05-10", "2026-05-11"]);
-    expect(out.daily[0].sessionCount).toBe(2); // s1 + s2
-    expect(out.daily[1].sessionCount).toBe(1); // only s2
+    // sessionCount is sessions STARTED that day, so a session spanning
+    // both days is counted once, on the first. Counting it as active on
+    // each day made a week's rows sum to more sessions than ever ran.
+    expect(out.daily[0].sessionCount).toBe(2); // s1 + s2 both start here
+    expect(out.daily[1].sessionCount).toBe(0); // s2 continues; nothing new
+    // Summing the period still totals the real number of sessions.
+    expect(out.daily.reduce((n, d) => n + d.sessionCount, 0)).toBe(
+      out.totalSessions,
+    );
     expect(out.dailyTokens.find((d) => d.date === "2026-05-10")?.total).toBe(300);
     expect(out.dailyTokens.find((d) => d.date === "2026-05-11")?.total).toBe(100);
   });
@@ -413,7 +422,8 @@ describe("aggregateUsage — totals + daily", () => {
     ]);
     const out = await warmUsageAggregate();
     expect(out.totalSessions).toBe(2);
-    expect(out.totalMessages).toBe(2);
+    // Every entry counts, assistant lines included — see buildDaily.
+    expect(out.totalMessages).toBe(4);
     expect(out.totalInputTokens).toBe(110);
     expect(out.totalOutputTokens).toBe(290);
     // totalTokens sums every bucket, cache included — see
@@ -484,7 +494,8 @@ describe("aggregateUsage — dedup", () => {
     // Tokens counted once despite two appearances.
     expect(out.totalInputTokens).toBe(100);
     expect(out.totalOutputTokens).toBe(200);
-    expect(out.totalMessages).toBe(1);
+    // One user line + one assistant line, both surviving dedup.
+    expect(out.totalMessages).toBe(2);
   });
 
   it("dedups assistants by message.id when uuid is absent", async () => {
@@ -561,6 +572,49 @@ describe("aggregateUsage — dedup", () => {
     // Tool calls still come from every line — the second line is where
     // the tool_use block lives, so dedup must not drop the whole entry.
     expect(out.byTool).toEqual([{ name: "Bash", count: 1 }]);
+  });
+});
+
+describe("aggregateUsage — session counting", () => {
+  it("never counts a long-running session more than once across a period", async () => {
+    // Regression: per-day counts used to mean "sessions active today",
+    // so one session touching four days summed to four. A real week
+    // reported 46 sessions where 22 had run.
+    setupProject("a", "s.jsonl", [
+      userLine("long", "2026-05-10T09:00:00Z", undefined, "u-1"),
+      assistantLine({ sessionId: "long", ts: "2026-05-10T09:00:01Z", output: 10 }),
+      assistantLine({ sessionId: "long", ts: "2026-05-11T09:00:00Z", output: 10 }),
+      assistantLine({ sessionId: "long", ts: "2026-05-12T09:00:00Z", output: 10 }),
+      assistantLine({ sessionId: "long", ts: "2026-05-13T09:00:00Z", output: 10 }),
+    ]);
+    const out = await warmUsageAggregate();
+
+    expect(out.totalSessions).toBe(1);
+    expect(out.daily.reduce((n, d) => n + d.sessionCount, 0)).toBe(1);
+    // Counted on the day it began, not on every day it touched.
+    const byDate = new Map(out.daily.map((d) => [d.date, d.sessionCount]));
+    expect(byDate.get("2026-05-10")).toBe(1);
+    expect(byDate.get("2026-05-13")).toBe(0);
+  });
+
+  it("attributes a session to its earliest entry across files", async () => {
+    // Resumed sessions append to a new transcript; the start is still
+    // the first entry anywhere, not the first file read.
+    setupProject("a", "later.jsonl", [
+      assistantLine({ sessionId: "s", ts: "2026-05-12T09:00:00Z", output: 10 }),
+    ]);
+    const projDir = path.join(PROJECTS_DIR, "a");
+    vfs.dirs[projDir] = ["later.jsonl", "earlier.jsonl"];
+    vfs.mtimes[path.join(projDir, "earlier.jsonl")] = 1000;
+    vfs.files[path.join(projDir, "earlier.jsonl")] = assistantLine({
+      sessionId: "s",
+      ts: "2026-05-09T09:00:00Z",
+      output: 10,
+    });
+    const out = await warmUsageAggregate();
+    const byDate = new Map(out.daily.map((d) => [d.date, d.sessionCount]));
+    expect(byDate.get("2026-05-09")).toBe(1);
+    expect(byDate.get("2026-05-12")).toBe(0);
   });
 });
 

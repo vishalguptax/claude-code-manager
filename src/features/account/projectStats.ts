@@ -226,7 +226,6 @@ interface ProjectAcc {
 interface DayAcc {
   date: string;
   messages: number;
-  sessions: Set<string>;
   toolCalls: number;
   /** Every bucket summed — the heatmap series. See TOKEN_TOTAL_SEMANTICS. */
   tokens: number;
@@ -545,11 +544,17 @@ class AggState {
     const tsMs = entry.tsMs;
     if (tsMs > 0 && tsMs < this.firstTsMs) this.firstTsMs = tsMs;
 
-    if (entry.sessionId) {
+    // A session counts only once it has a DATED entry. Transcripts also
+    // carry sidecar records — `last-prompt`, `mode`, `permission-mode` —
+    // which have a sessionId but no timestamp and no conversation. On a
+    // real profile 12 of 72 "sessions" were nothing but those, inflating
+    // the total and leaving it permanently out of step with the per-day
+    // rows (which can only place a session on the day it started).
+    if (entry.sessionId && tsMs > 0) {
       const sid = entry.sessionId;
       acc.sessions.add(sid);
       this.globalSessions.add(sid);
-      if (tsMs > 0) {
+      {
         const existing = this.sessionTimes.get(sid);
         if (!existing) {
           this.sessionTimes.set(sid, { min: tsMs, max: tsMs });
@@ -563,15 +568,22 @@ class AggState {
     const date = entry.date;
     if (date && date > acc.lastActiveDate) acc.lastActiveDate = date;
     const day = date ? this.dayAcc(date) : null;
-    if (day && entry.sessionId) {
-      day.sessions.add(entry.sessionId);
-    }
+    // NOTE: a day's session count is NOT accumulated here. It means
+    // "sessions started on this day" and a session's start is only known
+    // once every file has been read, so it is derived in finalise().
 
-    if (entry.type === "user" && !entry.isSidechain) {
-      acc.messages++;
-      this.totalMessages++;
-      if (day) day.messages++;
-    }
+
+    // Messages counts EVERY transcript entry, which is the unit Claude
+    // CLI's own stats-cache uses — verified against it day by day
+    // (2026-09-09: Claude 6,381, all entries 6,649, user-prompts-only
+    // 1,501). Counting user prompts put our half of the series in a
+    // different unit from the cached half, roughly 2.5x apart, so a
+    // period spanning the cache cutoff silently mixed the two. Matching
+    // Claude is also the stated contract for this module: one set of
+    // numbers across the extension and the terminal.
+    acc.messages++;
+    this.totalMessages++;
+    if (day) day.messages++;
 
     if (entry.type === "assistant") {
       this.ingestAssistant(entry, acc, day);
@@ -655,7 +667,6 @@ class AggState {
       d = {
         date,
         messages: 0,
-        sessions: new Set(),
         toolCalls: 0,
         tokens: 0,
         ownTokens: 0,
@@ -785,12 +796,39 @@ class AggState {
     return out;
   }
 
+  /**
+   * Sessions grouped by the day they STARTED, which is the semantic
+   * Claude CLI's stats-cache uses and the only one that survives being
+   * summed over a period.
+   *
+   * Counting sessions ACTIVE on each day looks equivalent and is not: a
+   * session spanning four days lands in four buckets, so summing a
+   * week's rows counted it four times. On a real profile one week read
+   * 46 sessions where 22 had actually run.
+   *
+   * A session's start is its earliest entry across every transcript, so
+   * this can only be computed after the whole walk. Purged transcripts
+   * can move a start later than it truly was; that is a floor, and the
+   * same floor Claude's own numbers sit on.
+   */
+  private startedByDate(): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const t of this.sessionTimes.values()) {
+      if (t.min <= 0) continue;
+      const date = isoLocalDateFromMs(t.min);
+      if (!date) continue;
+      out.set(date, (out.get(date) ?? 0) + 1);
+    }
+    return out;
+  }
+
   private buildDaily(): DailyActivity[] {
+    const started = this.startedByDate();
     return [...this.days.values()]
       .map((d) => ({
         date: d.date,
         messageCount: d.messages,
-        sessionCount: d.sessions.size,
+        sessionCount: started.get(d.date) ?? 0,
         toolCallCount: d.toolCalls,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));

@@ -121,12 +121,15 @@ describe("formatResetsIn", () => {
     expect(formatResetsIn("not-a-date")).toBe("");
   });
   it("formats days, hours, minutes", () => {
-    const inDays = new Date(Date.now() + 2 * 86400000 + 3 * 3600000).toISOString();
-    expect(formatResetsIn(inDays)).toMatch(/^resets in 2d/);
-    const inHours = new Date(Date.now() + 3 * 3600000 + 5 * 60000).toISOString();
-    expect(formatResetsIn(inHours)).toMatch(/^resets in 3h/);
-    const inMins = new Date(Date.now() + 10 * 60000).toISOString();
-    expect(formatResetsIn(inMins)).toMatch(/^resets in 1[01]m/);
+    // `now` is injected rather than left to default to Date.now(). With
+    // the default, the clock advances between building the ISO string
+    // and reading it, so a 10-minute offset floors to 9 under load —
+    // this test failed intermittently in CI for exactly that reason.
+    const now = Date.parse("2026-06-10T12:00:00Z");
+    const at = (ms: number): string => new Date(now + ms).toISOString();
+    expect(formatResetsIn(at(2 * 86400000 + 3 * 3600000), now)).toBe("resets in 2d 3h");
+    expect(formatResetsIn(at(3 * 3600000 + 5 * 60000), now)).toBe("resets in 3h 5m");
+    expect(formatResetsIn(at(10 * 60000), now)).toBe("resets in 10m");
   });
   it("flags a past reset as outdated (cached window already rolled over)", () => {
     expect(formatResetsIn(new Date(Date.now() - 1000).toISOString())).toBe(
