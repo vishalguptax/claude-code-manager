@@ -414,6 +414,32 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/**
+ * Read a settings file as the object a read-modify-write pass may edit.
+ *
+ * Returns `{}` when the file is absent or blank — nothing to lose, so
+ * creating it is safe — and null when it exists but cannot be read as a
+ * JSON object. Null means REFUSE: merging into a document we cannot
+ * parse is impossible, and continuing with an empty object (what every
+ * writer here used to do) replaces the user's file with whatever single
+ * key the caller was setting.
+ *
+ * Claude Code skips a settings.json with comments, a trailing comma or
+ * any truncation, so that state is both plausible and exactly where the
+ * contents matter most.
+ */
+function readSettingsForWrite(filePath: string): Record<string, unknown> | null {
+  const raw = readFileOrNull(filePath);
+  if (raw === null || raw.trim() === "") return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  return isPlainObject(parsed) ? parsed : null;
+}
+
 export function writeSettingsValue(
   key: string,
   value: unknown,
@@ -454,18 +480,8 @@ export function writeSettingsValue(
   //
   // Refusing is the only safe answer. We cannot merge into a document we
   // cannot read, and we must not guess.
-  let data: Record<string, unknown> = {};
-  const raw = readFileOrNull(filePath);
-  if (raw !== null && raw.trim() !== "") {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return false;
-    }
-    if (!isPlainObject(parsed)) return false;
-    data = parsed;
-  }
+  const data = readSettingsForWrite(filePath);
+  if (data === null) return false;
 
   const parts = key.split(".");
   let target: Record<string, unknown> = data;
@@ -518,22 +534,24 @@ export function addPermissionEntry(
   const filePath = resolveSettingsPath(scope, workspacePath);
   if (!filePath) return false;
 
-  snapshotSettings(scope, filePath);
-  let data: Record<string, unknown> = {};
-  try {
-    const raw = fs.readFileSync(filePath, "utf-8");
-    data = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    // create new
-  }
+  // Same refusal rule as writeSettingsValue: this used to swallow a parse
+  // failure and write `{ permissions: { allow: [tool] } }` over the whole
+  // file, so adding one allow rule to a settings.json with a stray
+  // comment discarded everything else in it.
+  const data = readSettingsForWrite(filePath);
+  if (data === null) return false;
 
-  if (typeof data.permissions !== "object" || data.permissions === null) {
-    data.permissions = {};
-  }
-  const perms = data.permissions as Record<string, unknown>;
-  if (!Array.isArray(perms[list])) perms[list] = [];
+  if (data.permissions === undefined) data.permissions = {};
+  if (!isPlainObject(data.permissions)) return false;
+  const perms = data.permissions;
+  if (perms[list] === undefined) perms[list] = [];
+  // A non-array here would take the named property and lose it on
+  // stringify — a silent no-op that reported success.
+  if (!Array.isArray(perms[list])) return false;
   const arr = perms[list] as string[];
   if (!arr.includes(tool)) arr.push(tool);
+
+  snapshotSettings(scope, filePath);
 
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -556,14 +574,9 @@ export function removePermissionEntry(
   const filePath = resolveSettingsPath(scope, workspacePath);
   if (!filePath) return false;
 
+  const data = readSettingsForWrite(filePath);
+  if (data === null) return false;
   snapshotSettings(scope, filePath);
-  let data: Record<string, unknown> = {};
-  try {
-    const raw = fs.readFileSync(filePath, "utf-8");
-    data = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return false;
-  }
 
   const perms = data.permissions as Record<string, unknown> | undefined;
   if (!perms) return false;

@@ -54,7 +54,12 @@ vi.mock("../profiles", () => ({
 }));
 vi.mock("../credentials", () => ({ readCredentials: () => null }));
 
-import { parseAccountData, writeSettingsValue } from "../parser";
+import {
+  addPermissionEntry,
+  parseAccountData,
+  removePermissionEntry,
+  writeSettingsValue,
+} from "../parser";
 
 const GLOBAL_SETTINGS = path.join(tmp.root, "settings.json");
 
@@ -381,5 +386,52 @@ describe("writeSettingsValue — refuses to clobber a file it cannot read", () =
       expect(after[k]).toEqual(v);
     }
     expect(after.sandbox).toEqual({ enabled: true });
+  });
+});
+
+describe("permission writers refuse the same unreadable files", () => {
+  // addPermissionEntry had the identical clobber: a parse failure was
+  // swallowed and it wrote `{ permissions: { allow: [tool] } }` over the
+  // whole file. removePermissionEntry right below it already refused —
+  // the two halves of the same feature disagreed.
+  const HOSTILE = '{\n  // note\n  "model": "opus",\n  "env": { "A": "1" }\n}';
+
+  it("add refuses and leaves the file byte-identical", () => {
+    fs.writeFileSync(GLOBAL_SETTINGS, HOSTILE, "utf-8");
+    expect(addPermissionEntry("global", "Bash(ls)", "allow")).toBe(false);
+    expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(HOSTILE);
+  });
+
+  it("remove refuses too", () => {
+    fs.writeFileSync(GLOBAL_SETTINGS, HOSTILE, "utf-8");
+    expect(removePermissionEntry("global", "Bash(ls)", "allow")).toBe(false);
+    expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(HOSTILE);
+  });
+
+  it("add refuses when permissions is not an object", () => {
+    const content = '{"permissions":["Bash(ls)"]}';
+    fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
+    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toBe(false);
+    expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
+  });
+
+  it("add refuses when the list is not an array", () => {
+    // Setting a named property on a non-array is dropped by stringify —
+    // a silent no-op that used to report success.
+    const content = '{"permissions":{"allow":"Bash(ls)"}}';
+    fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
+    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toBe(false);
+    expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
+  });
+
+  it("still adds to a valid file and keeps everything else", () => {
+    writeJson(GLOBAL_SETTINGS, { model: "opus", permissions: { allow: ["Bash(ls)"] } });
+    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toBe(true);
+    const after = JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")) as {
+      model: string;
+      permissions: { allow: string[] };
+    };
+    expect(after.model).toBe("opus");
+    expect(after.permissions.allow).toEqual(["Bash(ls)", "Bash(cat)"]);
   });
 });

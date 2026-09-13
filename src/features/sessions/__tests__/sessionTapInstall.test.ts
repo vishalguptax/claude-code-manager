@@ -196,3 +196,55 @@ describe("removeSessionStartHook", () => {
     expect(settings.hooks.SessionStart).toBeUndefined();
   });
 });
+
+describe("never rewrites a settings.json it cannot read", () => {
+  /**
+   * ensureSessionStartHook runs on EVERY activation with no opt-in, and
+   * readSettings used to answer a parse failure with `{}` so the caller
+   * "wrote it back fresh" — replacing the user's whole settings.json
+   * with just our hook. Claude Code already refuses to load a file with
+   * comments or a trailing comma, so a user mid-debug of exactly that
+   * lost the file by opening the editor.
+   */
+  const HOSTILE: Array<[string, string]> = [
+    ["a JSON comment", '{\n // note\n "model": "opus"\n}'],
+    ["a trailing comma", '{ "model": "opus", }'],
+    ["truncation", '{ "model": "opus", "hooks": {'],
+    ["a top-level array", '["nope"]'],
+  ];
+
+  it.each(HOSTILE)("leaves it byte-identical: %s", (_label, content) => {
+    fsState.set(SETTINGS_FILE, content);
+    expect(ensureSessionStartHook("/dist")).toBe(false);
+    expect(fsState.get(SETTINGS_FILE)).toBe(content);
+  });
+
+  it("also refuses on removal", () => {
+    const content = '{ "hooks": { "SessionStart": [] }, }';
+    fsState.set(SETTINGS_FILE, content);
+    expect(removeSessionStartHook()).toBe(false);
+    expect(fsState.get(SETTINGS_FILE)).toBe(content);
+  });
+
+  it("still installs into an absent or blank file", () => {
+    fsState.delete(SETTINGS_FILE);
+    expect(ensureSessionStartHook("/dist")).toBe(true);
+    expect(JSON.parse(fsState.get(SETTINGS_FILE) as string).hooks.SessionStart).toBeTruthy();
+
+    fsState.set(SETTINGS_FILE, "  ");
+    expect(ensureSessionStartHook("/dist")).toBe(true);
+    expect(JSON.parse(fsState.get(SETTINGS_FILE) as string).hooks.SessionStart).toBeTruthy();
+  });
+
+  it("preserves every unrelated key on a valid file", () => {
+    fsState.set(
+      SETTINGS_FILE,
+      JSON.stringify({ model: "opus", env: { A: "1" }, permissions: { allow: ["Bash(ls)"] } }),
+    );
+    expect(ensureSessionStartHook("/dist")).toBe(true);
+    const after = JSON.parse(fsState.get(SETTINGS_FILE) as string) as Record<string, unknown>;
+    expect(after.model).toBe("opus");
+    expect(after.env).toEqual({ A: "1" });
+    expect(after.permissions).toEqual({ allow: ["Bash(ls)"] });
+  });
+});

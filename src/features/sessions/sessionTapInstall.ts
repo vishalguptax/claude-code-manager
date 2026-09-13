@@ -94,20 +94,37 @@ function copyTapScript(extensionDistDir: string): boolean {
 }
 
 /**
- * Read global settings.json, tolerating missing file / parse error by
- * returning an empty object — the caller writes it back fresh.
+ * Read global settings.json for a read-modify-write pass.
+ *
+ * `{}` when the file is absent or blank — nothing to lose, creating it
+ * is safe. **null when it exists but cannot be read as a JSON object**,
+ * meaning the caller must not write.
+ *
+ * This previously returned `{}` in the unreadable case too, and the
+ * caller wrote that back "fresh" — replacing the user's entire
+ * settings.json with just our hook. It is the most dangerous instance of
+ * that pattern in the codebase, because ensureSessionStartHook runs on
+ * EVERY activation with no opt-in: a settings.json with one stray
+ * comment (which Claude Code already refuses to load, so the user may be
+ * mid-debug) was emptied simply by opening the editor.
  */
-function readSettings(): SettingsShape {
+function readSettings(): SettingsShape | null {
+  let raw: string;
   try {
-    const raw = fs.readFileSync(SETTINGS_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
+    raw = fs.readFileSync(SETTINGS_FILE, "utf-8");
+  } catch {
+    return {};
+  }
+  if (raw.trim() === "") return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed as SettingsShape;
     }
   } catch {
-    /* fall through */
+    return null;
   }
-  return {};
+  return null;
 }
 
 /** Atomic write so a crash mid-write never corrupts settings.json. */
@@ -127,7 +144,10 @@ export function ensureSessionStartHook(extensionDistDir: string): boolean {
   if (!copyTapScript(extensionDistDir)) return false;
   const expectedCommand = sessionTapCommand();
 
+  // Refuse rather than rewrite a settings.json we cannot parse. Running
+  // on every activation, a "write it back fresh" here emptied the file.
   const settings = readSettings();
+  if (settings === null) return false;
   const hooks = (settings.hooks ?? {}) as Record<string, SessionStartEntry[]>;
   const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
 
@@ -180,6 +200,7 @@ export function ensureSessionStartHook(extensionDistDir: string): boolean {
  */
 export function removeSessionStartHook(): boolean {
   const settings = readSettings();
+  if (settings === null) return false;
   const hooks = settings.hooks;
   if (!hooks || !Array.isArray(hooks.SessionStart)) return false;
 
