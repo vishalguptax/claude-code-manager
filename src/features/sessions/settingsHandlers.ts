@@ -229,14 +229,18 @@ export async function handleSettingsMessage(
     }
 
     case "setCommitAttribution": {
-      writeSettingsValue("attribution.commit", msg.value);
+      // "" is a real value for this key — "add no trailer" — and the
+      // opposite of the key being absent, which means "add the default".
+      // The view asks for the absent state through setSetting, which
+      // keeps the normal remove-on-empty rule.
+      writeSettingsValue("attribution.commit", msg.value, "global", undefined, "value");
       const workspace = getWorkspace();
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
     case "setPrAttribution": {
-      writeSettingsValue("attribution.pr", msg.value);
+      writeSettingsValue("attribution.pr", msg.value, "global", undefined, "value");
       const workspace = getWorkspace();
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;

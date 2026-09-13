@@ -57,18 +57,72 @@ function Group({ title, children }: { title: string; children: ComponentChildren
   );
 }
 
+/** The three states `attribution.commit` / `attribution.pr` can hold. */
+type AttributionMode = "default" | "none" | "custom";
+
+const ATTRIBUTION_MODES = [
+  { value: "default", label: "Claude Code default" },
+  { value: "none", label: "Add nothing" },
+  { value: "custom", label: "Custom text" },
+];
+
+function attributionMode(isSet: boolean, value: string): AttributionMode {
+  if (!isSet) return "default";
+  return value === "" ? "none" : "custom";
+}
+
 /**
- * Say which of the three attribution states the field is in.
+ * An attribution key as a mode picker plus a text box.
  *
- * An empty box means two different things to Claude Code — key absent is
- * "use the default", key present and empty is "add nothing" — and they
- * look identical in the input. The hint is the only place that difference
- * can surface.
+ * A bare text field cannot express this setting. Claude Code reads an
+ * absent key as "add my default trailer" and a present-but-empty key as
+ * "add nothing" — opposite instructions that both render as an empty
+ * box. Worse, clearing the box removed the key, so a user who had
+ * deliberately set "" (this profile has `attribution: {"pr": ""}`) lost
+ * that the moment they typed in the field and changed their mind.
  */
-function attributionHint(isSet: boolean, value: string, what: string): string {
-  if (isSet && value === "") return `Set to empty: no ${what} is added.`;
-  if (isSet) return `Custom ${what}.`;
-  return `Not set — Claude Code adds its default ${what}. Clear the box after typing to add none.`;
+function AttributionField({
+  label,
+  what,
+  isSet,
+  value,
+  onMode,
+  onText,
+}: {
+  label: string;
+  what: string;
+  isSet: boolean;
+  value: string;
+  onMode: (mode: AttributionMode) => void;
+  onText: (text: string) => void;
+}) {
+  const mode = attributionMode(isSet, value);
+  const hint =
+    mode === "none"
+      ? `No ${what} is added.`
+      : mode === "custom"
+        ? `Your own ${what}.`
+        : `Claude Code adds its own ${what}.`;
+  return (
+    <div class="acct-field">
+      <label class="acct-label">{label}</label>
+      <Dropdown
+        value={mode}
+        ariaLabel={label}
+        options={ATTRIBUTION_MODES}
+        onChange={(v) => onMode(v as AttributionMode)}
+      />
+      {mode === "custom" ? (
+        <TextField
+          ariaLabel={`${label} text`}
+          value={value}
+          placeholder={`e.g., ${what}`}
+          onInput={onText}
+        />
+      ) : null}
+      <div class="acct-field-hint">{hint}</div>
+    </div>
+  );
 }
 
 /** A checkbox row with an explanatory line beneath it. */
@@ -258,27 +312,33 @@ export function SettingsView({ data, api }: SettingsViewProps) {
         </Group>
 
         <Group title="Git &amp; attribution">
-          <div class="acct-field">
-            <label class="acct-label">Commit attribution</label>
-            <TextField
-              ariaLabel="Commit attribution"
-              value={s.commitAttribution}
-              placeholder="e.g., Co-authored-by: Claude"
-              onInput={(v) => setCommitAttribution(v)}
-            />
-            <div class="acct-field-hint">{attributionHint(s.commitAttributionSet, s.commitAttribution, "commit trailer")}</div>
-          </div>
+          <AttributionField
+            label="Commit attribution"
+            what="commit trailer"
+            isSet={s.commitAttributionSet}
+            value={s.commitAttribution}
+            onMode={(m) => {
+              // "default" removes the key (setSetting keeps the normal
+              // remove-on-empty rule); "none" writes a literal "".
+              if (m === "default") api.setSetting("attribution.commit", "");
+              else if (m === "none") api.setCommitAttribution("");
+              else api.setCommitAttribution(s.commitAttribution || " ");
+            }}
+            onText={(v) => setCommitAttribution(v)}
+          />
 
-          <div class="acct-field">
-            <label class="acct-label">PR attribution</label>
-            <TextField
-              ariaLabel="PR attribution"
-              value={s.prAttribution}
-              placeholder="e.g., Generated with Claude Code"
-              onInput={(v) => setPrAttribution(v)}
-            />
-            <div class="acct-field-hint">{attributionHint(s.prAttributionSet, s.prAttribution, "PR line")}</div>
-          </div>
+          <AttributionField
+            label="PR attribution"
+            what="PR line"
+            isSet={s.prAttributionSet}
+            value={s.prAttribution}
+            onMode={(m) => {
+              if (m === "default") api.setSetting("attribution.pr", "");
+              else if (m === "none") api.setPrAttribution("");
+              else api.setPrAttribution(s.prAttribution || " ");
+            }}
+            onText={(v) => setPrAttribution(v)}
+          />
 
           <Toggle
             checked={s.includeGitInstructions}

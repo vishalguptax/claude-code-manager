@@ -54,7 +54,7 @@ vi.mock("../profiles", () => ({
 }));
 vi.mock("../credentials", () => ({ readCredentials: () => null }));
 
-import { parseAccountData } from "../parser";
+import { parseAccountData, writeSettingsValue } from "../parser";
 
 const GLOBAL_SETTINGS = path.join(tmp.root, "settings.json");
 
@@ -223,5 +223,102 @@ describe("parseAccountData — settings keys", () => {
     expect(parseAccountData().settings.voiceEnabled).toBe(true);
     writeJson(GLOBAL_SETTINGS, { voiceEnabled: true });
     expect(parseAccountData().settings.voiceEnabled).toBe(true);
+  });
+});
+
+describe("settings round-trip — every Config control", () => {
+  /**
+   * Each row is (key the view writes, value it writes when turned on,
+   * value it writes when turned off, field it must land on).
+   *
+   * This is the contract the Config tab depends on: the view writes a
+   * dotted key through `setSetting`, the host writes settings.json, the
+   * watcher reparses and pushes back. If a key is misspelled or nests
+   * wrongly, the control silently does nothing — the toggle flips, the
+   * file gains a key nobody reads, and the next push flips it back.
+   */
+  const CONTROLS = [
+    { key: "alwaysThinkingEnabled", on: "", off: false, field: "alwaysThinkingEnabled" },
+    { key: "autoCompactEnabled", on: "", off: false, field: "autoCompactEnabled" },
+    { key: "fileCheckpointingEnabled", on: "", off: false, field: "fileCheckpointingEnabled" },
+    { key: "autoMemoryEnabled", on: "", off: false, field: "autoMemoryEnabled" },
+    { key: "includeGitInstructions", on: "", off: false, field: "includeGitInstructions" },
+    { key: "spinnerTipsEnabled", on: "", off: false, field: "spinnerTipsEnabled" },
+    { key: "verbose", on: true, off: "", field: "verbose" },
+    { key: "sandbox.enabled", on: true, off: "", field: "sandboxEnabled" },
+    {
+      key: "permissions.disableBypassPermissionsMode",
+      on: true,
+      off: "",
+      field: "disableBypassPermissionsMode",
+    },
+  ] as const;
+
+  it.each(CONTROLS)("round-trips $key", ({ key, on, off, field }) => {
+    writeJson(GLOBAL_SETTINGS, {});
+
+    writeSettingsValue(key, off as never);
+    const afterOff = parseAccountData().settings[field];
+    writeSettingsValue(key, on as never);
+    const afterOn = parseAccountData().settings[field];
+
+    // The two writes must land on opposite states — that is what proves
+    // the key reaches the field the control is bound to.
+    expect(afterOff).not.toBe(afterOn);
+  });
+
+  it("removes a default-on key rather than writing true back", () => {
+    // Writing `true` would leave a line that reads as a deliberate
+    // override of a value that was never changed.
+    writeJson(GLOBAL_SETTINGS, { autoCompactEnabled: false });
+    writeSettingsValue("autoCompactEnabled", "");
+    const raw = JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")) as Record<string, unknown>;
+    expect("autoCompactEnabled" in raw).toBe(false);
+    expect(parseAccountData().settings.autoCompactEnabled).toBe(true);
+  });
+
+  it("creates the nested object for a dotted key that has no parent yet", () => {
+    writeJson(GLOBAL_SETTINGS, {});
+    writeSettingsValue("sandbox.enabled", true);
+    const raw = JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")) as Record<string, unknown>;
+    expect(raw.sandbox).toEqual({ enabled: true });
+  });
+
+  it("leaves sibling keys in a nested object untouched", () => {
+    writeJson(GLOBAL_SETTINGS, { sandbox: { enableWeakerNetworkIsolation: true } });
+    writeSettingsValue("sandbox.enabled", true);
+    const raw = JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")) as {
+      sandbox: Record<string, unknown>;
+    };
+    expect(raw.sandbox).toEqual({ enableWeakerNetworkIsolation: true, enabled: true });
+  });
+
+  it("round-trips the free-text and numeric controls", () => {
+    writeJson(GLOBAL_SETTINGS, {});
+    writeSettingsValue("model", "opus[1m]");
+    writeSettingsValue("effortLevel", "xhigh");
+    writeSettingsValue("outputStyle", "Explanatory");
+    writeSettingsValue("editorMode", "vim");
+    writeSettingsValue("cleanupPeriodDays", 3650);
+    writeSettingsValue("autoCompactWindow", 250_000);
+    writeSettingsValue("permissions.defaultMode", "auto");
+    writeSettingsValue("attribution.pr", "");
+
+    const s = parseAccountData().settings;
+    expect(s.model).toBe("opus[1m]");
+    expect(s.effortLevel).toBe("xhigh");
+    expect(s.outputStyle).toBe("Explanatory");
+    expect(s.editorMode).toBe("vim");
+    expect(s.cleanupPeriodDays).toBe(3650);
+    expect(s.autoCompactWindow).toBe(250_000);
+    expect(s.defaultMode).toBe("auto");
+  });
+
+  it("clears a pinned model back to the account default", () => {
+    writeJson(GLOBAL_SETTINGS, { model: "opus[1m]" });
+    writeSettingsValue("model", "");
+    expect(parseAccountData().settings.model).toBe("");
+    const raw = JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")) as Record<string, unknown>;
+    expect("model" in raw).toBe(false);
   });
 });

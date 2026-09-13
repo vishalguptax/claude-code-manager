@@ -142,6 +142,76 @@ describe("SettingsView", () => {
     }
   });
 
+  /** Fixture with both attribution keys in "custom" mode. */
+  const customAttribution = () => {
+    const d = makeConfigData();
+    d.settings.commitAttributionSet = true;
+    d.settings.commitAttribution = "Co-authored-by: Claude";
+    d.settings.prAttributionSet = true;
+    d.settings.prAttribution = "Generated with Claude Code";
+    return d;
+  };
+
+  describe("attribution has three reachable states", () => {
+    // An absent key means "add Claude Code's default trailer"; a key set
+    // to "" means "add nothing". A lone text box renders both as empty,
+    // and clearing it used to delete the key — so "add nothing" could not
+    // be set, and an existing one was destroyed by typing then clearing.
+    // Dropdown is a custom trigger + Menu, not a native <select>.
+    const triggerLabel = (container: ParentNode, label: string): string =>
+      (
+        container.querySelector(
+          `.vsc-dropdown-trigger[aria-label="${label}"]`,
+        ) as HTMLElement | null
+      )?.textContent?.trim() ?? "";
+
+    const choose = (container: ParentNode, label: string, option: string): void => {
+      const trigger = container.querySelector(
+        `.vsc-dropdown-trigger[aria-label="${label}"]`,
+      ) as HTMLButtonElement;
+      fireEvent.click(trigger);
+      const row = Array.from(container.querySelectorAll(".vsc-menu-label")).find(
+        (l) => l.textContent === option,
+      ) as HTMLElement;
+      fireEvent.click(row);
+    };
+
+    it("shows default when the key is absent, and no text box", () => {
+      const { api } = setup();
+      const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
+      expect(triggerLabel(container, "PR attribution")).toBe("Claude Code default");
+      expect(container.querySelector('input[aria-label="PR attribution text"]')).toBeNull();
+    });
+
+    it("shows 'Add nothing' for an explicit empty string", () => {
+      const { api } = setup();
+      const data = makeConfigData();
+      data.settings.prAttributionSet = true;
+      data.settings.prAttribution = "";
+      const { container } = render(<SettingsView data={data} api={api} />);
+      expect(triggerLabel(container, "PR attribution")).toBe("Add nothing");
+    });
+
+    it("writes a literal empty string for 'Add nothing'", () => {
+      const { api, post } = setup();
+      const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
+      choose(container, "PR attribution", "Add nothing");
+      expect(post).toHaveBeenCalledWith({ type: "setPrAttribution", value: "" });
+    });
+
+    it("removes the key for 'Claude Code default'", () => {
+      const { api, post } = setup();
+      const { container } = render(<SettingsView data={customAttribution()} api={api} />);
+      choose(container, "PR attribution", "Claude Code default");
+      expect(post).toHaveBeenCalledWith({
+        type: "setSetting",
+        key: "attribution.pr",
+        value: "",
+        scope: "global",
+      });
+    });
+  });
+
   describe("free-text fields debounce the host write", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
@@ -169,9 +239,11 @@ describe("SettingsView", () => {
 
     it("coalesces a burst of attribution keystrokes into a single host write", () => {
       const { api, post } = setup();
-      const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
+      // The text box only exists in "custom" mode — the picker above it
+      // owns the default / none states.
+      const { container } = render(<SettingsView data={customAttribution()} api={api} />);
       const field = container.querySelector(
-        'input[aria-label="Commit attribution"]',
+        'input[aria-label="Commit attribution text"]',
       ) as HTMLInputElement;
       // Three quick keystrokes inside one debounce window.
       fireEvent.input(field, { target: { value: "C" } });
@@ -188,9 +260,11 @@ describe("SettingsView", () => {
 
     it("flushes a pending write on unmount so a mid-pause edit is not lost", () => {
       const { api, post } = setup();
-      const { container, unmount } = render(<SettingsView data={makeConfigData()} api={api} />);
+      const { container, unmount } = render(
+        <SettingsView data={customAttribution()} api={api} />,
+      );
       const field = container.querySelector(
-        'input[aria-label="PR attribution"]',
+        'input[aria-label="PR attribution text"]',
       ) as HTMLInputElement;
       fireEvent.input(field, { target: { value: "Generated" } });
       expect(post).not.toHaveBeenCalled();

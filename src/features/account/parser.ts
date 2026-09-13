@@ -405,6 +405,19 @@ export function writeSettingsValue(
   value: unknown,
   scope: PermissionScope = "global",
   workspacePath?: string,
+  /**
+   * What an empty string means for this key.
+   *
+   * "remove" (the default) is right for almost everything: the UI clears a
+   * field and the key goes away, restoring Claude Code's own behaviour.
+   *
+   * "value" is for the handful of keys where "" is itself an instruction.
+   * `attribution.commit` / `attribution.pr` set to "" mean "add no
+   * trailer", which is the opposite of the key being absent ("add the
+   * default trailer"). Removing on empty made that state unreachable from
+   * the UI, and silently destroyed it for anyone who already had it.
+   */
+  emptyString: "remove" | "value" = "remove",
 ): boolean {
   const filePath = resolveSettingsPath(scope, workspacePath);
   if (!filePath) return false;
@@ -433,7 +446,8 @@ export function writeSettingsValue(
     target = target[k] as Record<string, unknown>;
   }
 
-  if (value === undefined || value === null || value === "") {
+  const removeOnEmpty = emptyString === "remove";
+  if (value === undefined || value === null || (value === "" && removeOnEmpty)) {
     delete target[parts[parts.length - 1]];
   } else {
     target[parts[parts.length - 1]] = value;
