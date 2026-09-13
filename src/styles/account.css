@@ -7,65 +7,6 @@
    Sections — collapsible cards
    ────────────────────────────────────────────────────────────────────────────── */
 
-.acct-section {
-  border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
-  /* Section separation comes from the header's top padding + body's bottom
-     padding around the divider (~22px) — no extra section padding, which
-     previously stacked into an oversized gap above the next header. */
-  padding-bottom: var(--space-sm);
-}
-.acct-section:last-child { border-bottom: none; }
-
-.acct-section-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-lg) var(--space-2xl);
-  margin: 0;
-  cursor: pointer;
-  user-select: none;
-  background: none;
-  border: none;
-  width: 100%;
-  text-align: left;
-  border-radius: 0;
-  transition: background var(--transition-control);
-}
-.acct-section-header:hover .acct-section-title,
-.acct-section-header:hover .acct-section-chevron {
-  color: var(--fg);
-}
-.acct-section-header:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: -1px;
-}
-
-.acct-section-chevron {
-  display: flex;
-  align-items: center;
-  color: var(--fg-muted);
-  transition: transform var(--transition-control);
-}
-.acct-section-chevron.collapsed { transform: rotate(-90deg); }
-
-.acct-section-title {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--fg-section);
-  margin: 0;
-  flex: 1; /* push header-action buttons to the far right */
-}
-
-/* The Quota section's header refresh control is the shared <Button
-   variant="icon" loading>; its chrome + spinner come from the shared
-   .btn-icon / .is-loading rules in components-native.css, so no
-   account-local button styling is needed here. */
-
-.acct-section-body {
-  padding: 0 var(--space-2xl) var(--space-xl);
-}
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Profile
@@ -317,83 +258,13 @@
    buttons on the right. Stays compact so 20 entries don't dominate
    the Config view scroll length.
    ────────────────────────────────────────────────────────────────────────────── */
-.cfg-snap-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  margin-top: var(--space-sm);
-  /* Cap the height so a long history (up to 20 snapshots per scope × 3 scopes)
-     scrolls WITHIN its own area instead of stretching the Config page and
-     pushing the Brain-backup section far below the fold. 40vh keeps a useful
-     number of rows visible while staying a minority of the viewport. The
-     section's intro hint stays put above; only the row list scrolls. Native
-     thin scrollbar matching the heatmap wrap so it reads as VS Code chrome. */
-  max-height: 40vh;
-  overflow-y: auto;
-  /* Inner padding-right gives the rows a hair of breathing room from the
-     scrollbar gutter when it appears; -inline keeps left rows flush. */
-  padding-right: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-subtle, rgba(127, 127, 127, 0.3)) transparent;
-}
-.cfg-snap-list::-webkit-scrollbar { width: 6px; }
-.cfg-snap-list::-webkit-scrollbar-track { background: transparent; }
-.cfg-snap-list::-webkit-scrollbar-thumb {
-  background: var(--border-subtle, rgba(127, 127, 127, 0.3));
-  border-radius: 3px;
-}
-.cfg-snap-list::-webkit-scrollbar-thumb:hover {
-  background: var(--border, rgba(127, 127, 127, 0.5));
-}
-.cfg-snap-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-xs) var(--space-sm);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-.cfg-snap-meta { min-width: 0; flex: 1; }
-.cfg-snap-when {
-  font-size: var(--fs-base);
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
-}
-.cfg-snap-detail {
-  display: flex;
-  gap: var(--space-sm);
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  margin-top: 2px;
-}
-.cfg-snap-diff {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cfg-snap-actions {
-  display: flex;
-  gap: var(--space-xs);
-  flex-shrink: 0;
-}
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Actions
    ────────────────────────────────────────────────────────────────────────────── */
 
-.acct-actions {
-  /* Uniform grid: equal-width columns wide enough for the longest label
-     (min 150px so "Open settings.json" / "Extension settings" never crop),
-     packing 2-up when the panel is wide and collapsing to 1-up only when truly
-     narrow. The shared `… > .btn` override (components.css) disables the
-     ellipsis clip so labels show in full; equal columns keep the row tidy. */
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--space-sm);
-  margin-top: var(--space-lg);
-}
-
+.actions-row {
+  
 /* Period/scope toggles now use the shared <Segmented> primitive
    (.vsc-segmented in components-native.css). Only the layout spacing stays
    local.
@@ -401,21 +272,11 @@
    The scope toggle also carries the shared `.scope-filter` class, whose
    panel-edge rule (components.css) adds `margin: … var(--space-2xl) …` to
    inset the control from the bare panel edge on the sessions/skills tabs.
-   Inside the Config/Account tab the control sits in `.acct-section-body`,
+   Inside the Config/Account tab the control sits in `.section-body`,
    which ALREADY applies that same `--space-2xl` horizontal padding — so the
    inherited margin double-insets the segmented, leaving it narrower than the
    sibling search box and permission rows. Zero the horizontal margin here so
    the scope toggle spans the full section-body width like every other row. */
-.acct-period-toggle,
-.acct-scope-toggle {
-  margin-bottom: var(--space-lg);
-}
-.acct-scope-toggle.scope-filter,
-.acct-period-toggle.scope-filter {
-  margin-left: 0;
-  margin-right: 0;
-  margin-top: 0;
-}
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Heatmap
@@ -573,150 +434,30 @@
    Settings form fields
    ────────────────────────────────────────────────────────────────────────────── */
 
-.acct-field {
-  margin-bottom: var(--space-md);
-  position: relative;
-}
 
-.acct-label {
-  display: block;
-  font-size: var(--fs-sm);
-  color: var(--fg-dim);
-  margin-bottom: var(--space-xs);
-}
 
-/* Status-line command etc. — a READ-ONLY code display, not an editable field.
-   Inherits the shared `.code-readonly` treatment (mono surface, no input
-   chrome, single-line horizontal scroll) from components.css. The element
-   carries both classes so existing markup/selectors keep working. */
-.acct-code {
-  display: block;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--vscode-textCodeBlock-background,
-    var(--vscode-textBlockQuote-background, var(--bg-hover)));
-  color: var(--fg);
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  line-height: 1.5;
-  border-radius: var(--radius-sm);
-  border: none;
-  cursor: default;
-  white-space: pre;
-  overflow-x: auto;
-}
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Permissions
    ────────────────────────────────────────────────────────────────────────────── */
 
-/* Each labelled group (ALLOWED / DENIED / ADDITIONAL DIRECTORIES) reads as its
-   own block — the larger inter-group gap separates them clearly from the dense
-   rows packed inside each one. */
-.acct-perm-group {
-  margin-bottom: var(--space-xl);
-}
-
-.acct-perm-group-label {
-  /* Sub-section header (BY MODEL / BY PROJECT / TOOLS / ALLOWED / DENIED).
-     Promoted to the section-header treatment so these read as structural
-     headings, not muted captions. */
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--fg-section);
-  /* Heading → first row breathing room so the label isn't glued to its list. */
-  margin-bottom: var(--space-md);
-}
-
-.acct-perm-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  /* Wide name→× gap so the remove button never crowds the ellipsized command. */
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--bg-hover);
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--space-xs);
-}
-
-.acct-perm-name {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  /* Mono `$`, descenders and parens clip when the line box is exactly the
-     font size; 1.6 gives the glyphs vertical room so nothing is cropped. */
-  line-height: 1.6;
-  color: var(--fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-
-/* The remove control is the shared icon <Button>, so it already carries the
-   `.btn-icon` affordance (>=24px hit area, --toolbar-hoverBackground hover,
-   inset --focus-ring). We only pin it from growing in the flex row and keep it
-   centred against the taller (line-height 1.6) name. */
-.acct-perm-remove {
-  flex-shrink: 0;
-  align-self: center;
-}
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Empty states
    ────────────────────────────────────────────────────────────────────────────── */
 
-.acct-empty-small {
-  font-size: var(--fs-sm);
-  color: var(--fg-muted);
-  font-style: italic;
-  padding: var(--space-xs) 0;
-}
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Subtle footnote (appears at bottom of sections)
    ────────────────────────────────────────────────────────────────────────────── */
 
-.acct-footnote {
-  margin-top: var(--space-md);
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  font-style: italic;
-}
 
 /*
  * Helper text shown directly under an input/select. Used for the model
  * dropdown to mirror Claude CLI's per-option description without forcing
  * the dropdown options themselves to be multi-line.
  */
-.acct-field-hint {
-  margin-top: var(--space-xs);
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  line-height: 1.4;
-}
 
-/*
- * Inline code chips inside field hints and section bodies. Without
- * horizontal padding the `<code>` background hugs the text flush
- * against the left/right borders — looks visually cramped next to
- * surrounding prose. Small padding + muted background give them a
- * real "chip" silhouette.
- */
-.acct-field-hint code,
-.acct-section-body p code,
-.acct-section-body code:not(.acct-code) {
-  display: inline-block;
-  padding: 0 var(--space-sm);
-  border-radius: var(--radius-sm);
-  background: var(--bg-hover);
-  color: var(--fg);
-  font-family: var(--vscode-editor-font-family, monospace);
-  font-size: 0.92em;
-  line-height: 1.4;
-}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -973,7 +714,7 @@
    Shared structure for the three usage breakdowns surfaced beneath
    the byModel table. Each is a stack of compact rows: a left-aligned
    label that truncates, and right-aligned tabular metadata. The
-   `.acct-breakdown` modifier on `.acct-perm-group` only adjusts the
+   `.acct-breakdown` modifier on `.cfg-perm-group` only adjusts the
    inner rows — the group label inherits the existing styling so the
    visual hierarchy stays consistent across the section. */
 
@@ -1066,7 +807,7 @@
 }
 
 /* Wrapper around the signed-in profile body. v1 emitted these children
-   directly inside `.acct-section-body`; the Preact component groups
+   directly inside `.section-body`; the Preact component groups
    them under one element so the banner + profile + meta + actions stack
    reads as a single block. No box of its own — purely structural. */
 .acct-profile-wrap {
@@ -1104,7 +845,7 @@
   flex-direction: column;
   gap: var(--space-sm);
 }
-.acct-section-subhead {
+.section-subhead {
   font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--vscode-descriptionForeground);
@@ -1230,20 +971,20 @@
   color: inherit;
   font: inherit;
 }
-.acct-block-head:hover .acct-section-subhead {
+.acct-block-head:hover .section-subhead {
   color: var(--fg);
 }
 /* The subhead carries a bottom margin from its standalone use, where it
    sat above the block's content. Inside this flex row that margin is
    both doubled (the block already has a `gap`) and off-centre: it
    pushed the label up while the chevron stayed centred, so the two never
-   lined up. `.acct-section-title` zeroes its own margin for exactly this
+   lined up. `.section-title` zeroes its own margin for exactly this
    reason in the section header. */
-.acct-block-head .acct-section-subhead {
+.acct-block-head .section-subhead {
   margin: 0;
 }
 .acct-block-chevron {
-  /* flex + align-items, matching .acct-section-chevron — an inline-flex
+  /* flex + align-items, matching .section-chevron — an inline-flex
      box without it sits on the text baseline rather than the row's
      centre, which is the other half of the misalignment. */
   display: flex;
@@ -1326,41 +1067,3 @@
   min-width: 5em;
 }
 
-/* ── Config settings groups ─────────────────────────────────────────
- * The settings section runs to ~20 controls. Ungrouped they read as one
- * undifferentiated column and there is no way to scan for the one you
- * came for, so each group gets a quiet heading and a hairline above it.
- * The heading is deliberately lighter than the section title: these are
- * subdivisions of one section, not sections of their own. */
-.cfg-group + .cfg-group {
-  margin-top: var(--space-lg);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--border);
-}
-.cfg-group-title {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
-}
-
-/* A superseded key that still takes effect: shown as a notice with a
-   one-click clear, not as a control that invites further use. */
-.cfg-deprecated {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  justify-content: space-between;
-}
-.cfg-deprecated .acct-field-hint {
-  flex: 1;
-  /* The hint's own margin-top exists to separate it from the control it
-     normally sits under. Here it sits BESIDE a button, so that margin
-     only pushes the text down and out of line with it. */
-  margin-top: 0;
-  /* Match the button's cap height so the first line of the notice reads
-     level with the label inside it, rather than with the button's box. */
-  align-self: center;
-}

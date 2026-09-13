@@ -284,7 +284,7 @@ describe("SettingsView", () => {
       settings: { ...makeConfigData().settings, statusLineCommand: cmd },
     });
     const { container } = render(<SettingsView data={data} api={api} />);
-    const code = container.querySelector("code.acct-code");
+    const code = container.querySelector("code.cfg-code");
     expect(code).toBeTruthy();
     // Read-only code-block treatment (shared reusable class), not a TextField.
     expect(code?.classList.contains("code-readonly")).toBe(true);

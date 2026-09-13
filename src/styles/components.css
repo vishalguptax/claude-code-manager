@@ -144,7 +144,7 @@
    features.css, mcp.css and agents.css — each copy carrying a comment pointing
    at another copy as the reference. Four owners means four chances to drift.
 
-   Rhythm: --space-lg above (matching the account/config .acct-section-header
+   Rhythm: --space-lg above (matching the account/config .section-header
    top inset) and --space-sm below to the first row, so every list heading in
    the extension sits on one cross-tab cadence.
 
@@ -177,6 +177,140 @@
   padding: var(--space-md) var(--space-2xl) 4px;
   font-family: var(--font-mono, monospace);
   letter-spacing: 0.2px;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Section — a titled block inside a scrolling panel, optionally collapsible.
+   Backs the shared <Section> / <SectionHeader>.
+
+   These rules lived in account.css as `.acct-section*`, and the Config tab
+   rendered those class names across the feature boundary because there was no
+   shared primitive to reach for. Config is not an account; the name is neutral
+   now and both tabs use the same component.
+   ────────────────────────────────────────────────────────────────────────── */
+.section {
+  border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
+  /* Section separation comes from the header's top padding + the body's bottom
+     padding around the divider (~22px). Extra padding on the section itself
+     stacks into an oversized gap above the next header. */
+  padding-bottom: var(--space-sm);
+}
+.section:last-child { border-bottom: none; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-2xl);
+  margin: 0;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  transition: background var(--transition-control);
+}
+/* Only a collapsible header is interactive — it is the one that gets
+   role="button" and a tabindex, so the affordances hang off that. */
+.section-header[role="button"] { cursor: pointer; user-select: none; }
+.section-header[role="button"]:hover .section-title,
+.section-header[role="button"]:hover .section-chevron {
+  color: var(--fg);
+}
+.section-header:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.section-chevron,
+.section-icon {
+  display: flex;
+  align-items: center;
+  color: var(--fg-muted);
+}
+.section-chevron { transition: transform var(--transition-control); }
+.section-chevron.collapsed { transform: rotate(-90deg); }
+
+.section-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--fg-section);
+  margin: 0;
+  /* Pushes any header action to the far right. */
+  flex: 1;
+}
+
+.section-body {
+  padding: 0 var(--space-2xl) var(--space-xl);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Field — a labelled control with an explanatory line under it. Backs the
+   shared <Field>. Same history as Section: named `.acct-*`, used by Config.
+   ────────────────────────────────────────────────────────────────────────── */
+.field {
+  margin-bottom: var(--space-md);
+  position: relative;
+}
+.field-label {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  margin-bottom: var(--space-xs);
+}
+.field-hint {
+  margin-top: var(--space-xs);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Actions row — the button row that closes a Section.
+
+   Equal-width columns wide enough for the longest label (150px, so "Open
+   settings.json" / "Extension settings" never crop), packing 2-up when the
+   panel is wide and collapsing to 1-up only when genuinely narrow. The shared
+   `… > .btn` override below disables the ellipsis clip so labels show in full.
+   ────────────────────────────────────────────────────────────────────────── */
+.actions-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+}
+
+/* A <Segmented> used INSIDE a section body. The control's own rule insets it
+   from the panel edge, but a section body already applies that same --space-2xl
+   padding, so the inherited margin double-insets it and leaves it narrower than
+   the search box and rows beside it. */
+.section-body > .scope-filter,
+.section-body > .vsc-segmented {
+  margin-left: 0;
+  margin-right: 0;
+  margin-top: 0;
+  margin-bottom: var(--space-lg);
+}
+
+/* Inline code chips inside field hints and section bodies. Without horizontal
+   padding the `<code>` background hugs the text flush against its edges, which
+   reads as cramped next to surrounding prose. */
+.field-hint code,
+.section-body p code,
+.section-body code:not(.cfg-code) {
+  display: inline-block;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--fg);
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.92em;
+  line-height: 1.4;
 }
 
 
@@ -457,7 +591,7 @@
    for OTHER layouts (list rows, grid columns elsewhere).
 
    The selector list groups every action-row cluster so the override lives once. */
-.acct-actions > .btn,
+.actions-row > .btn,
 .d-actions > .btn,
 .agent-detail-actions > .btn,
 .cmd-detail-actions > .btn {

@@ -86,7 +86,7 @@ describe("ConfigTab", () => {
     configData.value = makeConfigData();
     loading.value = false;
     await waitFor(() => expect(screen.getByText("Bash(git:*)")).toBeTruthy());
-    const removeBtn = document.querySelector(".acct-perm-remove") as HTMLButtonElement;
+    const removeBtn = document.querySelector(".cfg-perm-remove") as HTMLButtonElement;
     fireEvent.click(removeBtn);
     expect(
       post.mock.calls.some((c) => c[0]?.type === "promptRemovePermission"),

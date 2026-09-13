@@ -104,8 +104,8 @@ function AttributionField({
         ? `Your own ${what}.`
         : `Claude Code adds its own ${what}.`;
   return (
-    <div class="acct-field">
-      <label class="acct-label">{label}</label>
+    <div class="field">
+      <label class="field-label">{label}</label>
       <Dropdown
         value={mode}
         ariaLabel={label}
@@ -120,7 +120,7 @@ function AttributionField({
           onInput={onText}
         />
       ) : null}
-      <div class="acct-field-hint">{hint}</div>
+      <div class="field-hint">{hint}</div>
     </div>
   );
 }
@@ -138,9 +138,9 @@ function Toggle({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div class="acct-field">
+    <div class="field">
       <Checkbox checked={checked} label={label} onChange={onChange} />
-      <div class="acct-field-hint">{hint}</div>
+      <div class="field-hint">{hint}</div>
     </div>
   );
 }
@@ -184,34 +184,34 @@ export function SettingsView({ data, api }: SettingsViewProps) {
     api.setSetting(key, enabled ? "" : false);
 
   return (
-    <section class="acct-section">
-      <header class="acct-section-header" data-section="settings">
-        <h2 class="acct-section-title">
+    <section class="section">
+      <header class="section-header" data-section="settings">
+        <h2 class="section-title">
           <Icon name="settings" size={14} /> Settings
         </h2>
       </header>
-      <div class="acct-section-body">
+      <div class="section-body">
         <Group title="Model &amp; reasoning">
-          <div class="acct-field">
-            <label class="acct-label">Model</label>
+          <div class="field">
+            <label class="field-label">Model</label>
             <Dropdown
               value={currentModel}
               ariaLabel="Model"
               options={modelOptions.map((o) => ({ value: o.value, label: o.label }))}
               onChange={(v) => api.setModel(v === "default" ? "" : v)}
             />
-            <div class="acct-field-hint">{currentModelDesc}</div>
+            <div class="field-hint">{currentModelDesc}</div>
           </div>
 
-          <div class="acct-field">
-            <label class="acct-label">Reasoning effort</label>
+          <div class="field">
+            <label class="field-label">Reasoning effort</label>
             <Dropdown
               value={s.effortLevel}
               ariaLabel="Reasoning effort"
               options={effortOptions.map((o) => ({ value: o.value, label: o.label }))}
               onChange={(v) => api.setSetting("effortLevel", v)}
             />
-            <div class="acct-field-hint">{currentEffortDesc}</div>
+            <div class="field-hint">{currentEffortDesc}</div>
           </div>
 
           <Toggle
@@ -223,15 +223,15 @@ export function SettingsView({ data, api }: SettingsViewProps) {
         </Group>
 
         <Group title="Permissions &amp; safety">
-          <div class="acct-field">
-            <label class="acct-label">Tool-use confirmation</label>
+          <div class="field">
+            <label class="field-label">Tool-use confirmation</label>
             <Dropdown
               value={s.defaultMode}
               ariaLabel="Tool-use confirmation"
               options={DEFAULT_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
               onChange={(v) => api.setSetting("permissions.defaultMode", v)}
             />
-            <div class="acct-field-hint">{currentModeDesc}</div>
+            <div class="field-hint">{currentModeDesc}</div>
           </div>
 
           <Toggle
@@ -259,8 +259,8 @@ export function SettingsView({ data, api }: SettingsViewProps) {
             onChange={(c) => setDefaultOn("autoCompactEnabled", c)}
           />
 
-          <div class="acct-field">
-            <label class="acct-label">Compact at (tokens)</label>
+          <div class="field">
+            <label class="field-label">Compact at (tokens)</label>
             <TextField
               ariaLabel="Auto-compact window in tokens"
               value={compactWindowValue}
@@ -271,7 +271,7 @@ export function SettingsView({ data, api }: SettingsViewProps) {
                 setCompactWindow(Number.isFinite(n) && n > 0 ? n : "");
               }}
             />
-            <div class="acct-field-hint">
+            <div class="field-hint">
               How full the context gets before compacting. Blank lets Claude Code
               choose; the CLI accepts 100,000–1,000,000.
             </div>
@@ -291,8 +291,8 @@ export function SettingsView({ data, api }: SettingsViewProps) {
             onChange={(c) => setDefaultOn("autoMemoryEnabled", c)}
           />
 
-          <div class="acct-field">
-            <label class="acct-label">Transcript retention (days)</label>
+          <div class="field">
+            <label class="field-label">Transcript retention (days)</label>
             <TextField
               ariaLabel="Session retention in days"
               value={retentionValue}
@@ -303,7 +303,7 @@ export function SettingsView({ data, api }: SettingsViewProps) {
                 setRetention(Number.isFinite(n) && n > 0 ? n : "");
               }}
             />
-            <div class="acct-field-hint">
+            <div class="field-hint">
               Transcripts older than this auto-delete. Blank uses Claude Code's
               default of 30 days — to keep them longer, set a large number
               (e.g. 3650 for ~10 years).
@@ -352,9 +352,9 @@ export function SettingsView({ data, api }: SettingsViewProps) {
               two controls disagree. Surfaced as a notice with a one-click
               clear rather than resurrected as its own checkbox. */}
           {s.includeCoAuthoredBySet && !s.includeCoAuthoredBy ? (
-            <div class="acct-field cfg-deprecated">
-              <div class="acct-field-hint">
-                <code class="acct-code">includeCoAuthoredBy: false</code> is set and
+            <div class="field cfg-deprecated">
+              <div class="field-hint">
+                <code class="cfg-code">includeCoAuthoredBy: false</code> is set and
                 suppresses the trailer above. Claude Code has replaced it with the
                 attribution fields.
               </div>
@@ -370,26 +370,26 @@ export function SettingsView({ data, api }: SettingsViewProps) {
         </Group>
 
         <Group title="Interface">
-          <div class="acct-field">
-            <label class="acct-label">Output style</label>
+          <div class="field">
+            <label class="field-label">Output style</label>
             <Dropdown
               value={s.outputStyle}
               ariaLabel="Output style"
               options={outputStyleOptions.map((o) => ({ value: o.value, label: o.label }))}
               onChange={(v) => api.setSetting("outputStyle", v)}
             />
-            <div class="acct-field-hint">{currentStyleDesc}</div>
+            <div class="field-hint">{currentStyleDesc}</div>
           </div>
 
-          <div class="acct-field">
-            <label class="acct-label">Editor mode</label>
+          <div class="field">
+            <label class="field-label">Editor mode</label>
             <Dropdown
               value={s.editorMode === "vim" ? "vim" : ""}
               ariaLabel="Editor mode"
               options={EDITOR_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
               onChange={(v) => api.setSetting("editorMode", v)}
             />
-            <div class="acct-field-hint">Key bindings for the prompt input.</div>
+            <div class="field-hint">Key bindings for the prompt input.</div>
           </div>
 
           <Toggle
@@ -414,20 +414,20 @@ export function SettingsView({ data, api }: SettingsViewProps) {
           />
 
           {s.statusLineCommand ? (
-            <div class="acct-field">
-              <label class="acct-label">Status line command</label>
+            <div class="field">
+              <label class="field-label">Status line command</label>
               {/* Read-only display of the configured command, NOT an editable
                   field — rendered as a code block so users don't mistake it for
                   an input. `title` carries the full value for hover discovery
                   when a long command scrolls horizontally. */}
-              <code class="acct-code code-readonly" title={s.statusLineCommand}>
+              <code class="cfg-code code-readonly" title={s.statusLineCommand}>
                 {s.statusLineCommand}
               </code>
             </div>
           ) : null}
         </Group>
 
-        <div class="acct-actions">
+        <div class="actions-row">
           <Button iconName="external-link" onClick={() => api.openSettingsFile("global")}>
             Open settings.json
           </Button>
@@ -451,7 +451,7 @@ export function SettingsView({ data, api }: SettingsViewProps) {
           </Button>
         </div>
 
-        <div class="acct-footnote">Changes apply to new Claude sessions.</div>
+        <div class="cfg-footnote">Changes apply to new Claude sessions.</div>
       </div>
     </section>
   );

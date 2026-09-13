@@ -13,19 +13,19 @@ export interface BrainViewProps {
 
 export function BrainView({ api }: BrainViewProps) {
   return (
-    <section class="acct-section">
-      <header class="acct-section-header">
-        <h2 class="acct-section-title">
+    <section class="section">
+      <header class="section-header">
+        <h2 class="section-title">
           <Icon name="package" size={14} /> Brain backup
         </h2>
       </header>
-      <div class="acct-section-body">
-        <div class="acct-field-hint">
+      <div class="section-body">
+        <div class="field-hint">
           Share your Claude setup — skills, commands, agents, memory, hooks, MCP servers — across
           machines or teams as a single <code>.claudebrain.zip</code>. Sessions, credentials, and
           identity are never included.
         </div>
-        <div class="acct-actions">
+        <div class="actions-row">
           <Button iconName="upload" onClick={() => api.runCommand("claudeManager.exportBrain")}>
             Export Brain…
           </Button>

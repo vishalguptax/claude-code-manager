@@ -8,7 +8,7 @@
  *     area (the heatmap grid itself is not skeletoned — a calendar of cells
  *     would be noisier than the content it stands in for).
  *
- * Reuses the real `.acct-section` / `.acct-section-body` insets and the 40px
+ * Reuses the real `.section` / `.section-body` insets and the 40px
  * avatar size so the placeholder sits in the live section footprint. The
  * last section (Usage) grows via `.skeleton-section-grow` so the loader
  * reads edge-to-edge on a tall sidebar instead of leaving a gap below it.
@@ -23,7 +23,7 @@ import { SkeletonBlock, SkeletonCircle, SkeletonLine } from "../../../../shared/
 
 function SectionHeaderLine() {
   return (
-    <div class="acct-section-header">
+    <div class="section-header">
       <SkeletonLine width={96} height={9} />
     </div>
   );
@@ -33,9 +33,9 @@ export function AccountSkeleton() {
   return (
     <div class="panel skeleton-panel" aria-busy="true" aria-live="polite">
       {/* Profile */}
-      <section class="acct-section">
+      <section class="section">
         <SectionHeaderLine />
-        <div class="acct-section-body">
+        <div class="section-body">
           <div class="skeleton-profile">
             <SkeletonCircle size={40} />
             <div class="skeleton-profile-info">
@@ -48,9 +48,9 @@ export function AccountSkeleton() {
       </section>
 
       {/* Quota */}
-      <section class="acct-section">
+      <section class="section">
         <SectionHeaderLine />
-        <div class="acct-section-body">
+        <div class="section-body">
           {[0, 1].map((i) => (
             <div class="skeleton-quota-row" key={i} aria-hidden="true">
               <div class="skeleton-quota-head">
@@ -66,9 +66,9 @@ export function AccountSkeleton() {
       {/* Usage — single rect placeholder for the heatmap area. Grows to fill
           the remaining panel height so the skeleton reads as a full-height
           loader on a tall sidebar instead of leaving a blank gap below. */}
-      <section class="acct-section skeleton-section-grow">
+      <section class="section skeleton-section-grow">
         <SectionHeaderLine />
-        <div class="acct-section-body skeleton-section-grow-body">
+        <div class="section-body skeleton-section-grow-body">
           <SkeletonBlock width="100%" height="100%" radius={4} />
         </div>
       </section>

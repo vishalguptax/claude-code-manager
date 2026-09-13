@@ -262,16 +262,16 @@ button,
 [role="button"],
 .tab-btn, .tab-btn *,
 .vsc-segmented-seg,
-.acct-section-header, .acct-section-header *,
-.acct-actions .btn, .acct-actions .btn *,
-.acct-perm-remove,
+.section-header, .section-header *,
+.actions-row .btn, .actions-row .btn *,
+.cfg-perm-remove,
 .acct-quota-row-head, .acct-quota-row-head *,
 .empty-state-title,
 .empty-state-desc,
 .footer-link,
 .footer-name,
 .app-footer,
-.acct-scope-toggle, .acct-scope-toggle * {
+.vsc-segmented, .vsc-segmented * {
   user-select: none;
   -webkit-user-select: none;
 }

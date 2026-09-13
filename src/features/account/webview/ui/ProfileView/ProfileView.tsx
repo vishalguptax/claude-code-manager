@@ -11,13 +11,12 @@
  */
 
 import { cx } from "../../../../../webview/shared/lib";
-import { Button, EmptyState, Icon } from "../../../../../webview/shared/ui";
+import { Button, EmptyState, Icon, SectionHeader } from "../../../../../webview/shared/ui";
 import type { AccountData } from "../../../types";
 import type { AccountApi } from "../../api";
 import { formatPlan } from "../../lib";
 import { isSectionCollapsed, toggleSection } from "../../model";
 import { MetaRow } from "../MetaRow";
-import { SectionHeader } from "../SectionHeader";
 
 export interface ProfileViewProps {
   data: AccountData;
@@ -27,10 +26,10 @@ export interface ProfileViewProps {
 export function ProfileView({ data, api }: ProfileViewProps) {
   const collapsed = isSectionCollapsed("profile");
   return (
-    <section class="acct-section">
+    <section class="section">
       <SectionHeader id="profile" title="Profile" collapsed={collapsed} onToggle={toggleSection} />
       {collapsed ? null : (
-        <div class="acct-section-body">
+        <div class="section-body">
           {data.profile.signedIn ? (
             <SignedIn data={data} api={api} />
           ) : (
@@ -50,7 +49,7 @@ function SignedOut({ data, api }: ProfileViewProps) {
       : "Sign in to Claude Code to view your account.";
   return (
     <EmptyState compact title="Not signed in" description={hint}>
-      <div class="acct-actions">
+      <div class="actions-row">
         {saved.length > 0 ? (
           <Button
             variant="secondary"
@@ -133,7 +132,7 @@ function SignedIn({ data, api }: ProfileViewProps) {
         </div>
       ) : null}
 
-      <div class="acct-actions">
+      <div class="actions-row">
         <Button
           iconName="refresh-cw"
           title="Switch between saved Claude accounts or log in a new one"

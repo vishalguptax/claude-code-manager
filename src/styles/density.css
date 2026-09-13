@@ -31,7 +31,7 @@
 
    Dividers that are NOT row separators stay put in both densities: the
    `.list-header` toolbar edge, the `.d-msg-header` transcript search bar, and
-   the `.acct-section` / `.cfg-group` section edges all separate REGIONS, not
+   the `.section` / `.cfg-group` section edges all separate REGIONS, not
    sibling rows, and removing them would merge distinct surfaces.
    ────────────────────────────────────────────────────────────────────────────── */
 

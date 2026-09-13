@@ -27,6 +27,7 @@ import {
   Button,
   EmptyState,
   Icon,
+  SectionHeader,
   Segmented,
   type SegmentedOption,
 } from "../../../../../webview/shared/ui";
@@ -51,7 +52,6 @@ import {
 import { isSectionCollapsed, timePeriod, toggleSection, type TimePeriod } from "../../model";
 import { Donut } from "../Donut";
 import { Heatmap } from "../Heatmap";
-import { SectionHeader } from "../SectionHeader";
 import { StatTile } from "../StatTile";
 
 export interface UsageViewProps {
@@ -103,7 +103,7 @@ export function UsageView({ data }: UsageViewProps) {
     shareStatsCard(u, api.saveStatsImage);
   };
   return (
-    <section class="acct-section">
+    <section class="section">
       <SectionHeader id="usage" title="Usage" collapsed={collapsed} onToggle={toggleSection}>
         {hasActivity && !collapsed ? (
           <Button
@@ -116,7 +116,7 @@ export function UsageView({ data }: UsageViewProps) {
         ) : null}
       </SectionHeader>
       {collapsed ? null : (
-        <div class="acct-section-body">
+        <div class="section-body">
           {u.daily.length === 0 ? (
             data.usageWarming ? (
               <UsageWarming />
@@ -185,7 +185,6 @@ function UsageBody({ u }: { u: UsageStats }) {
   return (
     <>
       <Segmented
-        class="acct-period-toggle"
         ariaLabel="Usage period"
         value={period}
         options={PERIODS}
@@ -283,7 +282,7 @@ function InfoRibbon({
 }
 
 function BlockHeading({ children }: { children: ComponentChildren }) {
-  return <div class="acct-section-subhead">{children}</div>;
+  return <div class="section-subhead">{children}</div>;
 }
 
 /**

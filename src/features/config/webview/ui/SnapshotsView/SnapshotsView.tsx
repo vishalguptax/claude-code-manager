@@ -21,14 +21,14 @@ export interface SnapshotsViewProps {
 export function SnapshotsView({ snapshots, api }: SnapshotsViewProps) {
   if (snapshots.length === 0) {
     return (
-      <section class="acct-section">
-        <header class="acct-section-header">
-          <h2 class="acct-section-title">
+      <section class="section">
+        <header class="section-header">
+          <h2 class="section-title">
             <Icon name="history" size={14} /> Settings history
           </h2>
         </header>
-        <div class="acct-section-body">
-          <div class="acct-field-hint">
+        <div class="section-body">
+          <div class="field-hint">
             No snapshots yet. The next time you change a setting or permission, Claude Code Manager will
             save the previous state here so you can roll back.
           </div>
@@ -38,14 +38,14 @@ export function SnapshotsView({ snapshots, api }: SnapshotsViewProps) {
   }
 
   return (
-    <section class="acct-section">
-      <header class="acct-section-header">
-        <h2 class="acct-section-title">
+    <section class="section">
+      <header class="section-header">
+        <h2 class="section-title">
           <Icon name="history" size={14} /> Settings history
         </h2>
       </header>
-      <div class="acct-section-body">
-        <div class="acct-field-hint">
+      <div class="section-body">
+        <div class="field-hint">
           Snapshots are taken before each settings.json mutation. The 20 most recent per scope are
           kept.
         </div>

@@ -77,7 +77,7 @@ describe("UsageView", () => {
     // It used to sit right-aligned between the stat tiles and the info
     // ribbon — an action floating mid-column, attached to nothing.
     const { container } = render(h(UsageView, { data: dataWith(makeUsage()) }));
-    const header = container.querySelector(".acct-section-header") as HTMLElement;
+    const header = container.querySelector(".section-header") as HTMLElement;
     expect(header.querySelector('[aria-label="Share stats"]')).toBeTruthy();
     expect(container.querySelector(".acct-share-row")).toBeNull();
   });
@@ -186,7 +186,7 @@ describe("UsageView", () => {
 
   it("collapses the usage section when its header is toggled", () => {
     render(h(UsageView, { data: dataWith(makeUsage()) }));
-    const header = screen.getByText("Usage").closest(".acct-section-header") as HTMLElement;
+    const header = screen.getByText("Usage").closest(".section-header") as HTMLElement;
     fireEvent.click(header);
     // Collapsed → stats grid gone.
     expect(screen.queryByText("tokens")).toBeNull();

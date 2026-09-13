@@ -94,7 +94,9 @@ describe("PermissionsView", () => {
     expect(screen.getByText("No allowed tools")).toBeTruthy();
     expect(screen.getByText("No denied tools")).toBeTruthy();
     // The scope segmented still renders (Global only — no project scope present).
-    expect(container.querySelector(".acct-scope-toggle")).toBeTruthy();
+    // The scope segments sit directly in the section body, which is what zeroes
+    // their panel-edge inset (see components.css). No wrapper class needed.
+    expect(container.querySelector(".section-body > .vsc-segmented")).toBeTruthy();
   });
 
   it("removing a tool posts promptRemovePermission", () => {
@@ -112,7 +114,7 @@ describe("PermissionsView", () => {
         onSearchChange={vi.fn()}
       />,
     );
-    fireEvent.click(container.querySelector(".acct-perm-remove") as HTMLButtonElement);
+    fireEvent.click(container.querySelector(".cfg-perm-remove") as HTMLButtonElement);
     expect(post).toHaveBeenCalledWith({
       type: "promptRemovePermission",
       scope: "global",
