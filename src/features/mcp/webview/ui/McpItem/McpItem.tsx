@@ -14,9 +14,11 @@ export interface McpItemProps {
   active: boolean;
   onSelect: (server: McpServer) => void;
   onCopyName: (name: string) => void;
+  /** Right-click the row for the server's actions. */
+  onContextMenu?: (server: McpServer, x: number, y: number) => void;
 }
 
-export function McpItem({ server, active, onSelect, onCopyName }: McpItemProps) {
+export function McpItem({ server, active, onSelect, onCopyName, onContextMenu }: McpItemProps) {
   // Full connection string: the row ellipsizes it in CSS at whatever width
   // the sidebar happens to be, and the title reveals the rest on hover.
   const preview = connectionPreview(server);
@@ -25,6 +27,15 @@ export function McpItem({ server, active, onSelect, onCopyName }: McpItemProps) 
       active={active}
       class={cx("mcp-item", server.disabled && "mcp-disabled")}
       onClick={() => onSelect(server)}
+      onContextMenu={
+        onContextMenu
+          ? (e) => {
+              // Replace VS Code's own webview menu with the server's actions.
+              e.preventDefault();
+              onContextMenu(server, e.clientX, e.clientY);
+            }
+          : undefined
+      }
     >
       <div class="mcp-item-row1">
         <span class="mcp-item-name">{server.name}</span>

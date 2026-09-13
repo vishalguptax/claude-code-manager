@@ -154,6 +154,17 @@ export default function McpTab() {
       onRefresh={() => api.getServers()}
       onNew={() => setForm({ open: true, server: null })}
       onReauth={() => api.reconnect()}
+      // Same actions the detail view offers, one right-click away, so a
+      // server can be switched off without opening it first.
+      menu={{
+        onEdit: (s) => setForm({ open: true, server: s }),
+        onToggle: (s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName),
+        onDelete: (s) => api.remove(s.name, s.scope),
+        onCopyName: copyToClipboard,
+        onOpenConfig: (s) => api.openConfig(s.scope, s.name),
+        onAuthenticate: (name) => api.authenticate(name),
+        onLogout: (name) => api.logout(name),
+      }}
     />
   );
 }
