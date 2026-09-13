@@ -7,7 +7,6 @@ export {
   accountData,
   accountError,
   clearQuota,
-  collapsedSections,
   hasAccount,
   isSectionCollapsed,
   loading,

@@ -23,8 +23,15 @@
  * stock.
  */
 import type { ComponentChildren } from "preact";
+import { isSectionCollapsed, toggleSection } from "../../model";
 import { useDebouncedCallback } from "../../../../../webview/shared/hooks";
-import { Button, Checkbox, Dropdown, Icon, TextField } from "../../../../../webview/shared/ui";
+import {
+  Button,
+  Checkbox,
+  Dropdown,
+  SectionHeader,
+  TextField,
+} from "../../../../../webview/shared/ui";
 import type { AccountData } from "../../../types";
 import type { ConfigApi } from "../../api";
 import {
@@ -185,274 +192,278 @@ export function SettingsView({ data, api }: SettingsViewProps) {
 
   return (
     <section class="section">
-      <header class="section-header" data-section="settings">
-        <h2 class="section-title">
-          <Icon name="settings" size={14} /> Settings
-        </h2>
-      </header>
-      <div class="section-body">
-        <Group title="Model &amp; reasoning">
-          <div class="field">
-            <label class="field-label">Model</label>
-            <Dropdown
-              value={currentModel}
-              ariaLabel="Model"
-              options={modelOptions.map((o) => ({ value: o.value, label: o.label }))}
-              onChange={(v) => api.setModel(v === "default" ? "" : v)}
-            />
-            <div class="field-hint">{currentModelDesc}</div>
-          </div>
-
-          <div class="field">
-            <label class="field-label">Reasoning effort</label>
-            <Dropdown
-              value={s.effortLevel}
-              ariaLabel="Reasoning effort"
-              options={effortOptions.map((o) => ({ value: o.value, label: o.label }))}
-              onChange={(v) => api.setSetting("effortLevel", v)}
-            />
-            <div class="field-hint">{currentEffortDesc}</div>
-          </div>
-
-          <Toggle
-            checked={s.alwaysThinkingEnabled}
-            label="Extended thinking"
-            hint="Off disables thinking for every session. On lets each model decide."
-            onChange={(c) => setDefaultOn("alwaysThinkingEnabled", c)}
-          />
-        </Group>
-
-        <Group title="Permissions &amp; safety">
-          <div class="field">
-            <label class="field-label">Tool-use confirmation</label>
-            <Dropdown
-              value={s.defaultMode}
-              ariaLabel="Tool-use confirmation"
-              options={DEFAULT_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-              onChange={(v) => api.setSetting("permissions.defaultMode", v)}
-            />
-            <div class="field-hint">{currentModeDesc}</div>
-          </div>
-
-          <Toggle
-            checked={s.sandboxEnabled}
-            label="Sandbox Bash commands"
-            hint="Isolates shell commands from your filesystem and network. macOS, Linux and WSL2."
-            onChange={(c) => api.setSetting("sandbox.enabled", c ? true : "")}
-          />
-
-          <Toggle
-            checked={s.disableBypassPermissionsMode}
-            label="Block bypass-permissions mode"
-            hint="Prevents any session from entering the mode that skips every prompt."
-            onChange={(c) =>
-              api.setSetting("permissions.disableBypassPermissionsMode", c ? true : "")
-            }
-          />
-        </Group>
-
-        <Group title="Context &amp; sessions">
-          <Toggle
-            checked={s.autoCompactEnabled}
-            label="Auto-compact"
-            hint="Summarises earlier turns as the context window fills, instead of stopping."
-            onChange={(c) => setDefaultOn("autoCompactEnabled", c)}
-          />
-
-          <div class="field">
-            <label class="field-label">Compact at (tokens)</label>
-            <TextField
-              ariaLabel="Auto-compact window in tokens"
-              value={compactWindowValue}
-              placeholder="Automatic"
-              onInput={(v) => {
-                const val = v.trim();
-                const n = val === "" ? 0 : Number.parseInt(val, 10);
-                setCompactWindow(Number.isFinite(n) && n > 0 ? n : "");
-              }}
-            />
-            <div class="field-hint">
-              How full the context gets before compacting. Blank lets Claude Code
-              choose; the CLI accepts 100,000–1,000,000.
-            </div>
-          </div>
-
-          <Toggle
-            checked={s.fileCheckpointingEnabled}
-            label="File checkpoints"
-            hint="Keeps the file snapshots that /rewind restores."
-            onChange={(c) => setDefaultOn("fileCheckpointingEnabled", c)}
-          />
-
-          <Toggle
-            checked={s.autoMemoryEnabled}
-            label="Auto memory"
-            hint="Lets Claude record notes about you and your projects between sessions."
-            onChange={(c) => setDefaultOn("autoMemoryEnabled", c)}
-          />
-
-          <div class="field">
-            <label class="field-label">Transcript retention (days)</label>
-            <TextField
-              ariaLabel="Session retention in days"
-              value={retentionValue}
-              placeholder="30"
-              onInput={(v) => {
-                const val = v.trim();
-                const n = val === "" ? 0 : Number.parseInt(val, 10);
-                setRetention(Number.isFinite(n) && n > 0 ? n : "");
-              }}
-            />
-            <div class="field-hint">
-              Transcripts older than this auto-delete. Blank uses Claude Code's
-              default of 30 days — to keep them longer, set a large number
-              (e.g. 3650 for ~10 years).
-            </div>
-          </div>
-        </Group>
-
-        <Group title="Git &amp; attribution">
-          <AttributionField
-            label="Commit attribution"
-            what="commit trailer"
-            isSet={s.commitAttributionSet}
-            value={s.commitAttribution}
-            onMode={(m) => {
-              // "default" removes the key (setSetting keeps the normal
-              // remove-on-empty rule); "none" writes a literal "".
-              if (m === "default") api.setSetting("attribution.commit", "");
-              else if (m === "none") api.setCommitAttribution("");
-              else api.setCommitAttribution(s.commitAttribution || " ");
-            }}
-            onText={(v) => setCommitAttribution(v)}
-          />
-
-          <AttributionField
-            label="PR attribution"
-            what="PR line"
-            isSet={s.prAttributionSet}
-            value={s.prAttribution}
-            onMode={(m) => {
-              if (m === "default") api.setSetting("attribution.pr", "");
-              else if (m === "none") api.setPrAttribution("");
-              else api.setPrAttribution(s.prAttribution || " ");
-            }}
-            onText={(v) => setPrAttribution(v)}
-          />
-
-          <Toggle
-            checked={s.includeGitInstructions}
-            label="Built-in git guidance"
-            hint="Off removes Claude Code's default commit and PR instructions from the system prompt."
-            onChange={(c) => setDefaultOn("includeGitInstructions", c)}
-          />
-
-          {/* The legacy key still wins over the attribution fields above when
-              it is set to false, so a user who edited it years ago would see
-              two controls disagree. Surfaced as a notice with a one-click
-              clear rather than resurrected as its own checkbox. */}
-          {s.includeCoAuthoredBySet && !s.includeCoAuthoredBy ? (
-            <div class="field cfg-deprecated">
-              <div class="field-hint">
-                <code class="cfg-code">includeCoAuthoredBy: false</code> is set and
-                suppresses the trailer above. Claude Code has replaced it with the
-                attribution fields.
-              </div>
-              <Button
-                iconName="trash-2"
-                title="Remove includeCoAuthoredBy from settings.json"
-                onClick={() => api.setSetting("includeCoAuthoredBy", "")}
-              >
-                Remove legacy key
-              </Button>
-            </div>
-          ) : null}
-        </Group>
-
-        <Group title="Interface">
-          <div class="field">
-            <label class="field-label">Output style</label>
-            <Dropdown
-              value={s.outputStyle}
-              ariaLabel="Output style"
-              options={outputStyleOptions.map((o) => ({ value: o.value, label: o.label }))}
-              onChange={(v) => api.setSetting("outputStyle", v)}
-            />
-            <div class="field-hint">{currentStyleDesc}</div>
-          </div>
-
-          <div class="field">
-            <label class="field-label">Editor mode</label>
-            <Dropdown
-              value={s.editorMode === "vim" ? "vim" : ""}
-              ariaLabel="Editor mode"
-              options={EDITOR_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-              onChange={(v) => api.setSetting("editorMode", v)}
-            />
-            <div class="field-hint">Key bindings for the prompt input.</div>
-          </div>
-
-          <Toggle
-            checked={s.verbose}
-            label="Verbose tool output"
-            hint="Shows full command output instead of truncated summaries."
-            onChange={(c) => api.setSetting("verbose", c ? true : "")}
-          />
-
-          <Toggle
-            checked={s.spinnerTipsEnabled}
-            label='"Tip:" lines under the spinner'
-            hint="Rotating hints shown while Claude works."
-            onChange={(c) => setDefaultOn("spinnerTipsEnabled", c)}
-          />
-
-          <Toggle
-            checked={s.voiceEnabled}
-            label="Voice dictation"
-            hint="Dictate prompts instead of typing them."
-            onChange={(c) => api.setVoiceEnabled(c)}
-          />
-
-          {s.statusLineCommand ? (
+      <SectionHeader
+        id="settings"
+        title="Settings"
+        icon="settings"
+        collapsed={isSectionCollapsed("settings")}
+        onToggle={toggleSection}
+      />
+      {isSectionCollapsed("settings") ? null : (
+        <div class="section-body">
+          <Group title="Model &amp; reasoning">
             <div class="field">
-              <label class="field-label">Status line command</label>
-              {/* Read-only display of the configured command, NOT an editable
-                  field — rendered as a code block so users don't mistake it for
-                  an input. `title` carries the full value for hover discovery
-                  when a long command scrolls horizontally. */}
-              <code class="cfg-code code-readonly" title={s.statusLineCommand}>
-                {s.statusLineCommand}
-              </code>
+              <label class="field-label">Model</label>
+              <Dropdown
+                value={currentModel}
+                ariaLabel="Model"
+                options={modelOptions.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(v) => api.setModel(v === "default" ? "" : v)}
+              />
+              <div class="field-hint">{currentModelDesc}</div>
             </div>
-          ) : null}
-        </Group>
 
-        <div class="actions-row">
-          <Button iconName="external-link" onClick={() => api.openSettingsFile("global")}>
-            Open settings.json
-          </Button>
-          <Button iconName="terminal" onClick={() => api.launchSlash("/config")}>
-            Open /config
-          </Button>
-          <Button
-            iconName="settings"
-            title="Open VS Code settings filtered to Claude Code Manager"
-            onClick={() => api.openExtensionSettings()}
-          >
-            Extension settings
-          </Button>
-          <Button
-            variant="danger"
-            iconName="refresh-cw"
-            title="Rename the global settings.json to a timestamped .bak and let Claude CLI regenerate a fresh one"
-            onClick={() => api.resetSettings("global")}
-          >
-            Reset settings
-          </Button>
+            <div class="field">
+              <label class="field-label">Reasoning effort</label>
+              <Dropdown
+                value={s.effortLevel}
+                ariaLabel="Reasoning effort"
+                options={effortOptions.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(v) => api.setSetting("effortLevel", v)}
+              />
+              <div class="field-hint">{currentEffortDesc}</div>
+            </div>
+
+            <Toggle
+              checked={s.alwaysThinkingEnabled}
+              label="Extended thinking"
+              hint="Off disables thinking for every session. On lets each model decide."
+              onChange={(c) => setDefaultOn("alwaysThinkingEnabled", c)}
+            />
+          </Group>
+
+          <Group title="Permissions &amp; safety">
+            <div class="field">
+              <label class="field-label">Tool-use confirmation</label>
+              <Dropdown
+                value={s.defaultMode}
+                ariaLabel="Tool-use confirmation"
+                options={DEFAULT_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(v) => api.setSetting("permissions.defaultMode", v)}
+              />
+              <div class="field-hint">{currentModeDesc}</div>
+            </div>
+
+            <Toggle
+              checked={s.sandboxEnabled}
+              label="Sandbox Bash commands"
+              hint="Isolates shell commands from your filesystem and network. macOS, Linux and WSL2."
+              onChange={(c) => api.setSetting("sandbox.enabled", c ? true : "")}
+            />
+
+            <Toggle
+              checked={s.disableBypassPermissionsMode}
+              label="Block bypass-permissions mode"
+              hint="Prevents any session from entering the mode that skips every prompt."
+              onChange={(c) =>
+                api.setSetting("permissions.disableBypassPermissionsMode", c ? true : "")
+              }
+            />
+          </Group>
+
+          <Group title="Context &amp; sessions">
+            <Toggle
+              checked={s.autoCompactEnabled}
+              label="Auto-compact"
+              hint="Summarises earlier turns as the context window fills, instead of stopping."
+              onChange={(c) => setDefaultOn("autoCompactEnabled", c)}
+            />
+
+            <div class="field">
+              <label class="field-label">Compact at (tokens)</label>
+              <TextField
+                ariaLabel="Auto-compact window in tokens"
+                value={compactWindowValue}
+                placeholder="Automatic"
+                onInput={(v) => {
+                  const val = v.trim();
+                  const n = val === "" ? 0 : Number.parseInt(val, 10);
+                  setCompactWindow(Number.isFinite(n) && n > 0 ? n : "");
+                }}
+              />
+              <div class="field-hint">
+                How full the context gets before compacting. Blank lets Claude Code
+                choose; the CLI accepts 100,000–1,000,000.
+              </div>
+            </div>
+
+            <Toggle
+              checked={s.fileCheckpointingEnabled}
+              label="File checkpoints"
+              hint="Keeps the file snapshots that /rewind restores."
+              onChange={(c) => setDefaultOn("fileCheckpointingEnabled", c)}
+            />
+
+            <Toggle
+              checked={s.autoMemoryEnabled}
+              label="Auto memory"
+              hint="Lets Claude record notes about you and your projects between sessions."
+              onChange={(c) => setDefaultOn("autoMemoryEnabled", c)}
+            />
+
+            <div class="field">
+              <label class="field-label">Transcript retention (days)</label>
+              <TextField
+                ariaLabel="Session retention in days"
+                value={retentionValue}
+                placeholder="30"
+                onInput={(v) => {
+                  const val = v.trim();
+                  const n = val === "" ? 0 : Number.parseInt(val, 10);
+                  setRetention(Number.isFinite(n) && n > 0 ? n : "");
+                }}
+              />
+              <div class="field-hint">
+                Transcripts older than this auto-delete. Blank uses Claude Code's
+                default of 30 days — to keep them longer, set a large number
+                (e.g. 3650 for ~10 years).
+              </div>
+            </div>
+          </Group>
+
+          <Group title="Git &amp; attribution">
+            <AttributionField
+              label="Commit attribution"
+              what="commit trailer"
+              isSet={s.commitAttributionSet}
+              value={s.commitAttribution}
+              onMode={(m) => {
+                // "default" removes the key (setSetting keeps the normal
+                // remove-on-empty rule); "none" writes a literal "".
+                if (m === "default") api.setSetting("attribution.commit", "");
+                else if (m === "none") api.setCommitAttribution("");
+                else api.setCommitAttribution(s.commitAttribution || " ");
+              }}
+              onText={(v) => setCommitAttribution(v)}
+            />
+
+            <AttributionField
+              label="PR attribution"
+              what="PR line"
+              isSet={s.prAttributionSet}
+              value={s.prAttribution}
+              onMode={(m) => {
+                if (m === "default") api.setSetting("attribution.pr", "");
+                else if (m === "none") api.setPrAttribution("");
+                else api.setPrAttribution(s.prAttribution || " ");
+              }}
+              onText={(v) => setPrAttribution(v)}
+            />
+
+            <Toggle
+              checked={s.includeGitInstructions}
+              label="Built-in git guidance"
+              hint="Off removes Claude Code's default commit and PR instructions from the system prompt."
+              onChange={(c) => setDefaultOn("includeGitInstructions", c)}
+            />
+
+            {/* The legacy key still wins over the attribution fields above when
+                it is set to false, so a user who edited it years ago would see
+                two controls disagree. Surfaced as a notice with a one-click
+                clear rather than resurrected as its own checkbox. */}
+            {s.includeCoAuthoredBySet && !s.includeCoAuthoredBy ? (
+              <div class="field cfg-deprecated">
+                <div class="field-hint">
+                  <code class="cfg-code">includeCoAuthoredBy: false</code> is set and
+                  suppresses the trailer above. Claude Code has replaced it with the
+                  attribution fields.
+                </div>
+                <Button
+                  iconName="trash-2"
+                  title="Remove includeCoAuthoredBy from settings.json"
+                  onClick={() => api.setSetting("includeCoAuthoredBy", "")}
+                >
+                  Remove legacy key
+                </Button>
+              </div>
+            ) : null}
+          </Group>
+
+          <Group title="Interface">
+            <div class="field">
+              <label class="field-label">Output style</label>
+              <Dropdown
+                value={s.outputStyle}
+                ariaLabel="Output style"
+                options={outputStyleOptions.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(v) => api.setSetting("outputStyle", v)}
+              />
+              <div class="field-hint">{currentStyleDesc}</div>
+            </div>
+
+            <div class="field">
+              <label class="field-label">Editor mode</label>
+              <Dropdown
+                value={s.editorMode === "vim" ? "vim" : ""}
+                ariaLabel="Editor mode"
+                options={EDITOR_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                onChange={(v) => api.setSetting("editorMode", v)}
+              />
+              <div class="field-hint">Key bindings for the prompt input.</div>
+            </div>
+
+            <Toggle
+              checked={s.verbose}
+              label="Verbose tool output"
+              hint="Shows full command output instead of truncated summaries."
+              onChange={(c) => api.setSetting("verbose", c ? true : "")}
+            />
+
+            <Toggle
+              checked={s.spinnerTipsEnabled}
+              label='"Tip:" lines under the spinner'
+              hint="Rotating hints shown while Claude works."
+              onChange={(c) => setDefaultOn("spinnerTipsEnabled", c)}
+            />
+
+            <Toggle
+              checked={s.voiceEnabled}
+              label="Voice dictation"
+              hint="Dictate prompts instead of typing them."
+              onChange={(c) => api.setVoiceEnabled(c)}
+            />
+
+            {s.statusLineCommand ? (
+              <div class="field">
+                <label class="field-label">Status line command</label>
+                {/* Read-only display of the configured command, NOT an editable
+                    field — rendered as a code block so users don't mistake it for
+                    an input. `title` carries the full value for hover discovery
+                    when a long command scrolls horizontally. */}
+                <code class="cfg-code code-readonly" title={s.statusLineCommand}>
+                  {s.statusLineCommand}
+                </code>
+              </div>
+            ) : null}
+          </Group>
+
+          <div class="actions-row">
+            <Button iconName="external-link" onClick={() => api.openSettingsFile("global")}>
+              Open settings.json
+            </Button>
+            <Button iconName="terminal" onClick={() => api.launchSlash("/config")}>
+              Open /config
+            </Button>
+            <Button
+              iconName="settings"
+              title="Open VS Code settings filtered to Claude Code Manager"
+              onClick={() => api.openExtensionSettings()}
+            >
+              Extension settings
+            </Button>
+            <Button
+              variant="danger"
+              iconName="refresh-cw"
+              title="Rename the global settings.json to a timestamped .bak and let Claude CLI regenerate a fresh one"
+              onClick={() => api.resetSettings("global")}
+            >
+              Reset settings
+            </Button>
+          </div>
+
+          <div class="cfg-footnote">Changes apply to new Claude sessions.</div>
         </div>
-
-        <div class="cfg-footnote">Changes apply to new Claude sessions.</div>
-      </div>
+      )}
     </section>
   );
 }

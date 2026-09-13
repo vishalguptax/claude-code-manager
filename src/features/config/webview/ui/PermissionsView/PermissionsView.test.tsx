@@ -2,6 +2,7 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import { createConfigApi } from "../../api";
+import { _resetConfigState } from "../../model";
 import { makeConfigData } from "../../__tests__/fixtures";
 import { PermissionsView } from "./PermissionsView";
 
@@ -163,5 +164,32 @@ describe("PermissionsView", () => {
     // cmd1 plus cmd10..cmd19 — all of them, not the first six.
     expect(container.querySelectorAll(".cfg-perm-row").length).toBe(11);
     expect(container.querySelector(".show-more")).toBeNull();
+  });
+  it("folds its body away when the header is collapsed", () => {
+    // The header is the only control that can shorten this panel, and Config
+    // is the longer of the two tabs — a broken toggle leaves twenty settings
+    // permanently open in a 340px column.
+    _resetConfigState();
+    const data = makeConfigData({
+      permissions: [{ scope: "global", allow: ["Read"], deny: [] }],
+    });
+    const { api } = setup();
+    render(
+      <PermissionsView
+        data={data}
+        api={api}
+        scope="global"
+        search=""
+        onScopeChange={vi.fn()}
+        onSearchChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Read")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /permissions/i }));
+    expect(screen.queryByText("Read")).toBeNull();
+    // The header itself survives, so the section can be opened again.
+    fireEvent.click(screen.getByRole("button", { name: /permissions/i }));
+    expect(screen.getByText("Read")).toBeTruthy();
+    _resetConfigState();
   });
 });

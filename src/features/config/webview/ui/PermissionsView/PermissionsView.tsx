@@ -10,12 +10,13 @@
  * <Button>, and per-row removals use an icon <Button>.
  */
 import { useState } from "preact/hooks";
+import { isSectionCollapsed, toggleSection } from "../../model";
 import {
   Badge,
   Button,
-  Icon,
   ScopeFilter,
   SearchInput,
+  SectionHeader,
   ShowMore,
 } from "../../../../../webview/shared/ui";
 import type {
@@ -65,50 +66,54 @@ export function PermissionsView({
 
   return (
     <section class="section">
-      <header class="section-header" data-section="permissions">
-        <h2 class="section-title">
-          <Icon name="shield" size={14} /> Permissions
-        </h2>
-      </header>
-      <div class="section-body">
-        <ScopeFilter<PermissionScope>
-          value={scope}
-          options={scopeOptions}
-          onChange={onScopeChange}
-        />
-
-        <div class="field">
-          <SearchInput
-            value={search}
-            placeholder="Search tools..."
-            ariaLabel="Search tools"
-            onInput={onSearchChange}
+      <SectionHeader
+        id="permissions"
+        title="Permissions"
+        icon="shield"
+        collapsed={isSectionCollapsed("permissions")}
+        onToggle={toggleSection}
+      />
+      {isSectionCollapsed("permissions") ? null : (
+        <div class="section-body">
+          <ScopeFilter<PermissionScope>
+            value={scope}
+            options={scopeOptions}
+            onChange={onScopeChange}
           />
+
+          <div class="field">
+            <SearchInput
+              value={search}
+              placeholder="Search tools..."
+              ariaLabel="Search tools"
+              onInput={onSearchChange}
+            />
+          </div>
+
+          <PermissionList set={set} scope={scope} list="allow" label="Allowed" query={query} api={api} />
+          <PermissionList set={set} scope={scope} list="deny" label="Denied" query={query} api={api} />
+
+          <AdditionalDirectories dirs={data.settings?.additionalDirectories ?? []} api={api} />
+
+          <div class="field-hint">
+            Pattern format: <code>Bash(command:*)</code>, <code>Read(path/**)</code>,{" "}
+            <code>mcp__server__*</code>. Wildcards only inside the parens; a bare tool name (e.g.{" "}
+            <code>Bash</code>) matches ALL invocations.
+          </div>
+
+          <div class="actions-row">
+            <Button iconName="plus" onClick={() => api.promptAddPermission(scope, "allow")}>
+              Add allowed
+            </Button>
+            <Button iconName="x" onClick={() => api.promptAddPermission(scope, "deny")}>
+              Add denied
+            </Button>
+            <Button iconName="external-link" onClick={() => api.openSettingsFile(scope)}>
+              Edit in file
+            </Button>
+          </div>
         </div>
-
-        <PermissionList set={set} scope={scope} list="allow" label="Allowed" query={query} api={api} />
-        <PermissionList set={set} scope={scope} list="deny" label="Denied" query={query} api={api} />
-
-        <AdditionalDirectories dirs={data.settings?.additionalDirectories ?? []} api={api} />
-
-        <div class="field-hint">
-          Pattern format: <code>Bash(command:*)</code>, <code>Read(path/**)</code>,{" "}
-          <code>mcp__server__*</code>. Wildcards only inside the parens; a bare tool name (e.g.{" "}
-          <code>Bash</code>) matches ALL invocations.
-        </div>
-
-        <div class="actions-row">
-          <Button iconName="plus" onClick={() => api.promptAddPermission(scope, "allow")}>
-            Add allowed
-          </Button>
-          <Button iconName="x" onClick={() => api.promptAddPermission(scope, "deny")}>
-            Add denied
-          </Button>
-          <Button iconName="external-link" onClick={() => api.openSettingsFile(scope)}>
-            Edit in file
-          </Button>
-        </div>
-      </div>
+      )}
     </section>
   );
 }

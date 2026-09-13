@@ -27,3 +27,9 @@ export {
   registerPaletteSource,
   scoreItem,
 } from "./palette";
+export {
+  _resetSections,
+  collapsedSections,
+  isSectionCollapsed,
+  toggleSection,
+} from "./sections";

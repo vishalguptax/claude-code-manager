@@ -10,6 +10,11 @@
  */
 
 import { computed, signal } from "@preact/signals";
+import {
+  _resetSections,
+  isSectionCollapsed as isSectionCollapsedShared,
+  toggleSection as toggleSectionShared,
+} from "../../../../webview/shared/model";
 import type { AccountData } from "../../types";
 import type { QuotaError, QuotaSuccess } from "../../quota";
 
@@ -38,9 +43,6 @@ export const accountError = signal<string>("");
 /** Selected usage time-period filter. */
 export const timePeriod = signal<TimePeriod>("month");
 
-/** Set of collapsed section ids ("profile", "quota", "session", "usage"). */
-export const collapsedSections = signal<ReadonlySet<string>>(new Set());
-
 /** Current quota card state. */
 export const quotaStatus = signal<QuotaStatus>({ kind: "idle" });
 
@@ -57,17 +59,18 @@ export const quotaAccountSince = signal(0);
 /** True when account data has loaded and a profile exists. */
 export const hasAccount = computed(() => accountData.value !== null);
 
-/** Whether the given section id is currently collapsed. */
+/**
+ * Section collapse lives in shared/model — Config needs the same behaviour and
+ * a second private copy is how the two tabs diverged in the first place. These
+ * wrappers namespace Account's ids so the two tabs cannot fold each other's
+ * sections through one store.
+ */
 export function isSectionCollapsed(id: string): boolean {
-  return collapsedSections.value.has(id);
+  return isSectionCollapsedShared(`account:${id}`);
 }
 
-/** Toggle a section's collapsed state, producing a new Set for reactivity. */
 export function toggleSection(id: string): void {
-  const next = new Set(collapsedSections.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  collapsedSections.value = next;
+  toggleSectionShared(`account:${id}`);
 }
 
 export function setQuotaSuccess(data: QuotaSuccess): void {
@@ -97,7 +100,7 @@ export function _resetAccountState(): void {
   loading.value = false;
   accountError.value = "";
   timePeriod.value = "month";
-  collapsedSections.value = new Set();
+  _resetSections();
   quotaStatus.value = { kind: "idle" };
   quotaAccountSince.value = 0;
 }

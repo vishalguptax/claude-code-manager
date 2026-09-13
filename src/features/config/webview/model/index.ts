@@ -6,7 +6,9 @@ export {
   _resetConfigState,
   configData,
   configError,
+  isSectionCollapsed,
   loading,
   permissionScope,
   permissionSearch,
+  toggleSection,
 } from "./signals";
