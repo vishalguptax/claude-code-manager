@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.10.0] - 2026-09-13
+
+A ground-up pass over the sidebar: every tab now renders from one shared component layer, with a cross-tab search on Cmd/Ctrl+K, collapsible sections on Account and Config, per-row switches for MCP servers, and tooltips that appear only where they say something.
+
+See [docs/releases/v2.10.0.md](docs/releases/v2.10.0.md) for full details.
+
 ## [2.9.0] - 2026-09-13
 
 Claude Manager now refuses to write into any config file it cannot parse, reports one consistent definition of a token everywhere in the Account tab, and ships a grouped settings page alongside the 19 hook events Claude Code 2.1 introduced.
