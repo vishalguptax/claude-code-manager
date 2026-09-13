@@ -414,17 +414,31 @@ interface McpToggleSettingsShape {
   [key: string]: unknown;
 }
 
-function readToggleSettings(filePath: string): McpToggleSettingsShape {
+/**
+ * Read a settings file for a read-modify-write pass.
+ *
+ * `{}` when absent or blank — safe to create. **null when it exists but
+ * cannot be read as a JSON object**: the caller must not write, or
+ * toggling one MCP server would replace the user's settings.json with
+ * nothing but the toggle arrays.
+ */
+function readToggleSettings(filePath: string): McpToggleSettingsShape | null {
+  let raw: string;
   try {
-    const raw = fs.readFileSync(filePath, "utf-8");
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return {};
+  }
+  if (raw.trim() === "") return {};
+  try {
     const parsed = JSON.parse(raw) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed as McpToggleSettingsShape;
     }
   } catch {
-    // Missing / unparseable — caller proceeds with a fresh shape.
+    return null;
   }
-  return {};
+  return null;
 }
 
 function writeSettingsJson(filePath: string, data: unknown): boolean {
@@ -479,6 +493,7 @@ export function setProjectMcpServerDisabled(
   const filePath = claudeSettingsPath("local", workspacePath);
   if (!filePath) return false;
   const data = readToggleSettings(filePath);
+  if (data === null) return false;
 
   const removeFromArray = (key: "disabledMcpjsonServers" | "enabledMcpjsonServers"): void => {
     const arr = data[key];
@@ -588,23 +603,42 @@ function serverConfigFile(scope: string, name: string, workspacePath?: string): 
   return null;
 }
 
-/** Read a config file's raw text + parsed object, defaulting to an empty config. */
-function readConfig(filePath: string): { raw: string; config: Record<string, unknown> } {
+/**
+ * Read a config file's raw text + parsed object.
+ *
+ * `malformed` is the part callers must honour. The old contract said
+ * "callers treat empty config as can't write", but an empty config is
+ * also what a brand-new file looks like — so addMcpServer could not tell
+ * the two apart and happily wrote `{ mcpServers: { new } }` over a
+ * .mcp.json (or ~/.claude.json) it had failed to parse, discarding every
+ * other server in it. An explicit flag cannot be misread that way.
+ */
+function readConfig(filePath: string): {
+  raw: string;
+  config: Record<string, unknown>;
+  malformed: boolean;
+} {
   let raw = "";
   try {
     raw = fs.readFileSync(filePath, "utf-8");
   } catch {
-    return { raw: "", config: {} };
+    return { raw: "", config: {}, malformed: false };
   }
+  if (raw.trim() === "") return { raw, config: {}, malformed: false };
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return { raw, config: parsed as Record<string, unknown> };
+      return { raw, config: parsed as Record<string, unknown>, malformed: false };
     }
   } catch {
-    // Malformed — refuse to clobber; callers treat empty config as "can't write".
+    return { raw, config: {}, malformed: true };
   }
-  return { raw, config: {} };
+  return { raw, config: {}, malformed: true };
+}
+
+/** Shared refusal message for a config file we cannot safely rewrite. */
+function malformedConfigError(filePath: string): string {
+  return `${filePath} isn't valid JSON, so it was left untouched. Fix or remove it, then try again.`;
 }
 
 export interface McpWriteResult {
@@ -622,7 +656,8 @@ export function addMcpServer(input: McpServerInput, workspacePath?: string): Mcp
   if (!filePath) {
     return { ok: false, error: `Cannot write to ${input.scope} scope without a workspace.` };
   }
-  const { raw, config } = readConfig(filePath);
+  const { raw, config, malformed } = readConfig(filePath);
+  if (malformed) return { ok: false, error: malformedConfigError(filePath) };
   const servers = (config.mcpServers as Record<string, unknown>) ?? {};
   if (input.name in servers) {
     return { ok: false, error: `An MCP server named "${input.name}" already exists in ${input.scope} scope.` };
@@ -652,7 +687,8 @@ export function updateMcpServer(
   if (!filePath) {
     return { ok: false, error: `Cannot write to ${input.scope} scope without a workspace.` };
   }
-  const { raw, config } = readConfig(filePath);
+  const { raw, config, malformed } = readConfig(filePath);
+  if (malformed) return { ok: false, error: malformedConfigError(filePath) };
   const servers = config.mcpServers as Record<string, unknown> | undefined;
   if (!servers || !(originalName in servers)) {
     return { ok: false, error: `Server "${originalName}" was not found — it may have been edited on disk.` };

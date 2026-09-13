@@ -385,3 +385,56 @@ describe("toggleHookEnabled on a multi-command entry", () => {
     expect(moved).toEqual([{ type: "command", command: "first" }]);
   });
 });
+
+describe("never rewrites a settings.json it cannot parse", () => {
+  /**
+   * Every writer here read the file "tolerating" a parse error by
+   * starting from `{}`, then wrote that back — so toggling one hook
+   * replaced a settings.json carrying a comment or a trailing comma with
+   * nothing but that hook. Claude Code already refuses to load a file in
+   * that state, so the user may well be mid-repair when they click.
+   */
+  const HOSTILE: Array<[string, string]> = [
+    ["a JSON comment", '{\n  // note\n  "model": "opus",\n  "hooks": {}\n}'],
+    ["a trailing comma", '{ "model": "opus", "hooks": {}, }'],
+    ["truncation", '{ "model": "opus", "hooks": {'],
+    ["a top-level array", '["nope"]'],
+  ];
+
+  it.each(HOSTILE)("addHook refuses and leaves it byte-identical: %s", (_l, content) => {
+    fs.writeFileSync(tmpFile, content);
+    expect(
+      addHook(tmpFile, "PreToolUse", "Write", "echo hi"),
+    ).toBe(false);
+    expect(fs.readFileSync(tmpFile, "utf-8")).toBe(content);
+  });
+
+  it("toggle, delete and update refuse too", () => {
+    const content = '{ "hooks": { "PreToolUse": [] }, }';
+    const hook = makeHook();
+    for (const op of [
+      () => toggleHookEnabled(tmpFile, hook, true),
+      () => deleteHook(tmpFile, hook),
+      () => updateHook(tmpFile, hook, { event: "PreToolUse", matcher: "Read", command: "x" }),
+    ]) {
+      fs.writeFileSync(tmpFile, content);
+      expect(op()).toBe(false);
+      expect(fs.readFileSync(tmpFile, "utf-8")).toBe(content);
+    }
+  });
+
+  it("still writes into an absent or blank file, and keeps unrelated keys", () => {
+    expect(
+      addHook(tmpFile, "PreToolUse", "Write", "echo hi"),
+    ).toBe(true);
+    expect(read().hooks).toBeTruthy();
+
+    seed({ model: "opus", env: { A: "1" } });
+    expect(
+      addHook(tmpFile, "Stop", "", "echo bye"),
+    ).toBe(true);
+    const after = read();
+    expect(after.model).toBe("opus");
+    expect(after.env).toEqual({ A: "1" });
+  });
+});

@@ -339,6 +339,54 @@ describe("addMcpServer / updateMcpServer", () => {
     return JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8")).mcpServers;
   }
 
+  describe("never rewrites a config it cannot parse", () => {
+    /**
+     * `readConfig` used to answer a parse failure with an empty config,
+     * which is also what a brand-new file looks like — so addMcpServer
+     * could not tell the two apart and wrote `{ mcpServers: { new } }`
+     * over a .mcp.json (or ~/.claude.json) it had failed to read,
+     * discarding every other server in it.
+     */
+    const HOSTILE: Array<[string, string]> = [
+      ["a JSON comment", '{\n // note\n "mcpServers": { "a": { "command": "x" } }\n}'],
+      ["a trailing comma", '{ "mcpServers": { "a": { "command": "x" } }, }'],
+      ["truncation", '{ "mcpServers": { "a": '],
+      ["a top-level array", '["nope"]'],
+    ];
+
+    it.each(HOSTILE)("add refuses and leaves it byte-identical: %s", (_l, content) => {
+      const file = path.join(ws, ".mcp.json");
+      fs.mkdirSync(ws, { recursive: true });
+      fs.writeFileSync(file, content);
+      const res = addMcpServer(input({ name: "new" }), ws);
+      expect(res.ok).toBe(false);
+      expect(res.error).toContain("isn't valid JSON");
+      expect(fs.readFileSync(file, "utf-8")).toBe(content);
+    });
+
+    it("update refuses too", () => {
+      const file = path.join(ws, ".mcp.json");
+      const content = '{ "mcpServers": { "srv": { "command": "x" } }, }';
+      fs.mkdirSync(ws, { recursive: true });
+      fs.writeFileSync(file, content);
+      expect(updateMcpServer("srv", input(), ws).ok).toBe(false);
+      expect(fs.readFileSync(file, "utf-8")).toBe(content);
+    });
+
+    it("still adds to a valid file, keeping the other servers", () => {
+      const file = path.join(ws, ".mcp.json");
+      fs.mkdirSync(ws, { recursive: true });
+      fs.writeFileSync(
+        file,
+        JSON.stringify({ mcpServers: { keep: { command: "keep" } } }, null, 2),
+      );
+      expect(addMcpServer(input({ name: "new" }), ws).ok).toBe(true);
+      const after = readMcp();
+      expect(after.keep).toEqual({ command: "keep" });
+      expect(after.new).toBeTruthy();
+    });
+  });
+
   it("adds a stdio server, creating .mcp.json if absent", () => {
     expect(addMcpServer(input(), ws).ok).toBe(true);
     expect(readMcp().srv).toEqual({ command: "node", args: ["server.js"] });

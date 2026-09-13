@@ -22,17 +22,36 @@ interface SettingsShape {
   [key: string]: unknown;
 }
 
-function readSettings(filePath: string): SettingsShape {
+/**
+ * Read a settings file for a read-modify-write pass.
+ *
+ * `{}` when absent or blank — nothing to lose, so creating it is safe.
+ * **null when it exists but cannot be read as a JSON object**, meaning
+ * the caller must not write.
+ *
+ * This used to answer the unreadable case with `{}` as well, and every
+ * caller wrote that back — so toggling one hook in the Hooks tab
+ * replaced a settings.json carrying a comment or a trailing comma with
+ * nothing but that hook. Claude Code already refuses to load a file in
+ * that state, so the user may well be mid-repair when they click.
+ */
+function readSettings(filePath: string): SettingsShape | null {
+  let raw: string;
   try {
-    const raw = fs.readFileSync(filePath, "utf-8");
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return {};
+  }
+  if (raw.trim() === "") return {};
+  try {
     const parsed = JSON.parse(raw) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed as SettingsShape;
     }
   } catch {
-    // Missing / unparseable — caller proceeds with a fresh shape.
+    return null;
   }
-  return {};
+  return null;
 }
 
 function writeSettings(filePath: string, data: SettingsShape): boolean {
@@ -153,6 +172,8 @@ export function toggleHookEnabled(
   // sees settings.json shapes.
   if (hook.scope === "plugin") return false;
   const data = readSettings(filePath);
+  // Refuse rather than replace a settings file we cannot parse.
+  if (data === null) return false;
   const sourceKey = enable ? "_disabled_hooks" : "hooks";
   const targetKey = enable ? "hooks" : "_disabled_hooks";
   const source = data[sourceKey] as Record<string, RawHookEntry[]> | undefined;
@@ -207,6 +228,8 @@ export function toggleHookEnabled(
 export function deleteHook(filePath: string, hook: Hook): boolean {
   if (hook.scope === "plugin") return false;
   const data = readSettings(filePath);
+  // Refuse rather than replace a settings file we cannot parse.
+  if (data === null) return false;
   const blockKey = hook.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
   const match = locateHook(block, hook);
@@ -287,6 +310,8 @@ export function updateHook(filePath: string, original: Hook, next: HookEdit): bo
   if (original.scope === "plugin") return false;
   if (original.hookType !== "command") return false;
   const data = readSettings(filePath);
+  // Refuse rather than replace a settings file we cannot parse.
+  if (data === null) return false;
   const blockKey = original.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
   const match = locateHook(block, original);
@@ -325,6 +350,8 @@ export function moveHookToFile(
   if (original.hookType !== "command") return false;
 
   const fromData = readSettings(fromFile);
+  // Refuse rather than replace a settings file we cannot parse.
+  if (fromData === null) return false;
   const blockKey = original.disabled ? "_disabled_hooks" : "hooks";
   const fromBlock = fromData[blockKey] as Record<string, RawHookEntry[]> | undefined;
   const match = locateHook(fromBlock, original);
@@ -332,6 +359,8 @@ export function moveHookToFile(
 
   // Insert into the destination file first.
   const toData = readSettings(toFile);
+  // Refuse rather than replace a settings file we cannot parse.
+  if (toData === null) return false;
   insertHookEntry(
     toData,
     blockKey,
@@ -361,6 +390,8 @@ export function addHook(
 ): boolean {
   if (!event.trim() || !command.trim()) return false;
   const data = readSettings(filePath);
+  // Refuse rather than replace a settings file we cannot parse.
+  if (data === null) return false;
   let block = data.hooks;
   if (!block) {
     block = {};
