@@ -6,6 +6,7 @@
  * so the view maps them onto the shared <Dropdown> options and the hint line.
  */
 import type { AccountData, PermissionDefaultMode } from "../../types";
+import { modelRecency } from "../../../../core/pricing";
 
 /** Short purpose descriptions keyed by model family alias. */
 export const MODEL_DESCRIPTIONS: Record<string, string> = {
@@ -27,11 +28,36 @@ export const MODEL_DESCRIPTIONS: Record<string, string> = {
  * so custom endpoints / router ids stay recognizable.
  */
 export function prettyModelLabel(id: string): string {
-  const m = /^claude-([a-z]+)-(\d{1,2})(?:-(\d{1,2}))?(\[1m\])?$/i.exec(id.trim());
-  if (!m) return id;
-  const family = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
-  const version = m[3] ? `${m[2]}.${m[3]}` : m[2];
-  return `${family} ${version}${m[4] ? " · 1M context" : ""}`;
+  const raw = id.trim();
+  const full = /^claude-([a-z]+)-(\d{1,2})(?:-(\d{1,2}))?(\[1m\])?$/i.exec(raw);
+  if (full) {
+    const family = capitalize(full[1]);
+    const version = full[3] ? `${full[2]}.${full[3]}` : full[2];
+    return `${family} ${version}${full[4] ? " · 1M context" : ""}`;
+  }
+  // Alias form, with or without the 1M-context suffix: "opus", "opus[1m]".
+  // settings.json commonly holds these — they are what the CLI's own
+  // picker writes — and without this branch the selected model rendered
+  // as the raw string, so the one entry the user had chosen was the only
+  // unreadable row in the list.
+  const alias = /^([a-z]+)(\[1m\])?$/i.exec(raw);
+  if (alias) return `${capitalize(alias[1])}${alias[2] ? " · 1M context" : ""}`;
+  return raw;
+}
+
+function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+}
+
+/** Family token of a model id ("claude-opus-4-8" -> "opus"), or "". */
+function modelFamily(id: string): string {
+  return /^claude-([a-z]+)-/i.exec(id.trim())?.[1]?.toLowerCase() ?? "";
+}
+
+/** Split an alias-form model value into its alias and 1M-context flag. */
+function parseAlias(value: string): { alias: string; long: boolean } | null {
+  const m = /^([a-z]+)(\[1m\])?$/i.exec(value.trim());
+  return m ? { alias: m[1].toLowerCase(), long: Boolean(m[2]) } : null;
 }
 
 /** One selectable option carrying a hint description. */
@@ -103,8 +129,25 @@ export function buildEffortOptions(currentValue: string): Array<SettingOption> {
 }
 
 /**
- * Model options from the available-models list, with a synthetic "default"
- * entry first and any unknown current selection appended so it never drops.
+ * Model options for the picker: the "default" entry, then one row per
+ * model the user could plausibly choose, newest first.
+ *
+ * The CLI binary carries every model id it has ever known — on a current
+ * install that is 22 entries, most of them retired (Sonnet 3.7, Haiku
+ * 3.5, Opus 4/4.1) and unusable on a first-party account. Listing them
+ * all buried the four or five real choices.
+ *
+ * The filter is deliberately not a hardcoded list of live models, which
+ * would go stale on every release. A row is kept when it is:
+ *
+ *   - the newest of its family (`isLatest`) — the current lineup, and
+ *     bound to the alias so it tracks future releases;
+ *   - a version this account has actually run, per the usage stats —
+ *     someone pinned to Opus 4.8 keeps seeing it;
+ *   - the current selection, so the configured value is never hidden.
+ *
+ * Everything else is a version nobody here has used and cannot select
+ * anyway.
  */
 export function buildModelOptions(data: AccountData, currentModel: string): Array<SettingOption> {
   // The "Default" entry does NOT name a model: the account's recommended
@@ -124,22 +167,68 @@ export function buildModelOptions(data: AccountData, currentModel: string): Arra
   // under two different values — that's the duplicate-option bug. First
   // occurrence wins (discovery lists the latest/alias form first).
   const seenLabels = new Set<string>();
+
+  // Model ids this account has actually run. Usage ids are often dated
+  // ("claude-haiku-4-5-20251001") while discovery yields the undated form,
+  // so they are compared on family + version rather than as strings. A
+  // plain prefix test looks right and is not: "claude-haiku-4" is a
+  // prefix of "claude-haiku-4-5-20251001", which resurrected retired
+  // Haiku 4 and Opus 4 rows on the strength of Haiku 4.5 usage.
+  const used = (data.usage?.byModel ?? []).map((u) => ({
+    family: modelFamily(u.model),
+    rank: modelRecency(u.model),
+  }));
+  const hasBeenUsed = (id: string): boolean => {
+    const family = modelFamily(id);
+    const rank = modelRecency(id);
+    if (!family || rank < 0) return false;
+    return used.some((u) => u.family === family && u.rank === rank);
+  };
+
+  const rows: Array<SettingOption & { rank: number; family: string }> = [];
   for (const m of data.availableModels) {
     const value = m.isLatest ? m.alias : m.id;
     if (seenValues.has(value) || seenLabels.has(m.label)) continue;
+    const keep = m.isLatest || value === currentModel || m.id === currentModel || hasBeenUsed(m.id);
+    if (!keep) continue;
     seenValues.add(value);
     seenLabels.add(m.label);
-    options.push({ value, label: m.label, desc: m.isLatest ? MODEL_DESCRIPTIONS[m.alias] ?? "" : "Pinned" });
-  }
-  if (currentModel && !seenValues.has(currentModel)) {
-    const label = prettyModelLabel(currentModel);
-    // Keep the raw id visible in the hint when we prettified it, so
-    // the user can still see exactly what settings.json contains.
-    options.push({
-      value: currentModel,
-      label,
-      desc: label === currentModel ? "" : currentModel,
+    rows.push({
+      value,
+      label: m.label,
+      desc: m.isLatest ? MODEL_DESCRIPTIONS[m.alias] ?? "" : "Pinned to this version",
+      rank: modelRecency(m.id),
+      family: m.family,
     });
   }
+
+  if (currentModel && !seenValues.has(currentModel)) {
+    // Usually an alias form such as "opus[1m]". Resolve it against the
+    // discovered list so it reads "Opus 5 · 1M context" rather than the
+    // raw id, and so it sorts beside its own family instead of landing
+    // last — the configured model was the one unreadable row at the
+    // bottom of the list.
+    const parsed = parseAlias(currentModel);
+    const base = parsed
+      ? data.availableModels.find((m) => m.isLatest && m.alias === parsed.alias)
+      : undefined;
+    const label = base
+      ? `${base.label}${parsed?.long ? " · 1M context" : ""}`
+      : prettyModelLabel(currentModel);
+    rows.push({
+      value: currentModel,
+      // Keep the raw id visible in the hint when we prettified it, so
+      // the user can still see exactly what settings.json contains.
+      label,
+      desc: label === currentModel ? "" : currentModel,
+      rank: base ? modelRecency(base.id) : -1,
+      family: base?.family ?? parsed?.alias ?? "",
+    });
+  }
+
+  // Newest first, family as the tiebreaker — the same ordering discovery
+  // uses, reapplied because the current selection is inserted afterwards.
+  rows.sort((a, b) => b.rank - a.rank || a.family.localeCompare(b.family));
+  options.push(...rows.map(({ value, label, desc }) => ({ value, label, desc })));
   return options;
 }

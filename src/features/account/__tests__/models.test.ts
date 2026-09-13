@@ -172,7 +172,15 @@ describe("discoverModelsFromCli", () => {
       nodeModulesLayout(path.join(home, ".claude", "local")),
       "linux-x64",
     );
-    writeFakeBinary(binary, ["claude-code-2", "claude-instant-1", "claude-opus-4-8"]);
+    // `claude-eval-9` is an internal harness model. Its version number
+    // outranks every product model, so it sorted to the top of the
+    // picker as the first thing the user saw.
+    writeFakeBinary(binary, [
+      "claude-code-2",
+      "claude-instant-1",
+      "claude-eval-9",
+      "claude-opus-4-8",
+    ]);
 
     const families = (await warmModelCache()).map((m) => m.family);
     expect(families).toEqual(["opus"]);

@@ -211,9 +211,12 @@ export function discoverModelsFromCli(): DiscoveredModel[] {
  * Strings that fit the claude-{word}-{digit} shape but are not model
  * families. "code" guards against the CLI's own package name (e.g.
  * "claude-code-2..."); "instant" is the ancient claude-instant line
- * whose IDs still linger in the binary.
+ * whose IDs still linger in the binary; "eval" is an internal harness
+ * model (`claude-eval-9`) that is not selectable and, because its
+ * version number outranks every product model, sorted to the very top of
+ * the picker.
  */
-const NON_MODEL_FAMILIES = new Set(["code", "instant"]);
+const NON_MODEL_FAMILIES = new Set(["code", "instant", "eval"]);
 
 function scanInto(content: string, seen: Map<string, DiscoveredModel>): void {
   // Match the simple version form, no surrounding quotes required so

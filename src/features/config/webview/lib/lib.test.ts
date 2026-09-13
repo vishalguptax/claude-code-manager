@@ -103,6 +103,97 @@ describe("buildModelOptions", () => {
       desc: "claude-fable-5[1m]",
     });
   });
+
+  describe("list length and order", () => {
+    const lineup = [
+      { alias: "fable", family: "fable", label: "Fable 5.1", id: "claude-fable-5-1", isLatest: true },
+      { alias: "opus", family: "opus", label: "Opus 5", id: "claude-opus-5", isLatest: true },
+      { alias: "sonnet", family: "sonnet", label: "Sonnet 5", id: "claude-sonnet-5", isLatest: true },
+      { alias: "haiku", family: "haiku", label: "Haiku 4.5", id: "claude-haiku-4-5", isLatest: true },
+      // Superseded versions the CLI binary still carries.
+      { alias: "opus", family: "opus", label: "Opus 4.8", id: "claude-opus-4-8", isLatest: false },
+      { alias: "opus", family: "opus", label: "Opus 4", id: "claude-opus-4", isLatest: false },
+      { alias: "haiku", family: "haiku", label: "Haiku 3.5", id: "claude-haiku-3-5", isLatest: false },
+      { alias: "sonnet", family: "sonnet", label: "Sonnet 3.7", id: "claude-sonnet-3-7", isLatest: false },
+    ];
+    const usage = (...models: string[]) =>
+      ({
+        byModel: models.map((model) => ({
+          model,
+          inputTokens: 1,
+          outputTokens: 1,
+          totalTokens: 2,
+          cacheReadTokens: 0,
+          cacheCreationTokens: 0,
+          costUsd: 0,
+        })),
+      }) as never;
+
+    it("hides retired versions nobody here has run", () => {
+      const data = makeConfigData({ availableModels: lineup });
+      const labels = buildModelOptions(data, "default").map((o) => o.label);
+      expect(labels).toEqual([
+        "Default (auto)",
+        "Fable 5.1",
+        "Opus 5",
+        "Sonnet 5",
+        "Haiku 4.5",
+      ]);
+    });
+
+    it("keeps a superseded version this account actually used", () => {
+      const data = makeConfigData({
+        availableModels: lineup,
+        usage: usage("claude-opus-4-8"),
+      });
+      expect(buildModelOptions(data, "default").map((o) => o.label)).toContain("Opus 4.8");
+    });
+
+    it("does not resurrect an older version on a prefix collision", () => {
+      // "claude-opus-4" is a string prefix of "claude-opus-4-8", which is
+      // how retired Opus 4 and Haiku 4 rows reappeared. Matching is on
+      // family + version, not on the id as text.
+      const data = makeConfigData({
+        availableModels: lineup,
+        usage: usage("claude-opus-4-8", "claude-haiku-4-5-20251001"),
+      });
+      const labels = buildModelOptions(data, "default").map((o) => o.label);
+      expect(labels).toContain("Opus 4.8");
+      expect(labels).not.toContain("Opus 4");
+      expect(labels).not.toContain("Haiku 3.5");
+    });
+
+    it("orders newest first", () => {
+      const data = makeConfigData({
+        availableModels: lineup,
+        usage: usage("claude-opus-4-8"),
+      });
+      expect(buildModelOptions(data, "default").slice(1).map((o) => o.label)).toEqual([
+        "Fable 5.1",
+        "Opus 5",
+        "Sonnet 5",
+        "Opus 4.8",
+        "Haiku 4.5",
+      ]);
+    });
+
+    it("resolves an alias selection to a real name and sorts it with its family", () => {
+      // settings.json commonly holds "opus[1m]". It used to render as that
+      // raw string, at the very bottom of the list.
+      const data = makeConfigData({ availableModels: lineup });
+      const opts = buildModelOptions(data, "opus[1m]");
+      const labels = opts.map((o) => o.label);
+      expect(labels).toEqual([
+        "Default (auto)",
+        "Fable 5.1",
+        "Opus 5",
+        "Opus 5 · 1M context",
+        "Sonnet 5",
+        "Haiku 4.5",
+      ]);
+      expect(opts.find((o) => o.value === "opus[1m]")?.desc).toBe("opus[1m]");
+    });
+  });
 });
 
 describe("prettyModelLabel", () => {
@@ -113,6 +204,11 @@ describe("prettyModelLabel", () => {
 
   it("labels the [1m] context variant", () => {
     expect(prettyModelLabel("claude-fable-5[1m]")).toBe("Fable 5 · 1M context");
+  });
+
+  it("labels alias forms, with and without the 1M suffix", () => {
+    expect(prettyModelLabel("opus")).toBe("Opus");
+    expect(prettyModelLabel("opus[1m]")).toBe("Opus · 1M context");
   });
 
   it("passes through ids that don't fit the claude shape", () => {
