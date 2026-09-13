@@ -225,6 +225,13 @@ function mergeCacheWithJsonl(
     (a, b) => a.date.localeCompare(b.date),
   );
 
+  // Own-token days come only from the JSONL walk — the cache half has
+  // no breakdown to contribute — so the aggregate's series is the
+  // whole story, no merge needed.
+  const dailyOwnMerged = [...agg.dailyOwnTokens].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+
   // byModel: cache lifetime + sum of JSONL `dailyByModel` rows past
   // the cache cutoff. Additive (not max) so any activity that happened
   // after Claude last rebuilt its cache lands on byModel immediately,
@@ -271,6 +278,7 @@ function mergeCacheWithJsonl(
   return {
     daily: dailyMerged,
     dailyTokens: dailyTokensMerged,
+    dailyOwnTokens: dailyOwnMerged,
     activeDays: dailyMerged.length,
     totalDays: spanDays(dailyMerged),
     mostActiveDay: mostActiveDayOf(dailyMerged),
@@ -427,6 +435,7 @@ function fromAggregate(agg: UsageAggregate): UsageStats {
   return {
     daily: agg.daily,
     dailyTokens: agg.dailyTokens,
+    dailyOwnTokens: agg.dailyOwnTokens,
     activeDays: agg.daily.length,
     totalDays: spanDays(agg.daily),
     mostActiveDay: mostActiveDayOf(agg.daily),
@@ -528,6 +537,9 @@ function projectCache(cache: StatsCacheShape): UsageStats {
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  // dailyOwnTokens stays empty here: stats-cache.json records one
+  // combined figure per day with no per-bucket split, so a day only
+  // Claude remembers cannot contribute an input+output number.
   result.dailyTokens = (cache.dailyModelTokens ?? [])
     .filter(
       (d): d is CacheDailyModelTokens & { date: string } =>
@@ -683,6 +695,7 @@ function emptyStats(): UsageStats {
   return {
     daily: [],
     dailyTokens: [],
+    dailyOwnTokens: [],
     activeDays: 0,
     totalDays: 0,
     mostActiveDay: "",

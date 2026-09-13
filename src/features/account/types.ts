@@ -162,8 +162,15 @@ export interface ModelStats {
 export interface UsageStats {
   /** Daily activity rows (for heatmap + aggregates) */
   daily: DailyActivity[];
-  /** Per-day token totals (for time period filtering) */
+  /** Per-day token totals, every bucket — drives the heatmap shading. */
   dailyTokens: DailyTokens[];
+  /**
+   * Per-day input+output, for days a transcript still covers. Drives
+   * the week/month "tokens" figure so it reports work done rather than
+   * cache re-reads. Deliberately sparse — see the field of the same
+   * name on UsageAggregate.
+   */
+  dailyOwnTokens: DailyTokens[];
   /** Number of days with any activity */
   activeDays: number;
   /** Total days in the tracked range (first to last) */

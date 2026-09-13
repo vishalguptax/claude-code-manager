@@ -59,6 +59,7 @@ function emptyAggregate(): UsageAggregate {
   return {
     daily: [],
     dailyTokens: [],
+    dailyOwnTokens: [],
     dailyByModel: [],
     byModel: [],
     byProject: [],

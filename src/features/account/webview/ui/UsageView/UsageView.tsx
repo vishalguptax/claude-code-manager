@@ -175,11 +175,20 @@ function UsageBody({ u }: { u: UsageStats }) {
         <StatTile
           value={formatNumber(totals.tokenTotal)}
           label="tokens"
-          title={tokenTotalTooltip(u)}
+          title={tokenTotalTooltip(u, totals)}
         />
         <StatTile value={formatNumber(totals.sessions)} label="sessions" />
         <StatTile value={formatNumber(totals.messages)} label="messages" />
-        <StatTile value={formatPct(u.cacheHitRatio)} label="cache hit" title={cacheHitTooltip(u)} />
+        {/* Cache READ volume, not hit rate. The rate is a token-weighted
+            ratio that sits at 98-99% for anyone who uses Claude Code
+            daily, so it never moved and told no one anything; the volume
+            is the number that explains where the context budget goes.
+            The rate lives in the tooltip for anyone who wants it. */}
+        <StatTile
+          value={formatNumber(u.totalCacheReadTokens)}
+          label="cache read"
+          title={cacheHitTooltip(u)}
+        />
       </div>
 
       <div class="acct-share-row">

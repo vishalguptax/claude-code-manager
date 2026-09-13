@@ -288,20 +288,34 @@ export function cacheHitTooltip(u: UsageStats): string {
  * cache-heavy profile, so a bare 9-figure number invites the reading
  * "I generated this much", which is off by orders of magnitude.
  */
-export function tokenTotalTooltip(u: UsageStats): string {
-  const own = u.totalInputTokens + u.totalOutputTokens;
-  return (
-    `All tokens: ${formatNumber(own)} input + output, ` +
-    `${formatNumber(u.totalCacheReadTokens)} read from prompt cache, ` +
-    `${formatNumber(u.totalCacheCreationTokens)} written to it. ` +
-    `Cache reads are counted because Claude Code's own per-day history ` +
-    `stores one combined figure that cannot be broken apart.`
-  );
+export function tokenTotalTooltip(u: UsageStats, totals: UsageTotals): string {
+  const parts = [
+    `Input + output only — the tokens this period actually produced.`,
+    `Prompt-cache traffic is excluded: ${formatNumber(u.totalCacheReadTokens)} ` +
+      `read and ${formatNumber(u.totalCacheCreationTokens)} written lifetime, ` +
+      `which is mostly the same context re-read on every request.`,
+  ];
+  const { withBreakdown, active } = totals.tokenDayCoverage;
+  if (withBreakdown < active) {
+    parts.push(
+      `${withBreakdown} of ${active} active days counted — Claude Code ` +
+        `stores one combined figure per day, so days whose transcripts ` +
+        `have been cleaned up can't be broken down.`,
+    );
+  }
+  return parts.join(" ");
 }
 
 /** Period-filtered usage aggregates for the Usage section. */
 export interface UsageTotals {
+  /** input + output within the period — see computeUsageTotals. */
   tokenTotal: number;
+  /**
+   * How many of the period's active days actually had a per-bucket
+   * breakdown available. `withBreakdown < active` means older days were
+   * counted in the activity figures but could not contribute tokens.
+   */
+  tokenDayCoverage: { withBreakdown: number; active: number };
   sessions: number;
   messages: number;
   activeInPeriod: number;
@@ -323,7 +337,7 @@ export function computeUsageTotals(u: UsageStats, period: Period): UsageTotals {
     (anchor - new Date(date).getTime()) / 86400000 < cutoffDays;
 
   const filteredActivity = u.daily.filter((d) => withinPeriod(d.date));
-  const filteredTokens = u.dailyTokens.filter((d) => withinPeriod(d.date));
+  const filteredTokens = u.dailyOwnTokens.filter((d) => withinPeriod(d.date));
 
   const activeInPeriod = filteredActivity.filter((d) => d.messageCount > 0).length;
   const totalInPeriod = cutoffDays === Number.POSITIVE_INFINITY ? u.totalDays : cutoffDays;
@@ -338,10 +352,41 @@ export function computeUsageTotals(u: UsageStats, period: Period): UsageTotals {
       ? u.totalMessages
       : filteredActivity.reduce((acc, d) => acc + d.messageCount, 0);
 
+  // "Tokens" means the work done — input + output — not the cache
+  // re-reads that dwarf it. On a real profile the two differ by ~700x:
+  // 26.5M generated against 17.5B re-read, because every request
+  // re-reads the whole cached prefix. Leading with the combined figure
+  // is what produces the "I used 54 billion tokens" reaction; it
+  // measures the billing mechanism, not the user.
+  //
+  // All-time comes from the lifetime per-bucket counters, which are
+  // exact. Shorter periods sum `dailyOwnTokens`, which covers only days
+  // a transcript still survives for — `tokenDayCoverage` reports how
+  // many, so the UI can say so instead of implying a quiet week.
   const tokenTotal =
-    period === "all" ? u.totalTokens : filteredTokens.reduce((sum, d) => sum + d.total, 0);
+    period === "all"
+      ? u.totalInputTokens + u.totalOutputTokens
+      : filteredTokens.reduce((sum, d) => sum + d.total, 0);
+  // All-time reads the lifetime per-bucket counters, which are exact and
+  // owe nothing to per-day coverage — reporting a shortfall there would
+  // claim missing data that isn't missing. Shorter periods sum per-day
+  // rows, so their coverage is real.
+  const activeDaysInPeriod = filteredActivity.filter(
+    (d) => d.messageCount > 0,
+  ).length;
+  const tokenDayCoverage =
+    period === "all"
+      ? { withBreakdown: activeDaysInPeriod, active: activeDaysInPeriod }
+      : { withBreakdown: filteredTokens.length, active: activeDaysInPeriod };
 
-  return { tokenTotal, sessions, messages, activeInPeriod, totalInPeriod };
+  return {
+    tokenTotal,
+    tokenDayCoverage,
+    sessions,
+    messages,
+    activeInPeriod,
+    totalInPeriod,
+  };
 }
 
 /**

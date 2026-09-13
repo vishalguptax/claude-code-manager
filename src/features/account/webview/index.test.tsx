@@ -30,6 +30,7 @@ function makeAccount() {
     usage: {
       daily: [],
       dailyTokens: [],
+    dailyOwnTokens: [],
       activeDays: 0,
       totalDays: 0,
       mostActiveDay: "",

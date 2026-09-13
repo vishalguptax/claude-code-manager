@@ -11,6 +11,7 @@ function makeUsage(over: Partial<UsageStats> = {}): UsageStats {
   return {
     daily: [{ date: "2026-05-20", messageCount: 4, sessionCount: 2, toolCallCount: 8 }],
     dailyTokens: [{ date: "2026-05-20", total: 12_000 }],
+    dailyOwnTokens: [{ date: "2026-05-20", total: 5_000 }],
     activeDays: 1,
     totalDays: 1,
     mostActiveDay: "2026-05-20",
@@ -63,7 +64,9 @@ describe("UsageView", () => {
   it("renders the stats grid and info ribbon", () => {
     render(h(UsageView, { data: dataWith(makeUsage()) }));
     expect(screen.getByText("tokens")).toBeTruthy();
-    expect(screen.getByText("cache hit")).toBeTruthy();
+    // Cache READ volume, not the hit rate — the rate is pinned in the
+    // high 90s for any regular user and never moves.
+    expect(screen.getByText("cache read")).toBeTruthy();
     // Ribbon collapses old meta rows into one line. Favorite + streak
     // become inline tokens, not full label/value rows.
     expect(screen.getByText(/Favorite:\s*Opus 4\.7/)).toBeTruthy();

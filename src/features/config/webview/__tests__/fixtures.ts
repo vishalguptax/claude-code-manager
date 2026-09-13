@@ -24,6 +24,7 @@ export function makeConfigData(over: Partial<AccountData> = {}): AccountData {
     usage: {
       daily: [],
       dailyTokens: [],
+    dailyOwnTokens: [],
       activeDays: 0,
       totalDays: 0,
       mostActiveDay: "",

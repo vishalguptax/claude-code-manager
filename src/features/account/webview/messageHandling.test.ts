@@ -35,6 +35,7 @@ function makeAccount(email: string, slug: string | null): AccountData {
     usage: {
       daily: [],
       dailyTokens: [],
+    dailyOwnTokens: [],
       activeDays: 0,
       totalDays: 0,
       mostActiveDay: "",

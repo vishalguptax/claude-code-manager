@@ -183,6 +183,14 @@ export interface DailyModelTokens {
 export interface UsageAggregate {
   daily: DailyActivity[];
   dailyTokens: DailyTokens[];
+  /**
+   * Per-day input+output — the day's actual work, cache re-reads
+   * excluded. Sparser than `dailyTokens` on purpose: Claude's
+   * stats-cache stores one combined number per day with no breakdown,
+   * so only days a transcript still covers can be split. Consumers must
+   * treat a missing day as "no breakdown available", not as zero work.
+   */
+  dailyOwnTokens: DailyTokens[];
   dailyByModel: DailyModelTokens[];
   byModel: ModelStats[];
   byProject: ProjectStats[];
@@ -220,7 +228,15 @@ interface DayAcc {
   messages: number;
   sessions: Set<string>;
   toolCalls: number;
+  /** Every bucket summed — the heatmap series. See TOKEN_TOTAL_SEMANTICS. */
   tokens: number;
+  /**
+   * input + output only: tokens this day actually produced, with the
+   * cache re-reads left out. Available only for days a transcript still
+   * covers, because Claude's own per-day history is a single combined
+   * figure. See `dailyOwnTokens` on UsageAggregate.
+   */
+  ownTokens: number;
   /** Per-model token split for this day — feeds DailyModelTokens. */
   byModel: Map<string, ModelAcc>;
 }
@@ -594,6 +610,7 @@ class AggState {
         // the days after read ~1M, and the heatmap showed recent work as
         // blank. See TOKEN_TOTAL_SEMANTICS in types.ts.
         day.tokens += inT + outT + crT + ccT;
+        day.ownTokens += inT + outT;
         const dm = bucketFor(day.byModel, model);
         addTokens(dm, inT, outT, crT, ccT, cc1hT, wsT);
       }
@@ -641,6 +658,7 @@ class AggState {
         sessions: new Set(),
         toolCalls: 0,
         tokens: 0,
+        ownTokens: 0,
         byModel: new Map(),
       };
       this.days.set(date, d);
@@ -657,6 +675,7 @@ class AggState {
     const byModel = this.buildByModel();
     const daily = this.buildDaily();
     const dailyTokens = this.buildDailyTokens();
+    const dailyOwnTokens = this.buildDailyOwnTokens();
     const dailyByModel = this.buildDailyByModel();
     const byTool = [...this.toolCounts.entries()]
       .map(([name, count]) => ({ name, count }))
@@ -691,6 +710,7 @@ class AggState {
     return {
       daily,
       dailyTokens,
+      dailyOwnTokens,
       dailyByModel,
       byModel,
       byProject,
@@ -773,6 +793,14 @@ class AggState {
         sessionCount: d.sessions.size,
         toolCallCount: d.toolCalls,
       }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  /** Per-day input+output, for days a transcript still covers. */
+  private buildDailyOwnTokens(): DailyTokens[] {
+    return [...this.days.values()]
+      .filter((d) => d.ownTokens > 0)
+      .map((d) => ({ date: d.date, total: d.ownTokens }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }
 
@@ -892,6 +920,7 @@ function emptyAggregate(): UsageAggregate {
   return {
     daily: [],
     dailyTokens: [],
+    dailyOwnTokens: [],
     dailyByModel: [],
     byModel: [],
     byProject: [],

@@ -222,6 +222,7 @@ function makeUsage(overrides: Partial<UsageStats> = {}): UsageStats {
   return {
     daily: [],
     dailyTokens: [],
+    dailyOwnTokens: [],
     activeDays: 0,
     totalDays: 0,
     mostActiveDay: "",
@@ -270,17 +271,38 @@ describe("cacheHitTooltip", () => {
 });
 
 describe("tokenTotalTooltip", () => {
-  it("breaks the total into own tokens versus cache traffic", () => {
-    const u = makeUsage({
-      totalInputTokens: 3_000,
-      totalOutputTokens: 2_000,
-      totalCacheReadTokens: 1_000_000,
-      totalCacheCreationTokens: 50_000,
+  const u = makeUsage({
+    totalInputTokens: 3_000,
+    totalOutputTokens: 2_000,
+    totalCacheReadTokens: 1_000_000,
+    totalCacheCreationTokens: 50_000,
+  });
+
+  it("says the figure excludes cache traffic, and how much that was", () => {
+    const out = tokenTotalTooltip(u, {
+      tokenTotal: 5_000,
+      tokenDayCoverage: { withBreakdown: 4, active: 4 },
+      sessions: 1,
+      messages: 1,
+      activeInPeriod: 4,
+      totalInPeriod: 7,
     });
-    const out = tokenTotalTooltip(u);
-    expect(out).toContain("5K input + output");
-    expect(out).toContain("1M read from prompt cache");
-    expect(out).toContain("50K written to it");
+    expect(out).toContain("Input + output only");
+    expect(out).toContain("1M read");
+    expect(out).toContain("50K written");
+    expect(out).not.toContain("of 4 active days");
+  });
+
+  it("discloses partial coverage when older days have no breakdown", () => {
+    const out = tokenTotalTooltip(u, {
+      tokenTotal: 5_000,
+      tokenDayCoverage: { withBreakdown: 4, active: 12 },
+      sessions: 1,
+      messages: 1,
+      activeInPeriod: 12,
+      totalInPeriod: 30,
+    });
+    expect(out).toContain("4 of 12 active days counted");
   });
 });
 
@@ -290,22 +312,50 @@ describe("computeUsageTotals", () => {
       { date: "2026-05-01", messageCount: 5, sessionCount: 2, toolCallCount: 9 },
       { date: "2026-05-20", messageCount: 3, sessionCount: 1, toolCallCount: 4 },
     ],
+    // dailyTokens is the combined series (heatmap shading); the period
+    // token figure reads dailyOwnTokens, which excludes cache traffic.
     dailyTokens: [
       { date: "2026-05-01", total: 1000 },
       { date: "2026-05-20", total: 2000 },
     ],
+    dailyOwnTokens: [
+      { date: "2026-05-01", total: 400 },
+      { date: "2026-05-20", total: 600 },
+    ],
     totalDays: 30,
     totalSessions: 99,
     totalMessages: 88,
-    totalTokens: 77_000,
+    totalInputTokens: 20_000,
+    totalOutputTokens: 57_000,
+    totalTokens: 77_000 + 5_000_000,
   });
 
-  it("uses lifetime totals for the all-time period", () => {
+  it("uses lifetime input + output for the all-time period", () => {
     const t = computeUsageTotals(u, "all");
     expect(t.sessions).toBe(99);
     expect(t.messages).toBe(88);
+    // Not totalTokens — that one carries cache traffic, which is what
+    // made the headline read in the billions.
     expect(t.tokenTotal).toBe(77_000);
     expect(t.totalInPeriod).toBe(30);
+  });
+
+  it("reports all-time as fully covered — lifetime counters are exact", () => {
+    // The per-day series is sparse (older transcripts get cleaned up),
+    // but all-time does not read it, so it must not claim a shortfall.
+    const sparse = { ...u, dailyOwnTokens: [] };
+    const t = computeUsageTotals(sparse, "all");
+    expect(t.tokenTotal).toBe(77_000);
+    expect(t.tokenDayCoverage.withBreakdown).toBe(t.tokenDayCoverage.active);
+  });
+
+  it("reports partial coverage when a period's older days lack a breakdown", () => {
+    const sparse = {
+      ...u,
+      dailyOwnTokens: [{ date: "2026-05-20", total: 600 }],
+    };
+    const t = computeUsageTotals(sparse, "month");
+    expect(t.tokenDayCoverage).toEqual({ withBreakdown: 1, active: 2 });
   });
 
   it("filters to the recent window for week", () => {
@@ -313,7 +363,7 @@ describe("computeUsageTotals", () => {
     const t = computeUsageTotals(u, "week");
     expect(t.sessions).toBe(1);
     expect(t.messages).toBe(3);
-    expect(t.tokenTotal).toBe(2000);
+    expect(t.tokenTotal).toBe(600);
     expect(t.totalInPeriod).toBe(7);
     expect(t.activeInPeriod).toBe(1);
   });
