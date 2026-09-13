@@ -92,6 +92,11 @@
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
+  /* A label must never be able to paint outside its own cell. The narrow-width
+     rules below drop the label by design, but this is the structural guard: if
+     any future label, font size or theme makes the text wider than the cell it
+     is clipped, not drawn across the tab beside it. */
+  overflow: hidden;
   /* Keep a scrolled-into-view tab clear of the strip edge and of the pinned
      reload button beside it. */
   scroll-margin-inline: var(--space-2xl);
@@ -118,21 +123,6 @@
   padding: 0 var(--space-md);
 }
 
-/* ── Narrow sidebar ────────────────────────────────────────────────
- * Below this the labelled active tab cannot fit alongside seven icon cells,
- * and the overflow hides whole tabs rather than trimming a label. The label
- * is the part that can be given up: the active tab is still marked by its
- * colour and underline, and every tab keeps its tooltip and accessible name.
- *
- * The webview's viewport IS the sidebar panel, so a plain media query is the
- * right instrument here — there is no outer page whose width could differ. */
-@media (max-width: 320px) {
-  .tab-btn.active {
-    width: 30px;
-    padding: 0;
-  }
-  .tab-btn.active .tab-label { display: none; }
-}
 @media (prefers-reduced-motion: reduce) {
   .tab-btn { transition: none; }
 }
@@ -144,7 +134,41 @@
 }
 /* The label belongs to the active tab alone. */
 .tab-label { display: none; }
-.tab-btn.active .tab-label { display: inline; }
+.tab-btn.active .tab-label {
+  display: inline;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Narrow sidebar ────────────────────────────────────────────────
+ * Below this the labelled active tab cannot fit alongside seven icon cells,
+ * and the overflow hides whole tabs rather than trimming a label. The label
+ * is the part that can be given up: the active tab is still marked by its
+ * colour and underline, and every tab keeps its tooltip and accessible name.
+ *
+ * The webview's viewport IS the sidebar panel, so a plain media query is the
+ * right instrument here — there is no outer page whose width could differ.
+ *
+ * 360px is measured, not chosen: the widest label ("Commands") needs the eight
+ * cells plus the pinned reload button to total 353px. The previous 320px was
+ * below that, so between 321px and 353px the strip overflowed and scrolled
+ * whole tabs out of sight.
+ *
+ * This block MUST stay after `.tab-btn.active .tab-label` above. Both are
+ * one-class-one-element selectors, so they tie on specificity and source
+ * order decides. Declared earlier, the `width: 30px` here still won (nothing
+ * later set the active width) but the `display: none` lost, which shrank the
+ * active tab to an icon cell while it went on painting its label — the label
+ * has `white-space: nowrap` and nothing clips it, so it ran across the tab
+ * beside it. */
+@media (max-width: 360px) {
+  .tab-btn.active {
+    width: 30px;
+    padding: 0;
+  }
+  .tab-btn.active .tab-label { display: none; }
+}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
