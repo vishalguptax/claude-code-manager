@@ -811,6 +811,37 @@
 .item-copy-btn:hover            { opacity: 1; color: var(--fg); background: var(--bg-hover); }
 .item-copy-btn.copied           { opacity: 1; color: var(--green); }
 
+/* ── Row actions appear on the row you are pointing at ─────────────────
+ * Sessions and Hooks reveal their row actions on hover; Skills, Commands and
+ * MCP printed theirs at 40% opacity on every row, so a list of twenty showed
+ * twenty half-lit buttons sitting between each name and its scope chip. Three
+ * tabs behaving one way and two the other is the kind of difference nobody can
+ * justify but everybody feels.
+ *
+ * Hidden by opacity rather than display, so the row's layout does not shift
+ * when the pointer arrives. `:focus-within` keeps them reachable by keyboard,
+ * and `.copied` keeps the confirmation visible after the pointer leaves. */
+.item-copy-btn,
+.item-chat-btn {
+  opacity: 0;
+  transition: opacity var(--transition-control);
+}
+.item:hover .item-copy-btn,
+.item:hover .item-chat-btn,
+.cmd-item:hover .item-copy-btn,
+.cmd-item:hover .item-chat-btn,
+.mcp-item:hover .item-copy-btn,
+.item:focus-within .item-copy-btn,
+.item:focus-within .item-chat-btn,
+.cmd-item:focus-within .item-copy-btn,
+.cmd-item:focus-within .item-chat-btn,
+.mcp-item:focus-within .item-copy-btn,
+.item-copy-btn:focus-visible,
+.item-chat-btn:focus-visible,
+.item-copy-btn.copied {
+  opacity: 1;
+}
+
 /*
  * Launch-in-chat button — same layout tokens as .item-copy-btn so the
  * two buttons sit flush in a row. Only rendered when the Claude Code
