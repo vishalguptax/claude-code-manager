@@ -52,9 +52,13 @@ describe("HookItem", () => {
     expect(screen.queryByText("*")).toBeNull();
   });
 
-  it("truncates long commands", () => {
-    renderItem({ hook: hook({ command: "x".repeat(120) }) });
-    expect(screen.getByText(/x{60}…/)).toBeTruthy();
+  // `.hook-item-command code` ellipsizes at the row edge, so the old
+  // 60-character cut only truncated an already-truncated string.
+  it("renders the full command and exposes it on hover", () => {
+    const long = "x".repeat(120);
+    const { container } = renderItem({ hook: hook({ command: long }) });
+    expect(container.querySelector(".hook-item-command code")?.textContent).toBe(long);
+    expect(container.querySelector(".hook-item-command")?.getAttribute("title")).toBe(long);
   });
 
   it("opens on body click", () => {

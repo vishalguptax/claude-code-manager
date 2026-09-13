@@ -13,7 +13,9 @@ function renderItem(over = {}, props = {}) {
     onCopy: vi.fn(),
     onLaunchChat: vi.fn(),
   };
-  render(
+  // `container` rides alongside the handlers so a test can assert on a node's
+  // attributes (a title, a class) rather than only on its visible text.
+  const { container } = render(
     h(SkillItem, {
       skill: makeSkill(over),
       active: false,
@@ -22,7 +24,7 @@ function renderItem(over = {}, props = {}) {
       ...props,
     }),
   );
-  return handlers;
+  return { ...handlers, container };
 }
 
 describe("SkillItem", () => {
@@ -44,10 +46,14 @@ describe("SkillItem", () => {
     expect(badge.classList.contains("scope-project")).toBe(true);
   });
 
-  it("truncates descriptions longer than 60 chars", () => {
+  // `.item-prompt` ellipsizes at the row edge; the old 60-character cut
+  // clipped mid-word at a width the component cannot know.
+  it("renders the full description and exposes it on hover", () => {
     const long = "x".repeat(80);
-    renderItem({ description: long });
-    expect(screen.getByText(`${"x".repeat(60)}...`)).toBeTruthy();
+    const { container } = renderItem({ description: long });
+    const desc = container.querySelector(".item-prompt");
+    expect(desc?.textContent).toBe(long);
+    expect(desc?.getAttribute("title")).toBe(long);
   });
 
   it("renders tags", () => {

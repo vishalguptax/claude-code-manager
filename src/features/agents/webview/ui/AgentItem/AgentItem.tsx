@@ -7,9 +7,6 @@ import { ListItem } from "../../../../../webview/shared/ui";
 import type { Agent } from "../../../types";
 import { ModelBadge } from "../ModelBadge";
 
-/** Maximum description characters before truncation. */
-const DESC_MAX = 80;
-
 export interface AgentItemProps {
   agent: Agent;
   active: boolean;
@@ -17,10 +14,9 @@ export interface AgentItemProps {
 }
 
 export function AgentItem({ agent, active, onSelect }: AgentItemProps) {
-  const desc =
-    agent.description.length > DESC_MAX
-      ? `${agent.description.slice(0, DESC_MAX)}...`
-      : agent.description;
+  // Full description: `.agent-item-desc` ellipsizes it at the row's real edge,
+  // so cutting at a fixed character count here only truncated it twice.
+  const desc = agent.description;
 
   // An agent with no description is a real problem: Claude uses the
   // description to decide when to delegate, so a blank one is effectively
@@ -41,7 +37,7 @@ export function AgentItem({ agent, active, onSelect }: AgentItemProps) {
         <span class="agent-item-name">{agent.name}</span>
         <ModelBadge model={agent.model} />
       </div>
-      {desc ? <div class="agent-item-desc">{desc}</div> : null}
+      {desc ? <div class="agent-item-desc" title={desc}>{desc}</div> : null}
     </ListItem>
   );
 }

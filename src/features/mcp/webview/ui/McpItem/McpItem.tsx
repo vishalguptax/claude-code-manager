@@ -17,6 +17,9 @@ export interface McpItemProps {
 }
 
 export function McpItem({ server, active, onSelect, onCopyName }: McpItemProps) {
+  // Full connection string: the row ellipsizes it in CSS at whatever width
+  // the sidebar happens to be, and the title reveals the rest on hover.
+  const preview = connectionPreview(server);
   return (
     <ListItem
       active={active}
@@ -40,7 +43,9 @@ export function McpItem({ server, active, onSelect, onCopyName }: McpItemProps) 
         <TypeBadge type={server.type} />
         {server.scope === "plugin" ? <ReadOnlyBadge pluginName={server.pluginName} /> : null}
       </div>
-      <div class="mcp-item-detail">{connectionPreview(server)}</div>
+      <div class="mcp-item-detail" title={preview}>
+        {preview}
+      </div>
     </ListItem>
   );
 }

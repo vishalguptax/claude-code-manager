@@ -69,7 +69,7 @@ export function DetailView({ hook }: DetailViewProps) {
               </Button>
             ) : null}
             <Button onClick={() => api.toggleHookEnabled(send, hook)}>
-              <Icon name={hook.disabled ? "play" : "pin-off"} />{" "}
+              <Icon name={hook.disabled ? "play" : "pause"} />{" "}
               {hook.disabled ? "Enable" : "Disable"}
             </Button>
             <Button

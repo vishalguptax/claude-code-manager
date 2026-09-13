@@ -8,8 +8,6 @@ import { Badge, Button } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import type { Skill } from "../../../types";
 
-const DESC_MAX = 60;
-
 export interface SkillItemProps {
   skill: Skill;
   active: boolean;
@@ -22,10 +20,11 @@ export interface SkillItemProps {
 
 export function SkillItem(props: SkillItemProps) {
   const { skill, active, chatEnabled, onSelect, onCopy, onLaunchChat } = props;
-  const desc =
-    skill.description.length > DESC_MAX
-      ? `${skill.description.slice(0, DESC_MAX)}...`
-      : skill.description;
+  // Full description. It was cut at 60 characters here, which clipped mid-word
+  // at a width the component cannot know, and `.item-prompt` then ellipsized
+  // the remainder anyway — two truncations, neither at the real edge. CSS does
+  // it once; the title attribute reveals the whole line on hover.
+  const desc = skill.description;
 
   return (
     <div
@@ -71,7 +70,7 @@ export function SkillItem(props: SkillItemProps) {
         />
         <Badge variant="scope" text={skill.scope} class={`skill-scope-badge scope-${skill.scope}`} />
       </div>
-      {desc ? <div class="item-prompt">{desc}</div> : null}
+      {desc ? <div class="item-prompt" title={desc}>{desc}</div> : null}
       {skill.tags.length ? (
         <div class="item-row2">
           {skill.tags.map((t) => (

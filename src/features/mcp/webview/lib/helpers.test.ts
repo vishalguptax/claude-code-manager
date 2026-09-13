@@ -71,11 +71,14 @@ describe("connectionPreview", () => {
     ).toBe("wss://w");
   });
 
-  it("truncates long previews", () => {
+  // Truncation belongs to CSS: `.mcp-item-detail` ellipsizes at the row's real
+  // edge, whatever the sidebar width is. Cutting here as well clipped mid-token
+  // at a fixed 60 characters and produced a doubly-truncated row.
+  it("returns the full connection string, leaving truncation to CSS", () => {
     const long = "a".repeat(100);
     const out = connectionPreview(srv({ name: "a", scope: "project", command: long }));
-    expect(out.endsWith("...")).toBe(true);
-    expect(out.length).toBe(63);
+    expect(out).toBe(long);
+    expect(out.includes("...")).toBe(false);
   });
 });
 

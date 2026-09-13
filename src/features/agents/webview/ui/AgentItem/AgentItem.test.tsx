@@ -25,10 +25,16 @@ describe("AgentItem", () => {
     expect(screen.getByText("reviews code")).toBeTruthy();
   });
 
-  it("truncates descriptions over 80 chars", () => {
+  // `.agent-item-desc` ellipsizes at the row edge; a character count here
+  // could only ever be wrong at some sidebar width, and truncated twice.
+  it("renders the full description and exposes it on hover", () => {
     const long = "x".repeat(120);
-    render(h(AgentItem, { agent: agent({ description: long }), active: false, onSelect: () => {} }));
-    expect(screen.getByText(`${"x".repeat(80)}...`)).toBeTruthy();
+    const { container } = render(
+      h(AgentItem, { agent: agent({ description: long }), active: false, onSelect: () => {} }),
+    );
+    const desc = container.querySelector(".agent-item-desc");
+    expect(desc?.textContent).toBe(long);
+    expect(desc?.getAttribute("title")).toBe(long);
   });
 
   it("omits the description node when empty", () => {

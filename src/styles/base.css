@@ -199,8 +199,14 @@ button {
 }
 
 /* Shimmer overlay: a low-alpha gradient slides left→right across each
-   element. Pure white at low opacity reads on both light and dark themes
-   without theme branching. */
+   element.
+   
+   The sweep colour is mixed from the THEME FOREGROUND, not a fixed white.
+   Pure white at 8% was invisible on light themes — the bar beneath it is
+   --bg-hover, a pale grey there, so white-on-near-white left half the users
+   staring at a static block while the other half saw motion. Mixing from
+   --fg inverts with the theme automatically: a light wash on dark grounds,
+   a dark wash on light ones, with no theme branching and no second rule. */
 .skeleton-el::after {
   content: "";
   position: absolute;
@@ -208,7 +214,7 @@ button {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.08) 50%,
+    color-mix(in srgb, var(--fg) 12%, transparent) 50%,
     transparent 100%
   );
   transform: translateX(-100%);

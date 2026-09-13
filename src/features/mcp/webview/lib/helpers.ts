@@ -8,9 +8,6 @@ import type { McpServer } from "../../types";
 /** Default community MCP directory the "Browse" action opens. */
 export const MCP_BROWSE_URL = "https://mcp.so";
 
-/** Max characters shown in a row's single-line connection preview. */
-const PREVIEW_MAX = 60;
-
 /** Group label for a server in the list view. */
 export function groupLabel(server: McpServer): string {
   if (server.scope === "project") return "Project Servers";
@@ -41,12 +38,19 @@ export function isUrlTransport(server: Pick<McpServer, "type">): boolean {
   return server.type !== "stdio";
 }
 
-/** Build the single-line connection preview for a server row. */
+/**
+ * Build the single-line connection preview for a server row.
+ *
+ * Returns the FULL string. It used to be cut at 60 characters here, which
+ * clipped mid-token regardless of how wide the sidebar actually was — too
+ * early at 420px, still too long at 280px — and then `.mcp-item-detail`
+ * ellipsized whatever survived, so the row was truncated twice. CSS does it
+ * once, at the real edge; the full value goes in the row's title attribute.
+ */
 export function connectionPreview(server: McpServer): string {
-  const detail = isUrlTransport(server)
+  return isUrlTransport(server)
     ? (server.url ?? "")
     : [server.command, ...(server.args ?? [])].filter(Boolean).join(" ");
-  return detail.length > PREVIEW_MAX ? `${detail.slice(0, PREVIEW_MAX)}...` : detail;
 }
 
 /**

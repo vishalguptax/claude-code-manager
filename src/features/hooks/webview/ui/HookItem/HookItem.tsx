@@ -11,9 +11,6 @@ import type { Hook } from "../../../types";
 import { eventUsesMatcher } from "../../../events";
 import { scopeClass, scopeLabel } from "../../lib";
 
-/** Command preview length before truncating with an ellipsis. */
-const PREVIEW_MAX = 60;
-
 export interface HookItemProps {
   hook: Hook;
   onOpen: (hook: Hook) => void;
@@ -22,11 +19,14 @@ export interface HookItemProps {
 }
 
 export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
-  const preview =
-    hook.command.length > PREVIEW_MAX ? `${hook.command.slice(0, PREVIEW_MAX)}…` : hook.command;
+  // Full command. `.hook-item-command code` ellipsizes it at the row edge, so
+  // the old 60-character cut just truncated an already-truncated string.
+  const preview = hook.command;
   const isPlugin = hook.scope === "plugin";
   const toggleTitle = hook.disabled ? "Enable hook" : "Disable hook";
-  const toggleIcon = hook.disabled ? "play" : "pin-off";
+  // Pause/play, not pin-off: a crossed-out pushpin means "unpin", which is
+  // not an action a hook has. These two say stop and resume this handler.
+  const toggleIcon = hook.disabled ? "play" : "pause";
 
   return (
     <div
@@ -90,7 +90,7 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
           </span>
         )}
       </div>
-      <div class="hook-item-command">
+      <div class="hook-item-command" title={preview}>
         <code>{preview}</code>
       </div>
     </div>
