@@ -23,7 +23,10 @@
 .tab-list {
   display: flex;
   align-items: center;
-  gap: 2px;
+  /* No gap. Eight cells plus the active label have to clear the strip at the
+     default sidebar width, and 2px between each was 14px of the ~300px
+     available — enough on its own to push the last tab out of view. The cells
+     are separated by the hover fill and the active underline, not by space. */
   flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
@@ -73,11 +76,14 @@
 
 .tab-btn {
   flex: 0 0 auto;
-  /* Icon cell: 32px wide leaves 8px of clearance each side of the 16px glyph.
+  /* Icon cell: 30px wide leaves 7px of clearance each side of the 16px glyph.
+     The width is not cosmetic — see the fitting note above .tab-list. Seven
+     inactive cells plus the labelled active one have to clear the strip at the
+     default sidebar width, and the arithmetic has no slack.
      The box is border-box and carries the 2px active underline, so the height
      is the shared control height plus that underline — content stays exactly
      --h-control tall whether or not the tab is active. */
-  width: 32px;
+  width: 30px;
   height: calc(var(--h-control) + 2px);
   padding: 0;
   display: flex;
@@ -113,9 +119,25 @@
   color: var(--fg);
   border-bottom-color: var(--accent);
   font-weight: 600;
-  /* Grows to fit its label; every other tab stays a 34px cell. */
+  /* Grows to fit its label; every other tab stays a 30px cell. */
   width: auto;
-  padding: 0 var(--space-lg);
+  padding: 0 var(--space-md);
+}
+
+/* ── Narrow sidebar ────────────────────────────────────────────────
+ * Below this the labelled active tab cannot fit alongside seven icon cells,
+ * and the overflow hides whole tabs rather than trimming a label. The label
+ * is the part that can be given up: the active tab is still marked by its
+ * colour and underline, and every tab keeps its tooltip and accessible name.
+ *
+ * The webview's viewport IS the sidebar panel, so a plain media query is the
+ * right instrument here — there is no outer page whose width could differ. */
+@media (max-width: 320px) {
+  .tab-btn.active {
+    width: 30px;
+    padding: 0;
+  }
+  .tab-btn.active .tab-label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .tab-btn { transition: none; }

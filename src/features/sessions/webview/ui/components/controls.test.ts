@@ -7,6 +7,7 @@ import { ActionsBar } from "./ActionsBar";
 import { Filters } from "./Filters";
 import { ListHeader } from "./ListHeader";
 import {
+  applyDefaultFilters,
   bulkModeSignal,
   currentBranchSignal,
   filterBranchSignal,
@@ -165,40 +166,63 @@ describe("Filters", () => {
  * four. A chip appears for anything narrowing the list, and its × widens it.
  */
 describe("Filters — active chips", () => {
-  it("shows nothing when nothing is narrowing the list", () => {
-    filterDateSignal.value = "all";
-    filterProjectSignal.value = "all";
+  // A chip means "you have narrowed past your OWN default", not past some
+  // hardcoded widest value. That distinction is the whole reason the chip row
+  // can replace three permanent rows of pickers: comparing against "all" put
+  // Recent + This Project on screen for every user at rest, which is just the
+  // old filter bar with fewer controls.
+  it("shows nothing when both filters sit on the user's defaults", () => {
+    applyDefaultFilters("recent", "current");
+    filterDateSignal.value = "recent";
+    filterProjectSignal.value = "current";
     const { container } = render(h(Filters, {}));
     expect(container.querySelector(".filter-chips")).toBeNull();
   });
 
-  it("shows a chip for the date range and clears it back to All", () => {
-    filterProjectSignal.value = "all";
+  it("shows a chip once the date is narrowed past the default", () => {
+    applyDefaultFilters("recent", "current");
+    filterProjectSignal.value = "current";
     filterDateSignal.value = "week";
     const { container } = render(h(Filters, {}));
     expect(container.querySelector(".filter-chip-label")?.textContent).toBe("Week");
-    fireEvent.click(container.querySelector(".filter-chip-clear") as HTMLButtonElement);
-    expect(filterDateSignal.value).toBe("all");
   });
 
-  // Showing only the current project IS a filter — it hides sessions — so it
-  // reads as a chip like any other rather than as an invisible default.
-  it("treats the current-project scope as a filter", () => {
-    filterDateSignal.value = "all";
+  // Clearing returns to the user's default, not to "all": taking someone past
+  // their own configured baseline is overriding a preference, not clearing a
+  // filter.
+  it("clears back to the configured default, not to all", () => {
+    applyDefaultFilters("recent", "current");
     filterProjectSignal.value = "current";
+    filterDateSignal.value = "all";
     const { container } = render(h(Filters, {}));
-    const labels = Array.from(container.querySelectorAll(".filter-chip-label")).map(
-      (n) => n.textContent,
-    );
-    expect(labels).toContain("This Project");
     fireEvent.click(container.querySelector(".filter-chip-clear") as HTMLButtonElement);
-    expect(filterProjectSignal.value).toBe("all");
+    expect(filterDateSignal.value).toBe("recent");
+  });
+
+  // A user whose default is "all projects" gets a chip for scoping to one, and
+  // a user whose default is "this project" does not — the same value, chipped
+  // or not depending on whose baseline it is.
+  it("chips the project only when it differs from that user's default", () => {
+    applyDefaultFilters("recent", "all");
+    filterDateSignal.value = "recent";
+    filterProjectSignal.value = "current";
+    const scoped = render(h(Filters, {}));
+    expect(
+      [...scoped.container.querySelectorAll(".filter-chip-label")].map((n) => n.textContent),
+    ).toContain("This Project");
+    scoped.unmount();
+
+    applyDefaultFilters("recent", "current");
+    const defaulted = render(h(Filters, {}));
+    expect(defaulted.container.querySelector(".filter-chips")).toBeNull();
   });
 
   it("offers Clear all only once there are more than two chips", () => {
+    applyDefaultFilters("recent", "current");
     filterDateSignal.value = "week";
-    filterProjectSignal.value = "current";
+    filterProjectSignal.value = "all";
     const two = render(h(Filters, {}));
+    expect(two.container.querySelectorAll(".filter-chip").length).toBe(2);
     expect(two.container.querySelector(".filter-chip-clear-all")).toBeNull();
     two.unmount();
 
@@ -207,15 +231,16 @@ describe("Filters — active chips", () => {
     const { container } = render(h(Filters, {}));
     expect(container.querySelectorAll(".filter-chip").length).toBe(4);
     fireEvent.click(container.querySelector(".filter-chip-clear-all") as HTMLButtonElement);
-    expect(filterDateSignal.value).toBe("all");
-    expect(filterProjectSignal.value).toBe("all");
+    expect(filterDateSignal.value).toBe("recent");
+    expect(filterProjectSignal.value).toBe("current");
     expect(filterBranchSignal.value).toBe("all");
     expect(filterWorktreeSignal.value).toBe("all");
   });
 
   it("names the filter in the clear button's accessible label", () => {
+    applyDefaultFilters("recent", "current");
+    filterProjectSignal.value = "current";
     filterDateSignal.value = "week";
-    filterProjectSignal.value = "all";
     const { container } = render(h(Filters, {}));
     expect(container.querySelector(".filter-chip-clear")?.getAttribute("aria-label")).toBe(
       "Clear filter: Date range",

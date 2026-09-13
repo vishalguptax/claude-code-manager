@@ -252,31 +252,10 @@
   font-size: var(--fs-xs);
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Settings history (Config tab) — one row per snapshot.
-   Layout: timestamp + scope/diff metadata on the left, action
-   buttons on the right. Stays compact so 20 entries don't dominate
-   the Config view scroll length.
-   ────────────────────────────────────────────────────────────────────────────── */
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Actions
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.actions-row {
-  
-/* Period/scope toggles now use the shared <Segmented> primitive
-   (.vsc-segmented in components-native.css). Only the layout spacing stays
-   local.
-
-   The scope toggle also carries the shared `.scope-filter` class, whose
-   panel-edge rule (components.css) adds `margin: … var(--space-2xl) …` to
-   inset the control from the bare panel edge on the sessions/skills tabs.
-   Inside the Config/Account tab the control sits in `.section-body`,
-   which ALREADY applies that same `--space-2xl` horizontal padding — so the
-   inherited margin double-insets the segmented, leaving it narrower than the
-   sibling search box and permission rows. Zero the horizontal margin here so
-   the scope toggle spans the full section-body width like every other row. */
+/* A <Segmented> inside a section body has its panel-edge inset zeroed by
+   `.section-body > .vsc-segmented` (components.css) — the section body already
+   applies that horizontal padding, so the control's own margin would inset it
+   twice and leave it narrower than the rows beside it. */
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Heatmap

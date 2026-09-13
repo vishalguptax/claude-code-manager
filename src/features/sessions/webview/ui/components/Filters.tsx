@@ -8,14 +8,21 @@
  * down the panel.
  *
  * They are now progressive: search is always there, because it is used
- * constantly; the pickers live behind the funnel; and a filter that IS set
- * shows as a removable chip, so the row costs nothing when nothing is filtered
- * and always says what is currently narrowing the list when something is.
+ * constantly; the pickers live behind the toggle; and a filter narrowed PAST
+ * the user's own default shows as a removable chip. So the row costs nothing
+ * at rest and always says what is narrowing the list when something is.
  *
- * The chips are also the answer to a question the old row could not: with four
- * dropdowns sitting at their defaults, "why am I not seeing that session?"
- * required reading all four. Now anything narrowing the list is a chip, and
- * removing it is one click.
+ * "Past the user's own default" is the load-bearing part. An earlier version
+ * compared against a hardcoded widest value, which put "Recent" and "This
+ * Project" on screen for everyone permanently — the configured defaults are
+ * filters, so every user saw two chips at rest and the row was just the old
+ * filter bar with fewer controls. Comparing against the configured defaults is
+ * what lets the chip row replace three permanent rows instead of joining them.
+ *
+ * The chips also answer a question the old row could not: with four dropdowns
+ * resting at their defaults, "why am I not seeing that session?" meant reading
+ * all four. Now anything narrowing past your baseline is a chip, and removing
+ * it is one click.
  */
 import { useState } from "preact/hooks";
 import {
@@ -32,6 +39,8 @@ import type { DateFilter } from "../../../../../webview/types";
 import { sendRefresh, sendSearchFullText } from "../../api";
 import {
   clearFullTextHits,
+  defaultDateSignal,
+  defaultProjectSignal,
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
@@ -63,16 +72,17 @@ const DATE_OPTIONS: SegmentedOption<DateFilter>[] = [
 ];
 
 /**
- * "Show everything" for each filter. A filter sitting on this value is not
- * narrowing anything, so it gets no chip; a chip's × restores it.
+ * "Show everything" for branch and worktree. Neither has a user-configurable
+ * default, so "all" is both their resting value and what a chip's × restores.
  *
- * Note `project` widens to "all", not back to "current". Showing only the
- * current project IS a filter — it hides sessions — so it reads as a chip like
- * any other, and clearing it does what clearing a filter should.
+ * Date and project are different: the user configures their own defaults
+ * (`sessions.defaultFilter` / `defaultProject`), so those are read from the
+ * signals the host push sets. Clearing one of those chips returns to the
+ * user's default rather than to "all" — the point of a chip is "you have
+ * narrowed past your own baseline", and taking someone back past their own
+ * setting is not clearing a filter, it is overriding a preference.
  */
 const WIDEST = {
-  date: "all" as DateFilter,
-  project: "all",
   branch: "all",
   worktree: "all" as WorktreeFilter,
 };
@@ -213,25 +223,27 @@ function ActiveChips() {
   const project = filterProjectSignal.value;
   const branch = filterBranchSignal.value;
   const worktree = filterWorktreeSignal.value;
+  const defaultDate = defaultDateSignal.value;
+  const defaultProject = defaultProjectSignal.value;
 
   const chips = [
-    date !== WIDEST.date && (
+    date !== defaultDate && (
       <FilterChip
         key="date"
         label={DATE_OPTIONS.find((o) => o.value === date)?.label ?? date}
         title="Date range"
         onClear={() => {
-          filterDateSignal.value = WIDEST.date;
+          filterDateSignal.value = defaultDate;
         }}
       />
     ),
-    project !== WIDEST.project && (
+    project !== defaultProject && (
       <FilterChip
         key="project"
         label={projectLabel(project)}
         title="Project"
         onClear={() => {
-          filterProjectSignal.value = WIDEST.project;
+          filterProjectSignal.value = defaultProject;
         }}
       />
     ),
@@ -270,8 +282,8 @@ function ActiveChips() {
           type="button"
           class="filter-chip-clear-all"
           onClick={() => {
-            filterDateSignal.value = WIDEST.date;
-            filterProjectSignal.value = WIDEST.project;
+            filterDateSignal.value = defaultDate;
+            filterProjectSignal.value = defaultProject;
             filterBranchSignal.value = WIDEST.branch;
             filterWorktreeSignal.value = WIDEST.worktree;
           }}

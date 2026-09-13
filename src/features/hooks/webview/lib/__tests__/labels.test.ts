@@ -20,16 +20,16 @@ describe("hooks event helpers", () => {
   });
 
   it("scopeLabel maps editable scopes", () => {
-    expect(scopeLabel({ scope: "global" })).toBe("Global");
-    expect(scopeLabel({ scope: "project" })).toBe("Project");
-    expect(scopeLabel({ scope: "local" })).toBe("Local");
+    expect(scopeLabel({ scope: "global" })).toBe("global");
+    expect(scopeLabel({ scope: "project" })).toBe("project");
+    expect(scopeLabel({ scope: "local" })).toBe("local");
   });
 
   it("scopeLabel folds the plugin name into the badge", () => {
     expect(scopeLabel({ scope: "plugin", pluginName: "caveman@caveman" })).toBe(
-      "Plugin: caveman@caveman",
+      "plugin: caveman@caveman",
     );
-    expect(scopeLabel({ scope: "plugin" })).toBe("Plugin: unknown");
+    expect(scopeLabel({ scope: "plugin" })).toBe("plugin: unknown");
   });
 
   it("matcherDisplay shows a placeholder for blank matchers", () => {

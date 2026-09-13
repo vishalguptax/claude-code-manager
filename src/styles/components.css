@@ -491,7 +491,8 @@
    ────────────────────────────────────────────────────────────────────────── */
 .vsc-badge,
 .tag,
-.hook-matcher {
+.hook-matcher,
+.agent-model-badge {
   display: inline-flex;
   align-items: center;
   height: 18px;

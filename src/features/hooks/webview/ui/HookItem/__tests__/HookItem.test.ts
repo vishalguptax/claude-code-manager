@@ -33,7 +33,7 @@ describe("HookItem", () => {
   it("renders matcher, scope badge and command preview", () => {
     renderItem();
     expect(screen.getByText("Write")).toBeTruthy();
-    expect(screen.getByText("Global")).toBeTruthy();
+    expect(screen.getByText("global")).toBeTruthy();
     expect(screen.getByText("echo hi")).toBeTruthy();
   });
 
@@ -41,8 +41,8 @@ describe("HookItem", () => {
     // Global takes the neutral fill from the shared scope variant; project,
     // local, builtin and plugin get their colour from the same one map.
     renderItem({ hook: hook({ scope: "global" }) });
-    expect(screen.getByText("Global").classList.contains("vsc-badge--scope")).toBe(true);
-    expect(screen.getByText("Global").classList.contains("vsc-badge--scope-global")).toBe(true);
+    expect(screen.getByText("global").classList.contains("vsc-badge--scope")).toBe(true);
+    expect(screen.getByText("global").classList.contains("vsc-badge--scope-global")).toBe(true);
   });
 
   it("shows the all-matcher placeholder when matcher is blank", () => {

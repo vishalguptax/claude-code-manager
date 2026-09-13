@@ -78,17 +78,16 @@
    Agents — Model Badge
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* Box comes from the shared chip base (components.css); only the weight is
+   the model badge's own.
+
+   Not uppercase. It was the one chip in the extension that shouted —
+   "SONNET" beside a lowercase `project` chip on the next tab — and a model
+   name is a proper noun the user recognises, not a category label. It is also
+   the last of four chip systems to be folded into the shared box: geometry was
+   unified first and this one kept its own height, padding and casing. */
 .agent-model-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
 }
 
 .agent-model-sonnet {

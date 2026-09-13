@@ -329,15 +329,23 @@ export interface UsageTotals {
  */
 export function computeUsageTotals(u: UsageStats, period: Period): UsageTotals {
   const latestDataDate =
-    u.daily.length > 0 ? u.daily[u.daily.length - 1].date : new Date().toISOString().slice(0, 10);
+    u.daily && u.daily.length > 0
+      ? u.daily[u.daily.length - 1].date
+      : new Date().toISOString().slice(0, 10);
   const anchor = new Date(latestDataDate).getTime();
   const cutoffDays = cutoffDaysForPeriod(period);
   const withinPeriod = (date: string): boolean =>
     cutoffDays === Number.POSITIVE_INFINITY ||
     (anchor - new Date(date).getTime()) / 86400000 < cutoffDays;
 
-  const filteredActivity = u.daily.filter((d) => withinPeriod(d.date));
-  const filteredTokens = u.dailyOwnTokens.filter((d) => withinPeriod(d.date));
+  // Defensive defaults: `accountData` crosses the host boundary as `unknown`
+  // and is cast, so a partial or older payload can omit a series. Reading
+  // `.filter` off an undefined one throws during render, and because this runs
+  // inside UsageBody the ErrorBoundary blanks the ENTIRE panel — the whole
+  // Account tab replaced by "Something went wrong" over one missing array.
+  // PermissionsView already guards its own list for exactly this reason.
+  const filteredActivity = (u.daily ?? []).filter((d) => withinPeriod(d.date));
+  const filteredTokens = (u.dailyOwnTokens ?? []).filter((d) => withinPeriod(d.date));
 
   const activeInPeriod = filteredActivity.filter((d) => d.messageCount > 0).length;
   const totalInPeriod = cutoffDays === Number.POSITIVE_INFINITY ? u.totalDays : cutoffDays;

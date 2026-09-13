@@ -109,7 +109,12 @@ export function SessionItem({
     minute: "2-digit",
   });
   const firstPrompt = session.prompts[0] ?? "";
-  const showSubPrompt = Boolean(session.name && firstPrompt);
+  // The prompt is a SECOND line, so it only earns its place when it says
+  // something the title does not. `displayName` already falls back to the first
+  // prompt when a session has no name, and a session named after its opening
+  // prompt (`claude -n` with the same text, or a rename to match) otherwise
+  // printed the identical string twice — one row, one sentence, said twice.
+  const showSubPrompt = Boolean(session.name && firstPrompt && firstPrompt !== displayName);
   const liveStatus = session.isLive ? session.status ?? "" : "";
 
   const onClick = (e: MouseEvent): void => {

@@ -660,6 +660,7 @@
   box-sizing: border-box;
 }
 
+
 .vsc-segmented-seg {
   /* Full-width segments by default (date range / scope filter span the panel);
      the compact `--sm` variant below makes them content-sized instead. */
