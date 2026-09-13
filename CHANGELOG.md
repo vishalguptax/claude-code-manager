@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.9.0] - 2026-09-13
+
+Claude Manager now refuses to write into any config file it cannot parse, reports one consistent definition of a token everywhere in the Account tab, and ships a grouped settings page alongside the 19 hook events Claude Code 2.1 introduced.
+
+See [docs/releases/v2.9.0.md](docs/releases/v2.9.0.md) for full details.
+
 ## [2.8.1] - 2026-07-24
 
 Keeps the session actions bar compact on narrow sidebars — "Restore Workspace" is now "Restore" so the toolbar packs more buttons per row instead of pushing the session list down.
