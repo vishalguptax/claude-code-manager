@@ -31,7 +31,7 @@ beforeEach(() => {
 describe("ListView", () => {
   it("shows the discovery empty state with no skills", () => {
     render(h(ListView, {}));
-    expect(screen.getByText("No skills found")).toBeTruthy();
+    expect(screen.getByText("No skills yet")).toBeTruthy();
     fireEvent.click(screen.getByText(/Browse community skills/));
     expect(post).toHaveBeenCalledWith({ type: "openUrl", url: "https://market" });
   });
@@ -42,9 +42,12 @@ describe("ListView", () => {
       makeSkill({ id: "g", name: "glob", scope: "global" }),
     ];
     render(h(ListView, {}));
-    expect(screen.getByText("All (2)")).toBeTruthy();
-    expect(screen.getByText("Project (1)")).toBeTruthy();
-    expect(screen.getByText("Global (1)")).toBeTruthy();
+    // Counts ride in the segment tooltip, not the label — four counted
+    // scopes do not fit a ~300px sidebar on one line.
+    expect(screen.getByText("All")).toBeTruthy();
+    expect(screen.getByTitle("All: 2")).toBeTruthy();
+    expect(screen.getByTitle("Project: 1")).toBeTruthy();
+    expect(screen.getByTitle("Global: 1")).toBeTruthy();
     expect(screen.getByText("proj")).toBeTruthy();
     expect(screen.getByText("glob")).toBeTruthy();
   });
@@ -56,7 +59,7 @@ describe("ListView", () => {
     cleanup();
     skills.value = [makeSkill({ id: "x", scope: "plugin", pluginName: "cm" })];
     render(h(ListView, {}));
-    expect(screen.getByText("Plugin (1)")).toBeTruthy();
+    expect(screen.getByTitle("Plugin: 1")).toBeTruthy();
   });
 
   it("clicking a scope tab updates the filter signal", () => {
@@ -65,7 +68,8 @@ describe("ListView", () => {
       makeSkill({ id: "g", name: "glob", scope: "global" }),
     ];
     render(h(ListView, {}));
-    fireEvent.click(screen.getByText("Global (1)"));
+    // By role: "Global" is also the label of the list's group heading.
+    fireEvent.click(screen.getByRole("radio", { name: "Global" }));
     expect(scopeFilter.value).toBe("global");
   });
 

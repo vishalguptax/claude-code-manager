@@ -15,7 +15,9 @@ import {
   SearchInput,
   VirtualList,
 } from "../../../../../webview/shared/ui";
-import { type Row, buildRows } from "../../lib";
+import { useState } from "preact/hooks";
+import { ContextMenu } from "../../../../../webview/shared/ui";
+import { type McpMenuHandlers, type Row, buildMcpMenu, buildRows } from "../../lib";
 import type { McpServer } from "../../../types";
 import {
   type McpScopeFilter,
@@ -33,7 +35,13 @@ import { McpItem } from "../McpItem";
 
 /** Threshold above which the list windows its rows for scroll performance. */
 const VIRTUAL_THRESHOLD = 50;
-/** Fixed row height (px) used by the virtualized renderer. Must match CSS. */
+/**
+ * Estimated row height (px) for the virtualizer. VirtualList measures each
+ * rendered row and corrects its offsets from the real height, so this is the
+ * pre-measure guess and nothing more. It does NOT have to match a CSS rule:
+ * the stylesheet used to pin 48px to mirror it, which clipped any row whose
+ * content grew instead of letting the row grow.
+ */
 const ROW_HEIGHT = 48;
 
 export interface ListViewProps {
@@ -44,6 +52,11 @@ export interface ListViewProps {
   onNew: () => void;
   /** Open Claude's /mcp panel — the surface where flagged connectors re-auth. */
   onReauth: () => void;
+  /**
+   * Per-server actions, offered on right-click. Optional so a caller that only
+   * needs a read-only list does not have to supply seven handlers.
+   */
+  menu?: McpMenuHandlers;
 }
 
 export function ListView({
@@ -52,6 +65,7 @@ export function ListView({
   onBrowse,
   onRefresh,
   onNew,
+  menu,
   onReauth,
 }: ListViewProps) {
   const all = servers.value;
@@ -69,6 +83,13 @@ export function ListView({
     scopeOptions.push({ value: "plugin", label: "Plugin", count: counts.plugin });
   }
 
+  // One menu for the whole list, anchored at the click. Rendering a menu per
+  // row would mount one popup per server for a control only ever open on one.
+  const [at, setAt] = useState<{ server: McpServer; x: number; y: number } | null>(null);
+  const onContextMenu = menu
+    ? (server: McpServer, x: number, y: number) => setAt({ server, x, y })
+    : undefined;
+
   const renderRow = (row: Row) =>
     row.kind === "label" ? (
       <div class="mcp-group-label">{row.label}</div>
@@ -78,6 +99,8 @@ export function ListView({
         active={sel?.name === row.server.name && sel?.scope === row.server.scope}
         onSelect={onSelect}
         onCopyName={onCopyName}
+        onContextMenu={onContextMenu}
+        onToggle={menu?.onToggle}
       />
     );
 
@@ -119,6 +142,8 @@ export function ListView({
                 active={sel?.name === row.server.name && sel?.scope === row.server.scope}
                 onSelect={onSelect}
                 onCopyName={onCopyName}
+                onContextMenu={onContextMenu}
+                onToggle={menu?.onToggle}
               />
             ),
           )}
@@ -158,7 +183,7 @@ export function ListView({
       <div class="search-row">
         <SearchInput
           value={query}
-          placeholder="Search servers..."
+          placeholder="Search"
           ariaLabel="Search MCP servers"
           onInput={(v) => {
             searchQuery.value = v.toLowerCase();
@@ -199,6 +224,15 @@ export function ListView({
         />
       ) : null}
       <div class="list">{body}</div>
+      {menu && at ? (
+        <ContextMenu
+          open
+          x={at.x}
+          y={at.y}
+          items={buildMcpMenu(at.server, menu)}
+          onClose={() => setAt(null)}
+        />
+      ) : null}
     </div>
   );
 }

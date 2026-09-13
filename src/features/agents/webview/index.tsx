@@ -5,8 +5,12 @@
  * and the create/edit form modal.
  */
 import { useEffect, useState } from "preact/hooks";
-import { registerFeatureHandler } from "../../../webview/shared/model";
-import { ListSkeleton } from "../../../webview/shared/ui";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
+import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { AgentInput } from "../../../shared/protocol/messages";
 import type { Agent } from "../types";
 import { useAgentsApi } from "./api";
@@ -43,16 +47,34 @@ export default function AgentsTab() {
 
     api.getAgents();
 
+
+    // Agents in the command palette. The source is called per query, so
+    // it always reads the live signal without this module subscribing to it.
+    const offPalette = registerPaletteSource("agents", () =>
+      agents.value.map((s) => ({
+        id: `agents:${s.name}`,
+        title: s.name,
+        subtitle: s.description,
+        group: "Agents",
+        icon: "bot",
+        hint: s.model,
+        run: () => {
+          activeTab.value = "agents";
+          selectAgent(s);
+        },
+      })),
+    );
     return () => {
       off();
       offError();
+      offPalette();
       resetAgentsState();
     };
     // Mount-once: register handlers, request data, tear down on unmount.
   }, []);
 
   if (error.value) {
-    return <div class="empty">Error: {error.value}</div>;
+    return <EmptyState icon="circle-alert" title="Couldn't load agents" description={error.value} />;
   }
 
   if (loading.value) {

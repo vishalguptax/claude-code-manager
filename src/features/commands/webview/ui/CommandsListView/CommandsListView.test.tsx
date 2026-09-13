@@ -45,7 +45,7 @@ afterEach(() => {
 describe("CommandsListView", () => {
   it("shows the empty state when there are no commands", () => {
     const { container } = render(h(CommandsListView, {}));
-    expect(container.querySelector(".cmd-empty-title")?.textContent).toBe("No commands yet");
+    expect(container.querySelector(".empty-state-title")?.textContent).toBe("No commands yet");
     expect(container.querySelector(".scope-filter")).toBeNull();
   });
 
@@ -128,7 +128,9 @@ describe("CommandsListView", () => {
     const { container } = render(h(CommandsListView, {}));
     typeSearch(container, "zzzznomatch");
     await waitFor(() => {
-      expect(container.querySelector(".empty")?.textContent).toBe("No matching commands");
+      expect(container.querySelector(".empty-state-title")?.textContent).toBe(
+        "No matching commands",
+      );
     });
   });
 

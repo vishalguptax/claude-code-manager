@@ -8,13 +8,18 @@
  * demand, keeping the DOM light for very long pages without inventing a host
  * message the decomposed host cannot answer.
  */
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   BackButton,
   Button,
   Icon,
+  Menu,
+  type MenuItem,
+  SearchInput,
   Segmented,
   type SegmentedOption,
+  StatTile,
+  StatTileGrid,
 } from "../../../../../webview/shared/ui";
 import { isClaudeCodeExtensionInstalled } from "../../../../../webview/extensionStatus";
 import { useDebounce } from "../../../../../webview/shared/hooks";
@@ -50,6 +55,7 @@ import {
 } from "../../model";
 import { isSameRepo, pathTail } from "../../lib";
 import { MessageItem, fmtTokens } from "../components/MessageItem";
+import { liveTitleForStatus } from "../components/SessionItem";
 import { DetailSkeleton } from "./DetailSkeleton";
 import type { SessionDetail, WorktreeRef } from "../../../types";
 
@@ -89,28 +95,27 @@ function StatStrip({ d }: { d: SessionDetail }) {
         : "")
     : "";
   return (
-    <div class="d-stats">
-      <span class="d-stat" title={`${totalMsgs.toLocaleString()} messages`}>
-        <span class="d-stat-v">{fmtTokens(totalMsgs)}</span>
-        <span class="d-stat-k">message{totalMsgs === 1 ? "" : "s"}</span>
-      </span>
+    // Same tiles the Account tab uses for its usage figures. These were a flat
+    // row of four, which at a 340px sidebar gave each figure ~75px — not
+    // enough for "397.2k" above the word "tokens".
+    <StatTileGrid class="d-stat-grid">
+      <StatTile
+        value={fmtTokens(totalMsgs)}
+        label={`message${totalMsgs === 1 ? "" : "s"}`}
+        title={`${totalMsgs.toLocaleString()} messages`}
+      />
       {d.totalToolUses && d.totalToolUses > 0 ? (
-        <span class="d-stat" title={`${d.totalToolUses.toLocaleString()} tool calls`}>
-          <span class="d-stat-v">{fmtTokens(d.totalToolUses)}</span>
-          <span class="d-stat-k">tool{d.totalToolUses === 1 ? "" : "s"}</span>
-        </span>
+        <StatTile
+          value={fmtTokens(d.totalToolUses)}
+          label={`tool${d.totalToolUses === 1 ? "" : "s"}`}
+          title={`${d.totalToolUses.toLocaleString()} tool calls`}
+        />
       ) : null}
       {tokenTotal > 0 ? (
-        <span class="d-stat" title={tokenTitle}>
-          <span class="d-stat-v">{fmtTokens(tokenTotal)}</span>
-          <span class="d-stat-k">tokens</span>
-        </span>
+        <StatTile value={fmtTokens(tokenTotal)} label="tokens" title={tokenTitle} />
       ) : null}
-      <span class="d-stat">
-        <span class="d-stat-v">{fmtDuration(d.endTime - d.startTime)}</span>
-        <span class="d-stat-k">duration</span>
-      </span>
-    </div>
+      <StatTile value={fmtDuration(d.endTime - d.startTime)} label="duration" />
+    </StatTileGrid>
   );
 }
 
@@ -250,20 +255,17 @@ function Actions({
           {worktree && worktree.kind !== "main" ? "Resume in worktree" : "Resume"}
         </Button>
       )}
-      <Button iconName="pencil" onClick={() => sendRenameSession(d.id)}>
-        Rename
-      </Button>
-      <Button iconName="git-fork" onClick={() => sendForkSession(d.id)}>
-        Fork
-      </Button>
+      {/* Two named seconds, then everything else behind the overflow. Seven
+          seven bordered buttons wrapped into ragged rows of three whose widths
+          came from their labels. The fix is the MENU, not stripping the edges
+          off what remains: Pin and Export are the two that get reached for and
+          keep their outline, while Rename, Fork, Copy Cmd and Delete are
+          occasional and cost nothing behind the overflow. */}
       <Button
         iconName={isPinned ? "pin-off" : "pin"}
         onClick={() => (isPinned ? sendUnpinSession(d.id) : sendPinSession(d.id))}
       >
         {isPinned ? "Unpin" : "Pin"}
-      </Button>
-      <Button iconName="terminal" onClick={() => sendCopyCommand(d.id)}>
-        Copy Cmd
       </Button>
       <Button
         iconName="upload"
@@ -272,9 +274,56 @@ function Actions({
       >
         Export
       </Button>
-      <Button class="del" iconName="trash-2" onClick={() => sendConfirmDelete(d.id)}>
-        Delete
-      </Button>
+      <DetailOverflow d={d} />
+    </div>
+  );
+}
+
+/**
+ * The occasional actions. Reuses the shared <Menu>, so this and the row's
+ * right-click menu are the same object in two places rather than two lists
+ * that drift.
+ */
+function DetailOverflow({ d }: { d: SessionDetail }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const items: MenuItem[] = [
+    { label: "Rename…", icon: "pencil", onSelect: () => sendRenameSession(d.id) },
+    { label: "Fork session", icon: "git-fork", onSelect: () => sendForkSession(d.id) },
+    {
+      label: "Copy resume command",
+      icon: "terminal",
+      onSelect: () => sendCopyCommand(d.id),
+    },
+    {
+      label: "Delete session",
+      icon: "trash-2",
+      danger: true,
+      separatorBefore: true,
+      onSelect: () => sendConfirmDelete(d.id),
+    },
+  ];
+  return (
+    <div ref={ref} class="d-actions-more">
+      <Button
+        variant="icon"
+        class="d-actions-overflow"
+        iconName="more-horizontal"
+        title="More actions"
+        ariaLabel="More session actions"
+        onClick={() => {
+          const r = ref.current?.getBoundingClientRect();
+          setAt({ x: r?.right ?? 0, y: r?.bottom ?? 0 });
+        }}
+      />
+      <Menu
+        open={at !== null}
+        x={at?.x ?? 0}
+        y={at?.y ?? 0}
+        items={items}
+        anchorRef={ref}
+        onClose={() => setAt(null)}
+      />
     </div>
   );
 }
@@ -307,7 +356,7 @@ export function DetailView() {
   if (loading || !d) {
     return (
       <div class="panel" id="detailView">
-        <BackButton onClick={backToList} />
+        <BackButton label="All sessions" onClick={backToList} />
         <DetailSkeleton />
       </div>
     );
@@ -364,18 +413,34 @@ export function DetailView() {
 
   return (
     <div class="panel" id="detailView">
-      <BackButton onClick={backToList} />
+      <BackButton label="All sessions" onClick={backToList} />
 
       <div class="d-head">
         <div class="d-title" title={d.name || d.summary}>
           {d.name || d.summary}
         </div>
-        {d.name && d.summary ? (
+        {/* The summary is a SECOND line, so it only earns its place when it
+            says something the title does not. The title already falls back to
+            the summary when a session has no name, so a session named after
+            its own opening prompt printed the identical sentence twice — the
+            same defect the list row had. */}
+        {d.name && d.summary && d.summary !== d.name ? (
           <div class="d-subtitle" title={d.summary}>
             {d.summary}
           </div>
         ) : null}
         <div class="d-meta">
+          {/* Live state as a LABELLED chip, not a bare dot. The list row can
+              lean on a dot plus a tooltip because the rows around it give it
+              context; here it is the one place the session's state is stated,
+              and a coloured dot alone says nothing to someone who cannot
+              distinguish the colours or is reading a screenshot. */}
+          {d.isLive ? (
+            <span class="d-meta-pill d-meta-pill-live">
+              <i class="live-dot" data-status={d.status || undefined} />
+              {liveTitleForStatus(d.status)}
+            </span>
+          ) : null}
           <span class="d-meta-pill">{d.project}</span>
           {branch ? (
             <span class="d-meta-pill d-meta-pill-branch">
@@ -389,7 +454,6 @@ export function DetailView() {
             {date} at {fmtTime(d.startTime)}
           </span>
         </div>
-        <StatStrip d={d} />
         {wtInfo ? (
           <div class={cx("d-worktree", { "d-worktree--missing": !wtInfo.exists })}>
             <div class="d-worktree__title">
@@ -426,6 +490,10 @@ export function DetailView() {
         ) : null}
       </div>
 
+      {/* Actions sit above the figures. Opening a session is almost always a
+          decision to resume, view or export it; the counts are context for
+          that decision, not the reason you came. Stats first pushed the one
+          control anybody wants below a block of numbers. */}
       <Actions
         d={d}
         isPinned={isPinned}
@@ -433,6 +501,7 @@ export function DetailView() {
         hasOpenTerminal={openTerminalsSignal.value.has(d.id) || Boolean(d.isLive)}
         worktree={worktree}
       />
+      <StatStrip d={d} />
 
       <div class="d-scroll">
         <div class="d-section">
@@ -453,32 +522,19 @@ export function DetailView() {
               ) : null}
             </div>
             <div class={cx("d-msg-search", { "has-value": isSearching })}>
-              <input
-                class="d-msg-search-input"
-                type="text"
-                autocomplete="off"
-                spellcheck={false}
-                placeholder="Search messages..."
-                aria-label="Search messages"
+              {/* The shared field, so this reads as the same control as the
+                  search box on every other tab — magnifier, chrome and clear
+                  button included. Emits immediately (debounceMs 0) because the
+                  host scan is already debounced downstream of rawQuery. */}
+              <SearchInput
                 value={rawQuery}
-                onInput={(e) => setRawQuery((e.target as HTMLInputElement).value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setRawQuery("");
-                }}
+                onInput={setRawQuery}
+                debounceMs={0}
+                placeholder="Search"
+                ariaLabel="Search messages"
               />
               {isSearching ? (
-                <div class="d-msg-search-addon">
-                  <span class="d-msg-search-count">{stale ? "…" : `${matchCount}`}</span>
-                  <button
-                    type="button"
-                    class="d-msg-search-clear"
-                    title="Clear search"
-                    aria-label="Clear search"
-                    onClick={() => setRawQuery("")}
-                  >
-                    <Icon name="x" size={12} />
-                  </button>
-                </div>
+                <span class="d-msg-search-count">{stale ? "…" : `${matchCount}`}</span>
               ) : null}
             </div>
           </div>

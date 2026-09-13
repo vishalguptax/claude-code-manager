@@ -1,21 +1,43 @@
+/* ============================================================================
+   Tab strip — the single owner of the tab family.
+
+   These rules used to be split across components.css ("Tab Bar (shared)") and
+   this file. components.css sized the button as a fixed 32px icon box with
+   `padding: 0`; tabs.css loads later in scripts/build-css.js, so its
+   `padding: 8px 12px` won and left 8px of content width for a 16px icon. Two
+   files owning one component is what produced that, so the whole family lives
+   here now and components.css carries only a pointer.
+   ============================================================================ */
+
 .tab-bar {
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
-  /* flex:0 0 auto so the tab strip stays its natural height. Overrides the
-     stray `.tab-bar { flex:1 }` in components.css (a v1 vertical-nav leftover)
-     that otherwise makes the strip grow to half the panel height. */
+  /* Natural height: the strip must not grow to fill the panel column. */
   flex: 0 0 auto;
 }
+
 /* The scrollable tab list. The global reload button is a flex sibling pinned
    to the right, so only the tabs scroll when the strip overflows. */
 .tab-list {
   display: flex;
+  align-items: center;
+  /* No gap. Eight cells plus the active label have to clear the strip at the
+     default sidebar width, and 2px between each was 14px of the ~300px
+     available — enough on its own to push the last tab out of view. The cells
+     are separated by the hover fill and the active underline, not by space. */
   flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
+/* No scrollbar under the strip: it would sit on the 2px active underline and
+   read as a second, broken indicator. TabBar scrolls the active tab into view
+   instead, so the overflow is never a dead end. */
 .tab-list::-webkit-scrollbar { display: none; }
+.tab-list { scrollbar-width: none; }
+
 /* Global reload affordance — pinned right, never scrolls with the tabs.
    Ghost toolbar chrome: transparent at rest (no border/fill — unlike the
    bordered inline icon buttons in feature rows), hover-only background, like
@@ -30,44 +52,155 @@
   height: 26px;
   min-width: 0;
   min-height: 0;
-  background: none;
-  border-color: transparent;
 }
-.tab-reload-btn.btn-icon:hover {
-  background: var(--vscode-toolbar-hoverBackground, var(--bg-hover));
-}
-.tab-reload-btn.btn-icon:active {
-  background: var(--vscode-toolbar-activeBackground, var(--bg-active));
-}
+/* The chromeless fill/border this used to set privately is now what every icon
+   button does (components-native.css); only the smaller box stays local. */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Tab button — icon rail
+
+   Eight labelled tabs need roughly 680px; the sidebar is 300-400px. So only
+   the ACTIVE tab spells its label and the other seven are a square icon cell,
+   which fits all eight inside ~330px.
+
+   The label is hidden in CSS, never dropped from the markup: every tab keeps
+   the aria-label and title TabBar sets, so the accessible name and the hover
+   tooltip are identical whether or not the label is painted.
+   ────────────────────────────────────────────────────────────────────────────── */
+
 .tab-btn {
-  background: transparent;
-  border: none;
-  color: var(--fg-dim);
-  padding: var(--space-md) var(--space-xl);
+  flex: 0 0 auto;
+  /* Icon cell: 30px wide leaves 7px of clearance each side of the 16px glyph.
+     The width is not cosmetic — see the fitting note above .tab-list. Seven
+     inactive cells plus the labelled active one have to clear the strip at the
+     default sidebar width, and the arithmetic has no slack.
+     The box is border-box and carries the 2px active underline, so the height
+     is the shared control height plus that underline — content stays exactly
+     --h-control tall whether or not the tab is active. */
+  width: 30px;
+  height: calc(var(--h-control) + 2px);
+  padding: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-sm);
-  cursor: pointer;
-  font-size: var(--fs-base);
+  background: none;
+  border: none;
   border-bottom: 2px solid transparent;
-  transition: var(--transition-control);
+  /* The panel-title colours, which is what this strip is. A theme tunes the
+     active/inactive pair for exactly this job; --fg / --fg-dim resolved to
+     sideBar-foreground vs descriptionForeground, which in most dark themes are
+     close enough that the active tab barely read as active. */
+  color: var(--vscode-panelTitle-inactiveForeground, var(--fg-dim));
+  font-size: var(--fs-base);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  /* A label must never be able to paint outside its own cell. The narrow-width
+     rules below drop the label by design, but this is the structural guard: if
+     any future label, font size or theme makes the text wider than the cell it
+     is clipped, not drawn across the tab beside it. */
+  overflow: hidden;
+  /* Keep a scrolled-into-view tab clear of the strip edge and of the pinned
+     reload button beside it. */
+  scroll-margin-inline: var(--space-2xl);
+  transition:
+    color var(--transition-control),
+    background var(--transition-control),
+    border-color var(--transition-control),
+    width 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
-.tab-btn:hover { color: var(--fg); }
+.tab-btn:hover:not(.active) {
+  color: var(--vscode-panelTitle-activeForeground, var(--fg));
+  background: var(--role-ghost-hover-bg);
+}
+.tab-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -1px;
+}
 .tab-btn.active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
+  /* The accent underline is the selected state, so the cell takes no fill —
+     two indicators saying the same thing just make the strip noisier. What was
+     missing before was contrast in the TEXT: --fg vs --fg-dim resolve to
+     sideBar-foreground and descriptionForeground, which most dark themes put
+     close together. The panel-title pair is the one a theme tunes for this. */
+  color: var(--vscode-panelTitle-activeForeground, var(--fg));
+  border-bottom-color: var(--vscode-panelTitle-activeBorder, var(--accent));
+  font-weight: 600;
+  /* Grows to fit its label; every other tab stays a 30px cell. */
+  width: auto;
+  padding: 0 var(--space-md);
 }
-.tab-icon { display: inline-flex; }
-.tab-label { font-size: var(--fs-base); }
-.tab-content-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
-.tab-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-btn { transition: none; }
+}
+
+.tab-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+/* The label belongs to the active tab alone. */
+.tab-label { display: none; }
+.tab-btn.active .tab-label {
+  display: inline;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Narrow sidebar ────────────────────────────────────────────────
+ * No breakpoint drops the label. An earlier version hid it below 360px so all
+ * eight tabs could stay on screen at once, which silently removed the one
+ * piece of text that says where you are — the icons alone are not a label.
+ *
+ * The label stays and the strip scrolls instead. That is a real trade: the
+ * eight cells plus the widest label ("Commands") need 353px, so below that
+ * roughly one tab sits off the right edge. Scrolling is recoverable and
+ * TabBar pulls the active tab into view on every change, so the tab you are
+ * on is always visible; a missing label is not recoverable.
+ *
+ * `.tab-btn` carries `overflow: hidden` above, so a label can never paint
+ * outside its own cell regardless of width, font size or theme. That is what
+ * makes dropping the breakpoint safe — the old overlap bug was the label
+ * escaping its box, not the box being narrow. */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Tab content panes
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.tab-content-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .tab-content.hidden { display: none; }
+
+/* A feature's root panel owns its own scroll inside the pane. Descendant
+   selector, so it still applies through the keep-alive wrapper below. */
+.tab-content .panel {
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
 /* Keep-alive wrapper: each mounted tab sits in one of these. `display:
    contents` makes the wrapper vanish from layout, so the feature's own
    root (e.g. `.panel`) participates in `.tab-content`'s flex column
    exactly as it did when it was a direct child. Inactive tabs stay
-   mounted but are pulled from layout. The `.tab-content .panel` scroll
-   rule (components.css) is a descendant selector, so the panel keeps
-   its own scroll through the wrapper — no rule needed here. */
+   mounted but are pulled from layout. */
 .tab-keepalive { display: contents; }
 .tab-keepalive.hidden { display: none; }

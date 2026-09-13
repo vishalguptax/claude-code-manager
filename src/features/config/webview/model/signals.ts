@@ -9,6 +9,11 @@
  * for a settings surface the user is actively interacting with.
  */
 import { signal } from "@preact/signals";
+import {
+  _resetSections,
+  isSectionCollapsed as isSectionCollapsedShared,
+  toggleSection as toggleSectionShared,
+} from "../../../../webview/shared/model";
 import type { AccountData, PermissionScope } from "../../types";
 
 /** Latest account/settings payload from the host, or null until first load. */
@@ -30,4 +35,18 @@ export function _resetConfigState(): void {
   configError.value = "";
   permissionScope.value = "global";
   permissionSearch.value = "";
+  _resetSections();
+}
+
+/**
+ * Section collapse, namespaced to this tab. The store lives in shared/model
+ * because Account needs the same behaviour; the prefix stops two tabs that
+ * both have a section called "permissions" from folding each other's.
+ */
+export function isSectionCollapsed(id: string): boolean {
+  return isSectionCollapsedShared(`config:${id}`);
+}
+
+export function toggleSection(id: string): void {
+  toggleSectionShared(`config:${id}`);
 }

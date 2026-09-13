@@ -443,18 +443,11 @@
    that stay readable on any background.
    ────────────────────────────────────────────────────────────────────────── */
 
+/* Box comes from the shared chip base in components.css; only the medium
+   weight and the label clamp are the badge's own. */
 .vsc-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
   font-weight: 500;
-  line-height: 1.4;
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-  white-space: nowrap;
   max-width: 16ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .vsc-badge--default,
@@ -473,6 +466,27 @@
   min-width: 16px;
   justify-content: center;
 }
+
+/* Scope colours — the single map behind <Badge scope="…">.
+   These were declared four times over (skills .scope-*, commands
+   .cmd-scope-* plus a fifth file for its plugin colour, hooks
+   .hook-scope-*, mcp .mcp-scope-*) with identical values. Features now pass
+   the scope and the colour is decided here. */
+.vsc-badge--scope-project,
+.vsc-badge--scope-local {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.vsc-badge--scope-builtin {
+  background: var(--color-blue-bg);
+  color: var(--color-blue);
+}
+.vsc-badge--scope-plugin {
+  background: var(--color-purple-bg);
+  color: var(--color-purple);
+}
+/* `global` is deliberately absent: it takes the neutral fill from
+   .vsc-badge--scope above, which is exactly what every feature gave it. */
 
 .vsc-badge--status {
   background: var(--color-blue-bg);
@@ -555,21 +569,51 @@
    target. Applied uniformly so refresh / globe / back / resume and every
    feature toolbar icon share one affordance. NO permanent resting border or
    background — that would read as non-native. */
+/* GHOST — icon + label, no border, no fill until hover. For a tertiary action
+   inside a strip that already carries its own fill, where an outline would be
+   a box drawn on top of a box. */
+.btn-ghost {
+  height: var(--h-control);
+  padding: 0 var(--space-md);
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.btn-ghost:hover { background: var(--role-ghost-hover-bg); }
+.btn-ghost:active { background: var(--role-ghost-active-bg); }
+.btn-ghost:disabled { opacity: 0.45; background: none; cursor: default; }
+
+/* Chromeless until hovered, like VS Code's own view-title icons.
+ *
+ * These used to carry a secondary fill and a 1px border on the argument that
+ * an icon button should "read as a button, not a transparent ghost". The cost
+ * showed up once there were several in a row: the sessions toolbar put four
+ * bordered boxes beside a filled primary, the search row two more under it,
+ * and every list row another — a panel of outlines competing with the one
+ * control that matters. VS Code's own toolbars are chromeless for exactly this
+ * reason, and the tab strip's reload button and the row copy buttons had
+ * already each overridden this rule privately to get there.
+ *
+ * The affordance is the hover fill plus the tooltip every icon button already
+ * carries, and the hit area is unchanged. */
 .btn-icon {
   width: var(--h-control);
   min-width: 24px;
   min-height: 24px;
   padding: 0;
   justify-content: center;
-  /* Visible resting affordance (product call): icon buttons read as buttons
-     with a subtle secondary fill + border, not a transparent ghost. */
-  background: var(--vscode-button-secondaryBackground, var(--bg-hover));
-  color: var(--role-text-secondary);
-  border: 1px solid var(--vscode-button-border, var(--vscode-input-border, var(--border)));
+  background: none;
+  /* `icon.foreground`, not `descriptionForeground`. The description colour is
+     for muted TEXT; using it on glyphs left every toolbar icon visibly greyer
+     than the ones VS Code draws in its own title bars right beside them. */
+  color: var(--vscode-icon-foreground, var(--role-text-secondary));
+  border: 1px solid transparent;
   border-radius: var(--radius);
 }
 .btn-icon:hover {
-  background: var(--vscode-button-secondaryHoverBackground, var(--role-ghost-hover-bg));
+  background: var(--role-ghost-hover-bg);
   color: var(--role-text-primary);
 }
 .btn-icon:active {
@@ -645,10 +689,18 @@
   min-height: var(--h-control);
   box-sizing: border-box;
 }
+/* Wrapped onto a second line. Each line divides its OWN width between however
+   few segments landed on it, so a wrapped set came out ragged — segments on
+   the short line far wider than those above. When wrapped the segments stop
+   growing and pack from the left instead, so the second line reads as a
+   continuation of the first. Set by <Segmented>, which measures the wrap. */
+.vsc-segmented.is-packed { justify-content: flex-start; }
+.vsc-segmented.is-packed .vsc-segmented-seg { flex: 0 0 auto; }
+
 
 .vsc-segmented-seg {
-  /* Full-width segments by default (date range / scope filter span the panel);
-     the compact `--sm` variant below makes them content-sized instead. */
+  /* Fill the track when the segments fit on one line; `.is-packed` above
+     switches this off for the wrapped case. */
   flex: 1 1 0;
   display: inline-flex;
   align-items: center;
@@ -666,7 +718,9 @@
      single-row controls look exactly as before. */
   min-width: min-content;
   padding: 0 var(--space-md);
-  border: none;
+  /* Transparent rather than none: the active segment adds a hairline, and a
+     border appearing from nothing would resize the segment on selection. */
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: none;
   color: var(--role-unselected-fg);
@@ -684,7 +738,12 @@
 .vsc-segmented-seg.active {
   background: var(--role-selected-bg);
   color: var(--role-selected-fg);
-  font-weight: 500;
+  /* Raised: a hairline plus a contact shadow, so the selected segment reads as
+     sitting ON the track rather than being a slightly different shade of it.
+     Weight alone was carrying this and weight alone is not a selected state. */
+  border: 1px solid var(--role-selected-border);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  font-weight: 600;
 }
 .vsc-segmented-seg:focus-visible {
   outline: var(--focus-ring, 1px solid var(--accent));

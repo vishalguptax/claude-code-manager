@@ -497,7 +497,23 @@ export function loadPersistedFilters(): void {
  * Safe regardless of arrival order vs loadPersistedFilters: the guard checks
  * persisted state, not the live signal.
  */
+/**
+ * The date and project filters the host says are this user's defaults, from
+ * `claudeManager.sessions.defaultFilter` / `defaultProject`.
+ *
+ * The active-filter chips compare against THESE, not against a hardcoded
+ * "widest" value. A chip means "you have narrowed past your own default", so a
+ * user who set Recent + This Project as their defaults sees no chips at rest —
+ * which is the whole reason the chip row can replace three permanent rows of
+ * pickers. Comparing against "all" instead would put two chips on screen for
+ * everyone, permanently, which is just the old filter row with fewer controls.
+ */
+export const defaultDateSignal = signal<DateFilter>("recent");
+export const defaultProjectSignal = signal<string>("current");
+
 export function applyDefaultFilters(defaultFilter?: string, defaultProject?: string): void {
+  if (defaultFilter) defaultDateSignal.value = defaultFilter as DateFilter;
+  if (defaultProject) defaultProjectSignal.value = defaultProject;
   // Snapshot BOTH "unset" checks before mutating either signal. The active
   // persistence effect fires synchronously on the first mutation and writes
   // all three keys, so checking `project` after setting `date` would see a

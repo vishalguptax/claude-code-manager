@@ -3,7 +3,6 @@ import type { QuotaError, QuotaSuccess } from "../../quota";
 import {
   _resetAccountState,
   clearQuota,
-  collapsedSections,
   isSectionCollapsed,
   quotaStatus,
   setQuotaError,
@@ -11,6 +10,7 @@ import {
   setQuotaSuccess,
   toggleSection,
 } from "./signals";
+import { collapsedSections } from "../../../../webview/shared/model";
 
 const SUCCESS: QuotaSuccess = {
   quota: {
@@ -43,7 +43,9 @@ describe("account signals", () => {
     expect(isSectionCollapsed("usage")).toBe(false);
     toggleSection("usage");
     expect(isSectionCollapsed("usage")).toBe(true);
-    expect(collapsedSections.value.has("usage")).toBe(true);
+    // Ids are namespaced per tab so Account and Config cannot fold each
+    // other's sections through the one shared store.
+    expect(collapsedSections.value.has("account:usage")).toBe(true);
     toggleSection("usage");
     expect(isSectionCollapsed("usage")).toBe(false);
   });

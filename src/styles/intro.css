@@ -11,7 +11,7 @@
 }
 
 .intro-header {
-  margin-bottom: var(--space-4, 1rem);
+  margin-bottom: var(--space-2xl);
 }
 
 .intro-title {
@@ -33,7 +33,7 @@
 
 .intro-grid {
   list-style: none;
-  margin: 0 0 var(--space-4, 1rem);
+  margin: 0 0 var(--space-2xl);
   padding: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

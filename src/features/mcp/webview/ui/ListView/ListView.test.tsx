@@ -98,7 +98,7 @@ describe("ListView", () => {
   it("filters the visible list by the scope filter", () => {
     applyServers([srv({ name: "alpha", scope: "project" }), srv({ name: "beta", scope: "global" })]);
     render(h(ListView, props()));
-    fireEvent.click(screen.getByText("Global (1)"));
+    fireEvent.click(screen.getByText("Global"));
     expect(screen.getByText("beta")).toBeTruthy();
     expect(screen.queryByText("alpha")).toBeNull();
   });

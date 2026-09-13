@@ -10,3 +10,10 @@ export {
   maskSensitiveValue,
   type Row,
 } from "./helpers";
+export {
+  buildMcpMenu,
+  canAuthMcp,
+  canEditMcp,
+  canToggleMcp,
+  type McpMenuHandlers,
+} from "./mcpMenu";

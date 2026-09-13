@@ -11,17 +11,29 @@
  */
 import { useEffect } from "preact/hooks";
 import { SessionsSkeleton } from "../../../webview/app/tabs/skeletons";
-import { registerFeatureHandler } from "../../../webview/shared/model";
-import { sendReady } from "./api";
+import { registerFeatureHandler, registerPaletteSource } from "../../../webview/shared/model";
+import { activeTab } from "../../../webview/shared/model";
+import { fmtRelativeTime } from "../../../webview/utils";
+import { sendGetSessionDetail, sendReady } from "./api";
 import {
+  detailLoadingSignal,
   handleDelta,
   handleMessage,
   initFilterPersistence,
   loadedSignal,
   loadPersistedFilters,
+  selectedIdSignal,
+  sessionsSignal,
   stopFilterPersistence,
   viewSignal,
 } from "./model";
+
+/**
+ * How many sessions to offer the palette. The list can hold thousands; the
+ * palette shows at most 50 after ranking, so anything past a few hundred is
+ * scored and discarded on every keystroke.
+ */
+const PALETTE_SESSIONS = 300;
 import { DetailView } from "./ui/views/DetailView";
 import { ListView } from "./ui/views/ListView";
 
@@ -48,8 +60,33 @@ export default function SessionsTab() {
       handleMessage(msg);
     });
     sendReady();
+
+    // Sessions in the command palette. The source reads the signal when the
+    // palette asks, so it always reflects the current list without this module
+    // subscribing to anything. Capped: the palette ranks and truncates, and
+    // handing it thousands of rows per keystroke to throw most of them away is
+    // work nobody sees.
+    const unsubPalette = registerPaletteSource("sessions", () =>
+      sessionsSignal.value.slice(0, PALETTE_SESSIONS).map((s) => ({
+        id: `session:${s.id}`,
+        title: s.name || s.prompts[0] || "Untitled session",
+        subtitle: s.project,
+        group: "Sessions",
+        icon: "message-square",
+        hint: fmtRelativeTime(s.endTime, Date.now()),
+        run: () => {
+          activeTab.value = "sessions";
+          selectedIdSignal.value = s.id;
+          detailLoadingSignal.value = true;
+          viewSignal.value = "detail";
+          sendGetSessionDetail(s.id);
+        },
+      })),
+    );
+
     return () => {
       unsub();
+      unsubPalette();
       stopFilterPersistence();
     };
   }, []);

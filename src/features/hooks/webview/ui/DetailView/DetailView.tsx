@@ -10,7 +10,7 @@ import { useApi, useCopyFeedback } from "../../../../../webview/shared/hooks";
 import type { Hook } from "../../../types";
 import * as api from "../../api";
 import type { Post } from "../../api";
-import { eventLabel, matcherDisplay, scopeClass, scopeLabel } from "../../lib";
+import { eventLabel, matcherDisplay, scopeLabel } from "../../lib";
 import { eventUsesMatcher } from "../../../events";
 import { selectedHook } from "../../model";
 import { EditForm } from "../EditForm";
@@ -44,7 +44,7 @@ export function DetailView({ hook }: DetailViewProps) {
       <div class="d-head">
         <div class="d-title">{eLabel}</div>
         <div class="d-tags">
-          <Badge variant="scope" text={sLabel} title={sLabel} class={scopeClass(hook.scope)} />
+          <Badge text={sLabel} title={sLabel} scope={hook.scope} />
           {eventUsesMatcher(hook.event) ? (
             <Badge variant="default" text={`matcher: ${mDisplay}`} title={mDisplay} />
           ) : null}
@@ -69,7 +69,7 @@ export function DetailView({ hook }: DetailViewProps) {
               </Button>
             ) : null}
             <Button onClick={() => api.toggleHookEnabled(send, hook)}>
-              <Icon name={hook.disabled ? "play" : "pin-off"} />{" "}
+              <Icon name={hook.disabled ? "play" : "pause"} />{" "}
               {hook.disabled ? "Enable" : "Disable"}
             </Button>
             <Button

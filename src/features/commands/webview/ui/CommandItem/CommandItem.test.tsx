@@ -24,7 +24,7 @@ describe("CommandItem", () => {
       }),
     );
     expect(container.querySelector(".cmd-item-name")?.textContent).toBe("/review");
-    expect(container.querySelector(".cmd-scope-project")?.textContent).toBe("project");
+    expect(container.querySelector(".vsc-badge--scope-project")?.textContent).toBe("project");
   });
 
   it("uses the description as the preview for builtin commands and truncates long text", () => {

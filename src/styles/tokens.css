@@ -73,12 +73,36 @@
   --color-purple-bg: rgba(163,113,247,0.15);
   --color-green-badge: #3fb950;
   --color-green-badge-bg: rgba(63,185,80,0.15);
-  --fs-xs: 10px;
-  --fs-sm: 11px;
-  --fs-base: 12px;
-  --fs-md: 13px;
-  --fs-lg: 14px;
-  --fs-xl: 16px;
+  /* Warm accent for the subscription-plan chip. Not --orange: that one is
+     wired to notificationsWarningIcon-foreground, so a Max plan would inherit
+     the editor's WARNING colour and read as a problem rather than a tier. */
+  --color-amber: #ff9966;
+  --color-amber-bg: rgba(255,153,102,0.15);
+  /* ── Type scale ──────────────────────────────────────────────────────
+     Every step is a ratio of the font size the USER configured, not a fixed
+     pixel count. It was six absolute px values, which meant a developer who
+     raised Editor Font Size to 16 still read a 10px chip: 109 of the 149
+     type-size usages in these stylesheets sit at --fs-xs or --fs-sm, so the
+     sidebar rendered almost entirely below the size they had asked for.
+
+     calc() against --fs-root, not `em`, is what makes this safe: `em` would
+     compound wherever a sized element nests inside another one (a compact
+     empty-state description inside an empty state, a hint inside a section),
+     silently shrinking the inner text. calc always resolves against the root.
+
+     The lower four ratios are the previous pixel values over the 13px default
+     (10, 11, 12, 13), so body, meta and chip text renders exactly as before at
+     the default setting. The top two step up on purpose: 14→15 and 16→18. They
+     have six call sites between them, all titles, and they were close enough
+     to the body size that a heading read as bold body text rather than as a
+     heading. Hierarchy costs nothing here because nothing else uses them. */
+  --fs-root: var(--vscode-font-size, 13px);
+  --fs-xs: calc(var(--fs-root) * 0.77);
+  --fs-sm: calc(var(--fs-root) * 0.85);
+  --fs-base: calc(var(--fs-root) * 0.92);
+  --fs-md: var(--fs-root);
+  --fs-lg: calc(var(--fs-root) * 1.15);
+  --fs-xl: calc(var(--fs-root) * 1.38);
   --radius-sm: 3px;
   --radius: 4px;
   --radius-md: 5px;
@@ -132,13 +156,32 @@
   --role-danger-hover-bg: var(--red-bg);
 
   /* SELECTED / ACTIVE — segmented controls, filter tabs, scope toggles.
-     Deliberately NOT primary blue. The selected segment gets a subtle raised
-     fill (list active-selection bg) with normal foreground; unselected
-     segments are transparent with the muted description colour. The whole
-     control sits in a track (faint fill + 1px edge), mirroring VS Code's own
-     segmented toggles (Settings table/JSON switch, search filters). */
-  --role-selected-bg: var(--vscode-list-activeSelectionBackground,
-    var(--vscode-button-secondaryBackground, var(--btn-sec-bg)));
+     Deliberately NOT primary blue; unselected segments are transparent with
+     the muted description colour, and the whole control sits in a track
+     (faint fill + 1px edge), mirroring VS Code's own segmented toggles.
+
+     The selected pill sits INSIDE that track, so it has to contrast with the
+     TRACK, not with the panel — and naming a theme colour cannot guarantee
+     that. Two attempts proved it: `list.activeSelectionBackground` IS the blue
+     selection fill in most shipped themes, which is the primary-blue block
+     this role exists to avoid; `button.secondaryBackground` is, in many
+     themes, the very value the track already uses, which left the selected
+     segment invisible — bold text and nothing else.
+
+     Mixing the foreground INTO the track is the only form that guarantees a
+     step in every theme: lighter than the track in a dark theme, darker in a
+     light one, always by the same amount. */
+  --role-selected-bg: color-mix(
+    in srgb,
+    var(--vscode-foreground, #cccccc) 16%,
+    var(--vscode-editorWidget-background, var(--bg-hover))
+  );
+  /* One step stronger again, so the pill reads as raised off the track. */
+  --role-selected-border: color-mix(
+    in srgb,
+    var(--vscode-foreground, #cccccc) 26%,
+    var(--vscode-editorWidget-background, var(--bg-hover))
+  );
   --role-selected-fg: var(--vscode-foreground, var(--fg));
   --role-unselected-fg: var(--vscode-descriptionForeground, var(--fg-dim));
   /* Track: the recessed channel the segments sit in. */

@@ -6,7 +6,11 @@
  */
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
-import { registerFeatureHandler } from "../../../webview/shared/model";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { McpServerInput } from "../../../shared/protocol/messages";
 import type { McpServer } from "../types";
@@ -61,9 +65,27 @@ export default function McpTab() {
       if (msg.type === "error") applyError(msg.message);
     });
     api.getServers();
+
+    // MCP servers in the command palette. The source is called per query, so
+    // it always reads the live signal without this module subscribing to it.
+    const offPalette = registerPaletteSource("mcp", () =>
+      servers.value.map((s) => ({
+        id: `mcp:${s.name}`,
+        title: s.name,
+        subtitle: s.type,
+        group: "MCP servers",
+        icon: "plug",
+        hint: s.scope,
+        run: () => {
+          activeTab.value = "mcp";
+          selected.value = s;
+        },
+      })),
+    );
     return () => {
       unsubscribe();
       unsubscribeError();
+      offPalette();
     };
   }, [api]);
 
@@ -132,6 +154,17 @@ export default function McpTab() {
       onRefresh={() => api.getServers()}
       onNew={() => setForm({ open: true, server: null })}
       onReauth={() => api.reconnect()}
+      // Same actions the detail view offers, one right-click away, so a
+      // server can be switched off without opening it first.
+      menu={{
+        onEdit: (s) => setForm({ open: true, server: s }),
+        onToggle: (s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName),
+        onDelete: (s) => api.remove(s.name, s.scope),
+        onCopyName: copyToClipboard,
+        onOpenConfig: (s) => api.openConfig(s.scope, s.name),
+        onAuthenticate: (name) => api.authenticate(name),
+        onLogout: (name) => api.logout(name),
+      }}
     />
   );
 }

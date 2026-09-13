@@ -5,7 +5,7 @@
  * mix of <Dropdown> pickers, <TextField>s, and <Checkbox> rows, all sitting at
  * `--h-control`).
  *
- * Reuses the real `.acct-section` / `.acct-section-body` / `.acct-field` insets
+ * Reuses the real `.section` / `.section-body` / `.field` insets
  * and `--h-control` field height so the placeholder sits in the live footprint.
  * A trailing `.skeleton-fill` spacer takes the remaining flex room so the
  * panel reads as loading edge-to-edge on a tall sidebar instead of leaving
@@ -25,11 +25,11 @@ const FIELD_LABELS = ["38%", "46%", "42%", "52%", "34%"];
 export function ConfigSkeleton() {
   return (
     <div class="panel skeleton-panel" aria-busy="true" aria-live="polite">
-      <section class="acct-section">
-        <div class="acct-section-header">
+      <section class="section">
+        <div class="section-header">
           <SkeletonLine width={88} height={9} />
         </div>
-        <div class="acct-section-body">
+        <div class="section-body">
           {FIELD_LABELS.map((w, i) => (
             <div class="skeleton-field" key={i} aria-hidden="true">
               <SkeletonLine width={w} height={8} />

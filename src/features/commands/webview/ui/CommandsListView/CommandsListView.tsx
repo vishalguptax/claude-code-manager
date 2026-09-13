@@ -4,7 +4,13 @@
  * virtualization threshold the rows are windowed with <VirtualList />.
  */
 import { useMemo } from "preact/hooks";
-import { Button, ScopeFilter, SearchInput, VirtualList } from "../../../../../webview/shared/ui";
+import {
+  Button,
+  EmptyState,
+  ScopeFilter,
+  SearchInput,
+  VirtualList,
+} from "../../../../../webview/shared/ui";
 import { useApi } from "../../../../../webview/shared/hooks";
 import type { Command } from "../../../types";
 import { getCommandsMsg, launchCommandInChatMsg, type Post } from "../../api";
@@ -23,7 +29,11 @@ import { CommandItem } from "../CommandItem";
 
 /** Above this flattened row count, the list is windowed for scroll perf. */
 const VIRTUALIZE_THRESHOLD = 50;
-/** Fixed row height (px) shared by header and item rows for virtualization. */
+/**
+ * Estimated row height (px) for the virtualizer. Header and item rows differ;
+ * VirtualList measures each one, so this only sizes the scrollbar before the
+ * first measure.
+ */
 const ROW_HEIGHT = 56;
 
 export function CommandsListView() {
@@ -87,7 +97,7 @@ export function CommandsListView() {
         <SearchInput
           value={searchQuery.value}
           onInput={onSearch}
-          placeholder="Search commands..."
+          placeholder="Search"
           ariaLabel="Search commands"
         />
         <Button
@@ -114,9 +124,10 @@ export function CommandsListView() {
         {total === 0 ? (
           <EmptyCommands />
         ) : filtered.length === 0 ? (
-          <div class="empty">
-            {searchQuery.value ? "No matching commands" : "No commands found"}
-          </div>
+          <EmptyState
+            icon="search-slash"
+            title={searchQuery.value ? "No matching commands" : "No commands found"}
+          />
         ) : (
           <>
             <div class="list-count">
@@ -137,13 +148,16 @@ export function CommandsListView() {
 /** Empty-state shown when no commands exist at all. */
 function EmptyCommands() {
   return (
-    <div class="cmd-empty">
-      <div class="cmd-empty-title">No commands yet</div>
-      <div class="cmd-empty-desc">
-        Custom slash commands are markdown files stored in <code>~/.claude/commands/</code> (global)
-        and <code>.claude/commands/</code> (project). Each <code>.md</code> file becomes a{" "}
-        <code>/command</code> named after the file.
-      </div>
-    </div>
+    <EmptyState
+      icon="terminal-square"
+      title="No commands yet"
+      description={
+        <>
+          A slash command is a markdown file: <code>~/.claude/commands/</code> for every
+          project, <code>.claude/commands/</code> for this one. Each <code>.md</code> file
+          becomes a <code>/command</code> named after it.
+        </>
+      }
+    />
   );
 }

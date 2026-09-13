@@ -40,6 +40,11 @@ const FILES = [
   "mcp.css",
   "agents.css",
   "account.css",
+  "config.css",
+  // LAST on purpose: density.css overrides row rules declared in the
+  // feature stylesheets above, so it has to win on source order rather
+  // than on specificity hacks.
+  "density.css",
 ];
 
 function build() {

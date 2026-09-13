@@ -32,7 +32,7 @@ export function CommandDetailView({ command }: CommandDetailViewProps) {
 
       <div class="d-head d-head--row">
         <div class="d-title d-title--mono">/{command.name}</div>
-        <Badge text={command.scope} variant="scope" class={`cmd-scope-${command.scope}`} />
+        <Badge text={command.scope} scope={command.scope} />
       </div>
 
       <div class="cmd-detail-actions">

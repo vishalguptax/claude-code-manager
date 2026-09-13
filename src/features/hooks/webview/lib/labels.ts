@@ -11,12 +11,20 @@ const EVENT_LABELS: Record<string, string> = Object.fromEntries(
   KNOWN_HOOK_EVENTS.map((e) => [e.name, e.label]),
 );
 
-/** Map scope to its short user-visible label. */
+/**
+ * Map scope to its short user-visible label.
+ *
+ * Lowercase, because this label goes in a scope chip and every other tab —
+ * Skills, Commands, MCP, Agents — renders `project` / `global` / `plugin` in
+ * lowercase. Hooks was the one tab shouting `Project` at the same chip size,
+ * next to the same colours, which read as a different kind of thing rather
+ * than the same thing on another tab.
+ */
 const SCOPE_LABELS: Record<HookScope, string> = {
-  global: "Global",
-  project: "Project",
-  local: "Local",
-  plugin: "Plugin",
+  global: "global",
+  project: "project",
+  local: "local",
+  plugin: "plugin",
 };
 
 /** Friendly label for an event, falling back to the raw event name. */
@@ -30,7 +38,7 @@ export function eventLabel(event: string): string {
  */
 export function scopeLabel(hook: Pick<Hook, "scope" | "pluginName">): string {
   if (hook.scope === "plugin") {
-    return `Plugin: ${hook.pluginName ?? "unknown"}`;
+    return `plugin: ${hook.pluginName ?? "unknown"}`;
   }
   return SCOPE_LABELS[hook.scope] ?? hook.scope;
 }
@@ -40,22 +48,3 @@ export function matcherDisplay(matcher: string): string {
   return matcher || "* (any)";
 }
 
-/**
- * CSS modifier class for a scope badge, matching the green/neutral/purple
- * palette every other feature's scope badge already uses (skills, commands,
- * mcp) — hooks scope badges previously carried no colour at all. `local` has
- * no precedent elsewhere (only hooks has a fourth, workspace-local scope); it
- * shares project's green since both are non-global/non-plugin, distinguished
- * by the scopeLabel text ("Local" vs "Project").
- */
-export function scopeClass(scope: HookScope): string {
-  switch (scope) {
-    case "project":
-    case "local":
-      return "hook-scope-project";
-    case "plugin":
-      return "hook-scope-plugin";
-    default:
-      return "hook-scope-global";
-  }
-}

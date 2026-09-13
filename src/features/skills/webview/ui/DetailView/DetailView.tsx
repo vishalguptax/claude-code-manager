@@ -41,7 +41,7 @@ export function DetailView({ skill }: DetailViewProps) {
         <div class="d-title">{skill.name}</div>
         {skill.description ? <div class="d-subtitle">{skill.description}</div> : null}
         <div class="d-tags">
-          <Badge variant="scope" text={skill.scope} class={`skill-scope-badge scope-${skill.scope}`} />
+          <Badge text={skill.scope} scope={skill.scope} class="skill-scope-badge" />
           {skill.tags.map((t) => (
             <span key={t} class="tag">
               {t}

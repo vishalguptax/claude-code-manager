@@ -7,12 +7,17 @@
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
 import { useApi } from "../../../webview/shared/hooks";
-import { registerFeatureHandler } from "../../../webview/shared/model";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { Hook } from "../types";
 import type { Post } from "./api";
 import * as api from "./api";
-import { errorMessage, loading, selectedHook, setError, setHooks } from "./model";
+import { eventLabel, hookKey } from "./lib";
+import { errorMessage, hooks, loading, selectedHook, setError, setHooks } from "./model";
 import { DetailView, ListView } from "./ui";
 
 export default function HooksTab() {
@@ -34,9 +39,30 @@ export default function HooksTab() {
     });
     // Request the initial list once mounted.
     api.getHooks(post as Post);
+
+    // Hooks in the command palette. The source is called per query, so
+    // it always reads the live signal without this module subscribing to it.
+    const offPalette = registerPaletteSource("hooks", () =>
+      hooks.value.map((s) => ({
+        // A hook has no name: two hooks can share a matcher and a command and
+        // differ only by position in settings.json, which is exactly what
+        // hookKey encodes.
+        id: `hooks:${hookKey(s)}`,
+        title: s.command,
+        subtitle: eventLabel(s.event),
+        group: "Hooks",
+        icon: "webhook",
+        hint: s.scope,
+        run: () => {
+          activeTab.value = "hooks";
+          selectedHook.value = s;
+        },
+      })),
+    );
     return () => {
       unsubscribe();
       unsubscribeError();
+      offPalette();
     };
   }, [post]);
 

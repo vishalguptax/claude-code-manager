@@ -21,7 +21,7 @@
  */
 
 import { useState } from "preact/hooks";
-import { Button, Icon } from "../../../../../webview/shared/ui";
+import { Button, Icon, SectionHeader } from "../../../../../webview/shared/ui";
 import { now } from "../../../../../webview/shared/model";
 import type { QuotaError, QuotaSuccess } from "../../../quota";
 import type { PromptCacheStats } from "../../../statuslineCore";
@@ -35,7 +35,6 @@ import {
   toggleSection,
 } from "../../model";
 import { QuotaBar } from "../QuotaBar";
-import { SectionHeader } from "../SectionHeader";
 
 export interface QuotaViewProps {
   api: AccountApi;
@@ -123,13 +122,13 @@ export function QuotaView({ api }: QuotaViewProps) {
     );
 
   return (
-    <section class="acct-section">
+    <section class="section">
       <SectionHeader id="quota" title="Quota" collapsed={collapsed} onToggle={toggleSection}>
         {freshness}
         {refreshBtn}
       </SectionHeader>
       {collapsed ? null : (
-        <div class="acct-section-body">
+        <div class="section-body">
           <QuotaBody onInstall={install} onRefresh={refresh} />
         </div>
       )}

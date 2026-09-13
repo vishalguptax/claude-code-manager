@@ -64,7 +64,7 @@ export function CommandItem({
             onCopy(command);
           }}
         />
-        <Badge text={command.scope} variant="scope" class={`cmd-scope-${command.scope}`} />
+        <Badge text={command.scope} scope={command.scope} />
       </div>
       <div class="cmd-item-preview">{previewText(command)}</div>
     </div>

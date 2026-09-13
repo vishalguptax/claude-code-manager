@@ -276,6 +276,7 @@ describe("ClaudeSessionViewProvider", () => {
           defaultFilter: "month",
           defaultProject: "all",
           restoreCount: 6,
+          density: "quiet",
         };
         return key in values ? values[key] : defaultValue;
       },
@@ -295,6 +296,29 @@ describe("ClaudeSessionViewProvider", () => {
     expect(settingsMsgs[0].defaultFilter).toBe("month");
     expect(settingsMsgs[0].defaultProject).toBe("all");
     expect(settingsMsgs[0].restoreCount).toBe(6);
+    // Shell chrome rides this message so the panel re-skins on a settings
+    // change without a reload — refreshSettings is the only push the
+    // configuration-change handler makes.
+    expect(settingsMsgs[0].density).toBe("quiet");
+  });
+
+  it("defaults density to comfortable when the setting is unset", async () => {
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: (_key: string, defaultValue?: unknown) => defaultValue,
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    view.webview.posted.length = 0;
+
+    provider.refreshSettings();
+
+    const settingsMsgs = view.webview.posted.filter((m) => m.type === "settings");
+    expect(settingsMsgs).toHaveLength(1);
+    expect(settingsMsgs[0].density).toBe("comfortable");
   });
 
   it("posts the current branch alongside workspace path on folder change", async () => {

@@ -8,13 +8,22 @@ body {
   height: 100vh;
   overflow: hidden;
 }
-::-webkit-scrollbar { width: 5px; }
+/* Both axes. `width` sizes a vertical bar and `height` a horizontal one — with
+   only the first set, every sideways scroller (the tab strip, the bulk-select
+   toolbar, wide code blocks) drew the browser's default ~15px bar under it. */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--vscode-scrollbarSlider-background);
   border-radius: 3px;
 }
 #root { height: 100vh; display: flex; flex-direction: column; }
+
+/* App root wrapper. Carries `data-density` for the whole panel (see
+   density.css). `display: contents` keeps it out of layout entirely, so the
+   tab bar, content area and footer remain direct flex children of #root —
+   the same mechanism .tab-keepalive uses for inactive tabs. */
+.app-shell { display: contents; }
 
 
 /* ============================================================================
@@ -148,7 +157,6 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .loading { animation: none; }
 }
-.empty   { text-align: center; padding: calc(var(--space-2xl) * 2) var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
 
 /* Initial-paint loader for tab containers — shows immediately while
    the host parses data so users see activity instead of an empty
@@ -193,8 +201,14 @@ button {
 }
 
 /* Shimmer overlay: a low-alpha gradient slides left→right across each
-   element. Pure white at low opacity reads on both light and dark themes
-   without theme branching. */
+   element.
+   
+   The sweep colour is mixed from the THEME FOREGROUND, not a fixed white.
+   Pure white at 8% was invisible on light themes — the bar beneath it is
+   --bg-hover, a pale grey there, so white-on-near-white left half the users
+   staring at a static block while the other half saw motion. Mixing from
+   --fg inverts with the theme automatically: a light wash on dark grounds,
+   a dark wash on light ones, with no theme branching and no second rule. */
 .skeleton-el::after {
   content: "";
   position: absolute;
@@ -202,7 +216,7 @@ button {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.08) 50%,
+    color-mix(in srgb, var(--fg) 12%, transparent) 50%,
     transparent 100%
   );
   transform: translateX(-100%);
@@ -226,55 +240,7 @@ button {
   .skeleton-el::after { animation: none; display: none; }
 }
 
-/* Inline link button rendered inside an .empty / .mcp-empty block.
-   Visual: link-coloured text with no chrome so it reads as a follow-up
-   prompt rather than a primary CTA. The marketplace "Browse community"
-   buttons use this. */
-.empty-link-btn {
-  margin-top: var(--space-sm);
-  background: none;
-  border: none;
-  padding: var(--space-xs) var(--space-md);
-  color: var(--link, var(--accent));
-  font-size: var(--fs-base);
-  font-family: inherit;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.empty-link-btn:hover { color: var(--fg); }
-.empty-link-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 
-/* Shared empty state (renderEmptyState) — icon + title + description + action */
-.state-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  /* Shared centered-state inset — see .loading / .empty-state. */
-  padding: calc(var(--space-2xl) * 2) var(--space-2xl);
-  gap: var(--space-sm);
-}
-.state-empty-icon {
-  color: var(--fg-muted);
-  opacity: 0.5;
-  margin-bottom: var(--space-sm);
-}
-.state-empty-title {
-  font-size: var(--fs-md);
-  font-weight: 600;
-  color: var(--fg);
-}
-.state-empty-desc {
-  font-size: var(--fs-sm);
-  color: var(--fg-dim);
-  line-height: 1.5;
-  max-width: 280px;
-}
-.state-empty .btn {
-  margin-top: var(--space-sm);
-}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -299,16 +265,16 @@ button,
 [role="button"],
 .tab-btn, .tab-btn *,
 .vsc-segmented-seg,
-.acct-section-header, .acct-section-header *,
-.acct-actions .btn, .acct-actions .btn *,
-.acct-perm-remove,
+.section-header, .section-header *,
+.actions-row .btn, .actions-row .btn *,
+.cfg-perm-remove,
 .acct-quota-row-head, .acct-quota-row-head *,
-.acct-empty-title,
-.acct-empty-hint,
+.empty-state-title,
+.empty-state-desc,
 .footer-link,
 .footer-name,
 .app-footer,
-.acct-scope-toggle, .acct-scope-toggle * {
+.vsc-segmented, .vsc-segmented * {
   user-select: none;
   -webkit-user-select: none;
 }
@@ -363,7 +329,11 @@ button,
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
-  padding: var(--space-lg) var(--space-2xl);
+  /* Tight vertical padding: this is persistent chrome on every tab, and at
+     --space-lg top and bottom it stood taller than a session row while
+     carrying a wordmark and two links. Horizontal inset still matches the
+     rows above it. */
+  padding: 0 var(--space-2xl);
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
@@ -381,12 +351,14 @@ button,
   background: none;
   border: none;
   cursor: pointer;
-  padding: var(--space-xs);
+  /* The links set the bar's height, so their own padding is what made it
+     stand taller than a list row — the footer itself now adds none. */
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius);
   transition: color var(--transition-control);
   font-family: inherit;
 }
-.footer-link .icon { width: 14px; height: 14px; }
+.footer-link .icon { width: 13px; height: 13px; }
 .footer-link:hover { color: var(--fg); background: var(--bg-hover); }
 
 /* ── Load-deadline notice ──────────────────────────────────────────

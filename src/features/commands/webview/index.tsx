@@ -7,8 +7,12 @@
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
 import { useApi } from "../../../webview/shared/hooks";
-import { registerFeatureHandler } from "../../../webview/shared/model";
-import { ListSkeleton } from "../../../webview/shared/ui";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
+import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { Command } from "../types";
 import { getCommandsMsg, type Post } from "./api";
 import { claudeCodeInstalled, commands, errorMessage, loading, selected } from "./model";
@@ -39,8 +43,26 @@ export default function CommandsTab() {
     ];
     loading.value = true;
     (post as Post)(getCommandsMsg());
+
+    // Commands in the command palette. The source is called per query, so
+    // it always reads the live signal without this module subscribing to it.
+    const offPalette = registerPaletteSource("commands", () =>
+      commands.value.map((s) => ({
+        id: `commands:${`/${s.name}`}`,
+        title: `/${s.name}`,
+        subtitle: s.description,
+        group: "Commands",
+        icon: "terminal-square",
+        hint: s.scope,
+        run: () => {
+          activeTab.value = "commands";
+          selected.value = s;
+        },
+      })),
+    );
     return () => {
       for (const off of unsubscribers) off();
+      offPalette();
     };
   }, [post]);
 
@@ -48,7 +70,7 @@ export default function CommandsTab() {
     return <ListSkeleton />;
   }
   if (errorMessage.value) {
-    return <div class="empty">Error: {errorMessage.value}</div>;
+    return <EmptyState icon="circle-alert" title="Couldn't load commands" description={errorMessage.value} />;
   }
 
   const current = selected.value;

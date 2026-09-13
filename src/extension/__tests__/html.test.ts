@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import * as fs from "fs";
+import * as path from "path";
 import { Uri } from "vscode";
 import type * as vscode from "vscode";
 import { getWebviewHtml } from "../html";
@@ -38,6 +40,31 @@ describe("getWebviewHtml", () => {
 
   it("declares a theme-aware color-scheme so native controls adapt", () => {
     expect(html).toContain("color-scheme: light dark");
+  });
+
+  // ── Token mirror ────────────────────────────────────────────────────
+  // The CSP shell paints before dist/webview/styles.css loads, so it carries
+  // its own copy of the design tokens. tokens.css says "keep the two in sync"
+  // and, until this test, nothing did — a token added or retuned in one file
+  // would silently give the first painted frame different values from every
+  // frame after it.
+
+  it("mirrors the type scale declared in tokens.css", () => {
+    const tokens = fs.readFileSync(
+      path.resolve(__dirname, "..", "..", "styles", "tokens.css"),
+      "utf-8",
+    );
+    const scale = [...tokens.matchAll(/^\s*(--fs-[a-z]+):\s*([^;]+);/gm)];
+    // Guard the guard: if the regex stops matching, the loop below passes
+    // vacuously and the mirror rots unnoticed.
+    expect(scale.length).toBeGreaterThanOrEqual(7);
+    for (const [, name, value] of scale) {
+      const normalized = value.replace(/\s+/g, " ").trim();
+      expect(
+        html.replace(/\s+/g, " "),
+        `${name} differs between tokens.css and the inline shell`,
+      ).toContain(`${name}: ${normalized}`);
+    }
   });
 
   it("does not permit inline scripts (no unsafe-inline in script-src)", () => {

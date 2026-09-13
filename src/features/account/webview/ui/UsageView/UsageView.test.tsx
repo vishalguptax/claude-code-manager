@@ -77,7 +77,7 @@ describe("UsageView", () => {
     // It used to sit right-aligned between the stat tiles and the info
     // ribbon — an action floating mid-column, attached to nothing.
     const { container } = render(h(UsageView, { data: dataWith(makeUsage()) }));
-    const header = container.querySelector(".acct-section-header") as HTMLElement;
+    const header = container.querySelector(".section-header") as HTMLElement;
     expect(header.querySelector('[aria-label="Share stats"]')).toBeTruthy();
     expect(container.querySelector(".acct-share-row")).toBeNull();
   });
@@ -186,7 +186,7 @@ describe("UsageView", () => {
 
   it("collapses the usage section when its header is toggled", () => {
     render(h(UsageView, { data: dataWith(makeUsage()) }));
-    const header = screen.getByText("Usage").closest(".acct-section-header") as HTMLElement;
+    const header = screen.getByText("Usage").closest(".section-header") as HTMLElement;
     fireEvent.click(header);
     // Collapsed → stats grid gone.
     expect(screen.queryByText("tokens")).toBeNull();
@@ -248,5 +248,26 @@ describe("UsageView", () => {
       // A real <button>, so Enter/Space come free — no role/tabindex shim.
       expect(head.tagName).toBe("BUTTON");
     });
+  });
+
+  // ── Info ribbon ─────────────────────────────────────────────────────
+  // Every entry is conditional on its own value. The streak line was pushed
+  // unconditionally, so a payload without that field rendered the literal
+  // string "streak undefinedd" — visible on screen, in a shipped build.
+
+  it("omits the streak rather than printing undefined", () => {
+    const usage = makeUsage();
+    delete (usage as Partial<typeof usage>).currentStreak;
+    delete (usage as Partial<typeof usage>).longestStreak;
+    const { container } = render(h(UsageView, { data: dataWith(usage) }));
+    expect(container.textContent).not.toContain("undefined");
+    expect(container.textContent).not.toContain("streak");
+  });
+
+  it("still shows the streak when the host sends one", () => {
+    const { container } = render(
+      h(UsageView, { data: dataWith(makeUsage({ currentStreak: 4 })) }),
+    );
+    expect(container.textContent).toContain("streak 4d");
   });
 });

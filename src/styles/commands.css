@@ -5,19 +5,15 @@
  * scope filter (.scope-filter/.vsc-segmented), buttons (.btn*), and scope
  * badge base (.vsc-badge*) — those rules live in components.css /
  * components-native.css and are NOT duplicated here. The list/detail layout
- * classes (cmd-item, cmd-detail-*, cmd-group-label) and the
- * global/project/builtin scope-colour tags live in the shared features.css
- * and are reused under the same class names, so they are not re-declared here.
- * This file holds only the command-specific styling that has no home in
- * either shared layer:
- *   - the plugin scope badge colour (the only scope colour features.css omits)
- *   - a spacing modifier replacing an inline style removed during the port
+ * classes (cmd-item, cmd-detail-*) live in the shared features.css and the
+ * group heading in components.css, so they are not re-declared here. Scope
+ * badge colours are decided by <Badge scope="…"> (components-native.css), not
+ * by a per-feature class.
+ *
+ * What is left is one spacing modifier that replaced an inline style during
+ * the port. If that ever goes, so should this file.
  */
 
-.cmd-scope-plugin {
-  background: var(--color-purple-bg);
-  color: var(--color-purple);
-}
 
 .cmd-detail-label-spaced {
   margin-top: var(--space-xl);

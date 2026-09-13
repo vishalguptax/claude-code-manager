@@ -28,7 +28,7 @@ afterEach(() => {
 describe("AgentListView", () => {
   it("shows the all-empty state when there are no agents", () => {
     const { container } = render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
-    expect(container.querySelector(".agent-empty")).toBeTruthy();
+    expect(container.querySelector(".empty-state")).toBeTruthy();
     // No model filter row when there are no agents.
     expect(container.querySelector(".scope-filter")).toBeNull();
   });
@@ -42,7 +42,7 @@ describe("AgentListView", () => {
     expect(screen.getByText("2 agents")).toBeTruthy();
     const labels = [...container.querySelectorAll(".group-label")].map((e) => e.textContent);
     expect(labels).toEqual(["Project", "Global"]);
-    expect(container.querySelector(".scope-filter")).toBeTruthy();
+    expect(container.querySelector(".vsc-dropdown")).toBeTruthy();
   });
 
   it("uses singular wording for one agent", () => {
@@ -58,12 +58,12 @@ describe("AgentListView", () => {
     expect(screen.getByText("No matching agents")).toBeTruthy();
   });
 
-  it("shows a no-match state (not 'No agents found') when a model filter hides everything", () => {
+  it("shows a no-match state (not the first-run state) when a model filter hides everything", () => {
     agents.value = [agent({ name: "alpha", model: "sonnet" })];
     filterModel.value = "opus";
     render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     expect(screen.getByText("No matching agents")).toBeTruthy();
-    expect(screen.queryByText("No agents found")).toBeNull();
+    expect(screen.queryByText("No agents yet")).toBeNull();
   });
 
   it("selects an agent on click", () => {
@@ -111,7 +111,9 @@ describe("AgentListView", () => {
   it("changes the model filter", () => {
     agents.value = [agent({ name: "o", model: "opus" })];
     render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
-    fireEvent.click(screen.getByText("Opus (1)"));
+    // The filter is a <Dropdown>: open the trigger, then pick the option.
+    fireEvent.click(screen.getByLabelText("Filter by model"));
+    fireEvent.click(screen.getByText("Opus"));
     expect(filterModel.value).toBe("opus");
   });
 

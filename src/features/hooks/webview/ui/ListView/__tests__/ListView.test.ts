@@ -70,17 +70,19 @@ describe("ListView", () => {
       hook({ command: "alpha", matcher: "Write" }),
       hook({ command: "beta", matcher: "Bash" }),
     ]);
-    render(h(ListView, {}));
+    const { container } = render(h(ListView, {}));
     fireEvent.input(screen.getByLabelText("Search hooks"), { target: { value: "beta" } });
     await waitFor(() => expect(screen.getByText("1 hook")).toBeTruthy());
     expect(screen.queryByText("alpha")).toBeNull();
-    expect(screen.getByText("beta")).toBeTruthy();
+    expect(container.querySelector(".hook-item-name")).toBeTruthy();
   });
 
   it("selects a hook on row click", () => {
     setHooks([hook({ command: "pick-me" })]);
-    render(h(ListView, {}));
-    fireEvent.click(screen.getByText("pick-me"));
+    const { container } = render(h(ListView, {}));
+    // The derived name and the command both read "pick-me" now, so click
+    // the row's name rather than matching on text alone.
+    fireEvent.click(container.querySelector(".hook-item-name") as HTMLElement);
     expect(selectedHook.value?.command).toBe("pick-me");
   });
 
@@ -97,7 +99,7 @@ describe("ListView", () => {
   it("shows the scope filter and narrows on click", () => {
     setHooks([hook({ scope: "global", command: "g" }), hook({ scope: "local", command: "l" })]);
     render(h(ListView, {}));
-    fireEvent.click(screen.getByText("Local (1)"));
+    fireEvent.click(screen.getByText("Local"));
     expect(screen.getByText("1 hook")).toBeTruthy();
     expect(screen.queryByText("g")).toBeNull();
   });
@@ -114,9 +116,9 @@ describe("ListView", () => {
 
   it("shows a parse-error banner above the list while still rendering the data", () => {
     setHooks([hook({ command: "still-here" })], ["Failed to parse .claude/settings.json: bad"]);
-    render(h(ListView, {}));
+    const { container } = render(h(ListView, {}));
     expect(screen.getByText("Failed to parse .claude/settings.json: bad")).toBeTruthy();
-    expect(screen.getByText("still-here")).toBeTruthy();
+    expect(container.querySelector(".hook-item-name")?.textContent).toBe("still-here");
   });
 
   it("renders no banner when there are no parse errors", () => {

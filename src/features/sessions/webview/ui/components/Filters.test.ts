@@ -57,9 +57,18 @@ describe("Filters — worktree dropdown", () => {
     filterProjectSignal.value = "all";
   });
 
+  // The pickers live behind the toolbar's filter toggle now, so reaching one
+  // means opening the panel first — the same way a user does.
+  function openFilters(container: ParentNode): void {
+    fireEvent.click(
+      container.querySelector("[aria-label='Filter sessions']") as HTMLButtonElement,
+    );
+  }
+
   it("is hidden when no Claude/user worktree sessions are present", () => {
     sessionsSignal.value = [session({ id: "a" })];
     const { container } = render(h(Filters, {}));
+    openFilters(container);
     expect(container.querySelector("[aria-label='Filter by worktree']")).toBeNull();
   });
 
@@ -67,6 +76,7 @@ describe("Filters — worktree dropdown", () => {
     sessionsSignal.value = [session({ id: "a" })];
     worktreesSignal.value = { a: ref({ kind: "claude" }) };
     const { container } = render(h(Filters, {}));
+    openFilters(container);
     const trigger = container.querySelector(
       "[aria-label='Filter by worktree']",
     ) as HTMLButtonElement;

@@ -1317,8 +1317,8 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
         <ul class="chg">
           <li><span class="t" data-sev="P0">One primary action, not six peers</span><span class="d">Temp, Restore, Import and Import&nbsp;Many move into the split-button menu. Six equal-weight buttons in a 135px auto-fit grid wrap to three rows at 280px and answer no question about what to click first.</span></li>
           <li><span class="t" data-sev="P0">Filters collapse to what is actually on</span><span class="d">Project, branch, worktree and date used three permanent rows. Now the bar shows only active filters as removable chips; the funnel opens the rest.</span></li>
-          <li><span class="t" data-sev="P1">Row separators removed</span><span class="d">A 1px rule under every row turns a session list into a ledger. Sticky group headers and the hover fill carry the structure instead.</span></li>
-          <li><span class="t" data-sev="P1">Nothing disappears on hover</span><span class="d">Today the timestamp and pin are set to <code>visibility:hidden</code> on hover and the action rides a gradient over the title. Actions now sit in a reserved gutter.</span></li>
+          <li><span class="t" data-sev="P1">Row separators become a setting</span><span class="d">Whether a three-line row reads better ruled or unruled needs looking at in a real sidebar, so it shipped as <code>claudeManager.density</code>: comfortable keeps the rules, quiet drops them. Sticky headers were dropped entirely — <code>VirtualList</code> positions rows <code>absolute</code>, so <code>position: sticky</code> would be silently inert.</span></li>
+          <li><span class="t" data-sev="P2">Hover overlay: left alone</span><span class="d">An earlier draft of this audit called the hover behaviour a defect. It is VS Code Explorer’s own pattern, and the gradient is what stops the title hard-clipping. The screen above keeps it.</span></li>
         </ul>
         <div class="metric"><span class="big">118px</span><span class="lbl">of chrome reclaimed above the first row at 340px wide, before any scrolling</span></div>
       </div>
@@ -1464,20 +1464,44 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
     </div>
 
     <div>
+      <h3>What shipped</h3>
+      <p style="margin-top:10px;">Every issue below is now fixed on <code>feat/sidebar-shell-redesign</code>, in thirteen commits. Build green, typecheck clean, <b>2,231 tests passing</b> (from 2,134). The screens above still show the proposal; the code is the record.</p>
+      <div class="tbl-wrap" style="margin-top:14px;">
+        <table>
+          <thead><tr><th>Area</th><th>Change</th></tr></thead>
+          <tbody>
+            <tr><td>Tab strip</td><td>Two files declared <code>.tab-btn</code>; the later one’s padding squeezed a 16px glyph into 8px of content. One owner, plus scroll-into-view for the active tab.</td></tr>
+            <tr><td>Sessions</td><td>Six equal launch buttons became one primary plus a split menu; four filter pickers moved behind a toggle with active-filter chips. About 118px returned to the list.</td></tr>
+            <tr><td>Palette</td><td>Cmd/Ctrl+K over sessions, skills, commands, agents, servers, hooks and tab navigation. Features register into a shared registry; the palette imports no feature.</td></tr>
+            <tr><td>Density</td><td><code>claudeManager.density</code> — comfortable keeps the row rules, quiet drops them. Tests enforce that every list row has a quiet variant.</td></tr>
+            <tr><td>Chips</td><td>One scope colour map replacing five private copies; one chip box replacing three near-identical ones.</td></tr>
+            <tr><td>Empty states</td><td>Seven implementations became one, with a compact variant for in-section emptiness.</td></tr>
+            <tr><td>Config</td><td>Stopped rendering Account’s classes. <code>Section</code> and <code>Field</code> promoted to shared/ui; the rest moved to a new <code>config.css</code>.</td></tr>
+            <tr><td>Type scale</td><td>Six absolute pixel values became ratios of <code>--vscode-font-size</code>, so the sidebar follows the font size the user set.</td></tr>
+            <tr><td>Truncation</td><td>Four lists cut text in JS <em>and</em> in CSS. The JS cut is gone; the full value is now on the row’s title.</td></tr>
+            <tr><td>Colour</td><td>Every remaining bare hex routed through tokens. The skeleton shimmer now mixes from the foreground, so it is visible on light themes.</td></tr>
+            <tr><td>Virtual rows</td><td>Two lists pinned a row height in CSS to mirror a JS constant, clipping any row whose content grew. VirtualList measures; both pins removed.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:14px;">Three findings were withdrawn rather than built, and one more after implementation began: the scope colours were already consistent across tabs (the duplication was real, the inconsistency was not), and the 1px focus ring meets WCAG 2.2 at AA — the 2px minimum is the AAA criterion, and VS Code’s own ring is 1px, so matching the host wins.</p>
+    </div>
+
+    <div>
       <h3>Priority issues</h3>
       <div class="issues">
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>Eight tabs do not fit a sidebar</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P2">corrected</span><h4>The tab strip had two owners, and the later one squeezed the icons</h4></div>
           <dl>
-            <dt>What</dt><dd>Eight labelled tabs at roughly 85px each need about 680px. The default sidebar is 300–400px, so half the product is off-screen, and <code>.tab-list::-webkit-scrollbar { display: none }</code> removes the only hint that it continues. Account and Config, the two tabs a returning user opens most, sit last.</dd>
-            <dt>Fix</dt><dd>Icon-only tabs with the label revealed on the active tab, which fits all eight at 280px with room to spare. Keep the arrow-key roving tabindex; add the tooltip as the label for the seven inactive ones.</dd>
-            <dt>Command</dt><dd><code>/impeccable layout</code></dd>
+            <dt>Correction</dt><dd>First written up as “eight labelled tabs need 680px, so half the product is off-screen”. That was wrong: <code>components.css</code> already hid inactive labels, so the icon rail existed. Reasoning from one stylesheet instead of the concatenated bundle is what produced the mistake.</dd>
+            <dt>What</dt><dd>The real defect was a duplicate declaration. <code>components.css</code> sized a tab as a 32px square with <code>padding: 0</code>; <code>tabs.css</code> loads later in <code>build-css.js</code> and set <code>padding: 8px 12px</code> with no width. Border-box arithmetic: 32 − 24 = 8px of content for a 16px glyph, so every inactive icon overflowed its own cell.</dd>
+            <dt>Fixed</dt><dd>The whole tab family now lives in <code>tabs.css</code> alone; <code>components.css</code> keeps a pointer. The active tab is scrolled into view on change, since the strip can still overflow on a hand-narrowed panel and the scrollbar is deliberately hidden.</dd>
           </dl>
         </div>
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>Up to 230px of chrome before the first session</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>Up to 230px of chrome before the first session</h4><span class="sev" data-v="P2">fixed</span></div>
           <dl>
             <dt>What</dt><dd>The Sessions tab stacks an action grid of six buttons (which wraps to two or three rows under 420px), a search row, a filter row of dropdowns, a date segmented control and a count header. On a 900px-tall sidebar that is a quarter of the viewport spent before any content, every single time.</dd>
             <dt>Fix</dt><dd>One primary split button, a search row, and a chip bar that renders only the filters that are actually set. The date range and the project, branch and worktree pickers move behind the funnel.</dd>
@@ -1486,7 +1510,7 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
         </div>
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>No way to search across tabs</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P0">P0</span><h4>No way to search across tabs</h4><span class="sev" data-v="P2">fixed</span></div>
           <dl>
             <dt>What</dt><dd>Each of the eight tabs has its own search field that only searches its own list. Finding a session when you are on Config means switching tabs, waiting for a lazy mount, and typing again.</dd>
             <dt>Fix</dt><dd>One palette on <kbd>Cmd K</kbd> over sessions, skills, commands, agents, servers, hooks and settings keys, grouped by source. Every feature already has its filtered signal, so the aggregation is cheap.</dd>
@@ -1495,7 +1519,7 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
         </div>
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Four badge systems and per-tab scope colours</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Four badge systems and per-tab scope colours</h4><span class="sev" data-v="P2">fixed</span></div>
           <dl>
             <dt>What</dt><dd><code>.tag</code>, <code>.vsc-badge</code>, <code>.hook-matcher</code> and <code>.acct-plan-badge</code> are four near-identical 18px pills with different fonts, radii and colour rules. Worse, the same scope means different colours per tab: Commands paints built-in blue and project green, Skills has no built-in at all, MCP uses blue for transport rather than scope, and Hooks routes through its own <code>scopeClass</code>.</dd>
             <dt>Fix</dt><dd>One <code>Chip</code> primitive with one size and five tones, and one exported scope-to-tone map imported by all five list features.</dd>
@@ -1504,16 +1528,16 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
         </div>
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Hovering a row destroys information</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P2">withdrawn</span><h4>“Hovering a row destroys information”</h4></div>
           <dl>
-            <dt>What</dt><dd><code>.session-item:hover .item-time { visibility: hidden }</code> and the same rule for <code>.pin-icon</code>. The action cluster then rides a gradient over the title tail. Pointing at the row you are reading removes the timestamp, the pin marker, and the end of the name.</dd>
-            <dt>Fix</dt><dd>Reserve a 28px action gutter on every row across every tab. The buttons fade in; nothing fades out.</dd>
-            <dt>Command</dt><dd><code>/impeccable polish</code></dd>
+            <dt>Claim</dt><dd><code>.session-item:hover .item-time { visibility: hidden }</code>, the same rule for <code>.pin-icon</code>, and an action cluster riding a gradient over the title tail. Proposed fix: a reserved 28px action gutter on every row.</dd>
+            <dt>Why it was wrong</dt><dd>This is VS Code Explorer’s own pattern — row metadata yields to actions on hover — and the gradient exists precisely so the title dissolves instead of hard-clipping. A reserved gutter would cost every row 38px permanently, over 13% of a 280px sidebar, to “fix” behaviour that is native and deliberate.</dd>
+            <dt>Status</dt><dd>Not shipping. The overlay stays as it is.</dd>
           </dl>
         </div>
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>A nearly flat type scale doing no work</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>A nearly flat type scale doing no work</h4><span class="sev" data-v="P2">fixed</span></div>
           <dl>
             <dt>What</dt><dd>10 / 11 / 12 / 13 / 14 / 16px, a ratio of 1.08 between the two most-used steps. Hierarchy therefore rests entirely on colour, and the colour ramp is <code>--fg</code>, <code>--fg-dim</code>, <code>--fg-muted</code>, all muted by design. Nothing on a row is emphatic.</dd>
             <dt>Fix</dt><dd>11 / 12 / 13 / 15 / 18 with weight carrying the rest: 600 for names, 500 for body, 400 for meta. Same density, real hierarchy.</dd>
@@ -1522,7 +1546,7 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
         </div>
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Config is styled out of account.css</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P1">P1</span><h4>Config is styled out of account.css</h4><span class="sev" data-v="P2">fixed</span></div>
           <dl>
             <dt>What</dt><dd>The Config tab renders <code>.acct-section</code>, <code>.acct-field</code>, <code>.acct-label</code>, <code>.acct-field-hint</code> and <code>.acct-actions</code>. Those names are a leak: there is no shared Section or Field primitive, so the second feature that needed one reached across the boundary. <code>account.css</code> is 1,366 lines, the largest file in the project, and Config depends on all of it.</dd>
             <dt>Fix</dt><dd>Promote <code>Section</code>, <code>Field</code>, <code>Label</code>, <code>Hint</code>, <code>StatTile</code> and <code>MetaRow</code> into <code>src/webview/shared/ui</code> with neutral class names, then migrate both tabs.</dd>
@@ -1531,7 +1555,7 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
         </div>
 
         <div class="issue">
-          <div class="issue-h"><span class="sev" data-v="P2">P2</span><h4>The skeleton shimmer is invisible on light themes</h4></div>
+          <div class="issue-h"><span class="sev" data-v="P2">P2</span><h4>The skeleton shimmer is invisible on light themes</h4><span class="sev" data-v="P2">fixed</span></div>
           <dl>
             <dt>What</dt><dd><code>.skeleton-el::after</code> sweeps <code>rgba(255,255,255,0.08)</code> across a <code>--bg-hover</code> base. On a light theme that is white on near-white, so half the users see a static grey bar where the other half see motion.</dd>
             <dt>Fix</dt><dd><code>color-mix(in srgb, var(--fg) 9%, transparent)</code>, which tracks the theme in both directions. Same one-line change fixes the focus ring: <code>--focus-ring: 1px</code> falls short of the 2px minimum WCAG 2.2 asks for on focus appearance.</dd>
@@ -1580,7 +1604,7 @@ tfoot td{font-weight:700; color:var(--ink); background:var(--surface-2);}
       </ul>
     </div>
 
-    <p class="foot">Scored against Nielsen's ten heuristics with the bundled anti-pattern detector as the second, independent pass. Screens above are interactive mockups, not the shipping build. Sample data is illustrative.</p>
+    <p class="foot">Scored against Nielsen’s ten heuristics with the bundled anti-pattern detector as the second, independent pass. Screens above are interactive mockups, not the shipping build; sample data is illustrative. Two findings were withdrawn after reading the concatenated stylesheet rather than individual files. Both are kept above, marked <em>corrected</em> and <em>withdrawn</em>, rather than deleted — an audit that quietly drops its own mistakes is not one you can trust the rest of.</p>
   </div>
 </section>
 

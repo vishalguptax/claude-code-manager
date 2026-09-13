@@ -259,6 +259,11 @@ export function refreshSettings(ctx: ProviderActionsContext): void {
       "https://github.com/anthropics/claude-code/wiki/Skills",
     ),
     marketplaceMcpUrl: rootConfig.get<string>("marketplaceMcpUrl", "https://mcp.so"),
+    // Shell chrome, not a sessions concern: the webview stamps it on its root
+    // wrapper and every tab's list rows read it. Rides this message because it
+    // is already re-pushed on every configuration change, so switching the
+    // setting re-skins the panel without a reload.
+    density: rootConfig.get<string>("density", "comfortable"),
     // Persisted in extension globalState so the cinematic intro auto-plays
     // exactly once per VS Code install and survives panel reloads.
     demoSeen: ctx.globalState?.get<boolean>(DEMO_SEEN_KEY) ?? false,

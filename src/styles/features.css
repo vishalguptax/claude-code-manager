@@ -3,43 +3,6 @@
    ============================================================================ */
 
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Commands — Empty State
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.cmd-empty,
-.hook-empty {
-  text-align: center;
-  padding: var(--space-2xl) var(--space-2xl);
-}
-
-.cmd-empty-title,
-.hook-empty-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-xl);
-}
-
-.cmd-empty-desc,
-.hook-empty-desc {
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  line-height: 1.6;
-  text-align: left;
-  max-width: 340px;
-  margin: 0 auto;
-}
-
-.cmd-empty-desc code,
-.hook-empty-desc code {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -47,20 +10,6 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 /* Result count captions use the shared `.list-count` (components.css). */
-
-.cmd-group-label,
-.hook-group-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fg-section);
-  /* Unified section-header rhythm — see .group-label (sessions.css). */
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
 
 .cmd-item {
   padding: var(--space-lg) var(--space-2xl);
@@ -104,31 +53,6 @@
 .cmd-item.active .cmd-item-preview { color: var(--bg-active-fg); opacity: 0.65; }
 
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Commands — Scope Badge colours. The chip shape (display/font/padding/radius/
-   height) comes from the shared `.vsc-badge` that CommandItem renders; only the
-   per-scope colour modifiers live here so commands badges match the skills / MCP
-   scope chips exactly. (The former `.cmd-scope-badge` base block duplicated the
-   shared chrome with an uppercase 18px override that nothing rendered — removed.)
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.cmd-scope-global {
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-}
-
-.cmd-scope-project {
-  background: var(--green-bg);
-  color: var(--green);
-}
-
-.cmd-scope-builtin {
-  background: var(--color-blue-bg);
-  color: var(--color-blue);
-}
-
-/* .cmd-scope-plugin lives in commands.css (that file's documented job is
-   exactly this — the one scope colour this shared layer omits). */
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -211,6 +135,22 @@
   padding: 0;
 }
 
+/* The row's name. Takes the slack so the chips and hover actions keep their
+   size, and ellipsizes rather than wrapping — a hook row is one line. */
+.hook-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hook-item.is-disabled .hook-item-name {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
 .hook-item-row1 {
   display: flex;
   align-items: center;
@@ -237,21 +177,12 @@
 }
 
 .hook-matcher {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-sm);
   font-family: var(--mono);
   background: var(--badge-neutral-bg);
   color: var(--badge-neutral-fg);
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-  height: 18px;
   /* A long matcher (e.g. Bash|Write|Edit|Read) must not push the badges +
      hover actions out of the row — clip it; the full value is in the title. */
   max-width: 45%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .hook-matcher-all {

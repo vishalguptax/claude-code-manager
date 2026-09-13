@@ -5,7 +5,12 @@
 import { render } from "preact";
 import { initPersistence } from "../persistence";
 import { setVscodeApi } from "../shared/hooks";
-import { initMessageBus, registerFeatureHandler, startNowTicker } from "../shared/model";
+import {
+  applyShellSettings,
+  initMessageBus,
+  registerFeatureHandler,
+  startNowTicker,
+} from "../shared/model";
 import { noteAck } from "../shared/model/hostBusy";
 import { App } from "./App";
 
@@ -25,6 +30,11 @@ initPersistence(vscode);
 initMessageBus();
 // Host acks clear the shared busy indicator armed by useApi's post().
 registerFeatureHandler("ack", noteAck);
+// Shell-wide chrome from the host's settings push (currently row density).
+// Registered here rather than in a feature because it skins every tab, and
+// the host re-pushes `settings` on every configuration change, so the panel
+// re-skins live without a reload.
+registerFeatureHandler("settings", applyShellSettings);
 // Drive the shared wall-clock signal so relative timestamps + quota
 // countdowns stay live without per-view timers.
 startNowTicker();

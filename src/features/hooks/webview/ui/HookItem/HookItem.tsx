@@ -9,10 +9,7 @@ import { cx } from "../../../../../webview/shared/lib";
 import { Badge, Button } from "../../../../../webview/shared/ui";
 import type { Hook } from "../../../types";
 import { eventUsesMatcher } from "../../../events";
-import { scopeClass, scopeLabel } from "../../lib";
-
-/** Command preview length before truncating with an ellipsis. */
-const PREVIEW_MAX = 60;
+import { eventLabel, hookTitle, scopeLabel } from "../../lib";
 
 export interface HookItemProps {
   hook: Hook;
@@ -22,11 +19,18 @@ export interface HookItemProps {
 }
 
 export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
-  const preview =
-    hook.command.length > PREVIEW_MAX ? `${hook.command.slice(0, PREVIEW_MAX)}…` : hook.command;
+  // Full command. `.hook-item-command code` ellipsizes it at the row edge, so
+  // the old 60-character cut just truncated an already-truncated string.
+  const preview = hook.command;
   const isPlugin = hook.scope === "plugin";
   const toggleTitle = hook.disabled ? "Enable hook" : "Disable hook";
-  const toggleIcon = hook.disabled ? "play" : "pin-off";
+  // Pause/play, not pin-off: a crossed-out pushpin means "unpin", which is
+  // not an action a hook has. These two say stop and resume this handler.
+  const toggleIcon = hook.disabled ? "play" : "pause";
+  // Hooks carry no name, so the row used to lead with a scope chip and a file
+  // path — the only list in the extension you had to read a path to scan.
+  // Derived for display only; nothing is written back to settings.json.
+  const title = hookTitle(hook.command) || eventLabel(hook.event);
 
   return (
     <div
@@ -42,6 +46,9 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
       }}
     >
       <div class="hook-item-row1">
+        <span class="hook-item-name" title={title}>
+          {title}
+        </span>
         {eventUsesMatcher(hook.event) ? (
           hook.matcher ? (
             <span class="hook-matcher" title={`Matcher: ${hook.matcher}`}>
@@ -55,7 +62,7 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
           variant="scope"
           text={scopeLabel(hook)}
           title={scopeLabel(hook)}
-          class={scopeClass(hook.scope)}
+          scope={hook.scope}
         />
         {hook.disabled ? <Badge variant="default" text="disabled" /> : null}
         {isPlugin ? (
@@ -90,7 +97,7 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
           </span>
         )}
       </div>
-      <div class="hook-item-command">
+      <div class="hook-item-command" title={preview}>
         <code>{preview}</code>
       </div>
     </div>

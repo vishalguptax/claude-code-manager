@@ -219,6 +219,19 @@
           "default": "https://mcp.so",
           "description": "URL opened by the 'Browse MCP servers' button on the MCP tab. Override to point at a curated team registry."
         },
+        "claudeManager.density": {
+          "type": "string",
+          "default": "comfortable",
+          "enum": [
+            "comfortable",
+            "quiet"
+          ],
+          "enumDescriptions": [
+            "Separate every list row with a hairline rule",
+            "Drop the row rules and let whitespace and section headings do the separating, like VS Code's own file tree"
+          ],
+          "description": "How list rows in the sidebar are separated. Applies to every tab."
+        },
         "claudeManager.sessions.resumeIn": {
           "type": "string",
           "default": "auto",

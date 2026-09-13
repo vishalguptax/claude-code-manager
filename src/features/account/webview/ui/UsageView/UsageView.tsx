@@ -23,7 +23,16 @@
 
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
-import { Button, Icon, Segmented, type SegmentedOption } from "../../../../../webview/shared/ui";
+import {
+  Button,
+  EmptyState,
+  Icon,
+  SectionHeader,
+  Segmented,
+  type SegmentedOption,
+  StatTile,
+  StatTileGrid,
+} from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { useAccountApi } from "../../api";
 import type { AccountData, McpServerUsage, ModelStats, ProjectStats, UsageStats } from "../../../types";
@@ -43,10 +52,8 @@ import {
   shortenProjectPath,
 } from "../../lib";
 import { isSectionCollapsed, timePeriod, toggleSection, type TimePeriod } from "../../model";
-import { Donut } from "../Donut";
+import { ShareBar } from "../ShareBar";
 import { Heatmap } from "../Heatmap";
-import { SectionHeader } from "../SectionHeader";
-import { StatTile } from "../StatTile";
 
 export interface UsageViewProps {
   data: AccountData;
@@ -97,7 +104,7 @@ export function UsageView({ data }: UsageViewProps) {
     shareStatsCard(u, api.saveStatsImage);
   };
   return (
-    <section class="acct-section">
+    <section class="section">
       <SectionHeader id="usage" title="Usage" collapsed={collapsed} onToggle={toggleSection}>
         {hasActivity && !collapsed ? (
           <Button
@@ -110,7 +117,7 @@ export function UsageView({ data }: UsageViewProps) {
         ) : null}
       </SectionHeader>
       {collapsed ? null : (
-        <div class="acct-section-body">
+        <div class="section-body">
           {u.daily.length === 0 ? (
             data.usageWarming ? (
               <UsageWarming />
@@ -135,24 +142,22 @@ export function UsageView({ data }: UsageViewProps) {
  */
 function UsageWarming() {
   return (
-    <div class="acct-empty" role="status">
-      <div class="acct-empty-title">Indexing usage history…</div>
-      <div class="acct-empty-hint">
-        First open reads every session transcript — usually a moment, longer
-        for a large history.
-      </div>
-    </div>
+    <EmptyState
+      compact
+      role="status"
+      title="Indexing usage history…"
+      description="First open reads every session transcript — usually a moment, longer for a large history."
+    />
   );
 }
 
 function UsageEmpty() {
   return (
-    <div class="acct-empty">
-      <div class="acct-empty-title">No activity recorded</div>
-      <div class="acct-empty-hint">
-        Start a Claude Code session and your stats will appear here.
-      </div>
-    </div>
+    <EmptyState
+      compact
+      title="No activity recorded"
+      description="Start a Claude Code session and your stats will appear here."
+    />
   );
 }
 
@@ -181,7 +186,6 @@ function UsageBody({ u }: { u: UsageStats }) {
   return (
     <>
       <Segmented
-        class="acct-period-toggle"
         ariaLabel="Usage period"
         value={period}
         options={PERIODS}
@@ -192,7 +196,7 @@ function UsageBody({ u }: { u: UsageStats }) {
 
       <Heatmap daily={u.daily} dailyTokens={u.dailyTokens} lastComputedDate={u.lastComputedDate} />
 
-      <div class="acct-stats-grid">
+      <StatTileGrid>
         <StatTile
           value={formatNumber(totals.tokenTotal)}
           label="tokens"
@@ -210,7 +214,7 @@ function UsageBody({ u }: { u: UsageStats }) {
           label="cache read"
           title={cacheHitTooltip(u)}
         />
-      </div>
+      </StatTileGrid>
 
       <InfoRibbon u={u} totals={totals} />
 
@@ -261,11 +265,18 @@ function InfoRibbon({
   u: UsageStats;
   totals: ReturnType<typeof computeUsageTotals>;
 }) {
+  // Every entry is conditional on its own value being a real number. The
+  // streak line used to be pushed unconditionally, so a payload missing that
+  // field rendered the string "streak undefinedd" — `undefined` interpolated,
+  // then the unit stuck to the end of it. `accountData` crosses the host
+  // boundary as `unknown` and is cast, so a field can simply not be there.
   const items: string[] = [];
   if (u.favoriteModel) items.push(`Favorite: ${formatModelName(u.favoriteModel)}`);
   items.push(`${totals.activeInPeriod}/${totals.totalInPeriod} active`);
-  items.push(`streak ${u.currentStreak}d`);
-  if (u.longestStreak > u.currentStreak) items.push(`best ${u.longestStreak}d`);
+  if (Number.isFinite(u.currentStreak)) items.push(`streak ${u.currentStreak}d`);
+  if (Number.isFinite(u.longestStreak) && u.longestStreak > (u.currentStreak ?? 0)) {
+    items.push(`best ${u.longestStreak}d`);
+  }
   if (u.longestSessionMs > 0) items.push(`longest ${formatDuration(u.longestSessionMs)}`);
   return (
     <div class="acct-info-ribbon">
@@ -279,7 +290,7 @@ function InfoRibbon({
 }
 
 function BlockHeading({ children }: { children: ComponentChildren }) {
-  return <div class="acct-section-subhead">{children}</div>;
+  return <div class="section-subhead">{children}</div>;
 }
 
 /**
@@ -349,6 +360,7 @@ function ModelsBlock({ u }: { u: UsageStats }) {
   const total = shown.reduce((s, m) => s + m.totalTokens, 0);
   const segments = shown.map((m) => ({
     key: m.model,
+    label: formatModelName(m.model),
     value: m.totalTokens,
     color: modelFamilyColor(m.model),
   }));
@@ -371,13 +383,14 @@ function ModelsBlock({ u }: { u: UsageStats }) {
           </span>
         </div>
       ) : null}
-      <div class="acct-models-layout">
-        <Donut segments={segments} />
-        <div class="acct-model-legend">
-          {shown.map((m) => (
-            <ModelLegendRow key={m.model} m={m} total={total} />
-          ))}
-        </div>
+      {/* Proportion in the bar, figures in the legend under it. Side by side
+          with a donut, the ring was competing with a legend that already said
+          everything — and losing 88px of a 312px column to do it. */}
+      <ShareBar segments={segments} ariaLabel="Token share by model" />
+      <div class="acct-model-legend">
+        {shown.map((m) => (
+          <ModelLegendRow key={m.model} m={m} total={total} />
+        ))}
       </div>
       {u.totalCostUsd > 0 ? (
         <div class="acct-meta-foot">Prices @ {u.pricesEffectiveDate}</div>
@@ -479,14 +492,14 @@ function ShowMore({
 }) {
   if (hidden > 0) {
     return (
-      <button type="button" class="acct-show-more" onClick={() => setShowAll(true)}>
+      <button type="button" class="show-more" onClick={() => setShowAll(true)}>
         Show {hidden} more
       </button>
     );
   }
   if (showAll && total > threshold) {
     return (
-      <button type="button" class="acct-show-more" onClick={() => setShowAll(false)}>
+      <button type="button" class="show-more" onClick={() => setShowAll(false)}>
         Show less
       </button>
     );

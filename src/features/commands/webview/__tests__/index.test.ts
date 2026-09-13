@@ -92,7 +92,7 @@ describe("CommandsTab", () => {
     await waitFor(() => expect(posted).toContainEqual({ type: "getCommands" }));
     dispatch({ type: "error", message: "nope" } as Message);
     await waitFor(() => {
-      expect(container.querySelector(".empty")?.textContent).toContain("nope");
+      expect(container.querySelector(".empty-state")?.textContent).toContain("nope");
     });
   });
 

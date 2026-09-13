@@ -19,9 +19,16 @@
   align-items: center;
   gap: var(--space-sm);
   width: 100%;
-  /* Reset the UA button box so the header sits on the list's own grid. */
-  background: none;
+  /* A section heading has to out-rank the rows under it. Uppercase weight
+     alone did not: every row already carries a hairline, so one more line of
+     small bold text in the same column read as just another row and the
+     sections were invisible while scanning. The heading now sits on the
+     recessed widget surface with a rule above and below — the same "band"
+     VS Code gives its own sidebar section headers. */
+  background: var(--role-track-bg);
   border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   text-align: left;
   cursor: pointer;
   font-family: inherit;
@@ -30,10 +37,15 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-section);
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+  padding: var(--space-sm) var(--space-2xl);
 }
 .session-group-header:hover {
   color: var(--fg);
+  background: var(--role-selected-hover-bg);
+}
+/* The first heading's top rule would double the list's own top edge. */
+.session-group-header:first-child {
+  border-top: 0;
 }
 .session-group-header:focus-visible {
   outline: 1px solid var(--accent);
@@ -66,33 +78,6 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
-}
-
-.group-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fg-section);
-  /* Section-header rhythm: --space-lg above (matches the account/config
-     .acct-section-header top inset) and --space-sm below to the first row.
-     Shared by every list group-label (sessions/commands/hooks/mcp/agents) so
-     the uppercase group titles sit on one cross-tab rhythm. */
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
-}
-
-/*
- * Nested sub-group label under a scope header — shown only when a
- * skills directory contains subfolders. Lower visual weight than
- * `.group-label` so the scope (Project / Global) still reads as the
- * primary grouping; the folder path is contextual.
- */
-.group-sublabel {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  padding: var(--space-md) var(--space-2xl) 4px;
-  font-family: var(--font-mono, monospace);
-  letter-spacing: 0.2px;
 }
 
 .item {
@@ -157,17 +142,14 @@
   font-weight: 600;
   margin-right: var(--space-xs);
 }
-.list-header .bulk-btn {
-  padding: var(--space-xs) var(--space-lg);
-  font-size: var(--fs-sm);
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
 .list-count-toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
   background: transparent;
+  /* Outline, because it is a TEXT button. Ghost is reserved for icon-only
+     affordances (see .btn-icon) and for tertiary actions inside a strip that
+     already has a fill (the bulk toolbar below). */
   border: 1px solid var(--border);
   color: var(--fg-muted);
   padding: 2px var(--space-md);
@@ -176,46 +158,27 @@
   font-family: inherit;
   cursor: pointer;
 }
-.list-count-toggle:hover { color: var(--fg); border-color: var(--accent); }
+.list-count-toggle:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
 .list-count-toggle:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 
-.bulk-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--bg-active-fg) 35%, transparent);
-  color: var(--bg-active-fg);
+/* Bulk toolbar actions. Chrome comes from the shared .btn-ghost: these sit on
+   the strip's own accent fill, where an outline is a box drawn on a box. Only
+   the colour and the compact metrics are local. */
+.bulk-btn.btn {
+  height: auto;
   padding: 2px var(--space-md);
-  border-radius: var(--radius-sm);
   font-size: var(--fs-xs);
-  font-family: inherit;
-  cursor: pointer;
-}
-.bulk-btn:hover { background: color-mix(in srgb, var(--bg-active-fg) 12%, transparent); }
-.bulk-btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
-.bulk-btn[disabled] {
-  opacity: 0.4;
-  cursor: default;
-  background: transparent;
   color: var(--bg-active-fg);
-  border-color: color-mix(in srgb, var(--bg-active-fg) 25%, transparent);
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
-.bulk-btn[disabled]:hover { background: transparent; }
-/* Delete button uses a solid red fill so it stays legible on the
-   bg-active toolbar surface — a tinted-border-only style washed out
-   on dark themes where bg-active and the muted red blended. */
-.bulk-btn.del {
-  background: var(--red, #d04444);
-  color: #fff;
-  border-color: var(--red, #d04444);
+.bulk-btn.btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-active-fg) 16%, transparent);
 }
-.bulk-btn.del:hover {
-  background: color-mix(in srgb, var(--red, #d04444) 80%, white);
-  border-color: color-mix(in srgb, var(--red, #d04444) 80%, white);
-}
-/* Disabled del inherits the generic disabled style above (transparent
-   bg + dim text) so it stops fighting the toolbar background. */
+.bulk-btn--danger.btn { color: var(--role-danger-fg); }
 .item:last-child             { border-bottom: none; }
 .item:hover                  { background: var(--bg-hover); }
 .session-item:hover .item-time { visibility: hidden; }
@@ -399,6 +362,10 @@
 }
 
 .item-proj {
+  /* Leading glyph, matching the branch and worktree chips beside it. */
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   font-size: var(--fs-sm);
   color: var(--fg-dim);
   white-space: nowrap;
@@ -523,30 +490,6 @@
  * · duration). Each stat stacks a value over a label. No icons, no
  * borders — whitespace carries grouping.
  */
-.d-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xl);
-  padding: var(--space-xs) 0 0;
-}
-.d-stat {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-.d-stat-v {
-  font-size: var(--fs-base);
-  font-weight: 600;
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-}
-.d-stat-k {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  letter-spacing: 0.2px;
-}
 
 .d-notice {
   display: flex;
@@ -621,6 +564,18 @@
  * have no minimum — they all stretch to identical widths regardless
  * of label length, eliminating uneven wraps.
  */
+/* Keeps the overflow trigger from stretching in the action row's flex. */
+.d-actions-more { display: flex; flex-shrink: 0; }
+
+/* Live-state chip in the detail meta row: the dot keeps the colour coding the
+   list uses, the words carry the meaning. */
+.d-meta-pill-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.d-meta-pill-live .live-dot { flex-shrink: 0; }
+
 .d-actions {
   /* Flex-wrap so each button sizes to its content and wraps cleanly — never
      cropping. (Was an auto-fit grid with minmax(96px, 1fr); those equal narrow
@@ -630,19 +585,35 @@
   gap: var(--space-sm);
   padding: 0 var(--space-2xl) var(--space-xl);
 }
+/* The overflow trigger is chromeless like the ghosts it sits beside — as an
+   icon <Button> it carried a border and fill and was the only boxed control
+   in the row. */
+.d-actions-overflow { padding: 0 var(--space-md); }
+
+/* The figures sit on the panel's own inset, so the first column's numbers line
+   up with the title and the chips above them. The grid carries the inset and
+   the cells rule their own dividers, so the lines stop at the text rather than
+   running to the panel edge. */
+.d-stat-grid { padding: 0 var(--space-2xl) var(--space-xl); }
+
 .d-actions > .btn {
   /* Centre icon+label; the shared `… > .btn` override (components.css) handles
      the ellipsis-clip reset + content-width sizing so labels never crop. */
   justify-content: center;
 }
 /* `.btn.primary` is the legacy modifier; `.btn-primary` is the shared
-   <Button variant="primary"> class — both span the full top row. */
+   <Button variant="primary"> class. Both size to their label and sit inline
+   with the actions beside them.
+
+   This used to be `flex: 1 0 100%`, forcing the primary across the whole row
+   and wrapping everything else onto a second line. That reasoning held when
+   the others were bordered boxes of competing weight — a full-width bar was
+   the only way to rank them. Now that the rest are chromeless, the fill alone
+   carries the rank, and stretching it makes one row into two while reading as
+   a page-level commitment rather than one option among four. */
 .d-actions > .btn.primary,
 .d-actions > .btn-primary {
-  /* Primary action always spans the full top row — it's the call to
-     action, not just one of the options. flex-basis: 100% forces a wrap
-     after it so the remaining actions flow on the next line. */
-  flex: 1 0 100%;
+  flex: 0 0 auto;
 }
 
 .d-section {
@@ -719,63 +690,21 @@
   position: relative;
   display: flex;
   align-items: center;
+  gap: var(--space-sm);
   margin: var(--space-sm) 0 var(--space-md);
 }
-.d-msg-search-input {
+/* The shared <SearchInput> fills the row so the transcript's find box is the
+   same control as the search box on every other tab; the match count rides
+   beside it rather than overlaying the input. */
+.d-msg-search > .tf {
   flex: 1;
   min-width: 0;
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--fg);
-  font-family: inherit;
-  font-size: var(--fs-sm);
-  transition: border-color var(--transition-control), padding var(--transition-control);
-}
-.d-msg-search.has-value .d-msg-search-input {
-  padding-right: 78px; /* room for count (~36px) + clear (32px) */
-}
-.d-msg-search-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.d-msg-search-addon {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  pointer-events: none; /* default — only the clear button re-enables */
 }
 .d-msg-search-count {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
-  padding: 0 var(--space-xs);
-}
-.d-msg-search-clear {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 0;
-  border-radius: var(--radius-sm);
-  color: var(--fg-muted);
-  cursor: pointer;
-  pointer-events: auto;
-  transition: color var(--transition-control), background var(--transition-control);
-}
-.d-msg-search-clear:hover { color: var(--fg); background: var(--bg-hover); }
-.d-msg-search-clear:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 1px;
+  color: var(--fg-dim);
 }
 
 /*
@@ -837,6 +766,17 @@
   margin-bottom: var(--space-xs);
 }
 .d-msg-head .d-msg-role { margin-bottom: 0; flex: 1; }
+
+/* Timestamp sits hard right of the role, so the role labels read as one clean
+   left column down the transcript. Pushed there by taking the row's slack;
+   the hover actions that follow keep their own place. */
+.d-msg-time {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
 
 .d-msg-actions {
   display: inline-flex;

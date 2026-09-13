@@ -17,40 +17,6 @@
 }
 
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Agents — Empty State
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.agent-empty {
-  text-align: center;
-  padding: var(--space-2xl) var(--space-2xl);
-}
-
-.agent-empty-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-xl);
-}
-
-.agent-empty-desc {
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  line-height: 1.6;
-  text-align: left;
-  max-width: 340px;
-  margin: 0 auto;
-}
-
-.agent-empty-desc code {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-}
-
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Agents — List
@@ -97,6 +63,16 @@
 }
 .agent-item.active .agent-item-name { color: var(--bg-active-fg); }
 
+/* Tool grants. A third line only when the agent restricts its tools — the
+   chips wrap rather than scroll, but the row caps how many it shows so it
+   stays one line at the narrow end of the sidebar. */
+.agent-item-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
 .agent-item-desc {
   font-size: var(--fs-sm);
   color: var(--fg-dim);
@@ -112,17 +88,16 @@
    Agents — Model Badge
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* Box comes from the shared chip base (components.css); only the weight is
+   the model badge's own.
+
+   Not uppercase. It was the one chip in the extension that shouted —
+   "SONNET" beside a lowercase `project` chip on the next tab — and a model
+   name is a proper noun the user recognises, not a category label. It is also
+   the last of four chip systems to be folded into the shared box: geometry was
+   unified first and this one kept its own height, padding and casing. */
 .agent-model-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--fs-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  height: 18px;
 }
 
 .agent-model-sonnet {
@@ -206,34 +181,10 @@
    Agents — Structural (self-contained; no reliance on sibling feature CSS)
    ────────────────────────────────────────────────────────────────────────────── */
 
-/* Scope section heading inside the agent list (Project / Global / Plugin). */
-.agent-list .group-label {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--fg-section);
-  /* Unified section-header rhythm — see .group-label (sessions.css). */
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
-}
-
-/* Fixed-height wrapper for windowed rows. The 56px value is mirrored by
-   ROW_HEIGHT in AgentListView.tsx, which the VirtualList uses for its
-   offset math; keep the two in sync. */
-.agent-vrow {
-  height: 56px;
-  box-sizing: border-box;
-}
-
 /* Back action: uses the shared <BackButton> (`.back-btn` in components.css) —
    no agents-specific override. A prior `.panel > .back-btn` rule here was a
    global leak (every tab renders `.panel`) that clobbered other features' Back
    buttons; the shared component now gives every detail/form view one style. */
-
-/* Create CTA under the empty state. */
-.agent-empty-cta {
-  margin-top: var(--space-xl);
-}
 
 /* Read-only note shown instead of edit/delete for plugin-owned agents. */
 .agent-readonly-note {

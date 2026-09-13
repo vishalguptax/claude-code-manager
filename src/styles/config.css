@@ -1,0 +1,218 @@
+/* ============================================================================
+   Feature: config — the Settings / Permissions / Snapshots / Backup tab.
+
+   These rules lived in account.css under an `acct-` prefix and were rendered
+   by the Config tab across the feature boundary. Every selector here is used
+   by Config and nothing else, so the prefix was simply wrong: a permission row
+   is not part of an account.
+
+   The genuinely shared pieces went the other way — Section, Field and the
+   button row are components in shared/ui now, styled in components.css.
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Permissions
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* Each labelled group (ALLOWED / DENIED / ADDITIONAL DIRECTORIES) reads as its
+   own block — the larger inter-group gap separates them clearly from the dense
+   rows packed inside each one. */
+.cfg-perm-group {
+  margin-bottom: var(--space-xl);
+}
+
+.cfg-perm-group-label {
+  /* Sub-section heading. Carries the section-header treatment so these read as
+     structure, not as muted captions. */
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--fg-section);
+  /* Heading → first row breathing room so the label isn't glued to its list. */
+  margin-bottom: var(--space-md);
+}
+
+.cfg-perm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Wide name→× gap so the remove button never crowds the ellipsized command. */
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-xs);
+}
+
+.cfg-perm-name {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  /* Mono `$`, descenders and parens clip when the line box is exactly the
+     font size; 1.6 gives the glyphs vertical room so nothing is cropped. */
+  line-height: 1.6;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* The remove control is the shared icon <Button>, so it already carries the
+   `.btn-icon` affordance (>=24px hit area, toolbar hover, inset focus ring).
+   We only pin it from growing in the flex row and keep it centred against the
+   taller (line-height 1.6) name. */
+.cfg-perm-remove {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* "No allowed tools match …" — a one-line note in place of a list, not a full
+   empty state. Italic and muted so it reads as the absence of rows rather than
+   as a row itself. */
+.cfg-note {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  font-style: italic;
+  padding: var(--space-xs) 0;
+}
+
+/* Subtle closing note at the bottom of a section. */
+.cfg-footnote {
+  margin-top: var(--space-md);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Read-only code display (the status-line command)
+
+   Not an editable field: no input chrome, single-line horizontal scroll.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.cfg-code {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--vscode-textCodeBlock-background,
+    var(--vscode-textBlockQuote-background, var(--bg-hover)));
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  border-radius: var(--radius);
+  white-space: pre;
+  overflow-x: auto;
+  word-break: normal;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Settings history + settings groups
+
+   Moved here from account.css with the rest of the Config tab's styling. They
+   already carried the honest `cfg-` prefix; they were simply in the wrong file,
+   which is how the boundary blurred in the first place.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.cfg-snap-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  /* Cap the height so a long history (up to 20 snapshots per scope × 3 scopes)
+     scrolls WITHIN its own area instead of stretching the Config page and
+     pushing the Brain-backup section far below the fold. 40vh keeps a useful
+     number of rows visible while staying a minority of the viewport. The
+     section's intro hint stays put above; only the row list scrolls. Native
+     thin scrollbar matching the heatmap wrap so it reads as VS Code chrome. */
+  max-height: 40vh;
+  overflow-y: auto;
+  /* Inner padding-right gives the rows a hair of breathing room from the
+     scrollbar gutter when it appears; -inline keeps left rows flush. */
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle, rgba(127, 127, 127, 0.3)) transparent;
+}
+.cfg-snap-list::-webkit-scrollbar { width: 6px; }
+.cfg-snap-list::-webkit-scrollbar-track { background: transparent; }
+.cfg-snap-list::-webkit-scrollbar-thumb {
+  background: var(--border-subtle, rgba(127, 127, 127, 0.3));
+  border-radius: 3px;
+}
+.cfg-snap-list::-webkit-scrollbar-thumb:hover {
+  background: var(--border, rgba(127, 127, 127, 0.5));
+}
+.cfg-snap-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.cfg-snap-meta { min-width: 0; flex: 1; }
+.cfg-snap-when {
+  font-size: var(--fs-base);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.cfg-snap-detail {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  margin-top: 2px;
+}
+.cfg-snap-diff {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cfg-snap-actions {
+  display: flex;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+/* ── Config settings groups ─────────────────────────────────────────
+ * The settings section runs to ~20 controls. Ungrouped they read as one
+ * undifferentiated column and there is no way to scan for the one you
+ * came for, so each group gets a quiet heading and a hairline above it.
+ * The heading is deliberately lighter than the section title: these are
+ * subdivisions of one section, not sections of their own. */
+.cfg-group + .cfg-group {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+}
+.cfg-group-title {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* A superseded key that still takes effect: shown as a notice with a
+   one-click clear, not as a control that invites further use. */
+.cfg-deprecated {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  justify-content: space-between;
+}
+.cfg-deprecated .field-hint {
+  flex: 1;
+  /* The hint's own margin-top exists to separate it from the control it
+     normally sits under. Here it sits BESIDE a button, so that margin
+     only pushes the text down and out of line with it. */
+  margin-top: 0;
+  /* Match the button's cap height so the first line of the notice reads
+     level with the label inside it, rather than with the button's box. */
+  align-self: center;
+}
