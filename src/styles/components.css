@@ -930,3 +930,115 @@
 .error-banner__item {
   word-break: break-word;
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Command palette — one search over every tab (Cmd/Ctrl+K).
+
+   Layered over the panel rather than inside it, so it works from any tab
+   without the tab having to know about it.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  justify-content: center;
+  /* Anchored near the top rather than centred: the list grows downward, so a
+     centred box would shift under the reader as results narrow. */
+  padding: 48px var(--space-xl) var(--space-xl);
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  background: var(--menu-bg, var(--input-bg));
+  color: var(--menu-fg, var(--fg));
+  border: 1px solid var(--menu-border, var(--border));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px -12px var(--shadow);
+}
+
+.palette-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-xl);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.palette-input-row .icon { color: var(--fg-muted); flex-shrink: 0; }
+.palette-input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: var(--fs-md);
+}
+.palette-input::placeholder { color: var(--fg-muted); }
+
+.palette-list {
+  overflow-y: auto;
+  padding: var(--space-xs) 0;
+  min-height: 0;
+}
+
+.palette-group {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--fg-muted);
+  padding: var(--space-md) var(--space-xl) var(--space-xs);
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-xl);
+  cursor: pointer;
+  min-width: 0;
+}
+/* Hover and keyboard share one highlight: the pointer moves the cursor rather
+   than competing with it, so there is never a second "which one is selected?". */
+.palette-item.active { background: var(--bg-active); color: var(--bg-active-fg); }
+.palette-item-icon { display: flex; color: var(--fg-muted); flex-shrink: 0; width: 15px; }
+.palette-item.active .palette-item-icon { color: inherit; }
+.palette-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.palette-item-title {
+  font-size: var(--fs-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.palette-item-sub {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.palette-item.active .palette-item-sub { color: inherit; opacity: 0.72; }
+.palette-item-hint {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.palette-item.active .palette-item-hint { color: inherit; opacity: 0.72; }
+
+.palette-empty {
+  padding: var(--space-2xl) var(--space-xl);
+  text-align: center;
+  font-size: var(--fs-base);
+  color: var(--fg-muted);
+}

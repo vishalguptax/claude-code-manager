@@ -6,7 +6,11 @@
  */
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
-import { registerFeatureHandler } from "../../../webview/shared/model";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { McpServerInput } from "../../../shared/protocol/messages";
 import type { McpServer } from "../types";
@@ -61,9 +65,27 @@ export default function McpTab() {
       if (msg.type === "error") applyError(msg.message);
     });
     api.getServers();
+
+    // MCP servers in the command palette. The source is called per query, so
+    // it always reads the live signal without this module subscribing to it.
+    const offPalette = registerPaletteSource("mcp", () =>
+      servers.value.map((s) => ({
+        id: `mcp:${s.name}`,
+        title: s.name,
+        subtitle: s.type,
+        group: "MCP servers",
+        icon: "plug",
+        hint: s.scope,
+        run: () => {
+          activeTab.value = "mcp";
+          selected.value = s;
+        },
+      })),
+    );
     return () => {
       unsubscribe();
       unsubscribeError();
+      offPalette();
     };
   }, [api]);
 

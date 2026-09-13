@@ -5,7 +5,11 @@
  */
 import { useEffect } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
-import { registerFeatureHandler } from "../../../webview/shared/model";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { Skill } from "../types";
 import { getSkills } from "./api";
@@ -68,10 +72,28 @@ export function registerSkillsHandlers(): () => void {
     }
   });
 
+
+    // Skills in the command palette. The source is called per query, so
+    // it always reads the live signal without this module subscribing to it.
+    const offPalette = registerPaletteSource("skills", () =>
+      skills.value.map((s) => ({
+        id: `skills:${s.name}`,
+        title: s.name,
+        subtitle: s.description,
+        group: "Skills",
+        icon: "sparkles",
+        hint: s.scope,
+        run: () => {
+          activeTab.value = "skills";
+          selectedSkill.value = s;
+        },
+      })),
+    );
   return () => {
     offSkills();
     offSettings();
     offError();
+    offPalette();
   };
 }
 

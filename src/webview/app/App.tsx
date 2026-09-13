@@ -4,20 +4,59 @@
  * tear down the rest of the shell.
  */
 
+import { useEffect, useState } from "preact/hooks";
 import { activeTab, density } from "../shared/model";
 import { hostBusy } from "../shared/model/hostBusy";
+import { registerPaletteSource } from "../shared/model/palette";
+import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Footer } from "./Footer";
 import { Intro } from "./Intro";
 import { TabBar, TabPanel } from "./tabs";
+import { TABS } from "./tabs/tabRegistry";
 
 export function App() {
   const current = activeTab.value;
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Cmd/Ctrl+K toggles the palette from anywhere in the webview, including
+  // from inside a feature's own search box — the shortcut is how you escape a
+  // tab-scoped search to a global one, so it must not be swallowed by inputs.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      setPaletteOpen((v) => !v);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Tab navigation is always searchable, including for tabs that have not
+  // mounted yet and therefore have registered no items of their own. It is
+  // also the answer you want in exactly that case: you cannot search a tab you
+  // have never opened, but you can go to it.
+  useEffect(
+    () =>
+      registerPaletteSource("shell", () =>
+        TABS.map((tab) => ({
+          id: `tab:${tab.id}`,
+          title: tab.label,
+          group: "Go to",
+          icon: tab.icon,
+          run: () => {
+            activeTab.value = tab.id;
+          },
+        })),
+      ),
+    [],
+  );
+
   return (
     <ErrorBoundary>
       {/* Carries the `claudeManager.density` setting for the whole panel;
           density.css hangs every override off this one attribute. `display:
-          contents` (app.css) keeps the wrapper out of layout, so TabBar, the
+          contents` (base.css) keeps the wrapper out of layout, so TabBar, the
           content area and Footer stay direct flex children of #root exactly as
           they were before — the same trick .tab-keepalive uses. Declarative
           rather than an effect writing to document.body: Preact only ever
@@ -37,6 +76,9 @@ export function App() {
         <Footer />
         {/* First-run welcome; renders nothing once seen (auto-plays once). */}
         <Intro />
+        {/* One search across every tab. Rendered last so it layers over the
+            panel, and only mounted while open. */}
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       </div>
     </ErrorBoundary>
   );

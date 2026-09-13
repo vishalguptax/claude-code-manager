@@ -18,3 +18,12 @@ export {
   initMessageBus,
   registerFeatureHandler,
 } from "./messageBus";
+export {
+  _resetPaletteSources,
+  collectPaletteItems,
+  PALETTE_LIMIT,
+  type PaletteItem,
+  type PaletteSource,
+  registerPaletteSource,
+  scoreItem,
+} from "./palette";

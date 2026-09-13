@@ -9,8 +9,10 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { h } from "preact";
-import { cleanup, render } from "@testing-library/preact";
+import { cleanup, fireEvent, render } from "@testing-library/preact";
 import { activeTab, density } from "../shared/model";
+import { _resetPaletteSources } from "../shared/model/palette";
+import { TABS } from "./tabs/tabRegistry";
 import { _resetHostBusy, hostBusy } from "../shared/model/hostBusy";
 import { App } from "./App";
 
@@ -19,6 +21,7 @@ afterEach(() => {
   activeTab.value = "sessions";
   density.value = "comfortable";
   _resetHostBusy();
+  _resetPaletteSources();
 });
 
 describe("App", () => {
@@ -78,6 +81,59 @@ describe("App", () => {
   // The wrapper is display:contents, so it must not sit between #root and the
   // shell chrome in any way that changes layout — everything still renders
   // inside it, and there is exactly one of it.
+  // ── Command palette ─────────────────────────────────────────────
+  // Eight tabs, each with a search box that only searches itself. Cmd/Ctrl+K
+  // is the way out of a tab-scoped search into a global one, so it has to work
+  // from anywhere — including from inside a feature's own input.
+
+  it("has no palette open at rest", () => {
+    const { container } = render(h(App, {}));
+    expect(container.querySelector(".palette")).toBeNull();
+  });
+
+  it("opens and closes the palette on Cmd+K", () => {
+    const { container } = render(h(App, {}));
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    expect(container.querySelector(".palette")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    expect(container.querySelector(".palette")).toBeNull();
+  });
+
+  it("opens the palette on Ctrl+K too", () => {
+    const { container } = render(h(App, {}));
+    fireEvent.keyDown(document, { key: "K", ctrlKey: true });
+    expect(container.querySelector(".palette")).toBeTruthy();
+  });
+
+  it("ignores a bare k, so typing in a search box is unaffected", () => {
+    const { container } = render(h(App, {}));
+    fireEvent.keyDown(document, { key: "k" });
+    expect(container.querySelector(".palette")).toBeNull();
+  });
+
+  // A tab the user has never opened has not mounted and so has registered no
+  // items. Navigation is always there, which is the answer you want in exactly
+  // that case: you cannot search a tab you have not opened, but you can go to it.
+  it("always offers navigation to every tab", () => {
+    const { container } = render(h(App, {}));
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    const titles = Array.from(container.querySelectorAll(".palette-item-title")).map(
+      (n) => n.textContent,
+    );
+    for (const tab of TABS) expect(titles).toContain(tab.label);
+  });
+
+  it("switches tabs when a navigation item is chosen", () => {
+    const { container } = render(h(App, {}));
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    const row = Array.from(container.querySelectorAll<HTMLElement>(".palette-item")).find(
+      (r) => r.textContent?.includes("Config"),
+    );
+    fireEvent.mouseDown(row as HTMLElement);
+    expect(activeTab.value).toBe("config");
+    expect(container.querySelector(".palette")).toBeNull();
+  });
+
   it("keeps the shell chrome inside the single wrapper", () => {
     const { container } = render(h(App, {}));
     const shells = container.querySelectorAll(".app-shell");
