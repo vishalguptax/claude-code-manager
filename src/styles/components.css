@@ -1169,3 +1169,28 @@
   font-size: var(--fs-base);
   color: var(--fg-muted);
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Tooltip — the panel's own hover label, drawn by <TooltipLayer> in place of
+   the host OS tooltip (slow, unthemed, and drawn outside the webview).
+   Positioned in viewport coordinates by the component; it starts hidden so
+   the first paint cannot flash at the unclamped position.
+   ────────────────────────────────────────────────────────────────────────── */
+.tooltip {
+  position: fixed;
+  z-index: 60;
+  visibility: hidden;
+  max-width: 260px;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
+  background: var(--vscode-editorHoverWidget-background, var(--bg-hover));
+  color: var(--vscode-editorHoverWidget-foreground, var(--fg));
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--border));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.36);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  pointer-events: none;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

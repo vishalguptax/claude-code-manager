@@ -569,6 +569,22 @@
    target. Applied uniformly so refresh / globe / back / resume and every
    feature toolbar icon share one affordance. NO permanent resting border or
    background — that would read as non-native. */
+/* GHOST — icon + label, no border, no fill until hover. For a tertiary action
+   inside a strip that already carries its own fill, where an outline would be
+   a box drawn on top of a box. */
+.btn-ghost {
+  height: var(--h-control);
+  padding: 0 var(--space-md);
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.btn-ghost:hover { background: var(--role-ghost-hover-bg); }
+.btn-ghost:active { background: var(--role-ghost-active-bg); }
+.btn-ghost:disabled { opacity: 0.45; background: none; cursor: default; }
+
 /* Chromeless until hovered, like VS Code's own view-title icons.
  *
  * These used to carry a secondary fill and a 1px border on the argument that

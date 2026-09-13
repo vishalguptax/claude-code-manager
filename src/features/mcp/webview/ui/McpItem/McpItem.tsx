@@ -5,7 +5,7 @@
  */
 import { cx } from "../../../../../webview/shared/lib";
 import { Button, ListItem } from "../../../../../webview/shared/ui";
-import { connectionPreview } from "../../lib";
+import { canToggleMcp, connectionPreview } from "../../lib";
 import type { McpServer } from "../../../types";
 import { DisabledBadge, ReadOnlyBadge, TypeBadge } from "../McpBadges";
 
@@ -16,9 +16,18 @@ export interface McpItemProps {
   onCopyName: (name: string) => void;
   /** Right-click the row for the server's actions. */
   onContextMenu?: (server: McpServer, x: number, y: number) => void;
+  /** Switch a project server on or off without opening it. */
+  onToggle?: (server: McpServer) => void;
 }
 
-export function McpItem({ server, active, onSelect, onCopyName, onContextMenu }: McpItemProps) {
+export function McpItem({
+  server,
+  active,
+  onSelect,
+  onCopyName,
+  onContextMenu,
+  onToggle,
+}: McpItemProps) {
   // Full connection string: the row ellipsizes it in CSS at whatever width
   // the sidebar happens to be, and the title reveals the rest on hover.
   const preview = connectionPreview(server);
@@ -50,7 +59,25 @@ export function McpItem({ server, active, onSelect, onCopyName, onContextMenu }:
             onCopyName(server.name);
           }}
         />
-        {server.disabled ? <DisabledBadge /> : null}
+        {onToggle && canToggleMcp(server) ? (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!server.disabled}
+            class="mcp-switch"
+            title={server.disabled ? `Enable ${server.name}` : `Disable ${server.name}`}
+            aria-label={server.disabled ? `Enable ${server.name}` : `Disable ${server.name}`}
+            onClick={(e) => {
+              // The row itself opens the detail view.
+              e.stopPropagation();
+              onToggle(server);
+            }}
+          >
+            <span class="mcp-switch-knob" />
+          </button>
+        ) : server.disabled ? (
+          <DisabledBadge />
+        ) : null}
         <TypeBadge type={server.type} />
         {server.scope === "plugin" ? <ReadOnlyBadge pluginName={server.pluginName} /> : null}
       </div>

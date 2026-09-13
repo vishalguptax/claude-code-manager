@@ -17,6 +17,7 @@ import { ErrorBoundary } from "./ErrorBoundary";
 import { Footer } from "./Footer";
 import { Intro } from "./Intro";
 import { TabBar, TabPanel } from "./tabs";
+import { TooltipLayer } from "./TooltipLayer";
 import { TABS } from "./tabs/tabRegistry";
 
 export function App() {
@@ -90,6 +91,9 @@ export function App() {
         {/* Shell chrome, not feature content — visible on every tab, not just
             Sessions (where it lived before this was the app's shared footer). */}
         <Footer />
+        {/* Styled hover tooltips for every `title` in the panel, replacing the
+            host OS one. Mounted once; works by delegation. */}
+        <TooltipLayer />
         {/* First-run welcome; renders nothing once seen (auto-plays once). */}
         <Intro />
         {/* One search across every tab. Rendered last so it layers over the

@@ -238,6 +238,7 @@ export function SessionItem({
           </span>
         ) : null}
         <span class="item-proj" title={session.project}>
+          <Icon name="folder" size={12} />
           {session.project}
         </span>
         {isPinned ? (

@@ -8,7 +8,10 @@ body {
   height: 100vh;
   overflow: hidden;
 }
-::-webkit-scrollbar { width: 5px; }
+/* Both axes. `width` sizes a vertical bar and `height` a horizontal one — with
+   only the first set, every sideways scroller (the tab strip, the bulk-select
+   toolbar, wide code blocks) drew the browser's default ~15px bar under it. */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--vscode-scrollbarSlider-background);
@@ -330,7 +333,7 @@ button,
      --space-lg top and bottom it stood taller than a session row while
      carrying a wordmark and two links. Horizontal inset still matches the
      rows above it. */
-  padding: var(--space-xs) var(--space-2xl);
+  padding: 0 var(--space-2xl);
   font-size: var(--fs-sm);
   color: var(--fg-muted);
   border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
@@ -348,12 +351,14 @@ button,
   background: none;
   border: none;
   cursor: pointer;
-  padding: var(--space-xs);
+  /* The links set the bar's height, so their own padding is what made it
+     stand taller than a list row — the footer itself now adds none. */
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius);
   transition: color var(--transition-control);
   font-family: inherit;
 }
-.footer-link .icon { width: 14px; height: 14px; }
+.footer-link .icon { width: 13px; height: 13px; }
 .footer-link:hover { color: var(--fg); background: var(--bg-hover); }
 
 /* ── Load-deadline notice ──────────────────────────────────────────

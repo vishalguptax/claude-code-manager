@@ -3,7 +3,9 @@
  * "Select" toggle; in bulk mode it becomes a toolbar with pin/unpin, export,
  * delete, and cancel actions scoped to the current selection.
  */
-import { Icon } from "../../../../../webview/shared/ui";
+import { useRef } from "preact/hooks";
+import { useEdgeAutoScroll } from "../../../../../webview/shared/hooks";
+import { Button, Icon } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { sendBulkDeleteSessions, sendBulkExportSessions, sendBulkPinSessions } from "../../api";
 import {
@@ -19,6 +21,10 @@ export interface ListHeaderProps {
 }
 
 export function ListHeader({ totalCount }: ListHeaderProps) {
+  // In bulk mode this strip holds four actions and a count, and it scrolls
+  // sideways with its scrollbar hidden — same problem the tab strip has.
+  const stripRef = useRef<HTMLDivElement>(null);
+  useEdgeAutoScroll(stripRef);
   const bulk = bulkModeSignal.value;
   const selection = selectionSignal.value;
   const pinned = pinnedSignal.value;
@@ -26,7 +32,7 @@ export function ListHeader({ totalCount }: ListHeaderProps) {
 
   if (!bulk) {
     return (
-      <div class="list-header" role="toolbar" aria-label="Session list header">
+      <div ref={stripRef} class="list-header" role="toolbar" aria-label="Session list header">
         <span class="list-header-label">
           {totalCount} session{totalCount !== 1 ? "s" : ""}
         </span>
@@ -55,38 +61,48 @@ export function ListHeader({ totalCount }: ListHeaderProps) {
 
   return (
     <div
+      ref={stripRef}
       class={cx("list-header", "list-header-bulk")}
       role="toolbar"
       aria-label="Bulk actions"
     >
       <span class="list-header-label">{count} selected</span>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
         class="bulk-btn"
+        iconName={pinIcon}
         disabled={count === 0}
         onClick={() => count > 0 && sendBulkPinSessions(ids(), !allPinned)}
       >
-        <Icon name={pinIcon} size={12} /> {pinLabel}
-      </button>
-      <button
-        type="button"
+        {pinLabel}
+      </Button>
+      <Button
+        variant="ghost"
         class="bulk-btn"
+        iconName="download"
         disabled={count === 0}
         onClick={() => count > 0 && sendBulkExportSessions(ids())}
       >
-        <Icon name="download" size={12} /> Export
-      </button>
-      <button
-        type="button"
-        class="bulk-btn del"
+        Export
+      </Button>
+      <Button
+        variant="ghost"
+        class="bulk-btn bulk-btn--danger"
+        iconName="trash-2"
         disabled={count === 0}
         onClick={() => count > 0 && sendBulkDeleteSessions(ids())}
       >
-        <Icon name="trash-2" size={12} /> Delete
-      </button>
-      <button type="button" class="bulk-btn" title="Exit bulk mode" onClick={() => clearSelection()}>
-        <Icon name="x" size={12} /> Cancel
-      </button>
+        Delete
+      </Button>
+      <Button
+        variant="ghost"
+        class="bulk-btn"
+        iconName="x"
+        title="Exit bulk mode"
+        onClick={() => clearSelection()}
+      >
+        Cancel
+      </Button>
     </div>
   );
 }

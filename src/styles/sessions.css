@@ -142,20 +142,14 @@
   font-weight: 600;
   margin-right: var(--space-xs);
 }
-.list-header .bulk-btn {
-  padding: var(--space-xs) var(--space-lg);
-  font-size: var(--fs-sm);
-  flex: 0 0 auto;
-  white-space: nowrap;
-}
 .list-count-toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
   background: transparent;
   /* Outline, because it is a TEXT button. Ghost is reserved for icon-only
-     affordances (see .btn-icon); a labelled control keeps its edge so it reads
-     as a control rather than as a run of text in the header strip. */
+     affordances (see .btn-icon) and for tertiary actions inside a strip that
+     already has a fill (the bulk toolbar below). */
   border: 1px solid var(--border);
   color: var(--fg-muted);
   padding: 2px var(--space-md);
@@ -170,43 +164,21 @@
 }
 .list-count-toggle:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 
-.bulk-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--bg-active-fg) 35%, transparent);
-  color: var(--bg-active-fg);
+/* Bulk toolbar actions. Chrome comes from the shared .btn-ghost: these sit on
+   the strip's own accent fill, where an outline is a box drawn on a box. Only
+   the colour and the compact metrics are local. */
+.bulk-btn.btn {
+  height: auto;
   padding: 2px var(--space-md);
-  border-radius: var(--radius-sm);
   font-size: var(--fs-xs);
-  font-family: inherit;
-  cursor: pointer;
-}
-.bulk-btn:hover { background: color-mix(in srgb, var(--bg-active-fg) 12%, transparent); }
-.bulk-btn:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
-.bulk-btn[disabled] {
-  opacity: 0.4;
-  cursor: default;
-  background: transparent;
   color: var(--bg-active-fg);
-  border-color: color-mix(in srgb, var(--bg-active-fg) 25%, transparent);
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
-.bulk-btn[disabled]:hover { background: transparent; }
-/* Delete button uses a solid red fill so it stays legible on the
-   bg-active toolbar surface — a tinted-border-only style washed out
-   on dark themes where bg-active and the muted red blended. */
-.bulk-btn.del {
-  background: var(--red, #d04444);
-  color: #fff;
-  border-color: var(--red, #d04444);
+.bulk-btn.btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-active-fg) 16%, transparent);
 }
-.bulk-btn.del:hover {
-  background: color-mix(in srgb, var(--red, #d04444) 80%, white);
-  border-color: color-mix(in srgb, var(--red, #d04444) 80%, white);
-}
-/* Disabled del inherits the generic disabled style above (transparent
-   bg + dim text) so it stops fighting the toolbar background. */
+.bulk-btn--danger.btn { color: var(--role-danger-fg); }
 .item:last-child             { border-bottom: none; }
 .item:hover                  { background: var(--bg-hover); }
 .session-item:hover .item-time { visibility: hidden; }
@@ -390,6 +362,10 @@
 }
 
 .item-proj {
+  /* Leading glyph, matching the branch and worktree chips beside it. */
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
   font-size: var(--fs-sm);
   color: var(--fg-dim);
   white-space: nowrap;
@@ -714,63 +690,21 @@
   position: relative;
   display: flex;
   align-items: center;
+  gap: var(--space-sm);
   margin: var(--space-sm) 0 var(--space-md);
 }
-.d-msg-search-input {
+/* The shared <SearchInput> fills the row so the transcript's find box is the
+   same control as the search box on every other tab; the match count rides
+   beside it rather than overlaying the input. */
+.d-msg-search > .tf {
   flex: 1;
   min-width: 0;
-  height: var(--h-control);
-  padding: 0 var(--pad-control-x);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--fg);
-  font-family: inherit;
-  font-size: var(--fs-sm);
-  transition: border-color var(--transition-control), padding var(--transition-control);
-}
-.d-msg-search.has-value .d-msg-search-input {
-  padding-right: 78px; /* room for count (~36px) + clear (32px) */
-}
-.d-msg-search-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.d-msg-search-addon {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  pointer-events: none; /* default — only the clear button re-enables */
 }
 .d-msg-search-count {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
-  padding: 0 var(--space-xs);
-}
-.d-msg-search-clear {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 0;
-  border-radius: var(--radius-sm);
-  color: var(--fg-muted);
-  cursor: pointer;
-  pointer-events: auto;
-  transition: color var(--transition-control), background var(--transition-control);
-}
-.d-msg-search-clear:hover { color: var(--fg); background: var(--bg-hover); }
-.d-msg-search-clear:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 1px;
+  color: var(--fg-dim);
 }
 
 /*

@@ -100,6 +100,7 @@ export function ListView({
         onSelect={onSelect}
         onCopyName={onCopyName}
         onContextMenu={onContextMenu}
+        onToggle={menu?.onToggle}
       />
     );
 
@@ -142,6 +143,7 @@ export function ListView({
                 onSelect={onSelect}
                 onCopyName={onCopyName}
                 onContextMenu={onContextMenu}
+                onToggle={menu?.onToggle}
               />
             ),
           )}

@@ -8,11 +8,11 @@
  *   - "danger"    — destructive accent (red); equivalent to the legacy
  *     `class="del"` modifier, which still works.
  *   - "icon"      — square, chromeless icon-only button (toolbar/affordance).
- *
- * There is no chromeless LABEL variant. One existed briefly and was applied to
- * whole action rows; stripping the edge off text buttons left them reading as
- * plain text rather than controls. Icon-only buttons are chromeless because
- * that is what VS Code's own toolbars do; a text button keeps its outline.
+ *   - "ghost"     — chromeless icon + LABEL, for a TERTIARY action inside a
+ *     strip that already has its own fill (the bulk-select toolbar). Not for
+ *     action rows: applying it there stripped the edge off ordinary text
+ *     buttons and left them reading as plain text, which is why the blanket
+ *     rule was removed. A text button standing on the panel keeps its outline.
  *
  * Optional `iconName` renders a leading <Icon>; `loading` swaps the icon for a
  * spinner and disables the button. Content comes from `label` or `children`
@@ -23,7 +23,7 @@ import type { ComponentChildren } from "preact";
 import { cx } from "../../lib";
 import { Icon } from "../Icon";
 
-export type ButtonVariant = "primary" | "secondary" | "icon" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "icon" | "danger";
 
 export interface ButtonProps {
   variant?: ButtonVariant;

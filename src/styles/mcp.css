@@ -338,3 +338,53 @@ button.mcp-auth-banner {
   gap: var(--space-sm);
   margin-top: var(--space-sm);
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Row switch — enable/disable a project .mcp.json server in place.
+
+   Only project servers carry one: Claude Code's switch is the
+   disabledMcpjsonServers arrays, which govern project scope alone, so a
+   control on a global or plugin row would be a switch that cannot move.
+   ────────────────────────────────────────────────────────────────────────── */
+.mcp-switch {
+  flex-shrink: 0;
+  width: 24px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--role-track-border);
+  border-radius: 999px;
+  background: var(--role-track-bg);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition:
+    background var(--transition-control),
+    border-color var(--transition-control);
+}
+.mcp-switch-knob {
+  width: 8px;
+  height: 8px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: var(--fg-muted);
+  transition: transform var(--transition-control), background var(--transition-control);
+}
+.mcp-switch[aria-checked="true"] {
+  background: var(--vscode-button-background, var(--accent));
+  border-color: var(--vscode-button-background, var(--accent));
+}
+.mcp-switch[aria-checked="true"] .mcp-switch-knob {
+  transform: translateX(10px);
+  background: var(--vscode-button-foreground, #fff);
+}
+.mcp-switch:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mcp-switch,
+  .mcp-switch-knob {
+    transition: none;
+  }
+}

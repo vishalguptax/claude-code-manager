@@ -15,6 +15,7 @@ import {
   Icon,
   Menu,
   type MenuItem,
+  SearchInput,
   Segmented,
   type SegmentedOption,
   StatTile,
@@ -521,32 +522,19 @@ export function DetailView() {
               ) : null}
             </div>
             <div class={cx("d-msg-search", { "has-value": isSearching })}>
-              <input
-                class="d-msg-search-input"
-                type="text"
-                autocomplete="off"
-                spellcheck={false}
-                placeholder="Search"
-                aria-label="Search messages"
+              {/* The shared field, so this reads as the same control as the
+                  search box on every other tab — magnifier, chrome and clear
+                  button included. Emits immediately (debounceMs 0) because the
+                  host scan is already debounced downstream of rawQuery. */}
+              <SearchInput
                 value={rawQuery}
-                onInput={(e) => setRawQuery((e.target as HTMLInputElement).value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") setRawQuery("");
-                }}
+                onInput={setRawQuery}
+                debounceMs={0}
+                placeholder="Search"
+                ariaLabel="Search messages"
               />
               {isSearching ? (
-                <div class="d-msg-search-addon">
-                  <span class="d-msg-search-count">{stale ? "…" : `${matchCount}`}</span>
-                  <button
-                    type="button"
-                    class="d-msg-search-clear"
-                    title="Clear search"
-                    aria-label="Clear search"
-                    onClick={() => setRawQuery("")}
-                  >
-                    <Icon name="x" size={12} />
-                  </button>
-                </div>
+                <span class="d-msg-search-count">{stale ? "…" : `${matchCount}`}</span>
               ) : null}
             </div>
           </div>
