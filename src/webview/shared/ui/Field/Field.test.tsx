@@ -67,7 +67,7 @@ describe("Field", () => {
   });
 
   it("merges an extra class onto the field", () => {
-    const { container } = render(<Field class="cfg-wide" label="x" />);
-    expect(container.querySelector(".field.cfg-wide")).toBeTruthy();
+    const { container } = render(<Field class="test-extra-class" label="x" />);
+    expect(container.querySelector(".field.test-extra-class")).toBeTruthy();
   });
 });
