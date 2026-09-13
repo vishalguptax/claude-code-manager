@@ -15,6 +15,9 @@
  * Renders nothing when the list is shorter than its threshold, so a caller can
  * place it unconditionally after the list.
  */
+import { useRef } from "preact/hooks";
+import { keepAnchored } from "../../lib";
+
 export interface ShowMoreProps {
   /** Items in the full list. */
   total: number;
@@ -27,17 +30,23 @@ export interface ShowMoreProps {
 }
 
 export function ShowMore({ total, threshold, expanded, onToggle, noun }: ShowMoreProps) {
+  const ref = useRef<HTMLButtonElement>(null);
   if (total <= threshold) return null;
+
+  // "Show less" drops every disclosed row at once, which can shorten the panel
+  // past its scroll offset and throw this control off screen. Both directions
+  // are anchored so the button stays under the pointer either way.
+  const set = (next: boolean) => (): void => keepAnchored(ref.current, () => onToggle(next));
 
   if (!expanded) {
     return (
-      <button type="button" class="show-more" onClick={() => onToggle(true)}>
+      <button ref={ref} type="button" class="show-more" onClick={set(true)}>
         Show {total - threshold} more{noun ? ` ${noun}` : ""}
       </button>
     );
   }
   return (
-    <button type="button" class="show-more" onClick={() => onToggle(false)}>
+    <button ref={ref} type="button" class="show-more" onClick={set(false)}>
       Show less
     </button>
   );

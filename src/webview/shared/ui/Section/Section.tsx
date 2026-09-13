@@ -11,7 +11,8 @@
  * body (a section whose content is a list, not a block) can use just the head.
  */
 import type { ComponentChildren } from "preact";
-import { cx } from "../../lib";
+import { useRef } from "preact/hooks";
+import { cx, keepAnchored } from "../../lib";
 import { Icon } from "../Icon";
 
 export interface SectionHeaderProps {
@@ -39,8 +40,12 @@ export function SectionHeader({
   onToggle,
   children,
 }: SectionHeaderProps) {
+  const ref = useRef<HTMLElement>(null);
   const collapsible = typeof collapsed === "boolean" && Boolean(onToggle);
-  const toggle = (): void => onToggle?.(id);
+  // Collapsing a tall section can shorten the panel by more than the scroll
+  // offset, so the browser clamps the offset and this header slides away from
+  // the pointer that just clicked it. Hold it in place.
+  const toggle = (): void => keepAnchored(ref.current, () => onToggle?.(id));
   const onKeyDown = (e: KeyboardEvent): void => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
@@ -49,6 +54,7 @@ export function SectionHeader({
 
   return (
     <header
+      ref={ref}
       class="section-header"
       data-section={id}
       role={collapsible ? "button" : undefined}
