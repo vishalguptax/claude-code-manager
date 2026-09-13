@@ -934,6 +934,43 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────
+   Stat tiles — a figure with its label, in a tile. Backs <StatTile>.
+
+   Two columns, fixed. `auto-fit` picked whatever count the sidebar allowed,
+   which at a typical width was three, orphaning a fourth tile on a row of its
+   own. Four across fails harder: at 340px each figure gets ~75px, and
+   "397.2k" under the word "tokens" does not fit in 75px.
+   ────────────────────────────────────────────────────────────────────────── */
+.stat-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+.stat-tile {
+  padding: var(--space-md);
+  background: var(--bg-hover);
+  border-radius: var(--radius);
+  text-align: center;
+  min-width: 0;
+}
+.stat-tile-value {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--fg);
+  /* Figures line up column to column, and a changing number does not shift
+     its own label. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stat-tile-label {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  margin-top: 1px;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
    Command palette — one search over every tab (Cmd/Ctrl+K).
 
    Layered over the panel rather than inside it, so it works from any tab

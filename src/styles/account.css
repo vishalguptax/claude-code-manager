@@ -375,39 +375,9 @@
    Stats grid — big numbers
    ────────────────────────────────────────────────────────────────────────────── */
 
-.acct-stats-grid {
-  display: grid;
-  /* Fixed 2x2, not auto-fit. There are exactly four tiles, and auto-fit
-     picked whatever count the sidebar width allowed — at a typical width
-     that was three, orphaning the fourth on a short row of its own and
-     making the block read as a mistake. Two columns is stable at every
-     sidebar width and keeps the four as one square. */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-sm);
-}
 
-.acct-stat {
-  padding: var(--space-md);
-  background: var(--bg-hover);
-  border-radius: var(--radius);
-  text-align: center;
-}
 
-.acct-stat-v {
-  font-size: var(--fs-xl);
-  font-weight: 600;
-  line-height: 1.1;
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
-}
 
-.acct-stat-k {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-top: 2px;
-}
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Settings form fields

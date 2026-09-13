@@ -496,30 +496,6 @@
  * · duration). Each stat stacks a value over a label. No icons, no
  * borders — whitespace carries grouping.
  */
-.d-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xl);
-  padding: var(--space-xs) 0 0;
-}
-.d-stat {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-.d-stat-v {
-  font-size: var(--fs-base);
-  font-weight: 600;
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-}
-.d-stat-k {
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  letter-spacing: 0.2px;
-}
 
 .d-notice {
   display: flex;

@@ -30,6 +30,8 @@ import {
   SectionHeader,
   Segmented,
   type SegmentedOption,
+  StatTile,
+  StatTileGrid,
 } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { useAccountApi } from "../../api";
@@ -52,7 +54,6 @@ import {
 import { isSectionCollapsed, timePeriod, toggleSection, type TimePeriod } from "../../model";
 import { Donut } from "../Donut";
 import { Heatmap } from "../Heatmap";
-import { StatTile } from "../StatTile";
 
 export interface UsageViewProps {
   data: AccountData;
@@ -195,7 +196,7 @@ function UsageBody({ u }: { u: UsageStats }) {
 
       <Heatmap daily={u.daily} dailyTokens={u.dailyTokens} lastComputedDate={u.lastComputedDate} />
 
-      <div class="acct-stats-grid">
+      <StatTileGrid>
         <StatTile
           value={formatNumber(totals.tokenTotal)}
           label="tokens"
@@ -213,7 +214,7 @@ function UsageBody({ u }: { u: UsageStats }) {
           label="cache read"
           title={cacheHitTooltip(u)}
         />
-      </div>
+      </StatTileGrid>
 
       <InfoRibbon u={u} totals={totals} />
 

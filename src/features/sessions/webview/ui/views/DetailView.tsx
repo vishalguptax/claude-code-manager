@@ -15,6 +15,8 @@ import {
   Icon,
   Segmented,
   type SegmentedOption,
+  StatTile,
+  StatTileGrid,
 } from "../../../../../webview/shared/ui";
 import { isClaudeCodeExtensionInstalled } from "../../../../../webview/extensionStatus";
 import { useDebounce } from "../../../../../webview/shared/hooks";
@@ -89,28 +91,27 @@ function StatStrip({ d }: { d: SessionDetail }) {
         : "")
     : "";
   return (
-    <div class="d-stats">
-      <span class="d-stat" title={`${totalMsgs.toLocaleString()} messages`}>
-        <span class="d-stat-v">{fmtTokens(totalMsgs)}</span>
-        <span class="d-stat-k">message{totalMsgs === 1 ? "" : "s"}</span>
-      </span>
+    // Same tiles the Account tab uses for its usage figures. These were a flat
+    // row of four, which at a 340px sidebar gave each figure ~75px — not
+    // enough for "397.2k" above the word "tokens".
+    <StatTileGrid>
+      <StatTile
+        value={fmtTokens(totalMsgs)}
+        label={`message${totalMsgs === 1 ? "" : "s"}`}
+        title={`${totalMsgs.toLocaleString()} messages`}
+      />
       {d.totalToolUses && d.totalToolUses > 0 ? (
-        <span class="d-stat" title={`${d.totalToolUses.toLocaleString()} tool calls`}>
-          <span class="d-stat-v">{fmtTokens(d.totalToolUses)}</span>
-          <span class="d-stat-k">tool{d.totalToolUses === 1 ? "" : "s"}</span>
-        </span>
+        <StatTile
+          value={fmtTokens(d.totalToolUses)}
+          label={`tool${d.totalToolUses === 1 ? "" : "s"}`}
+          title={`${d.totalToolUses.toLocaleString()} tool calls`}
+        />
       ) : null}
       {tokenTotal > 0 ? (
-        <span class="d-stat" title={tokenTitle}>
-          <span class="d-stat-v">{fmtTokens(tokenTotal)}</span>
-          <span class="d-stat-k">tokens</span>
-        </span>
+        <StatTile value={fmtTokens(tokenTotal)} label="tokens" title={tokenTitle} />
       ) : null}
-      <span class="d-stat">
-        <span class="d-stat-v">{fmtDuration(d.endTime - d.startTime)}</span>
-        <span class="d-stat-k">duration</span>
-      </span>
-    </div>
+      <StatTile value={fmtDuration(d.endTime - d.startTime)} label="duration" />
+    </StatTileGrid>
   );
 }
 

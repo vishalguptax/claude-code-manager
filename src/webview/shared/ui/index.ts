@@ -47,6 +47,12 @@ export {
   type SkeletonProps,
   SkeletonRect,
 } from "./Skeleton";
+export {
+  StatTile,
+  StatTileGrid,
+  type StatTileGridProps,
+  type StatTileProps,
+} from "./StatTile";
 export { TextArea, type TextAreaProps } from "./TextArea";
 export { TextField, type TextFieldProps, type TextFieldType } from "./TextField";
 export { VirtualList, type VirtualListProps } from "./VirtualList";
