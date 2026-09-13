@@ -116,6 +116,61 @@ function readCommandFromFile(filePath: string | null): string | null {
   return typeof sl.command === "string" ? sl.command : null;
 }
 
+/** Read the whole `statusLine` object from one settings file. */
+function readStatusLineObject(filePath: string | null): Record<string, unknown> | null {
+  if (!filePath) return null;
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return null;
+  }
+  try {
+    const data = JSON.parse(raw) as { statusLine?: unknown };
+    const sl = data.statusLine;
+    return sl && typeof sl === "object" && !Array.isArray(sl)
+      ? (sl as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Write (or remove) the `statusLine` block as a COMPLETE, valid object.
+ *
+ * Claude Code's schema is `{ type: "command", command: string, padding?,
+ * refreshInterval? }` — `type` and `command` are both required. Writing
+ * the `statusLine.command` leaf on its own produced `{ "command": ... }`
+ * with no `type` on any machine that had no prior status line, i.e.
+ * every fresh install. A settings.json that fails schema validation is
+ * skipped WHOLE by Claude Code, so one click of "Enable live quota"
+ * silently switched off every other setting the user had.
+ *
+ * Removal has the mirror problem: clearing just the leaf left
+ * `{ "type": "command" }` behind, which is equally invalid. Removing
+ * means dropping the whole block.
+ *
+ * Any sibling keys the user set (padding, refreshInterval) are carried
+ * through — they are theirs, not ours.
+ */
+function writeStatusLine(
+  command: string | null,
+  scope: PermissionScope,
+  workspacePath?: string,
+): boolean {
+  if (command === null || command === "") {
+    return writeSettingsValue("statusLine", undefined, scope, workspacePath);
+  }
+  const existing = readStatusLineObject(settingsPathFor(scope, workspacePath)) ?? {};
+  return writeSettingsValue(
+    "statusLine",
+    { ...existing, type: "command", command },
+    scope,
+    workspacePath,
+  );
+}
+
 /**
  * Enterprise managed settings out-precede every user scope. When they
  * define a statusline, nothing we write can take effect — surface that
@@ -185,7 +240,7 @@ function migrateV1(rec: InnerRecordV1): InnerRecordV2 {
     v2.global = { priorCommand: rec.command };
   } else if (rec.workspacePath) {
     if (rec.scope === "project") {
-      writeSettingsValue("statusLine.command", rec.command, "project", rec.workspacePath);
+      writeStatusLine(rec.command, "project", rec.workspacePath);
     }
     v2.workspaces[rec.workspacePath] = {
       sourceScope: rec.scope === "project" ? "project" : "local",
@@ -238,7 +293,7 @@ export function detectForeignProjectTap(workspacePath?: string): boolean {
 /** Remove a tap entry from the shared project settings (user-approved). */
 export function removeForeignProjectTap(workspacePath?: string): boolean {
   if (!detectForeignProjectTap(workspacePath)) return false;
-  return writeSettingsValue("statusLine.command", "", "project", workspacePath);
+  return writeStatusLine(null, "project", workspacePath);
 }
 
 export type InstallResult = { ok: true; repairedProject?: boolean } | { ok: false; error: string };
@@ -290,7 +345,7 @@ function ensureInstalled(tapSourcePath: string, workspacePath?: string): Install
           priorCommand: globalCmd !== null && !isTapCommand(globalCmd) ? globalCmd : "",
         };
       }
-      if (!writeSettingsValue("statusLine.command", tapCommand(), "global")) {
+      if (!writeStatusLine(tapCommand(), "global")) {
         return { ok: false, error: "settings-write-failed" };
       }
     } else if (rec.global === null) {
@@ -308,7 +363,7 @@ function ensureInstalled(tapSourcePath: string, workspacePath?: string): Install
       if (projectCmd !== null && isTapCommand(projectCmd)) {
         const existing = rec.workspaces[workspacePath];
         const prior = existing?.sourceScope === "project" ? existing.priorCommand : "";
-        writeSettingsValue("statusLine.command", prior, "project", workspacePath);
+        writeStatusLine(prior, "project", workspacePath);
         projectCmd = prior || null;
         repairedProject = true;
       }
@@ -331,7 +386,7 @@ function ensureInstalled(tapSourcePath: string, workspacePath?: string): Install
               priorCommand: projectCmd ?? "",
             };
           }
-          writeSettingsValue("statusLine.command", tapCommand(), "local", workspacePath);
+          writeStatusLine(tapCommand(), "local", workspacePath);
         }
       } else if (projectCmd !== null) {
         // Project statusline (possibly "") shadows the global tap —
@@ -340,7 +395,7 @@ function ensureInstalled(tapSourcePath: string, workspacePath?: string): Install
           sourceScope: "project",
           priorCommand: projectCmd,
         };
-        writeSettingsValue("statusLine.command", tapCommand(), "local", workspacePath);
+        writeStatusLine(tapCommand(), "local", workspacePath);
       } else if (rec.workspaces[workspacePath]) {
         // No shadowing anymore (user removed their local/project
         // statusline) — the stale override record would misdirect a
@@ -400,11 +455,9 @@ export function uninstallStatusline(workspacePath?: string): InstallResult {
     if (rec) {
       const globalCmd = readCommandFromFile(SETTINGS_FILE);
       if (globalCmd !== null && isTapCommand(globalCmd)) {
-        writeSettingsValue(
-          "statusLine.command",
-          rec.global?.priorCommand ?? "",
-          "global",
-        );
+        // "" means the user had no status line before us, so the whole
+        // block goes; a non-empty prior is restored as a complete block.
+        writeStatusLine(rec.global?.priorCommand ?? "", "global");
       }
       for (const [ws, o] of Object.entries(rec.workspaces)) {
         const localCmd = readCommandFromFile(settingsPathFor("local", ws));
@@ -412,8 +465,7 @@ export function uninstallStatusline(workspacePath?: string): InstallResult {
           // sourceScope "project": we created the local key — delete it
           // (project supplies the command again). "local": restore the
           // user's own command.
-          writeSettingsValue(
-            "statusLine.command",
+          writeStatusLine(
             o.sourceScope === "local" ? o.priorCommand : "",
             "local",
             ws,
@@ -428,7 +480,7 @@ export function uninstallStatusline(workspacePath?: string): InstallResult {
     for (const scope of ["global", "project", "local"] as PermissionScope[]) {
       const cmd = readCommandFromFile(settingsPathFor(scope, workspacePath));
       if (cmd !== null && isTapCommand(cmd)) {
-        writeSettingsValue("statusLine.command", "", scope, workspacePath);
+        writeStatusLine(null, scope, workspacePath);
       }
     }
 

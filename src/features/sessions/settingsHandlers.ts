@@ -17,10 +17,38 @@ import {
   resolveSettingsPath,
   restoreClaudeJsonFromBackup,
 } from "../account/parser";
+import type { PermissionScope } from "../account/types";
 import { getWorkspace } from "../../extension/workspace";
 import { createTerminal } from "../../extension/terminal";
 import type { WebviewMessage } from "./types";
 import type { HostContext } from "./hostContext";
+
+
+/**
+ * Wrap a settings write so a refusal is visible.
+ *
+ * `writeSettingsValue` now returns false rather than clobbering a
+ * settings.json it cannot parse. Left unreported that reads as a dead
+ * control: the toggle flips, nothing happens, and the next host push
+ * flips it back. The file has to be named, because the user has to go
+ * fix it — Claude Code is ignoring it for the same reason we are.
+ */
+function reportWrite(ok: boolean, scope: PermissionScope = "global"): boolean {
+  if (ok) return true;
+  const file = resolveSettingsPath(scope, getWorkspace() || undefined) ?? "settings.json";
+  vscode.window.showErrorMessage(
+    `Couldn't save: ${file} isn't valid JSON, so the change was not written. ` +
+      "Claude Code ignores the file in this state too. Fix or remove it, then try again.",
+    "Open file",
+  ).then((pick) => {
+    if (pick === "Open file") {
+      void vscode.workspace
+        .openTextDocument(file)
+        .then((doc) => vscode.window.showTextDocument(doc));
+    }
+  });
+  return false;
+}
 
 export async function handleSettingsMessage(
   msg: WebviewMessage,
@@ -52,7 +80,7 @@ export async function handleSettingsMessage(
     }
 
     case "setModel": {
-      writeSettingsValue("model", msg.model || undefined);
+      reportWrite(writeSettingsValue("model", msg.model || undefined));
       const workspace = getWorkspace();
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;
@@ -66,7 +94,7 @@ export async function handleSettingsMessage(
         validateInput: (v: string) => (v.trim() ? null : "Model name cannot be empty"),
       });
       if (input && input.trim()) {
-        writeSettingsValue("model", input.trim());
+        reportWrite(writeSettingsValue("model", input.trim()));
         const workspace = getWorkspace();
         postAccountData(wv, parseAccountData(workspace || undefined));
       }
@@ -108,7 +136,7 @@ export async function handleSettingsMessage(
       // only write the current key — and clear the legacy one so the two
       // cannot disagree.
       writeSettingsValue("voiceEnabled", "");
-      writeSettingsValue("voice.enabled", msg.value);
+      reportWrite(writeSettingsValue("voice.enabled", msg.value));
       const workspace = getWorkspace();
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;
@@ -118,7 +146,10 @@ export async function handleSettingsMessage(
       // Generic writer — key is dotted path, value is any JSON-safe
       // scalar or array. Empty string / null / undefined removes the
       // key (writeSettingsValue handles that case).
-      writeSettingsValue(msg.key, msg.value, msg.scope ?? "global", getWorkspace() || undefined);
+      reportWrite(
+        writeSettingsValue(msg.key, msg.value, msg.scope ?? "global", getWorkspace() || undefined),
+        msg.scope ?? "global",
+      );
       const workspace = getWorkspace();
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;
@@ -233,14 +264,18 @@ export async function handleSettingsMessage(
       // opposite of the key being absent, which means "add the default".
       // The view asks for the absent state through setSetting, which
       // keeps the normal remove-on-empty rule.
-      writeSettingsValue("attribution.commit", msg.value, "global", undefined, "value");
+      reportWrite(
+        writeSettingsValue("attribution.commit", msg.value, "global", undefined, "value"),
+      );
       const workspace = getWorkspace();
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
 
     case "setPrAttribution": {
-      writeSettingsValue("attribution.pr", msg.value, "global", undefined, "value");
+      reportWrite(
+        writeSettingsValue("attribution.pr", msg.value, "global", undefined, "value"),
+      );
       const workspace = getWorkspace();
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;

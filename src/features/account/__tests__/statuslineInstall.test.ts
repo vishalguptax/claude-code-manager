@@ -87,7 +87,6 @@ vi.mock("../parser", async () => {
       workspacePath?: string,
     ): boolean => {
       settings.calls.push({ key, value, scope, workspacePath });
-      if (key !== "statusLine.command") return true;
       const filePath = settingsFileFor(scope, workspacePath);
       if (!filePath) return false;
       let data: Record<string, unknown> = {};
@@ -99,10 +98,25 @@ vi.mock("../parser", async () => {
           data = {};
         }
       }
+      // Apply the dotted key generically, exactly as the real writer
+      // does. The previous fake special-cased "statusLine.command" and
+      // materialised `{ type: "command", command }` itself — a shape the
+      // production code never wrote. That is precisely why the missing
+      // `type` went unnoticed: the mock was more correct than the code
+      // it stood in for. A generic path-set cannot drift that way.
+      const parts = key.split(".");
+      let target = data;
+      for (let i = 0; i < parts.length - 1; i++) {
+        const k = parts[i];
+        if (typeof target[k] !== "object" || target[k] === null || Array.isArray(target[k])) {
+          target[k] = {};
+        }
+        target = target[k] as Record<string, unknown>;
+      }
       if (value === undefined || value === null || value === "") {
-        delete data.statusLine;
+        delete target[parts[parts.length - 1]];
       } else {
-        data.statusLine = { type: "command", command: value };
+        target[parts[parts.length - 1]] = value;
       }
       fsState.files.set(filePath, JSON.stringify(data));
       return true;
@@ -153,6 +167,12 @@ function commandAt(filePath: string): string | null {
   if (raw === undefined) return null;
   const data = JSON.parse(raw) as { statusLine?: { command?: string } };
   return data.statusLine?.command ?? null;
+}
+
+function statusLineAt(filePath: string): Record<string, unknown> | undefined {
+  const raw = fsState.files.get(filePath);
+  if (raw === undefined) return undefined;
+  return (JSON.parse(raw) as { statusLine?: Record<string, unknown> }).statusLine;
 }
 
 function readSidecar(): InnerRecordV2 {
@@ -473,5 +493,52 @@ describe("detectForeignProjectTap / removeForeignProjectTap", () => {
     expect(removeForeignProjectTap(WS)).toBe(true);
     expect(commandAt(PROJECT_SETTINGS)).toBeNull();
     expect(detectForeignProjectTap(WS)).toBe(false);
+  });
+
+  describe("the statusLine block it writes is schema-valid", () => {
+    // Claude Code's schema is { type: "command", command: string,
+    // padding?, refreshInterval? } with type AND command both required,
+    // and it SKIPS a settings.json that fails validation. Writing the
+    // `statusLine.command` leaf alone produced `{ "command": ... }` on
+    // any machine with no prior status line — every fresh install — so
+    // enabling live quota silently switched off every other setting the
+    // user had.
+    it("includes type on a clean machine", () => {
+      installStatusline(TAP_SOURCE);
+      expect(statusLineAt(SETTINGS_FILE)).toEqual({
+        type: "command",
+        command: expect.stringContaining("statusline-tap.js"),
+      });
+    });
+
+    it("keeps the user's sibling keys when taking over", () => {
+      fsState.files.set(
+        SETTINGS_FILE,
+        JSON.stringify({
+          statusLine: { type: "command", command: "mine.sh", padding: 2, refreshInterval: 5 },
+        }),
+      );
+      installStatusline(TAP_SOURCE);
+      const sl = statusLineAt(SETTINGS_FILE)!;
+      expect(sl.padding).toBe(2);
+      expect(sl.refreshInterval).toBe(5);
+      expect(sl.type).toBe("command");
+      expect(String(sl.command)).toContain("statusline-tap.js");
+    });
+
+    it("removes the whole block rather than leaving a typed stub behind", () => {
+      // Clearing only `command` left `{ "type": "command" }`, which fails
+      // the same schema check and breaks the file just as thoroughly.
+      installStatusline(TAP_SOURCE);
+      uninstallStatusline();
+      expect(statusLineAt(SETTINGS_FILE)).toBeUndefined();
+    });
+
+    it("restores a chained command as a complete block", () => {
+      seedSettingsAt(SETTINGS_FILE, "mine.sh");
+      installStatusline(TAP_SOURCE);
+      uninstallStatusline();
+      expect(statusLineAt(SETTINGS_FILE)).toEqual({ type: "command", command: "mine.sh" });
+    });
   });
 });

@@ -400,6 +400,20 @@ export function parseAccountData(workspacePath?: string): AccountData {
  * Update a single key in settings.json, preserving other keys.
  * Supports nested keys with dot notation (e.g., "attribution.commit").
  */
+/** Read a file, or null when it does not exist / cannot be read. */
+function readFileOrNull(filePath: string): string | null {
+  try {
+    return fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return null;
+  }
+}
+
+/** True for a JSON object — not null, not an array. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
 export function writeSettingsValue(
   key: string,
   value: unknown,
@@ -422,29 +436,59 @@ export function writeSettingsValue(
   const filePath = resolveSettingsPath(scope, workspacePath);
   if (!filePath) return false;
 
-  // Snapshot before mutating so the user always has a one-click undo.
-  // Failure to snapshot must not block the write (the underlying op
-  // is what the user asked for); snapshotSettings returns null on a
-  // missing file, which is fine for the very first write.
-  snapshotSettings(scope, filePath);
-
+  // Read and validate BEFORE touching anything.
+  //
+  // This used to swallow a parse failure and carry on with an empty
+  // object, which meant the write replaced the whole file with the
+  // single key being set. Claude Code rejects a settings.json containing
+  // comments, a trailing comma or any truncation ("invalid JSON, JSON
+  // comments, schema mismatch — the file is skipped"), so a file in
+  // exactly that state is both plausible and the one where its contents
+  // matter most to the user. A `{ model, env, permissions, hooks }` file
+  // with one stray comment came back as `{ "verbose": true }`.
+  //
+  // Worse, it needed no user action: selfHealStatusline runs on every
+  // activation once the tap is installed, and an unparseable file makes
+  // readCommandFromFile report "no statusline", so the heal decided to
+  // reinstall and rewrote the file. Open the editor, lose your settings.
+  //
+  // Refusing is the only safe answer. We cannot merge into a document we
+  // cannot read, and we must not guess.
   let data: Record<string, unknown> = {};
-  try {
-    const raw = fs.readFileSync(filePath, "utf-8");
-    data = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    // create new file
+  const raw = readFileOrNull(filePath);
+  if (raw !== null && raw.trim() !== "") {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return false;
+    }
+    if (!isPlainObject(parsed)) return false;
+    data = parsed;
   }
 
   const parts = key.split(".");
   let target: Record<string, unknown> = data;
   for (let i = 0; i < parts.length - 1; i++) {
     const k = parts[i];
-    if (typeof target[k] !== "object" || target[k] === null || Array.isArray(target[k])) {
+    const existing = target[k];
+    if (existing === undefined) {
       target[k] = {};
+    } else if (!isPlainObject(existing)) {
+      // An intermediate that exists but is not an object — say
+      // `permissions: ["Bash(ls)"]` from a hand-edit. Overwriting it with
+      // `{}` to make room for the new leaf silently deleted whatever was
+      // there; a permission allowlist is not something to drop in order
+      // to store a default mode.
+      return false;
     }
     target = target[k] as Record<string, unknown>;
   }
+
+  // Snapshot only now that the write is known to be possible, so a
+  // refused write does not churn the snapshot ring and push the user's
+  // real history out of it.
+  snapshotSettings(scope, filePath);
 
   const removeOnEmpty = emptyString === "remove";
   if (value === undefined || value === null || (value === "" && removeOnEmpty)) {

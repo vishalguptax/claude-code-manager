@@ -322,3 +322,64 @@ describe("settings round-trip — every Config control", () => {
     expect("model" in raw).toBe(false);
   });
 });
+
+describe("writeSettingsValue — refuses to clobber a file it cannot read", () => {
+  /**
+   * Claude Code skips a settings.json that fails to parse ("invalid
+   * JSON, JSON comments, schema mismatch"), so a file in that state is
+   * both plausible and the one whose contents matter most.
+   *
+   * The writer used to swallow the parse error and continue with an
+   * empty object, replacing the whole file with the single key being
+   * set. It needed no user action either: selfHealStatusline runs on
+   * every activation once the tap is installed, and an unparseable file
+   * reads as "no status line", so the heal reinstalled and rewrote.
+   */
+  const HOSTILE: Array<[string, string]> = [
+    ["a JSON comment", '{\n  // note\n  "model": "opus",\n  "env": { "A": "1" }\n}'],
+    ["a trailing comma", '{ "model": "opus", "env": { "A": "1" }, }'],
+    ["truncation", '{ "model": "opus", "permissions": { "allow": ["Bash(ls)"'],
+    ["a top-level array", '["not", "an", "object"]'],
+  ];
+
+  it.each(HOSTILE)("refuses and leaves the file byte-identical: %s", (_label, content) => {
+    fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
+    expect(writeSettingsValue("verbose", true)).toBe(false);
+    expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
+  });
+
+  it("refuses rather than replacing a non-object it would have to nest into", () => {
+    // `permissions: [...]` from a hand-edit. Overwriting it with {} to
+    // make room for defaultMode silently dropped an allowlist.
+    const content = '{"permissions":["Bash(ls)"],"model":"opus"}';
+    fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
+    expect(writeSettingsValue("permissions.defaultMode", "auto")).toBe(false);
+    expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
+  });
+
+  it("still writes to an absent or empty file — there is nothing to lose", () => {
+    fs.rmSync(GLOBAL_SETTINGS, { force: true });
+    expect(writeSettingsValue("model", "opus")).toBe(true);
+    expect(JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8"))).toEqual({ model: "opus" });
+
+    fs.writeFileSync(GLOBAL_SETTINGS, "   ", "utf-8");
+    expect(writeSettingsValue("verbose", true)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8"))).toEqual({ verbose: true });
+  });
+
+  it("preserves every unrelated key on a valid file", () => {
+    const before = {
+      model: "opus[1m]",
+      env: { A: "1" },
+      permissions: { allow: ["Bash(ls)"], defaultMode: "auto" },
+      hooks: { SessionStart: [] },
+    };
+    writeJson(GLOBAL_SETTINGS, before);
+    expect(writeSettingsValue("sandbox.enabled", true)).toBe(true);
+    const after = JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(before)) {
+      expect(after[k]).toEqual(v);
+    }
+    expect(after.sandbox).toEqual({ enabled: true });
+  });
+});
