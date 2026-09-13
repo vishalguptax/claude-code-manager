@@ -19,7 +19,9 @@ describe("ScopeFilter", () => {
     const segs = container.querySelectorAll(".vsc-segmented-seg");
     expect(segs.length).toBe(3);
     expect(segs[0].textContent).toContain("All");
-    expect(segs[0].textContent).toContain("10");
+    // The count is the segment's tooltip, not part of its label — four
+    // counted scopes spelled inline do not fit a ~300px sidebar.
+    expect(segs[0].getAttribute("title")).toBe("All: 10");
     expect(segs[1].textContent).toContain("Project");
   });
 
@@ -40,7 +42,7 @@ describe("ScopeFilter", () => {
   it("calls onChange with the clicked option's value", () => {
     const onChange = vi.fn();
     const { getByText } = render(<ScopeFilter value="all" options={OPTS} onChange={onChange} />);
-    fireEvent.click(getByText("Project (4)"));
+    fireEvent.click(getByText("Project"));
     expect(onChange).toHaveBeenCalledWith("project");
   });
 });

@@ -99,7 +99,7 @@ describe("ListView", () => {
   it("shows the scope filter and narrows on click", () => {
     setHooks([hook({ scope: "global", command: "g" }), hook({ scope: "local", command: "l" })]);
     render(h(ListView, {}));
-    fireEvent.click(screen.getByText("Local (1)"));
+    fireEvent.click(screen.getByText("Local"));
     expect(screen.getByText("1 hook")).toBeTruthy();
     expect(screen.queryByText("g")).toBeNull();
   });

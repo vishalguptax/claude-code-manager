@@ -120,11 +120,12 @@
   outline-offset: -1px;
 }
 .tab-btn.active {
+  /* The accent underline is the selected state, so the cell takes no fill —
+     two indicators saying the same thing just make the strip noisier. What was
+     missing before was contrast in the TEXT: --fg vs --fg-dim resolve to
+     sideBar-foreground and descriptionForeground, which most dark themes put
+     close together. The panel-title pair is the one a theme tunes for this. */
   color: var(--vscode-panelTitle-activeForeground, var(--fg));
-  /* Text weight and colour alone were carrying the selected state. A fill
-     makes the cell itself the indicator, so the active tab is obvious at a
-     glance in any theme rather than on close inspection. */
-  background: var(--role-selected-bg);
   border-bottom-color: var(--vscode-panelTitle-activeBorder, var(--accent));
   font-weight: 600;
   /* Grows to fit its label; every other tab stays a 30px cell. */

@@ -33,6 +33,8 @@ export interface SegmentedOption<V extends string = string> {
   label: string;
   /** Optional trailing count shown after the label, e.g. a scope item count. */
   count?: number;
+  /** Hover text. Used to carry detail that will not fit in the label. */
+  title?: string;
 }
 
 export interface SegmentedProps<V extends string = string> {
@@ -82,6 +84,7 @@ function Segment<V extends string>({
       role="radio"
       aria-checked={active}
       disabled={disabled}
+      title={opt.title}
       // Roving tabindex: only the selected segment is in the tab order; arrows
       // move between segments once the group has focus (WAI-ARIA radio group).
       // When disabled the whole group leaves the tab order (-1 on every seg).
