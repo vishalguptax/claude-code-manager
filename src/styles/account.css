@@ -1278,3 +1278,35 @@
   font-size: var(--fs-xs);
   min-width: 5em;
 }
+
+/* ── Config settings groups ─────────────────────────────────────────
+ * The settings section runs to ~20 controls. Ungrouped they read as one
+ * undifferentiated column and there is no way to scan for the one you
+ * came for, so each group gets a quiet heading and a hairline above it.
+ * The heading is deliberately lighter than the section title: these are
+ * subdivisions of one section, not sections of their own. */
+.cfg-group + .cfg-group {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border);
+}
+.cfg-group-title {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* A superseded key that still takes effect: shown as a notice with a
+   one-click clear, not as a control that invites further use. */
+.cfg-deprecated {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  justify-content: space-between;
+}
+.cfg-deprecated .acct-field-hint {
+  flex: 1;
+}

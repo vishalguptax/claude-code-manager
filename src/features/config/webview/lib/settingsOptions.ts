@@ -70,6 +70,32 @@ export const EFFORT_OPTIONS: Array<SettingOption> = [
  * Effort options for the current value. If the CLI reports a tier we don't
  * know yet, append it so the dropdown can still show (and keep) the selection.
  */
+/**
+ * Built-in output styles. Users can add their own under
+ * `~/.claude/output-styles/`, so an unrecognised current value is
+ * appended rather than dropped (same rule as the effort picker).
+ */
+export const OUTPUT_STYLE_OPTIONS: Array<SettingOption> = [
+  { value: "", label: "Default", desc: "Claude Code's standard engineering voice" },
+  { value: "Explanatory", label: "Explanatory", desc: "Adds educational asides explaining the choices made" },
+  { value: "Learning", label: "Learning", desc: "Asks you to write some of the code, and explains as it goes" },
+];
+
+export function buildOutputStyleOptions(currentValue: string): Array<SettingOption> {
+  if (!currentValue) return OUTPUT_STYLE_OPTIONS;
+  if (OUTPUT_STYLE_OPTIONS.some((o) => o.value === currentValue)) return OUTPUT_STYLE_OPTIONS;
+  return [
+    ...OUTPUT_STYLE_OPTIONS,
+    { value: currentValue, label: currentValue, desc: "Custom output style from ~/.claude/output-styles/" },
+  ];
+}
+
+/** Prompt-input key bindings. Claude Code accepts "default" and "vim". */
+export const EDITOR_MODE_OPTIONS: Array<SettingOption> = [
+  { value: "", label: "Default", desc: "Standard text input" },
+  { value: "vim", label: "Vim", desc: "Vim key bindings, with normal and insert modes" },
+];
+
 export function buildEffortOptions(currentValue: string): Array<SettingOption> {
   if (!currentValue) return EFFORT_OPTIONS;
   if (EFFORT_OPTIONS.some((o) => o.value === currentValue)) return EFFORT_OPTIONS;

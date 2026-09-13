@@ -211,6 +211,24 @@ function parseSettings(): AccountSettings {
     additionalDirectories: [],
     cleanupPeriodDays: 0,
     effortLevel: "",
+    includeCoAuthoredBySet: false,
+    commitAttributionSet: false,
+    prAttributionSet: false,
+    // Defaults mirror Claude Code's own: these are all "on unless a
+    // settings file says otherwise", so an absent key must read as true
+    // or the UI would invite the user to re-enable something that was
+    // never off.
+    alwaysThinkingEnabled: true,
+    sandboxEnabled: false,
+    disableBypassPermissionsMode: false,
+    autoCompactEnabled: true,
+    autoCompactWindow: 0,
+    fileCheckpointingEnabled: true,
+    autoMemoryEnabled: true,
+    includeGitInstructions: true,
+    outputStyle: "",
+    editorMode: "",
+    verbose: false,
   };
 
   try {
@@ -226,8 +244,14 @@ function parseSettings(): AccountSettings {
     if (voice && typeof voice.enabled === "boolean") result.voiceEnabled = voice.enabled;
     const attribution = data.attribution as Record<string, unknown> | undefined;
     if (attribution) {
-      if (typeof attribution.commit === "string") result.commitAttribution = attribution.commit;
-      if (typeof attribution.pr === "string") result.prAttribution = attribution.pr;
+      if (typeof attribution.commit === "string") {
+        result.commitAttribution = attribution.commit;
+        result.commitAttributionSet = true;
+      }
+      if (typeof attribution.pr === "string") {
+        result.prAttribution = attribution.pr;
+        result.prAttributionSet = true;
+      }
     }
     const statusLine = data.statusLine as Record<string, unknown> | undefined;
     if (statusLine && typeof statusLine.command === "string") {
@@ -235,9 +259,30 @@ function parseSettings(): AccountSettings {
     }
     if (typeof data.includeCoAuthoredBy === "boolean") {
       result.includeCoAuthoredBy = data.includeCoAuthoredBy;
+      result.includeCoAuthoredBySet = true;
     }
     if (typeof data.spinnerTipsEnabled === "boolean") {
       result.spinnerTipsEnabled = data.spinnerTipsEnabled;
+    }
+    // Booleans that default ON: only an explicit `false` flips them.
+    for (const [key, field] of [
+      ["alwaysThinkingEnabled", "alwaysThinkingEnabled"],
+      ["autoCompactEnabled", "autoCompactEnabled"],
+      ["fileCheckpointingEnabled", "fileCheckpointingEnabled"],
+      ["autoMemoryEnabled", "autoMemoryEnabled"],
+      ["includeGitInstructions", "includeGitInstructions"],
+    ] as const) {
+      if (typeof data[key] === "boolean") result[field] = data[key] as boolean;
+    }
+    if (typeof data.verbose === "boolean") result.verbose = data.verbose;
+    if (typeof data.outputStyle === "string") result.outputStyle = data.outputStyle;
+    if (typeof data.editorMode === "string") result.editorMode = data.editorMode;
+    if (typeof data.autoCompactWindow === "number" && data.autoCompactWindow > 0) {
+      result.autoCompactWindow = data.autoCompactWindow;
+    }
+    const sandbox = data.sandbox as Record<string, unknown> | undefined;
+    if (sandbox && typeof sandbox.enabled === "boolean") {
+      result.sandboxEnabled = sandbox.enabled;
     }
     if (typeof data.cleanupPeriodDays === "number" && data.cleanupPeriodDays >= 0) {
       result.cleanupPeriodDays = data.cleanupPeriodDays;
@@ -253,6 +298,9 @@ function parseSettings(): AccountSettings {
       const mode = permissions.defaultMode;
       if (isPermissionDefaultMode(mode)) {
         result.defaultMode = mode;
+      }
+      if (typeof permissions.disableBypassPermissionsMode === "boolean") {
+        result.disableBypassPermissionsMode = permissions.disableBypassPermissionsMode;
       }
       const dirs = permissions.additionalDirectories;
       if (Array.isArray(dirs)) {

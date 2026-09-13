@@ -34,9 +34,9 @@ describe("ConfigTab", () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
-    await waitFor(() => expect(screen.getByText("Behavior")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
     configData.value = makeConfigData();
-    await waitFor(() => expect(screen.getByText("Behavior")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
 
     const requests = post.mock.calls.filter(
       ([m]) => (m as { type: string }).type === "getAccountData",
@@ -48,7 +48,7 @@ describe("ConfigTab", () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
-    await waitFor(() => expect(screen.getByText("Behavior")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
     expect(screen.getByText("Permissions")).toBeTruthy();
     expect(screen.getByText("Settings history")).toBeTruthy();
     expect(screen.getByText("Brain backup")).toBeTruthy();
@@ -67,7 +67,7 @@ describe("ConfigTab", () => {
     await waitFor(() => expect(screen.getByText("host blew up")).toBeTruthy());
   });
 
-  it("wires the Behavior section to the api (reset posts resetSettings)", async () => {
+  it("wires the Settings section to the api (reset posts resetSettings)", async () => {
     // Integration check that SettingsView receives a live api. The dropdown →
     // onChange → setModel bridge is covered by the Dropdown component spec and
     // the SettingsView CDD test (web-component change events don't replay
@@ -76,7 +76,7 @@ describe("ConfigTab", () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
-    await waitFor(() => expect(screen.getByText("Behavior")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
     fireEvent.click(screen.getByText("Reset settings"));
     expect(post).toHaveBeenCalledWith({ type: "resetSettings", scope: "global" });
   });

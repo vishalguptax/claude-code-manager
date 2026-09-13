@@ -101,12 +101,13 @@ export async function handleSettingsMessage(
     }
 
     case "setVoiceEnabled": {
-      // Write both keys so both schemas agree — legacy CLI versions
-      // read `voiceEnabled`, current CLI reads `voice.enabled`. Without
-      // touching both, the toggle could appear to flip back on next
-      // open when the CLI overwrites one key and we only wrote the
-      // other.
-      writeSettingsValue("voiceEnabled", msg.value);
+      // Current Claude Code reads `voice.enabled`; the flat `voiceEnabled`
+      // key is gone from its schema (0 occurrences in 2.1.269) and /doctor
+      // now reports it as an unrecognized field. We still READ both, so a
+      // file written by an older CLI keeps showing the right state, but we
+      // only write the current key — and clear the legacy one so the two
+      // cannot disagree.
+      writeSettingsValue("voiceEnabled", "");
       writeSettingsValue("voice.enabled", msg.value);
       const workspace = getWorkspace();
       postAccountData(wv, parseAccountData(workspace || undefined));

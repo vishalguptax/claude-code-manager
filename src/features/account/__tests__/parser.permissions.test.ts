@@ -132,3 +132,96 @@ describe("parseAccountData — permissions", () => {
     expect(data.permissions.map((p) => p.scope)).toEqual(["global"]);
   });
 });
+
+describe("parseAccountData — settings keys", () => {
+  it("treats Claude Code's default-ON keys as on when the file omits them", () => {
+    // An absent key means stock behaviour, not "off". Reading it as off
+    // would show every toggle unchecked on a clean install and invite the
+    // user to "enable" things that were never disabled.
+    writeJson(GLOBAL_SETTINGS, {});
+    const s = parseAccountData().settings;
+    expect(s.alwaysThinkingEnabled).toBe(true);
+    expect(s.autoCompactEnabled).toBe(true);
+    expect(s.fileCheckpointingEnabled).toBe(true);
+    expect(s.autoMemoryEnabled).toBe(true);
+    expect(s.includeGitInstructions).toBe(true);
+    expect(s.spinnerTipsEnabled).toBe(true);
+    // …and default-OFF keys stay off.
+    expect(s.sandboxEnabled).toBe(false);
+    expect(s.disableBypassPermissionsMode).toBe(false);
+    expect(s.verbose).toBe(false);
+    expect(s.autoCompactWindow).toBe(0);
+  });
+
+  it("reads an explicit false for each default-on key", () => {
+    writeJson(GLOBAL_SETTINGS, {
+      alwaysThinkingEnabled: false,
+      autoCompactEnabled: false,
+      fileCheckpointingEnabled: false,
+      autoMemoryEnabled: false,
+      includeGitInstructions: false,
+    });
+    const s = parseAccountData().settings;
+    expect(s.alwaysThinkingEnabled).toBe(false);
+    expect(s.autoCompactEnabled).toBe(false);
+    expect(s.fileCheckpointingEnabled).toBe(false);
+    expect(s.autoMemoryEnabled).toBe(false);
+    expect(s.includeGitInstructions).toBe(false);
+  });
+
+  it("reads the nested sandbox and permission keys", () => {
+    writeJson(GLOBAL_SETTINGS, {
+      sandbox: { enabled: true },
+      permissions: { disableBypassPermissionsMode: true, defaultMode: "auto" },
+    });
+    const s = parseAccountData().settings;
+    expect(s.sandboxEnabled).toBe(true);
+    expect(s.disableBypassPermissionsMode).toBe(true);
+    expect(s.defaultMode).toBe("auto");
+  });
+
+  it("accepts every permission mode the CLI supports", () => {
+    for (const mode of ["default", "acceptEdits", "auto", "plan", "dontAsk", "bypassPermissions"]) {
+      writeJson(GLOBAL_SETTINGS, { permissions: { defaultMode: mode } });
+      expect(parseAccountData().settings.defaultMode).toBe(mode);
+    }
+  });
+
+  it("ignores a permission mode the CLI does not define", () => {
+    writeJson(GLOBAL_SETTINGS, { permissions: { defaultMode: "yolo" } });
+    expect(parseAccountData().settings.defaultMode).toBe("");
+  });
+
+  it("reads output style, editor mode, verbose and the compact window", () => {
+    writeJson(GLOBAL_SETTINGS, {
+      outputStyle: "Explanatory",
+      editorMode: "vim",
+      verbose: true,
+      autoCompactWindow: 250_000,
+    });
+    const s = parseAccountData().settings;
+    expect(s.outputStyle).toBe("Explanatory");
+    expect(s.editorMode).toBe("vim");
+    expect(s.verbose).toBe(true);
+    expect(s.autoCompactWindow).toBe(250_000);
+  });
+
+  it("distinguishes an unset legacy co-author key from an explicit one", () => {
+    // The view only warns about it when it is actually present AND false,
+    // so "present" has to be tracked separately from the value.
+    writeJson(GLOBAL_SETTINGS, {});
+    expect(parseAccountData().settings.includeCoAuthoredBySet).toBe(false);
+
+    writeJson(GLOBAL_SETTINGS, { includeCoAuthoredBy: false });
+    const s = parseAccountData().settings;
+    expect(s.includeCoAuthoredBySet).toBe(true);
+    expect(s.includeCoAuthoredBy).toBe(false);
+  });
+
+  it("reads voice from either the current or the legacy key", () => {
+    writeJson(GLOBAL_SETTINGS, { voice: { enabled: true } });
+    expect(parseAccountData().settings.voiceEnabled).toBe(true);
+    writeJson(GLOBAL_SETTINGS, { voiceEnabled: true });
+    expect(parseAccountData().settings.voiceEnabled).toBe(true);
+  });
+});

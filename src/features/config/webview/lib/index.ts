@@ -6,7 +6,10 @@ export { formatKb, formatTime } from "./format";
 export {
   buildEffortOptions,
   buildModelOptions,
+  buildOutputStyleOptions,
   DEFAULT_MODE_OPTIONS,
+  EDITOR_MODE_OPTIONS,
+  OUTPUT_STYLE_OPTIONS,
   EFFORT_OPTIONS,
   MODEL_DESCRIPTIONS,
   prettyModelLabel,

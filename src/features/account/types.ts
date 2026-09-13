@@ -289,14 +289,33 @@ export interface AccountSettings {
   model: string;
   /** Voice dictation enabled. Reads both `voiceEnabled` and `voice.enabled`. */
   voiceEnabled: boolean;
-  /** Git commit attribution line */
+  /** `attribution.commit` — trailer added to commits. */
   commitAttribution: string;
-  /** Git PR attribution line */
+  /** `attribution.pr` — line added to PR descriptions. */
   prAttribution: string;
+  /**
+   * Whether `attribution.commit` / `attribution.pr` are actually present.
+   *
+   * An empty string is a meaningful value here — Claude Code reads it as
+   * "add nothing" — and is otherwise indistinguishable from the key being
+   * absent, which means "use the default trailer". Without this the field
+   * renders blank for both and the user cannot tell which they have.
+   */
+  commitAttributionSet: boolean;
+  prAttributionSet: boolean;
   /** Status line command */
   statusLineCommand: string;
-  /** `includeCoAuthoredBy` — toggles Claude's default co-author trailer. */
+  /**
+   * `includeCoAuthoredBy` — the legacy co-author toggle. Claude Code
+   * marks it "Deprecated: use attribution instead", and the attribution
+   * fields above do the same job with more control, so it is READ but no
+   * longer offered as its own control. It is surfaced as a one-line
+   * notice when a settings file still sets it to false, because that
+   * value silently overrides what the attribution fields imply.
+   */
   includeCoAuthoredBy: boolean;
+  /** True when a settings file actually contains the legacy key. */
+  includeCoAuthoredBySet: boolean;
   /** `spinnerTipsEnabled` — "Tip:" lines under the spinner. Many users want off. */
   spinnerTipsEnabled: boolean;
   /** `permissions.defaultMode` — how the CLI treats tool-use confirmations. */
@@ -315,6 +334,35 @@ export interface AccountSettings {
    * Empty string = unset (CLI picks its own default).
    */
   effortLevel: string;
+  /**
+   * `alwaysThinkingEnabled` — false turns extended thinking off for every
+   * session. Absent or true means Claude decides per model, so the
+   * default shown is "on".
+   */
+  alwaysThinkingEnabled: boolean;
+  /** `sandbox.enabled` — isolate Bash commands from filesystem + network. */
+  sandboxEnabled: boolean;
+  /** `permissions.disableBypassPermissionsMode` — lock out bypass mode. */
+  disableBypassPermissionsMode: boolean;
+  /** `autoCompactEnabled` — compact the conversation as context fills. */
+  autoCompactEnabled: boolean;
+  /**
+   * `autoCompactWindow` — token threshold at which auto-compact fires.
+   * 0 means unset (Claude Code picks). The CLI accepts 100k-1M.
+   */
+  autoCompactWindow: number;
+  /** `fileCheckpointingEnabled` — the file snapshots `/rewind` restores. */
+  fileCheckpointingEnabled: boolean;
+  /** `autoMemoryEnabled` — Claude's automatic memory writes. */
+  autoMemoryEnabled: boolean;
+  /** `includeGitInstructions` — built-in commit/PR guidance in the prompt. */
+  includeGitInstructions: boolean;
+  /** `outputStyle` — role/tone preset. Built-ins plus any custom style. */
+  outputStyle: string;
+  /** `editorMode` — "default" or "vim" key bindings in the prompt. */
+  editorMode: string;
+  /** `verbose` — show full tool output instead of truncated summaries. */
+  verbose: boolean;
 }
 
 // ── Permissions ──

@@ -1,23 +1,39 @@
 /**
- * Behavior settings section of the Config tab — model, tool-use
- * confirmation mode, reasoning effort, the boolean toggles, attribution
- * text, retention, and the open/reset actions. Every control posts a
- * validated message through the injected {@link ConfigApi}; the host
- * re-parses settings.json and pushes a fresh `accountData` payload, which
- * re-renders this view.
+ * Settings section of the Config tab.
  *
- * All controls are shared-library components: the three pickers use the
- * native-look <Dropdown> (replacing the last raw <select> in the app), the
- * toggles use <Checkbox>, the text/number fields use <TextField>, and the
- * actions use <Button> (the reset uses the destructive `danger` variant).
- * Option lists and their hint descriptions come from the JSX-free builders
- * in the slice's lib segment.
+ * Controls are grouped by the question they answer rather than listed in
+ * one run: how Claude thinks, what it is allowed to do, how much history
+ * it keeps, what it writes into git, and how the terminal looks. The
+ * previous flat list mixed a model picker, a git trailer and a spinner
+ * toggle as peers, which left no way to scan for the one control you
+ * came for.
+ *
+ * Scope is deliberate. Claude Code has roughly two hundred settings keys,
+ * and the large majority are organization policy that belongs in
+ * managed-settings.json — surfacing those here would invite users to set
+ * values their org intends to own. What is offered is the personal set: a
+ * key is here only if an individual would reasonably change it for
+ * themselves.
+ *
+ * Every control posts a validated message through the injected
+ * {@link ConfigApi}; the host re-parses settings.json and pushes a fresh
+ * `accountData` payload, which re-renders this view. Booleans that Claude
+ * Code defaults ON are written as an explicit `false` and removed again
+ * when re-enabled, so the file only ever carries what differs from
+ * stock.
  */
+import type { ComponentChildren } from "preact";
 import { useDebouncedCallback } from "../../../../../webview/shared/hooks";
 import { Button, Checkbox, Dropdown, Icon, TextField } from "../../../../../webview/shared/ui";
 import type { AccountData } from "../../../types";
 import type { ConfigApi } from "../../api";
-import { buildEffortOptions, buildModelOptions, DEFAULT_MODE_OPTIONS } from "../../lib";
+import {
+  buildEffortOptions,
+  buildModelOptions,
+  buildOutputStyleOptions,
+  DEFAULT_MODE_OPTIONS,
+  EDITOR_MODE_OPTIONS,
+} from "../../lib";
 
 export interface SettingsViewProps {
   data: AccountData;
@@ -31,6 +47,50 @@ export interface SettingsViewProps {
  */
 const SETTING_WRITE_DEBOUNCE_MS = 350;
 
+/** A labelled group of related controls inside the settings section. */
+function Group({ title, children }: { title: string; children: ComponentChildren }) {
+  return (
+    <div class="cfg-group">
+      <h3 class="cfg-group-title">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Say which of the three attribution states the field is in.
+ *
+ * An empty box means two different things to Claude Code — key absent is
+ * "use the default", key present and empty is "add nothing" — and they
+ * look identical in the input. The hint is the only place that difference
+ * can surface.
+ */
+function attributionHint(isSet: boolean, value: string, what: string): string {
+  if (isSet && value === "") return `Set to empty: no ${what} is added.`;
+  if (isSet) return `Custom ${what}.`;
+  return `Not set — Claude Code adds its default ${what}. Clear the box after typing to add none.`;
+}
+
+/** A checkbox row with an explanatory line beneath it. */
+function Toggle({
+  checked,
+  label,
+  hint,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  hint: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div class="acct-field">
+      <Checkbox checked={checked} label={label} onChange={onChange} />
+      <div class="acct-field-hint">{hint}</div>
+    </div>
+  );
+}
+
 export function SettingsView({ data, api }: SettingsViewProps) {
   const s = data.settings;
   const currentModel = s.model || "default";
@@ -41,7 +101,11 @@ export function SettingsView({ data, api }: SettingsViewProps) {
   const effortOptions = buildEffortOptions(s.effortLevel);
   const currentEffortDesc =
     effortOptions.find((o) => o.value === s.effortLevel)?.desc ?? effortOptions[0].desc;
+  const outputStyleOptions = buildOutputStyleOptions(s.outputStyle);
+  const currentStyleDesc =
+    outputStyleOptions.find((o) => o.value === s.outputStyle)?.desc ?? outputStyleOptions[0].desc;
   const retentionValue = s.cleanupPeriodDays > 0 ? String(s.cleanupPeriodDays) : "";
+  const compactWindowValue = s.autoCompactWindow > 0 ? String(s.autoCompactWindow) : "";
 
   // Free-text fields write to the host on a debounce: the <TextField> mirror
   // already shows keystrokes instantly, so coalescing the host write to one
@@ -54,123 +118,254 @@ export function SettingsView({ data, api }: SettingsViewProps) {
     (value: number | "") => api.setSetting("cleanupPeriodDays", value),
     SETTING_WRITE_DEBOUNCE_MS,
   );
+  const setCompactWindow = useDebouncedCallback(
+    (value: number | "") => api.setSetting("autoCompactWindow", value),
+    SETTING_WRITE_DEBOUNCE_MS,
+  );
+
+  // A key Claude Code defaults ON is stored only when turned OFF: writing
+  // `true` back would leave a redundant line in settings.json that looks
+  // like an intentional override. "" removes the key (see writeSettingsValue).
+  const setDefaultOn = (key: string, enabled: boolean): void =>
+    api.setSetting(key, enabled ? "" : false);
 
   return (
     <section class="acct-section">
       <header class="acct-section-header" data-section="settings">
         <h2 class="acct-section-title">
-          <Icon name="settings" size={14} /> Behavior
+          <Icon name="settings" size={14} /> Settings
         </h2>
       </header>
       <div class="acct-section-body">
-        <div class="acct-field">
-          <label class="acct-label">Model</label>
-          <Dropdown
-            value={currentModel}
-            ariaLabel="Model"
-            options={modelOptions.map((o) => ({ value: o.value, label: o.label }))}
-            onChange={(v) => api.setModel(v === "default" ? "" : v)}
-          />
-          <div class="acct-field-hint">{currentModelDesc}</div>
-        </div>
+        <Group title="Model &amp; reasoning">
+          <div class="acct-field">
+            <label class="acct-label">Model</label>
+            <Dropdown
+              value={currentModel}
+              ariaLabel="Model"
+              options={modelOptions.map((o) => ({ value: o.value, label: o.label }))}
+              onChange={(v) => api.setModel(v === "default" ? "" : v)}
+            />
+            <div class="acct-field-hint">{currentModelDesc}</div>
+          </div>
 
-        <div class="acct-field">
-          <label class="acct-label">Tool-use confirmation</label>
-          <Dropdown
-            value={s.defaultMode}
-            ariaLabel="Tool-use confirmation"
-            options={DEFAULT_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-            onChange={(v) => api.setSetting("permissions.defaultMode", v)}
-          />
-          <div class="acct-field-hint">{currentModeDesc}</div>
-        </div>
+          <div class="acct-field">
+            <label class="acct-label">Reasoning effort</label>
+            <Dropdown
+              value={s.effortLevel}
+              ariaLabel="Reasoning effort"
+              options={effortOptions.map((o) => ({ value: o.value, label: o.label }))}
+              onChange={(v) => api.setSetting("effortLevel", v)}
+            />
+            <div class="acct-field-hint">{currentEffortDesc}</div>
+          </div>
 
-        <div class="acct-field">
-          <label class="acct-label">Reasoning effort</label>
-          <Dropdown
-            value={s.effortLevel}
-            ariaLabel="Reasoning effort"
-            options={effortOptions.map((o) => ({ value: o.value, label: o.label }))}
-            onChange={(v) => api.setSetting("effortLevel", v)}
+          <Toggle
+            checked={s.alwaysThinkingEnabled}
+            label="Extended thinking"
+            hint="Off disables thinking for every session. On lets each model decide."
+            onChange={(c) => setDefaultOn("alwaysThinkingEnabled", c)}
           />
-          <div class="acct-field-hint">{currentEffortDesc}</div>
-        </div>
+        </Group>
 
-        <div class="acct-field">
-          <Checkbox
+        <Group title="Permissions &amp; safety">
+          <div class="acct-field">
+            <label class="acct-label">Tool-use confirmation</label>
+            <Dropdown
+              value={s.defaultMode}
+              ariaLabel="Tool-use confirmation"
+              options={DEFAULT_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              onChange={(v) => api.setSetting("permissions.defaultMode", v)}
+            />
+            <div class="acct-field-hint">{currentModeDesc}</div>
+          </div>
+
+          <Toggle
+            checked={s.sandboxEnabled}
+            label="Sandbox Bash commands"
+            hint="Isolates shell commands from your filesystem and network. macOS, Linux and WSL2."
+            onChange={(c) => api.setSetting("sandbox.enabled", c ? true : "")}
+          />
+
+          <Toggle
+            checked={s.disableBypassPermissionsMode}
+            label="Block bypass-permissions mode"
+            hint="Prevents any session from entering the mode that skips every prompt."
+            onChange={(c) =>
+              api.setSetting("permissions.disableBypassPermissionsMode", c ? true : "")
+            }
+          />
+        </Group>
+
+        <Group title="Context &amp; sessions">
+          <Toggle
+            checked={s.autoCompactEnabled}
+            label="Auto-compact"
+            hint="Summarises earlier turns as the context window fills, instead of stopping."
+            onChange={(c) => setDefaultOn("autoCompactEnabled", c)}
+          />
+
+          <div class="acct-field">
+            <label class="acct-label">Compact at (tokens)</label>
+            <TextField
+              ariaLabel="Auto-compact window in tokens"
+              value={compactWindowValue}
+              placeholder="Automatic"
+              onInput={(v) => {
+                const val = v.trim();
+                const n = val === "" ? 0 : Number.parseInt(val, 10);
+                setCompactWindow(Number.isFinite(n) && n > 0 ? n : "");
+              }}
+            />
+            <div class="acct-field-hint">
+              How full the context gets before compacting. Blank lets Claude Code
+              choose; the CLI accepts 100,000–1,000,000.
+            </div>
+          </div>
+
+          <Toggle
+            checked={s.fileCheckpointingEnabled}
+            label="File checkpoints"
+            hint="Keeps the file snapshots that /rewind restores."
+            onChange={(c) => setDefaultOn("fileCheckpointingEnabled", c)}
+          />
+
+          <Toggle
+            checked={s.autoMemoryEnabled}
+            label="Auto memory"
+            hint="Lets Claude record notes about you and your projects between sessions."
+            onChange={(c) => setDefaultOn("autoMemoryEnabled", c)}
+          />
+
+          <div class="acct-field">
+            <label class="acct-label">Transcript retention (days)</label>
+            <TextField
+              ariaLabel="Session retention in days"
+              value={retentionValue}
+              placeholder="30"
+              onInput={(v) => {
+                const val = v.trim();
+                const n = val === "" ? 0 : Number.parseInt(val, 10);
+                setRetention(Number.isFinite(n) && n > 0 ? n : "");
+              }}
+            />
+            <div class="acct-field-hint">
+              Transcripts older than this auto-delete. Blank uses Claude Code's
+              default of 30 days — to keep them longer, set a large number
+              (e.g. 3650 for ~10 years).
+            </div>
+          </div>
+        </Group>
+
+        <Group title="Git &amp; attribution">
+          <div class="acct-field">
+            <label class="acct-label">Commit attribution</label>
+            <TextField
+              ariaLabel="Commit attribution"
+              value={s.commitAttribution}
+              placeholder="e.g., Co-authored-by: Claude"
+              onInput={(v) => setCommitAttribution(v)}
+            />
+            <div class="acct-field-hint">{attributionHint(s.commitAttributionSet, s.commitAttribution, "commit trailer")}</div>
+          </div>
+
+          <div class="acct-field">
+            <label class="acct-label">PR attribution</label>
+            <TextField
+              ariaLabel="PR attribution"
+              value={s.prAttribution}
+              placeholder="e.g., Generated with Claude Code"
+              onInput={(v) => setPrAttribution(v)}
+            />
+            <div class="acct-field-hint">{attributionHint(s.prAttributionSet, s.prAttribution, "PR line")}</div>
+          </div>
+
+          <Toggle
+            checked={s.includeGitInstructions}
+            label="Built-in git guidance"
+            hint="Off removes Claude Code's default commit and PR instructions from the system prompt."
+            onChange={(c) => setDefaultOn("includeGitInstructions", c)}
+          />
+
+          {/* The legacy key still wins over the attribution fields above when
+              it is set to false, so a user who edited it years ago would see
+              two controls disagree. Surfaced as a notice with a one-click
+              clear rather than resurrected as its own checkbox. */}
+          {s.includeCoAuthoredBySet && !s.includeCoAuthoredBy ? (
+            <div class="acct-field cfg-deprecated">
+              <div class="acct-field-hint">
+                <code class="acct-code">includeCoAuthoredBy: false</code> is set and
+                suppresses the trailer above. Claude Code has replaced it with the
+                attribution fields.
+              </div>
+              <Button
+                iconName="trash-2"
+                title="Remove includeCoAuthoredBy from settings.json"
+                onClick={() => api.setSetting("includeCoAuthoredBy", "")}
+              >
+                Remove legacy key
+              </Button>
+            </div>
+          ) : null}
+        </Group>
+
+        <Group title="Interface">
+          <div class="acct-field">
+            <label class="acct-label">Output style</label>
+            <Dropdown
+              value={s.outputStyle}
+              ariaLabel="Output style"
+              options={outputStyleOptions.map((o) => ({ value: o.value, label: o.label }))}
+              onChange={(v) => api.setSetting("outputStyle", v)}
+            />
+            <div class="acct-field-hint">{currentStyleDesc}</div>
+          </div>
+
+          <div class="acct-field">
+            <label class="acct-label">Editor mode</label>
+            <Dropdown
+              value={s.editorMode === "vim" ? "vim" : ""}
+              ariaLabel="Editor mode"
+              options={EDITOR_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              onChange={(v) => api.setSetting("editorMode", v)}
+            />
+            <div class="acct-field-hint">Key bindings for the prompt input.</div>
+          </div>
+
+          <Toggle
+            checked={s.verbose}
+            label="Verbose tool output"
+            hint="Shows full command output instead of truncated summaries."
+            onChange={(c) => api.setSetting("verbose", c ? true : "")}
+          />
+
+          <Toggle
+            checked={s.spinnerTipsEnabled}
+            label='"Tip:" lines under the spinner'
+            hint="Rotating hints shown while Claude works."
+            onChange={(c) => setDefaultOn("spinnerTipsEnabled", c)}
+          />
+
+          <Toggle
             checked={s.voiceEnabled}
             label="Voice dictation"
+            hint="Dictate prompts instead of typing them."
             onChange={(c) => api.setVoiceEnabled(c)}
           />
-        </div>
 
-        <div class="acct-field">
-          <Checkbox
-            checked={s.includeCoAuthoredBy}
-            label='Include "Co-authored-by: Claude" trailer in commits'
-            onChange={(c) => api.setSetting("includeCoAuthoredBy", c)}
-          />
-        </div>
-
-        <div class="acct-field">
-          <Checkbox
-            checked={s.spinnerTipsEnabled}
-            label='Show "Tip:" lines under the spinner'
-            onChange={(c) => api.setSetting("spinnerTipsEnabled", c)}
-          />
-        </div>
-
-        <div class="acct-field">
-          <label class="acct-label">Commit attribution</label>
-          <TextField
-            ariaLabel="Commit attribution"
-            value={s.commitAttribution}
-            placeholder="e.g., Co-authored-by: Claude"
-            onInput={(v) => setCommitAttribution(v)}
-          />
-        </div>
-
-        <div class="acct-field">
-          <label class="acct-label">PR attribution</label>
-          <TextField
-            ariaLabel="PR attribution"
-            value={s.prAttribution}
-            placeholder="e.g., Generated with Claude Code"
-            onInput={(v) => setPrAttribution(v)}
-          />
-        </div>
-
-        <div class="acct-field">
-          <label class="acct-label">Session retention (days)</label>
-          <TextField
-            ariaLabel="Session retention in days"
-            value={retentionValue}
-            placeholder="Unlimited"
-            onInput={(v) => {
-              const val = v.trim();
-              const n = val === "" ? 0 : Number.parseInt(val, 10);
-              setRetention(Number.isFinite(n) && n > 0 ? n : "");
-            }}
-          />
-          <div class="acct-field-hint">
-            Transcripts older than this auto-delete. Blank uses Claude Code's
-            default of 30 days — to keep them longer, set a large number
-            (e.g. 3650 for ~10 years).
-          </div>
-        </div>
-
-        {s.statusLineCommand ? (
-          <div class="acct-field">
-            <label class="acct-label">Status line command</label>
-            {/* Read-only display of the configured command, NOT an editable
-                field — rendered as a code block so users don't mistake it for
-                an input. `title` carries the full value for hover discovery
-                when a long command scrolls horizontally. */}
-            <code class="acct-code code-readonly" title={s.statusLineCommand}>
-              {s.statusLineCommand}
-            </code>
-          </div>
-        ) : null}
+          {s.statusLineCommand ? (
+            <div class="acct-field">
+              <label class="acct-label">Status line command</label>
+              {/* Read-only display of the configured command, NOT an editable
+                  field — rendered as a code block so users don't mistake it for
+                  an input. `title` carries the full value for hover discovery
+                  when a long command scrolls horizontally. */}
+              <code class="acct-code code-readonly" title={s.statusLineCommand}>
+                {s.statusLineCommand}
+              </code>
+            </div>
+          ) : null}
+        </Group>
 
         <div class="acct-actions">
           <Button iconName="external-link" onClick={() => api.openSettingsFile("global")}>

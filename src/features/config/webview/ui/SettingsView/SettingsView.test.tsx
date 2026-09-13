@@ -24,21 +24,122 @@ describe("SettingsView", () => {
     ).toBeTruthy();
   });
 
-  it("posts setSetting for the co-author toggle via the shared checkbox", () => {
-    const { api, post } = setup();
+  // The shared <Checkbox> mirrors its caption onto the native input's
+  // aria-label. Matched in JS rather than with an attribute selector
+  // because some captions contain double quotes, which no CSS string
+  // escaping in happy-dom accepts.
+  const findToggle = (
+    container: ParentNode,
+    label: string,
+  ): HTMLInputElement | null =>
+    ([...container.querySelectorAll('input[type="checkbox"]')] as HTMLInputElement[]).find(
+      (el) => el.getAttribute("aria-label") === label,
+    ) ?? null;
+
+  /** Same lookup, asserting the control exists — for the click cases. */
+  const toggle = (container: ParentNode, label: string): HTMLInputElement => {
+    const el = findToggle(container, label);
+    if (!el) throw new Error(`no checkbox labelled "${label}"`);
+    return el;
+  };
+
+  it("no longer offers the deprecated co-author checkbox", () => {
+    // Claude Code marks includeCoAuthoredBy "Deprecated: use attribution
+    // instead", and the attribution fields do the same job. Two controls
+    // for one outcome, where the legacy one silently wins, is the bug.
+    const { api } = setup();
     const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
-    // The shared <Checkbox> mirrors its caption onto the native input's aria-label.
-    const coauthor = container.querySelector(
-      'input[type="checkbox"][aria-label=\'Include "Co-authored-by: Claude" trailer in commits\']',
-    ) as HTMLInputElement;
-    expect(coauthor).toBeTruthy();
-    fireEvent.click(coauthor);
+    expect(
+      findToggle(container, 'Include "Co-authored-by: Claude" trailer in commits'),
+    ).toBeNull();
+  });
+
+  it("offers to clear the legacy key only when it is set and suppressing output", () => {
+    const { api, post } = setup();
+    const data = makeConfigData();
+    data.settings.includeCoAuthoredBySet = true;
+    data.settings.includeCoAuthoredBy = false;
+    const { getByText } = render(<SettingsView data={data} api={api} />);
+    fireEvent.click(getByText("Remove legacy key"));
     expect(post).toHaveBeenCalledWith({
       type: "setSetting",
       key: "includeCoAuthoredBy",
+      value: "",
+      scope: "global",
+    });
+  });
+
+  it("stays quiet when the legacy key is absent or already true", () => {
+    const { api } = setup();
+    const absent = render(<SettingsView data={makeConfigData()} api={api} />);
+    expect(absent.queryByText("Remove legacy key")).toBeNull();
+
+    const on = makeConfigData();
+    on.settings.includeCoAuthoredBySet = true;
+    on.settings.includeCoAuthoredBy = true;
+    const shown = render(<SettingsView data={on} api={api} />);
+    expect(shown.queryByText("Remove legacy key")).toBeNull();
+  });
+
+  it("writes an explicit false to turn a default-on key off, and clears it to re-enable", () => {
+    // Writing `true` back would leave a line in settings.json that reads as
+    // an intentional override of a value that was never changed.
+    const { api, post } = setup();
+    const data = makeConfigData();
+    data.settings.autoCompactEnabled = true;
+    const { container } = render(<SettingsView data={data} api={api} />);
+    fireEvent.click(toggle(container, "Auto-compact"));
+    expect(post).toHaveBeenCalledWith({
+      type: "setSetting",
+      key: "autoCompactEnabled",
+      value: false,
+      scope: "global",
+    });
+
+    const off = makeConfigData();
+    off.settings.autoCompactEnabled = false;
+    const second = setup();
+    const r = render(<SettingsView data={off} api={second.api} />);
+    fireEvent.click(toggle(r.container, "Auto-compact"));
+    expect(second.post).toHaveBeenCalledWith({
+      type: "setSetting",
+      key: "autoCompactEnabled",
+      value: "",
+      scope: "global",
+    });
+  });
+
+  it("writes the nested sandbox and permission keys by dotted path", () => {
+    const { api, post } = setup();
+    const { container } = render(<SettingsView data={makeConfigData()} api={api} />);
+    fireEvent.click(toggle(container, "Sandbox Bash commands"));
+    expect(post).toHaveBeenCalledWith({
+      type: "setSetting",
+      key: "sandbox.enabled",
       value: true,
       scope: "global",
     });
+    fireEvent.click(toggle(container, "Block bypass-permissions mode"));
+    expect(post).toHaveBeenCalledWith({
+      type: "setSetting",
+      key: "permissions.disableBypassPermissionsMode",
+      value: true,
+      scope: "global",
+    });
+  });
+
+  it("groups the controls under scannable headings", () => {
+    const { api } = setup();
+    const { getByText } = render(<SettingsView data={makeConfigData()} api={api} />);
+    for (const g of [
+      "Model & reasoning",
+      "Permissions & safety",
+      "Context & sessions",
+      "Git & attribution",
+      "Interface",
+    ]) {
+      expect(getByText(g)).toBeTruthy();
+    }
   });
 
   describe("free-text fields debounce the host write", () => {
