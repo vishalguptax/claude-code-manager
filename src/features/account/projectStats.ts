@@ -731,11 +731,7 @@ class AggState {
       totalMessages: this.totalMessages,
       totalInputTokens,
       totalOutputTokens,
-      totalTokens:
-        totalInputTokens +
-        totalOutputTokens +
-        totalCacheReadTokens +
-        totalCacheCreationTokens,
+      totalTokens: totalInputTokens + totalOutputTokens,
       totalCacheReadTokens,
       totalCacheCreationTokens,
       totalCostUsd,
@@ -755,7 +751,7 @@ class AggState {
       for (const [model, m] of acc.byModel.entries()) {
         inputTotal += m.input;
         outputTotal += m.output;
-        tokenTotal += m.input + m.output + m.cacheRead + m.cacheCreation;
+        tokenTotal += m.input + m.output;
         costUsd += costOf(model, m);
       }
       if (acc.sessions.size === 0 && inputTotal + outputTotal === 0) continue;
@@ -776,11 +772,17 @@ class AggState {
   private buildByModel(): ModelStats[] {
     const out: ModelStats[] = [];
     for (const [model, m] of this.modelTotals.entries()) {
-      const totalTokens = m.input + m.output + m.cacheRead + m.cacheCreation;
-      // A model row is empty only when nothing billable landed on it.
-      // Web searches are billed per request, so a turn that only ran
-      // searches still has a cost to report.
-      const billable = totalTokens + m.webSearches;
+      // input + output — the work this model produced. Cache traffic is
+      // reported by its own fields and its own tile; folding it in here
+      // made a model row read in the billions beside a headline in the
+      // millions. See TOKEN_TOTAL_SEMANTICS.
+      const totalTokens = m.input + m.output;
+      // A model row is empty only when nothing BILLABLE landed on it,
+      // which is a wider test than totalTokens: that counts input+output
+      // only, so a turn that just warmed the cache, or just ran a web
+      // search, would drop out of the breakdown along with its cost.
+      const billable =
+        totalTokens + m.cacheRead + m.cacheCreation + m.webSearches;
       if (billable === 0) continue;
       out.push({
         model,

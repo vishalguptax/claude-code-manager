@@ -40,7 +40,12 @@ function cellTooltip(cell: HeatmapCell): string {
   if (cell.state === "future") return dateLabel;
   if (cell.state === "stale") return `Not yet computed · ${dateLabel}`;
   if (cell.tokens > 0) {
-    return `${formatNumber(cell.tokens)} tokens · ${cell.messages} message${
+    // "incl. cache" because this series is the one place that counts
+    // prompt-cache traffic — Claude CLI's per-day history is a single
+    // combined figure with no breakdown, so the cells cannot show the
+    // input+output number the tiles do. Saying so stops the tooltip
+    // reading as a 500x contradiction of the headline.
+    return `${formatNumber(cell.tokens)} tokens (incl. cache) · ${cell.messages} message${
       cell.messages === 1 ? "" : "s"
     } · ${cell.sessions} session${cell.sessions === 1 ? "" : "s"} · ${dateLabel}`;
   }

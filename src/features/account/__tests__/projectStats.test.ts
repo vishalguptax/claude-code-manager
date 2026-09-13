@@ -426,11 +426,11 @@ describe("aggregateUsage — totals + daily", () => {
     expect(out.totalMessages).toBe(4);
     expect(out.totalInputTokens).toBe(110);
     expect(out.totalOutputTokens).toBe(290);
-    // totalTokens sums every bucket, cache included — see
-    // TOKEN_TOTAL_SEMANTICS. 110 + 290 + 50 cacheRead + 20 cacheCreation.
+    // totalTokens is input + output; cache traffic is reported by its own
+    // fields and never folded in. See TOKEN_TOTAL_SEMANTICS.
     expect(out.totalCacheReadTokens).toBe(50);
     expect(out.totalCacheCreationTokens).toBe(20);
-    expect(out.totalTokens).toBe(470);
+    expect(out.totalTokens).toBe(400);
     expect(out.totalCacheReadTokens).toBe(50);
     expect(out.totalCacheCreationTokens).toBe(20);
     expect(out.firstSessionDate).toBe("2026-05-10");

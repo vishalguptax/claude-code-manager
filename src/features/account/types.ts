@@ -113,26 +113,29 @@ export interface McpServerUsage {
 }
 
 /**
- * TOKEN_TOTAL_SEMANTICS — one definition, used by every "tokens" figure
- * in the Usage tab: `input + output + cacheRead + cacheCreation`.
+ * TOKEN_TOTAL_SEMANTICS — what "tokens" means across the Usage tab.
  *
- * Cache reads are included, and that is forced rather than chosen.
- * Claude CLI's `stats-cache.json` stores `dailyModelTokens.tokensByModel`
- * as a single combined per-day sum with no per-bucket breakdown, and it
- * owns every day up to `lastComputedDate`. There is no way to subtract
- * cache reads back out of that history, so the only self-consistent
- * choice is to count them everywhere.
+ * Every figure the UI labels "tokens" is `input + output`: the work
+ * actually produced. Prompt-cache traffic is reported separately, by the
+ * `totalCacheReadTokens` / `totalCacheCreationTokens` fields and its own
+ * stat tile.
  *
- * The cost of getting this wrong was not cosmetic. While the JSONL half
- * of the pipeline counted input+output and the cache half counted
- * everything, the three period buttons each reported a different
- * quantity — all-time (30.8M) came out 320x SMALLER than 30-day (9.9B)
- * on a real profile — and the heatmap showed a 300-500x cliff at the
- * cutoff date that made recent work look like idle days.
+ * That split is not cosmetic. On a real profile 30.9M tokens were
+ * produced against 17.5B read back out of the cache — a ratio of about
+ * 570 to 1, because every request re-reads its whole cached prefix. A
+ * combined figure measures the billing mechanism, not the person, and is
+ * where "Claude says I used 54.9 BILLION tokens" comes from.
  *
- * Practical consequence: on a cache-heavy profile this number is mostly
- * cache reads (15.3B of 15.5B in the case above). The UI must say so
- * rather than implying these are tokens the user "spent".
+ * The ONE exception is the per-day `dailyTokens` series, which counts
+ * everything. It has to: Claude CLI's `stats-cache.json` stores
+ * `dailyModelTokens.tokensByModel` as a single combined sum per day with
+ * no per-bucket breakdown, and it owns every day up to
+ * `lastComputedDate`. Counting only input+output on our half put a
+ * 300-500x cliff at the cutoff date that made recent work render as idle
+ * cells. That series drives heatmap shading, where relative volume is
+ * the point; anything that surfaces a number from it must say that cache
+ * traffic is included. `dailyOwnTokens` carries input+output for the
+ * days a transcript still covers.
  */
 
 /** Per-model cumulative stats from stats-cache.json modelUsage. */
@@ -140,7 +143,7 @@ export interface ModelStats {
   model: string;
   inputTokens: number;
   outputTokens: number;
-  /** All buckets summed — see TOKEN_TOTAL_SEMANTICS above. */
+  /** input + output — see TOKEN_TOTAL_SEMANTICS above. */
   totalTokens: number;
   /** Tokens served from the prompt cache. 0 when the model never cached. */
   cacheReadTokens: number;
@@ -189,7 +192,7 @@ export interface UsageStats {
   totalInputTokens: number;
   /** Grand total output tokens across all models */
   totalOutputTokens: number;
-  /** Grand total across all models — see TOKEN_TOTAL_SEMANTICS. */
+  /** Grand total input + output — see TOKEN_TOTAL_SEMANTICS. */
   totalTokens: number;
   /** Total sessions (from stats-cache.totalSessions) */
   totalSessions: number;

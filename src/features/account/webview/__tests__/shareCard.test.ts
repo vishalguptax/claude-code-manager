@@ -13,9 +13,15 @@ function makeUsage(over: Partial<UsageStats> = {}): UsageStats {
       { date: "2026-07-06", messageCount: 4, sessionCount: 2, toolCallCount: 8 },
       { date: "2026-07-07", messageCount: 6, sessionCount: 3, toolCallCount: 12 },
     ],
+    // dailyTokens is the combined series (heatmap shading); the headline
+    // token figure reads the input+output totals, not this.
     dailyTokens: [
       { date: "2026-07-06", total: 12_000 },
       { date: "2026-07-07", total: 1_400_000 },
+    ],
+    dailyOwnTokens: [
+      { date: "2026-07-06", total: 400 },
+      { date: "2026-07-07", total: 1_600 },
     ],
     activeDays: 2,
     totalDays: 2,
@@ -24,9 +30,12 @@ function makeUsage(over: Partial<UsageStats> = {}): UsageStats {
     currentStreak: 3,
     byModel: [],
     favoriteModel: "claude-sonnet-4-5-20250929",
-    totalInputTokens: 0,
-    totalOutputTokens: 0,
-    totalTokens: 1_412_000,
+    totalInputTokens: 500_000,
+    totalOutputTokens: 200_000,
+    // Combined, prompt-cache reads included — deliberately far larger
+    // than input+output, which is the gap that put "19.9B tokens" on the
+    // card beside a 30.9M tile.
+    totalTokens: 1_412_000_000,
     totalSessions: 1234,
     totalMessages: 10,
     longestSessionMs: 0,
@@ -59,7 +68,10 @@ describe("buildShareCard", () => {
   it("formats the headline from all-time totals via formatNumber", () => {
     const card = buildShareCard(makeUsage(), TODAY);
     // 1234 sessions → "1.2K"; 1,412,000 tokens → "1.4M".
-    expect(card.headline).toBe("1.2K sessions · 1.4M tokens");
+    // 500K input + 200K output. NOT totalTokens (1.4B), which folds in
+    // prompt-cache reads — the card used to print that figure while the
+    // Usage tile printed input+output, ~640x apart on a real profile.
+    expect(card.headline).toBe("1.2K sessions · 700K tokens");
   });
 
   it("builds the subline with streak + fav (fav name via formatModelName)", () => {

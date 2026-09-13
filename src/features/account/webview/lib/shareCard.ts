@@ -12,7 +12,7 @@
  */
 
 import type { UsageStats } from "../../types";
-import { formatModelName, formatNumber } from "./format";
+import { computeUsageTotals, formatModelName, formatNumber } from "./format";
 import { buildHeatmap, type HeatmapModel } from "./heatmap";
 
 /** Fixed pixel dimensions — OG ratio (1200×630), good for social preview. */
@@ -61,7 +61,14 @@ export function buildShareCard(u: UsageStats, today: Date = new Date()): ShareCa
     lastComputedDate: u.lastComputedDate,
   });
 
-  const headline = `${formatNumber(u.totalSessions)} sessions · ${formatNumber(u.totalTokens)} tokens`;
+  // Tokens must mean the same thing here as on the Usage tile: input +
+  // output, the work actually produced. `u.totalTokens` is the combined
+  // figure with prompt-cache reads folded in, which on a real profile is
+  // ~640x larger — the card read "19.9B tokens" beside a tile reading
+  // 30.9M. Routed through computeUsageTotals so the two cannot drift
+  // again.
+  const { tokenTotal } = computeUsageTotals(u, "all");
+  const headline = `${formatNumber(u.totalSessions)} sessions · ${formatNumber(tokenTotal)} tokens`;
 
   return {
     width: SHARE_CARD_WIDTH,
