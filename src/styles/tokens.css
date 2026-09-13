@@ -161,8 +161,13 @@
      segments are transparent with the muted description colour. The whole
      control sits in a track (faint fill + 1px edge), mirroring VS Code's own
      segmented toggles (Settings table/JSON switch, search filters). */
-  --role-selected-bg: var(--vscode-list-activeSelectionBackground,
-    var(--vscode-button-secondaryBackground, var(--btn-sec-bg)));
+     `list.activeSelectionBackground` used to be first in this chain, which
+     defeated the whole intent: in Dark Modern (and most shipped themes) that
+     token IS the blue selection fill, so every segmented control rendered the
+     exact primary-blue block this role exists to avoid. The secondary-button
+     fill is the neutral raised surface actually wanted here. */
+  --role-selected-bg: var(--vscode-button-secondaryBackground,
+    var(--vscode-toolbar-activeBackground, var(--btn-sec-bg)));
   --role-selected-fg: var(--vscode-foreground, var(--fg));
   --role-unselected-fg: var(--vscode-descriptionForeground, var(--fg-dim));
   /* Track: the recessed channel the segments sit in. */

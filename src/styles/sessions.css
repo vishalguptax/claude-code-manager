@@ -19,9 +19,16 @@
   align-items: center;
   gap: var(--space-sm);
   width: 100%;
-  /* Reset the UA button box so the header sits on the list's own grid. */
-  background: none;
+  /* A section heading has to out-rank the rows under it. Uppercase weight
+     alone did not: every row already carries a hairline, so one more line of
+     small bold text in the same column read as just another row and the
+     sections were invisible while scanning. The heading now sits on the
+     recessed widget surface with a rule above and below — the same "band"
+     VS Code gives its own sidebar section headers. */
+  background: var(--role-track-bg);
   border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   text-align: left;
   cursor: pointer;
   font-family: inherit;
@@ -30,10 +37,15 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-section);
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+  padding: var(--space-sm) var(--space-2xl);
 }
 .session-group-header:hover {
   color: var(--fg);
+  background: var(--role-selected-hover-bg);
+}
+/* The first heading's top rule would double the list's own top edge. */
+.session-group-header:first-child {
+  border-top: 0;
 }
 .session-group-header:focus-visible {
   outline: 1px solid var(--accent);
@@ -141,6 +153,9 @@
   align-items: center;
   gap: var(--space-xs);
   background: transparent;
+  /* Outline, because it is a TEXT button. Ghost is reserved for icon-only
+     affordances (see .btn-icon); a labelled control keeps its edge so it reads
+     as a control rather than as a run of text in the header strip. */
   border: 1px solid var(--border);
   color: var(--fg-muted);
   padding: 2px var(--space-md);
@@ -149,7 +164,10 @@
   font-family: inherit;
   cursor: pointer;
 }
-.list-count-toggle:hover { color: var(--fg); border-color: var(--accent); }
+.list-count-toggle:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
 .list-count-toggle:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 
 .bulk-btn {

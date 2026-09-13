@@ -161,10 +161,27 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-section);
-  padding: var(--space-lg) var(--space-2xl) var(--space-sm);
+  /* Banded, like the session list's own headings (.session-group-header in
+     sessions.css). Uppercase bold text alone did not separate a section from
+     its rows: every row already carries a hairline, so the heading read as one
+     more row. The recessed surface plus a rule above and below is what makes
+     the sections findable while scanning, and every tab's list uses it so the
+     panels stay recognisably the same object. */
+  background: var(--role-track-bg);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-sm) var(--space-2xl);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+}
+/* The first heading's top rule would double whatever edge the list already
+   has above it. */
+.group-label:first-child,
+.cmd-group-label:first-child,
+.hook-group-label:first-child,
+.mcp-group-label:first-child {
+  border-top: 0;
 }
 
 /* Nested sub-group heading under a scope header — shown only when a skills
@@ -280,7 +297,11 @@
    ────────────────────────────────────────────────────────────────────────── */
 .actions-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  /* 150px needed 306px for two columns, but a section body insets the panel by
+     --space-2xl each side, leaving ~296px at the default sidebar width — so
+     every action row collapsed to one full-width button per line. 120px puts
+     two side by side there and still wraps before a label is squeezed. */
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: var(--space-sm);
   margin-top: var(--space-lg);
 }
@@ -329,7 +350,11 @@
 .actions-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  /* Same gap as .search-row. Both rows are "one flexible control plus two
+     icon buttons", so an unequal gap left the primary button and the search
+     field with different right edges — 4px of misalignment between two
+     stacked controls that are meant to read as one column. */
+  gap: var(--space-sm);
   padding: var(--space-sm) var(--space-2xl) var(--space-xs);
   flex-shrink: 0;
 }

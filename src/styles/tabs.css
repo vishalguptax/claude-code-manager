@@ -142,33 +142,20 @@
 }
 
 /* ── Narrow sidebar ────────────────────────────────────────────────
- * Below this the labelled active tab cannot fit alongside seven icon cells,
- * and the overflow hides whole tabs rather than trimming a label. The label
- * is the part that can be given up: the active tab is still marked by its
- * colour and underline, and every tab keeps its tooltip and accessible name.
+ * No breakpoint drops the label. An earlier version hid it below 360px so all
+ * eight tabs could stay on screen at once, which silently removed the one
+ * piece of text that says where you are — the icons alone are not a label.
  *
- * The webview's viewport IS the sidebar panel, so a plain media query is the
- * right instrument here — there is no outer page whose width could differ.
+ * The label stays and the strip scrolls instead. That is a real trade: the
+ * eight cells plus the widest label ("Commands") need 353px, so below that
+ * roughly one tab sits off the right edge. Scrolling is recoverable and
+ * TabBar pulls the active tab into view on every change, so the tab you are
+ * on is always visible; a missing label is not recoverable.
  *
- * 360px is measured, not chosen: the widest label ("Commands") needs the eight
- * cells plus the pinned reload button to total 353px. The previous 320px was
- * below that, so between 321px and 353px the strip overflowed and scrolled
- * whole tabs out of sight.
- *
- * This block MUST stay after `.tab-btn.active .tab-label` above. Both are
- * one-class-one-element selectors, so they tie on specificity and source
- * order decides. Declared earlier, the `width: 30px` here still won (nothing
- * later set the active width) but the `display: none` lost, which shrank the
- * active tab to an icon cell while it went on painting its label — the label
- * has `white-space: nowrap` and nothing clips it, so it ran across the tab
- * beside it. */
-@media (max-width: 360px) {
-  .tab-btn.active {
-    width: 30px;
-    padding: 0;
-  }
-  .tab-btn.active .tab-label { display: none; }
-}
+ * `.tab-btn` carries `overflow: hidden` above, so a label can never paint
+ * outside its own cell regardless of width, font size or theme. That is what
+ * makes dropping the breakpoint safe — the old overlap bug was the label
+ * escaping its box, not the box being narrow. */
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

@@ -308,7 +308,7 @@ export function Filters() {
         <Button
           variant="icon"
           class={cx("search-side-btn", open && "is-open")}
-          iconName="sliders-horizontal"
+          iconName="filter"
           title={open ? "Hide filters" : "Filter sessions"}
           ariaLabel="Filter sessions"
           onClick={() => setOpen((v) => !v)}

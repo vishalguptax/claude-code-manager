@@ -255,20 +255,18 @@ function Actions({
         </Button>
       )}
       {/* Two named seconds, then everything else behind the overflow. Seven
-          bordered buttons wrapped into ragged rows of three whose widths came
-          from their labels, so the block read as a pile of boxes above the
-          transcript rather than as one decision plus its alternatives. Pin and
-          Export are the two that get reached for; Rename, Fork, Copy Cmd and
-          Delete are occasional and cost nothing in a menu. */}
+          seven bordered buttons wrapped into ragged rows of three whose widths
+          came from their labels. The fix is the MENU, not stripping the edges
+          off what remains: Pin and Export are the two that get reached for and
+          keep their outline, while Rename, Fork, Copy Cmd and Delete are
+          occasional and cost nothing behind the overflow. */}
       <Button
-        variant="ghost"
         iconName={isPinned ? "pin-off" : "pin"}
         onClick={() => (isPinned ? sendUnpinSession(d.id) : sendPinSession(d.id))}
       >
         {isPinned ? "Unpin" : "Pin"}
       </Button>
       <Button
-        variant="ghost"
         iconName="upload"
         title="Save this session as a portable .jsonl"
         onClick={() => sendExportSession(d.id)}
@@ -307,7 +305,7 @@ function DetailOverflow({ d }: { d: SessionDetail }) {
   return (
     <div ref={ref} class="d-actions-more">
       <Button
-        variant="ghost"
+        variant="icon"
         class="d-actions-overflow"
         iconName="more-horizontal"
         title="More actions"
