@@ -23,7 +23,13 @@
 
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
-import { Button, Icon, Segmented, type SegmentedOption } from "../../../../../webview/shared/ui";
+import {
+  Button,
+  EmptyState,
+  Icon,
+  Segmented,
+  type SegmentedOption,
+} from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { useAccountApi } from "../../api";
 import type { AccountData, McpServerUsage, ModelStats, ProjectStats, UsageStats } from "../../../types";
@@ -135,24 +141,22 @@ export function UsageView({ data }: UsageViewProps) {
  */
 function UsageWarming() {
   return (
-    <div class="acct-empty" role="status">
-      <div class="acct-empty-title">Indexing usage history…</div>
-      <div class="acct-empty-hint">
-        First open reads every session transcript — usually a moment, longer
-        for a large history.
-      </div>
-    </div>
+    <EmptyState
+      compact
+      role="status"
+      title="Indexing usage history…"
+      description="First open reads every session transcript — usually a moment, longer for a large history."
+    />
   );
 }
 
 function UsageEmpty() {
   return (
-    <div class="acct-empty">
-      <div class="acct-empty-title">No activity recorded</div>
-      <div class="acct-empty-hint">
-        Start a Claude Code session and your stats will appear here.
-      </div>
-    </div>
+    <EmptyState
+      compact
+      title="No activity recorded"
+      description="Start a Claude Code session and your stats will appear here."
+    />
   );
 }
 

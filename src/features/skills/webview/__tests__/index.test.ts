@@ -131,7 +131,7 @@ describe("SkillsTab", () => {
     skills.value = [];
     const { container } = render(h(SkillsTab, {}));
     expect(container.querySelector(".skeleton-panel")).toBeNull();
-    expect(container.textContent).toContain("No skills found");
+    expect(container.textContent).toContain("No skills yet");
   });
 
   it("shows an error state (not the empty-list message) after a host parse failure", () => {
@@ -139,8 +139,9 @@ describe("SkillsTab", () => {
     loaded.value = true;
     errorMessage.value = "Failed to parse SKILL.md";
     const { container } = render(h(SkillsTab, {}));
-    expect(container.textContent).toContain("Error: Failed to parse SKILL.md");
-    expect(container.textContent).not.toContain("No skills found");
+    expect(container.textContent).toContain("Couldn't load skills");
+    expect(container.textContent).toContain("Failed to parse SKILL.md");
+    expect(container.textContent).not.toContain("No skills yet");
   });
 
   it("renders the detail view when a skill is selected", () => {

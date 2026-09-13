@@ -668,24 +668,6 @@
    Empty states
    ────────────────────────────────────────────────────────────────────────────── */
 
-.acct-empty {
-  text-align: center;
-  padding: var(--space-lg) 0;
-}
-
-.acct-empty-title {
-  font-size: var(--fs-md);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-xs);
-}
-
-.acct-empty-hint {
-  font-size: var(--fs-sm);
-  color: var(--fg-dim);
-  margin-bottom: var(--space-md);
-}
-
 .acct-empty-small {
   font-size: var(--fs-sm);
   color: var(--fg-muted);

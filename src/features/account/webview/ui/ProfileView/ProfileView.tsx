@@ -11,7 +11,7 @@
  */
 
 import { cx } from "../../../../../webview/shared/lib";
-import { Button, Icon } from "../../../../../webview/shared/ui";
+import { Button, EmptyState, Icon } from "../../../../../webview/shared/ui";
 import type { AccountData } from "../../../types";
 import type { AccountApi } from "../../api";
 import { formatPlan } from "../../lib";
@@ -49,9 +49,7 @@ function SignedOut({ data, api }: ProfileViewProps) {
       ? "Switch to a saved account or log in a new one."
       : "Sign in to Claude Code to view your account.";
   return (
-    <div class="acct-empty">
-      <div class="acct-empty-title">Not signed in</div>
-      <div class="acct-empty-hint">{hint}</div>
+    <EmptyState compact title="Not signed in" description={hint}>
       <div class="acct-actions">
         {saved.length > 0 ? (
           <Button
@@ -70,7 +68,7 @@ function SignedOut({ data, api }: ProfileViewProps) {
           Log in
         </Button>
       </div>
-    </div>
+    </EmptyState>
   );
 }
 

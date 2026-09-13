@@ -3,43 +3,6 @@
    ============================================================================ */
 
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Commands — Empty State
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.cmd-empty,
-.hook-empty {
-  text-align: center;
-  padding: var(--space-2xl) var(--space-2xl);
-}
-
-.cmd-empty-title,
-.hook-empty-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-xl);
-}
-
-.cmd-empty-desc,
-.hook-empty-desc {
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  line-height: 1.6;
-  text-align: left;
-  max-width: 340px;
-  margin: 0 auto;
-}
-
-.cmd-empty-desc code,
-.hook-empty-desc code {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

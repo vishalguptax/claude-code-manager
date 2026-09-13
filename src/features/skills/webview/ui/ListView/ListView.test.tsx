@@ -31,7 +31,7 @@ beforeEach(() => {
 describe("ListView", () => {
   it("shows the discovery empty state with no skills", () => {
     render(h(ListView, {}));
-    expect(screen.getByText("No skills found")).toBeTruthy();
+    expect(screen.getByText("No skills yet")).toBeTruthy();
     fireEvent.click(screen.getByText(/Browse community skills/));
     expect(post).toHaveBeenCalledWith({ type: "openUrl", url: "https://market" });
   });

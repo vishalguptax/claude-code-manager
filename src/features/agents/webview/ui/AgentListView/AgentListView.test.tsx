@@ -28,7 +28,7 @@ afterEach(() => {
 describe("AgentListView", () => {
   it("shows the all-empty state when there are no agents", () => {
     const { container } = render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
-    expect(container.querySelector(".agent-empty")).toBeTruthy();
+    expect(container.querySelector(".empty-state")).toBeTruthy();
     // No model filter row when there are no agents.
     expect(container.querySelector(".scope-filter")).toBeNull();
   });
@@ -58,12 +58,12 @@ describe("AgentListView", () => {
     expect(screen.getByText("No matching agents")).toBeTruthy();
   });
 
-  it("shows a no-match state (not 'No agents found') when a model filter hides everything", () => {
+  it("shows a no-match state (not the first-run state) when a model filter hides everything", () => {
     agents.value = [agent({ name: "alpha", model: "sonnet" })];
     filterModel.value = "opus";
     render(h(AgentListView, { onRefresh: () => {}, onNew: () => {} }));
     expect(screen.getByText("No matching agents")).toBeTruthy();
-    expect(screen.queryByText("No agents found")).toBeNull();
+    expect(screen.queryByText("No agents yet")).toBeNull();
   });
 
   it("selects an agent on click", () => {

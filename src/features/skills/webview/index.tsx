@@ -6,7 +6,7 @@
 import { useEffect } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { ListSkeleton } from "../../../webview/shared/ui";
+import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { Skill } from "../types";
 import { getSkills } from "./api";
 import {
@@ -91,6 +91,6 @@ export default function SkillsTab() {
   const selected = selectedSkill.value;
   if (selected) return <DetailView skill={selected} />;
   if (!loaded.value) return <ListSkeleton />;
-  if (errorMessage.value) return <div class="empty">Error: {errorMessage.value}</div>;
+  if (errorMessage.value) return <EmptyState icon="circle-alert" title="Couldn't load skills" description={errorMessage.value} />;
   return <ListView />;
 }

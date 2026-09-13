@@ -8,7 +8,7 @@ import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
 import { useApi } from "../../../webview/shared/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { ListSkeleton } from "../../../webview/shared/ui";
+import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { Command } from "../types";
 import { getCommandsMsg, type Post } from "./api";
 import { claudeCodeInstalled, commands, errorMessage, loading, selected } from "./model";
@@ -48,7 +48,7 @@ export default function CommandsTab() {
     return <ListSkeleton />;
   }
   if (errorMessage.value) {
-    return <div class="empty">Error: {errorMessage.value}</div>;
+    return <EmptyState icon="circle-alert" title="Couldn't load commands" description={errorMessage.value} />;
   }
 
   const current = selected.value;

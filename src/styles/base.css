@@ -154,7 +154,6 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .loading { animation: none; }
 }
-.empty   { text-align: center; padding: calc(var(--space-2xl) * 2) var(--space-2xl); font-size: var(--fs-base); color: var(--fg-muted); }
 
 /* Initial-paint loader for tab containers — shows immediately while
    the host parses data so users see activity instead of an empty
@@ -238,55 +237,7 @@ button {
   .skeleton-el::after { animation: none; display: none; }
 }
 
-/* Inline link button rendered inside an .empty / .mcp-empty block.
-   Visual: link-coloured text with no chrome so it reads as a follow-up
-   prompt rather than a primary CTA. The marketplace "Browse community"
-   buttons use this. */
-.empty-link-btn {
-  margin-top: var(--space-sm);
-  background: none;
-  border: none;
-  padding: var(--space-xs) var(--space-md);
-  color: var(--link, var(--accent));
-  font-size: var(--fs-base);
-  font-family: inherit;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.empty-link-btn:hover { color: var(--fg); }
-.empty-link-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 
-/* Shared empty state (renderEmptyState) — icon + title + description + action */
-.state-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  /* Shared centered-state inset — see .loading / .empty-state. */
-  padding: calc(var(--space-2xl) * 2) var(--space-2xl);
-  gap: var(--space-sm);
-}
-.state-empty-icon {
-  color: var(--fg-muted);
-  opacity: 0.5;
-  margin-bottom: var(--space-sm);
-}
-.state-empty-title {
-  font-size: var(--fs-md);
-  font-weight: 600;
-  color: var(--fg);
-}
-.state-empty-desc {
-  font-size: var(--fs-sm);
-  color: var(--fg-dim);
-  line-height: 1.5;
-  max-width: 280px;
-}
-.state-empty .btn {
-  margin-top: var(--space-sm);
-}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -315,8 +266,8 @@ button,
 .acct-actions .btn, .acct-actions .btn *,
 .acct-perm-remove,
 .acct-quota-row-head, .acct-quota-row-head *,
-.acct-empty-title,
-.acct-empty-hint,
+.empty-state-title,
+.empty-state-desc,
 .footer-link,
 .footer-name,
 .app-footer,

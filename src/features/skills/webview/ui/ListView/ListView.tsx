@@ -8,6 +8,7 @@ import { useRef } from "preact/hooks";
 import { useApi } from "../../../../../webview/shared/hooks";
 import {
   Button,
+  EmptyState,
   ScopeFilter as ScopeFilterControl,
   type ScopeOption,
   SearchInput,
@@ -162,14 +163,26 @@ function SkillList({ list, searching, renderSkill, onBrowse }: SkillListProps) {
     return (
       <div class="list" id="skillsList" ref={containerRef}>
         {searching ? (
-          <div class="empty">No matching skills</div>
+          <EmptyState
+            icon="search-slash"
+            title="No matching skills"
+            description="Try a different keyword, or clear the search to see every skill."
+          />
         ) : (
-          <div class="empty">
-            <div>No skills found</div>
-            <Button variant="secondary" class="empty-link-btn" onClick={onBrowse}>
-              Browse community skills →
+          <EmptyState
+            icon="sparkles"
+            title="No skills yet"
+            description={
+              <>
+                A skill is a folder with a <code>SKILL.md</code> in{" "}
+                <code>~/.claude/skills/</code> or <code>.claude/skills/</code>.
+              </>
+            }
+          >
+            <Button variant="secondary" onClick={onBrowse}>
+              Browse community skills
             </Button>
-          </div>
+          </EmptyState>
         )}
       </div>
     );

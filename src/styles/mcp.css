@@ -14,53 +14,6 @@
    ============================================================================ */
 
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   MCP — Empty State
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.mcp-empty {
-  text-align: center;
-  padding: var(--space-2xl) var(--space-2xl);
-}
-
-.mcp-empty-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-xl);
-}
-
-.mcp-empty-desc {
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  line-height: 1.6;
-  text-align: left;
-  max-width: 340px;
-  margin: 0 auto;
-}
-
-.mcp-empty-desc code {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-}
-
-/* The browse affordance is a shared <Button> styled down to a borderless link
-   so it reads as a follow-up prompt, not a primary CTA. Loaded after the .btn
-   base, so these chrome resets win on the cascade. */
-.mcp-empty-link {
-  margin-top: var(--space-sm);
-  background: none;
-  border: none;
-  padding: var(--space-xs) var(--space-md);
-  color: var(--link, var(--accent));
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-.mcp-empty-link:hover { background: none; color: var(--fg); }
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

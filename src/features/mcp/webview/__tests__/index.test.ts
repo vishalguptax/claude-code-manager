@@ -97,8 +97,8 @@ describe("McpTab", () => {
   it("opens the community directory from the empty state", async () => {
     render(h(McpTab, {}));
     dispatch({ type: "mcpServers", data: [] });
-    await waitFor(() => screen.getByText("Browse MCP servers →"));
-    fireEvent.click(screen.getByText("Browse MCP servers →"));
+    await waitFor(() => screen.getByText("Browse MCP servers"));
+    fireEvent.click(screen.getByText("Browse MCP servers"));
     expect(posted).toContainEqual({ type: "openUrl", url: "https://mcp.so" });
   });
 });

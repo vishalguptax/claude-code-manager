@@ -50,13 +50,16 @@ describe("AgentsTab", () => {
   it("treats a null payload as an empty list", () => {
     render(h(AgentsTab, {}));
     act(() => dispatch({ type: "agents", data: null } as Message));
-    expect(screen.getByText(/No agents found/)).toBeTruthy();
+    expect(screen.getByText(/No agents yet/)).toBeTruthy();
   });
 
   it("shows an error message on an error message", () => {
     render(h(AgentsTab, {}));
     act(() => dispatch({ type: "error", message: "kaboom" } as Message));
-    expect(screen.getByText("Error: kaboom")).toBeTruthy();
+    // Errors render as the shared empty state: a title that says what failed,
+    // and the host's message as the description, rather than "Error: <raw>".
+    expect(screen.getByText("Couldn't load agents")).toBeTruthy();
+    expect(screen.getByText("kaboom")).toBeTruthy();
   });
 
   it("surfaces host parse errors as a banner while still rendering agents", () => {

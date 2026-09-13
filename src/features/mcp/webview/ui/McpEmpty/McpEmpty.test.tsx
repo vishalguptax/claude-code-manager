@@ -8,7 +8,7 @@ describe("McpEmpty", () => {
   it("renders the browse link and fires onBrowse", () => {
     const onBrowse = vi.fn();
     render(h(McpEmpty, { onBrowse }));
-    fireEvent.click(screen.getByText("Browse MCP servers →"));
+    fireEvent.click(screen.getByText("Browse MCP servers"));
     expect(onBrowse).toHaveBeenCalledOnce();
   });
 });

@@ -17,40 +17,6 @@
 }
 
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Agents — Empty State
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.agent-empty {
-  text-align: center;
-  padding: var(--space-2xl) var(--space-2xl);
-}
-
-.agent-empty-title {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: var(--space-xl);
-}
-
-.agent-empty-desc {
-  font-size: var(--fs-base);
-  color: var(--fg-dim);
-  line-height: 1.6;
-  text-align: left;
-  max-width: 340px;
-  margin: 0 auto;
-}
-
-.agent-empty-desc code {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-  padding: 1px var(--space-sm);
-  border-radius: var(--radius-sm);
-}
-
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Agents — List
@@ -218,11 +184,6 @@
    no agents-specific override. A prior `.panel > .back-btn` rule here was a
    global leak (every tab renders `.panel`) that clobbered other features' Back
    buttons; the shared component now gives every detail/form view one style. */
-
-/* Create CTA under the empty state. */
-.agent-empty-cta {
-  margin-top: var(--space-xl);
-}
 
 /* Read-only note shown instead of edit/delete for plugin-owned agents. */
 .agent-readonly-note {

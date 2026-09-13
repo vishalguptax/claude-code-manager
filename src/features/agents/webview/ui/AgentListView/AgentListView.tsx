@@ -125,17 +125,21 @@ export function AgentListView({ onRefresh, onNew }: AgentListViewProps) {
 /** Empty state shown when no agents exist anywhere. */
 function EmptyAgents({ onNew }: { onNew: () => void }) {
   return (
-    <div class="agent-empty">
-      <div class="agent-empty-title">No agents found</div>
-      <div class="agent-empty-desc">
-        Agents are <code>.md</code> files in your project's <code>.claude/agents/</code> directory.
-        Each file uses YAML frontmatter with <code>name</code>, <code>description</code>, and{" "}
-        <code>model</code> fields, followed by the agent's system prompt.
-      </div>
-      <Button variant="primary" iconName="plus" onClick={onNew} class="agent-empty-cta">
+    <EmptyState
+      icon="bot"
+      title="No agents yet"
+      description={
+        <>
+          An agent is a <code>.md</code> file in <code>.claude/agents/</code>. Its YAML
+          frontmatter carries <code>name</code>, <code>description</code> and{" "}
+          <code>model</code>; everything after it is the agent's system prompt.
+        </>
+      }
+    >
+      <Button variant="primary" iconName="plus" onClick={onNew}>
         New agent
       </Button>
-    </div>
+    </EmptyState>
   );
 }
 

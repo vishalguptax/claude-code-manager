@@ -4,10 +4,21 @@
    ============================================================================ */
 
 
-/* Shared <EmptyState> — centred icon + title + description, matching VS
-   Code's own "No results" / empty-view treatment (muted glyph, quiet
-   copy, generous vertical breathing room). The icon is dimmed so it
-   reads as decorative structure, not a control. */
+/* ──────────────────────────────────────────────────────────────────────────
+   Shared <EmptyState> — the one "nothing here yet" surface.
+
+   Centred icon + title + description + optional action, matching VS Code's own
+   empty-view treatment: muted glyph, quiet copy, generous breathing room. The
+   icon is dimmed so it reads as structure, not a control.
+
+   This replaced five private copies (.cmd-empty, .hook-empty, .agent-empty,
+   .mcp-empty, .acct-empty) plus a bare `.empty` div and a string-building
+   renderEmptyState() helper. They disagreed on type size, alignment and
+   spacing, so which tab you emptied decided how the message looked.
+
+   The 28px inset (2×--space-2xl) is shared with `.loading` so a view that
+   flips between loading and empty does not jump.
+   ────────────────────────────────────────────────────────────────────────── */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -15,9 +26,6 @@
   justify-content: center;
   text-align: center;
   gap: var(--space-sm);
-  /* Centered empty state: one shared vertical breathing value (28px =
-     2×--space-2xl) across .empty / .empty-state / .state-empty / .loading so
-     every "no content" surface sits at the same rhythm with the standard inset. */
   padding: calc(var(--space-2xl) * 2) var(--space-2xl);
   color: var(--fg-muted);
   font-size: var(--fs-base);
@@ -36,7 +44,34 @@
 .empty-state-desc {
   color: var(--fg-dim);
   line-height: 1.5;
-  max-width: 280px;
+  /* Prose measure, not a box width: these descriptions explain a file format
+     and read as a sentence, so they cap by character count. */
+  max-width: 42ch;
+}
+/* Most of these descriptions name a path or a key mid-sentence. The chip has
+   to sit on the text baseline without stretching the line box. */
+.empty-state-desc code {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+  padding: 1px var(--space-xs);
+  border-radius: var(--radius-sm);
+}
+
+/* COMPACT — a section inside a populated panel is empty (Account's Profile and
+   Usage blocks, a permission list), rather than the whole view. Sits in the
+   flow of the section instead of taking over the panel: no icon, tighter
+   inset, smaller title. */
+.empty-state--compact {
+  padding: var(--space-lg) 0;
+  gap: var(--space-xs);
+}
+.empty-state--compact .empty-state-title {
+  font-size: var(--fs-base);
+}
+.empty-state--compact .empty-state-desc {
+  font-size: var(--fs-sm);
 }
 
 .modal-backdrop {

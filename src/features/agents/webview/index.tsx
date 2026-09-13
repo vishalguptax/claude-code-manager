@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from "preact/hooks";
 import { registerFeatureHandler } from "../../../webview/shared/model";
-import { ListSkeleton } from "../../../webview/shared/ui";
+import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { AgentInput } from "../../../shared/protocol/messages";
 import type { Agent } from "../types";
 import { useAgentsApi } from "./api";
@@ -52,7 +52,7 @@ export default function AgentsTab() {
   }, []);
 
   if (error.value) {
-    return <div class="empty">Error: {error.value}</div>;
+    return <EmptyState icon="circle-alert" title="Couldn't load agents" description={error.value} />;
   }
 
   if (loading.value) {
