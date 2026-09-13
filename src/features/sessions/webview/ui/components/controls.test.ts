@@ -12,6 +12,7 @@ import {
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
+  filterWorktreeSignal,
   pinnedSignal,
   selectAll,
   selectionSignal,
@@ -51,18 +52,48 @@ beforeEach(() => {
   post.mockClear();
 });
 
+/**
+ * Open the filter panel. The pickers are progressive now: search is always
+ * there, the four pickers sit behind the toolbar toggle, and anything actually
+ * narrowing the list shows as a chip. Tests that assert on a picker have to
+ * open the panel first, the same way a user does.
+ */
+function openFilters(container: ParentNode): void {
+  fireEvent.click(
+    container.querySelector('[aria-label="Filter sessions"]') as HTMLButtonElement,
+  );
+}
+
 describe("Filters", () => {
+  it("keeps the pickers out of the way until asked for", () => {
+    const { container } = render(h(Filters, {}));
+    expect(container.querySelector(".filter-panel")).toBeNull();
+    expect(container.querySelector(".vsc-search")).toBeTruthy();
+    openFilters(container);
+    expect(container.querySelector(".filter-panel")).toBeTruthy();
+  });
+
   it("renders the date range as a Segmented control with the active one selected", () => {
     filterDateSignal.value = "week";
-    const { getByText } = render(h(Filters, {}));
-    const seg = getByText("Week").closest(".vsc-segmented-seg") as HTMLButtonElement;
+    const { container } = render(h(Filters, {}));
+    openFilters(container);
+    // "Week" now appears twice — once as the active-filter chip, once as the
+    // segment — so scope the query to the control under test.
+    const seg = [...container.querySelectorAll(".vsc-segmented-seg")].find(
+      (b) => b.textContent?.trim() === "Week",
+    ) as HTMLButtonElement;
     expect(seg.getAttribute("aria-checked")).toBe("true");
     expect(seg.classList.contains("active")).toBe(true);
   });
 
   it("changes the date filter on segment click", () => {
-    const { getByText } = render(h(Filters, {}));
-    fireEvent.click(getByText("Month"));
+    const { container } = render(h(Filters, {}));
+    openFilters(container);
+    fireEvent.click(
+      [...container.querySelectorAll(".vsc-segmented-seg")].find(
+        (b) => b.textContent?.trim() === "Month",
+      ) as HTMLButtonElement,
+    );
     expect(filterDateSignal.value).toBe("month");
   });
 
@@ -72,6 +103,7 @@ describe("Filters", () => {
       session("b", { project: "proj", projectKey: "proj", endTime: 2000 }),
     ];
     const { container } = render(h(Filters, {}));
+    openFilters(container);
     const trigger = container.querySelector(
       '.vsc-dropdown-trigger[aria-label="Filter by project"]',
     ) as HTMLButtonElement;
@@ -94,6 +126,7 @@ describe("Filters", () => {
     currentBranchSignal.value = "main";
     filterProjectSignal.value = "all";
     const { container } = render(h(Filters, {}));
+    openFilters(container);
     // Leading git-branch icon is rendered on the closed trigger.
     expect(container.querySelector('.vsc-dropdown-leading [data-icon="git-branch"]')).toBeTruthy();
     const trigger = container.querySelector(
@@ -110,6 +143,7 @@ describe("Filters", () => {
   it("hides the branch dropdown when there is only one branch", () => {
     sessionsSignal.value = [session("a", { branch: "main" })];
     const { container } = render(h(Filters, {}));
+    openFilters(container);
     expect(
       container.querySelector('.vsc-dropdown-trigger[aria-label="Filter by branch"]'),
     ).toBeNull();
@@ -118,9 +152,74 @@ describe("Filters", () => {
   it("shows the branch dropdown when multiple branches exist", () => {
     sessionsSignal.value = [session("a", { branch: "main" }), session("b", { branch: "dev" })];
     const { container } = render(h(Filters, {}));
+    openFilters(container);
     expect(
       container.querySelector('.vsc-dropdown-trigger[aria-label="Filter by branch"]'),
     ).toBeTruthy();
+  });
+});
+
+/**
+ * The chips are the reason the pickers can hide: with four controls sitting at
+ * their defaults, "why am I not seeing that session?" used to mean reading all
+ * four. A chip appears for anything narrowing the list, and its × widens it.
+ */
+describe("Filters — active chips", () => {
+  it("shows nothing when nothing is narrowing the list", () => {
+    filterDateSignal.value = "all";
+    filterProjectSignal.value = "all";
+    const { container } = render(h(Filters, {}));
+    expect(container.querySelector(".filter-chips")).toBeNull();
+  });
+
+  it("shows a chip for the date range and clears it back to All", () => {
+    filterProjectSignal.value = "all";
+    filterDateSignal.value = "week";
+    const { container } = render(h(Filters, {}));
+    expect(container.querySelector(".filter-chip-label")?.textContent).toBe("Week");
+    fireEvent.click(container.querySelector(".filter-chip-clear") as HTMLButtonElement);
+    expect(filterDateSignal.value).toBe("all");
+  });
+
+  // Showing only the current project IS a filter — it hides sessions — so it
+  // reads as a chip like any other rather than as an invisible default.
+  it("treats the current-project scope as a filter", () => {
+    filterDateSignal.value = "all";
+    filterProjectSignal.value = "current";
+    const { container } = render(h(Filters, {}));
+    const labels = Array.from(container.querySelectorAll(".filter-chip-label")).map(
+      (n) => n.textContent,
+    );
+    expect(labels).toContain("This Project");
+    fireEvent.click(container.querySelector(".filter-chip-clear") as HTMLButtonElement);
+    expect(filterProjectSignal.value).toBe("all");
+  });
+
+  it("offers Clear all only once there are more than two chips", () => {
+    filterDateSignal.value = "week";
+    filterProjectSignal.value = "current";
+    const two = render(h(Filters, {}));
+    expect(two.container.querySelector(".filter-chip-clear-all")).toBeNull();
+    two.unmount();
+
+    filterBranchSignal.value = "dev";
+    filterWorktreeSignal.value = "claude";
+    const { container } = render(h(Filters, {}));
+    expect(container.querySelectorAll(".filter-chip").length).toBe(4);
+    fireEvent.click(container.querySelector(".filter-chip-clear-all") as HTMLButtonElement);
+    expect(filterDateSignal.value).toBe("all");
+    expect(filterProjectSignal.value).toBe("all");
+    expect(filterBranchSignal.value).toBe("all");
+    expect(filterWorktreeSignal.value).toBe("all");
+  });
+
+  it("names the filter in the clear button's accessible label", () => {
+    filterDateSignal.value = "week";
+    filterProjectSignal.value = "all";
+    const { container } = render(h(Filters, {}));
+    expect(container.querySelector(".filter-chip-clear")?.getAttribute("aria-label")).toBe(
+      "Clear filter: Date range",
+    );
   });
 });
 
@@ -171,47 +270,83 @@ describe("ListHeader", () => {
   });
 });
 
+/**
+ * One primary action plus a split menu, where there used to be six equal
+ * buttons wrapping to three rows at 280px. The menu items still have to reach
+ * the same host messages, so every one of the old assertions survives — it
+ * just opens the menu first.
+ */
+function openMore(container: ParentNode): void {
+  fireEvent.click(
+    container.querySelector('[aria-label="More session actions"]') as HTMLButtonElement,
+  );
+}
+
 describe("ActionsBar", () => {
-  it("posts newSession on New", () => {
+  it("leads with one primary action and two icon affordances", () => {
+    const { container, getByText } = render(h(ActionsBar, {}));
+    expect(getByText("New session")).toBeTruthy();
+    // Everything else in the row is an icon: no second labelled button
+    // competing with the primary.
+    const labelled = Array.from(container.querySelectorAll(".actions-bar .btn")).filter(
+      (b) => (b.textContent ?? "").trim().length > 0,
+    );
+    expect(labelled.length).toBe(1);
+  });
+
+  it("posts newSession from the primary action", () => {
     const { getByText } = render(h(ActionsBar, {}));
-    fireEvent.click(getByText("New"));
+    fireEvent.click(getByText("New session"));
     expect(post).toHaveBeenCalledWith({ type: "newSession" });
   });
 
-  it("posts newTempSession on Temp", () => {
-    const { getByText } = render(h(ActionsBar, {}));
-    fireEvent.click(getByText("Temp"));
-    expect(post).toHaveBeenCalledWith({ type: "newTempSession" });
-  });
-
-  it("posts continueLastSession on Continue", () => {
-    const { getByText } = render(h(ActionsBar, {}));
-    fireEvent.click(getByText("Continue"));
+  it("posts continueLastSession from the inline affordance", () => {
+    const { container } = render(h(ActionsBar, {}));
+    fireEvent.click(
+      container.querySelector('[aria-label="Continue last session"]') as HTMLButtonElement,
+    );
     expect(post).toHaveBeenCalledWith({ type: "continueLastSession" });
   });
 
-  it("posts importSession on Import", () => {
-    const { getByText } = render(h(ActionsBar, {}));
-    fireEvent.click(getByText("Import"));
+  it("posts newTempSession from the menu", () => {
+    const { container, getByText } = render(h(ActionsBar, {}));
+    openMore(container);
+    fireEvent.click(getByText("New temporary session"));
+    expect(post).toHaveBeenCalledWith({ type: "newTempSession" });
+  });
+
+  it("posts importSession from the menu", () => {
+    const { container, getByText } = render(h(ActionsBar, {}));
+    openMore(container);
+    fireEvent.click(getByText("Import a session…"));
     expect(post).toHaveBeenCalledWith({ type: "importSession" });
+  });
+
+  it("posts importMultipleSessions from the menu", () => {
+    const { container, getByText } = render(h(ActionsBar, {}));
+    openMore(container);
+    fireEvent.click(getByText("Import many…"));
+    expect(post).toHaveBeenCalledWith({ type: "importMultipleSessions" });
   });
 
   it("restore resumes the recent session group, oldest first", () => {
     const now = Date.now();
     sessionsSignal.value = [session("x", { endTime: now }), session("y", { endTime: now - 1000 })];
     filterProjectSignal.value = "all";
-    const { getByText } = render(h(ActionsBar, {}));
-    fireEvent.click(getByText("Restore"));
+    const { container, getByText } = render(h(ActionsBar, {}));
+    openMore(container);
+    fireEvent.click(getByText("Restore recent terminals"));
     expect(post).toHaveBeenCalledWith(
       expect.objectContaining({ type: "resumeMultiple", sessionIds: ["y", "x"] }),
     );
   });
 
   it("restore still posts with an empty group so the host can explain why", () => {
-    // A silent no-op read as a broken button; the host owns the toast.
+    // A silent no-op reads as a broken button; the host owns the toast.
     sessionsSignal.value = [];
-    const { getByText } = render(h(ActionsBar, {}));
-    fireEvent.click(getByText("Restore"));
+    const { container, getByText } = render(h(ActionsBar, {}));
+    openMore(container);
+    fireEvent.click(getByText("Restore recent terminals"));
     expect(post).toHaveBeenCalledWith({
       type: "resumeMultiple",
       sessionIds: [],

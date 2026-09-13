@@ -318,22 +318,93 @@
    Quick Actions Bar
    ────────────────────────────────────────────────────────────────────────────── */
 
+/* Session-launch toolbar: one primary action that takes the room it needs,
+   then fixed-width icon affordances. This was a `repeat(auto-fit, minmax(135px,
+   1fr))` grid of six equal buttons, which wrapped to two rows at the default
+   sidebar width and three at 280px — a third of the panel spent before the
+   first session row. Five of the six now live in the split menu.
+
+   The left/right inset matches the list rows and the search box so the panel
+   reads as one column. */
 .actions-bar {
-  /* Grid instead of flex-wrap so the toolbar buttons distribute evenly
-     when they wrap. Min track 135px fits every button's full content
-     (icon + gap + label + padding) — labels are kept short on purpose
-     ("Restore", not "Restore Workspace") so the track stays small: a
-     larger track fits fewer columns on a narrow panel, stacking the bar
-     into extra rows that shove the session list down. At narrower widths
-     the grid drops to a single stacked column. */
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  display: flex;
+  align-items: center;
   gap: var(--space-xs);
-  /* Align the toolbar's left/right edge to the list rows + search box so the
-     panel reads as one column, and use the same vertical rhythm as the
-     filter rows below it. */
   padding: var(--space-sm) var(--space-2xl) var(--space-xs);
   flex-shrink: 0;
+}
+/* The primary takes the slack; the icons stay their natural size. */
+.actions-new { flex: 1; min-width: 0; }
+.actions-more { display: flex; flex-shrink: 0; }
+
+
+/* ── Active filter chips ───────────────────────────────────────────────────
+   One chip per filter that is actually narrowing the list. The row renders
+   nothing when nothing is filtered, which is the common case, and it is the
+   only place that answers "why am I not seeing that session?" at a glance. */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-2xl) 0;
+  flex-shrink: 0;
+}
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 22px;
+  padding: 0 var(--space-xs) 0 var(--space-sm);
+  border-radius: 11px;
+  background: var(--badge-neutral-bg);
+  color: var(--badge-neutral-fg);
+  font-size: var(--fs-sm);
+  max-width: 100%;
+  min-width: 0;
+}
+.filter-chip .icon { opacity: 0.7; flex-shrink: 0; }
+.filter-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.filter-chip-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* A 16px target inside a 22px chip. Smaller than the 24px minimum elsewhere
+     because the chip itself is the affordance and the × is its detail — the
+     row's own controls stay full size. */
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  transition: opacity var(--transition-control), background var(--transition-control);
+}
+.filter-chip-clear:hover { opacity: 1; background: var(--role-ghost-hover-bg); }
+.filter-chip-clear:focus-visible { outline: var(--focus-ring); outline-offset: 1px; opacity: 1; }
+.filter-chip-clear-all {
+  font-size: var(--fs-sm);
+  color: var(--link, var(--accent));
+  cursor: pointer;
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-sm);
+}
+.filter-chip-clear-all:hover { text-decoration: underline; }
+.filter-chip-clear-all:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+
+/* The pickers, revealed by the toolbar's filter toggle. */
+.filter-panel { flex-shrink: 0; }
+/* The toggle stays lit while its panel is open, so the row below is never
+   unexplained chrome. */
+.search-side-btn.is-open {
+  background: var(--role-ghost-active-bg);
+  color: var(--role-text-primary);
 }
 
 
