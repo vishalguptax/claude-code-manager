@@ -299,6 +299,16 @@ describe("QuotaView", () => {
       ).toBeTruthy();
     });
 
+    it("stays out of the way while the cache is healthy", () => {
+      // 98% is the ordinary case. A permanent row saying so is a constant
+      // that carries no information and eats the bottom of the card.
+      setQuotaSuccess(withCache({ hitRatio: 0.98 }));
+      const { container } = render(h(QuotaView, { api: stubApi() }));
+      expect(container.querySelector(".acct-quota-cache")).toBeNull();
+      // The bars it annotates are untouched.
+      expect(screen.getByText("7-day window")).toBeTruthy();
+    });
+
     it("glosses the jargon behind a visible info icon", () => {
       // "hit", "missed" and "re-cached" mean nothing on their own, and the
       // figure is only actionable once the reader knows which direction is
@@ -321,13 +331,16 @@ describe("QuotaView", () => {
       expect(zero.container.querySelector(".acct-quota-cache")).toBeNull();
     });
 
-    it("omits the miss segments when the cache never missed", () => {
+    it("omits the segments Claude did not report", () => {
+      // Misses without a rebuild count or a re-cache figure: the detail
+      // line carries what exists and nothing else, rather than padding
+      // itself out with zeroes.
       setQuotaSuccess(
-        withCache({ misses: 0, expectedRebuilds: 0, missRecacheTokens: 0, hitRatio: 1 }),
+        withCache({ misses: 8, expectedRebuilds: 0, missRecacheTokens: 0, hitRatio: 0.8 }),
       );
       render(h(QuotaView, { api: stubApi() }));
-      expect(screen.getByText("40 requests")).toBeTruthy();
-      expect(screen.getByText("100% hit")).toBeTruthy();
+      expect(screen.getByText("40 requests · 8 missed")).toBeTruthy();
+      expect(screen.getByText("80% hit")).toBeTruthy();
     });
   });
 });
