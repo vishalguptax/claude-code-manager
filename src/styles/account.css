@@ -521,9 +521,26 @@
    allowance falls short, which is the one case that asks the user to do
    something differently. */
 .acct-quota-verdict {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin-top: 2px;
   font-size: var(--fs-xs);
   color: var(--fg-muted);
+}
+
+/* Marks that a longer reading exists. Always muted, even next to a tinted
+   verdict: the affordance is the same either way, and colouring it would
+   read as a second warning. */
+.acct-quota-info {
+  display: inline-flex;
+  color: var(--fg-muted);
+  opacity: 0.7;
+  cursor: help;
+}
+.acct-quota-info:hover,
+.acct-quota-info:focus-visible {
+  opacity: 1;
 }
 .acct-quota-verdict.pace-ahead {
   color: var(--vscode-editorWarning-foreground, #d49a00);

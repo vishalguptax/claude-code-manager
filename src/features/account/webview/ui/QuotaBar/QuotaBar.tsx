@@ -10,11 +10,15 @@
  * one line is the whole comparison — whichever is shorter happens first —
  * where the earlier wording made the reader subtract one from the other.
  *
- * A one-line verdict sits under both. The graphic is compact, which is
- * not the same as legible: nobody meeting a faint bar for the first time
- * knows what it means, and the answer must not be hidden behind a hover.
+ * A one-line verdict sits under both, with an info icon beside it for the
+ * rate behind the projection. The graphic is compact, which is not the
+ * same as legible: nobody meeting a faint bar for the first time knows
+ * what it means. The verdict answers that in the open; the icon is there
+ * so the longer reading is something the user can SEE is available,
+ * rather than a tooltip on the bar that only rewards hovering by luck.
  */
 
+import { Icon } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { now } from "../../../../../webview/shared/model";
 import type { QuotaWindow } from "../../../quota";
@@ -51,7 +55,6 @@ export function QuotaBar({ label, window, pace }: QuotaBarProps) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={pct}
-        title={projection?.title}
       >
         {projection ? (
           <div
@@ -71,7 +74,18 @@ export function QuotaBar({ label, window, pace }: QuotaBarProps) {
         </div>
       ) : null}
       {projection ? (
-        <div class={cx("acct-quota-verdict", `pace-${pace?.verdict}`)}>{projection.sentence}</div>
+        <div class={cx("acct-quota-verdict", `pace-${pace?.verdict}`)}>
+          <span>{projection.sentence}</span>
+          <span
+            class="acct-quota-info"
+            role="img"
+            tabIndex={0}
+            title={projection.title}
+            aria-label={projection.title}
+          >
+            <Icon name="info" size={12} />
+          </span>
+        </div>
       ) : null}
     </div>
   );

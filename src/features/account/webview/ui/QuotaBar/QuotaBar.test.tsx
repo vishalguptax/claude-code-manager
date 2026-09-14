@@ -43,10 +43,15 @@ describe("QuotaBar", () => {
     const sub = container.querySelector(".acct-quota-sub") as HTMLElement;
     expect(sub.textContent).toContain("resets in");
     expect(sub.querySelector(".acct-quota-countdown")?.textContent).toMatch(/^out in \d+h$/);
-    // The conclusion is on screen, not only in the tooltip.
+    // The conclusion is on screen, not only in a tooltip.
     expect(screen.getByText("Not enough to last the week.")).toBeTruthy();
-    // The raw projection the bar spares the reader stays in the tooltip.
-    expect(screen.getByRole("progressbar").getAttribute("title")).toContain("160%");
+    // The longer reading hangs off a visible icon, not off the bar — an
+    // affordance the user can see, rather than one found by luck.
+    expect(container.querySelector(".acct-quota-bar")?.getAttribute("title")).toBeNull();
+    const info = container.querySelector(".acct-quota-info") as HTMLElement;
+    expect(info.getAttribute("title")).toContain("160%");
+    // Reachable without a mouse.
+    expect(info.tabIndex).toBe(0);
   });
 
   it("shows the ghost but no countdown when the week is on track", () => {
@@ -68,8 +73,10 @@ describe("QuotaBar", () => {
       "40%",
     );
     expect(container.querySelector(".acct-quota-countdown")).toBeNull();
-    // Still says so in words — a bar alone does not explain itself.
+    // Still says so in words — a bar alone does not explain itself — and
+    // still offers the detail.
     expect(screen.getByText("Enough to last the week.")).toBeTruthy();
+    expect(container.querySelector(".acct-quota-info")).toBeTruthy();
   });
 
   it("draws no projection at all when none could be computed", () => {
@@ -84,5 +91,6 @@ describe("QuotaBar", () => {
     expect(container.querySelector(".acct-quota-bar-ghost")).toBeNull();
     expect(container.querySelector(".acct-quota-countdown")).toBeNull();
     expect(container.querySelector(".acct-quota-verdict")).toBeNull();
+    expect(container.querySelector(".acct-quota-info")).toBeNull();
   });
 });
