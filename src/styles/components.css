@@ -220,6 +220,16 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-lg) var(--space-2xl);
+  /* Fixed height, whatever the header happens to contain.
+     A trailing action (Usage's export, Quota's refresh) is a control and is
+     taller than the title text, so a header that has one was 52px and one that
+     did not was 34px. Worse, Usage renders its action only while expanded — so
+     collapsing the section shrank its own header by 18px and slid the label
+     9px UP the panel, which read as the whole section jumping. The height no
+     longer depends on the contents, so nothing moves and every section heading
+     in the panel lines up on the same rhythm. */
+  min-height: calc(var(--h-control-sm) + 2 * var(--space-lg));
+  box-sizing: border-box;
   margin: 0;
   width: 100%;
   text-align: left;
@@ -228,6 +238,16 @@
   border-radius: 0;
   transition: background var(--transition-control);
 }
+/* Trailing actions sit inside that fixed height rather than setting it. The
+   full --h-control box would push the header past the min-height above and
+   bring the whole problem back. */
+.section-header .btn-icon {
+  width: var(--h-control-sm);
+  height: var(--h-control-sm);
+  min-width: 0;
+  min-height: 0;
+}
+
 /* Only a collapsible header is interactive — it is the one that gets
    role="button" and a tabindex, so the affordances hang off that. */
 .section-header[role="button"] { cursor: pointer; user-select: none; }
