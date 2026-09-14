@@ -39,6 +39,7 @@ vi.mock("../../../core/config", () => ({
 
 import {
   ensureSessionStartHook,
+  isSessionStartHookInstalled,
   removeSessionStartHook,
   sessionTapCommand,
 } from "../sessionTapInstall";
@@ -246,5 +247,68 @@ describe("never rewrites a settings.json it cannot read", () => {
     expect(after.model).toBe("opus");
     expect(after.env).toEqual({ A: "1" });
     expect(after.permissions).toEqual({ allow: ["Bash(ls)"] });
+  });
+});
+
+describe("isSessionStartHookInstalled", () => {
+  it("is false for an absent, blank or hook-free settings.json", () => {
+    expect(isSessionStartHookInstalled()).toBe(false);
+    fsState.set(SETTINGS_FILE, "  ");
+    expect(isSessionStartHookInstalled()).toBe(false);
+    fsState.set(SETTINGS_FILE, JSON.stringify({ model: "opus" }));
+    expect(isSessionStartHookInstalled()).toBe(false);
+  });
+
+  it("is true once the hook is installed", () => {
+    ensureSessionStartHook("/dist");
+    expect(isSessionStartHookInstalled()).toBe(true);
+  });
+
+  it("is false again after removal", () => {
+    ensureSessionStartHook("/dist");
+    removeSessionStartHook();
+    expect(isSessionStartHookInstalled()).toBe(false);
+  });
+
+  it("recognises another machine's copy of the hook", () => {
+    // Settings sync carries a foreign node/home path; the basename is
+    // what identifies the entry as ours, here and in the installer.
+    fsState.set(
+      SETTINGS_FILE,
+      JSON.stringify({
+        hooks: {
+          SessionStart: [
+            {
+              matcher: "",
+              hooks: [
+                { type: "command", command: '"/opt/node" "/other/session-start-tap.js"' },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    expect(isSessionStartHookInstalled()).toBe(true);
+  });
+
+  it("ignores somebody else's SessionStart hooks", () => {
+    fsState.set(
+      SETTINGS_FILE,
+      JSON.stringify({
+        hooks: {
+          SessionStart: [
+            { matcher: "", hooks: [{ type: "command", command: "echo hi" }] },
+          ],
+        },
+      }),
+    );
+    expect(isSessionStartHookInstalled()).toBe(false);
+  });
+
+  it("is false when settings.json cannot be parsed", () => {
+    // The caller cannot write to that file either, so "not installed"
+    // is the answer that keeps every path read-only.
+    fsState.set(SETTINGS_FILE, '{ "hooks": { "SessionStart": [] }, }');
+    expect(isSessionStartHookInstalled()).toBe(false);
   });
 });

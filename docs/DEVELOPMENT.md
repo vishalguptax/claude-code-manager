@@ -139,6 +139,7 @@ The extension exposes these user-configurable settings (search "Claude Manager" 
 | Default Project Filter | `claudeManager.sessions.defaultProject` | `current` | `current`, `all` |
 | Restore Count | `claudeManager.sessions.restoreCount` | `4` | 1–12 |
 | Resume Destination | `claudeManager.sessions.resumeIn` | `auto` | `auto`, `terminal`, `extension`, `ask` |
+| Terminal Linking | `claudeManager.sessions.terminalLinking` | `false` | `true`, `false` |
 
 ---
 
