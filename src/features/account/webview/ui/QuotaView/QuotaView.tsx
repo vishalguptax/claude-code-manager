@@ -264,6 +264,13 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
  * tenth of the same tokens re-read, so a low hit ratio with repeated
  * rebuilds is the difference between a cheap session and an expensive
  * one. Renders nothing until Claude has reported it.
+ *
+ * Styled deliberately quieter than the bars above it. It used to copy the
+ * quota row's head exactly — same size, weight and colour, same figure in
+ * the same right-hand slot — which made it read as a fourth window that
+ * had lost its bar, and worse, inverted the meaning of that slot: a quota
+ * at 98% means nearly blocked, a cache at 98% means working beautifully.
+ * This is a footnote to the bars, so it is set like one.
  */
 function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
   if (!stats || stats.requests === 0) return null;
@@ -275,16 +282,25 @@ function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
     detail.push(`${stats.expectedRebuilds} rebuilt`);
   }
   if (wasted > 0) detail.push(`${formatNumber(wasted)} tokens re-cached`);
-  const title = stats.lastMissCause
-    ? `Last miss: ${stats.lastMissCause}`
-    : undefined;
+  // Plain-language gloss, because every term on this row is jargon:
+  // "hit", "missed", "re-cached" mean nothing without it, and the figure
+  // is only actionable once you know which direction is good.
+  const explain =
+    "Share of each request served from Claude's prompt cache instead of " +
+    "being sent again. Higher is cheaper, and a miss rebuilds the whole " +
+    "cached prefix — those re-cached tokens count towards the windows " +
+    "above." +
+    (stats.lastMissCause ? ` Last miss: ${stats.lastMissCause}.` : "");
   return (
-    <div class="acct-quota-cache" title={title}>
+    <div class="acct-quota-cache">
       <div class="acct-quota-cache-head">
         <span class="acct-quota-cache-label">
           Prompt cache{stats.ttl ? ` (${stats.ttl})` : ""}
         </span>
         <span class="acct-quota-cache-value">{pct}% hit</span>
+        <span class="acct-quota-info" role="img" tabIndex={0} title={explain} aria-label={explain}>
+          <Icon name="info" size={12} />
+        </span>
       </div>
       <div class="acct-quota-cache-detail">{detail.join(" · ")}</div>
     </div>

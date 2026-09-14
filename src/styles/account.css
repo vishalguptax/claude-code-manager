@@ -560,20 +560,27 @@
 }
 .acct-quota-cache-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-sm);
+  align-items: center;
+  gap: var(--space-xs);
 }
+/* Footnote weight, not row weight. At --fs-sm/500/--fg this matched the
+   quota labels exactly and read as a fourth window missing its bar. */
 .acct-quota-cache-label {
-  font-size: var(--fs-sm);
-  color: var(--fg);
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
 }
+/* Sits next to its label rather than pushed to the right-hand slot the
+   quota percentages occupy, because the same position with the opposite
+   polarity (98% here is good, 98% there is nearly blocked) is exactly
+   what made the row misread. */
 .acct-quota-cache-value {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+}
+.acct-quota-cache-head .acct-quota-info {
+  margin-inline-start: auto;
 }
 .acct-quota-cache-detail {
   font-size: var(--fs-xs);

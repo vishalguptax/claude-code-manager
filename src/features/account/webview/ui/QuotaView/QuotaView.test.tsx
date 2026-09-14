@@ -299,6 +299,17 @@ describe("QuotaView", () => {
       ).toBeTruthy();
     });
 
+    it("glosses the jargon behind a visible info icon", () => {
+      // "hit", "missed" and "re-cached" mean nothing on their own, and the
+      // figure is only actionable once the reader knows which direction is
+      // good — the opposite of the quota bars right above it.
+      setQuotaSuccess(withCache({}));
+      const { container } = render(h(QuotaView, { api: stubApi() }));
+      const info = container.querySelector(".acct-quota-cache .acct-quota-info") as HTMLElement;
+      expect(info.getAttribute("title")).toContain("Higher is cheaper");
+      expect(info.getAttribute("title")).toContain("Last miss: prefix_changed.");
+    });
+
     it("renders nothing until Claude has reported a request", () => {
       setQuotaSuccess(SUCCESS);
       const { container } = render(h(QuotaView, { api: stubApi() }));
