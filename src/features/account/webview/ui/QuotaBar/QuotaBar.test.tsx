@@ -43,7 +43,9 @@ describe("QuotaBar", () => {
     const sub = container.querySelector(".acct-quota-sub") as HTMLElement;
     expect(sub.textContent).toContain("resets in");
     expect(sub.querySelector(".acct-quota-countdown")?.textContent).toMatch(/^out in \d+h$/);
-    // The projection the bar spares the reader stays in the tooltip.
+    // The conclusion is on screen, not only in the tooltip.
+    expect(screen.getByText("Not enough to last the week.")).toBeTruthy();
+    // The raw projection the bar spares the reader stays in the tooltip.
     expect(screen.getByRole("progressbar").getAttribute("title")).toContain("160%");
   });
 
@@ -66,6 +68,8 @@ describe("QuotaBar", () => {
       "40%",
     );
     expect(container.querySelector(".acct-quota-countdown")).toBeNull();
+    // Still says so in words — a bar alone does not explain itself.
+    expect(screen.getByText("Enough to last the week.")).toBeTruthy();
   });
 
   it("draws no projection at all when none could be computed", () => {
@@ -79,5 +83,6 @@ describe("QuotaBar", () => {
     );
     expect(container.querySelector(".acct-quota-bar-ghost")).toBeNull();
     expect(container.querySelector(".acct-quota-countdown")).toBeNull();
+    expect(container.querySelector(".acct-quota-verdict")).toBeNull();
   });
 });

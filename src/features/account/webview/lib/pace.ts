@@ -149,6 +149,14 @@ export interface PaceDisplay {
    * user to stop reading it.
    */
   countdown: string;
+  /**
+   * The conclusion in one short line, under the bar. The ghost and the
+   * countdown are both compact, and compact is not the same as legible:
+   * a first-time reader has no way to know what a faint segment means.
+   * This says it outright, in a sentence short enough to take in at a
+   * glance, so nothing load-bearing is hidden behind a hover.
+   */
+  sentence: string;
   /** The reading in full, for the row's tooltip. */
   title: string;
 }
@@ -166,23 +174,22 @@ export function paceDisplay(pace: Pace, now: number = Date.now()): PaceDisplay {
   const projectedWidth = Math.max(0, Math.min(100, pace.projectedPercent));
   const projected = Math.round(pace.projectedPercent);
 
+  // Both sentences are written to the same shape so the two states read
+  // as one scale rather than two unrelated messages.
+  const ahead = pace.verdict === "ahead";
+  const sentence = ahead ? "Not enough to last the week." : "Enough to last the week.";
+
   let countdown = "";
-  let title: string;
-  if (pace.verdict === "ahead" && pace.exhaustsAt) {
+  if (ahead && pace.exhaustsAt) {
     const remaining = Date.parse(pace.exhaustsAt) - now;
     if (remaining > 0) countdown = `out in ${roughDuration(remaining)}`;
-    title =
-      `At this rate the weekly limit runs out before the window refills — ` +
-      `about ${projected}% of a week's allowance spent over the week. The ` +
-      `faint bar shows where you land.`;
-  } else {
-    title =
-      `At this rate the weekly limit reaches the reset with room to spare — ` +
-      `about ${projected}% of a week's allowance spent over the week. The ` +
-      `faint bar shows where you land.`;
   }
 
-  return { projectedWidth, countdown, title };
+  const title =
+    `${sentence} At this rate you spend about ${projected}% of a week's ` +
+    `allowance over the week; the faint bar is where that lands.`;
+
+  return { projectedWidth, countdown, sentence, title };
 }
 
 /**
