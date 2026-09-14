@@ -232,6 +232,12 @@
           ],
           "description": "How list rows in the sidebar are separated. Applies to every tab."
         },
+        "claudeManager.sessions.terminalLinking": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show View instead of Resume for a session that is already running in a terminal, including sessions started outside VS Code. This needs a SessionStart hook in ~/.claude/settings.json that records each session's id and process id locally — Claude Code Manager adds that entry while this is on and removes it when you turn it off. Sessions started from the sidebar are linked to their terminal either way.",
+          "scope": "machine"
+        },
         "claudeManager.sessions.resumeIn": {
           "type": "string",
           "default": "auto",
@@ -247,7 +253,7 @@
             "Always resume in the Claude Code extension chat tab (requires the official Claude Code extension)",
             "Ask every time where to resume"
           ],
-          "description": "Where to open a session when you click Resume. Fork, Continue, and Restore Workspace always use the terminal since they have no equivalent in the extension chat."
+          "description": "Where to open a session when you click Resume. Within the Claude Code extension, chat opens in an editor tab or the Claude Code side bar according to that extension's own `claudeCode.preferredLocation` setting. Fork, Continue, and Restore Workspace always use the terminal since they have no equivalent in the extension chat."
         }
       }
     }

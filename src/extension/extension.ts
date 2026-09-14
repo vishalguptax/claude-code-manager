@@ -20,7 +20,10 @@ import {
 } from "../features/account/statuslineInstall";
 import { warmModelCache } from "../features/account/models";
 import { warmUsageAggregate } from "../features/account/projectStats";
-import { ensureSessionStartHook } from "../features/sessions/sessionTapInstall";
+import {
+  syncSessionTap,
+  watchTerminalLinkingSetting,
+} from "../features/sessions/sessionTapPolicy";
 import { startActiveSessionWatcher } from "../features/sessions/activeSessionWatcher";
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
@@ -94,18 +97,16 @@ export function activate(context: vscode.ExtensionContext): void {
   // the choice once; the Quota card's Enable button remains for later.
   void offerQuotaNudge(context);
 
-  // SessionStart hook tap: install (idempotent) so Claude CLI writes
-  // `{sessionId, ppid, cwd}` into our active-sessions registry on every
-  // boot — bare `claude`, `--continue`, `--resume`, external launches
-  // all included. The watcher matches PPID → vscode.Terminal.processId
-  // so the row + detail action swap from Resume to View for the
-  // terminal hosting that session, regardless of how it was started.
-  // Failures must not block activation.
-  try {
-    timedStep("ensureSessionStartHook", () => ensureSessionStartHook(path.join(__dirname)));
-  } catch (err) {
-    console.warn("[claude-manager] session-start hook install failed:", err);
-  }
+  // SessionStart hook tap: when the user has it enabled, Claude CLI
+  // writes `{sessionId, ppid, cwd}` into our active-sessions registry on
+  // every boot — bare `claude`, `--continue`, `--resume`, external
+  // launches all included. The watcher matches PPID →
+  // vscode.Terminal.processId so the row + detail action swap from
+  // Resume to View for the terminal hosting that session, regardless of
+  // how it was started. Gated on consent and idempotent; see
+  // sessionTapPolicy. Failures must not block activation.
+  timedStep("syncSessionTap", () => syncSessionTap(path.join(__dirname)));
+  context.subscriptions.push(watchTerminalLinkingSetting(path.join(__dirname)));
 
   const provider = new ClaudeSessionViewProvider(
     context.extensionUri,
