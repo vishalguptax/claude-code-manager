@@ -57,6 +57,41 @@ const SUCCESS: QuotaSuccess = {
 describe("QuotaView", () => {
   beforeEach(() => _resetAccountState());
 
+  it("captions the weekly bar with a pace, and never the 5-hour one", () => {
+    // Half the week gone with three quarters spent: overrunning, and the
+    // only window where that projection means anything.
+    const captured = new Date();
+    const halfWeekOut = new Date(captured.getTime() + 3.5 * 86400000).toISOString();
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: {
+        ...SUCCESS.quota,
+        fiveHour: { utilization: 42, resetsAt: halfWeekOut },
+        sevenDay: { utilization: 75, resetsAt: halfWeekOut },
+        capturedAt: captured.toISOString(),
+      },
+    });
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getAllByText(/Ahead of pace/)).toHaveLength(1);
+    expect(screen.getByText(/Ahead of pace/).textContent).toContain("~150% by reset");
+  });
+
+  it("says nothing about pace in the first hours of a window", () => {
+    const captured = new Date();
+    // Six hours in: one session divides out to a nonsense projection.
+    const nearlyAWeekOut = new Date(captured.getTime() + 7 * 86400000 - 6 * 3600000).toISOString();
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: {
+        ...SUCCESS.quota,
+        sevenDay: { utilization: 6, resetsAt: nearlyAWeekOut },
+        capturedAt: captured.toISOString(),
+      },
+    });
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.queryByText(/pace/i)).toBeNull();
+  });
+
   it("not-installed state shows the enable CTA and installs on click", () => {
     setQuotaError({ kind: "not-installed", message: "enable it" });
     const api = stubApi();

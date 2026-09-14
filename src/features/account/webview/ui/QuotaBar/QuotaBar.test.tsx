@@ -19,4 +19,31 @@ describe("QuotaBar", () => {
     render(h(QuotaBar, { label: "7-day window", window: { utilization: 30, resetsAt: future } }));
     expect(screen.getByText(/resets in/)).toBeTruthy();
   });
+
+  it("captions the pace below the reset timer when one is given", () => {
+    const future = new Date(Date.now() + 2 * 3600000).toISOString();
+    render(
+      h(QuotaBar, {
+        label: "7-day window",
+        window: { utilization: 80, resetsAt: future },
+        pace: { verdict: "ahead", elapsedPercent: 50, projectedPercent: 160, exhaustsAt: "" },
+      }),
+    );
+    const caption = screen.getByText(/Ahead of pace/);
+    expect(caption.textContent).toContain("~160% by reset");
+    // Only "ahead" is tinted; the class is what carries that.
+    expect(caption.className).toContain("pace-ahead");
+  });
+
+  it("omits the pace caption entirely when none could be computed", () => {
+    const future = new Date(Date.now() + 2 * 3600000).toISOString();
+    render(
+      h(QuotaBar, {
+        label: "7-day window",
+        window: { utilization: 30, resetsAt: future },
+        pace: null,
+      }),
+    );
+    expect(screen.queryByText(/pace/i)).toBeNull();
+  });
 });

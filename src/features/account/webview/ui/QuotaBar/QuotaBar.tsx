@@ -8,14 +8,20 @@
 import { cx } from "../../../../../webview/shared/lib";
 import { now } from "../../../../../webview/shared/model";
 import type { QuotaWindow } from "../../../quota";
-import { formatResetsIn, quotaTone } from "../../lib";
+import { describePace, formatResetsIn, quotaTone, type Pace } from "../../lib";
 
 export interface QuotaBarProps {
   label: string;
   window: QuotaWindow;
+  /**
+   * Burn-rate verdict for this window, when one can be computed. Only the
+   * weekly window passes it — see ../../lib/pace for why the 5-hour one
+   * cannot support a projection.
+   */
+  pace?: Pace | null;
 }
 
-export function QuotaBar({ label, window }: QuotaBarProps) {
+export function QuotaBar({ label, window, pace }: QuotaBarProps) {
   const pct = Math.max(0, Math.min(100, Math.round(window.utilization)));
   const tone = quotaTone(window.utilization);
   // Read the shared clock so the countdown ticks down live (and flips to
@@ -38,6 +44,11 @@ export function QuotaBar({ label, window }: QuotaBarProps) {
         <div class={cx("acct-quota-bar-fill", `tone-${tone}`)} style={{ width: `${pct}%` }} />
       </div>
       {resetsLabel ? <div class="acct-quota-sub">{resetsLabel}</div> : null}
+      {pace ? (
+        <div class={cx("acct-quota-sub", "acct-quota-pace", `pace-${pace.verdict}`)}>
+          {describePace(pace)}
+        </div>
+      ) : null}
     </div>
   );
 }

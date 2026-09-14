@@ -505,6 +505,14 @@
   color: var(--fg-muted);
 }
 
+/* Burn-rate verdict under the weekly bar. Only "ahead" earns colour: it
+   is the one verdict that asks the user to change what they are doing,
+   and tinting all three would make the section read as an alert panel
+   when nothing is wrong. */
+.acct-quota-pace.pace-ahead {
+  color: var(--vscode-editorWarning-foreground, #d49a00);
+}
+
 /* Prompt-cache effectiveness — a text row, not a bar. The rate-limit
    bars above answer "how much is left"; this answers "why is it going
    down", so it deliberately reads as a footnote to them rather than

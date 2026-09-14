@@ -26,7 +26,7 @@ import { now } from "../../../../../webview/shared/model";
 import type { QuotaError, QuotaSuccess } from "../../../quota";
 import type { PromptCacheStats } from "../../../statuslineCore";
 import type { AccountApi } from "../../api";
-import { formatNumber, quotaFreshness } from "../../lib";
+import { formatNumber, quotaFreshness, weeklyPace } from "../../lib";
 import {
   isSectionCollapsed,
   quotaAccountSince,
@@ -229,7 +229,13 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
   return (
     <div class="acct-quota-bars">
       {fiveHour ? <QuotaBar label="5-hour window" window={fiveHour} /> : null}
-      {sevenDay ? <QuotaBar label="7-day window" window={sevenDay} /> : null}
+      {sevenDay ? (
+        <QuotaBar
+          label="7-day window"
+          window={sevenDay}
+          pace={weeklyPace(sevenDay, data.quota.capturedAt)}
+        />
+      ) : null}
       <PromptCacheRow stats={data.live.promptCache} />
     </div>
   );
