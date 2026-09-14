@@ -360,7 +360,7 @@ export async function resumeSession(
     openProject(cwd);
     if (target === "extension") {
       setTimeout(() => {
-        void openSessionInExtension(sessionId);
+        void openSessionInExtension(sessionId, { newWindow: true });
       }, 3000);
     }
     return;

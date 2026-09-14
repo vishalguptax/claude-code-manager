@@ -215,6 +215,9 @@ export class TabInputTerminal {}
 
 export const commands = {
   executeCommand: async (..._args: unknown[]) => undefined,
+  // Empty by default: the Claude Code extension's undocumented open
+  // command is absent unless a test declares it present.
+  getCommands: async (_filterInternal?: boolean): Promise<string[]> => [],
   registerCommand: (_command: string, _callback: (...args: unknown[]) => unknown) => ({
     dispose: () => {},
   }),
