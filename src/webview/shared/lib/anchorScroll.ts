@@ -16,9 +16,10 @@
  * does not work: the clamp is applied after the correction callback runs, so
  * the difference reads zero and nothing fires.
  *
- * Only a header the user can SEE is held. If it is already scrolled out of
- * view, the thing they were looking at is the content being removed, and
- * pinning the offset would strand them below the whole panel in blank space.
+ * A header the user can SEE is held exactly where it is. One that is already
+ * scrolled out of view is brought to the top of the panel instead: pinning its
+ * old position would strand them below the whole panel in blank space, and
+ * letting the browser choose means it lands somewhere arbitrary.
  *
  * Where the collapse leaves the content shorter than the panel there is no
  * offset left to hold: the maximum is 0. For that case the scroller is given
@@ -141,21 +142,20 @@ export function keepAnchored(anchor: HTMLElement | null, mutate: () => void): vo
     return;
   }
 
+  const panelTop = scroller.getBoundingClientRect().top;
   const top = anchor.getBoundingClientRect().top;
   const height = scroller.scrollHeight;
 
-  // Only hold an anchor the user can see. If the header is already off-screen
-  // — they scrolled down INTO the section and collapsed it from a keyboard
-  // shortcut or a header further up — then what they were looking at is the
-  // content being removed, and there is no position worth preserving. Holding
-  // the offset there would strand them in blank space below the panel's whole
-  // content. Let the browser settle it instead, which shows the shortened
-  // panel from the top.
-  const visible = top >= scroller.getBoundingClientRect().top && top <= window.innerHeight;
-  if (!visible) {
-    mutate();
-    return;
-  }
+  // Where the anchor should end up, measured from the panel's top edge.
+  //
+  // Normally: exactly where it is, so the header does not move under the
+  // pointer. But if it is currently off-screen — the user scrolled down INTO
+  // the section and collapsed it from somewhere else — holding that position
+  // would leave them staring below the whole panel at nothing. In that case
+  // the section they just acted on is what they want to see, so it goes to the
+  // top rather than wherever the browser happens to drop it.
+  const rel = top - panelTop;
+  const wanted = rel >= 0 && rel <= scroller.clientHeight ? rel : 0;
 
   mutate();
 
@@ -165,7 +165,8 @@ export function keepAnchored(anchor: HTMLElement | null, mutate: () => void): vo
     // re-measured rather than assumed. Two passes are enough in practice and
     // the third is a stop, not a strategy.
     for (let pass = 0; pass < 3; pass++) {
-      const drift = anchor.getBoundingClientRect().top - top;
+      const now = anchor.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+      const drift = now - wanted;
       if (Math.abs(drift) < 0.5) break;
       scrollTo(scroller, scroller.scrollTop + drift);
     }
