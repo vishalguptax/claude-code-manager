@@ -45,6 +45,7 @@ import { parseAccountData } from "../account/parser";
 import { clearModelCache, warmModelCache } from "../account/models";
 import { resetUsageAggregateCache, warmUsageAggregate } from "../account/projectStats";
 import { readQuota } from "../account/quota";
+import { rememberActiveQuota } from "../account/quotaHistory";
 import type { AccountData } from "../account/types";
 import { DEMO_SEEN_KEY, identityKey } from "./hostContext";
 import type { Session } from "./types";
@@ -387,7 +388,9 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   // re-sends the same identity would otherwise leave the quota card
   // frozen. Re-read the (free, local) statusline cache and push it so
   // Refresh updates the bars like every other card.
-  wv.postMessage({ type: "quotaData", result: readQuota(ws) });
+  const quotaResult = readQuota(ws);
+  rememberActiveQuota(quotaResult);
+  wv.postMessage({ type: "quotaData", result: quotaResult });
   if (skillsResult.ok) {
     ctx.setSkills(skillsResult.data);
     wv.postMessage({ type: "skills", data: skillsResult.data });

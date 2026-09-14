@@ -27,7 +27,9 @@ import type { QuotaError, QuotaSuccess } from "../../../quota";
 import type { PromptCacheStats } from "../../../statuslineCore";
 import type { AccountApi } from "../../api";
 import { formatNumber, quotaFreshness, weeklyPace } from "../../lib";
+import { describeProfileQuota } from "../../../profileQuota";
 import {
+  accountData,
   isSectionCollapsed,
   quotaAccountSince,
   quotaStatus,
@@ -174,14 +176,27 @@ function QuotaBody({
   return <QuotaSuccessBody data={status.data} />;
 }
 
+/**
+ * Right after a switch the global statusline cache still belongs to the
+ * account we left, so there is nothing live to show for this one until
+ * Claude Code runs a turn. What we can show is what this account looked
+ * like the last time it WAS live — dated, so it never reads as current.
+ * Without it the card is blank for exactly as long as the user is most
+ * likely to be asking how much room they just switched into.
+ */
 function QuotaSwitched({ onRetry }: { onRetry: (e: Event) => void }) {
+  const data = accountData.value;
+  const active = data?.savedProfiles.find((p) => p.slug === data.activeProfileSlug);
+  const remembered = describeProfileQuota(active?.lastQuota ?? null, now.value);
   return (
     <div class="acct-quota-error" role="status">
       <span class="acct-quota-error-icon">
         <Icon name="refresh-cw" size={16} />
       </span>
       <div class="acct-quota-error-body">
-        <div class="acct-quota-error-title">Switched account</div>
+        <div class="acct-quota-error-title">
+          {remembered ? `Last seen ${remembered}` : "Switched account"}
+        </div>
         <div class="acct-quota-error-msg">
           Open Claude Code with this account to load its quota.
         </div>

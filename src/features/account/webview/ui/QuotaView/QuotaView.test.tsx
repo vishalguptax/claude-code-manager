@@ -3,9 +3,11 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaSuccess } from "../../../quota";
+import type { AccountData } from "../../../types";
 import type { AccountApi } from "../../api";
 import {
   _resetAccountState,
+  accountData,
   quotaAccountSince,
   setQuotaError,
   setQuotaLoading,
@@ -186,6 +188,57 @@ describe("QuotaView", () => {
     expect(screen.queryByText("5-hour window")).toBeNull();
     // No live dot while suppressed.
     expect(container.querySelector(".acct-quota-live-dot")).toBeNull();
+  });
+
+  it("falls back to the account's last remembered figure after a switch", () => {
+    // The live cache belongs to the account we left, so there is nothing
+    // current for this one — but we know what it looked like when it was
+    // last live, and that is the number the user just switched to find.
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: { ...SUCCESS.quota, capturedAt: new Date(Date.now() - 5 * 60_000).toISOString() },
+    });
+    quotaAccountSince.value = Date.now();
+    // Only the two fields this path reads; the rest of AccountData is
+    // irrelevant to the fallback and would be noise in the fixture.
+    accountData.value = {
+      activeProfileSlug: "work",
+      savedProfiles: [
+        {
+          slug: "work",
+          label: "Work",
+          email: "alex@example.dev",
+          organizationName: "",
+          subscriptionType: "max",
+          savedAt: "",
+          tokenExpiresAt: 0,
+          credentialsHash: "",
+          userID: "",
+          accountUuid: "uuid-work",
+          lastQuota: {
+            sevenDayPercent: 62,
+            fiveHourPercent: 10,
+            sevenDayResetsAt: new Date(Date.now() + 2 * 86400000).toISOString(),
+            capturedAt: new Date(Date.now() - 3 * 3600_000).toISOString(),
+          },
+        },
+      ],
+    } as unknown as AccountData;
+    render(h(QuotaView, { api: stubApi() }));
+    // Age is rendered off the shared clock signal (as every other live
+    // stamp in this card is); the exact wording of the age is covered in
+    // profileQuota's own tests.
+    expect(screen.getByText(/Last seen 62% weekly/)).toBeTruthy();
+  });
+
+  it("says only that the account switched when nothing was remembered", () => {
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: { ...SUCCESS.quota, capturedAt: new Date(Date.now() - 5 * 60_000).toISOString() },
+    });
+    quotaAccountSince.value = Date.now();
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("Switched account")).toBeTruthy();
   });
 
   it("shows bars again once a capture lands after the switch", () => {
