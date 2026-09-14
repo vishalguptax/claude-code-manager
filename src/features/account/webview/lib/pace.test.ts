@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { QuotaWindow } from "../../quota";
-import { describePace, weeklyPace } from "./pace";
+import { paceDisplay, weeklyPace } from "./pace";
 
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
@@ -109,42 +109,64 @@ describe("weeklyPace", () => {
   });
 });
 
-describe("describePace", () => {
-  it("says when the allowance runs out, not what percentage it projects", () => {
-    // 80% gone at the halfway mark: the cap is hit 21h after the capture,
-    // so 63h — 2d 15h — short of the refill. That gap is the fact the user
-    // can act on; "~160%" is the same fact as a sum they have to do.
+describe("paceDisplay", () => {
+  // The pace is computed at capture; the countdown is redrawn against a
+  // live clock, so these pass `now` explicitly.
+  const AT_CAPTURE = CAPTURED_MS;
+
+  it("counts down to the cap opposite the reset timer", () => {
+    // 80% gone at the halfway mark: the cap is hit 21h after the capture.
+    // The reset is 3.5d out, so the two timers side by side say which
+    // happens first without the reader subtracting anything.
     const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
-    expect(describePace(ahead!).text).toBe("Runs out 2d 15h before reset");
+    expect(paceDisplay(ahead!, AT_CAPTURE).countdown).toBe("out in 21h");
   });
 
-  it("keeps the underlying projection in the tooltip", () => {
+  it("ticks the countdown down as time passes", () => {
     const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
-    expect(describePace(ahead!).title).toContain("160%");
-    expect(describePace(ahead!).title).toContain("2d 15h");
+    expect(paceDisplay(ahead!, AT_CAPTURE + 10 * HOUR).countdown).toBe("out in 11h");
   });
 
-  it("reassures plainly when the allowance reaches the reset", () => {
+  it("drops the countdown once its moment has passed", () => {
+    // No fresh render since, and the user may simply not have been
+    // working — "out 3h ago" is a claim the data cannot support.
+    const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
+    const display = paceDisplay(ahead!, AT_CAPTURE + 24 * HOUR);
+    expect(display.countdown).toBe("");
+    // The ghost survives: where the week lands is still known.
+    expect(display.projectedWidth).toBe(100);
+  });
+
+  it("stays silent when the allowance reaches the reset", () => {
     for (const used of [50, 20]) {
       const pace = weeklyPace(windowAfter(3.5 * DAY, used), CAPTURED);
-      expect(describePace(pace!).text).toBe("On track to last the week");
+      expect(paceDisplay(pace!, AT_CAPTURE).countdown).toBe("");
     }
   });
 
-  it("keeps the caption to one unit under a day", () => {
-    // Late in the window the shortfall is hours, not days. Note the band
-    // stops being reachable near the reset at all — at 6.5 days elapsed
-    // "ahead" would need more than 100% used — so the warning naturally
-    // falls silent once it could no longer be acted on.
-    const ahead = weeklyPace(windowAfter(6 * DAY, 99), CAPTURED);
-    expect(ahead?.verdict).toBe("ahead");
-    expect(describePace(ahead!).text).toMatch(/^Runs out \d+h before reset$/);
+  it("draws the ghost where the week lands, clamped to the track", () => {
+    const under = weeklyPace(windowAfter(3.5 * DAY, 20), CAPTURED);
+    expect(paceDisplay(under!, AT_CAPTURE).projectedWidth).toBe(40);
+    // Overshoot has nowhere to go: a full track IS running out.
+    const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
+    expect(paceDisplay(ahead!, AT_CAPTURE).projectedWidth).toBe(100);
   });
 
-  it("still names a gap when the projection is off the scale", () => {
-    // 99% spent twelve hours in projects to ~1386%. The percentage stops
-    // being a figure; the gap it implies does not.
-    const wild = weeklyPace(windowAfter(12 * HOUR, 99), CAPTURED);
-    expect(describePace(wild!).text).toMatch(/^Runs out .+ before reset$/);
+  it("coarsens the countdown to one unit under a day", () => {
+    // Note the band stops being reachable near the reset at all — at 6.5
+    // days elapsed "ahead" would need more than 100% used — so the warning
+    // falls silent exactly when it could no longer be acted on.
+    const ahead = weeklyPace(windowAfter(6 * DAY, 99), CAPTURED);
+    expect(ahead?.verdict).toBe("ahead");
+    expect(paceDisplay(ahead!, AT_CAPTURE).countdown).toMatch(/^out in \d+h$/);
+  });
+
+  it("explains both the ghost and the rate in the tooltip", () => {
+    const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
+    const title = paceDisplay(ahead!, AT_CAPTURE).title;
+    expect(title).toContain("160%");
+    expect(title).toContain("faint bar");
+    const calm = weeklyPace(windowAfter(3.5 * DAY, 20), CAPTURED);
+    expect(paceDisplay(calm!, AT_CAPTURE).title).toContain("room to spare");
   });
 });

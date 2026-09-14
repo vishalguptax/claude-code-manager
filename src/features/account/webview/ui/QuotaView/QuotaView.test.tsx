@@ -59,7 +59,7 @@ const SUCCESS: QuotaSuccess = {
 describe("QuotaView", () => {
   beforeEach(() => _resetAccountState());
 
-  it("captions the weekly bar with a pace, and never the 5-hour one", () => {
+  it("projects the weekly bar only, never the 5-hour one", () => {
     // Half the week gone with three quarters spent: overrunning, and the
     // only window where that projection means anything.
     const captured = new Date();
@@ -73,13 +73,13 @@ describe("QuotaView", () => {
         capturedAt: captured.toISOString(),
       },
     });
-    render(h(QuotaView, { api: stubApi() }));
-    // One caption only — the 5-hour bar never gets one.
-    expect(screen.getAllByText(/Runs out/)).toHaveLength(1);
-    expect(screen.getByText(/Runs out/).getAttribute("title")).toContain("150%");
+    // One projection only — the 5-hour bar never gets one.
+    const { container } = render(h(QuotaView, { api: stubApi() }));
+    expect(container.querySelectorAll(".acct-quota-bar-ghost")).toHaveLength(1);
+    expect(screen.getByText(/^out in /)).toBeTruthy();
   });
 
-  it("says nothing about pace in the first hours of a window", () => {
+  it("draws no projection in the first hours of a window", () => {
     const captured = new Date();
     // Six hours in: one session divides out to a nonsense projection.
     const nearlyAWeekOut = new Date(captured.getTime() + 7 * 86400000 - 6 * 3600000).toISOString();
@@ -91,8 +91,9 @@ describe("QuotaView", () => {
         capturedAt: captured.toISOString(),
       },
     });
-    render(h(QuotaView, { api: stubApi() }));
-    expect(screen.queryByText(/pace/i)).toBeNull();
+    const { container } = render(h(QuotaView, { api: stubApi() }));
+    expect(container.querySelector(".acct-quota-bar-ghost")).toBeNull();
+    expect(container.querySelector(".acct-quota-countdown")).toBeNull();
   });
 
   it("not-installed state shows the enable CTA and installs on click", () => {

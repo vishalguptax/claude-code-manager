@@ -132,44 +132,61 @@ export function weeklyPace(window: QuotaWindow, capturedAtIso: string): Pace | n
   };
 }
 
-/** Caption for the bar, plus the longer reading for its tooltip. */
-export interface PaceCaption {
-  text: string;
+/** Everything the bar needs to draw a pace: a ghost fill and a countdown. */
+export interface PaceDisplay {
+  /**
+   * Where this window lands by reset if the rate holds, 0–100, drawn as a
+   * faint segment ahead of the real fill. Clamped at 100 because the bar
+   * has no room past the cap — overshoot shows as the ghost reaching the
+   * end, which is exactly what running out looks like.
+   */
+  projectedWidth: number;
+  /**
+   * Live countdown to the cap ("out in 13h"), sitting opposite the reset
+   * timer so the two read as a pair: whichever is shorter happens first.
+   * Empty when the allowance reaches the reset — silence is the calm
+   * state, since a card that comments when nothing is wrong trains the
+   * user to stop reading it.
+   */
+  countdown: string;
+  /** The reading in full, for the row's tooltip. */
   title: string;
 }
 
 /**
- * Say what the burn rate means in the only terms that need no arithmetic
- * from the reader: whether the weekly allowance reaches the reset, and if
- * not, how early it runs out.
+ * Turn a pace into what the bar draws, against a live clock.
  *
- * An earlier version led with the projected percentage ("~160% by
- * reset"). It is the same fact and it was the wrong way to say it — a
- * figure over 100% of a cap is a contradiction on its face, and working
- * out what it implied was left to the user. The tooltip keeps the
- * projection for anyone who wants the underlying number.
+ * The countdown is recomputed from `now` rather than frozen at capture,
+ * so it ticks down like the reset timer beside it. It disappears once it
+ * would run negative: the moment came and went with no fresh render, and
+ * "out 3h ago" is a claim the data cannot support — the user may simply
+ * not have been working. The ghost fill stays either way.
  */
-export function describePace(pace: Pace): PaceCaption {
+export function paceDisplay(pace: Pace, now: number = Date.now()): PaceDisplay {
+  const projectedWidth = Math.max(0, Math.min(100, pace.projectedPercent));
   const projected = Math.round(pace.projectedPercent);
-  if (pace.verdict === "ahead" && pace.shortfallMs !== null) {
-    const early = roughDuration(pace.shortfallMs);
-    return {
-      text: `Runs out ${early} before reset`,
-      title:
-        `At this rate the weekly limit is used up ${early} before the window ` +
-        `refills (about ${projected}% of a week's allowance over the week).`,
-    };
+
+  let countdown = "";
+  let title: string;
+  if (pace.verdict === "ahead" && pace.exhaustsAt) {
+    const remaining = Date.parse(pace.exhaustsAt) - now;
+    if (remaining > 0) countdown = `out in ${roughDuration(remaining)}`;
+    title =
+      `At this rate the weekly limit runs out before the window refills — ` +
+      `about ${projected}% of a week's allowance spent over the week. The ` +
+      `faint bar shows where you land.`;
+  } else {
+    title =
+      `At this rate the weekly limit reaches the reset with room to spare — ` +
+      `about ${projected}% of a week's allowance spent over the week. The ` +
+      `faint bar shows where you land.`;
   }
-  return {
-    text: "On track to last the week",
-    title:
-      `At this rate the weekly limit reaches the reset with room to spare ` +
-      `(about ${projected}% of a week's allowance over the week).`,
-  };
+
+  return { projectedWidth, countdown, title };
 }
 
 /**
- * Coarse duration for the caption: one unit below a day, two above it.
+ * Coarse duration for the countdown: one unit below a day, two above it.
  * "2d 4h" is a plan; "2d 4h 13m" is false precision on an extrapolation.
  */
 function roughDuration(ms: number): string {
