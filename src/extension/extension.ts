@@ -20,7 +20,11 @@ import {
 } from "../features/account/statuslineInstall";
 import { warmModelCache } from "../features/account/models";
 import { warmUsageAggregate } from "../features/account/projectStats";
-import { ensureSessionStartHook } from "../features/sessions/sessionTapInstall";
+import {
+  offerSessionTapNudge,
+  syncSessionTap,
+  watchTerminalLinkingSetting,
+} from "../features/sessions/sessionTapPolicy";
 import { startActiveSessionWatcher } from "../features/sessions/activeSessionWatcher";
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
@@ -90,22 +94,27 @@ export function activate(context: vscode.ExtensionContext): void {
   // it is their git-tracked file, so never modify it silently.
   void offerForeignTapCleanup(getWorkspace() || undefined);
 
-  // One-time nudge: quota needs the (opt-in) statusline tap. Surface
-  // the choice once; the Quota card's Enable button remains for later.
-  void offerQuotaNudge(context);
+  // One-time nudges for the two opt-in taps: quota needs the statusline
+  // tap, terminal linking needs the SessionStart tap. Both are surfaced
+  // once, since their Enable affordances live where a new user has no
+  // reason to look. At most one prompt per activation — two toasts
+  // stacked on a fresh install read as nagging, and each nudge marks
+  // itself as asked before prompting, so the one held back gets its
+  // turn next time.
+  void offerQuotaNudge(context).then((prompted) => {
+    if (!prompted) return offerSessionTapNudge(context, path.join(__dirname));
+  });
 
-  // SessionStart hook tap: install (idempotent) so Claude CLI writes
-  // `{sessionId, ppid, cwd}` into our active-sessions registry on every
-  // boot — bare `claude`, `--continue`, `--resume`, external launches
-  // all included. The watcher matches PPID → vscode.Terminal.processId
-  // so the row + detail action swap from Resume to View for the
-  // terminal hosting that session, regardless of how it was started.
-  // Failures must not block activation.
-  try {
-    timedStep("ensureSessionStartHook", () => ensureSessionStartHook(path.join(__dirname)));
-  } catch (err) {
-    console.warn("[claude-manager] session-start hook install failed:", err);
-  }
+  // SessionStart hook tap: when the user has it enabled, Claude CLI
+  // writes `{sessionId, ppid, cwd}` into our active-sessions registry on
+  // every boot — bare `claude`, `--continue`, `--resume`, external
+  // launches all included. The watcher matches PPID →
+  // vscode.Terminal.processId so the row + detail action swap from
+  // Resume to View for the terminal hosting that session, regardless of
+  // how it was started. Gated on consent and idempotent; see
+  // sessionTapPolicy. Failures must not block activation.
+  timedStep("syncSessionTap", () => syncSessionTap(path.join(__dirname)));
+  context.subscriptions.push(watchTerminalLinkingSetting(path.join(__dirname)));
 
   const provider = new ClaudeSessionViewProvider(
     context.extensionUri,
@@ -451,11 +460,14 @@ const QUOTA_NUDGE_KEY = "quotaNudge.shown";
  * One-time offer to enable live quota. Quota data only exists via the
  * opt-in statusline tap, and the Enable button lives inside a tab the
  * user may never open — surface the choice once at first activation.
+ *
+ * Resolves true when the toast was actually shown, so the caller can
+ * hold back any other first-run prompt.
  */
-async function offerQuotaNudge(context: vscode.ExtensionContext): Promise<void> {
+async function offerQuotaNudge(context: vscode.ExtensionContext): Promise<boolean> {
   try {
-    if (context.globalState.get<boolean>(QUOTA_NUDGE_KEY)) return;
-    if (isStatuslineInstalled(getWorkspace() || undefined)) return;
+    if (context.globalState.get<boolean>(QUOTA_NUDGE_KEY)) return false;
+    if (isStatuslineInstalled(getWorkspace() || undefined)) return false;
     // Mark before prompting: whatever the user picks (including
     // dismissing the toast), we ask exactly once.
     await context.globalState.update(QUOTA_NUDGE_KEY, true);
@@ -483,8 +495,10 @@ async function offerQuotaNudge(context: vscode.ExtensionContext): Promise<void> 
         vscode.window.showErrorMessage(`Enabling live quota failed: ${res.error}`);
       }
     }
+    return true;
   } catch (err) {
     console.warn("[claude-manager] quota nudge failed:", err);
+    return false;
   }
 }
 

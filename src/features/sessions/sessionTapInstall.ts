@@ -7,6 +7,10 @@
  * Idempotent: re-running refreshes the copied script but leaves the
  * settings entry alone unless the command line changed.
  *
+ * Nothing here decides WHETHER the hook may exist — that is
+ * `sessionTapPolicy`, which gates every call on the user's consent.
+ * These functions only carry a decision out.
+ *
  * Global scope only — SessionStart fires for every session anywhere on
  * the box, so per-project installs would multi-fire from overlapping
  * project / local settings. Global is the one scope Claude CLI reads
@@ -102,11 +106,10 @@ function copyTapScript(extensionDistDir: string): boolean {
  *
  * This previously returned `{}` in the unreadable case too, and the
  * caller wrote that back "fresh" — replacing the user's entire
- * settings.json with just our hook. It is the most dangerous instance of
- * that pattern in the codebase, because ensureSessionStartHook runs on
- * EVERY activation with no opt-in: a settings.json with one stray
- * comment (which Claude Code already refuses to load, so the user may be
- * mid-debug) was emptied simply by opening the editor.
+ * settings.json with just our hook. A settings.json with one stray
+ * comment (which Claude Code already refuses to load, so the user is
+ * likely mid-repair) was emptied simply by opening the editor, since
+ * this installer used to run unconditionally on every activation.
  */
 function readSettings(): SettingsShape | null {
   let raw: string;
@@ -191,6 +194,30 @@ export function ensureSessionStartHook(extensionDistDir: string): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Whether settings.json already references our tap.
+ *
+ * This is the consent record. Claude Manager shipped the hook as an
+ * unconditional activation write before `claudeManager.sessions.terminalLinking`
+ * existed, so an installed hook is how an existing user's prior state is
+ * told apart from a fresh machine that has never been written to. False
+ * for an unreadable settings.json — the safe answer, since the caller
+ * cannot write to that file either.
+ */
+export function isSessionStartHookInstalled(): boolean {
+  const settings = readSettings();
+  if (settings === null) return false;
+  const entries = settings.hooks?.SessionStart;
+  if (!Array.isArray(entries)) return false;
+  return entries.some(
+    (entry) =>
+      entry &&
+      typeof entry === "object" &&
+      Array.isArray(entry.hooks) &&
+      entry.hooks.some((s) => s && s.type === "command" && isOurTapCommand(s.command)),
+  );
 }
 
 /**
