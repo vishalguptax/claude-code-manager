@@ -11,8 +11,11 @@
  */
 import { useEffect } from "preact/hooks";
 import { SessionsSkeleton } from "../../../webview/app/tabs/skeletons";
-import { registerFeatureHandler, registerPaletteSource } from "../../../webview/shared/model";
-import { activeTab } from "../../../webview/shared/model";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
 import { fmtRelativeTime } from "../../../webview/utils";
 import { sendGetSessionDetail, sendReady } from "./api";
 import {
@@ -34,6 +37,7 @@ import {
  * scored and discarded on every keystroke.
  */
 const PALETTE_SESSIONS = 300;
+
 import { DetailView } from "./ui/views/DetailView";
 import { ListView } from "./ui/views/ListView";
 

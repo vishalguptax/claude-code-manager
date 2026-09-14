@@ -27,7 +27,10 @@ export interface VirtualListProps<T> {
 }
 
 /** Cumulative top offset for each index plus the grand total. */
-function buildOffsets(count: number, heightAt: (i: number) => number): {
+function buildOffsets(
+  count: number,
+  heightAt: (i: number) => number,
+): {
   offsets: number[];
   total: number;
 } {

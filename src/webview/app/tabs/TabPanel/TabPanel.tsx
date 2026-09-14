@@ -100,11 +100,7 @@ export function TabPanel({ feature }: TabPanelProps) {
           Show the content-shaped skeleton (or the error state) on top —
           the already-mounted tabs above are all hidden in this frame. */}
       {!activeReady &&
-        (failed[feature] ? (
-          <EmptyState title="Failed to load tab" />
-        ) : (
-          renderSkeleton(feature)
-        ))}
+        (failed[feature] ? <EmptyState title="Failed to load tab" /> : renderSkeleton(feature))}
     </>
   );
 }

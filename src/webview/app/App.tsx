@@ -16,8 +16,8 @@ import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { Footer } from "./Footer";
 import { Intro } from "./Intro";
-import { TabBar, TabPanel } from "./tabs";
 import { TooltipLayer } from "./TooltipLayer";
+import { TabBar, TabPanel } from "./tabs";
 import { TABS } from "./tabs/tabRegistry";
 
 export function App() {

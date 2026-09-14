@@ -1,1 +1,1 @@
-export { SlowLoadNotice, useLoadPhase, type LoadPhase } from "./LoadDeadline";
+export { type LoadPhase, SlowLoadNotice, useLoadPhase } from "./LoadDeadline";

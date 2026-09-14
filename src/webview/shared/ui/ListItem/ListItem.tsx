@@ -13,13 +13,7 @@ export interface ListItemProps {
   class?: string;
 }
 
-export function ListItem({
-  active,
-  onClick,
-  onContextMenu,
-  children,
-  class: cls,
-}: ListItemProps) {
+export function ListItem({ active, onClick, onContextMenu, children, class: cls }: ListItemProps) {
   return (
     <div
       class={cx("list-item", active && "active", cls)}

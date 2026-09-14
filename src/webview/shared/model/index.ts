@@ -4,13 +4,12 @@
 export {
   activeTab,
   applyShellSettings,
-  density,
   type Density,
+  density,
   ready,
   theme,
 } from "./globalSignals";
 export { _resetIntro, closeIntro, introVisible, maybeShowIntro } from "./intro";
-export { now, startNowTicker } from "./now";
 export {
   _resetMessageBus,
   dispatch,
@@ -18,6 +17,7 @@ export {
   initMessageBus,
   registerFeatureHandler,
 } from "./messageBus";
+export { now, startNowTicker } from "./now";
 export {
   _resetPaletteSources,
   collectPaletteItems,

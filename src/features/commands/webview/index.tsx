@@ -70,7 +70,13 @@ export default function CommandsTab() {
     return <ListSkeleton />;
   }
   if (errorMessage.value) {
-    return <EmptyState icon="circle-alert" title="Couldn't load commands" description={errorMessage.value} />;
+    return (
+      <EmptyState
+        icon="circle-alert"
+        title="Couldn't load commands"
+        description={errorMessage.value}
+      />
+    );
   }
 
   const current = selected.value;

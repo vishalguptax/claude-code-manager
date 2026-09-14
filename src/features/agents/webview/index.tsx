@@ -5,13 +5,13 @@
  * and the create/edit form modal.
  */
 import { useEffect, useState } from "preact/hooks";
+import type { AgentInput } from "../../../shared/protocol/messages";
 import {
   activeTab,
   registerFeatureHandler,
   registerPaletteSource,
 } from "../../../webview/shared/model";
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
-import type { AgentInput } from "../../../shared/protocol/messages";
 import type { Agent } from "../types";
 import { useAgentsApi } from "./api";
 import {
@@ -47,7 +47,6 @@ export default function AgentsTab() {
 
     api.getAgents();
 
-
     // Agents in the command palette. The source is called per query, so
     // it always reads the live signal without this module subscribing to it.
     const offPalette = registerPaletteSource("agents", () =>
@@ -74,7 +73,9 @@ export default function AgentsTab() {
   }, []);
 
   if (error.value) {
-    return <EmptyState icon="circle-alert" title="Couldn't load agents" description={error.value} />;
+    return (
+      <EmptyState icon="circle-alert" title="Couldn't load agents" description={error.value} />
+    );
   }
 
   if (loading.value) {

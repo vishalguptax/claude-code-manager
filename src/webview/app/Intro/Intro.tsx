@@ -10,8 +10,9 @@
  * backdrop, or webview blur — all routed through Modal's onClose) marks it
  * seen so it never reappears.
  */
-import { closeIntro, introVisible } from "../../shared/model";
+
 import { useApi } from "../../shared/hooks";
+import { closeIntro, introVisible } from "../../shared/model";
 import { Button, Icon, Modal } from "../../shared/ui";
 import { TABS } from "../tabs/tabRegistry";
 

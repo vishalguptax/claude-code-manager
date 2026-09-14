@@ -4,8 +4,8 @@
  * ESM modules + dynamic import code-splitting for per-feature lazy load.
  * chrome120 target aligns with VS Code 1.90+ Electron runtime.
  */
-import { build, context } from "esbuild";
 import { rmSync } from "node:fs";
+import { build, context } from "esbuild";
 
 const watch = process.argv.includes("--watch");
 

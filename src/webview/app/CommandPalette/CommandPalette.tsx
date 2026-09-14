@@ -155,9 +155,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                     </span>
                     <span class="palette-item-text">
                       <span class="palette-item-title">{item.title}</span>
-                      {item.subtitle ? (
-                        <span class="palette-item-sub">{item.subtitle}</span>
-                      ) : null}
+                      {item.subtitle ? <span class="palette-item-sub">{item.subtitle}</span> : null}
                     </span>
                     {item.hint ? <span class="palette-item-hint">{item.hint}</span> : null}
                   </div>
