@@ -395,19 +395,16 @@
   padding: var(--space-sm) var(--space-2xl) 0;
   flex-shrink: 0;
 }
-/* The ACTION tier: a chip the user can remove. Taller than a label chip for
-   the hit target, and a pill rather than a soft rectangle so it reads as a
-   control rather than as an annotation. */
 .filter-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  height: var(--chip-h-action);
-  padding: 0 var(--space-xs) 0 var(--chip-pad-x);
-  border-radius: calc(var(--chip-h-action) / 2);
+  height: 22px;
+  padding: 0 var(--space-xs) 0 var(--space-sm);
+  border-radius: 11px;
   background: var(--badge-neutral-bg);
   color: var(--badge-neutral-fg);
-  font-size: var(--chip-fs);
+  font-size: var(--fs-sm);
   max-width: 100%;
   min-width: 0;
 }
@@ -540,25 +537,16 @@
 .vsc-badge,
 .tag,
 .hook-matcher,
-.agent-model-badge,
-.acct-pill {
+.agent-model-badge {
   display: inline-flex;
   align-items: center;
   /* Chips may carry a leading glyph (the branch tag, the worktree tag), so the
      gap belongs to the shared geometry rather than to each chip that adds one. */
   gap: var(--space-xs);
-  height: var(--chip-h);
-  padding: 0 var(--chip-pad-x);
+  height: 18px;
+  padding: 0 var(--space-sm);
   border-radius: var(--radius-sm);
-  font-size: var(--chip-fs);
-  /* One weight for every chip. They had drifted to three — 400 on the branch
-     tag and the account pill, 500 on the shared badge, 600 on the agent model
-     badge — so chips sitting in the same list read as different components. */
-  font-weight: 500;
-  /* A chip owns its own typography. Several sit inside uppercase headings and
-     were inheriting the transform, which is how a count badge ended up
-     uppercasing digits. */
-  text-transform: none;
+  font-size: var(--fs-xs);
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;

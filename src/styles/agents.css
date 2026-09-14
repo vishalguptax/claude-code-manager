@@ -96,8 +96,9 @@
    name is a proper noun the user recognises, not a category label. It is also
    the last of four chip systems to be folded into the shared box: geometry was
    unified first and this one kept its own height, padding and casing. */
-/* Weight comes from the shared chip rule; the model badge is a label like any
-   other and was the only one at 600. */
+.agent-model-badge {
+  font-weight: 600;
+}
 
 .agent-model-sonnet {
   background: var(--color-blue-bg);
@@ -117,11 +118,9 @@
 /* "inherit" is the absence of an explicit model (agent runs on the main
    conversation's model) — muted/neutral so it reads as "unset", not as a
    named model with its own accent. */
-/* "inherit" is the absence of a choice, so it reads as a muted chip — the same
-   muted as a disabled server or a match-all hook pattern, not a third grey. */
 .agent-model-inherit {
   background: var(--badge-neutral-bg);
-  color: var(--fg-muted);
+  color: var(--role-text-secondary);
 }
 
 

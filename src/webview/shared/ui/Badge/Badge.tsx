@@ -12,16 +12,6 @@
  *
  * All colour lives in CSS (`.vsc-badge` + `.vsc-badge--<variant>`); this stays
  * a pure presentational function with no theme logic.
- *
- * SIZE is not a prop, and deliberately so. Every chip that LABELS something —
- * this component, the session branch tag, a hook matcher, an agent's model —
- * shares one box from `--chip-h` / `--chip-pad-x` / `--chip-fs`. The only
- * chips that are allowed to differ are the ones that are not labels: a
- * removable filter chip is a control, so it takes the taller `--chip-h-action`
- * and a pill radius, and the account plan badge is the single loud identity
- * chip on its row. Anything else that wants its own size is a chip that has
- * not decided what it is; before those tokens existed the app had three chip
- * heights and three radii because each feature picked its own.
  */
 import { cx } from "../../lib";
 

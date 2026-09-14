@@ -93,16 +93,11 @@
   text-overflow: ellipsis;
 }
 
-/* The plan badge is deliberately the one LOUD chip: it names what the account
-   is ("Max 20x") and is the only chip on its row. It stays a step larger than
-   a label chip, but on the same scale — the radius and horizontal padding are
-   the chip tokens, not a third set of numbers. */
 .acct-plan-badge {
   display: inline-flex;
   align-items: center;
-  height: var(--chip-h-action);
-  padding: 0 var(--space-md);
-  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius);
   font-size: var(--fs-sm);
   font-weight: 600;
   /* Mixed case (not uppercased) so the label reads as Anthropic names it:
@@ -961,12 +956,14 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Box comes from the shared LABEL chip (components.css); only the neutral fill
-   and the tabular figures are local. It used to draw its own 999px pill at its
-   own size, which made two chips sitting in the same panel disagree. */
 .acct-pill {
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--vscode-badge-background, rgba(127, 127, 127, 0.15));
+  color: var(--vscode-badge-foreground, var(--vscode-descriptionForeground));
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
