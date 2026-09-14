@@ -247,7 +247,7 @@
             "Always resume in the Claude Code extension chat tab (requires the official Claude Code extension)",
             "Ask every time where to resume"
           ],
-          "description": "Where to open a session when you click Resume. Fork, Continue, and Restore Workspace always use the terminal since they have no equivalent in the extension chat."
+          "description": "Where to open a session when you click Resume. Within the Claude Code extension, chat opens in an editor tab or the Claude Code side bar according to that extension's own `claudeCode.preferredLocation` setting. Fork, Continue, and Restore Workspace always use the terminal since they have no equivalent in the extension chat."
         }
       }
     }
