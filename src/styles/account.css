@@ -516,6 +516,19 @@
   white-space: nowrap;
 }
 
+/* The verdict in words, under the bar. Muted when the week holds, since
+   it is a confirmation rather than a call to act; tinted only when the
+   allowance falls short, which is the one case that asks the user to do
+   something differently. */
+.acct-quota-verdict {
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+.acct-quota-verdict.pace-ahead {
+  color: var(--vscode-editorWarning-foreground, #d49a00);
+}
+
 /* Prompt-cache effectiveness — a text row, not a bar. The rate-limit
    bars above answer "how much is left"; this answers "why is it going
    down", so it deliberately reads as a footnote to them rather than

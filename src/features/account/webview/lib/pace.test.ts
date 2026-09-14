@@ -161,12 +161,22 @@ describe("paceDisplay", () => {
     expect(paceDisplay(ahead!, AT_CAPTURE).countdown).toMatch(/^out in \d+h$/);
   });
 
+  it("states the conclusion in words, visibly, in both states", () => {
+    // The ghost and the countdown are compact, not self-explanatory. The
+    // sentence is what a first-time reader actually understands, so it
+    // must not live behind a hover.
+    const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
+    expect(paceDisplay(ahead!, AT_CAPTURE).sentence).toBe("Not enough to last the week.");
+    const calm = weeklyPace(windowAfter(3.5 * DAY, 20), CAPTURED);
+    expect(paceDisplay(calm!, AT_CAPTURE).sentence).toBe("Enough to last the week.");
+  });
+
   it("explains both the ghost and the rate in the tooltip", () => {
     const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
     const title = paceDisplay(ahead!, AT_CAPTURE).title;
     expect(title).toContain("160%");
     expect(title).toContain("faint bar");
     const calm = weeklyPace(windowAfter(3.5 * DAY, 20), CAPTURED);
-    expect(paceDisplay(calm!, AT_CAPTURE).title).toContain("room to spare");
+    expect(paceDisplay(calm!, AT_CAPTURE).title).toContain("Enough to last the week.");
   });
 });

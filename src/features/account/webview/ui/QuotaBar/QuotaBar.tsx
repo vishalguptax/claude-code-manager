@@ -9,6 +9,10 @@
  * and a countdown to the cap sits opposite the reset timer. Two timers on
  * one line is the whole comparison — whichever is shorter happens first —
  * where the earlier wording made the reader subtract one from the other.
+ *
+ * A one-line verdict sits under both. The graphic is compact, which is
+ * not the same as legible: nobody meeting a faint bar for the first time
+ * knows what it means, and the answer must not be hidden behind a hover.
  */
 
 import { cx } from "../../../../../webview/shared/lib";
@@ -65,6 +69,9 @@ export function QuotaBar({ label, window, pace }: QuotaBarProps) {
             <span class="acct-quota-countdown">{projection.countdown}</span>
           ) : null}
         </div>
+      ) : null}
+      {projection ? (
+        <div class={cx("acct-quota-verdict", `pace-${pace?.verdict}`)}>{projection.sentence}</div>
       ) : null}
     </div>
   );
