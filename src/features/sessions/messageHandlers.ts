@@ -385,7 +385,7 @@ async function handleSessionMessage(
       // the chat tab opens without the prompt attaching.
       openProject(msg.projectPath);
       if (isClaudeCodeExtensionInstalled()) {
-        setTimeout(() => openPromptInExtension(""), 3000);
+        setTimeout(() => openPromptInExtension("", { newWindow: true }), 3000);
       }
       break;
     }
