@@ -74,8 +74,9 @@ describe("QuotaView", () => {
       },
     });
     render(h(QuotaView, { api: stubApi() }));
-    expect(screen.getAllByText(/Ahead of pace/)).toHaveLength(1);
-    expect(screen.getByText(/Ahead of pace/).textContent).toContain("~150% by reset");
+    // One caption only — the 5-hour bar never gets one.
+    expect(screen.getAllByText(/Runs out/)).toHaveLength(1);
+    expect(screen.getByText(/Runs out/).getAttribute("title")).toContain("150%");
   });
 
   it("says nothing about pace in the first hours of a window", () => {

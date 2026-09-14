@@ -26,11 +26,18 @@ describe("QuotaBar", () => {
       h(QuotaBar, {
         label: "7-day window",
         window: { utilization: 80, resetsAt: future },
-        pace: { verdict: "ahead", elapsedPercent: 50, projectedPercent: 160, exhaustsAt: "" },
+        pace: {
+          verdict: "ahead",
+          elapsedPercent: 50,
+          projectedPercent: 160,
+          exhaustsAt: new Date(Date.now() + 21 * 3600_000).toISOString(),
+          shortfallMs: 2 * 86400_000,
+        },
       }),
     );
-    const caption = screen.getByText(/Ahead of pace/);
-    expect(caption.textContent).toContain("~160% by reset");
+    const caption = screen.getByText("Runs out 2d before reset");
+    // The projection the caption spares the reader stays in the tooltip.
+    expect(caption.getAttribute("title")).toContain("160%");
     // Only "ahead" is tinted; the class is what carries that.
     expect(caption.className).toContain("pace-ahead");
   });
