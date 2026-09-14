@@ -72,9 +72,11 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Package
+        id: package
         run: pnpm dlx @vscode/vsce package --no-dependencies -o dist/
 
       - name: Commit version bump
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -112,8 +114,19 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # `always()` is deliberate: a Marketplace rejection must not stop the
+      # GitHub Release, which is the fallback distribution (v2.3.0 shipped
+      # nowhere behind a green run). But it must not fire when there is
+      # nothing to release. Package and Commit are now gated explicitly,
+      # because `always()` used to cover their failures too: a broken
+      # `vsce package` created tag 2.10.13 with no version bump pushed, and
+      # every later run then died on `fatal: tag already exists` — one
+      # transient break jamming releases permanently.
       - name: Create GitHub Release
-        if: always() && steps.bump.outputs.version != ''
+        if: >-
+          always() && steps.bump.outputs.version != ''
+          && steps.package.outcome == 'success'
+          && steps.commit.outcome == 'success'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.bump.outputs.version }}
