@@ -72,23 +72,22 @@ export function registerSkillsHandlers(): () => void {
     }
   });
 
-
-    // Skills in the command palette. The source is called per query, so
-    // it always reads the live signal without this module subscribing to it.
-    const offPalette = registerPaletteSource("skills", () =>
-      skills.value.map((s) => ({
-        id: `skills:${s.name}`,
-        title: s.name,
-        subtitle: s.description,
-        group: "Skills",
-        icon: "sparkles",
-        hint: s.scope,
-        run: () => {
-          activeTab.value = "skills";
-          selectedSkill.value = s;
-        },
-      })),
-    );
+  // Skills in the command palette. The source is called per query, so
+  // it always reads the live signal without this module subscribing to it.
+  const offPalette = registerPaletteSource("skills", () =>
+    skills.value.map((s) => ({
+      id: `skills:${s.name}`,
+      title: s.name,
+      subtitle: s.description,
+      group: "Skills",
+      icon: "sparkles",
+      hint: s.scope,
+      run: () => {
+        activeTab.value = "skills";
+        selectedSkill.value = s;
+      },
+    })),
+  );
   return () => {
     offSkills();
     offSettings();
@@ -113,6 +112,13 @@ export default function SkillsTab() {
   const selected = selectedSkill.value;
   if (selected) return <DetailView skill={selected} />;
   if (!loaded.value) return <ListSkeleton />;
-  if (errorMessage.value) return <EmptyState icon="circle-alert" title="Couldn't load skills" description={errorMessage.value} />;
+  if (errorMessage.value)
+    return (
+      <EmptyState
+        icon="circle-alert"
+        title="Couldn't load skills"
+        description={errorMessage.value}
+      />
+    );
   return <ListView />;
 }

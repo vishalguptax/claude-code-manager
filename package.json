@@ -287,7 +287,7 @@
       "limit": "60 KB"
     },
     {
-      "name": "webview feature chunks (sum; all-native Preact UI â€” no @vscode-elements/lit vendor)",
+      "name": "webview feature chunks (sum; all-native Preact UI — no @vscode-elements/lit vendor)",
       "path": "dist/webview/chunks/*.js",
       "limit": "60 KB"
     },

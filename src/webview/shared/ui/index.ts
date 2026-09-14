@@ -19,19 +19,20 @@ export { ErrorBanner, type ErrorBannerProps } from "./ErrorBanner";
 export { Field, type FieldProps } from "./Field";
 export { Icon, type IconProps } from "./Icon";
 export { ListItem, type ListItemProps } from "./ListItem";
+export { type LoadPhase, SlowLoadNotice, useLoadPhase } from "./LoadDeadline";
 export { Loading } from "./Loading";
-export { SlowLoadNotice, useLoadPhase, type LoadPhase } from "./LoadDeadline";
 export { Menu, type MenuItem, type MenuProps } from "./Menu";
 export { Modal, type ModalProps } from "./Modal";
 export { ScopeFilter, type ScopeFilterProps, type ScopeOption } from "./ScopeFilter";
+export { SearchInput, type SearchInputProps } from "./SearchInput";
 export {
   Section,
   SectionHeader,
   type SectionHeaderProps,
   type SectionProps,
 } from "./Section";
-export { SearchInput, type SearchInputProps } from "./SearchInput";
 export { Segmented, type SegmentedOption, type SegmentedProps } from "./Segmented";
+export { ShowMore, type ShowMoreProps } from "./ShowMore";
 export {
   ListSkeleton,
   type ListSkeletonProps,
@@ -47,7 +48,6 @@ export {
   type SkeletonProps,
   SkeletonRect,
 } from "./Skeleton";
-export { ShowMore, type ShowMoreProps } from "./ShowMore";
 export {
   StatTile,
   StatTileGrid,

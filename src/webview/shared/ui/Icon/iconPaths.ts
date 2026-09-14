@@ -105,7 +105,8 @@ export const ICON_PATHS: Record<string, string> = {
   // Enable / disable a hook. NOT pin-off, which the hook rows used to borrow:
   // a crossed-out pushpin says "unpin", an action hooks do not have. Pause and
   // play are the pair that actually describes stopping and resuming a handler.
-  pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+  pause:
+    '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
   "log-in":
     '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/>',
   "wifi-off":

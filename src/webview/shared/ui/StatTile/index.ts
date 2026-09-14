@@ -1,1 +1,1 @@
-export { StatTile, StatTileGrid, type StatTileProps, type StatTileGridProps } from "./StatTile";
+export { StatTile, StatTileGrid, type StatTileGridProps, type StatTileProps } from "./StatTile";

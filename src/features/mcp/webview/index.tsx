@@ -5,6 +5,7 @@
  * the validated `createMcpApi` wrapper built on the shared `useApi()` hook.
  */
 import { useEffect, useMemo, useState } from "preact/hooks";
+import type { McpServerInput } from "../../../shared/protocol/messages";
 import { useApi } from "../../../webview/shared/hooks";
 import {
   activeTab,
@@ -12,7 +13,6 @@ import {
   registerPaletteSource,
 } from "../../../webview/shared/model";
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
-import type { McpServerInput } from "../../../shared/protocol/messages";
 import type { McpServer } from "../types";
 import { createMcpApi } from "./api";
 import { MCP_BROWSE_URL } from "./lib";

@@ -13,8 +13,9 @@
  *
  * Generic on purpose — any `overflow-x` container can use it.
  */
-import { useEffect } from "preact/hooks";
+
 import type { RefObject } from "preact";
+import { useEffect } from "preact/hooks";
 
 /** How far from an edge (px) the pointer starts pulling the strip. */
 const EDGE_ZONE = 36;
