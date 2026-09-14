@@ -38,6 +38,10 @@ export const workspace = {
   workspaceFolders: [] as WorkspaceFolder[],
   getConfiguration: (_section?: string) => ({
     get: (_key: string, defaultValue?: unknown) => defaultValue,
+    // Untouched by default: `inspect` is how callers tell "user set
+    // false" from "user set nothing", so the two must not collapse.
+    inspect: (_key: string) => undefined,
+    update: async (_key: string, _value: unknown, _target?: unknown) => {},
   }),
   getWorkspaceFolder: (_uri: { fsPath: string }): WorkspaceFolder | undefined => undefined,
   onDidChangeWorkspaceFolders: (listener: (e: unknown) => void): MockDisposable => {
@@ -257,6 +261,12 @@ export const env = {
     writeText: async (_value: string) => {},
   },
 };
+
+export enum ConfigurationTarget {
+  Global = 1,
+  Workspace = 2,
+  WorkspaceFolder = 3,
+}
 
 export enum ViewColumn {
   Active = -1,
