@@ -551,6 +551,14 @@
   padding: 0 var(--chip-pad-x);
   border-radius: var(--radius-sm);
   font-size: var(--chip-fs);
+  /* One weight for every chip. They had drifted to three — 400 on the branch
+     tag and the account pill, 500 on the shared badge, 600 on the agent model
+     badge — so chips sitting in the same list read as different components. */
+  font-weight: 500;
+  /* A chip owns its own typography. Several sit inside uppercase headings and
+     were inheriting the transform, which is how a count badge ended up
+     uppercasing digits. */
+  text-transform: none;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;

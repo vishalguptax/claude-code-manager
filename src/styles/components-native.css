@@ -446,7 +446,7 @@
 /* Box comes from the shared chip base in components.css; only the medium
    weight and the label clamp are the badge's own. */
 .vsc-badge {
-  font-weight: 500;
+  /* Box, weight and casing come from the shared chip rule in components.css. */
   max-width: 16ch;
 }
 
@@ -462,7 +462,9 @@
   /* Counts read better with the digits in a tabular figure set and a pill
      shape, matching the activity-bar / tree counters. */
   font-variant-numeric: tabular-nums;
-  border-radius: 10px;
+  /* Same silhouette as every other label chip. This drew a 10px pill, which
+     made the one chip that is purely a number the one chip shaped unlike all
+     its neighbours; the solid badge colours already mark it as a count. */
   min-width: 16px;
   justify-content: center;
 }
