@@ -271,9 +271,25 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
  * had lost its bar, and worse, inverted the meaning of that slot: a quota
  * at 98% means nearly blocked, a cache at 98% means working beautifully.
  * This is a footnote to the bars, so it is set like one.
+ *
+ * And it only appears when it has something to say. A healthy cache is
+ * the overwhelmingly common case, so a permanent "98% hit" was a constant
+ * that carried no information and took up the bottom of the card — the
+ * same reason the pace line stays silent on a week that holds. The row
+ * earns its place when the cache is actually costing the user tokens.
  */
+
+/**
+ * Above this the cache is doing its job and there is nothing to report.
+ * Warm Claude Code sessions sit at 95–99%; below that, better than one
+ * request in twenty is re-sending the whole cached prefix, which is a
+ * real and visible drag on the windows above.
+ */
+const CACHE_HEALTHY_HIT_RATIO = 0.95;
+
 function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
   if (!stats || stats.requests === 0) return null;
+  if (stats.hitRatio >= CACHE_HEALTHY_HIT_RATIO) return null;
   const pct = Math.round(stats.hitRatio * 100);
   const wasted = stats.missRecacheTokens;
   const detail: string[] = [`${stats.requests} requests`];
