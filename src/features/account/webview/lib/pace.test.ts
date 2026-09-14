@@ -110,19 +110,41 @@ describe("weeklyPace", () => {
 });
 
 describe("describePace", () => {
-  it("leads with the verdict and carries the projection", () => {
+  it("says when the allowance runs out, not what percentage it projects", () => {
+    // 80% gone at the halfway mark: the cap is hit 21h after the capture,
+    // so 63h — 2d 15h — short of the refill. That gap is the fact the user
+    // can act on; "~160%" is the same fact as a sum they have to do.
     const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
-    expect(describePace(ahead!)).toBe("Ahead of pace · ~160% by reset");
-    const even = weeklyPace(windowAfter(3.5 * DAY, 50), CAPTURED);
-    expect(describePace(even!)).toBe("On pace · ~100% by reset");
-    const under = weeklyPace(windowAfter(3.5 * DAY, 20), CAPTURED);
-    expect(describePace(under!)).toBe("Under pace · ~40% by reset");
+    expect(describePace(ahead!).text).toBe("Runs out 2d 15h before reset");
   });
 
-  it("drops a projection that has stopped being a figure", () => {
-    // 99% spent twelve hours in projects to 1386%. The number adds nothing
-    // the word "ahead" has not already said.
+  it("keeps the underlying projection in the tooltip", () => {
+    const ahead = weeklyPace(windowAfter(3.5 * DAY, 80), CAPTURED);
+    expect(describePace(ahead!).title).toContain("160%");
+    expect(describePace(ahead!).title).toContain("2d 15h");
+  });
+
+  it("reassures plainly when the allowance reaches the reset", () => {
+    for (const used of [50, 20]) {
+      const pace = weeklyPace(windowAfter(3.5 * DAY, used), CAPTURED);
+      expect(describePace(pace!).text).toBe("On track to last the week");
+    }
+  });
+
+  it("keeps the caption to one unit under a day", () => {
+    // Late in the window the shortfall is hours, not days. Note the band
+    // stops being reachable near the reset at all — at 6.5 days elapsed
+    // "ahead" would need more than 100% used — so the warning naturally
+    // falls silent once it could no longer be acted on.
+    const ahead = weeklyPace(windowAfter(6 * DAY, 99), CAPTURED);
+    expect(ahead?.verdict).toBe("ahead");
+    expect(describePace(ahead!).text).toMatch(/^Runs out \d+h before reset$/);
+  });
+
+  it("still names a gap when the projection is off the scale", () => {
+    // 99% spent twelve hours in projects to ~1386%. The percentage stops
+    // being a figure; the gap it implies does not.
     const wild = weeklyPace(windowAfter(12 * HOUR, 99), CAPTURED);
-    expect(describePace(wild!)).toBe("Ahead of pace for this week");
+    expect(describePace(wild!).text).toMatch(/^Runs out .+ before reset$/);
   });
 });

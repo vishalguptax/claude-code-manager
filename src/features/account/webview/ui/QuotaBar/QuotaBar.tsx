@@ -27,6 +27,7 @@ export function QuotaBar({ label, window, pace }: QuotaBarProps) {
   // Read the shared clock so the countdown ticks down live (and flips to
   // "outdated" when the window rolls over) without a data change.
   const resetsLabel = formatResetsIn(window.resetsAt, now.value);
+  const paceCaption = pace ? describePace(pace) : null;
   return (
     <div class="acct-quota-row">
       <div class="acct-quota-row-head">
@@ -44,9 +45,12 @@ export function QuotaBar({ label, window, pace }: QuotaBarProps) {
         <div class={cx("acct-quota-bar-fill", `tone-${tone}`)} style={{ width: `${pct}%` }} />
       </div>
       {resetsLabel ? <div class="acct-quota-sub">{resetsLabel}</div> : null}
-      {pace ? (
-        <div class={cx("acct-quota-sub", "acct-quota-pace", `pace-${pace.verdict}`)}>
-          {describePace(pace)}
+      {paceCaption ? (
+        <div
+          class={cx("acct-quota-sub", "acct-quota-pace", `pace-${pace?.verdict}`)}
+          title={paceCaption.title}
+        >
+          {paceCaption.text}
         </div>
       ) : null}
     </div>

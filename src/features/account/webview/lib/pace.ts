@@ -63,6 +63,14 @@ export interface Pace {
    * lands after the reset (i.e. the cap is never hit this window).
    */
   exhaustsAt: string;
+  /**
+   * How long before the reset the cap would be hit, in ms. Null when the
+   * cap is never reached this window. This is the figure the caption is
+   * built from: "you run out this far before it refills" is the thing a
+   * user can act on, where a projected percentage is a sum they have to
+   * do themselves.
+   */
+  shortfallMs: number | null;
 }
 
 /**
@@ -107,9 +115,12 @@ export function weeklyPace(window: QuotaWindow, capturedAtIso: string): Pace | n
   // inside this window — past the reset the cap is never reached, and a
   // date beyond the refill would read as a threat that cannot happen.
   let exhaustsAt = "";
+  let shortfallMs: number | null = null;
   if (used > 0 && projectedPercent > 100) {
     const msTo100 = ((100 - used) / used) * elapsed;
-    exhaustsAt = new Date(capturedMs + msTo100).toISOString();
+    const exhaustMs = capturedMs + msTo100;
+    exhaustsAt = new Date(exhaustMs).toISOString();
+    shortfallMs = resetMs - exhaustMs;
   }
 
   return {
@@ -117,23 +128,56 @@ export function weeklyPace(window: QuotaWindow, capturedAtIso: string): Pace | n
     elapsedPercent: elapsedFraction * 100,
     projectedPercent,
     exhaustsAt,
+    shortfallMs,
+  };
+}
+
+/** Caption for the bar, plus the longer reading for its tooltip. */
+export interface PaceCaption {
+  text: string;
+  title: string;
+}
+
+/**
+ * Say what the burn rate means in the only terms that need no arithmetic
+ * from the reader: whether the weekly allowance reaches the reset, and if
+ * not, how early it runs out.
+ *
+ * An earlier version led with the projected percentage ("~160% by
+ * reset"). It is the same fact and it was the wrong way to say it — a
+ * figure over 100% of a cap is a contradiction on its face, and working
+ * out what it implied was left to the user. The tooltip keeps the
+ * projection for anyone who wants the underlying number.
+ */
+export function describePace(pace: Pace): PaceCaption {
+  const projected = Math.round(pace.projectedPercent);
+  if (pace.verdict === "ahead" && pace.shortfallMs !== null) {
+    const early = roughDuration(pace.shortfallMs);
+    return {
+      text: `Runs out ${early} before reset`,
+      title:
+        `At this rate the weekly limit is used up ${early} before the window ` +
+        `refills (about ${projected}% of a week's allowance over the week).`,
+    };
+  }
+  return {
+    text: "On track to last the week",
+    title:
+      `At this rate the weekly limit reaches the reset with room to spare ` +
+      `(about ${projected}% of a week's allowance over the week).`,
   };
 }
 
 /**
- * One short line for the bar's sub-caption.
- *
- * The projection is the payload — "ahead of pace" alone gives the user
- * nothing to decide with, while "~134% by reset" says exactly how much
- * to slow down. It is rounded and prefixed with a tilde because it is an
- * extrapolation from a lumpy week, not a measurement.
+ * Coarse duration for the caption: one unit below a day, two above it.
+ * "2d 4h" is a plan; "2d 4h 13m" is false precision on an extrapolation.
  */
-export function describePace(pace: Pace): string {
-  const label =
-    pace.verdict === "ahead" ? "Ahead of pace" : pace.verdict === "under" ? "Under pace" : "On pace";
-  // A projection in the thousands is arithmetically true and useless as a
-  // figure; the verdict already carries the message at that point.
-  const projected = Math.round(pace.projectedPercent);
-  if (projected > 999) return `${label} for this week`;
-  return `${label} · ~${projected}% by reset`;
+function roughDuration(ms: number): string {
+  const mins = Math.max(0, Math.round(ms / 60_000));
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const leftover = hours % 24;
+  return leftover > 0 ? `${days}d ${leftover}h` : `${days}d`;
 }
