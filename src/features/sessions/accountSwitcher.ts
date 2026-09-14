@@ -14,10 +14,48 @@ import {
   removeProfile as removeProfileSnapshot,
 } from "../account/profiles";
 import type { SavedProfile } from "../account/profiles";
+import { describeProfileQuota } from "../account/profileQuota";
 import { getWorkspace } from "../../extension/workspace";
 import { createTerminal } from "../../extension/terminal";
 import { buildSwitchConfirmDetail } from "./hostContext";
 import type { WebviewMessage } from "./types";
+
+/** How a profile row reads: the dim text beside the name, and the line under it. */
+export interface ProfileRowText {
+  description: string;
+  detail: string;
+}
+
+/**
+ * Text for one account row.
+ *
+ * The description carries what decides the click: whether this is where
+ * you already are, and how much of the account's week is gone. That
+ * second part is the reason the switcher is worth opening — the live
+ * quota card can only ever describe the account you are signed into, so
+ * without a remembered figure per account the switcher asks you to pick
+ * blind and find out afterwards. It is dated, never bare, because these
+ * readings are as old as each account's last session (see
+ * ../account/quotaHistory).
+ */
+export function profileRowText(
+  profile: SavedProfile & { lastQuota?: Parameters<typeof describeProfileQuota>[0] },
+  flags: { isActive: boolean; isDuplicate: boolean },
+  now: number = Date.now(),
+): ProfileRowText {
+  const status = flags.isActive ? "Active" : flags.isDuplicate ? "Duplicate" : "";
+  const quota = describeProfileQuota(profile.lastQuota ?? null, now);
+  const meta: string[] = [];
+  if (profile.email) meta.push(profile.email);
+  if (profile.subscriptionType) meta.push(profile.subscriptionType);
+  if (profile.organizationName) meta.push(profile.organizationName);
+  if (flags.isDuplicate) meta.push("duplicate — remove if unused");
+  return {
+    description: [status, quota].filter(Boolean).join(" · "),
+    // Every row keeps a `detail` so native row heights match.
+    detail: meta.join(" · ") || "Saved profile",
+  };
+}
 
 /** Minimal context the switcher needs from the view provider. */
 export interface AccountSwitcherContext {
@@ -107,19 +145,14 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
   for (const p of sortedProfiles) {
     const isActive = p.slug === activeSlug;
     const isDuplicate = duplicateSlugs.has(p.slug);
-    const metaParts: string[] = [];
-    if (p.email) metaParts.push(p.email);
-    if (p.subscriptionType) metaParts.push(p.subscriptionType);
-    if (p.organizationName) metaParts.push(p.organizationName);
-    if (isDuplicate) metaParts.push("duplicate — remove if unused");
+    const { description, detail } = profileRowText(p, { isActive, isDuplicate });
     items.push({
       action: "switch",
       slug: p.slug,
       iconPath: isActive ? CHECK_ICON : ACCOUNT_ICON,
       label: p.label || p.email || p.slug,
-      description: isActive ? "Active" : isDuplicate ? "Duplicate" : "",
-      // Every row keeps a `detail` so native row heights match.
-      detail: metaParts.join(" · ") || "Saved profile",
+      description,
+      detail,
       buttons: isActive ? [UPDATE_BUTTON, REMOVE_BUTTON] : [REMOVE_BUTTON],
     });
   }

@@ -17,6 +17,7 @@ import {
   deleteSettingsSnapshot as deleteSettingsSnapshotFile,
 } from "../account/parser";
 import { readQuota } from "../account/quota";
+import { rememberActiveQuota } from "../account/quotaHistory";
 import { revalidateModelCache } from "../account/models";
 import { installStatusline, uninstallStatusline } from "../account/statuslineInstall";
 import {
@@ -61,7 +62,12 @@ export async function handleAccountMessage(
       // project / local statusLine scopes (precedence: local › project
       // › global).
       const workspace = getWorkspace() || undefined;
-      wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
+      const result = readQuota(workspace);
+      // File it against the live account before pushing. The cache is
+      // global and unstamped, so this is the only moment we still know
+      // whose figures these are — see ../account/quotaHistory.
+      rememberActiveQuota(result);
+      wv.postMessage({ type: "quotaData", result });
       break;
     }
 

@@ -34,6 +34,7 @@ import { parseAccountData } from "../account/parser";
 import { revalidateModelCache } from "../account/models";
 import { warmUsageAggregate } from "../account/projectStats";
 import { readQuota } from "../account/quota";
+import { rememberActiveQuota } from "../account/quotaHistory";
 import { syncActiveProfile as syncActiveProfileSnapshot } from "../account/profiles";
 import type { Session } from "./types";
 import type { AccountData } from "../account/types";
@@ -249,7 +250,12 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
         // Threaded workspace so the installed-check sees project/local
         // statusline scopes — matters when the tap is wired there.
         const workspace = getWorkspace() || undefined;
-        wv.postMessage({ type: "quotaData", result: readQuota(workspace) });
+        const result = readQuota(workspace);
+        // Every statusline render lands here, which is every turn of an
+        // active session — so this is where the per-account memory stays
+        // current. The recorder skips unchanged captures itself.
+        rememberActiveQuota(result);
+        wv.postMessage({ type: "quotaData", result });
       } catch (err) {
         console.warn("[claude-manager] quota cache push failed:", err);
       }

@@ -129,6 +129,21 @@ export const USAGE_HISTORY_FILE: string = path.join(
 );
 
 /**
+ * Last-seen quota per account, remembered by the extension.
+ *
+ * Claude Code's statusline cache is global and carries no account id, so
+ * the moment you switch profiles the live figures belong to whoever is
+ * signed in now — there is no way to ask it what the OTHER account had
+ * left. This file is that memory: each account's last observed windows,
+ * stamped with the render they came from, so the switcher can say which
+ * account has headroom before you commit to switching into it.
+ */
+export const QUOTA_HISTORY_FILE: string = path.join(
+  CLAUDE_MANAGER_DIR,
+  "quota-history.json",
+);
+
+/**
  * SessionStart hook script: a tiny Node program Claude CLI runs on every
  * session boot. Records `{ session_id, ppid, cwd, ts }` into the active
  * sessions file so the extension can link a sidebar row to the terminal
