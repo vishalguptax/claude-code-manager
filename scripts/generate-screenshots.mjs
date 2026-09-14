@@ -43,15 +43,28 @@ const HEIGHT = 564;
 const SCALE = 4;
 
 /** Output name → tab id, in the order the site presents them. */
+/**
+ * Output name → tab id, and how far to scroll the panel before capturing.
+ *
+ * Account is scrolled because the shot advertises "Account & Usage" on the
+ * site and links from the /usage page, but at rest the Usage section is below
+ * the fold — the frame used to end part-way through the activity heatmap,
+ * which reads as a broken panel rather than a feature.
+ */
 const TABS = [
-  ["01-sessions", "sessions"],
-  ["02-skills", "skills"],
-  ["03-commands", "commands"],
-  ["04-hooks", "hooks"],
-  ["05-mcp", "mcp"],
-  ["06-agents", "agents"],
-  ["07-account", "account"],
-  ["08-config", "config"],
+  ["01-sessions", "sessions", 0],
+  ["02-skills", "skills", 0],
+  ["03-commands", "commands", 0],
+  ["04-hooks", "hooks", 0],
+  ["05-mcp", "mcp", 0],
+  ["06-agents", "agents", 0],
+  ["07-account", "account", 0],
+  ["08-config", "config", 0],
+  // The Usage section is the same tab scrolled down. The /usage page and the
+  // homepage's usage row advertise the heatmap and the token figures, which
+  // sit below the fold at rest — pointing them at the unscrolled Account shot
+  // meant the page showed a profile card instead of the thing it describes.
+  ["09-usage", "account", 340],
 ];
 
 const CHROME =
@@ -141,6 +154,17 @@ function page() {
     overflow: hidden;
   }
   * { box-sizing: border-box; }
+  /* No transitions or animations while capturing.
+     The headless capture fast-forwards timers but not the animation clock, so
+     a property mid-transition is frozen at its STARTING value. The active tab
+     indicator is the visible casualty: clicking a tab moved the label
+     immediately (it is a display swap) while the underline stayed painted
+     under the previously active tab, and the published Hooks screenshot
+     showed "Hooks" labelled with the blue bar still under Sessions. */
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
   /* VS Code draws this above the webview; the panel shots have always included
      it so the image reads as the real sidebar rather than a floating panel. */
   .viewtitle {
@@ -168,7 +192,9 @@ function page() {
   /* Select the tab named in ?tab= and report readiness through the document
      title, so a capture can tell "painted" from "still mounting". */
   (function () {
-    var want = new URLSearchParams(location.search).get("tab") || "sessions";
+    var params = new URLSearchParams(location.search);
+    var want = params.get("tab") || "sessions";
+    var scroll = Number(params.get("scroll") || 0);
     var deadline = Date.now() + 15000;
     (function poll() {
       var btn = document.querySelector('.tab-btn[data-tab="' + want + '"]');
@@ -185,7 +211,9 @@ function page() {
       setTimeout(function () {
         var busy = document.querySelector('.skeleton, .host-busy-bar, .loading');
         if (busy && Date.now() < deadline) return setTimeout(poll, 120);
-        document.title = "shot-ready";
+        var panel = document.querySelector('.panel');
+        if (scroll && panel) panel.scrollTop = scroll;
+        setTimeout(function () { document.title = "shot-ready"; }, 200);
       }, 400);
     })();
   })();
@@ -246,7 +274,7 @@ async function main() {
 
   const { server, port } = await serve(work);
   try {
-    for (const [name, tab] of TABS) {
+    for (const [name, tab, scroll] of TABS) {
       const png = join(raw, `${name}.png`);
       await execFileAsync(CHROME, [
         "--headless=new",
@@ -256,7 +284,7 @@ async function main() {
         `--window-size=${WIDTH},${HEIGHT}`,
         "--virtual-time-budget=8000",
         `--screenshot=${png}`,
-        `http://127.0.0.1:${port}/index.html?tab=${tab}`,
+        `http://127.0.0.1:${port}/index.html?tab=${tab}&scroll=${scroll}`,
       ]).catch(() => {
         // Chrome exits non-zero on harmless macOS task-policy warnings; the
         // screenshot is still written, so judge it by the file below.

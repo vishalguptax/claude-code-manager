@@ -7,6 +7,8 @@
   const min = 60000,
     hr = 3600000,
     day = 86400000;
+  // Aliased: `day` is shadowed inside the usage builders below.
+  const day_ = day;
 
   const session = (id, name, over = {}) => ({
     id,
@@ -130,12 +132,39 @@
       { id: "s2", scope: "global", takenAtMs: now - day, sizeBytes: 2411, path: "/s/2.json", changedKeys: [] },
     ],
     usage: {
-      // A plausible ramp rather than a flat block, so the heatmap reads like
-      // real activity without being anyone's real activity.
-      daily: Array.from({ length: 120 }, (_, i) => ({ date: new Date(now - (119 - i) * day).toISOString().slice(0, 10), sessions: (i * 7) % 9, messages: (i * 13) % 40 })),
+      // Field names must match DailyActivity / DailyTokens exactly. They did
+      // not — the fixture wrote `sessions` / `messages` / `tokens`, so the
+      // view summed nothing and the published screenshot showed "0 tokens,
+      // 0 sessions, 0 messages" under an empty heatmap.
+      daily: Array.from({ length: 120 }, (_, i) => {
+        // A plausible working rhythm: busier midweek, quieter weekends, and
+        // ramping up over the period so the heatmap reads as real activity.
+        const day = new Date(now - (119 - i) * day_);
+        const weekend = day.getDay() === 0 || day.getDay() === 6;
+        const base = weekend ? 0.25 : 1;
+        const ramp = 0.45 + i / 150;
+        const messageCount = Math.round((14 + ((i * 7) % 23)) * base * ramp);
+        return {
+          date: day.toISOString().slice(0, 10),
+          messageCount,
+          sessionCount: Math.max(1, Math.round(messageCount / 9)),
+          toolCallCount: messageCount * 6,
+        };
+      }),
       dailyTokens: [],
-      dailyOwnTokens: Array.from({ length: 120 }, (_, i) => ({ date: new Date(now - (119 - i) * day).toISOString().slice(0, 10), tokens: Math.round((Math.sin(i / 9) + 1.2) * 90000 * (0.35 + i / 160)) })),
-      totalDays: 120, lastComputedDate: new Date(now).toISOString().slice(0, 10),
+      dailyOwnTokens: Array.from({ length: 120 }, (_, i) => {
+        const day = new Date(now - (119 - i) * day_);
+        const weekend = day.getDay() === 0 || day.getDay() === 6;
+        const base = weekend ? 0.3 : 1;
+        return {
+          date: day.toISOString().slice(0, 10),
+          total: Math.round((90000 + ((i * 9973) % 240000)) * base * (0.5 + i / 170)),
+        };
+      }),
+      activeDays: 96,
+      totalDays: 120,
+      mostActiveDay: "Wednesday",
+      lastComputedDate: new Date(now).toISOString().slice(0, 10),
       byModel: [
         { model: "claude-opus-5", totalTokens: 9_900_000, costUsd: 78.2, sessions: 96 },
         { model: "claude-sonnet-5", totalTokens: 5_700_000, costUsd: 41.1, sessions: 74 },
@@ -152,7 +181,11 @@
         { name: "Grep", count: 612 }, { name: "Write", count: 388 }, { name: "mcp__github__create_pr", count: 91 },
       ],
       byMcpServer: [{ server: "github", tools: 12, calls: 190 }],
-      totalOwnTokens: 18_400_000, totalCostUsd: 142.6, pricesEffectiveDate: "2026-09-01",
+      totalInputTokens: 7_900_000,
+      totalOutputTokens: 10_500_000,
+      totalOwnTokens: 18_400_000,
+      totalCostUsd: 142.6,
+      pricesEffectiveDate: "2026-09-01",
       currentStreak: 12, longestStreak: 19, longestSessionMs: 7.2e6, favoriteModel: "claude-opus-5",
       totalTokens: 18_400_000, totalSessions: 214, totalMessages: 3981, totalCost: 142.6,
       totalCacheReadTokens: 51_200_000, totalCacheCreationTokens: 3_100_000, totalDurationMs: 400 * hr,
