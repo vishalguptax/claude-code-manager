@@ -465,6 +465,24 @@ export interface SettingsSnapshotInfo {
  * type defined in `./profiles.ts` — kept here too so types.ts stays
  * the single import target for webview-side code.
  */
+/**
+ * An account's last observed quota, remembered by the extension so the
+ * switcher can say which account has headroom before you switch into it.
+ * Claude Code's statusline cache is global and unstamped, so the live
+ * figures always describe whoever is signed in now — see
+ * ../account/quotaHistory.
+ */
+export interface ProfileQuota {
+  /** 7-day utilization percent at capture, or null when Claude omitted it. */
+  sevenDayPercent: number | null;
+  /** 5-hour utilization percent at capture, or null when Claude omitted it. */
+  fiveHourPercent: number | null;
+  /** ISO reset of the weekly window at capture, or "" when unknown. */
+  sevenDayResetsAt: string;
+  /** ISO time of the Claude Code render these figures came from. */
+  capturedAt: string;
+}
+
 export interface SavedProfile {
   slug: string;
   label: string;
@@ -478,6 +496,12 @@ export interface SavedProfile {
   userID: string;
   /** `oauthAccount.accountUuid` — primary, account-distinct identity. */
   accountUuid: string;
+  /**
+   * Last quota observed while this account was live, or null when we have
+   * never seen one. Attached by `parseAccountData`, not stored with the
+   * profile snapshot — it changes every turn, the snapshot does not.
+   */
+  lastQuota?: ProfileQuota | null;
 }
 
 // ── Messages ──

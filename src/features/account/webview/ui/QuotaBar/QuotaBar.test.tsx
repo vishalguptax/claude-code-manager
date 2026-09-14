@@ -19,4 +19,78 @@ describe("QuotaBar", () => {
     render(h(QuotaBar, { label: "7-day window", window: { utilization: 30, resetsAt: future } }));
     expect(screen.getByText(/resets in/)).toBeTruthy();
   });
+
+  it("draws the projection on the bar and counts down beside the reset", () => {
+    const future = new Date(Date.now() + 2 * 3600000).toISOString();
+    const { container } = render(
+      h(QuotaBar, {
+        label: "7-day window",
+        window: { utilization: 80, resetsAt: future },
+        pace: {
+          verdict: "ahead",
+          elapsedPercent: 50,
+          projectedPercent: 160,
+          exhaustsAt: new Date(Date.now() + 21 * 3600_000).toISOString(),
+          shortfallMs: 2 * 86400_000,
+        },
+      }),
+    );
+    // Ghost reaches the end of the track: overshoot has nowhere to go.
+    const ghost = container.querySelector(".acct-quota-bar-ghost") as HTMLElement;
+    expect(ghost.style.width).toBe("100%");
+    expect(ghost.className).toContain("pace-ahead");
+    // Countdown sits on the reset line, not on a line of its own.
+    const sub = container.querySelector(".acct-quota-sub") as HTMLElement;
+    expect(sub.textContent).toContain("resets in");
+    expect(sub.querySelector(".acct-quota-countdown")?.textContent).toMatch(/^out in \d+h$/);
+    // The conclusion is on screen, not only in a tooltip.
+    expect(screen.getByText("Not enough to last the week.")).toBeTruthy();
+    // The longer reading hangs off a visible icon, not off the bar — an
+    // affordance the user can see, rather than one found by luck.
+    expect(container.querySelector(".acct-quota-bar")?.getAttribute("title")).toBeNull();
+    const info = container.querySelector(".acct-quota-info") as HTMLElement;
+    expect(info.getAttribute("title")).toContain("160%");
+    // Reachable without a mouse.
+    expect(info.tabIndex).toBe(0);
+  });
+
+  it("shows the ghost but no countdown when the week is on track", () => {
+    const future = new Date(Date.now() + 2 * 3600000).toISOString();
+    const { container } = render(
+      h(QuotaBar, {
+        label: "7-day window",
+        window: { utilization: 20, resetsAt: future },
+        pace: {
+          verdict: "under",
+          elapsedPercent: 50,
+          projectedPercent: 40,
+          exhaustsAt: "",
+          shortfallMs: null,
+        },
+      }),
+    );
+    expect((container.querySelector(".acct-quota-bar-ghost") as HTMLElement).style.width).toBe(
+      "40%",
+    );
+    expect(container.querySelector(".acct-quota-countdown")).toBeNull();
+    // Still says so in words — a bar alone does not explain itself — and
+    // still offers the detail.
+    expect(screen.getByText("Enough to last the week.")).toBeTruthy();
+    expect(container.querySelector(".acct-quota-info")).toBeTruthy();
+  });
+
+  it("draws no projection at all when none could be computed", () => {
+    const future = new Date(Date.now() + 2 * 3600000).toISOString();
+    const { container } = render(
+      h(QuotaBar, {
+        label: "7-day window",
+        window: { utilization: 30, resetsAt: future },
+        pace: null,
+      }),
+    );
+    expect(container.querySelector(".acct-quota-bar-ghost")).toBeNull();
+    expect(container.querySelector(".acct-quota-countdown")).toBeNull();
+    expect(container.querySelector(".acct-quota-verdict")).toBeNull();
+    expect(container.querySelector(".acct-quota-info")).toBeNull();
+  });
 });

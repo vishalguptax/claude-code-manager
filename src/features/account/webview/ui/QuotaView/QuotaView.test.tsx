@@ -3,9 +3,11 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuotaSuccess } from "../../../quota";
+import type { AccountData } from "../../../types";
 import type { AccountApi } from "../../api";
 import {
   _resetAccountState,
+  accountData,
   quotaAccountSince,
   setQuotaError,
   setQuotaLoading,
@@ -56,6 +58,43 @@ const SUCCESS: QuotaSuccess = {
 
 describe("QuotaView", () => {
   beforeEach(() => _resetAccountState());
+
+  it("projects the weekly bar only, never the 5-hour one", () => {
+    // Half the week gone with three quarters spent: overrunning, and the
+    // only window where that projection means anything.
+    const captured = new Date();
+    const halfWeekOut = new Date(captured.getTime() + 3.5 * 86400000).toISOString();
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: {
+        ...SUCCESS.quota,
+        fiveHour: { utilization: 42, resetsAt: halfWeekOut },
+        sevenDay: { utilization: 75, resetsAt: halfWeekOut },
+        capturedAt: captured.toISOString(),
+      },
+    });
+    // One projection only — the 5-hour bar never gets one.
+    const { container } = render(h(QuotaView, { api: stubApi() }));
+    expect(container.querySelectorAll(".acct-quota-bar-ghost")).toHaveLength(1);
+    expect(screen.getByText(/^out in /)).toBeTruthy();
+  });
+
+  it("draws no projection in the first hours of a window", () => {
+    const captured = new Date();
+    // Six hours in: one session divides out to a nonsense projection.
+    const nearlyAWeekOut = new Date(captured.getTime() + 7 * 86400000 - 6 * 3600000).toISOString();
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: {
+        ...SUCCESS.quota,
+        sevenDay: { utilization: 6, resetsAt: nearlyAWeekOut },
+        capturedAt: captured.toISOString(),
+      },
+    });
+    const { container } = render(h(QuotaView, { api: stubApi() }));
+    expect(container.querySelector(".acct-quota-bar-ghost")).toBeNull();
+    expect(container.querySelector(".acct-quota-countdown")).toBeNull();
+  });
 
   it("not-installed state shows the enable CTA and installs on click", () => {
     setQuotaError({ kind: "not-installed", message: "enable it" });
@@ -153,6 +192,57 @@ describe("QuotaView", () => {
     expect(container.querySelector(".acct-quota-live-dot")).toBeNull();
   });
 
+  it("falls back to the account's last remembered figure after a switch", () => {
+    // The live cache belongs to the account we left, so there is nothing
+    // current for this one — but we know what it looked like when it was
+    // last live, and that is the number the user just switched to find.
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: { ...SUCCESS.quota, capturedAt: new Date(Date.now() - 5 * 60_000).toISOString() },
+    });
+    quotaAccountSince.value = Date.now();
+    // Only the two fields this path reads; the rest of AccountData is
+    // irrelevant to the fallback and would be noise in the fixture.
+    accountData.value = {
+      activeProfileSlug: "work",
+      savedProfiles: [
+        {
+          slug: "work",
+          label: "Work",
+          email: "alex@example.dev",
+          organizationName: "",
+          subscriptionType: "max",
+          savedAt: "",
+          tokenExpiresAt: 0,
+          credentialsHash: "",
+          userID: "",
+          accountUuid: "uuid-work",
+          lastQuota: {
+            sevenDayPercent: 62,
+            fiveHourPercent: 10,
+            sevenDayResetsAt: new Date(Date.now() + 2 * 86400000).toISOString(),
+            capturedAt: new Date(Date.now() - 3 * 3600_000).toISOString(),
+          },
+        },
+      ],
+    } as unknown as AccountData;
+    render(h(QuotaView, { api: stubApi() }));
+    // Age is rendered off the shared clock signal (as every other live
+    // stamp in this card is); the exact wording of the age is covered in
+    // profileQuota's own tests.
+    expect(screen.getByText(/Last seen 62% weekly/)).toBeTruthy();
+  });
+
+  it("says only that the account switched when nothing was remembered", () => {
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: { ...SUCCESS.quota, capturedAt: new Date(Date.now() - 5 * 60_000).toISOString() },
+    });
+    quotaAccountSince.value = Date.now();
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("Switched account")).toBeTruthy();
+  });
+
   it("shows bars again once a capture lands after the switch", () => {
     quotaAccountSince.value = Date.now() - 60_000; // switched a minute ago
     const fresh: QuotaSuccess = {
@@ -209,6 +299,27 @@ describe("QuotaView", () => {
       ).toBeTruthy();
     });
 
+    it("stays out of the way while the cache is healthy", () => {
+      // 98% is the ordinary case. A permanent row saying so is a constant
+      // that carries no information and eats the bottom of the card.
+      setQuotaSuccess(withCache({ hitRatio: 0.98 }));
+      const { container } = render(h(QuotaView, { api: stubApi() }));
+      expect(container.querySelector(".acct-quota-cache")).toBeNull();
+      // The bars it annotates are untouched.
+      expect(screen.getByText("7-day window")).toBeTruthy();
+    });
+
+    it("glosses the jargon behind a visible info icon", () => {
+      // "hit", "missed" and "re-cached" mean nothing on their own, and the
+      // figure is only actionable once the reader knows which direction is
+      // good — the opposite of the quota bars right above it.
+      setQuotaSuccess(withCache({}));
+      const { container } = render(h(QuotaView, { api: stubApi() }));
+      const info = container.querySelector(".acct-quota-cache .acct-quota-info") as HTMLElement;
+      expect(info.getAttribute("title")).toContain("Higher is cheaper");
+      expect(info.getAttribute("title")).toContain("Last miss: prefix_changed.");
+    });
+
     it("renders nothing until Claude has reported a request", () => {
       setQuotaSuccess(SUCCESS);
       const { container } = render(h(QuotaView, { api: stubApi() }));
@@ -220,13 +331,16 @@ describe("QuotaView", () => {
       expect(zero.container.querySelector(".acct-quota-cache")).toBeNull();
     });
 
-    it("omits the miss segments when the cache never missed", () => {
+    it("omits the segments Claude did not report", () => {
+      // Misses without a rebuild count or a re-cache figure: the detail
+      // line carries what exists and nothing else, rather than padding
+      // itself out with zeroes.
       setQuotaSuccess(
-        withCache({ misses: 0, expectedRebuilds: 0, missRecacheTokens: 0, hitRatio: 1 }),
+        withCache({ misses: 8, expectedRebuilds: 0, missRecacheTokens: 0, hitRatio: 0.8 }),
       );
       render(h(QuotaView, { api: stubApi() }));
-      expect(screen.getByText("40 requests")).toBeTruthy();
-      expect(screen.getByText("100% hit")).toBeTruthy();
+      expect(screen.getByText("40 requests · 8 missed")).toBeTruthy();
+      expect(screen.getByText("80% hit")).toBeTruthy();
     });
   });
 });

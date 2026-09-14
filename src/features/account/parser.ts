@@ -21,6 +21,7 @@ import { isUsageAggregateWarming } from "./projectStats";
 import * as os from "os";
 import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
+import { readQuotaHistory } from "./quotaHistory";
 import { readCredentials } from "./credentials";
 import { readClaudeJsonParsed } from "./claudeJsonCache";
 import { computeUsageStats } from "./usage";
@@ -368,8 +369,16 @@ export function parseAccountData(workspacePath?: string): AccountData {
   // payload stays a single parse pass. No network, no token exposure
   // — profiles.ts returns metadata with a credentials hash, not the
   // token itself.
-  const savedProfiles = listProfiles();
-  const activeProfileSlug = getActiveProfileSlug(savedProfiles);
+  const rawProfiles = listProfiles();
+  const activeProfileSlug = getActiveProfileSlug(rawProfiles);
+  // Attach each account's last-seen quota. Read once for the whole list
+  // rather than per profile: it is a single small file, and the switcher
+  // renders every row at the same instant anyway.
+  const remembered = readQuotaHistory()?.accounts ?? {};
+  const savedProfiles = rawProfiles.map((p) => ({
+    ...p,
+    lastQuota: (p.accountUuid && remembered[p.accountUuid]) || null,
+  }));
   return {
     profile: parseProfile(),
     usage: parseUsage(),

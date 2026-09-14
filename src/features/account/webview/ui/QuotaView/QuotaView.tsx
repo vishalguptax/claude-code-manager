@@ -26,8 +26,10 @@ import { now } from "../../../../../webview/shared/model";
 import type { QuotaError, QuotaSuccess } from "../../../quota";
 import type { PromptCacheStats } from "../../../statuslineCore";
 import type { AccountApi } from "../../api";
-import { formatNumber, quotaFreshness } from "../../lib";
+import { formatNumber, quotaFreshness, weeklyPace } from "../../lib";
+import { describeProfileQuota } from "../../../profileQuota";
 import {
+  accountData,
   isSectionCollapsed,
   quotaAccountSince,
   quotaStatus,
@@ -174,14 +176,27 @@ function QuotaBody({
   return <QuotaSuccessBody data={status.data} />;
 }
 
+/**
+ * Right after a switch the global statusline cache still belongs to the
+ * account we left, so there is nothing live to show for this one until
+ * Claude Code runs a turn. What we can show is what this account looked
+ * like the last time it WAS live — dated, so it never reads as current.
+ * Without it the card is blank for exactly as long as the user is most
+ * likely to be asking how much room they just switched into.
+ */
 function QuotaSwitched({ onRetry }: { onRetry: (e: Event) => void }) {
+  const data = accountData.value;
+  const active = data?.savedProfiles.find((p) => p.slug === data.activeProfileSlug);
+  const remembered = describeProfileQuota(active?.lastQuota ?? null, now.value);
   return (
     <div class="acct-quota-error" role="status">
       <span class="acct-quota-error-icon">
         <Icon name="refresh-cw" size={16} />
       </span>
       <div class="acct-quota-error-body">
-        <div class="acct-quota-error-title">Switched account</div>
+        <div class="acct-quota-error-title">
+          {remembered ? `Last seen ${remembered}` : "Switched account"}
+        </div>
         <div class="acct-quota-error-msg">
           Open Claude Code with this account to load its quota.
         </div>
@@ -229,7 +244,13 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
   return (
     <div class="acct-quota-bars">
       {fiveHour ? <QuotaBar label="5-hour window" window={fiveHour} /> : null}
-      {sevenDay ? <QuotaBar label="7-day window" window={sevenDay} /> : null}
+      {sevenDay ? (
+        <QuotaBar
+          label="7-day window"
+          window={sevenDay}
+          pace={weeklyPace(sevenDay, data.quota.capturedAt)}
+        />
+      ) : null}
       <PromptCacheRow stats={data.live.promptCache} />
     </div>
   );
@@ -243,9 +264,32 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
  * tenth of the same tokens re-read, so a low hit ratio with repeated
  * rebuilds is the difference between a cheap session and an expensive
  * one. Renders nothing until Claude has reported it.
+ *
+ * Styled deliberately quieter than the bars above it. It used to copy the
+ * quota row's head exactly — same size, weight and colour, same figure in
+ * the same right-hand slot — which made it read as a fourth window that
+ * had lost its bar, and worse, inverted the meaning of that slot: a quota
+ * at 98% means nearly blocked, a cache at 98% means working beautifully.
+ * This is a footnote to the bars, so it is set like one.
+ *
+ * And it only appears when it has something to say. A healthy cache is
+ * the overwhelmingly common case, so a permanent "98% hit" was a constant
+ * that carried no information and took up the bottom of the card — the
+ * same reason the pace line stays silent on a week that holds. The row
+ * earns its place when the cache is actually costing the user tokens.
  */
+
+/**
+ * Above this the cache is doing its job and there is nothing to report.
+ * Warm Claude Code sessions sit at 95–99%; below that, better than one
+ * request in twenty is re-sending the whole cached prefix, which is a
+ * real and visible drag on the windows above.
+ */
+const CACHE_HEALTHY_HIT_RATIO = 0.95;
+
 function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
   if (!stats || stats.requests === 0) return null;
+  if (stats.hitRatio >= CACHE_HEALTHY_HIT_RATIO) return null;
   const pct = Math.round(stats.hitRatio * 100);
   const wasted = stats.missRecacheTokens;
   const detail: string[] = [`${stats.requests} requests`];
@@ -254,16 +298,25 @@ function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
     detail.push(`${stats.expectedRebuilds} rebuilt`);
   }
   if (wasted > 0) detail.push(`${formatNumber(wasted)} tokens re-cached`);
-  const title = stats.lastMissCause
-    ? `Last miss: ${stats.lastMissCause}`
-    : undefined;
+  // Plain-language gloss, because every term on this row is jargon:
+  // "hit", "missed", "re-cached" mean nothing without it, and the figure
+  // is only actionable once you know which direction is good.
+  const explain =
+    "Share of each request served from Claude's prompt cache instead of " +
+    "being sent again. Higher is cheaper, and a miss rebuilds the whole " +
+    "cached prefix — those re-cached tokens count towards the windows " +
+    "above." +
+    (stats.lastMissCause ? ` Last miss: ${stats.lastMissCause}.` : "");
   return (
-    <div class="acct-quota-cache" title={title}>
+    <div class="acct-quota-cache">
       <div class="acct-quota-cache-head">
         <span class="acct-quota-cache-label">
           Prompt cache{stats.ttl ? ` (${stats.ttl})` : ""}
         </span>
         <span class="acct-quota-cache-value">{pct}% hit</span>
+        <span class="acct-quota-info" role="img" tabIndex={0} title={explain} aria-label={explain}>
+          <Icon name="info" size={12} />
+        </span>
       </div>
       <div class="acct-quota-cache-detail">{detail.join(" · ")}</div>
     </div>

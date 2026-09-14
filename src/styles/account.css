@@ -476,7 +476,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  padding: var(--space-xs) 0;
+  /* Top only. The section body already pads its own bottom, and a bottom
+     padding here stacked on top of it, leaving a 16px gap under the last
+     line that read as a missing element rather than as breathing room. */
+  padding-top: var(--space-xs);
 }
 .acct-quota-row {
   display: flex;
@@ -501,8 +504,49 @@
   font-feature-settings: "tnum" 1;
 }
 .acct-quota-sub {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
   font-size: var(--fs-xs);
   color: var(--fg-muted);
+}
+
+/* Countdown to the cap, opposite the reset timer. Tinted because it only
+   ever appears when the user is on course to run out — there is no calm
+   version of this line to tint by mistake. */
+.acct-quota-countdown {
+  color: var(--vscode-editorWarning-foreground, #d49a00);
+  white-space: nowrap;
+}
+
+/* The verdict in words, under the bar. Muted when the week holds, since
+   it is a confirmation rather than a call to act; tinted only when the
+   allowance falls short, which is the one case that asks the user to do
+   something differently. */
+.acct-quota-verdict {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+
+/* Marks that a longer reading exists. Always muted, even next to a tinted
+   verdict: the affordance is the same either way, and colouring it would
+   read as a second warning. */
+.acct-quota-info {
+  display: inline-flex;
+  color: var(--fg-muted);
+  opacity: 0.7;
+  cursor: help;
+}
+.acct-quota-info:hover,
+.acct-quota-info:focus-visible {
+  opacity: 1;
+}
+.acct-quota-verdict.pace-ahead {
+  color: var(--vscode-editorWarning-foreground, #d49a00);
 }
 
 /* Prompt-cache effectiveness — a text row, not a bar. The rate-limit
@@ -519,20 +563,27 @@
 }
 .acct-quota-cache-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-sm);
+  align-items: center;
+  gap: var(--space-xs);
 }
+/* Footnote weight, not row weight. At --fs-sm/500/--fg this matched the
+   quota labels exactly and read as a fourth window missing its bar. */
 .acct-quota-cache-label {
-  font-size: var(--fs-sm);
-  color: var(--fg);
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
 }
+/* Sits next to its label rather than pushed to the right-hand slot the
+   quota percentages occupy, because the same position with the opposite
+   polarity (98% here is good, 98% there is nearly blocked) is exactly
+   what made the row misread. */
 .acct-quota-cache-value {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+}
+.acct-quota-cache-head .acct-quota-info {
+  margin-inline-start: auto;
 }
 .acct-quota-cache-detail {
   font-size: var(--fs-xs);
@@ -551,14 +602,38 @@
   overflow: hidden;
 }
 .acct-quota-bar-fill {
+  position: relative; /* paint above the projection ghost, which is
+                         absolutely positioned and would otherwise win */
+  z-index: 1;
   height: 100%;
   border-radius: 999px;
   transition: width 240ms ease-out, background-color 200ms ease-out;
   min-width: 2px; /* keep a tiny sliver visible at 0% so the track
                      doesn't read as "no data" */
 }
+
+/* Where this window lands by reset if the current burn rate holds. Sits
+   under the real fill and extends past it, so the gap between the two is
+   what the week still has to spend. Reaching the far end IS the overshoot
+   — the bar has no room past the cap, and running out looks exactly like
+   a ghost that fills the track. */
+.acct-quota-bar-ghost {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  transition: width 240ms ease-out;
+  background: color-mix(in srgb, var(--fg-muted) 32%, transparent);
+}
+.acct-quota-bar-ghost.pace-ahead {
+  background: color-mix(
+    in srgb,
+    var(--vscode-editorWarning-foreground, #d49a00) 42%,
+    transparent
+  );
+}
 @media (prefers-reduced-motion: reduce) {
-  .acct-quota-bar-fill { transition: none; }
+  .acct-quota-bar-fill,
+  .acct-quota-bar-ghost { transition: none; }
 }
 
 /* Threshold tones — green → amber → red. Uses VS Code's debug/error

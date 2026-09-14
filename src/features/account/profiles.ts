@@ -377,6 +377,20 @@ function readLiveIdentity(): LiveIdentity | null {
 }
 
 /**
+ * `accountUuid` of the account whose credentials are live right now, or
+ * "" when nobody is signed in (or the credential predates the field).
+ *
+ * Exposed separately from `getActiveProfileSlug` because callers that
+ * only need identity should not pay for the profile scan: resolving a
+ * slug stats and hashes every saved snapshot, while this reads the one
+ * credential file. The quota recorder runs on every statusline render,
+ * which is every turn of an active session.
+ */
+export function readLiveAccountUuid(): string {
+  return readLiveIdentity()?.accountUuid ?? "";
+}
+
+/**
  * Return the slug of the profile that matches the live credentials, or
  * null when none do. Match cascade:
  *   1. credentials hash (byte-identical = same snapshot)
