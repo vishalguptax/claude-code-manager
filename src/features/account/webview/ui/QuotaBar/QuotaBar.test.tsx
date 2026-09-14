@@ -20,9 +20,9 @@ describe("QuotaBar", () => {
     expect(screen.getByText(/resets in/)).toBeTruthy();
   });
 
-  it("captions the pace below the reset timer when one is given", () => {
+  it("draws the projection on the bar and counts down beside the reset", () => {
     const future = new Date(Date.now() + 2 * 3600000).toISOString();
-    render(
+    const { container } = render(
       h(QuotaBar, {
         label: "7-day window",
         window: { utilization: 80, resetsAt: future },
@@ -35,22 +35,49 @@ describe("QuotaBar", () => {
         },
       }),
     );
-    const caption = screen.getByText("Runs out 2d before reset");
-    // The projection the caption spares the reader stays in the tooltip.
-    expect(caption.getAttribute("title")).toContain("160%");
-    // Only "ahead" is tinted; the class is what carries that.
-    expect(caption.className).toContain("pace-ahead");
+    // Ghost reaches the end of the track: overshoot has nowhere to go.
+    const ghost = container.querySelector(".acct-quota-bar-ghost") as HTMLElement;
+    expect(ghost.style.width).toBe("100%");
+    expect(ghost.className).toContain("pace-ahead");
+    // Countdown sits on the reset line, not on a line of its own.
+    const sub = container.querySelector(".acct-quota-sub") as HTMLElement;
+    expect(sub.textContent).toContain("resets in");
+    expect(sub.querySelector(".acct-quota-countdown")?.textContent).toMatch(/^out in \d+h$/);
+    // The projection the bar spares the reader stays in the tooltip.
+    expect(screen.getByRole("progressbar").getAttribute("title")).toContain("160%");
   });
 
-  it("omits the pace caption entirely when none could be computed", () => {
+  it("shows the ghost but no countdown when the week is on track", () => {
     const future = new Date(Date.now() + 2 * 3600000).toISOString();
-    render(
+    const { container } = render(
+      h(QuotaBar, {
+        label: "7-day window",
+        window: { utilization: 20, resetsAt: future },
+        pace: {
+          verdict: "under",
+          elapsedPercent: 50,
+          projectedPercent: 40,
+          exhaustsAt: "",
+          shortfallMs: null,
+        },
+      }),
+    );
+    expect((container.querySelector(".acct-quota-bar-ghost") as HTMLElement).style.width).toBe(
+      "40%",
+    );
+    expect(container.querySelector(".acct-quota-countdown")).toBeNull();
+  });
+
+  it("draws no projection at all when none could be computed", () => {
+    const future = new Date(Date.now() + 2 * 3600000).toISOString();
+    const { container } = render(
       h(QuotaBar, {
         label: "7-day window",
         window: { utilization: 30, resetsAt: future },
         pace: null,
       }),
     );
-    expect(screen.queryByText(/pace/i)).toBeNull();
+    expect(container.querySelector(".acct-quota-bar-ghost")).toBeNull();
+    expect(container.querySelector(".acct-quota-countdown")).toBeNull();
   });
 });

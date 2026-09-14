@@ -27,7 +27,7 @@ export {
   type QuotaFreshness,
   type UsageTotals,
 } from "./format";
-export { describePace, weeklyPace, type Pace, type PaceVerdict } from "./pace";
+export { paceDisplay, weeklyPace, type Pace, type PaceDisplay, type PaceVerdict } from "./pace";
 export {
   buildShareCard,
   SHARE_CARD_FOOTER,

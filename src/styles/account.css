@@ -501,16 +501,19 @@
   font-feature-settings: "tnum" 1;
 }
 .acct-quota-sub {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
   font-size: var(--fs-xs);
   color: var(--fg-muted);
 }
 
-/* Burn-rate verdict under the weekly bar. Only "ahead" earns colour: it
-   is the one verdict that asks the user to change what they are doing,
-   and tinting all three would make the section read as an alert panel
-   when nothing is wrong. */
-.acct-quota-pace.pace-ahead {
+/* Countdown to the cap, opposite the reset timer. Tinted because it only
+   ever appears when the user is on course to run out — there is no calm
+   version of this line to tint by mistake. */
+.acct-quota-countdown {
   color: var(--vscode-editorWarning-foreground, #d49a00);
+  white-space: nowrap;
 }
 
 /* Prompt-cache effectiveness — a text row, not a bar. The rate-limit
@@ -559,14 +562,38 @@
   overflow: hidden;
 }
 .acct-quota-bar-fill {
+  position: relative; /* paint above the projection ghost, which is
+                         absolutely positioned and would otherwise win */
+  z-index: 1;
   height: 100%;
   border-radius: 999px;
   transition: width 240ms ease-out, background-color 200ms ease-out;
   min-width: 2px; /* keep a tiny sliver visible at 0% so the track
                      doesn't read as "no data" */
 }
+
+/* Where this window lands by reset if the current burn rate holds. Sits
+   under the real fill and extends past it, so the gap between the two is
+   what the week still has to spend. Reaching the far end IS the overshoot
+   — the bar has no room past the cap, and running out looks exactly like
+   a ghost that fills the track. */
+.acct-quota-bar-ghost {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  transition: width 240ms ease-out;
+  background: color-mix(in srgb, var(--fg-muted) 32%, transparent);
+}
+.acct-quota-bar-ghost.pace-ahead {
+  background: color-mix(
+    in srgb,
+    var(--vscode-editorWarning-foreground, #d49a00) 42%,
+    transparent
+  );
+}
 @media (prefers-reduced-motion: reduce) {
-  .acct-quota-bar-fill { transition: none; }
+  .acct-quota-bar-fill,
+  .acct-quota-bar-ghost { transition: none; }
 }
 
 /* Threshold tones — green → amber → red. Uses VS Code's debug/error
