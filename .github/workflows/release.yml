@@ -11,6 +11,14 @@ on:
       - ".dev/**"
       - "marketing/**"
       - "site/**"
+      # Marketing assets and the tooling that generates them. None of this
+      # ships: media/demo.gif is in .vscodeignore and the screenshot scripts
+      # only ever write into site/ and media/. Regenerating a screenshot used
+      # to publish a new version of the extension to both marketplaces with
+      # byte-identical code.
+      - "media/demo.gif"
+      - "scripts/generate-screenshots.mjs"
+      - "scripts/screenshot-fixtures.js"
     # Note: docs/releases/** and CHANGELOG.md are NOT ignored —
     # the release skill commits a release notes file which should
     # trigger the publish workflow.
