@@ -395,16 +395,19 @@
   padding: var(--space-sm) var(--space-2xl) 0;
   flex-shrink: 0;
 }
+/* The ACTION tier: a chip the user can remove. Taller than a label chip for
+   the hit target, and a pill rather than a soft rectangle so it reads as a
+   control rather than as an annotation. */
 .filter-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  height: 22px;
-  padding: 0 var(--space-xs) 0 var(--space-sm);
-  border-radius: 11px;
+  height: var(--chip-h-action);
+  padding: 0 var(--space-xs) 0 var(--chip-pad-x);
+  border-radius: calc(var(--chip-h-action) / 2);
   background: var(--badge-neutral-bg);
   color: var(--badge-neutral-fg);
-  font-size: var(--fs-sm);
+  font-size: var(--chip-fs);
   max-width: 100%;
   min-width: 0;
 }
@@ -537,16 +540,17 @@
 .vsc-badge,
 .tag,
 .hook-matcher,
-.agent-model-badge {
+.agent-model-badge,
+.acct-pill {
   display: inline-flex;
   align-items: center;
   /* Chips may carry a leading glyph (the branch tag, the worktree tag), so the
      gap belongs to the shared geometry rather than to each chip that adds one. */
   gap: var(--space-xs);
-  height: 18px;
-  padding: 0 var(--space-sm);
+  height: var(--chip-h);
+  padding: 0 var(--chip-pad-x);
   border-radius: var(--radius-sm);
-  font-size: var(--fs-xs);
+  font-size: var(--chip-fs);
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
