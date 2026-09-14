@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.10.9] - 2026-09-14
+
+Reverts the chip and badge restyling from 2.10.7 and 2.10.8 — consistent, but no visible improvement in the panel.
+
+See [docs/releases/v2.10.9.md](docs/releases/v2.10.9.md) for full details.
+
 ## [2.10.0] - 2026-09-13
 
 A ground-up pass over the sidebar: every tab now renders from one shared component layer, with a cross-tab search on Cmd/Ctrl+K, collapsible sections on Account and Config, per-row switches for MCP servers, and tooltips that appear only where they say something.
