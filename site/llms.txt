@@ -6,11 +6,16 @@ Claude Code Manager reads the shared `~/.claude/` directory used by Claude Code 
 
 ## Features
 
-- Sessions: browse, search (full-text transcript), and resume past Claude Code sessions by project and git branch. Pin, rename, fork, import, export, and restore a whole workspace of terminals. Active sessions show live status.
-- Account & Usage: switch between Claude accounts without a full logout/login. Activity heatmap, token usage by model/project/tool, and opt-in quota bars for the real 5-hour and 7-day subscription windows.
-- MCP Servers: enable, disable, delete, or inspect MCP servers with no JSON editing. Secrets are masked; an auth-health banner flags connectors that need re-auth.
-- Skills, Commands, Hooks, Agents: manage global, project, and plugin-scoped skills; built-in and custom slash commands; automation hooks across every settings scope with full command preview; project and plugin agents with model badges.
-- Config: model selector, reasoning effort, per-scope permissions editor, settings-history snapshots with one-click restore, and brain backup/restore.
+Each feature has its own page; the link is what an assistant should cite.
+
+- [Sessions](https://claudecodemanager.vishalg.in/sessions/): browse, full-text search, and resume past Claude Code sessions by project and git branch. Pin, rename, fork, import, export, and restore a whole workspace of terminals. Active sessions show live status.
+- [Usage & quota](https://claudecodemanager.vishalg.in/usage/): token usage by model, project, and tool, an activity heatmap, and opt-in bars for the real 5-hour and 7-day subscription windows — read from Claude Code's own statusline cache, not estimated.
+- [Account switching](https://claudecodemanager.vishalg.in/accounts/): switch between Claude accounts without the /logout /login cycle, with backup and restore around the swap.
+- [MCP servers](https://claudecodemanager.vishalg.in/mcp/): enable, disable, delete, or inspect MCP servers with no JSON editing. Secrets are masked; an auth-health banner flags connectors that need re-auth.
+- [Skills](https://claudecodemanager.vishalg.in/skills/): every global, project, and plugin-scoped skill in one list.
+- [Slash commands](https://claudecodemanager.vishalg.in/commands/): built-in and custom commands, with a preview of what each one does.
+- [Hooks](https://claudecodemanager.vishalg.in/hooks/): automation hooks across every settings scope, with the full command shown before it runs.
+- [Agents](https://claudecodemanager.vishalg.in/agents/): project and plugin subagents with model badges and scope.
 
 ## Links
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0c0a09">
 
-  <title>Claude Account Switcher — Swap Claude Code Logins Without /logout | Claude Code Manager</title>
+  <title>Claude Account Switcher for VS Code — Skip the /logout Cycle</title>
   <meta name="description" content="Switch between Claude accounts in VS Code without the /logout /login cycle. Save work and personal profiles, swap instantly. Free extension, tokens never leave your machine.">
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="https://claudecodemanager.vishalg.in/accounts/">
@@ -13,11 +13,11 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Claude Code Manager">
   <meta property="og:url" content="https://claudecodemanager.vishalg.in/accounts/">
-  <meta property="og:title" content="Claude account switcher — swap logins without /logout">
+  <meta property="og:title" content="Claude Account Switcher for VS Code — Skip the /logout Cycle">
   <meta property="og:description" content="Save multiple Claude logins and swap between them instantly. Local profiles, no network calls.">
   <meta property="og:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Claude account switcher — swap logins without /logout">
+  <meta name="twitter:title" content="Claude Account Switcher for VS Code — Skip the /logout Cycle">
   <meta name="twitter:description" content="Save multiple Claude logins and swap between them instantly. Local profiles, no network calls.">
   <meta name="twitter:image" content="https://claudecodemanager.vishalg.in/assets/og.png">
 
@@ -34,12 +34,18 @@
     "@graph": [
       {
         "@type": "SoftwareApplication",
+        "dateModified": "2026-09-14",
         "name": "Claude Code Manager — Account Switcher",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "VS Code, Cursor, Windsurf, VSCodium",
         "url": "https://claudecodemanager.vishalg.in/accounts/",
         "description": "Save multiple Claude logins and swap between them without a full logout and login cycle. Local profiles, no network calls. Free VS Code extension, 100% local.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "sameAs": [
+          "https://github.com/vishalguptax/claude-code-manager",
+          "https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager",
+          "https://open-vsx.org/extension/vishalguptax/claude-manager"
+        ],
         "author": { "@type": "Person", "name": "Vishal Gupta" }
       },
       {
@@ -60,7 +66,8 @@
       { "@type": "Question", "name": "How do I switch between Claude accounts without logging out?", "acceptedAnswer": { "@type": "Answer", "text": "Claude Code Manager saves each login as a named profile. Switching swaps the stored credentials on disk — no /logout, no /login, no re-entering codes. Your sessions and settings stay put." } },
       { "@type": "Question", "name": "Can I use separate work and personal Claude accounts in VS Code?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — that's the main use case. Save both as profiles and swap in two clicks, from the sidebar or the command palette." } },
       { "@type": "Question", "name": "Where are my saved Claude account profiles stored?", "acceptedAnswer": { "@type": "Answer", "text": "Locally, in ~/.claude/manager-accounts/, in the same plain format Claude CLI itself uses. Nothing is uploaded anywhere. Treat the folder as sensitive, the same way you treat ~/.claude.json." } },
-      { "@type": "Question", "name": "What happens if a switch is interrupted?", "acceptedAnswer": { "@type": "Answer", "text": "The previous account's identity is kept as a backup file, and the extension offers to restore it, discard it, or decide later. A half-finished swap never locks you out." } }
+      { "@type": "Question", "name": "What happens if a switch is interrupted?", "acceptedAnswer": { "@type": "Answer", "text": "The previous account's identity is kept as a backup file, and the extension offers to restore it, discard it, or decide later. A half-finished swap never locks you out." } },
+      { "@type": "Question", "name": "How is this different from claude-swap?", "acceptedAnswer": { "@type": "Answer", "text": "Same idea, different home. claude-swap is a solid CLI for swapping Claude logins; Claude Code Manager puts the same profile switching in a VS Code sidebar next to your sessions, usage, and MCP servers, and backs up the credential file before each swap so an interrupted switch cannot leave you logged out of both accounts." } }
     ]
   }
   </script>
@@ -164,6 +171,14 @@
         <details>
           <summary>What if a switch gets interrupted?</summary>
           <p>The previous account's identity is kept as a backup, and the extension offers restore, discard, or decide-later. You're never locked out by a half-finished swap.</p>
+        </details>
+
+        <details>
+
+          <summary>How is this different from claude-swap?</summary>
+
+          <p>Same idea, different home. claude-swap is a solid CLI for swapping Claude logins; Claude Code Manager puts the same profile switching in a VS Code sidebar next to your sessions, usage, and MCP servers, and backs up the credential file before each swap so an interrupted switch cannot leave you logged out of both accounts.</p>
+
         </details>
       </div>
     </section>
