@@ -143,3 +143,48 @@ describe("row action reveal", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/**
+ * `outline` and `icon-outline` are the same control drawn with and without a
+ * label, and every use puts them side by side — collapse beside "Select",
+ * refresh beside the search field, continue beside "New Session". They have
+ * to read as one family.
+ *
+ * They drifted because `icon-outline` inherited its colour from `.btn-icon`,
+ * which deliberately uses `icon.foreground` so a LONE toolbar glyph matches
+ * the ones VS Code draws beside it. Correct in isolation, wrong when paired:
+ * the collapse chevrons sat at a visibly different shade from the "Select"
+ * label 8px away.
+ */
+describe("outline button family", () => {
+  const native = strip(fs.readFileSync(path.join(STYLES, "components-native.css"), "utf8"));
+
+  /** Declarations inside the first rule whose selector list matches. */
+  const ruleBody = (selector: string): string => {
+    const at = native.indexOf(`${selector} {`);
+    expect(at).toBeGreaterThan(-1);
+    return native.slice(at, native.indexOf("}", at));
+  };
+
+  it("draws both variants in the same resting colour", () => {
+    expect(ruleBody(".btn-outline")).toContain("color: var(--fg-muted)");
+    expect(ruleBody(".btn-icon-outline")).toContain("color: var(--fg-muted)");
+  });
+
+  it("lights both up identically on hover", () => {
+    const text = ruleBody(".btn-outline:hover:not(:disabled)");
+    const icon = ruleBody(".btn-icon-outline:hover:not(:disabled)");
+    for (const decl of ["color: var(--fg)", "border-color: var(--accent)"]) {
+      expect(text).toContain(decl);
+      expect(icon).toContain(decl);
+    }
+  });
+
+  it("gives the icon variant no ghost fill its labelled twin lacks", () => {
+    // .btn-icon:hover paints a ghost background; inheriting it here would
+    // make one of the pair fill on hover while the other only changes edge.
+    expect(ruleBody(".btn-icon-outline:hover:not(:disabled)")).toContain(
+      "background: transparent",
+    );
+  });
+});
