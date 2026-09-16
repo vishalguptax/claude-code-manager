@@ -21,13 +21,17 @@ import { Button, Icon, Modal } from "../../shared/ui";
  */
 const BLURBS: Record<string, string> = {
   sessions: "Search & resume every session",
+  account: "Usage, quota & account switching",
+  checkpoints: "Diff & restore file versions Claude kept",
+  prompts: "Search everything you've ever asked",
   skills: "Global, project & plugin skills",
   mcp: "Toggle MCP servers, no JSON",
   agents: "Subagents with model badges",
   commands: "Built-in & custom slash commands",
   hooks: "Automation hooks, every scope",
-  account: "Usage, quota & account switching",
-  config: "Models, permissions & backups",
+  plugins: "What's installed, enabled & why",
+  memory: "Browse and prune auto-memory",
+  config: "Models, permissions, tabs & backups",
 };
 
 export function Intro() {

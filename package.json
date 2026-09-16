@@ -255,6 +255,7 @@
             "enum": [
               "sessions",
               "account",
+              "config",
               "checkpoints",
               "prompts",
               "skills",
@@ -263,8 +264,7 @@
               "commands",
               "hooks",
               "plugins",
-              "memory",
-              "config"
+              "memory"
             ]
           },
           "default": [],
@@ -277,6 +277,7 @@
             "enum": [
               "sessions",
               "account",
+              "config",
               "checkpoints",
               "prompts",
               "skills",
@@ -285,8 +286,7 @@
               "commands",
               "hooks",
               "plugins",
-              "memory",
-              "config"
+              "memory"
             ]
           },
           "default": [],
