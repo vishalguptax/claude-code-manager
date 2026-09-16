@@ -2,7 +2,7 @@
   "name": "claude-manager",
   "displayName": "Claude Code Manager — Sessions, Usage, MCP & Agents",
   "description": "Manage Claude Code sessions, file checkpoints, prompts, MCP servers, skills, hooks, agents, plugins, account switching & usage tracking from your VS Code sidebar. 100% local, zero telemetry.",
-  "version": "2.12.0",
+  "version": "2.12.1",
   "publisher": "vishalguptax",
   "author": {
     "name": "Vishal Gupta",
