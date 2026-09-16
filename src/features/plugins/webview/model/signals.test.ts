@@ -4,14 +4,12 @@ import {
   notEnabled,
   orphaned,
   plugin,
-  policyEntry,
   snapshot,
   untrusted,
 } from "../__tests__/fixtures";
 import {
   _resetPluginsState,
   applyPluginsData,
-  ignoredPolicy,
   isIssue,
   issues,
   loading,
@@ -125,20 +123,6 @@ describe("viewCounts", () => {
 
   it("is all zeroes before any snapshot arrives", () => {
     expect(viewCounts.value).toEqual({ all: 0, issues: 0, sources: 0 });
-  });
-});
-
-describe("ignoredPolicy", () => {
-  it("picks out the keys Claude Code will silently disregard", () => {
-    applyPluginsData(
-      snapshot({
-        policy: [
-          policyEntry(),
-          policyEntry({ key: "blockedMarketplaces", scope: "global", ignored: true }),
-        ],
-      }),
-    );
-    expect(ignoredPolicy.value.map((p) => p.key)).toEqual(["blockedMarketplaces"]);
   });
 });
 

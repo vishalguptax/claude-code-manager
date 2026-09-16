@@ -8,9 +8,9 @@ import {
   applyError,
   applySessions,
   expandedPath,
+  fileQuery,
   loadingFiles,
   resetCheckpointSignals,
-  searchQuery,
   selectedSessionId,
 } from "../../model";
 import { CheckpointFiles } from "./CheckpointFiles";
@@ -119,7 +119,7 @@ describe("CheckpointFiles — shell", () => {
     renderFiles([], {}, 7);
     expect(
       screen.getByText(
-        "7 backup blobs are on disk, but the session transcript no longer records which files they belong to.",
+        "7 backups are on disk, but this session's transcript no longer records which files they belong to.",
       ),
     ).toBeTruthy();
   });
@@ -168,7 +168,7 @@ describe("CheckpointFiles — file list", () => {
 
   it("shows the unmapped-blob count alongside a populated list", () => {
     renderFiles([file()], {}, 3);
-    expect(screen.getByText("3 unmapped")).toBeTruthy();
+    expect(screen.getByText("3 unmatched backups")).toBeTruthy();
   });
 
   it("exposes the full path on the file name for identification", () => {
@@ -181,18 +181,18 @@ describe("CheckpointFiles — file list", () => {
       file(),
       file({ path: FILE_B, name: "README.md", dir: "/proj/docs" }),
     ]);
-    searchQuery.value = "readme";
+    fileQuery.value = "readme";
     await waitFor(() => expect(screen.getByText("1 of 2 files")).toBeTruthy());
     expect(screen.queryByText("platform.service.ts")).toBeNull();
   });
 
   it("explains an empty filter result without losing the search box", async () => {
     renderFiles([file()]);
-    searchQuery.value = "zzz";
+    fileQuery.value = "zzz";
     await waitFor(() =>
-      expect(screen.getByText("No files match that filter")).toBeTruthy(),
+      expect(screen.getByText("No matching files")).toBeTruthy(),
     );
-    expect(screen.getByLabelText("Filter checkpoint files")).toBeTruthy();
+    expect(screen.getByLabelText("Search files")).toBeTruthy();
   });
 });
 
@@ -280,5 +280,53 @@ describe("CheckpointFiles — versions", () => {
     expect(screen.getByText("Diff").getAttribute("title")).toBe(
       "Compare v1 with the current platform.service.ts",
     );
+  });
+});
+
+describe("CheckpointFiles — house detail contract", () => {
+  // `.tab-content .panel` (tabs.css) is what gives a tab its scroll. A root
+  // that is not `.panel` cannot scroll at all, however long the list gets.
+  it("roots the view in a .panel", () => {
+    const { container } = renderFiles([file()]);
+    expect((container.firstChild as HTMLElement).className).toContain("panel");
+  });
+
+  it("names the session with the shared detail heading", () => {
+    renderFiles([file()]);
+    const title = document.querySelector(".d-head .d-title") as HTMLElement;
+    expect(title.textContent).toBe("Rewrite the checkpoint parser");
+    // The id is what correlates the session with ~/.claude/file-history.
+    expect(title.getAttribute("title")).toBe(SESSION);
+  });
+
+  it("wraps the search field in the shared .search-row", () => {
+    renderFiles([file()]);
+    expect(screen.getByLabelText("Search files").closest(".search-row")).toBeTruthy();
+  });
+
+  it("builds rows from the shared .item vocabulary inside the .list", () => {
+    renderFiles([file()]);
+    const row = document.querySelector(".ckpt-file") as HTMLElement;
+    expect(row.className).toContain("item");
+    expect(row.querySelector(".item-name")).toBeTruthy();
+    expect(row.querySelector(".item-prompt")).toBeTruthy();
+    expect(row.closest(".list")).toBeTruthy();
+  });
+
+  // The expanded versions sit in the SAME scroller as the rows: a scroller of
+  // their own would trap the wheel inside an open file.
+  it("puts the expanded version list in the same scroller as the rows", () => {
+    renderFiles([file()]);
+    fireEvent.click(screen.getByText("platform.service.ts"));
+    const versions = document.querySelector(".ckpt-versions") as HTMLElement;
+    expect(versions.parentElement?.className).toContain("list");
+  });
+
+  it("expands on Enter for keyboard-only navigation", () => {
+    renderFiles([file()]);
+    const row = document.querySelector(".ckpt-file") as Element;
+    expect(row.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(expandedPath.value).toBe(FILE_A);
   });
 });

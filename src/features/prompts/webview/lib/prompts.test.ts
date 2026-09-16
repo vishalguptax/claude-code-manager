@@ -5,6 +5,8 @@ import {
   buildHaystacks,
   filterPrompts,
   listPromptProjects,
+  promptSearchKey,
+  promptSummary,
   queryTerms,
 } from "./prompts";
 
@@ -154,5 +156,56 @@ describe("filterPrompts", () => {
 
   it("does not throw when a haystack is missing for an index", () => {
     expect(filterPrompts(entries, [], "parser", ALL_PROJECTS)).toEqual([]);
+  });
+});
+
+describe("promptSummary", () => {
+  it("collapses a multi-line prompt to one line", () => {
+    expect(promptSummary("fix the\n  parser\n\nplease")).toBe("fix the parser please");
+  });
+
+  it("cuts an over-long prompt and marks the cut", () => {
+    const summary = promptSummary("x".repeat(200), 20);
+    expect(summary).toHaveLength(20);
+    expect(summary.endsWith("…")).toBe(true);
+  });
+
+  it("leaves a short prompt alone", () => {
+    expect(promptSummary("short one")).toBe("short one");
+  });
+
+  it("handles an empty prompt", () => {
+    expect(promptSummary("")).toBe("");
+  });
+});
+
+describe("promptSearchKey", () => {
+  it("keeps the leading words, so the prompt still matches itself", () => {
+    const text = "why does the virtual list scroll to the top after a refresh";
+    const key = promptSearchKey(text);
+    expect(key).toBe("why does the virtual list scroll");
+    // The contract that matters: every term of the key is in the haystack.
+    const [haystack] = buildHaystacks([
+      {
+        id: "1",
+        text,
+        timestamp: 0,
+        projectPath: "",
+        projectName: "",
+        sessionId: "",
+        repeatCount: 1,
+        attachmentCount: 0,
+        attachmentChars: 0,
+      },
+    ]);
+    expect(queryTerms(key).every((t) => haystack.includes(t))).toBe(true);
+  });
+
+  it("never appends an ellipsis, which would match nothing", () => {
+    expect(promptSearchKey("a".repeat(500))).not.toContain("…");
+  });
+
+  it("handles a prompt shorter than the word budget", () => {
+    expect(promptSearchKey("two words")).toBe("two words");
   });
 });

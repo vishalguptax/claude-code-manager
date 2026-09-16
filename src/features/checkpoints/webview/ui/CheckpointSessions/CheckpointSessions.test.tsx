@@ -1,9 +1,14 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { h } from "preact";
-import { fireEvent, render, screen } from "@testing-library/preact";
+import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import type { CheckpointSessionSummary } from "../../../types";
-import { applyError, applySessions, resetCheckpointSignals } from "../../model";
+import {
+  applyError,
+  applySessions,
+  resetCheckpointSignals,
+  sessionQuery,
+} from "../../model";
 import { CheckpointSessions } from "./CheckpointSessions";
 
 const SESSION = "09285b5a-1542-4940-b2a8-ef73977f6fe1";
@@ -123,5 +128,62 @@ describe("CheckpointSessions", () => {
       "Could not read ~/.claude/file-history",
     );
     expect(screen.getByText("Rewrite the checkpoint parser")).toBeTruthy();
+  });
+});
+
+describe("CheckpointSessions — house list contract", () => {
+  // `.tab-content .panel` (tabs.css) is what gives a tab its scroll. A root
+  // that is not `.panel` cannot scroll at all, however long the list gets.
+  it("roots the view in a .panel", () => {
+    applySessions([summary()]);
+    const { container } = render(
+      h(CheckpointSessions, { onSelect: vi.fn(), onRefresh: vi.fn() }),
+    );
+    expect((container.firstChild as HTMLElement).className).toContain("panel");
+  });
+
+  // The 2xl inset on `.search-row` is what lines the field up with the row
+  // text below it; a bare <SearchInput> sits flush against the panel edge.
+  it("wraps the search field in the shared .search-row", () => {
+    applySessions([summary()]);
+    render(h(CheckpointSessions, { onSelect: vi.fn(), onRefresh: vi.fn() }));
+    const field = screen.getByLabelText("Search checkpoint sessions");
+    expect(field.closest(".search-row")).toBeTruthy();
+  });
+
+  it("builds rows from the shared .item vocabulary", () => {
+    applySessions([summary()]);
+    render(h(CheckpointSessions, { onSelect: vi.fn(), onRefresh: vi.fn() }));
+    const row = document.querySelector(".ckpt-session") as HTMLElement;
+    expect(row.className).toContain("item");
+    expect(row.querySelector(".item-name")).toBeTruthy();
+    expect(row.querySelector(".item-prompt")).toBeTruthy();
+    // Rows live inside the shared scrolling list, not a bespoke container.
+    expect(row.closest(".list")).toBeTruthy();
+  });
+
+  it("filters the rows from the search field", async () => {
+    applySessions([
+      summary(),
+      summary({ sessionId: OTHER, label: "Fix the hook parser", project: "api" }),
+    ]);
+    render(h(CheckpointSessions, { onSelect: vi.fn(), onRefresh: vi.fn() }));
+    sessionQuery.value = "hook";
+    await waitFor(() =>
+      expect(screen.queryByText("Rewrite the checkpoint parser")).toBeNull(),
+    );
+    expect(screen.getByText("Fix the hook parser")).toBeTruthy();
+    // The total stays honest: the caption counts the session list, not the
+    // filtered view, so a filter never looks like a deletion.
+    expect(screen.getByText("2 sessions with checkpoints")).toBeTruthy();
+  });
+
+  it("explains a search that matches nothing", async () => {
+    applySessions([summary()]);
+    render(h(CheckpointSessions, { onSelect: vi.fn(), onRefresh: vi.fn() }));
+    sessionQuery.value = "zzz";
+    await waitFor(() => expect(screen.getByText("No matching sessions")).toBeTruthy());
+    // The field must survive the empty state, or the search cannot be undone.
+    expect(screen.getByLabelText("Search checkpoint sessions")).toBeTruthy();
   });
 });

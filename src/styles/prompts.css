@@ -1,143 +1,40 @@
 /* ============================================================================
    Claude Manager — Prompt History Styles
-   Search + project filter toolbar, and the virtualized prompt rows.
 
-   Shared chrome lives in the component layer and is NOT repeated here:
-     - result count caption                        → .list-count (components.css)
-     - windowed list container                     → .virtual-list (components.css)
-     - search field                                → .vsc-search (components-native.css)
-     - project dropdown                            → .vsc-dropdown (components-native.css)
-     - icon buttons                                → .btn-* (components-native.css)
-     - empty + error states                        → .empty-state / .error-banner
-   This file keeps only what is prompt-specific: the toolbar layout and the
-   row, whose text is clamped rather than truncated.
+   The tab is built from the shared vocabulary, so almost nothing belongs here:
+     - panel shell + scroll             → .panel (base.css / tabs.css)
+     - search field row                 → .search-row (components.css)
+     - project dropdown row             → .filter-row (components.css)
+     - result count caption             → .list-count (components.css)
+     - windowed list container          → .list / .virtual-list (base.css /
+                                          components.css)
+     - row, its rhythm, hover + focus   → .item and friends (sessions.css),
+                                          density variant in density.css
+     - chips, badges, empty states      → .tag / .vsc-badge / .empty-state
+
+   What is left is the one thing a prompt row does differently from every other
+   row in the extension: its title IS the content, and the content is unbounded.
    ============================================================================ */
 
 
-/* ──────────────────────────────────────────────────────────────────────────────
-   Prompt History — shell
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.prompt-view {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  /* Fills the tab panel so .virtual-list (flex: 1 1 auto) gets a bounded
-     height to scroll inside. Without it the virtualizer's spacer overflows
-     the panel, scrollTop stays 0, and only the first window ever renders. */
-  flex: 1 1 auto;
-}
-
-.prompt-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-2xl) var(--space-sm);
-}
-
-/* The search field takes the slack; the project dropdown keeps a fixed share
-   so a long project name cannot squeeze the search box shut. */
-.prompt-search {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.prompt-project-filter {
-  flex: 0 1 40%;
-  min-width: 0;
-}
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Prompt History — rows
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.prompt-list {
-  padding-bottom: var(--space-lg);
-}
-
-.prompt-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-2xl);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.prompt-row:hover {
-  background: var(--bg-hover);
-}
-
-/* Clamped, not truncated: the full prompt stays in the DOM for selection and
-   for the row's title tooltip, while the measured row height stays bounded
+/* A prompt is not a name. `.item-name` (sessions.css) ellipsises one line,
+   which is right for a session title and wrong for a paragraph the user wrote:
+   two lines is where a prompt stops being identifiable from its first clause.
+   Clamped rather than cut in TS — the full text stays in the DOM for selection
+   and for the row's `title`, while the measured row height stays bounded
    whether the prompt is five characters or five thousand. */
-.prompt-text {
-  font-size: var(--fs-base);
-  color: var(--fg);
+.prompt-item .item-name {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  overflow: hidden;
+  text-overflow: clip;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
-.prompt-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  min-width: 0;
-}
-
-.prompt-project {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 45%;
-}
-
-.prompt-time {
-  white-space: nowrap;
-}
-
-/* How many times the prompt was re-sent back to back. A count, not a warning:
-   it explains why one row stands for several sends. */
-.prompt-repeat {
-  flex: 0 0 auto;
-  padding: 0 var(--space-xs);
-  border-radius: var(--radius-sm);
-  background: var(--badge-neutral-bg);
-  color: var(--badge-neutral-fg);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Pasted attachments the prompt carried. The blobs themselves are never read
-   into the list — this is the count, and its title carries the size. */
-.prompt-attachments {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  flex: 0 0 auto;
-}
-
-/* Actions sit at the trailing edge, out of the flow of the metadata, and are
-   revealed on hover or keyboard focus only — four thousand rows of
-   permanently visible buttons is visual noise. `focus-within` is what keeps
-   them reachable by Tab, which `opacity: 0` alone would not. */
-.prompt-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin-left: auto;
-  flex: 0 0 auto;
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-
-.prompt-row:hover .prompt-actions,
-.prompt-row:focus-within .prompt-actions {
-  opacity: 1;
+/* A history line that recorded no session has nowhere to go, so the row is not
+   a button and must not offer the pointer `.item` gives every other row. */
+.prompt-item:not([role="button"]) {
+  cursor: default;
 }

@@ -1,17 +1,23 @@
 /* ============================================================================
    Claude Manager — Plugins Styles
-   Plugin rows, marketplace rows, the policy block, and the enable switch.
+   Plugin rows, marketplace rows, the override chain and the policy block.
 
    Shared chrome lives in the component layer and is NOT repeated here:
-     - badge box (display/padding/radius/font)  → .vsc-badge (components-native.css)
-     - search field + clear                      → .vsc-search (components-native.css)
+     - panel shell + scroll                      → .panel / .list (base.css)
+     - search field row                          → .search-row (components.css)
      - segmented view filter                     → .scope-filter / .vsc-segmented
-     - buttons (primary/secondary/icon/danger)   → .btn-* (components-native.css)
-     - list rows                                 → .list-item (components.css)
+     - result-count caption, section heading     → .list-count / .group-label
+     - badge box (display/padding/radius/font)   → .vsc-badge (components-native.css)
+     - chain chips                               → .tag (components.css)
+     - buttons (primary/outline/icon)            → .btn-* (components-native.css)
+     - list rows (cursor/hover/active/focus)     → .list-item (components.css)
+     - back button, detail head/sections/kv      → .back-btn / .d-* (components.css,
+                                                   sessions.css)
+     - code block                                → .d-pre (components.css)
      - parse-error strip                         → .error-banner (components.css)
      - empty states                              → .empty-state (components.css)
-   This file keeps only what is Plugins-specific: the row's stacked layout,
-   the "why" and warning lines, the enable switch, and the policy block.
+   This file keeps only what is Plugins-specific: the row's stacked layout, the
+   "why" and warning lines, the override chain, and the policy block.
 
    Register order note: loaded after the shared layers so these rules layer on
    top of `.list-item`, and before density.css so row padding stays
@@ -19,51 +25,24 @@
    ============================================================================ */
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Plugins — Tab shell
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.plg-tab {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-}
-
-.plg-toolbar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-lg) var(--space-2xl);
-  border-bottom: 1px solid var(--border);
-}
-
-.plg-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* ──────────────────────────────────────────────────────────────────────────────
    Plugins — Row
+
+   A plugin row is a clickable `.list-item`; a marketplace row is not (it has
+   no action of its own) and so carries `.plg-item` alone. Both take the same
+   padding, divider and stacked layout from this one rule, which is also the
+   rule density.css quiets — so the two row kinds can never disagree about
+   their rhythm.
    ────────────────────────────────────────────────────────────────────────────── */
 
-/* A plugin row and a marketplace row share the shared `.list-item` box; these
-   add the Plugins-specific padding, divider and stacked lines. */
-.plg-item,
-.plg-mkt {
+.plg-item {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
   padding: var(--space-lg) var(--space-2xl);
   border-bottom: 1px solid var(--border);
 }
-.plg-item:last-child,
-.plg-mkt:last-child {
+.plg-item:last-child {
   border-bottom: none;
-}
-.plg-item:focus-visible {
-  outline: 1px solid var(--list-focus);
-  outline-offset: -1px;
 }
 
 /* A plugin Claude Code is not loading reads quieter than one it is. */
@@ -71,6 +50,14 @@
   opacity: 0.72;
 }
 .plg-item.plg-item-off:hover {
+  opacity: 1;
+}
+
+/* Reveal the row's copy affordance on the row you are pointing at. The shared
+   `.item-copy-btn` rule (components.css) hides it by default and names the row
+   classes that uncover it; this is the Plugins entry in that vocabulary. */
+.plg-item:hover .item-copy-btn,
+.plg-item:focus-within .item-copy-btn {
   opacity: 1;
 }
 
@@ -89,6 +76,15 @@
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
+}
+.plg-item.active .plg-item-name {
+  color: var(--bg-active-fg);
+}
+
+/* The enable/disable control is a shared icon <Button>; it only needs to be
+   held at its natural size beside the name that takes the rest of the row. */
+.plg-item-toggle {
+  flex: none;
 }
 
 .plg-item-source {
@@ -113,10 +109,16 @@
 .plg-item-detail {
   font-size: var(--fs-sm);
   color: var(--fg-dim);
+  line-height: 1.5;
+}
+.plg-item.active .plg-item-detail,
+.plg-item.active .plg-item-source {
+  color: var(--bg-active-fg);
+  opacity: 0.65;
 }
 
-/* A finding the user has to act on — a policy violation, an unfetched
-   marketplace, an inert settings key. */
+/* A finding the user has to act on — a policy violation, a marketplace that
+   was never added, an inert settings key. */
 .plg-item-warning {
   font-size: var(--fs-sm);
   color: var(--orange);
@@ -126,66 +128,64 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-/* user: on › project: off › local: on */
-.plg-item-chain {
+/* Quiet in-flow note: something is merely pending, or a control is absent for
+   a reason. Mirrors the treatment `.hook-readonly-note` / `.mcp-readonly-note`
+   get in components.css — it belongs in that shared trio, and should join it
+   the next time that file is open. */
+.plg-note {
   font-size: var(--fs-xs);
-  font-family: var(--mono);
-  color: var(--fg-muted);
+  color: var(--role-text-secondary);
+  font-style: italic;
+  line-height: 1.5;
+}
+.plg-note code {
+  font-style: normal;
+}
+/* As a direct `.panel` child (the detail view's read-only note) it has to
+   carry the panel's own text inset. */
+.panel > .plg-note {
+  padding: 0 var(--space-2xl) var(--space-md);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   Plugins — Enable switch
+   Plugins — Override chain
 
-   Geometry mirrors `.mcp-switch` (mcp.css) rather than reusing it: that
-   selector is owned by the MCP stylesheet, and restating a class another file
-   declares is exactly the cascade collision the CSS rules forbid. If a third
-   feature needs a switch, this and `.mcp-switch` move to the component layer
-   together.
+   "user: on" "project: off" "local: on" as shared `.tag` chips, lowest
+   precedence first. Only the chip Claude Code actually obeyed is drawn at full
+   strength; the ones it beat are context.
    ────────────────────────────────────────────────────────────────────────────── */
 
-.plg-switch {
-  flex: none;
-  width: 26px;
-  height: 14px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--input-bg);
-  cursor: pointer;
-  position: relative;
-  transition: background var(--transition-control), border-color var(--transition-control);
-}
-.plg-switch:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 1px;
-}
-.plg-switch[aria-checked="true"] {
-  background: var(--role-primary-bg);
-  border-color: var(--role-primary-bg);
+.plg-item-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
-.plg-switch-knob {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--fg-dim);
-  transition: transform var(--transition-control), background var(--transition-control);
+.plg-chain-tag {
+  opacity: 0.6;
 }
-.plg-switch[aria-checked="true"] .plg-switch-knob {
-  transform: translateX(12px);
-  background: var(--role-primary-fg);
+.plg-chain-tag.is-winner {
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Plugins — Detail view
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* The three settings files, offered as peers. `.d-actions` owns the toolbar at
+   the top of the panel; this row sits inside a `.d-section`, which already
+   supplies the inset. */
+.plg-detail-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
    Plugins — Policy block
    ────────────────────────────────────────────────────────────────────────────── */
-
-.plg-policy {
-  border-bottom: 1px solid var(--border);
-}
 
 .plg-policy-row {
   display: flex;

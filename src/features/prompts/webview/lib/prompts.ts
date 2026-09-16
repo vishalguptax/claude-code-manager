@@ -101,3 +101,27 @@ export function filterPrompts(
   }
   return out;
 }
+
+/**
+ * Collapse a prompt to one line, cut to `max` characters.
+ *
+ * For surfaces that get one line and no wrapping — the command palette's
+ * title row. The list itself never calls this: there the full text stays in
+ * the DOM and CSS clamps it.
+ */
+export function promptSummary(text: string, max = 80): string {
+  const line = text.replace(/\s+/g, " ").trim();
+  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+}
+
+/**
+ * A search query that brings one prompt to the top of the list.
+ *
+ * The palette can only hand the tab a filter — there is no per-row selection
+ * to restore — so choosing a palette result sets this as the search query.
+ * First words only, and no ellipsis: {@link filterPrompts} requires every
+ * term to be present in the entry's haystack, so a "…" would match nothing.
+ */
+export function promptSearchKey(text: string, words = 6): string {
+  return text.replace(/\s+/g, " ").trim().split(" ").slice(0, words).join(" ");
+}

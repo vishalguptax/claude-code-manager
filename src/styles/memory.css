@@ -3,47 +3,19 @@
    The memory list rows and the single-memory detail view.
 
    Shared chrome lives in the component layer and is NOT repeated here:
-     - list rows                                   → .list-item (components.css)
-     - result count caption                        → .list-count (components.css)
-     - search field                                → .vsc-search (components-native.css)
-     - chips                                       → .badge-* (components.css)
-     - buttons (ghost/danger/icon)                 → .btn-* (components-native.css)
-     - back affordance                             → .back-btn (components.css)
-     - empty + error states                        → .empty-state / .error-banner
-   This file keeps only what is memory-specific: the three-line row and the
-   detail view's fact list and link lists.
+     - panel shell + scroll region       → .panel / .list        (base.css, tabs.css)
+     - search + filter rows              → .search-row / .filter-row (components.css)
+     - health lens                       → .scope-filter          (components.css)
+     - list rows                         → .list-item             (components.css)
+     - result count caption              → .list-count            (components.css)
+     - chips                             → .vsc-badge--*          (components.css)
+     - buttons (ghost/danger/icon)       → .btn-*                 (components-native.css)
+     - back affordance                   → .back-btn              (components.css)
+     - detail head / actions / sections  → .d-*                   (sessions.css)
+     - empty + error states              → .empty-state / .error-banner
+   This file keeps only what is memory-specific: the three-line row, the
+   excerpt block and the link graph.
    ============================================================================ */
-
-
-/* ──────────────────────────────────────────────────────────────────────────────
-   Memory — shell
-   ────────────────────────────────────────────────────────────────────────────── */
-
-.mem-view {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.mem-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-2xl);
-}
-
-/* The search field is the only toolbar control that should absorb slack; the
-   project dropdown and the reload button keep their intrinsic widths. */
-.mem-toolbar > .vsc-search {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.mem-list {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -51,17 +23,18 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 .mem-item {
-  /* .list-item (components.css) is block-level; this row stacks three lines,
-     so it opts into flex here rather than the shared rule changing for all. */
+  /* .list-item (components.css) owns the cursor, hover, active and focus ring.
+     Two deltas only: the shared row is block-level and this one stacks three
+     lines, and the wider inset lines the row text up with the search field,
+     the lens and the count caption above it, which all sit at --space-2xl. */
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-xs);
   padding: var(--space-lg) var(--space-2xl);
+  /* Row separator. Mirrored by density.css, which removes it in quiet mode. */
   border-bottom: 1px solid var(--border);
 }
-
-/* Keyboard focus ring comes from .list-item:focus-visible (components.css). */
 
 .mem-row-main {
   display: flex;
@@ -129,95 +102,21 @@
    Memory — detail view
    ────────────────────────────────────────────────────────────────────────────── */
 
-.mem-detail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-  padding: var(--space-lg) var(--space-2xl) var(--space-2xl);
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.mem-detail-title {
-  margin: 0;
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  color: var(--fg);
-  word-break: break-word;
-}
-
-/* The heading takes focus when the view opens, so it needs a visible ring —
-   it is not a control and would otherwise show none. */
+/* The title takes focus when the detail view opens (focus follows navigation),
+   so it needs a visible ring — `.d-title` is not a control and shows none. */
 .mem-detail-title:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
 }
 
-.mem-detail-chips {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-}
-
-.mem-detail-desc {
-  margin: 0;
-  font-size: var(--fs-md);
-  color: var(--fg);
-}
-
-.mem-detail-excerpt {
-  margin: 0;
-  font-size: var(--fs-sm);
+/* The memory's own prose, shown as written. Not `.d-pre`: this is a few lines
+   of English, not a code block, so it takes the body face without the box. */
+.mem-excerpt {
+  font-size: var(--fs-base);
+  line-height: 1.6;
   color: var(--fg-dim);
   white-space: pre-wrap;
-}
-
-/* Two-column fact list: label, value. `grid` rather than a table so a long
-   path wraps inside its own column instead of widening the panel. */
-.mem-detail-facts {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  gap: var(--space-xs) var(--space-md);
-  margin: 0;
-  font-size: var(--fs-xs);
-}
-
-.mem-detail-facts dt {
-  color: var(--fg-muted);
-}
-
-.mem-detail-facts dd {
-  margin: 0;
-  color: var(--fg-dim);
-  min-width: 0;
-  word-break: break-all;
-}
-
-.mem-detail-path,
-.mem-detail-session {
-  font-family: var(--mono);
-}
-
-.mem-detail-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.mem-detail-heading {
-  margin: 0;
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--fg-muted);
-}
-
-.mem-detail-none {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: var(--fg-dim);
+  word-break: break-word;
 }
 
 .mem-link-list {
@@ -247,13 +146,4 @@
   gap: var(--space-sm);
   color: var(--fg-muted);
   text-decoration: line-through;
-}
-
-.mem-detail-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--border);
 }

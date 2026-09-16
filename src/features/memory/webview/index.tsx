@@ -10,10 +10,15 @@
  */
 import { useEffect, useMemo } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
-import { registerFeatureHandler } from "../../../webview/shared/model";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
 import { ErrorBanner, ListSkeleton } from "../../../webview/shared/ui";
 import type { MemoryRequest, MemoryStore } from "../types";
 import { createMemoryApi } from "./api";
+import { flattenMemories, projectOf } from "./lib";
 import {
   applyError,
   applyStore,
@@ -22,6 +27,7 @@ import {
   searchQuery,
   selectedId,
   selectMemory,
+  store,
 } from "./model";
 import { MemoryDetail, MemoryList } from "./ui";
 
@@ -42,6 +48,33 @@ export function applyMemoryMessage(msg: { type: string }): void {
   applyStore(data);
 }
 
+/**
+ * Every memory, searchable from the command palette. Registered under its own
+ * source id (`"memory"`), which is a palette key and shares no namespace with
+ * the message-bus prefixes.
+ *
+ * The source is a function, not a snapshot: it is called per query, so it
+ * always reads the live store without this module subscribing to it. Choosing
+ * an item switches to the tab and opens that memory's detail view — the same
+ * two writes a row click performs.
+ */
+export function registerMemoryPalette(): () => void {
+  return registerPaletteSource("memory", () =>
+    flattenMemories(store.value).map((m) => ({
+      id: `memory:${m.id}`,
+      title: m.meta.name,
+      subtitle: m.meta.description === "" ? m.excerpt : m.meta.description,
+      group: "Memory",
+      icon: "brain",
+      hint: projectOf(store.value, m)?.label ?? m.project,
+      run: () => {
+        activeTab.value = "memory";
+        selectMemory(m.id);
+      },
+    })),
+  );
+}
+
 export default function MemoryTab() {
   const { post } = useApi();
   const api = useMemo(() => createMemoryApi(post as (m: MemoryRequest) => void), [post]);
@@ -51,10 +84,12 @@ export default function MemoryTab() {
     const unsubscribeError = registerFeatureHandler("error", (msg) => {
       if (msg.type === "error") applyError(msg.message);
     });
+    const unsubscribePalette = registerMemoryPalette();
     api.getMemories();
     return () => {
       unsubscribe();
       unsubscribeError();
+      unsubscribePalette();
     };
   }, [api]);
 

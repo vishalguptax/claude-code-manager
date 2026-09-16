@@ -25,6 +25,19 @@ export const SCOPE_LABEL: Record<PluginSettingsScope, string> = {
   managed: "managed",
 };
 
+/**
+ * Which of the shared scope-badge colours a plugin scope borrows, so the chip
+ * on a plugin row is the same hue as the Skills / Hooks / MCP chip for the
+ * same settings file. `managed` is the administrator's policy file — not a
+ * scope the user owns — so it takes the `builtin` tone the other tabs already
+ * use for "this one is not yours to edit".
+ */
+export function scopeTone(
+  scope: PluginSettingsScope,
+): "global" | "project" | "local" | "builtin" {
+  return scope === "managed" ? "builtin" : scope;
+}
+
 /** Short chip text for a plugin's state. */
 export const STATUS_LABEL: Record<PluginStatus, string> = {
   enabled: "enabled",
@@ -65,11 +78,11 @@ export function trustVariant(trust: MarketplaceTrust): "status" | "danger" | "de
 export function stateSummary(plugin: PluginEntry): string {
   switch (plugin.status) {
     case "blocked":
-      return "Blocked by ~/.claude/plugins/blocklist.json — Claude Code will not load it.";
+      return "On your plugin blocklist, so Claude Code will not load it.";
     case "orphaned":
       return `Listed in ${SCOPE_LABEL[plugin.decidedBy ?? "global"]} settings, but no copy is installed.`;
     case "not-enabled":
-      return "Installed, but no settings file enables it — Claude Code is not loading it.";
+      return "Installed, but nothing enables it, so Claude Code is not loading it.";
     case "enabled":
       return `Enabled in ${SCOPE_LABEL[plugin.decidedBy ?? "global"]} settings.`;
     case "disabled":
@@ -77,16 +90,29 @@ export function stateSummary(plugin: PluginEntry): string {
   }
 }
 
+/** One settings file's opinion about a plugin, ready to render as a chip. */
+export interface OverrideStep {
+  /** Scope name in Claude Code's own vocabulary — "user", "project", … */
+  scope: string;
+  /** What that file says: "on" or "off". */
+  state: string;
+  /** Whether this is the file Claude Code actually obeyed. */
+  winner: boolean;
+}
+
 /**
- * How a row spells out an override chain, e.g.
- * "user: on › project: off › local: on". Empty when at most one scope has
- * an opinion — there is no conflict to explain.
+ * The override chain, one chip per settings file, lowest precedence first —
+ * "user: on", "project: off", "local: on". Empty when at most one scope has an
+ * opinion: there is no conflict to explain, and a single chip repeating the
+ * summary line above it is noise.
  */
-export function overrideChain(plugin: PluginEntry): string {
-  if (plugin.declaredIn.length < 2) return "";
-  return plugin.declaredIn
-    .map((d) => `${SCOPE_LABEL[d.scope]}: ${d.enabled ? "on" : "off"}`)
-    .join(" › ");
+export function overrideSteps(plugin: PluginEntry): OverrideStep[] {
+  if (plugin.declaredIn.length < 2) return [];
+  return plugin.declaredIn.map((d) => ({
+    scope: SCOPE_LABEL[d.scope],
+    state: d.enabled ? "on" : "off",
+    winner: d.scope === plugin.decidedBy,
+  }));
 }
 
 /**
@@ -103,9 +129,23 @@ export function toggleScope(plugin: PluginEntry): PluginSettingsScope | null {
   return plugin.decidedBy ?? "global";
 }
 
-/** Whether a row's switch should be offered at all. */
+/** Whether a row's toggle should be offered at all. */
 export function canToggle(plugin: PluginEntry): boolean {
   return plugin.status !== "blocked" && toggleScope(plugin) !== null;
+}
+
+/**
+ * Why a plugin cannot be switched from here. Empty when it can — the caller
+ * uses that to decide whether to render the note at all.
+ */
+export function readOnlyReason(plugin: PluginEntry): string {
+  if (plugin.status === "blocked") {
+    return "On your plugin blocklist, so it cannot be turned on from here.";
+  }
+  if (plugin.decidedBy === "managed") {
+    return "Set by managed settings, which the sidebar cannot write to.";
+  }
+  return "";
 }
 
 /** Shortest useful description of where a marketplace comes from. */

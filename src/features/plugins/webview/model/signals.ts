@@ -39,6 +39,13 @@ export const searchQuery = signal<string>("");
 export const view = signal<PluginsView>("all");
 
 /**
+ * The plugin whose detail view is open, or null while the list is showing.
+ * Every other tab drills into a row this way; the palette also sets it, so a
+ * Cmd+K hit lands on the plugin rather than merely on the tab.
+ */
+export const selectedPlugin = signal<PluginEntry | null>(null);
+
+/**
  * A plugin the user should look at: Claude Code is ignoring it, it has no
  * install behind it, it is blocked, or it is live from a marketplace the
  * policy does not allow. This is the set the tab exists for.
@@ -84,15 +91,6 @@ export const viewCounts = computed(() => ({
   sources: marketplaces.value.length,
 }));
 
-/**
- * Policy keys Claude Code will silently ignore because they sit outside
- * managed settings. Surfacing these is the difference between a user
- * believing they have a marketplace allowlist and having one.
- */
-export const ignoredPolicy = computed<PluginPolicyEntry[]>(() =>
-  policy.value.filter((p) => p.ignored),
-);
-
 /** Apply a host snapshot. */
 export function applyPluginsData(data: PluginsData): void {
   plugins.value = data.plugins;
@@ -100,6 +98,10 @@ export function applyPluginsData(data: PluginsData): void {
   policy.value = data.policy;
   parseErrors.value = data.errors;
   loading.value = false;
+  // Re-resolve the open detail against the fresh list, so a plugin that was
+  // uninstalled or toggled on the host does not leave a stale panel open.
+  const sel = selectedPlugin.value;
+  if (sel) selectedPlugin.value = plugins.value.find((p) => p.id === sel.id) ?? null;
 }
 
 /** Reset every signal. Test-only helper. */
@@ -111,4 +113,5 @@ export function _resetPluginsState(): void {
   loading.value = true;
   searchQuery.value = "";
   view.value = "all";
+  selectedPlugin.value = null;
 }

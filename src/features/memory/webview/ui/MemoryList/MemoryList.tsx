@@ -1,6 +1,7 @@
 /**
- * The Memory tab's list view: a toolbar (search, project scope, health lens)
- * over the rows of one or every project.
+ * The Memory tab's list view: the standard panel chrome — search row, filter
+ * row, scope filter, count caption, list — over the rows of one or every
+ * project.
  *
  * The two health lenses are the reason this tab exists. A memory store grows
  * silently every session, and the failure modes are invisible from the
@@ -14,15 +15,15 @@ import {
   type DropdownOption,
   EmptyState,
   ListItem,
+  ScopeFilter,
+  type ScopeOption,
   SearchInput,
-  Segmented,
   VirtualList,
 } from "../../../../../webview/shared/ui";
 import type { MemoryFile } from "../../../types";
 import { type MemoryLens } from "../../lib";
 import {
   lens,
-  loading,
   projects,
   searchQuery,
   selectedProject,
@@ -83,10 +84,10 @@ function MemoryRow({
   return (
     <ListItem class="mem-item" onClick={() => onSelect(memory.id)}>
       <div class="mem-row-main">
-        <span class="mem-name">{memory.meta.name}</span>
-        {memory.meta.type !== "" && (
-          <Badge text={memory.meta.type} variant="default" class="mem-type" />
-        )}
+        <span class="mem-name" title={memory.meta.name}>
+          {memory.meta.name}
+        </span>
+        {memory.meta.type !== "" && <Badge text={memory.meta.type} class="mem-type" />}
         {memory.orphan && (
           <Badge
             text="orphan"
@@ -120,87 +121,121 @@ function MemoryRow({
   );
 }
 
+/**
+ * The empty state for a list that has memories in the store but none in view.
+ * Which of the three filters emptied it decides the copy, because "clear the
+ * search" is useless advice to someone who filtered by lens instead.
+ */
+function NothingInView({ scope }: { scope: string | null }) {
+  if (searchQuery.value.trim() !== "") {
+    return (
+      <EmptyState
+        icon="search-slash"
+        title="No matching memories"
+        description="Try a different keyword, or clear the search to see every memory."
+      />
+    );
+  }
+  if (lens.value === "orphans") {
+    return (
+      <EmptyState
+        icon="brain"
+        title="No orphans here"
+        description="Every memory in view is linked from another one or listed in MEMORY.md."
+      />
+    );
+  }
+  if (lens.value === "broken") {
+    return (
+      <EmptyState
+        icon="brain"
+        title="No broken links"
+        description="Every [[link]] in view resolves to a memory that exists."
+      />
+    );
+  }
+  return (
+    <EmptyState
+      icon="brain"
+      title="No memories in this project"
+      description={`Claude Code has not written anything for ${
+        scope === null ? "this project" : projectLabel(scope)
+      } yet.`}
+    />
+  );
+}
+
 export function MemoryList({ onSelect, onRefresh }: MemoryListProps) {
   const current = store.value;
   const counts = totals.value;
   const memories = visibleMemories.value;
   const scope = selectedProject.value;
+  const disabled = current !== null && !current.enabled;
+  // The filters only earn their space once there is something to filter, and
+  // they must not imply a store that Claude Code is not writing to.
+  const filterable = !disabled && counts.total > 0;
 
-  const lensOptions: { value: MemoryLens; label: string }[] = [
-    { value: "all", label: `All ${counts.total}` },
-    { value: "orphans", label: `Orphans ${counts.orphans}` },
-    { value: "broken", label: `Broken ${counts.broken}` },
+  const lensOptions: ScopeOption<MemoryLens>[] = [
+    { value: "all", label: "All", count: counts.total },
+    { value: "orphans", label: "Orphans", count: counts.orphans },
+    { value: "broken", label: "Broken", count: counts.broken },
   ];
 
-  if (!loading.value && current !== null && !current.enabled) {
-    return (
-      <EmptyState
-        icon="package"
-        title="Auto-memory is off"
-        description="Claude Code's autoMemoryEnabled setting is false, so it is not writing memories. Turn it on in settings.json and they will appear here."
-      />
-    );
-  }
-
-  if (!loading.value && counts.total === 0) {
-    return (
-      <EmptyState
-        icon="package"
-        title="No memories yet"
-        description={`Claude Code writes one file per fact it learns. Nothing has been written under ${current?.root ?? "the memory directory"} yet.`}
-      />
-    );
-  }
-
   return (
-    <div class="mem-view">
-      <div class="mem-toolbar">
+    <div class="panel" id="memoryListView">
+      <div class="search-row">
         <SearchInput
           value={searchQuery.value}
           onInput={(v) => {
             searchQuery.value = v;
           }}
-          placeholder="Search memories"
+          placeholder="Search"
           ariaLabel="Search memories"
-        />
-        <Dropdown
-          value={scope ?? ""}
-          options={projectOptions()}
-          onChange={(v) => {
-            selectedProject.value = v === "" ? null : v;
-          }}
-          icon="folder"
-          ariaLabel="Filter by project"
+          debounceMs={150}
         />
         <Button
           variant="icon"
+          class="search-side-btn"
           iconName="refresh-cw"
           onClick={onRefresh}
-          title="Reload memories from disk"
-          ariaLabel="Reload memories from disk"
+          title="Refresh memories"
+          ariaLabel="Refresh memories"
         />
       </div>
 
-      <div class="mem-toolbar">
-        <Segmented<MemoryLens>
-          value={lens.value}
-          options={lensOptions}
-          onChange={(v) => {
-            lens.value = v;
-          }}
-          ariaLabel="Filter by memory health"
-          size="sm"
-        />
-      </div>
+      {filterable ? (
+        <>
+          <div class="filter-row">
+            <Dropdown
+              value={scope ?? ""}
+              options={projectOptions()}
+              onChange={(v) => {
+                selectedProject.value = v === "" ? null : v;
+              }}
+              icon="folder"
+              ariaLabel="Filter by project"
+            />
+          </div>
+          <ScopeFilter<MemoryLens>
+            value={lens.value}
+            options={lensOptions}
+            onChange={(v) => {
+              lens.value = v;
+            }}
+            ariaLabel="Filter by memory health"
+          />
+          <div class="list-count">
+            {memories.length === 1 ? "1 memory" : `${memories.length} memories`}
+          </div>
+        </>
+      ) : null}
 
-      <div class="list-count">
-        {memories.length === 1 ? "1 memory" : `${memories.length} memories`}
-      </div>
-
-      {memories.length === 0 ? (
-        <EmptyState compact title="Nothing matches" description="Clear the search or lens." />
-      ) : memories.length > VIRTUALIZE_THRESHOLD ? (
+      {/* `disabled` is checked here too: a store can hold memories from before
+          the setting was switched off, and "auto-memory is off" is the thing to
+          say about it — not a list of what it used to write. */}
+      {!disabled && memories.length > VIRTUALIZE_THRESHOLD ? (
         <VirtualList<MemoryFile>
+          class="list"
           items={memories}
           itemHeight={ROW_HEIGHT}
           label="Memories"
@@ -209,12 +244,38 @@ export function MemoryList({ onSelect, onRefresh }: MemoryListProps) {
           )}
         />
       ) : (
-        <div class="mem-list" role="list" aria-label="Memories">
-          {memories.map((memory) => (
-            <div role="listitem" key={memory.id}>
-              <MemoryRow memory={memory} showProject={scope === null} onSelect={onSelect} />
-            </div>
-          ))}
+        <div class="list">
+          {disabled ? (
+            <EmptyState
+              icon="brain"
+              title="Auto-memory is off"
+              description={
+                <>
+                  Claude Code's <code>autoMemoryEnabled</code> setting is false, so it is not
+                  writing memories. Turn it on in <code>settings.json</code> and they will appear
+                  here.
+                </>
+              }
+            />
+          ) : counts.total === 0 ? (
+            <EmptyState
+              icon="brain"
+              title="No memories yet"
+              description={`Claude Code writes one file per fact it learns. Nothing has been \
+written under ${current?.root ?? "the memory directory"} yet.`}
+            />
+          ) : memories.length === 0 ? (
+            <NothingInView scope={scope} />
+          ) : (
+            memories.map((memory) => (
+              <MemoryRow
+                key={memory.id}
+                memory={memory}
+                showProject={scope === null}
+                onSelect={onSelect}
+              />
+            ))
+          )}
         </div>
       )}
     </div>

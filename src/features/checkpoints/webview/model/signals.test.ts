@@ -5,15 +5,17 @@ import {
   applyError,
   applySessions,
   errorMessage,
+  fileQuery,
   filteredFiles,
+  filteredSessions,
   files,
   loadingFiles,
   loadingSessions,
   orphanCount,
   resetCheckpointSignals,
-  searchQuery,
   selectedSession,
   selectedSessionId,
+  sessionQuery,
   sessions,
 } from "./signals";
 
@@ -144,15 +146,40 @@ describe("filteredFiles", () => {
   });
 
   it("narrows to matching files", () => {
-    searchQuery.value = "readme";
+    fileQuery.value = "readme";
     expect(filteredFiles.value.map((f) => f.name)).toEqual(["README.md"]);
   });
 
   it("recomputes when the file list changes", () => {
-    searchQuery.value = "a.ts";
+    fileQuery.value = "a.ts";
     expect(filteredFiles.value).toHaveLength(1);
     applyCheckpoints(SESSION, [], 0);
     expect(filteredFiles.value).toEqual([]);
+  });
+});
+
+describe("filteredSessions", () => {
+  beforeEach(() => {
+    applySessions([
+      summary(),
+      summary({ sessionId: OTHER, label: "Fix the hook parser", project: "api" }),
+    ]);
+  });
+
+  it("passes everything through with no query", () => {
+    expect(filteredSessions.value).toHaveLength(2);
+  });
+
+  it("narrows to matching sessions", () => {
+    sessionQuery.value = "hook";
+    expect(filteredSessions.value.map((s) => s.sessionId)).toEqual([OTHER]);
+  });
+
+  it("recomputes when the session list changes", () => {
+    sessionQuery.value = "hook";
+    expect(filteredSessions.value).toHaveLength(1);
+    applySessions([]);
+    expect(filteredSessions.value).toEqual([]);
   });
 });
 
@@ -171,7 +198,8 @@ describe("resetCheckpointSignals", () => {
     applySessions([summary()]);
     selectedSessionId.value = SESSION;
     applyCheckpoints(SESSION, [file()], 2);
-    searchQuery.value = "x";
+    sessionQuery.value = "s";
+    fileQuery.value = "x";
     applyError("boom");
 
     resetCheckpointSignals();
@@ -180,7 +208,8 @@ describe("resetCheckpointSignals", () => {
     expect(files.value).toEqual([]);
     expect(orphanCount.value).toBe(0);
     expect(selectedSessionId.value).toBeNull();
-    expect(searchQuery.value).toBe("");
+    expect(sessionQuery.value).toBe("");
+    expect(fileQuery.value).toBe("");
     expect(errorMessage.value).toBeNull();
     expect(loadingSessions.value).toBe(true);
     expect(loadingFiles.value).toBe(false);

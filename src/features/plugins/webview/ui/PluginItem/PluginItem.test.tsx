@@ -11,23 +11,34 @@ import {
 } from "../../__tests__/fixtures";
 import { PluginItem } from "./PluginItem";
 
-function renderItem(entry = plugin(), handlers: Record<string, unknown> = {}) {
+function renderItem(entry = plugin(), props: Record<string, unknown> = {}) {
+  const onSelect = vi.fn();
   const onCopyId = vi.fn();
   const onToggle = vi.fn();
   const onContextMenu = vi.fn();
   const result = render(
     <PluginItem
       plugin={entry}
+      onSelect={onSelect}
       onCopyId={onCopyId}
       onToggle={onToggle}
       onContextMenu={onContextMenu}
-      {...handlers}
+      {...props}
     />,
   );
-  return { ...result, onCopyId, onToggle, onContextMenu };
+  return { ...result, onSelect, onCopyId, onToggle, onContextMenu };
 }
 
 describe("PluginItem", () => {
+  it("is built on the shared list row", () => {
+    // The row takes its cursor, hover fill, active fill and focus ring from
+    // `.list-item`; dropping the class would silently restate all four.
+    const { container } = renderItem();
+    const row = container.querySelector(".plg-item") as HTMLElement;
+    expect(row.classList.contains("list-item")).toBe(true);
+    expect(row.getAttribute("role")).toBe("button");
+  });
+
   it("shows the plugin name, marketplace and version", () => {
     const { container } = renderItem();
     expect(container.querySelector(".plg-item-name")?.textContent).toBe("caveman");
@@ -35,9 +46,21 @@ describe("PluginItem", () => {
     expect(screen.getByText("0d95a81d35a9")).toBeTruthy();
   });
 
+  it("names the settings file that decided the plugin, in the shared scope chip", () => {
+    const { container } = renderItem();
+    const chip = container.querySelector(".vsc-badge--scope-global") as HTMLElement;
+    expect(chip.textContent).toBe("user");
+    expect(chip.getAttribute("title")).toBe("Decided by user settings");
+  });
+
+  it("omits the scope chip when no settings file mentions the plugin", () => {
+    const { container } = renderItem(notEnabled);
+    expect(container.querySelector('[class*="vsc-badge--scope-"]')).toBeNull();
+  });
+
   it("states why an installed-but-unloaded plugin is inert", () => {
     renderItem(notEnabled);
-    expect(screen.getByText(/Installed, but no settings file enables it/)).toBeTruthy();
+    expect(screen.getByText(/Installed, but nothing enables it/)).toBeTruthy();
     expect(screen.getByText("not enabled")).toBeTruthy();
   });
 
@@ -54,72 +77,85 @@ describe("PluginItem", () => {
     expect(note.textContent).toContain("does not allow");
   });
 
-  it("shows the override chain only when scopes disagree", () => {
-    const { rerender } = renderItem(overridden);
-    expect(screen.getByText("user: on › project: off › local: on")).toBeTruthy();
-
-    rerender(
-      <PluginItem
-        plugin={plugin()}
-        onCopyId={vi.fn()}
-        onToggle={vi.fn()}
-        onContextMenu={vi.fn()}
-      />,
-    );
-    expect(screen.queryByText(/user: on/)).toBeNull();
+  it("shows the override chain as chips, marking the file that won", () => {
+    const { container } = renderItem(overridden);
+    const chips = [...container.querySelectorAll(".plg-chain-tag")];
+    expect(chips.map((c) => c.textContent)).toEqual([
+      "user: on",
+      "project: off",
+      "local: on",
+    ]);
+    const winners = chips.filter((c) => c.classList.contains("is-winner"));
+    expect(winners).toHaveLength(1);
+    expect(winners[0].textContent).toBe("local: on");
   });
 
-  it("offers a switch reflecting the current state", () => {
-    renderItem();
-    const sw = screen.getByRole("switch");
-    expect(sw.getAttribute("aria-checked")).toBe("true");
+  it("hides the chain when only one scope has an opinion", () => {
+    const { container } = renderItem();
+    expect(container.querySelector(".plg-chain-tag")).toBeNull();
+  });
+
+  it("offers a shared icon button for the enable/disable action", () => {
+    const { container } = renderItem();
     // The visible name is the row heading, which CSS ellipsizes — the
     // accessible name has to survive that, so it lives on an attribute.
-    expect(sw.getAttribute("aria-label")).toBe("Disable caveman@caveman");
+    const toggle = screen.getByLabelText("Disable caveman@caveman");
+    expect(toggle.tagName).toBe("BUTTON");
+    expect(toggle.classList.contains("btn-icon")).toBe(true);
+    expect(container.querySelector(".plg-item-toggle")).toBe(toggle);
   });
 
-  it("labels the switch as Enable for a plugin that is off", () => {
+  it("labels the toggle as Enable for a plugin that is off", () => {
     renderItem(notEnabled);
-    const sw = screen.getByRole("switch");
-    expect(sw.getAttribute("aria-checked")).toBe("false");
-    expect(sw.getAttribute("aria-label")).toBe("Enable ui-ux-pro-max@ui-ux-pro-max-skill");
+    expect(screen.getByLabelText("Enable ui-ux-pro-max@ui-ux-pro-max-skill")).toBeTruthy();
   });
 
-  it("withholds the switch from a blocked plugin", () => {
-    renderItem(blocked);
-    expect(screen.queryByRole("switch")).toBeNull();
+  it("withholds the toggle from a blocked plugin", () => {
+    const { container } = renderItem(blocked);
+    expect(container.querySelector(".plg-item-toggle")).toBeNull();
     expect(screen.getByText("blocked")).toBeTruthy();
   });
 
-  it("toggles without also opening the row's menu", () => {
-    const { onToggle, onContextMenu } = renderItem();
-    fireEvent.click(screen.getByRole("switch"));
+  it("toggles without also opening the row", () => {
+    const { onToggle, onSelect } = renderItem();
+    fireEvent.click(screen.getByLabelText("Disable caveman@caveman"));
     expect(onToggle).toHaveBeenCalledWith(plugin());
-    expect(onContextMenu).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it("copies the id without also opening the row's menu", () => {
-    const { onCopyId, onContextMenu } = renderItem();
+  it("copies the id without also opening the row", () => {
+    const { onCopyId, onSelect } = renderItem();
     fireEvent.click(screen.getByLabelText("Copy plugin id caveman@caveman"));
     expect(onCopyId).toHaveBeenCalledWith("caveman@caveman");
-    expect(onContextMenu).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("opens the plugin when the row is clicked", () => {
+    const { container, onSelect } = renderItem();
+    fireEvent.click(container.querySelector(".plg-item") as HTMLElement);
+    expect(onSelect).toHaveBeenCalledWith(plugin());
+  });
+
+  it("opens the plugin from the keyboard", () => {
+    const { container, onSelect } = renderItem();
+    const row = container.querySelector(".plg-item") as HTMLElement;
+    // A row that can only be reached with a pointer hides the detail view
+    // from a keyboard-only user, so Enter has to open it too.
+    expect(row.getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(row, { key: "Enter" });
+    expect(onSelect).toHaveBeenCalledWith(plugin());
   });
 
   it("opens the actions menu at the pointer on right-click", () => {
-    const { container, onContextMenu } = renderItem();
+    const { container, onContextMenu, onSelect } = renderItem();
     const row = container.querySelector(".plg-item") as HTMLElement;
     fireEvent.contextMenu(row, { clientX: 120, clientY: 64 });
     expect(onContextMenu).toHaveBeenCalledWith(plugin(), 120, 64);
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it("opens the same menu from the keyboard, anchored to the row", () => {
-    const { container, onContextMenu } = renderItem();
-    const row = container.querySelector(".plg-item") as HTMLElement;
-    // A row that can only be reached with a pointer hides every action from
-    // a keyboard-only user, so Enter has to reach the same menu.
-    expect(row.getAttribute("tabindex")).toBe("0");
-    fireEvent.keyDown(row, { key: "Enter" });
-    expect(onContextMenu).toHaveBeenCalledTimes(1);
-    expect(onContextMenu.mock.calls[0][0]).toEqual(plugin());
+  it("marks the open plugin as the active row", () => {
+    const { container } = renderItem(plugin(), { active: true });
+    expect(container.querySelector(".plg-item")?.classList.contains("active")).toBe(true);
   });
 });

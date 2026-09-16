@@ -83,8 +83,10 @@ describe("MemoryDetail", () => {
 
   it("shows the slug, description, excerpt and absolute path", () => {
     selectMemory(CITER.id);
-    render(h(MemoryDetail, props()));
-    expect(screen.getByRole("heading", { name: "cites" })).toBeTruthy();
+    const { container } = render(h(MemoryDetail, props()));
+    // The title is the shared `.d-title`, the same element every other
+    // detail view heads with.
+    expect(container.querySelector(".d-title")?.textContent).toBe("cites");
     expect(screen.getByText("Summary for cites")).toBeTruthy();
     expect(screen.getByText("Body of cites.")).toBeTruthy();
     expect(screen.getByText(CITER.path)).toBeTruthy();
@@ -93,7 +95,7 @@ describe("MemoryDetail", () => {
   it("shows the origin session id, which is how a memory is traced back", () => {
     selectMemory(CITER.id);
     render(h(MemoryDetail, props()));
-    expect(screen.getByText("Written by session")).toBeTruthy();
+    expect(screen.getByText("Session")).toBeTruthy();
     expect(screen.getByText("e66c2065-3a32-4197-ba38-b46852bbd3b0")).toBeTruthy();
   });
 
@@ -175,7 +177,26 @@ describe("MemoryDetail", () => {
     expect(p.onBack).toHaveBeenCalled();
   });
 
-  it("moves focus to the heading so keyboard navigation follows", () => {
+  // Every tab's root is `.panel`: tabs.css scopes the scroll region to it, so
+  // a feature that roots itself anywhere else cannot scroll inside the pane.
+  it("roots the view in the shared panel, with the shared back affordance", () => {
+    selectMemory(CITER.id);
+    const { container } = render(h(MemoryDetail, props()));
+    expect(container.firstElementChild?.className).toBe("panel");
+    expect(container.querySelector(".back-btn")?.textContent).toContain("All memories");
+    // Detail chrome comes from the shared `.d-*` blocks, not a bespoke layout.
+    expect(container.querySelector(".d-head")).toBeTruthy();
+    expect(container.querySelector(".d-actions")).toBeTruthy();
+    expect(container.querySelectorAll(".d-section").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the panel root when the memory is gone", () => {
+    selectMemory("-p-one/never-existed.md");
+    const { container } = render(h(MemoryDetail, props()));
+    expect(container.firstElementChild?.className).toBe("panel");
+  });
+
+  it("moves focus to the title so keyboard navigation follows", () => {
     selectMemory(CITER.id);
     render(h(MemoryDetail, props()));
     expect(document.activeElement?.textContent).toBe("cites");

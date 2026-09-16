@@ -1,12 +1,31 @@
 import { describe, expect, it } from "vitest";
-import type { CheckpointFile, CheckpointVersion } from "../../types";
+import type {
+  CheckpointFile,
+  CheckpointSessionSummary,
+  CheckpointVersion,
+} from "../../types";
 import {
   backupTimeMs,
   describeFileHistory,
   filterCheckpointFiles,
+  filterCheckpointSessions,
   newestFirst,
-  shortenDir,
 } from "./checkpoints";
+
+function summary(
+  overrides: Partial<CheckpointSessionSummary> = {},
+): CheckpointSessionSummary {
+  return {
+    sessionId: "09285b5a-1542-4940-b2a8-ef73977f6fe1",
+    label: "Rewrite the checkpoint parser",
+    project: "claude-code-manager",
+    fileCount: 2,
+    versionCount: 5,
+    lastBackupMs: 1_757_617_333_560,
+    sizeBytes: 4096,
+    ...overrides,
+  };
+}
 
 function version(overrides: Partial<CheckpointVersion> = {}): CheckpointVersion {
   return {
@@ -135,20 +154,44 @@ describe("backupTimeMs", () => {
   });
 });
 
-describe("shortenDir", () => {
-  it("strips the workspace prefix", () => {
-    expect(shortenDir("/proj/src/api", "/proj")).toBe("src/api");
+describe("filterCheckpointSessions", () => {
+  const sessions = [
+    summary(),
+    summary({
+      sessionId: "0bc64250-c3a3-4936-a32e-2a261f3f49a0",
+      label: "Fix the hook parser",
+      project: "api",
+    }),
+  ];
+
+  it("returns the same array reference for an empty query", () => {
+    expect(filterCheckpointSessions(sessions, "")).toBe(sessions);
+    expect(filterCheckpointSessions(sessions, "   ")).toBe(sessions);
   });
 
-  it("renders the workspace root itself as a dot", () => {
-    expect(shortenDir("/proj", "/proj")).toBe(".");
+  it("matches on the label, case-insensitively", () => {
+    expect(filterCheckpointSessions(sessions, "HOOK").map((s) => s.label)).toEqual([
+      "Fix the hook parser",
+    ]);
   });
 
-  it("leaves a directory outside the workspace alone", () => {
-    expect(shortenDir("/other/src", "/proj")).toBe("/other/src");
+  it("matches on the project", () => {
+    expect(
+      filterCheckpointSessions(sessions, "claude-code").map((s) => s.label),
+    ).toEqual(["Rewrite the checkpoint parser"]);
   });
 
-  it("leaves the directory alone when there is no workspace", () => {
-    expect(shortenDir("/proj/src")).toBe("/proj/src");
+  it("matches on the session id, which is what names the history directory", () => {
+    expect(filterCheckpointSessions(sessions, "0bc64250").map((s) => s.label)).toEqual([
+      "Fix the hook parser",
+    ]);
+  });
+
+  it("returns nothing when nothing matches", () => {
+    expect(filterCheckpointSessions(sessions, "zzz")).toEqual([]);
+  });
+
+  it("handles an empty list", () => {
+    expect(filterCheckpointSessions([], "a")).toEqual([]);
   });
 });

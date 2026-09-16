@@ -5,5 +5,7 @@ export {
   filterPrompts,
   listPromptProjects,
   type PromptProject,
+  promptSearchKey,
+  promptSummary,
   queryTerms,
 } from "./prompts";

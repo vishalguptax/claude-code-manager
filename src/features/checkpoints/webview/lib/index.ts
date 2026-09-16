@@ -3,6 +3,6 @@ export {
   backupTimeMs,
   describeFileHistory,
   filterCheckpointFiles,
+  filterCheckpointSessions,
   newestFirst,
-  shortenDir,
 } from "./checkpoints";

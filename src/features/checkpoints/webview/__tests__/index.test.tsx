@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
+import {
+  _resetMessageBus,
+  _resetPaletteSources,
+  activeTab,
+  collectPaletteItems,
+  dispatch,
+} from "../../../../webview/shared/model";
 import type { CheckpointFile, CheckpointSessionSummary } from "../../types";
 import { resetCheckpointSignals } from "../model";
 import CheckpointsTab from "../index";
@@ -54,12 +60,14 @@ beforeEach(() => {
   posted = [];
   setVscodeApi({ postMessage: (m) => posted.push(m) });
   _resetMessageBus();
+  _resetPaletteSources();
   resetCheckpointSignals();
 });
 
 afterEach(() => {
   setVscodeApi(null);
   _resetMessageBus();
+  _resetPaletteSources();
   resetCheckpointSignals();
 });
 
@@ -166,5 +174,45 @@ describe("CheckpointsTab", () => {
     await waitFor(() =>
       expect(screen.queryByText("Rewrite the checkpoint parser")).toBeNull(),
     );
+  });
+});
+
+describe("CheckpointsTab — command palette", () => {
+  it("offers its sessions to the palette", async () => {
+    render(h(CheckpointsTab, {}));
+    dispatch({ type: "checkpointSessions", data: [summary()] });
+    await waitFor(() => screen.getByText("Rewrite the checkpoint parser"));
+
+    const items = collectPaletteItems("checkpoint parser");
+    expect(items.map((i) => i.title)).toContain("Rewrite the checkpoint parser");
+    const item = items.find((i) => i.id === `checkpoints:${SESSION}`);
+    expect(item?.group).toBe("Checkpoints");
+    expect(item?.icon).toBe("history");
+    expect(item?.subtitle).toBe("1 file");
+    expect(item?.hint).toBe("claude-code-manager");
+  });
+
+  it("navigates to the tab and opens the session when an item is run", async () => {
+    render(h(CheckpointsTab, {}));
+    dispatch({ type: "checkpointSessions", data: [summary()] });
+    await waitFor(() => screen.getByText("Rewrite the checkpoint parser"));
+    activeTab.value = "config";
+
+    const item = collectPaletteItems("").find((i) => i.id === `checkpoints:${SESSION}`);
+    item?.run();
+
+    expect(activeTab.value).toBe("checkpoints");
+    // Selecting through the palette must fetch the files, exactly as clicking
+    // the row does — otherwise the tab opens on an empty file list.
+    expect(posted).toContainEqual({ type: "getCheckpoints", sessionId: SESSION });
+    await waitFor(() => expect(screen.getByText("All sessions")).toBeTruthy());
+  });
+
+  it("stops offering items once unmounted", async () => {
+    const { unmount } = render(h(CheckpointsTab, {}));
+    dispatch({ type: "checkpointSessions", data: [summary()] });
+    await waitFor(() => screen.getByText("Rewrite the checkpoint parser"));
+    unmount();
+    expect(collectPaletteItems("")).toEqual([]);
   });
 });

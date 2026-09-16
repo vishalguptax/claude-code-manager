@@ -2,7 +2,6 @@
 export {
   _resetPluginsState,
   applyPluginsData,
-  ignoredPolicy,
   isIssue,
   issues,
   loading,
@@ -11,6 +10,7 @@ export {
   plugins,
   policy,
   searchQuery,
+  selectedPlugin,
   view,
   type PluginsView,
   viewCounts,

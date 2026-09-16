@@ -58,6 +58,10 @@ function storeWith(memories: MemoryFile[], enabled = true): MemoryStore {
 
 const props = () => ({ onSelect: vi.fn(), onRefresh: vi.fn() });
 
+/** The rendered rows. Rows are `.list-item` buttons, not <li>s, like every
+ *  other list tab, so they are counted by the feature's row class. */
+const rows = (container: Element): Element[] => [...container.querySelectorAll(".mem-item")];
+
 beforeEach(resetMemorySignals);
 
 describe("MemoryList — empty states", () => {
@@ -68,6 +72,17 @@ describe("MemoryList — empty states", () => {
     expect(screen.getByText(/autoMemoryEnabled/)).toBeTruthy();
   });
 
+  it("says auto-memory is off even when the store still holds old memories", () => {
+    // The setting can be switched off after Claude Code has written a store.
+    // What the user needs to know is that nothing new is coming, not what it
+    // wrote last month — and that answer must not depend on the row count.
+    const many = Array.from({ length: 60 }, (_, i) => mem("-p-one", `m-${i}.md`));
+    applyStore(storeWith(many, false));
+    render(h(MemoryList, props()));
+    expect(screen.getByText("Auto-memory is off")).toBeTruthy();
+    expect(screen.queryByText("m-0")).toBeNull();
+  });
+
   it("names the directory it looked in when the store is empty", () => {
     applyStore(storeWith([]));
     render(h(MemoryList, props()));
@@ -75,12 +90,44 @@ describe("MemoryList — empty states", () => {
     expect(screen.getByText(/\/Users\/me\/\.claude\/projects/)).toBeTruthy();
   });
 
-  it("offers a way back when a filter matches nothing", () => {
+  it("offers a way back when a search matches nothing", () => {
     applyStore(storeWith([mem("-p-one", "alpha.md")]));
     searchQuery.value = "zzzz";
     render(h(MemoryList, props()));
-    expect(screen.getByText("Nothing matches")).toBeTruthy();
-    expect(screen.getByText("Clear the search or lens.")).toBeTruthy();
+    expect(screen.getByText("No matching memories")).toBeTruthy();
+    expect(screen.getByText(/clear the search/)).toBeTruthy();
+  });
+
+  // Each filter empties the list for a different reason, and "clear the
+  // search" is useless advice to someone who picked a lens instead.
+  it("says what a lens found instead of blaming the search", () => {
+    applyStore(storeWith([mem("-p-one", "alpha.md")]));
+    lens.value = "orphans";
+    render(h(MemoryList, props()));
+    expect(screen.getByText("No orphans here")).toBeTruthy();
+    lens.value = "broken";
+    render(h(MemoryList, props()));
+    expect(screen.getByText("No broken links")).toBeTruthy();
+  });
+
+  it("names the project when the scoped project has nothing in it", () => {
+    applyStore(storeWith([mem("-p-one", "alpha.md"), mem("-p-two", "delta.md")]));
+    // A project scope the store knows but whose memories are all filtered out
+    // by an earlier delete on the host.
+    selectedProject.value = "-p-three";
+    render(h(MemoryList, props()));
+    expect(screen.getByText("No memories in this project")).toBeTruthy();
+  });
+
+  // Every tab's root is `.panel`: tabs.css scopes the scroll region to it, so
+  // a feature that roots itself anywhere else cannot scroll inside the pane.
+  it("roots the view in the shared panel", () => {
+    applyStore(storeWith([mem("-p-one", "alpha.md")]));
+    const { container } = render(h(MemoryList, props()));
+    expect(container.firstElementChild?.className).toBe("panel");
+    // The search field sits in the shared row, which carries the inset that
+    // lines it up with the rows below.
+    expect(container.querySelector(".search-row .vsc-search")).toBeTruthy();
   });
 });
 
@@ -92,13 +139,13 @@ describe("MemoryList — rows", () => {
         mem("-p-one", "cites.md"),
       ]),
     );
-    render(h(MemoryList, props()));
+    const { container } = render(h(MemoryList, props()));
     expect(screen.getByText("feedback-no-workarounds")).toBeTruthy();
     // The filename is shown alongside the slug precisely because real data
     // has files whose stem is not the slug.
     expect(screen.getByText("feedback_no_workarounds.md")).toBeTruthy();
     expect(screen.getByText("Summary for cites")).toBeTruthy();
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(rows(container)).toHaveLength(2);
   });
 
   it("renders a memory whose type Claude Code has never written before", () => {
@@ -180,34 +227,36 @@ describe("MemoryList — toolbar", () => {
     );
   });
 
-  it("puts the store-wide counts on the lens labels", () => {
+  it("puts the store-wide counts in the lens tooltips", () => {
     render(h(MemoryList, props()));
-    expect(screen.getByText("All 3")).toBeTruthy();
-    expect(screen.getByText("Orphans 1")).toBeTruthy();
-    expect(screen.getByText("Broken 1")).toBeTruthy();
+    // The shared <ScopeFilter> carries counts in each segment's title, not in
+    // its label, so four segments still fit a 300px sidebar.
+    expect(screen.getByTitle("All: 3")).toBeTruthy();
+    expect(screen.getByTitle("Orphans: 1")).toBeTruthy();
+    expect(screen.getByTitle("Broken: 1")).toBeTruthy();
   });
 
   it("switches the visible rows when a lens is chosen", () => {
     const p = props();
-    const { rerender } = render(h(MemoryList, p));
-    expect(screen.getAllByRole("listitem")).toHaveLength(3);
-    fireEvent.click(screen.getByText("Orphans 1"));
+    const { container, rerender } = render(h(MemoryList, p));
+    expect(rows(container)).toHaveLength(3);
+    fireEvent.click(screen.getByText("Orphans"));
     rerender(h(MemoryList, p));
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(rows(container)).toHaveLength(1);
     expect(screen.getByText("beta")).toBeTruthy();
   });
 
   it("reflects a lens set outside the component", () => {
     lens.value = "broken";
-    render(h(MemoryList, props()));
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    const { container } = render(h(MemoryList, props()));
+    expect(rows(container)).toHaveLength(1);
     expect(screen.getByText("delta")).toBeTruthy();
   });
 
-  it("names the reload button for assistive tech", () => {
+  it("names the refresh button for assistive tech", () => {
     const p = props();
     render(h(MemoryList, p));
-    const reload = screen.getByLabelText("Reload memories from disk");
+    const reload = screen.getByLabelText("Refresh memories");
     fireEvent.click(reload);
     expect(p.onRefresh).toHaveBeenCalled();
   });

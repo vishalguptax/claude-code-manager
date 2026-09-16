@@ -3,10 +3,16 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { h } from "preact";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
+import {
+  _resetMessageBus,
+  _resetPaletteSources,
+  activeTab,
+  collectPaletteItems,
+  dispatch,
+} from "../../../../webview/shared/model";
 import type { PluginsData } from "../../types";
-import { _resetPluginsState } from "../model";
-import PluginsTab from "../index";
+import { _resetPluginsState, selectedPlugin } from "../model";
+import PluginsTab, { registerPluginsHandlers } from "../index";
 import { snapshot } from "./fixtures";
 
 let posted: unknown[] = [];
@@ -30,12 +36,15 @@ beforeEach(() => {
   posted = [];
   setVscodeApi({ postMessage: (m) => posted.push(m) });
   _resetMessageBus();
+  _resetPaletteSources();
   _resetPluginsState();
+  activeTab.value = "sessions";
 });
 
 afterEach(() => {
   setVscodeApi(null);
   _resetMessageBus();
+  _resetPaletteSources();
   _resetPluginsState();
 });
 
@@ -45,41 +54,35 @@ describe("PluginsTab", () => {
     expect(posted).toContainEqual({ type: "getPlugins" });
   });
 
-  it("renders every plugin once the snapshot arrives", async () => {
-    render(h(PluginsTab, {}));
-    deliver(snapshot());
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(5));
-    expect(screen.getByText("ui-ux-pro-max")).toBeTruthy();
+  it("shows the shared skeleton until the first snapshot arrives", () => {
+    const { container } = render(h(PluginsTab, {}));
+    expect(container.querySelector(".skeleton-panel")).toBeTruthy();
+    expect(container.querySelector(".plg-item")).toBeNull();
   });
 
-  it("counts the findings on the Issues segment", async () => {
-    render(h(PluginsTab, {}));
+  it("renders every plugin once the snapshot arrives, inside a panel", async () => {
+    const { container } = render(h(PluginsTab, {}));
     deliver(snapshot());
-    await waitFor(() => screen.getByText("Issues"));
-    expect(screen.getByTitle("Issues: 4")).toBeTruthy();
-    expect(screen.getByTitle("All: 5")).toBeTruthy();
-  });
-
-  it("narrows to the findings when Issues is selected", async () => {
-    render(h(PluginsTab, {}));
-    deliver(snapshot());
-    await waitFor(() => screen.getByText("Issues"));
-    fireEvent.click(screen.getByText("Issues"));
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(4));
-    expect(names()).not.toContain("caveman");
+    await waitFor(() => expect(container.querySelectorAll(".plg-item")).toHaveLength(5));
+    // The root every other tab uses: `.tab-content .panel` owns the scroll.
+    expect(container.querySelector(".panel")).toBeTruthy();
     expect(names()).toContain("ui-ux-pro-max");
   });
 
-  it("shows marketplaces and the policy block under Sources", async () => {
-    render(h(PluginsTab, {}));
+  it("drills into a plugin and back again", async () => {
+    const { container } = render(h(PluginsTab, {}));
     deliver(snapshot());
-    await waitFor(() => screen.getByText("Sources"));
-    fireEvent.click(screen.getByText("Sources"));
-    await waitFor(() => expect(screen.getByText("JuliusBrussee/caveman")).toBeTruthy());
-    expect(screen.getByText("strictKnownMarketplaces")).toBeTruthy();
+    await waitFor(() => expect(names()).toContain("caveman"));
+
+    fireEvent.click(container.querySelector(".plg-item") as HTMLElement);
+    await waitFor(() => screen.getByText("Enablement"));
+    expect(container.querySelector(".d-title")?.textContent).toBe("caveman");
+
+    fireEvent.click(container.querySelector(".back-btn") as HTMLElement);
+    await waitFor(() => expect(container.querySelectorAll(".plg-item")).toHaveLength(5));
   });
 
-  it("sends an explicit scope when a row's switch is flipped", async () => {
+  it("sends an explicit scope when a row's toggle is flipped", async () => {
     render(h(PluginsTab, {}));
     deliver(snapshot());
     await waitFor(() => screen.getByLabelText("Disable caveman@caveman"));
@@ -120,37 +123,11 @@ describe("PluginsTab", () => {
     });
   });
 
-  it("opens the row's actions from the keyboard and offers every settings scope", async () => {
+  it("sends the scope the row's menu names when a settings file is opened", async () => {
     const { container } = render(h(PluginsTab, {}));
     deliver(snapshot());
     await waitFor(() => expect(names()).toContain("caveman"));
-    const row = container.querySelector(".plg-item") as HTMLElement;
-    fireEvent.keyDown(row, { key: "Enter" });
-    await waitFor(() => screen.getByText("Copy plugin id"));
-    expect(screen.getByText("Disable in user settings")).toBeTruthy();
-    expect(screen.getByText("Open plugin folder")).toBeTruthy();
-    expect(screen.getByText("Open user settings.json")).toBeTruthy();
-    expect(screen.getByText("Open project settings.json")).toBeTruthy();
-    expect(screen.getByText("Open local settings.json")).toBeTruthy();
-  });
-
-  it("does not offer a folder for a plugin with no install", async () => {
-    render(h(PluginsTab, {}));
-    deliver(snapshot({ plugins: [snapshot().plugins[2]] }));
-    await waitFor(() => screen.getByText("claude-seo"));
-    fireEvent.contextMenu(document.querySelector(".plg-item") as HTMLElement, {
-      clientX: 10,
-      clientY: 10,
-    });
-    await waitFor(() => screen.getByText("Copy plugin id"));
-    expect(screen.queryByText("Open plugin folder")).toBeNull();
-  });
-
-  it("sends the scope the menu names when a settings file is opened", async () => {
-    render(h(PluginsTab, {}));
-    deliver(snapshot());
-    await waitFor(() => expect(names()).toContain("caveman"));
-    fireEvent.contextMenu(document.querySelector(".plg-item") as HTMLElement, {
+    fireEvent.contextMenu(container.querySelector(".plg-item") as HTMLElement, {
       clientX: 10,
       clientY: 10,
     });
@@ -159,37 +136,71 @@ describe("PluginsTab", () => {
     expect(posted).toContainEqual({ type: "openPluginSettings", scope: "local" });
   });
 
-  it("shows a clean empty state when nothing is installed", async () => {
-    render(h(PluginsTab, {}));
-    deliver({ plugins: [], marketplaces: [], policy: [], errors: [] });
-    await waitFor(() => expect(screen.getByText("No plugins")).toBeTruthy());
+  it("keeps the open detail in step with a fresh snapshot", async () => {
+    const { container } = render(h(PluginsTab, {}));
+    deliver(snapshot());
+    await waitFor(() => expect(names()).toContain("caveman"));
+    fireEvent.click(container.querySelector(".plg-item") as HTMLElement);
+    await waitFor(() => screen.getByText("Enablement"));
+
+    // The host answers the toggle with a new snapshot; the panel must show the
+    // new state rather than the copy it was opened with.
+    deliver(
+      snapshot({
+        plugins: [{ ...snapshot().plugins[0], enabled: false, status: "disabled" }],
+      }),
+    );
+    await waitFor(() => expect(screen.getByText("Enable")).toBeTruthy());
   });
 
-  it("congratulates an installation with no findings", async () => {
-    render(h(PluginsTab, {}));
-    deliver(snapshot({ plugins: [snapshot().plugins[0]] }));
-    await waitFor(() => screen.getByText("Issues"));
-    fireEvent.click(screen.getByText("Issues"));
-    await waitFor(() => expect(screen.getByText("Nothing needs attention")).toBeTruthy());
+  it("closes a detail whose plugin is gone from the new snapshot", async () => {
+    const { container } = render(h(PluginsTab, {}));
+    deliver(snapshot());
+    await waitFor(() => expect(names()).toContain("caveman"));
+    fireEvent.click(container.querySelector(".plg-item") as HTMLElement);
+    await waitFor(() => screen.getByText("Enablement"));
+
+    deliver(snapshot({ plugins: [snapshot().plugins[1]] }));
+    await waitFor(() => expect(selectedPlugin.value).toBeNull());
   });
 
-  it("surfaces a malformed settings file without hiding the list", async () => {
-    render(h(PluginsTab, {}));
-    deliver(snapshot({ errors: ["/repo/.claude/settings.json could not be read"] }));
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-    expect(screen.getAllByRole("listitem")).toHaveLength(5);
-  });
-
-  it("filters the list as the user searches", async () => {
+  it("offers its plugins to the command palette", async () => {
     render(h(PluginsTab, {}));
     deliver(snapshot());
-    await waitFor(() => screen.getByLabelText("Search plugins"));
-    fireEvent.input(screen.getByLabelText("Search plugins"), {
-      target: { value: "rogue" },
-    });
-    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(1), {
-      timeout: 1000,
-    });
-    expect(screen.getByText("rogue")).toBeTruthy();
+    await waitFor(() => expect(names()).toContain("caveman"));
+
+    const items = collectPaletteItems("ui-ux");
+    const hit = items.find((i) => i.id === "plugins:ui-ux-pro-max@ui-ux-pro-max-skill");
+    expect(hit).toBeTruthy();
+    expect(hit?.title).toBe("ui-ux-pro-max");
+    expect(hit?.subtitle).toBe("ui-ux-pro-max-skill");
+    expect(hit?.group).toBe("Plugins");
+    expect(hit?.icon).toBe("package");
+    expect(hit?.hint).toBe("not enabled");
+  });
+
+  it("opens the tab and the plugin when a palette entry is chosen", async () => {
+    render(h(PluginsTab, {}));
+    deliver(snapshot());
+    await waitFor(() => expect(names()).toContain("caveman"));
+
+    collectPaletteItems("caveman").find((i) => i.id === "plugins:caveman@caveman")?.run();
+    expect(activeTab.value).toBe("plugins");
+    expect(selectedPlugin.value?.id).toBe("caveman@caveman");
+  });
+
+  it("drops its palette source on unmount, so a remount cannot double it", () => {
+    const dispose = registerPluginsHandlers();
+    deliver(snapshot());
+    expect(collectPaletteItems("caveman").length).toBeGreaterThan(0);
+    dispose();
+    expect(collectPaletteItems("caveman")).toEqual([]);
+  });
+
+  it("ignores a message that is not a plugins snapshot", () => {
+    const dispose = registerPluginsHandlers();
+    dispatch({ type: "pluginsSomethingElse" } as never);
+    expect(collectPaletteItems("caveman")).toEqual([]);
+    dispose();
   });
 });

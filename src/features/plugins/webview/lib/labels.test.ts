@@ -8,8 +8,10 @@ import {
 } from "../__tests__/fixtures";
 import {
   canToggle,
-  overrideChain,
+  overrideSteps,
+  readOnlyReason,
   SCOPE_LABEL,
+  scopeTone,
   sourceSummary,
   stateSummary,
   STATUS_LABEL,
@@ -30,7 +32,7 @@ describe("SCOPE_LABEL", () => {
 
 describe("stateSummary", () => {
   it("says a plugin is installed but not loaded, in those words", () => {
-    expect(stateSummary(notEnabled)).toContain("Installed, but no settings file enables it");
+    expect(stateSummary(notEnabled)).toContain("Installed, but nothing enables it");
   });
 
   it("says an orphaned entry has no copy installed", () => {
@@ -49,19 +51,55 @@ describe("stateSummary", () => {
     );
   });
 
-  it("points a blocked plugin at the blocklist file", () => {
-    expect(stateSummary(blocked)).toContain("blocklist.json");
+  it("points a blocked plugin at the blocklist", () => {
+    expect(stateSummary(blocked)).toContain("blocklist");
   });
 });
 
-describe("overrideChain", () => {
+describe("overrideSteps", () => {
   it("spells out the precedence chain lowest scope first", () => {
-    expect(overrideChain(overridden)).toBe("user: on › project: off › local: on");
+    expect(overrideSteps(overridden)).toEqual([
+      { scope: "user", state: "on", winner: false },
+      { scope: "project", state: "off", winner: false },
+      { scope: "local", state: "on", winner: true },
+    ]);
+  });
+
+  it("marks the scope Claude Code actually obeyed", () => {
+    const winners = overrideSteps(overridden).filter((s) => s.winner);
+    expect(winners).toHaveLength(1);
+    expect(winners[0].scope).toBe("local");
   });
 
   it("stays empty when at most one scope has an opinion", () => {
-    expect(overrideChain(plugin())).toBe("");
-    expect(overrideChain(notEnabled)).toBe("");
+    expect(overrideSteps(plugin())).toEqual([]);
+    expect(overrideSteps(notEnabled)).toEqual([]);
+  });
+});
+
+describe("scopeTone", () => {
+  it("reuses the shared scope-badge colours for the three file scopes", () => {
+    expect(scopeTone("global")).toBe("global");
+    expect(scopeTone("project")).toBe("project");
+    expect(scopeTone("local")).toBe("local");
+  });
+
+  it("gives the administrator's file the not-yours-to-edit tone", () => {
+    expect(scopeTone("managed")).toBe("builtin");
+  });
+});
+
+describe("readOnlyReason", () => {
+  it("stays silent for a plugin the sidebar can switch", () => {
+    expect(readOnlyReason(plugin())).toBe("");
+  });
+
+  it("blames the blocklist for a blocked plugin", () => {
+    expect(readOnlyReason(blocked)).toContain("blocklist");
+  });
+
+  it("blames managed settings for an administrator-decided plugin", () => {
+    expect(readOnlyReason(plugin({ decidedBy: "managed" }))).toContain("managed settings");
   });
 });
 

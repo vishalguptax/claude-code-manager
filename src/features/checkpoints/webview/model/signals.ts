@@ -8,7 +8,7 @@
  */
 import { computed, signal } from "@preact/signals";
 import type { CheckpointFile, CheckpointSessionSummary } from "../../types";
-import { filterCheckpointFiles } from "../lib";
+import { filterCheckpointFiles, filterCheckpointSessions } from "../lib";
 
 /** Every session with checkpoint history, newest backup first. */
 export const sessions = signal<CheckpointSessionSummary[]>([]);
@@ -31,8 +31,11 @@ export const loadingFiles = signal<boolean>(false);
 /** Host-reported error message, or null when healthy. */
 export const errorMessage = signal<string | null>(null);
 
+/** Free-text filter over the session list. */
+export const sessionQuery = signal<string>("");
+
 /** Free-text filter over the selected session's file list. */
-export const searchQuery = signal<string>("");
+export const fileQuery = signal<string>("");
 
 /** Path of the file whose version list is expanded, or null when none is. */
 export const expandedPath = signal<string | null>(null);
@@ -44,9 +47,14 @@ export const selectedSession = computed<CheckpointSessionSummary | null>(() => {
   return sessions.value.find((s) => s.sessionId === id) ?? null;
 });
 
+/** Sessions after the search filter. */
+export const filteredSessions = computed<CheckpointSessionSummary[]>(() =>
+  filterCheckpointSessions(sessions.value, sessionQuery.value),
+);
+
 /** Tracked files after the search filter. */
 export const filteredFiles = computed<CheckpointFile[]>(() =>
-  filterCheckpointFiles(files.value, searchQuery.value),
+  filterCheckpointFiles(files.value, fileQuery.value),
 );
 
 /** Replace the session list and clear its loading state. */
@@ -91,6 +99,7 @@ export function resetCheckpointSignals(): void {
   loadingSessions.value = true;
   loadingFiles.value = false;
   errorMessage.value = null;
-  searchQuery.value = "";
+  sessionQuery.value = "";
+  fileQuery.value = "";
   expandedPath.value = null;
 }

@@ -2,8 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import type { PromptEntry } from "../../../types";
-import { applyError, applyPrompts, projectFilter, resetPromptSignals, searchQuery } from "../../model";
-import { PromptList } from "./PromptList";
+import { applyPrompts, projectFilter, resetPromptSignals, searchQuery } from "../../model";
+import { PromptList, type PromptListProps } from "./PromptList";
 
 function entry(over: Partial<PromptEntry> = {}): PromptEntry {
   return {
@@ -35,16 +35,55 @@ function history(): PromptEntry[] {
   ];
 }
 
+function renderList(over: Partial<PromptListProps> = {}) {
+  const props: PromptListProps = {
+    onCopy: vi.fn(),
+    onOpenSession: vi.fn(),
+    onRefresh: vi.fn(),
+    ...over,
+  };
+  return render(<PromptList {...props} />);
+}
+
 beforeEach(() => {
   resetPromptSignals();
 });
 
 afterEach(cleanup);
 
+describe("PromptList — shell", () => {
+  it("roots the tab in the shared .panel so the pane bounds its scroll", () => {
+    // `.tab-content .panel` (tabs.css) is what gives a feature its height and
+    // its single scroll container. A private root class opts the tab out of
+    // the layout every other tab is built on.
+    applyPrompts(history());
+    const { container } = renderList();
+    expect(container.firstElementChild?.className).toBe("panel");
+  });
+
+  it("puts the search field in the shared .search-row", () => {
+    // The row's --space-2xl inset is what lines the field's left edge up with
+    // the row text below it; a bespoke toolbar is how the gap came back.
+    applyPrompts(history());
+    const { container } = renderList();
+    const row = container.querySelector(".panel > .search-row");
+    expect(row).toBeTruthy();
+    expect(row?.querySelector(".vsc-search")).toBeTruthy();
+  });
+
+  it("offers a refresh action beside the search field", () => {
+    const onRefresh = vi.fn();
+    applyPrompts(history());
+    renderList({ onRefresh });
+    fireEvent.click(screen.getByLabelText("Refresh prompt history"));
+    expect(onRefresh).toHaveBeenCalled();
+  });
+});
+
 describe("PromptList — empty", () => {
   it("explains where prompts come from when the history is empty", () => {
     applyPrompts([]);
-    render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
+    renderList();
     expect(screen.getByText("No prompt history yet")).toBeTruthy();
     expect(screen.getByText("~/.claude/history.jsonl")).toBeTruthy();
   });
@@ -52,24 +91,23 @@ describe("PromptList — empty", () => {
   it("shows a different, recoverable empty state when a filter matches nothing", () => {
     applyPrompts(history());
     searchQuery.value = "nothing matches this";
-    render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
-    expect(screen.getByText("No prompts match")).toBeTruthy();
+    renderList();
+    expect(screen.getByText("No matching prompts")).toBeTruthy();
     // The search field stays on screen so the user can back out of the filter.
-    expect(screen.getByLabelText("Search prompt history")).toBeTruthy();
+    expect(screen.getByLabelText("Search prompts")).toBeTruthy();
   });
 
-  it("shows the error banner instead of the empty state when the host failed", () => {
-    applyError("could not read history.jsonl");
-    render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
-    expect(screen.getByText("could not read history.jsonl")).toBeTruthy();
-    expect(screen.queryByText("No prompt history yet")).toBeNull();
+  it("drops the count caption when there is no history to count", () => {
+    applyPrompts([]);
+    const { container } = renderList();
+    expect(container.querySelector(".list-count")).toBeNull();
   });
 });
 
 describe("PromptList — one and many", () => {
   it("renders a single prompt with a singular caption", () => {
     applyPrompts([entry({ text: "just the one" })]);
-    render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
+    renderList();
     expect(screen.getByText("just the one")).toBeTruthy();
     expect(screen.getByText("1 prompt")).toBeTruthy();
   });
@@ -80,14 +118,22 @@ describe("PromptList — one and many", () => {
     applyPrompts(
       Array.from({ length: 500 }, (_, i) => entry({ id: `id-${i}`, text: `prompt ${i}` })),
     );
-    const { container } = render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
+    const { container } = renderList();
     expect(screen.getByText("500 prompts")).toBeTruthy();
-    expect(container.querySelectorAll(".prompt-row").length).toBeLessThan(500);
+    expect(container.querySelectorAll(".prompt-item").length).toBeLessThan(500);
+  });
+
+  it("gives the windowed list the shared .list class so the panel bounds it", () => {
+    applyPrompts(history());
+    const { container } = renderList();
+    const list = container.querySelector('[role="list"]');
+    expect(list?.classList.contains("list")).toBe(true);
+    expect(list?.classList.contains("virtual-list")).toBe(true);
   });
 
   it("names the list for screen readers and reports the real total per row", () => {
     applyPrompts(history());
-    const { container } = render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
+    const { container } = renderList();
     expect(container.querySelector('[role="list"]')?.getAttribute("aria-label")).toBe(
       "Prompt history",
     );
@@ -100,9 +146,9 @@ describe("PromptList — one and many", () => {
 describe("PromptList — filtering", () => {
   it("narrows on the search field and reports the filtered-of-total count", async () => {
     applyPrompts(history());
-    render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
+    renderList();
 
-    fireEvent.input(screen.getByLabelText("Search prompt history"), {
+    fireEvent.input(screen.getByLabelText("Search prompts"), {
       target: { value: "release" },
     });
 
@@ -113,8 +159,8 @@ describe("PromptList — filtering", () => {
 
   it("offers a project filter listing each project and its count", () => {
     applyPrompts(history());
-    render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
-    const filter = screen.getByLabelText("Filter prompts by project");
+    renderList();
+    const filter = screen.getByLabelText("Filter by project");
     expect(filter).toBeTruthy();
     fireEvent.click(filter);
 
@@ -130,14 +176,14 @@ describe("PromptList — filtering", () => {
 
   it("hides the project filter when every prompt came from one project", () => {
     applyPrompts([entry(), entry({ id: "2", text: "second" })]);
-    render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
-    expect(screen.queryByLabelText("Filter prompts by project")).toBeNull();
+    renderList();
+    expect(screen.queryByLabelText("Filter by project")).toBeNull();
   });
 
   it("shows only the selected project's prompts", () => {
     applyPrompts(history());
     projectFilter.value = "/w/site";
-    render(<PromptList onCopy={vi.fn()} onOpenSession={vi.fn()} />);
+    renderList();
     expect(screen.getByText("1 prompt of 3")).toBeTruthy();
     expect(screen.getByText("why is the build slow")).toBeTruthy();
   });
@@ -147,15 +193,17 @@ describe("PromptList — actions", () => {
   it("passes copy through to the caller", () => {
     const onCopy = vi.fn();
     applyPrompts([entry({ text: "copy me" })]);
-    render(<PromptList onCopy={onCopy} onOpenSession={vi.fn()} />);
+    renderList({ onCopy });
     fireEvent.click(screen.getByTitle("Copy prompt"));
     expect(onCopy).toHaveBeenCalledWith("copy me");
   });
 
   it("passes open-session through to the caller", () => {
+    // The row itself is the open affordance — this tab has no detail view, so
+    // the row click does the one navigational thing a prompt can do.
     const onOpenSession = vi.fn();
     applyPrompts([entry()]);
-    render(<PromptList onCopy={vi.fn()} onOpenSession={onOpenSession} />);
+    renderList({ onOpenSession });
     fireEvent.click(screen.getByTitle("Open the session this prompt was typed in"));
     expect(onOpenSession).toHaveBeenCalledWith("09285b5a-1542-4940-b2a8-ef73977f6fe1");
   });

@@ -7,10 +7,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
+import {
+  _resetMessageBus,
+  _resetPaletteSources,
+  activeTab,
+  collectPaletteItems,
+  dispatch,
+} from "../../../../webview/shared/model";
 import type { Message } from "../../../../shared/protocol/schemas";
 import type { MemoryStore } from "../../types";
-import { applyStore, resetMemorySignals, selectMemory, store } from "../model";
+import { applyStore, resetMemorySignals, selectedId, selectMemory, store } from "../model";
 import MemoryTab, { applyMemoryMessage } from "../index";
 
 const STORE: MemoryStore = {
@@ -64,6 +70,7 @@ let posted: unknown[];
 beforeEach(() => {
   resetMemorySignals();
   _resetMessageBus();
+  _resetPaletteSources();
   posted = [];
   setVscodeApi({ postMessage: (m: unknown) => posted.push(m) } as never);
 });
@@ -107,10 +114,11 @@ describe("MemoryTab", () => {
   });
 
   it("opens the detail view for a clicked row and comes back", async () => {
-    render(h(MemoryTab, {}));
+    const { container } = render(h(MemoryTab, {}));
     push({ type: "memoryStore", data: STORE });
     fireEvent.click(await screen.findByText("alpha"));
-    expect(await screen.findByRole("heading", { name: "alpha" })).toBeTruthy();
+    expect((await screen.findByText("All memories")).closest(".panel")).toBeTruthy();
+    expect(container.querySelector(".d-title")?.textContent).toBe("alpha");
     fireEvent.click(screen.getByRole("button", { name: /All memories/ }));
     expect(await screen.findByLabelText("Search memories")).toBeTruthy();
   });
@@ -137,5 +145,41 @@ describe("MemoryTab", () => {
     // A leaked handler would still apply the store after unmount, and a
     // remount would then double-apply every host push.
     expect(store.value).toBeNull();
+  });
+});
+
+describe("MemoryTab — command palette", () => {
+  it("publishes every memory so Cmd+K finds them", async () => {
+    render(h(MemoryTab, {}));
+    push({ type: "memoryStore", data: STORE });
+    await screen.findByText("alpha");
+
+    const [item] = collectPaletteItems("alpha");
+    expect(item.title).toBe("alpha");
+    expect(item.subtitle).toBe("The first memory");
+    expect(item.group).toBe("Memory");
+    expect(item.icon).toBe("brain");
+    // The hint names the project the memory belongs to, the one thing two
+    // same-named memories differ by.
+    expect(item.hint).toBe("one");
+  });
+
+  it("opens the chosen memory's detail view on the memory tab", async () => {
+    render(h(MemoryTab, {}));
+    push({ type: "memoryStore", data: STORE });
+    await screen.findByText("alpha");
+
+    collectPaletteItems("alpha")[0].run();
+    expect(activeTab.value).toBe("memory");
+    expect(selectedId.value).toBe("-p-one/alpha.md");
+  });
+
+  it("stops publishing after unmount so a remount does not double-list", async () => {
+    const view = render(h(MemoryTab, {}));
+    push({ type: "memoryStore", data: STORE });
+    await screen.findByText("alpha");
+
+    view.unmount();
+    expect(collectPaletteItems("alpha")).toHaveLength(0);
   });
 });

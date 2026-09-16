@@ -3,9 +3,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import type { Message } from "../../../../shared/protocol/schemas";
 import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
+import {
+  _resetMessageBus,
+  _resetPaletteSources,
+  activeTab,
+  collectPaletteItems,
+  dispatch,
+} from "../../../../webview/shared/model";
 import type { PromptEntry } from "../../types";
-import { resetPromptSignals } from "../model";
+import { resetPromptSignals, searchQuery } from "../model";
 import PromptsTab from "../index";
 
 const SESSION = "09285b5a-1542-4940-b2a8-ef73977f6fe1";
@@ -42,7 +48,9 @@ beforeEach(() => {
   posted = [];
   setVscodeApi({ postMessage: (m) => posted.push(m) });
   _resetMessageBus();
+  _resetPaletteSources();
   resetPromptSignals();
+  activeTab.value = "sessions";
 });
 
 afterEach(() => {
@@ -96,10 +104,23 @@ describe("PromptsTab", () => {
     expect(screen.getByText("refactor the session parser")).toBeTruthy();
   });
 
-  it("surfaces a host error", async () => {
+  it("surfaces a host error as its own state, not as an empty history", async () => {
     render(<PromptsTab />);
     send({ type: "error", message: "history.jsonl is unreadable" });
     await waitFor(() => expect(screen.getByText("history.jsonl is unreadable")).toBeTruthy());
+    expect(screen.getByText("Couldn't load prompt history")).toBeTruthy();
+    expect(screen.queryByText("No prompt history yet")).toBeNull();
+  });
+
+  it("refreshes the history on request", async () => {
+    render(<PromptsTab />);
+    send({ type: "promptHistory", data: [entry()] });
+    await waitFor(() => expect(screen.getByLabelText("Refresh prompt history")).toBeTruthy());
+
+    fireEvent.click(screen.getByLabelText("Refresh prompt history"));
+    expect(posted.filter((m) => (m as { type: string }).type === "getPromptHistory")).toHaveLength(
+      2,
+    );
   });
 
   it("asks the host to copy a prompt", async () => {
@@ -131,5 +152,62 @@ describe("PromptsTab", () => {
     // No handler is registered now: this must not throw, and must not update
     // anything that a later mount would then render stale.
     expect(() => send({ type: "promptHistory", data: [entry({ text: "after unmount" })] })).not.toThrow();
+  });
+});
+
+describe("PromptsTab — command palette", () => {
+  it("publishes recent prompts so Cmd+K finds them", async () => {
+    render(<PromptsTab />);
+    send({ type: "promptHistory", data: [entry({ text: "stream the history file" })] });
+    await waitFor(() => expect(collectPaletteItems("stream")).toHaveLength(1));
+
+    const [item] = collectPaletteItems("stream");
+    expect(item.title).toBe("stream the history file");
+    expect(item.subtitle).toBe("claude-code-manager");
+    expect(item.group).toBe("Prompts");
+    expect(item.icon).toBe("pencil");
+  });
+
+  it("caps what it publishes so a four-thousand-row history cannot slow the palette", async () => {
+    const many = Array.from({ length: 200 }, (_, i) =>
+      entry({ id: `id-${i}`, text: `palette prompt ${i}` }),
+    );
+    render(<PromptsTab />);
+    send({ type: "promptHistory", data: many });
+    // The palette caps its own output too, so query the source's contribution
+    // by a term every row shares and count what a generous cap would return.
+    await waitFor(() => expect(collectPaletteItems("palette prompt").length).toBeGreaterThan(0));
+    expect(collectPaletteItems("palette prompt").length).toBeLessThanOrEqual(50);
+    // The newest rows are the ones kept.
+    expect(collectPaletteItems("palette prompt 0")[0]?.title).toBe("palette prompt 0");
+    expect(collectPaletteItems("palette prompt 199")).toHaveLength(0);
+  });
+
+  it("opens the tab filtered to the chosen prompt", async () => {
+    render(<PromptsTab />);
+    send({
+      type: "promptHistory",
+      data: [entry({ text: "why does the virtual list scroll to the top" })],
+    });
+    await waitFor(() => expect(collectPaletteItems("virtual list")).toHaveLength(1));
+
+    collectPaletteItems("virtual list")[0].run();
+    expect(activeTab.value).toBe("prompts");
+    // A filter, not a selection: the list has no per-row selected state, so
+    // the search query is what puts the row in front of the user. The key must
+    // stay matchable — no ellipsis — or the list comes back empty.
+    expect(searchQuery.value).toBe("why does the virtual list scroll");
+    await waitFor(() =>
+      expect(screen.getByText("why does the virtual list scroll to the top")).toBeTruthy(),
+    );
+  });
+
+  it("stops publishing after unmount so a remount does not double-list", async () => {
+    const view = render(<PromptsTab />);
+    send({ type: "promptHistory", data: [entry({ text: "one palette entry" })] });
+    await waitFor(() => expect(collectPaletteItems("one palette")).toHaveLength(1));
+
+    view.unmount();
+    expect(collectPaletteItems("one palette")).toHaveLength(0);
   });
 });

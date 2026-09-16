@@ -1,7 +1,9 @@
 /**
  * One memory's detail view: its frontmatter, its excerpt, the graph around it
  * (outbound links, backlinks, index entry) and the three actions the host
- * offers.
+ * offers. Built from the shared detail chrome (`.d-head`, `.d-actions`,
+ * `.d-section`) so it reads as a sibling of the Skills and Commands detail
+ * views rather than a layout of its own.
  *
  * The graph is the point. A list row can say "2 broken links"; only here can
  * the user see WHICH slugs resolve to nothing, and which other memories would
@@ -9,14 +11,9 @@
  * owns its confirmation, so this component never learns enough to skip it.
  */
 import { useEffect, useRef } from "preact/hooks";
-import {
-  BackButton,
-  Badge,
-  Button,
-  EmptyState,
-} from "../../../../../webview/shared/ui";
+import { BackButton, Badge, Button, EmptyState } from "../../../../../webview/shared/ui";
 import type { MemoryFile } from "../../../types";
-import { backlinksOf, indexEntryOf, resolveLink } from "../../lib";
+import { backlinksOf, indexEntryOf, projectOf, resolveLink } from "../../lib";
 import { selectedMemory, store } from "../../model";
 
 export interface MemoryDetailProps {
@@ -44,22 +41,22 @@ export function MemoryDetail({
   onDelete,
 }: MemoryDetailProps) {
   const memory = selectedMemory.value;
-  const headingRef = useRef<HTMLHeadingElement>(null);
+  const titleRef = useRef<HTMLDivElement>(null);
 
   // Focus follows navigation: opening a detail view moves focus into it so a
   // keyboard user is not left on a row that is no longer rendered.
   useEffect(() => {
-    headingRef.current?.focus();
+    titleRef.current?.focus();
   }, [memory?.id]);
 
   if (memory === null) {
     // Reached when the host re-pushes a store the selected memory is no
     // longer in — i.e. the user just deleted it. Not an error state.
     return (
-      <div class="mem-detail">
+      <div class="panel" id="memoryDetailView">
         <BackButton onClick={onBack} label="All memories" />
         <EmptyState
-          icon="package"
+          icon="brain"
           title="That memory is gone"
           description="It was deleted or moved. Go back to the list to see what is left."
         />
@@ -71,62 +68,103 @@ export function MemoryDetail({
   const backlinks = backlinksOf(current, memory);
   const indexEntry = indexEntryOf(current, memory);
   const modified = formatModified(memory.meta.modified);
+  const project = projectOf(current, memory);
 
   return (
-    <div class="mem-detail">
+    <div class="panel" id="memoryDetailView">
       <BackButton onClick={onBack} label="All memories" />
 
-      <h2 class="mem-detail-title" tabIndex={-1} ref={headingRef}>
-        {memory.meta.name}
-      </h2>
-
-      <div class="mem-detail-chips">
-        {memory.meta.type !== "" && <Badge text={memory.meta.type} variant="default" />}
-        {memory.orphan && (
-          <Badge
-            text="orphan"
-            variant="status"
-            title="Nothing links here and MEMORY.md does not list it"
-          />
-        )}
-        {memory.indexed && <Badge text="in MEMORY.md" variant="status" />}
-        {!memory.hasFrontmatter && <Badge text="no frontmatter" variant="status" />}
-        {memory.truncated && (
-          <Badge
-            text="truncated"
-            variant="status"
-            title="The file is larger than the read bound; links past it are not listed"
-          />
-        )}
+      <div class="d-head">
+        <div class="d-title mem-detail-title" tabIndex={-1} ref={titleRef}>
+          {memory.meta.name}
+        </div>
+        {memory.meta.description !== "" ? (
+          <div class="d-subtitle">{memory.meta.description}</div>
+        ) : null}
+        <div class="d-tags">
+          {memory.meta.type !== "" && <Badge text={memory.meta.type} />}
+          {memory.orphan && (
+            <Badge
+              text="orphan"
+              variant="status"
+              title="Nothing links here and MEMORY.md does not list it"
+            />
+          )}
+          {memory.indexed && <Badge text="in MEMORY.md" variant="status" />}
+          {!memory.hasFrontmatter && (
+            <Badge
+              text="no frontmatter"
+              variant="status"
+              title="The file has no --- block; it is shown as written"
+            />
+          )}
+          {memory.truncated && (
+            <Badge
+              text="truncated"
+              variant="status"
+              title="The file is larger than the read bound; links past it are not listed"
+            />
+          )}
+        </div>
       </div>
 
-      {memory.meta.description !== "" && (
-        <p class="mem-detail-desc">{memory.meta.description}</p>
-      )}
+      <div class="d-actions">
+        <Button iconName="external-link" onClick={() => onOpen(memory)}>
+          Open File
+        </Button>
+        <Button iconName="folder" onClick={() => onReveal(memory)}>
+          Reveal in file manager
+        </Button>
+        <Button variant="danger" iconName="trash-2" onClick={() => onDelete(memory)}>
+          Delete
+        </Button>
+      </div>
 
-      {memory.excerpt !== "" && <p class="mem-detail-excerpt">{memory.excerpt}</p>}
+      <div class="d-section">
+        <div class="d-label">Info</div>
+        {project !== null ? (
+          <div class="d-kv">
+            <span class="d-k">Project</span>
+            <span class="d-v">{project.label}</span>
+          </div>
+        ) : null}
+        <div class="d-kv">
+          <span class="d-k">Path</span>
+          <span class="d-v mono" title={memory.path}>
+            {memory.path}
+          </span>
+        </div>
+        {modified !== "" ? (
+          <div class="d-kv">
+            <span class="d-k">Modified</span>
+            <span class="d-v">{modified}</span>
+          </div>
+        ) : null}
+        {memory.meta.originSessionId !== "" ? (
+          <div class="d-kv">
+            <span class="d-k">Session</span>
+            <span class="d-v mono" title={memory.meta.originSessionId}>
+              {memory.meta.originSessionId}
+            </span>
+          </div>
+        ) : null}
+      </div>
 
-      <dl class="mem-detail-facts">
-        <dt>File</dt>
-        <dd class="mem-detail-path">{memory.path}</dd>
-        {modified !== "" && (
-          <>
-            <dt>Modified</dt>
-            <dd>{modified}</dd>
-          </>
-        )}
-        {memory.meta.originSessionId !== "" && (
-          <>
-            <dt>Written by session</dt>
-            <dd class="mem-detail-session">{memory.meta.originSessionId}</dd>
-          </>
-        )}
-      </dl>
+      {memory.excerpt !== "" ? (
+        <div class="d-section">
+          <div class="d-label">Excerpt</div>
+          <div class="mem-excerpt">{memory.excerpt}</div>
+        </div>
+      ) : null}
 
-      <section class="mem-detail-section">
-        <h3 class="mem-detail-heading">Links out ({memory.links.length})</h3>
+      <div class="d-section">
+        <div class="d-label">Links out ({memory.links.length})</div>
         {memory.links.length === 0 ? (
-          <p class="mem-detail-none">This memory references no others.</p>
+          <EmptyState
+            compact
+            title="No outbound links"
+            description="This memory references no others."
+          />
         ) : (
           <ul class="mem-link-list">
             {memory.links.map((link) => {
@@ -152,16 +190,20 @@ export function MemoryDetail({
             })}
           </ul>
         )}
-      </section>
+      </div>
 
-      <section class="mem-detail-section">
-        <h3 class="mem-detail-heading">Links in ({backlinks.length})</h3>
+      <div class="d-section">
+        <div class="d-label">Links in ({backlinks.length})</div>
         {backlinks.length === 0 ? (
-          <p class="mem-detail-none">
-            {memory.indexed
-              ? "No other memory links here, but MEMORY.md indexes it."
-              : "Nothing links here and MEMORY.md does not index it — this memory is an orphan."}
-          </p>
+          <EmptyState
+            compact
+            title="Nothing links here"
+            description={
+              memory.indexed
+                ? "No other memory links here, but MEMORY.md indexes it."
+                : "Nothing links here and MEMORY.md does not index it — this memory is an orphan."
+            }
+          />
         ) : (
           <ul class="mem-link-list">
             {backlinks.map((source) => (
@@ -173,33 +215,17 @@ export function MemoryDetail({
             ))}
           </ul>
         )}
-      </section>
+      </div>
 
-      {indexEntry !== null && (
-        <section class="mem-detail-section">
-          <h3 class="mem-detail-heading">Index entry</h3>
-          <p class="mem-detail-none">
+      {indexEntry !== null ? (
+        <div class="d-section">
+          <div class="d-label">Index entry</div>
+          <div class="text-sm text-muted">
             {indexEntry.title}
             {indexEntry.hook === "" ? "" : ` — ${indexEntry.hook}`}
-          </p>
-        </section>
-      )}
-
-      <div class="mem-detail-actions">
-        <Button iconName="external-link" label="Open" onClick={() => onOpen(memory)} />
-        <Button
-          variant="ghost"
-          iconName="folder"
-          label="Reveal in file manager"
-          onClick={() => onReveal(memory)}
-        />
-        <Button
-          variant="danger"
-          iconName="trash-2"
-          label="Delete"
-          onClick={() => onDelete(memory)}
-        />
-      </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

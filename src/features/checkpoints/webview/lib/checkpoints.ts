@@ -3,7 +3,11 @@
  * function here takes its inputs and returns a value, so the views stay
  * declarative and the logic is directly testable.
  */
-import type { CheckpointFile, CheckpointVersion } from "../../types";
+import type {
+  CheckpointFile,
+  CheckpointSessionSummary,
+  CheckpointVersion,
+} from "../../types";
 
 /**
  * Files whose name or directory contains `query` (case-insensitive). An empty
@@ -55,14 +59,24 @@ export function backupTimeMs(version: CheckpointVersion): number {
 }
 
 /**
- * Shorten an absolute directory for display by dropping the leading home or
- * workspace prefix. Purely cosmetic: the full path is still what the row's
- * `title` shows and what a restore is confirmed against.
+ * Sessions whose label, project or id contains `query` (case-insensitive). An
+ * empty or whitespace-only query returns the list unchanged — and the SAME
+ * array reference, so an unfiltered render does not invalidate downstream
+ * memos.
+ *
+ * The id is matched as well as the label because a user correlating a row with
+ * a directory under `~/.claude/file-history` has the id in hand, not the name.
  */
-export function shortenDir(dir: string, workspacePath?: string): string {
-  if (workspacePath && dir.startsWith(workspacePath)) {
-    const rest = dir.slice(workspacePath.length).replace(/^[/\\]/, "");
-    return rest === "" ? "." : rest;
-  }
-  return dir;
+export function filterCheckpointSessions(
+  sessions: CheckpointSessionSummary[],
+  query: string,
+): CheckpointSessionSummary[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return sessions;
+  return sessions.filter(
+    (s) =>
+      s.label.toLowerCase().includes(q) ||
+      s.project.toLowerCase().includes(q) ||
+      s.sessionId.toLowerCase().includes(q),
+  );
 }

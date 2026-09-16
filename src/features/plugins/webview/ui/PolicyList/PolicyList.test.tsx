@@ -42,6 +42,7 @@ describe("PolicyList", () => {
     const note = screen.getByRole("note");
     expect(note.textContent).toContain("managed settings only");
     expect(note.textContent).toContain("no effect");
+    expect(note.classList.contains("plg-item-warning")).toBe(true);
   });
 
   it("stays quiet about a key that is honoured where it was set", () => {

@@ -8,9 +8,13 @@
  * confirmation and the write, so this component never learns enough to skip
  * the confirmation.
  */
-import { useEffect, useMemo } from "preact/hooks";
+import { useCallback, useEffect, useMemo } from "preact/hooks";
 import { useApi } from "../../../webview/shared/hooks";
-import { registerFeatureHandler } from "../../../webview/shared/model";
+import {
+  activeTab,
+  registerFeatureHandler,
+  registerPaletteSource,
+} from "../../../webview/shared/model";
 import { ListSkeleton } from "../../../webview/shared/ui";
 import type { CheckpointFile, CheckpointSessionSummary } from "../types";
 import { createCheckpointsApi } from "./api";
@@ -19,16 +23,41 @@ import {
   applyError,
   applySessions,
   expandedPath,
+  fileQuery,
   loadingFiles,
   loadingSessions,
-  searchQuery,
   selectedSessionId,
+  sessions,
 } from "./model";
 import { CheckpointFiles, CheckpointSessions } from "./ui";
+
+/**
+ * How many sessions to offer the palette. The palette scores every item on
+ * every keystroke and shows at most 50 after ranking, so a user with years of
+ * file history pays for rows that can never be shown.
+ */
+const PALETTE_SESSIONS = 200;
 
 export default function CheckpointsTab() {
   const { post } = useApi();
   const api = useMemo(() => createCheckpointsApi(post), [post]);
+
+  /**
+   * Open one session's file history. Resets the previous session's filter and
+   * expansion so the new list opens at the top rather than mid-search, then
+   * asks the host for the files. Shared by the list row and the palette, so
+   * both routes land the user in exactly the same state.
+   */
+  const openSession = useCallback(
+    (sessionId: string): void => {
+      selectedSessionId.value = sessionId;
+      fileQuery.value = "";
+      expandedPath.value = null;
+      loadingFiles.value = true;
+      api.getCheckpoints(sessionId);
+    },
+    [api],
+  );
 
   useEffect(() => {
     // One prefix covers both host replies: "checkpoints" and
@@ -43,12 +72,30 @@ export default function CheckpointsTab() {
     const unsubscribeError = registerFeatureHandler("error", (msg) => {
       if (msg.type === "error") applyError(msg.message);
     });
+    // Sessions with file history in the command palette. The source is called
+    // per query, so it always reads the live signal without this module
+    // subscribing to it.
+    const unsubscribePalette = registerPaletteSource("checkpoints", () =>
+      sessions.value.slice(0, PALETTE_SESSIONS).map((s) => ({
+        id: `checkpoints:${s.sessionId}`,
+        title: s.label,
+        subtitle: `${s.fileCount} ${s.fileCount === 1 ? "file" : "files"}`,
+        group: "Checkpoints",
+        icon: "history",
+        hint: s.project || undefined,
+        run: () => {
+          activeTab.value = "checkpoints";
+          openSession(s.sessionId);
+        },
+      })),
+    );
     api.getSessions();
     return () => {
       unsubscribe();
       unsubscribeError();
+      unsubscribePalette();
     };
-  }, [api]);
+  }, [api, openSession]);
 
   const sessionId = selectedSessionId.value;
 
@@ -60,7 +107,7 @@ export default function CheckpointsTab() {
         onBack={() => {
           selectedSessionId.value = null;
           expandedPath.value = null;
-          searchQuery.value = "";
+          fileQuery.value = "";
         }}
         onOpenFile={(path) => api.openFile(path)}
         onDiff={(filePath, version) => api.diff(sessionId, filePath, version)}
@@ -69,20 +116,7 @@ export default function CheckpointsTab() {
     );
   }
 
-  return (
-    <CheckpointSessions
-      onSelect={(id) => {
-        selectedSessionId.value = id;
-        // Selecting clears the previous session's filter + expansion so the
-        // new list opens at the top rather than mid-filter.
-        searchQuery.value = "";
-        expandedPath.value = null;
-        loadingFiles.value = true;
-        api.getCheckpoints(id);
-      }}
-      onRefresh={() => api.getSessions()}
-    />
-  );
+  return <CheckpointSessions onSelect={openSession} onRefresh={() => api.getSessions()} />;
 }
 
 export { CheckpointsTab };

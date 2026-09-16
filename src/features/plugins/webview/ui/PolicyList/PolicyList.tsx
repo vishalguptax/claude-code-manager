@@ -10,10 +10,16 @@
  */
 import { Badge } from "../../../../../webview/shared/ui";
 import type { PluginPolicyEntry } from "../../../types";
-import { SCOPE_LABEL } from "../../lib";
+import { SCOPE_LABEL, scopeTone } from "../../lib";
 
 export interface PolicyListProps {
   entries: PluginPolicyEntry[];
+}
+
+/** The key's value, spelled the way a settings file would. */
+function valueText(value: string[] | boolean): string {
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return value.length === 0 ? "(empty list)" : value.join(", ");
 }
 
 export function PolicyList({ entries }: PolicyListProps) {
@@ -26,23 +32,16 @@ export function PolicyList({ entries }: PolicyListProps) {
             <span class="plg-policy-key">{entry.key}</span>
             <Badge
               text={SCOPE_LABEL[entry.scope]}
-              variant={entry.ignored ? "danger" : "default"}
+              variant={entry.ignored ? "danger" : undefined}
+              scope={entry.ignored ? undefined : scopeTone(entry.scope)}
               title={`Set in ${SCOPE_LABEL[entry.scope]} settings`}
             />
           </div>
-          <div class="plg-item-detail">
-            {typeof entry.value === "boolean"
-              ? entry.value
-                ? "true"
-                : "false"
-              : entry.value.length === 0
-                ? "(empty list)"
-                : entry.value.join(", ")}
-          </div>
+          <div class="plg-item-detail">{valueText(entry.value)}</div>
           {entry.ignored ? (
             <div class="plg-item-warning" role="note">
-              Claude Code reads <code>{entry.key}</code> from managed settings only, so this
-              value has no effect.
+              Claude Code honours this key in managed settings only, so the value set here has
+              no effect.
             </div>
           ) : null}
         </div>
