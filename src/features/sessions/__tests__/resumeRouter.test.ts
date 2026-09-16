@@ -24,6 +24,7 @@ vi.mock("../../../extension/terminal", () => ({
       sentText.push(t);
     },
   }),
+  runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
   validateGitRef: (name: string) => (/^[A-Za-z0-9._/-]+$/.test(name) ? name : null),
 }));
 

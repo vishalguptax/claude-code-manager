@@ -17,7 +17,7 @@ import {
 import type { SavedProfile } from "../account/profiles";
 import { describeProfileQuota } from "../account/profileQuota";
 import { getWorkspace } from "../../extension/workspace";
-import { createTerminal } from "../../extension/terminal";
+import { createTerminal, runInTerminal } from "../../extension/terminal";
 import { buildSwitchConfirmDetail } from "./hostContext";
 import type { WebviewMessage } from "./types";
 
@@ -300,7 +300,7 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
       }
       const term = createTerminal("login");
       term.show();
-      term.sendText("claude");
+      runInTerminal(term, "claude");
       setTimeout(() => term.sendText("/login"), 1800);
     }
   });

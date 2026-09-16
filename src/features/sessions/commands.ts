@@ -10,7 +10,7 @@ import type { Session, SessionDetail } from "./types";
 import { parseSessionDetail, getSessionFile } from "./parser";
 import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
-import { createTerminal, validateGitRef } from "../../extension/terminal";
+import { createTerminal, runInTerminal, validateGitRef } from "../../extension/terminal";
 import {
   resolveWorktree,
   findWorktreeForBranch,
@@ -62,7 +62,7 @@ export async function newSession(): Promise<void> {
   }
   const term = createTerminal("Claude");
   term.show();
-  term.sendText("claude");
+  runInTerminal(term, "claude");
 }
 
 /**
@@ -87,7 +87,7 @@ export async function newTempSession(onCleaned?: () => void): Promise<void> {
   // does not reliably observe cleanup's own unlink + history rewrite.
   registerEphemeralTerminal(term, ws, onCleaned);
   term.show();
-  term.sendText("claude");
+  runInTerminal(term, "claude");
 }
 
 /**
@@ -137,7 +137,7 @@ export async function continueLastSession(sessions: Session[]): Promise<void> {
   const termName = latest ? buildTerminalName(latest, latest.id) : "continue";
   const term = createTerminal(termName, cwd || undefined, latest?.id);
   term.show();
-  term.sendText("claude --continue");
+  runInTerminal(term, "claude --continue");
 }
 
 /**
@@ -401,7 +401,7 @@ export async function resumeSession(
         if (choice === "Open worktree") {
           const term = createTerminal(termName, other.path, sessionId);
           term.show();
-          term.sendText(cmd);
+          runInTerminal(term, cmd);
           return;
         }
         // "Resume Anyway" falls through to the router below (resume in place).
@@ -430,7 +430,7 @@ export async function resumeSession(
           }
           const term = createTerminal(termName, cwd, sessionId);
           term.show();
-          term.sendText(`git checkout '${safe}' && ${cmd}`);
+          runInTerminal(term, `git checkout '${safe}' && ${cmd}`);
           return;
         }
         // "Resume Anyway" falls through to the router below.
@@ -445,7 +445,7 @@ export async function resumeSession(
 
   const term = createTerminal(termName, cwd, sessionId);
   term.show();
-  term.sendText(cmd);
+  runInTerminal(term, cmd);
 }
 
 /**
@@ -485,7 +485,7 @@ export async function createWorktreeForSession(
   if (wtPath && fs.existsSync(wtPath)) {
     const term = createTerminal(termName, wtPath, sessionId);
     term.show();
-    term.sendText(cmd);
+    runInTerminal(term, cmd);
     return;
   }
 
@@ -553,7 +553,7 @@ export async function createWorktreeForSession(
 
   const term = createTerminal(termName, norm, sessionId);
   term.show();
-  term.sendText(cmd);
+  runInTerminal(term, cmd);
 }
 
 // VS Code terminal tabs get unreadable past ~24 chars in the side editor —
@@ -914,7 +914,7 @@ export async function importSessionFile(
   // 7. Launch
   const term = createTerminal(`imported ${newId.slice(0, 8)}`, target.path, newId);
   term.show();
-  term.sendText(`claude --resume ${newId}`);
+  runInTerminal(term, `claude --resume ${newId}`);
 
   // Tell the view provider to re-scan so the imported session shows up
   // in the list (it lives under target.path's slug, not necessarily the

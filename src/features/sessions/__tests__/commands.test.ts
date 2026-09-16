@@ -57,6 +57,7 @@ vi.mock("../../../extension/terminal", async () => {
         sentTextCalls.push(t);
       },
     }),
+    runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
     validateGitRef: actual.validateGitRef,
   };
 });

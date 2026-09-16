@@ -22,7 +22,7 @@ import {
 } from "../hooks/writer";
 import { resolveSettingsPath } from "../account/parser";
 import { getWorkspace } from "../../extension/workspace";
-import { createTerminal } from "../../extension/terminal";
+import { createTerminal, runInTerminal } from "../../extension/terminal";
 import { KNOWN_HOOK_EVENTS } from "../hooks/events";
 import type { HookScope } from "../hooks/types";
 import type { WebviewMessage } from "./types";
@@ -183,7 +183,7 @@ export async function handleFeatureMessage(
       // Code actually loaded (same launch pattern as launchSlash).
       const term = createTerminal("hooks");
       term.show();
-      term.sendText("claude");
+      runInTerminal(term, "claude");
       setTimeout(() => term.sendText("/hooks"), 1800);
       break;
     }

@@ -122,6 +122,7 @@ export function _resetListeners(): void {
   _workspaceFolderListeners.length = 0;
   _configChangeListeners.length = 0;
   _extensionChangeListeners.length = 0;
+  _shellIntegrationChangeListeners.length = 0;
 }
 
 export class RelativePattern {
@@ -140,6 +141,9 @@ export interface MockTerminal {
   show: () => void;
   dispose: () => void;
   createOptions?: Record<string, unknown>;
+  /** Absent until shell integration activates, matching the real API — see
+   *  runInTerminal in extension/terminal.ts, the one consumer of this. */
+  shellIntegration?: unknown;
 }
 
 interface MockTab {
@@ -157,6 +161,13 @@ const _shellExecStartListeners: Array<(e: { terminal: unknown }) => void> = [];
 
 export function _fireShellExecutionStart(terminal: unknown): void {
   for (const l of _shellExecStartListeners) l({ terminal });
+}
+
+const _shellIntegrationChangeListeners: Array<(e: { terminal: unknown }) => void> = [];
+
+/** Test helper: fire onDidChangeTerminalShellIntegration for `terminal`. */
+export function _fireShellIntegrationChange(terminal: unknown): void {
+  for (const l of _shellIntegrationChangeListeners) l({ terminal });
 }
 
 interface MockTabGroup {
@@ -199,6 +210,17 @@ export const window = {
       dispose: () => {
         const idx = _shellExecStartListeners.indexOf(listener);
         if (idx >= 0) _shellExecStartListeners.splice(idx, 1);
+      },
+    };
+  },
+  onDidChangeTerminalShellIntegration: (
+    listener: (e: { terminal: unknown }) => void,
+  ): MockDisposable => {
+    _shellIntegrationChangeListeners.push(listener);
+    return {
+      dispose: () => {
+        const idx = _shellIntegrationChangeListeners.indexOf(listener);
+        if (idx >= 0) _shellIntegrationChangeListeners.splice(idx, 1);
       },
     };
   },

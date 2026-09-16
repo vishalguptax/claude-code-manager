@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as vscode from "vscode";
 import type { MockTerminal } from "../../__mocks__/vscode";
-import { _fireShellExecutionStart } from "../../__mocks__/vscode";
+import { _fireShellExecutionStart, _fireShellIntegrationChange } from "../../__mocks__/vscode";
 import {
   createTerminal,
   initTerminalReuseGuard,
+  runInTerminal,
   setExtensionUri,
   validateGitRef,
 } from "../terminal";
@@ -377,5 +378,111 @@ describe("setExtensionUri / icon path", () => {
 
     const icon = term.createOptions?.iconPath as { path: string } | undefined;
     expect(icon?.path).toBe("/ext/root/media/terminal-icon.svg");
+  });
+});
+
+describe("runInTerminal", () => {
+  it("sends immediately when shellIntegration is already active", () => {
+    const term = makeTerminal({ shellIntegration: {} });
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("waits for shell integration to activate before sending", () => {
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+    expect(term.sentText).toEqual([]);
+
+    _fireShellIntegrationChange(term);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("ignores the event firing for a different terminal", () => {
+    const term = makeTerminal();
+    const other = makeTerminal({ name: "other" });
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+
+    _fireShellIntegrationChange(other);
+    expect(term.sentText).toEqual([]);
+
+    _fireShellIntegrationChange(term);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("sends anyway once the timeout elapses, if integration never activates", () => {
+    vi.useFakeTimers();
+    try {
+      const term = makeTerminal();
+      runInTerminal(term as unknown as vscode.Terminal, "claude");
+      expect(term.sentText).toEqual([]);
+
+      vi.advanceTimersByTime(2500);
+      expect(term.sentText).toEqual(["claude"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not send twice if the event fires just before the timeout", () => {
+    vi.useFakeTimers();
+    try {
+      const term = makeTerminal();
+      runInTerminal(term as unknown as vscode.Terminal, "claude");
+
+      _fireShellIntegrationChange(term);
+      vi.advanceTimersByTime(2500);
+
+      expect(term.sentText).toEqual(["claude"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not send twice if the event fires again after the timeout already sent", () => {
+    vi.useFakeTimers();
+    try {
+      const term = makeTerminal();
+      runInTerminal(term as unknown as vscode.Terminal, "claude");
+
+      vi.advanceTimersByTime(2500);
+      expect(term.sentText).toEqual(["claude"]);
+
+      _fireShellIntegrationChange(term);
+      expect(term.sentText).toEqual(["claude"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops listening once settled, so a later terminal reusing the same name is unaffected", () => {
+    // The subscription must be disposed on settle — otherwise a second,
+    // unrelated runInTerminal call sharing a listener array would leak.
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+    _fireShellIntegrationChange(term);
+    expect(term.sentText).toEqual(["claude"]);
+
+    // Firing again must not re-send — the listener was removed on settle.
+    _fireShellIntegrationChange(term);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("sends immediately on a host that predates onDidChangeTerminalShellIntegration", () => {
+    const original = (
+      vscode.window as unknown as { onDidChangeTerminalShellIntegration?: unknown }
+    ).onDidChangeTerminalShellIntegration;
+    // Simulate a host old enough to predate the event entirely.
+    (
+      vscode.window as unknown as { onDidChangeTerminalShellIntegration?: unknown }
+    ).onDidChangeTerminalShellIntegration = undefined;
+    try {
+      const term = makeTerminal();
+      runInTerminal(term as unknown as vscode.Terminal, "claude");
+      expect(term.sentText).toEqual(["claude"]);
+    } finally {
+      (
+        vscode.window as unknown as { onDidChangeTerminalShellIntegration?: unknown }
+      ).onDidChangeTerminalShellIntegration = original;
+    }
   });
 });

@@ -37,6 +37,7 @@ vi.mock("../../account/parser", () => ({
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => mockGetWorkspace() }));
 vi.mock("../../../extension/terminal", () => ({
   createTerminal: (...args: unknown[]) => mockCreateTerminal(...args),
+  runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
 }));
 vi.mock("../../skills/parser", () => ({ parseSkills: () => mockParseSkills() }));
 vi.mock("../../agents/parser", () => ({ parseAgents: () => mockParseAgents() }));
