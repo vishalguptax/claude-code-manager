@@ -6,7 +6,19 @@ const PAYLOAD = JSON.stringify({
   session_id: "abc",
   version: "2.1.86",
   model: { id: "claude-opus-4-6", display_name: "Opus 4.6 (1M context)" },
-  context_window: { used_percentage: 3, context_window_size: 1_000_000 },
+  session_name: "quota parity work",
+  context_window: {
+    used_percentage: 3,
+    context_window_size: 1_000_000,
+    total_input_tokens: 31_000,
+    total_output_tokens: 1_200,
+    current_usage: {
+      input_tokens: 900,
+      output_tokens: 1_200,
+      cache_creation_input_tokens: 4_100,
+      cache_read_input_tokens: 26_000,
+    },
+  },
   cost: {
     total_cost_usd: 0.97,
     total_duration_ms: 612_839,
@@ -27,7 +39,19 @@ describe("extractCache", () => {
     expect(cache.capturedAt).toBe(1234);
     expect(cache.version).toBe("2.1.86");
     expect(cache.model).toEqual({ id: "claude-opus-4-6", displayName: "Opus 4.6 (1M context)" });
-    expect(cache.context).toEqual({ usedPercent: 3, size: 1_000_000 });
+    expect(cache.sessionName).toBe("quota parity work");
+    expect(cache.context).toEqual({
+      usedPercent: 3,
+      size: 1_000_000,
+      tokens: {
+        totalInput: 31_000,
+        totalOutput: 1_200,
+        input: 900,
+        output: 1_200,
+        cacheCreation: 4_100,
+        cacheRead: 26_000,
+      },
+    });
     expect(cache.cost).toEqual({
       totalUsd: 0.97,
       durationMs: 612_839,
@@ -36,6 +60,8 @@ describe("extractCache", () => {
     });
     expect(cache.rateLimits.fiveHour).toEqual({ usedPercent: 6, resetsAt: 1_774_731_600 });
     expect(cache.rateLimits.sevenDay).toEqual({ usedPercent: 12, resetsAt: 1_775_199_600 });
+    // Absent for everyone not behind a Claude gateway — the common case.
+    expect(cache.rateLimits.spendLimit).toBeNull();
   });
 
   it("returns null for non-JSON input", () => {
@@ -55,6 +81,8 @@ describe("extractCache", () => {
     expect(cache.cost).toBeNull();
     expect(cache.rateLimits.fiveHour).toBeNull();
     expect(cache.rateLimits.sevenDay).toBeNull();
+    expect(cache.rateLimits.spendLimit).toBeNull();
+    expect(cache.sessionName).toBe("");
   });
 
   it("drops a rate window that has no numeric used_percentage", () => {
@@ -165,7 +193,17 @@ describe("extractCache — prompt cache", () => {
           hit_ratio: 0.925,
           cache_write_tokens: 12_000,
           miss_recache_tokens: 8_000,
-          last_miss_cause: "prefix_changed",
+          caching_observed: true,
+          expires_at: 1_789_545_600,
+          last_miss_at: 1_789_540_000,
+          last_miss_cause: {
+            causes: ["tools_changed"],
+            tools_added: 2,
+            tools_removed: 1,
+            system_char_delta: -40,
+          },
+          miss_causes: { tools_changed: 2, ttl_expired_1h: 1 },
+          recache_tokens_if_cold: 48_000,
         },
       }),
       NOW,
@@ -179,7 +217,17 @@ describe("extractCache — prompt cache", () => {
       hitRatio: 0.925,
       cacheWriteTokens: 12_000,
       missRecacheTokens: 8_000,
-      lastMissCause: "prefix_changed",
+      cachingObserved: true,
+      expiresAt: 1_789_545_600,
+      lastMissAt: 1_789_540_000,
+      lastMissCause: {
+        causes: ["tools_changed"],
+        toolsAdded: 2,
+        toolsRemoved: 1,
+        systemCharDelta: -40,
+      },
+      missCauses: { tools_changed: 2, ttl_expired_1h: 1 },
+      recacheTokensIfCold: 48_000,
     });
   });
 

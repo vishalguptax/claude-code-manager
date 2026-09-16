@@ -13,6 +13,7 @@ export {
   formatDuration,
   formatFetchedRelative,
   formatJoinedDate,
+  formatMissCause,
   formatModelName,
   formatMoney,
   formatMoneyCompact,

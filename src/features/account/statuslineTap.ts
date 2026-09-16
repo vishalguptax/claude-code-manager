@@ -24,7 +24,12 @@ import {
   STATUSLINE_CACHE_FILE,
   STATUSLINE_INNER_FILE,
 } from "../../core/config";
-import { extractCache, mergeCaches, renderDefaultLine } from "./statuslineCore";
+import {
+  extractCache,
+  mergeCaches,
+  renderDefaultLine,
+  reviveCache,
+} from "./statuslineCore";
 import type { StatuslineCache } from "./statuslineCore";
 import { isTapCommand, parseInner, resolveChainCommand } from "./statuslineInner";
 
@@ -47,10 +52,10 @@ function readStdin(): string {
  */
 function readPrevCache(): StatuslineCache | null {
   try {
-    const parsed = JSON.parse(
-      fs.readFileSync(STATUSLINE_CACHE_FILE, "utf-8"),
-    ) as StatuslineCache;
-    return typeof parsed === "object" && parsed !== null ? parsed : null;
+    // reviveCache, not a cast: an extension upgrade can leave a cache
+    // written by an older tap on disk, and `mergeCaches` spreads this
+    // value into the file we write back.
+    return reviveCache(JSON.parse(fs.readFileSync(STATUSLINE_CACHE_FILE, "utf-8")));
   } catch {
     return null;
   }

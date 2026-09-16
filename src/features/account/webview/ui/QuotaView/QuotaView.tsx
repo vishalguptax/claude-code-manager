@@ -26,7 +26,7 @@ import { now } from "../../../../../webview/shared/model";
 import type { QuotaError, QuotaSuccess } from "../../../quota";
 import type { PromptCacheStats } from "../../../statuslineCore";
 import type { AccountApi } from "../../api";
-import { formatNumber, quotaFreshness, weeklyPace } from "../../lib";
+import { formatMissCause, formatNumber, quotaFreshness, weeklyPace } from "../../lib";
 import { describeProfileQuota } from "../../../profileQuota";
 import {
   accountData,
@@ -298,6 +298,7 @@ function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
     detail.push(`${stats.expectedRebuilds} rebuilt`);
   }
   if (wasted > 0) detail.push(`${formatNumber(wasted)} tokens re-cached`);
+  const missCause = formatMissCause(stats.lastMissCause);
   // Plain-language gloss, because every term on this row is jargon:
   // "hit", "missed", "re-cached" mean nothing without it, and the figure
   // is only actionable once you know which direction is good.
@@ -306,7 +307,7 @@ function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
     "being sent again. Higher is cheaper, and a miss rebuilds the whole " +
     "cached prefix — those re-cached tokens count towards the windows " +
     "above." +
-    (stats.lastMissCause ? ` Last miss: ${stats.lastMissCause}.` : "");
+    (missCause ? ` Last miss: ${missCause}.` : "");
   return (
     <div class="acct-quota-cache">
       <div class="acct-quota-cache-head">

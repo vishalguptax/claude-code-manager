@@ -6,6 +6,7 @@
  */
 
 import type { AccountData, UsageStats } from "../../types";
+import type { PromptCacheMissCause } from "../../statuslineCore";
 import { cutoffDaysForPeriod, type Period } from "./heatmap";
 
 // Note: the model-picker option builder lived here in v1 but the Account
@@ -424,4 +425,49 @@ export function formatMoneyCompact(minorUnits: number, currency: string): string
   if (abs >= 1_000_000) return `${sign}${symbol}${(abs / 1_000_000).toFixed(1)}M`;
   if (abs >= 1_000) return `${sign}${symbol}${(abs / 1_000).toFixed(1)}K`;
   return `${sign}${symbol}${abs.toFixed(digits)}`;
+}
+
+/**
+ * Human-readable gloss for a prompt-cache miss diagnosis.
+ *
+ * Claude Code names causes in snake_case from a set that grows across
+ * releases, so unknown names must still render: anything we do not have
+ * a phrase for falls back to the name with underscores turned into
+ * spaces, which reads acceptably for every name in the set so far
+ * ("likely_server_side" → "likely server side").
+ *
+ * Multiple causes are joined because Claude reports them together when
+ * one turn invalidated the prefix in more than one way.
+ */
+const MISS_CAUSE_PHRASES: Record<string, string> = {
+  system_prompt_changed: "the system prompt changed",
+  tools_changed: "the tool set changed",
+  model_changed: "the model changed",
+  messages_rewritten: "earlier messages were rewritten",
+  ttl_expired_5m: "the 5m cache expired",
+  ttl_expired_1h: "the 1h cache expired",
+  likely_server_side: "a server-side eviction",
+  unknown: "an undiagnosed change",
+};
+
+export function formatMissCause(cause: PromptCacheMissCause | null): string {
+  if (!cause || cause.causes.length === 0) return "";
+  const phrases = cause.causes.map(
+    (name) => MISS_CAUSE_PHRASES[name] ?? name.replace(/_/g, " "),
+  );
+  const joined =
+    phrases.length === 1
+      ? phrases[0]
+      : `${phrases.slice(0, -1).join(", ")} and ${phrases[phrases.length - 1]}`;
+  // Tool churn is the one cause with a number worth showing — it is
+  // usually an MCP server connecting or dropping mid-session, which the
+  // user can act on. The others carry no actionable magnitude.
+  const net = cause.toolsAdded + cause.toolsRemoved;
+  if (net > 0 && cause.causes.includes("tools_changed")) {
+    const parts: string[] = [];
+    if (cause.toolsAdded > 0) parts.push(`+${cause.toolsAdded}`);
+    if (cause.toolsRemoved > 0) parts.push(`-${cause.toolsRemoved}`);
+    return `${joined} (${parts.join(" / ")} tools)`;
+  }
+  return joined;
 }
