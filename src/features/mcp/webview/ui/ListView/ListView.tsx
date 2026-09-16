@@ -121,6 +121,7 @@ export function ListView({
         <>
           {count}
           <VirtualList<Row>
+            label="MCP servers"
             class="mcp-virtual"
             items={rows}
             itemHeight={ROW_HEIGHT}

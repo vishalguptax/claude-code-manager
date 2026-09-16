@@ -230,6 +230,7 @@ function VirtualAgentRows({
     <>
       <CountCaption count={count} />
       <VirtualList<Row>
+        label="Agents"
         items={rows}
         itemHeight={ROW_HEIGHT}
         renderItem={(row) =>

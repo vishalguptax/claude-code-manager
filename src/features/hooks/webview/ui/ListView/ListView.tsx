@@ -140,6 +140,7 @@ function renderBody({ all, filtered, groups, open, toggle, remove }: BodyProps) 
       <>
         {count}
         <VirtualList
+          label="Hooks"
           items={filtered}
           itemHeight={ITEM_HEIGHT}
           class="hook-virtual-list"

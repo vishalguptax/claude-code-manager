@@ -158,6 +158,7 @@ export function ListView() {
         )
       ) : (
         <VirtualList
+          label="Sessions"
           class="list"
           items={rows}
           itemHeight={ITEM_HEIGHT}
