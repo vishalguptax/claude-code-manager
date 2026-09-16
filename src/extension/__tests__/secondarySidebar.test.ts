@@ -3,7 +3,9 @@ import * as fs from "fs";
 import * as path from "path";
 import {
   ACTIVITY_BAR_VIEW_ID,
-  NO_SECONDARY_SIDEBAR_CONTEXT_KEY,
+  DEFAULT_PLACEMENT,
+  USE_SECONDARY_SIDEBAR_CONTEXT_KEY,
+  resolvePlacement,
   SECONDARY_SIDEBAR_VIEW_ID,
   supportsSecondarySidebar,
 } from "../secondarySidebar";
@@ -47,8 +49,8 @@ describe("placement identifiers", () => {
   it("matches the manifest", () => {
     expect(ACTIVITY_BAR_VIEW_ID).toBe("claudeCodeManager.view");
     expect(SECONDARY_SIDEBAR_VIEW_ID).toBe("claudeCodeManager.secondaryView");
-    expect(NO_SECONDARY_SIDEBAR_CONTEXT_KEY).toBe(
-      "claudeCodeManager:doesNotSupportSecondarySidebar",
+    expect(USE_SECONDARY_SIDEBAR_CONTEXT_KEY).toBe(
+      "claudeCodeManager:useSecondarySidebar",
     );
   });
 
@@ -66,16 +68,68 @@ describe("placement identifiers", () => {
     };
     const { viewsContainers, views } = manifest.contributes;
 
-    expect(viewsContainers.activitybar[0].when).toBe(NO_SECONDARY_SIDEBAR_CONTEXT_KEY);
-    expect(viewsContainers.secondarySidebar[0].when).toBe(
-      `!${NO_SECONDARY_SIDEBAR_CONTEXT_KEY}`,
-    );
+    // Activity bar is the NEGATED clause, so an unset key — an old host, an
+    // unparseable version, activation that has not run — lands there.
+    expect(viewsContainers.activitybar[0].when).toBe(`!${USE_SECONDARY_SIDEBAR_CONTEXT_KEY}`);
+    expect(viewsContainers.secondarySidebar[0].when).toBe(USE_SECONDARY_SIDEBAR_CONTEXT_KEY);
 
     const activityView = views[viewsContainers.activitybar[0].id][0];
     const secondaryView = views[viewsContainers.secondarySidebar[0].id][0];
     expect(activityView.id).toBe(ACTIVITY_BAR_VIEW_ID);
-    expect(activityView.when).toBe(NO_SECONDARY_SIDEBAR_CONTEXT_KEY);
+    expect(activityView.when).toBe(`!${USE_SECONDARY_SIDEBAR_CONTEXT_KEY}`);
     expect(secondaryView.id).toBe(SECONDARY_SIDEBAR_VIEW_ID);
-    expect(secondaryView.when).toBe(`!${NO_SECONDARY_SIDEBAR_CONTEXT_KEY}`);
+    expect(secondaryView.when).toBe(USE_SECONDARY_SIDEBAR_CONTEXT_KEY);
+  });
+
+  it("declares the placement setting with the activity bar as default", () => {
+    // The default is what decides whether upgrading silently relocates a
+    // panel the user had where they wanted it.
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "../../../package.json"), "utf8"),
+    ) as {
+      contributes: {
+        configuration: { properties: Record<string, { default?: unknown; enum?: string[] }> };
+      };
+    };
+    const prop = manifest.contributes.configuration.properties["claudeManager.placement"];
+    expect(prop).toBeDefined();
+    expect(prop.default).toBe(DEFAULT_PLACEMENT);
+    expect(prop.default).toBe("activityBar");
+    expect(prop.enum).toEqual(["activityBar", "secondarySidebar"]);
+  });
+});
+
+describe("resolvePlacement", () => {
+  it("keeps the panel in the activity bar by default", () => {
+    const r = resolvePlacement("1.137.0", "activityBar");
+    expect(r.useSecondarySidebar).toBe(false);
+    expect(r.viewId).toBe(ACTIVITY_BAR_VIEW_ID);
+  });
+
+  it("moves it to the secondary sidebar when asked on a capable host", () => {
+    const r = resolvePlacement("1.137.0", "secondarySidebar");
+    expect(r.useSecondarySidebar).toBe(true);
+    expect(r.viewId).toBe(SECONDARY_SIDEBAR_VIEW_ID);
+  });
+
+  it("falls back to the activity bar when the host is too old to render it", () => {
+    // The user asked for a position, not for the panel to vanish.
+    const r = resolvePlacement("1.105.2", "secondarySidebar");
+    expect(r.useSecondarySidebar).toBe(false);
+    expect(r.viewId).toBe(ACTIVITY_BAR_VIEW_ID);
+  });
+
+  it("falls back to the activity bar for an unset or unknown setting", () => {
+    for (const value of [undefined, "", "sidebar", "ACTIVITYBAR", "panel"]) {
+      const r = resolvePlacement("1.137.0", value);
+      expect(r.useSecondarySidebar).toBe(false);
+      expect(r.viewId).toBe(ACTIVITY_BAR_VIEW_ID);
+    }
+  });
+
+  it("falls back to the activity bar when the version is unparseable", () => {
+    for (const version of [undefined, "", "abc", "1", "1.x.0"]) {
+      expect(resolvePlacement(version, "secondarySidebar").useSecondarySidebar).toBe(false);
+    }
   });
 });

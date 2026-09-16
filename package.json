@@ -78,7 +78,7 @@
           "id": "claudeCodeManager",
           "title": "Claude Code Manager",
           "icon": "media/icon.svg",
-          "when": "claudeCodeManager:doesNotSupportSecondarySidebar"
+          "when": "!claudeCodeManager:useSecondarySidebar"
         }
       ],
       "secondarySidebar": [
@@ -86,7 +86,7 @@
           "id": "claudeCodeManagerSecondary",
           "title": "Claude Code Manager",
           "icon": "media/icon.svg",
-          "when": "!claudeCodeManager:doesNotSupportSecondarySidebar"
+          "when": "claudeCodeManager:useSecondarySidebar"
         }
       ]
     },
@@ -96,7 +96,7 @@
           "type": "webview",
           "id": "claudeCodeManager.view",
           "name": "Claude Code Manager",
-          "when": "claudeCodeManager:doesNotSupportSecondarySidebar"
+          "when": "!claudeCodeManager:useSecondarySidebar"
         }
       ],
       "claudeCodeManagerSecondary": [
@@ -104,7 +104,7 @@
           "type": "webview",
           "id": "claudeCodeManager.secondaryView",
           "name": "Claude Code Manager",
-          "when": "!claudeCodeManager:doesNotSupportSecondarySidebar"
+          "when": "claudeCodeManager:useSecondarySidebar"
         }
       ]
     },
@@ -272,6 +272,19 @@
             "Ask every time where to resume"
           ],
           "description": "Where to open a session when you click Resume. Within the Claude Code extension, chat opens in an editor tab or the Claude Code side bar according to that extension's own `claudeCode.preferredLocation` setting. Fork, Continue, and Restore Workspace always use the terminal since they have no equivalent in the extension chat."
+        },
+        "claudeManager.placement": {
+          "type": "string",
+          "enum": [
+            "activityBar",
+            "secondarySidebar"
+          ],
+          "enumDescriptions": [
+            "Show Claude Manager in the activity bar, on the left.",
+            "Show Claude Manager in the secondary side bar, on the right — useful next to a chat panel. Requires VS Code 1.106 or newer; older versions fall back to the activity bar."
+          ],
+          "default": "activityBar",
+          "description": "Where the Claude Manager panel appears. Changing this moves the panel; it is never shown in both places at once."
         }
       }
     }

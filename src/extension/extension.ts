@@ -11,9 +11,11 @@ import { setSessionStorage } from "../features/sessions/commands";
 import { setExtensionUri, initTerminalReuseGuard } from "./terminal";
 import {
   ACTIVITY_BAR_VIEW_ID,
-  NO_SECONDARY_SIDEBAR_CONTEXT_KEY,
+  DEFAULT_PLACEMENT,
+  PLACEMENT_SETTING,
   SECONDARY_SIDEBAR_VIEW_ID,
-  supportsSecondarySidebar,
+  USE_SECONDARY_SIDEBAR_CONTEXT_KEY,
+  resolvePlacement,
 } from "./secondarySidebar";
 import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
@@ -138,26 +140,43 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(startActiveSessionWatcher(provider.terminals));
 
   // Placement: the manifest contributes this panel to both the activity
-  // bar and the secondary sidebar, gated on a context key. Set the key
-  // on hosts that predate the `secondarySidebar` contribution point so
-  // exactly one of the two `when` clauses evaluates true. See
-  // secondarySidebar.ts for the polarity argument.
-  const hasSecondarySidebar = supportsSecondarySidebar(vscode.version);
-  if (!hasSecondarySidebar) {
+  // bar and the secondary sidebar under mutually exclusive `when` clauses,
+  // and `claudeManager.placement` picks which one is live. Publishing the
+  // key on every activation (rather than only when moving) keeps a stale
+  // value from a previous window out of the decision.
+  //
+  // Mutable because the setting can change while we are running, and the
+  // focus commands below close over it.
+  let activeViewId = ACTIVITY_BAR_VIEW_ID;
+
+  const applyPlacement = (): void => {
+    const setting = vscode.workspace
+      .getConfiguration("claudeManager")
+      .get<string>(PLACEMENT_SETTING, DEFAULT_PLACEMENT);
+    const placement = resolvePlacement(vscode.version, setting);
+    activeViewId = placement.viewId;
     void vscode.commands.executeCommand(
       "setContext",
-      NO_SECONDARY_SIDEBAR_CONTEXT_KEY,
-      true,
+      USE_SECONDARY_SIDEBAR_CONTEXT_KEY,
+      placement.useSecondarySidebar,
     );
-  }
-  // The view id that actually exists on this host — the other view is
-  // registered too (registration is cheap and VS Code never resolves a
-  // view whose `when` is false) but focusing it would be a no-op.
-  const activeViewId = hasSecondarySidebar ? SECONDARY_SIDEBAR_VIEW_ID : ACTIVITY_BAR_VIEW_ID;
+  };
+  applyPlacement();
+
+  // Moving the panel is a one-line settings edit, so it must not need a
+  // window reload: flipping the context key re-evaluates both `when`
+  // clauses and VS Code relocates the container in place.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration(`claudeManager.${PLACEMENT_SETTING}`)) applyPlacement();
+    }),
+  );
 
   // One provider instance backs both ids: the `when` clauses guarantee
   // only one of them is ever contributed, so only one resolves and the
-  // provider still sees a single webview lifecycle.
+  // provider still sees a single webview lifecycle. Both are registered
+  // up front because the placement can flip at runtime and a provider
+  // cannot be registered for a view that is already being resolved.
   for (const viewId of [ACTIVITY_BAR_VIEW_ID, SECONDARY_SIDEBAR_VIEW_ID]) {
     context.subscriptions.push(
       vscode.window.registerWebviewViewProvider(viewId, provider, {
