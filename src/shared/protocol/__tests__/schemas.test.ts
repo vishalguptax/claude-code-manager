@@ -7,6 +7,37 @@ function roundTrip(msg: Message): void {
   expect(parsed).toEqual(msg);
 }
 
+describe("parseMessage — checkpoints", () => {
+  const sessionId = "09285b5a-1542-4940-b2a8-ef73977f6fe1";
+
+  it("accepts the webview → host checkpoint messages", () => {
+    roundTrip({ type: "getCheckpointSessions" });
+    roundTrip({ type: "getCheckpoints", sessionId });
+    roundTrip({ type: "diffCheckpoint", sessionId, filePath: "/a/b.ts", version: 2 });
+    roundTrip({ type: "restoreCheckpoint", sessionId, filePath: "/a/b.ts", version: 2 });
+  });
+
+  it("accepts the host → webview checkpoint replies", () => {
+    roundTrip({ type: "checkpointSessions", data: [] });
+    roundTrip({ type: "checkpoints", sessionId, data: [], orphanCount: 3 });
+  });
+
+  it("rejects a checkpoint target with a non-numeric version", () => {
+    expect(() =>
+      parseMessage({
+        type: "diffCheckpoint",
+        sessionId,
+        filePath: "/a/b.ts",
+        version: "2",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a checkpoint request with no session id", () => {
+    expect(() => parseMessage({ type: "getCheckpoints" })).toThrow();
+  });
+});
+
 describe("parseMessage — webview to host", () => {
   it("accepts trivial signal messages", () => {
     roundTrip({ type: "ready" });
@@ -42,6 +73,48 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "searchFullText", query: "needle" });
     roundTrip({ type: "promoteTempSession", sessionId: "s" });
     roundTrip({ type: "createWorktree", sessionId: "s" });
+    roundTrip({ type: "archiveSession", sessionId: "s" });
+    roundTrip({ type: "unarchiveSession", sessionId: "s" });
+    roundTrip({ type: "archiveSessions", sessionIds: ["a", "b"] });
+    roundTrip({ type: "markSessionRead", sessionId: "s" });
+    roundTrip({ type: "markSessionUnread", sessionId: "s" });
+  });
+
+  it("preserves every field of a userState push", () => {
+    // roundTrip asserts deep equality, which is the point: valibot's
+    // `object` strips undeclared keys instead of rejecting them, and the
+    // bus dispatches the PARSED value. A field missing from the schema
+    // therefore vanishes in transit with no error anywhere. `archived`
+    // and `readAt` did exactly that.
+    roundTrip({
+      type: "userState",
+      pinned: ["a"],
+      deleted: ["b"],
+      renames: { c: "name" },
+      archived: ["d"],
+      readAt: { e: 1_700_000_000_000 },
+      unreadBaseline: 1_700_000_000_000,
+    });
+  });
+
+  it("accepts the host replies the new tabs wait on", () => {
+    // Regression guard. These three type-checked via messages.ts but had no
+    // schema, so messageBus dropped every reply and the Prompts, Memory and
+    // Plugins tabs sat on their loading skeletons forever. A variant that
+    // exists in one file and not the other is invisible to the compiler.
+    roundTrip({ type: "promptHistory", data: { entries: [] } });
+    roundTrip({ type: "memoryStore", data: { projects: [] } });
+    roundTrip({ type: "pluginsData", data: { plugins: [] } });
+  });
+
+  it("rejects archive messages carrying the wrong payload shape", () => {
+    // The dispatch gate is the only thing between a malformed message and
+    // a state write, so the negative case matters as much as the positive.
+    expect(() => parseMessage({ type: "archiveSession" })).toThrow();
+    expect(() => parseMessage({ type: "archiveSession", sessionId: 7 })).toThrow();
+    expect(() => parseMessage({ type: "archiveSessions", sessionIds: "a" })).toThrow();
+    expect(() => parseMessage({ type: "archiveSessions", sessionIds: [1, 2] })).toThrow();
+    expect(() => parseMessage({ type: "markSessionRead" })).toThrow();
   });
 
   it("accepts skills messages", () => {

@@ -79,6 +79,14 @@
           "title": "Claude Code Manager",
           "icon": "media/icon.svg"
         }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "claudeCodeManagerSecondary",
+          "title": "Claude Code Manager",
+          "icon": "media/icon.svg",
+          "when": "claudeCodeManager:supportsSecondarySidebar"
+        }
       ]
     },
     "views": {
@@ -87,6 +95,14 @@
           "type": "webview",
           "id": "claudeCodeManager.view",
           "name": "Claude Code Manager"
+        }
+      ],
+      "claudeCodeManagerSecondary": [
+        {
+          "type": "webview",
+          "id": "claudeCodeManager.secondaryView",
+          "name": "Claude Code Manager",
+          "when": "claudeCodeManager:supportsSecondarySidebar"
         }
       ]
     },
@@ -126,7 +142,7 @@
         "command": "claudeManager.reload",
         "key": "ctrl+alt+r",
         "mac": "cmd+alt+r",
-        "when": "focusedView == claudeCodeManager.view"
+        "when": "focusedView == claudeCodeManager.view || focusedView == claudeCodeManager.secondaryView"
       }
     ],
     "configuration": {

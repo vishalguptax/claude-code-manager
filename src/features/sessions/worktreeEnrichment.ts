@@ -13,6 +13,7 @@
  * out to every session id sharing that directory.
  */
 import type * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import {
   resolveWorktrees,
   resolveMissingClaudeWorktree,
@@ -65,7 +66,7 @@ export function buildWorktreeMap(sessions: Session[]): Record<string, WorktreeRe
  * when nothing resolves — no repos in view means no worktree badges to draw,
  * so the empty message is skipped.
  */
-export function postWorktrees(wv: vscode.Webview, sessions: Session[]): void {
+export function postWorktrees(wv: PanelSink, sessions: Session[]): void {
   setImmediate(() => {
     const map = buildWorktreeMap(sessions);
     if (Object.keys(map).length === 0) return;

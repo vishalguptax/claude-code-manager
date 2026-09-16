@@ -10,6 +10,7 @@
  * into a provider instance's private fields directly.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import { postAccountData } from "./accountPush";
 import * as path from "path";
 import * as os from "os";
@@ -67,7 +68,7 @@ export type ConfigFeature = "skills" | "commands" | "hooks" | "mcp" | "agents";
  */
 export interface ProviderActionsContext {
   readonly globalState?: vscode.Memento;
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
   isDisposed(): boolean;
 
   /**

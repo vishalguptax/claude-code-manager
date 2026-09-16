@@ -20,10 +20,15 @@
 import * as fs from "fs";
 import { STATUSLINE_CACHE_FILE } from "../../core/config";
 import { isStatuslineInstalled } from "./statuslineInstall";
+import { reviveCache } from "./statuslineCore";
 import type {
+  ContextTokens,
   PromptCacheStats,
   RateWindow,
   StatuslineCache,
+  StatuslinePullRequest,
+  StatuslineRepo,
+  StatuslineWorktree,
 } from "./statuslineCore";
 
 /** One rate-limit window as the UI renders it. */
@@ -34,12 +39,21 @@ export interface QuotaWindow {
   resetsAt: string;
 }
 
-/** Rolling rate-limit snapshot. Either window is null when Claude omitted it. */
+/** Rolling rate-limit snapshot. Any window is null when Claude omitted it. */
 export interface QuotaData {
   /** Rolling 5-hour window — the limit that bites first. */
   fiveHour: QuotaWindow | null;
   /** Rolling 7-day window — the weekly overall cap. */
   sevenDay: QuotaWindow | null;
+  /**
+   * Gateway spend cap. Null for everyone not behind a Claude gateway,
+   * which is the common case — the UI must treat null as "not
+   * applicable" and render nothing, not as "0% used".
+   *
+   * Its `utilization` can exceed 100: a gateway reports overspend
+   * rather than clamping at the cap.
+   */
+  spendLimit: QuotaWindow | null;
   /** ISO time Claude Code last rendered the statusline (cache write). */
   capturedAt: string;
   /** ISO time we read the cache (local). */
@@ -54,6 +68,12 @@ export interface LiveSession {
   contextUsedPercent: number | null;
   /** Context-window size in tokens, or null. */
   contextSize: number | null;
+  /**
+   * Token counts behind `contextUsedPercent`, or null before the first
+   * API response. A percentage alone cannot distinguish an expensive
+   * window from a cheap one — these counts can.
+   */
+  contextTokens: ContextTokens | null;
   /** Current-session cost in USD, or null. */
   sessionCostUsd: number | null;
   /** Lines added this session, or null. */
@@ -64,6 +84,8 @@ export interface LiveSession {
   version: string;
   /** ISO time Claude Code last rendered the statusline. */
   capturedAt: string;
+  /** The session's `/rename` title, or "" when never renamed. */
+  sessionName: string;
   /**
    * Prompt-cache effectiveness for the rendering session, or null when
    * Claude hasn't reported it yet. Surfaced because it is the only
@@ -71,6 +93,16 @@ export interface LiveSession {
    * ratio is cheap, a prefix that rebuilds every turn is not.
    */
   promptCache: PromptCacheStats | null;
+  /**
+   * Open PR / MR on the rendering session's branch, or null. Claude Code
+   * resolved it against the forge; we could not, since we make no
+   * network call.
+   */
+  pr: StatuslinePullRequest | null;
+  /** The worktree this session runs in, or null outside a worktree session. */
+  worktree: StatuslineWorktree | null;
+  /** Origin remote's repository identity, or null when unreported. */
+  repo: StatuslineRepo | null;
 }
 
 /** Combined payload — quota + live session, both from one cache read. */
@@ -104,8 +136,9 @@ export function readStatuslineCache(): StatuslineCache | null {
     return null;
   }
   try {
-    const parsed = JSON.parse(raw) as StatuslineCache;
-    return typeof parsed === "object" && parsed !== null ? parsed : null;
+    // reviveCache — not a bare cast — because the file on disk may have
+    // been written by an older tap whose shape differs from ours.
+    return reviveCache(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -163,6 +196,7 @@ export function readQuota(workspacePath?: string): QuotaResult {
       quota: {
         fiveHour: toWindow(cache.rateLimits.fiveHour),
         sevenDay: toWindow(cache.rateLimits.sevenDay),
+        spendLimit: toWindow(cache.rateLimits.spendLimit),
         capturedAt: captured,
         fetchedAt,
       },
@@ -170,12 +204,17 @@ export function readQuota(workspacePath?: string): QuotaResult {
         model: cache.model?.displayName ?? "",
         contextUsedPercent: cache.context?.usedPercent ?? null,
         contextSize: cache.context?.size ?? null,
+        contextTokens: cache.context?.tokens ?? null,
         sessionCostUsd: cache.cost?.totalUsd ?? null,
         linesAdded: cache.cost?.linesAdded ?? null,
         linesRemoved: cache.cost?.linesRemoved ?? null,
         version: cache.version,
         capturedAt: captured,
+        sessionName: cache.sessionName,
         promptCache: cache.promptCache ?? null,
+        pr: cache.pr ?? null,
+        worktree: cache.worktree ?? null,
+        repo: cache.repo ?? null,
       },
     },
   };

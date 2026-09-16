@@ -20,6 +20,8 @@ import {
   SESSION_META_READ_BYTES,
 } from "../../core/config";
 import { LRU } from "../../core/lru";
+import { createLineDecoder } from "../../core/lineDecoder";
+import { openFileNoFollow } from "../../core/safeOpen";
 
 /** Maximum bytes to read from a session file when extracting name hints (rename/summary). */
 const NAME_HINT_READ_BYTES = 256 * 1024; // 256 KB — covers most sessions
@@ -170,28 +172,28 @@ export function extractProjectName(projectPath: string): string {
  * (plus the accumulated results array).
  */
 export function parseJsonlFile<T>(filePath: string): T[] {
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return [];
   }
 
   const results: T[] = [];
   const CHUNK = 64 * 1024;
   const buf = Buffer.alloc(CHUNK);
-  let leftover = "";
+  // Decodes across chunk boundaries; see core/lineDecoder for why a plain
+  // per-chunk toString() corrupts multi-byte characters.
+  const decoder = createLineDecoder();
   let bytesRead: number;
 
   try {
-    do {
+    // Loop until read() reports EOF. A short read is legal mid-file, so
+    // `while (bytesRead === CHUNK)` would truncate the file silently.
+    while (true) {
       bytesRead = fs.readSync(fd, buf, 0, CHUNK, null);
       if (bytesRead === 0) break;
-      const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
-      const lines = chunk.split("\n");
-      // Last element may be incomplete — carry it over
-      leftover = lines.pop() ?? "";
-      for (const line of lines) {
+      for (const line of decoder.push(buf, bytesRead)) {
         if (!line.trim()) continue;
         try {
           results.push(JSON.parse(line) as T);
@@ -199,9 +201,10 @@ export function parseJsonlFile<T>(filePath: string): T[] {
           // Skip malformed lines — expected during partial writes
         }
       }
-    } while (bytesRead === CHUNK);
+    }
 
     // Process any remaining data
+    const leftover = decoder.end();
     if (leftover.trim()) {
       try {
         results.push(JSON.parse(leftover) as T);
@@ -314,10 +317,10 @@ export function invalidateSessionFileIndex(): void {
 
 function computeSessionMeta(filePath: string): SessionMeta {
   const result = { branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "" };
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return result;
   }
 

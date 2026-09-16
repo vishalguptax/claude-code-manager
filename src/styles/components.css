@@ -901,7 +901,7 @@
 
 
 /* ──────────────────────────────────────────────────────────────────────────────
-   List Item — Copy Button (shared by skills, MCP)
+   List Item — Copy Button (shared by every list tab)
    ────────────────────────────────────────────────────────────────────────────── */
 
 .item-copy-btn {
@@ -931,17 +931,27 @@
  *
  * Hidden by opacity rather than display, so the row's layout does not shift
  * when the pointer arrives. `:focus-within` keeps them reachable by keyboard,
- * and `.copied` keeps the confirmation visible after the pointer leaves. */
+ * and `.copied` keeps the confirmation visible after the pointer leaves.
+ *
+ * `.list-item` is here so the list is not purely a roll-call of feature row
+ * classes. Every row built on the shared <ListItem> carries it, so a new tab
+ * is covered on arrival — the Plugins tab was not, and its copy button was
+ * invisible on every row until someone noticed. The feature classes below
+ * stay for the rows that predate <ListItem> and set their own class. */
 .item-copy-btn,
 .item-chat-btn {
   opacity: 0;
   transition: opacity var(--transition-control);
 }
+.list-item:hover .item-copy-btn,
+.list-item:hover .item-chat-btn,
 .item:hover .item-copy-btn,
 .item:hover .item-chat-btn,
 .cmd-item:hover .item-copy-btn,
 .cmd-item:hover .item-chat-btn,
 .mcp-item:hover .item-copy-btn,
+.list-item:focus-within .item-copy-btn,
+.list-item:focus-within .item-chat-btn,
 .item:focus-within .item-copy-btn,
 .item:focus-within .item-chat-btn,
 .cmd-item:focus-within .item-copy-btn,

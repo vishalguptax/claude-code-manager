@@ -5,6 +5,7 @@
  * the contract without importing each other.
  */
 import type * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import type { SavedProfile } from "../account/profiles";
 import type { WebviewMessage, Session } from "./types";
 import type { Skill } from "../skills/types";
@@ -69,7 +70,7 @@ export function identityKey(accountUuid: string, email: string): string {
 export interface HostContext {
   readonly globalState?: vscode.Memento;
   readonly terminals: TerminalRegistry;
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
 
   getSessions(): Session[];
   setSessions(sessions: Session[]): void;

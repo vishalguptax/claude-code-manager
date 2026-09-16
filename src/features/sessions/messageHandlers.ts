@@ -23,6 +23,7 @@ import {
   getLastParseWarning,
 } from "./parser";
 import { searchContent } from "./searchIndex";
+import { getSessionFile } from "./metaParser";
 import {
   loadState,
   pinSession,
@@ -32,6 +33,11 @@ import {
   pinSessions as bulkPinState,
   unpinSessions as bulkUnpinState,
   deleteSessions as bulkDeleteState,
+  archiveSession,
+  unarchiveSession,
+  archiveSessions,
+  markSessionRead,
+  markSessionUnread,
 } from "./state";
 import {
   openProject,
@@ -57,10 +63,18 @@ import {
 } from "../../extension/claudeCodeExtension";
 import { createTerminal } from "../../extension/terminal";
 import { getTempSessionIds, promoteTempSession } from "../../extension/ephemeralSession";
+import { handlePromptsMessage, type PromptsHostContext } from "../prompts";
+import { handleMemoryMessage, type MemoryHostContext } from "../memory";
+import { handlePluginsMessage, type PluginsHostContext } from "../plugins";
+import { writeSettingsValue } from "../account/parser";
 import { handleFeatureMessage } from "./featureHandlers";
 import { handleAccountMessage } from "./accountHandlers";
 import { handleSettingsMessage } from "./settingsHandlers";
 import { handleMcpMessage, type McpHostContext } from "../mcp/messageHandlers";
+import {
+  handleCheckpointsMessage,
+  type CheckpointsHostContext,
+} from "../checkpoints/messageHandlers";
 import { handleAgentMessage, type AgentHostContext } from "../agents/messageHandlers";
 import { dispatchCommandsMessage, type CommandsHost } from "../commands/messageHandlers";
 import { getWorkspace } from "../../extension/workspace";
@@ -123,6 +137,10 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
     // without importing the provider.
     if (await dispatchCommandsMessage(msg, makeCommandsHost(ctx))) return;
     if (await handleMcpMessage(msg, makeMcpHost(ctx))) return;
+    if (await handleCheckpointsMessage(msg, makeCheckpointsHost(ctx))) return;
+    if (await handlePromptsMessage(msg, makePromptsHost(ctx))) return;
+    if (await handleMemoryMessage(msg, makeMemoryHost(ctx))) return;
+    if (await handlePluginsMessage(msg, makePluginsHost(ctx))) return;
     if (await handleAgentMessage(msg, makeAgentHost(ctx))) return;
     if (await handleFeatureMessage(msg, ctx)) return;
     if (await handleAccountMessage(msg, ctx)) return;
@@ -215,6 +233,69 @@ function makeMcpHost(ctx: HostContext): McpHostContext {
       term.sendText("claude");
       setTimeout(() => term.sendText(slash), 1800);
     },
+  };
+}
+
+/**
+ * Adapt the shared {@link HostContext} to the checkpoints feature's
+ * {@link CheckpointsHostContext}.
+ *
+ * Checkpoint blobs are keyed by session id only, so the feature needs two
+ * things the sessions panel already has: a display label for an id, and the
+ * transcript that holds the path↔blob mapping. Both are read from the cached
+ * session list / file index, so neither costs a disk walk.
+ */
+/**
+ * Prompt History needs exactly two things from the host: the webview to
+ * reply on, and the ability to open the session a prompt came from. The
+ * resume path stays owned by this feature — prompts depends on the
+ * capability, not on the sessions module.
+ */
+function makePromptsHost(ctx: HostContext): PromptsHostContext {
+  return {
+    getWebview: () => ctx.getWebview(),
+    resumeSession: (sessionId) => resumeSession(sessionId, false, ctx.getSessions()),
+  };
+}
+
+/** Memory reads and writes only its own files; the webview is its whole
+ *  host surface. */
+function makeMemoryHost(ctx: HostContext): MemoryHostContext {
+  return { getWebview: () => ctx.getWebview() };
+}
+
+/**
+ * Plugins toggles `enabledPlugins` in settings.json, so it takes the
+ * settings writer as an injected capability rather than importing the
+ * account feature. The writer already refuses an unparseable file,
+ * snapshots before writing, and renames atomically; passing it here is
+ * what turns the tab from read-only into one that can flip a plugin.
+ */
+function makePluginsHost(ctx: HostContext): PluginsHostContext {
+  return {
+    getWebview: () => ctx.getWebview(),
+    getWorkspace: () => getWorkspace(),
+    // The writer's scope type is `ClaudeSettingsScope`, which excludes
+    // "managed" — the admin policy file is never ours to write, and the
+    // feature's own `writableScope()` already resolves it to null.
+    writeSettingsValue,
+  };
+}
+
+function makeCheckpointsHost(ctx: HostContext): CheckpointsHostContext {
+  return {
+    getWebview: () => ctx.getWebview(),
+    describeSession: (sessionId) => {
+      const session = ctx.getSessions().find((s) => s.id === sessionId);
+      if (!session) return undefined;
+      return {
+        // Fall back through the same ladder the session rows use: an
+        // explicit name, then the first-prompt summary, then the short id.
+        label: session.name || session.summary || sessionId.slice(0, 8),
+        project: session.project,
+      };
+    },
+    transcriptPath: (sessionId) => getSessionFile(sessionId),
   };
 }
 
@@ -431,6 +512,39 @@ async function handleSessionMessage(
       break;
     }
 
+    case "archiveSession": {
+      const state = archiveSession(msg.sessionId);
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "unarchiveSession": {
+      const state = unarchiveSession(msg.sessionId);
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "archiveSessions": {
+      const state = archiveSessions(msg.sessionIds);
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "markSessionRead": {
+      // Stamped host-side: the webview's clock is the same machine's, but
+      // the read mark is compared against transcript timestamps the host
+      // produced, so both sides of that comparison come from one clock.
+      const state = markSessionRead(msg.sessionId, Date.now());
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "markSessionUnread": {
+      const state = markSessionUnread(msg.sessionId);
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
     case "deleteSession": {
       const state = deleteSession(msg.sessionId);
       wv.postMessage({ type: "userState", ...state });
@@ -440,12 +554,10 @@ async function handleSessionMessage(
     case "confirmDelete": {
       const result = await confirmDeleteSession(msg.sessionId, msg.callback);
       if (result) {
-        wv.postMessage({
-          type: "userState",
-          pinned: result.pinned,
-          deleted: result.deleted,
-          renames: loadState().renames,
-        });
+        // Post the whole freshly-loaded state rather than rebuilding it
+        // from `result`: every other userState producer spreads loadState(),
+        // and a hand-built subset silently drops any field added later.
+        wv.postMessage({ type: "userState", ...loadState() });
         if (result.navigateToList) {
           wv.postMessage({ type: "navigateList" });
         }

@@ -25,6 +25,7 @@ function stubApi(): AccountApi {
     promptSaveProfile: vi.fn(),
     openAccountSwitcher: vi.fn(),
     saveStatsImage: vi.fn(),
+    openUrl: vi.fn(),
   };
 }
 

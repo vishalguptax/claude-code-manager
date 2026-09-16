@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   slugifyProjectPath,
+  deslugifyProjectPath,
   validatePortableSession,
   rewriteSessionId,
   getKnownProjects,
@@ -35,6 +36,12 @@ function jsonl(...objs: object[]): string {
 // slugifyProjectPath
 // ─────────────────────────────────────────────────────────────────────
 
+// A path whose sanitized form is exactly MAX_SLUG_LENGTH (200) characters:
+// the leading "/" becomes "-", then 199 more characters.
+const SANITIZED_200 = "/" + "a".repeat(199);
+// One character longer — the first input that the CLI truncates.
+const SANITIZED_201 = "/" + "a".repeat(200);
+
 describe("slugifyProjectPath", () => {
   it("converts a Windows path with drive letter to the C-- prefix slug", () => {
     expect(slugifyProjectPath("C:\\Users\\001ch\\OneDrive\\Desktop\\projects\\2026\\claude-manager")).toBe(
@@ -55,8 +62,102 @@ describe("slugifyProjectPath", () => {
     expect(slugifyProjectPath("C:\\Users/Foo\\Bar/Baz")).toBe("C--Users-Foo-Bar-Baz");
   });
 
+  it("keeps the doubled dash and the case of a Windows drive letter", () => {
+    expect(slugifyProjectPath("C:\\Users\\x")).toBe("C--Users-x");
+    expect(slugifyProjectPath("c:\\Users\\x")).toBe("c--Users-x");
+  });
+
+  it("collapses the dot of a hidden directory (real dir under ~/.claude/projects)", () => {
+    expect(
+      slugifyProjectPath(
+        "/Users/vishal/WORK/BINARYVEDA/keus-iot-platform/.claude-worktrees/ops-fe-fixes",
+      ),
+    ).toBe("-Users-vishal-WORK-BINARYVEDA-keus-iot-platform--claude-worktrees-ops-fe-fixes");
+  });
+
+  it("collapses spaces, parentheses, underscores, + and @", () => {
+    expect(slugifyProjectPath("/Users/vishal/Dropbox (Personal)/my_project+v2/@scope")).toBe(
+      "-Users-vishal-Dropbox--Personal--my-project-v2--scope",
+    );
+  });
+
+  it("collapses non-ASCII characters", () => {
+    expect(slugifyProjectPath("/Users/vishal/Documents/café/naïve/项目")).toBe(
+      "-Users-vishal-Documents-caf--na-ve---",
+    );
+  });
+
   it("returns empty string for empty input", () => {
     expect(slugifyProjectPath("")).toBe("");
+  });
+
+  it("does not truncate a slug that is exactly 200 characters", () => {
+    const slug = slugifyProjectPath(SANITIZED_200);
+    expect(slug).toBe("-" + "a".repeat(199));
+    expect(slug.length).toBe(200);
+  });
+
+  it("truncates at 200 characters and appends a base-36 hash at 201", () => {
+    const slug = slugifyProjectPath(SANITIZED_201);
+    const [head, hash] = [slug.slice(0, 200), slug.slice(201)];
+    expect(head).toBe("-" + "a".repeat(199));
+    expect(slug[200]).toBe("-");
+    expect(hash).toMatch(/^[0-9a-z]+$/);
+    expect(slug.length).toBe(200 + 1 + hash.length);
+  });
+
+  it("is stable: the same path always produces the same slug", () => {
+    expect(slugifyProjectPath(SANITIZED_201)).toBe(slugifyProjectPath(SANITIZED_201));
+  });
+
+  it("distinguishes two long paths that share their first 200 sanitized characters", () => {
+    const a = slugifyProjectPath(SANITIZED_200 + "/one");
+    const b = slugifyProjectPath(SANITIZED_200 + "/two");
+    expect(a.slice(0, 200)).toBe(b.slice(0, 200));
+    expect(a).not.toBe(b);
+  });
+
+  it("hashes over the original path, so two paths with identical sanitized forms differ", () => {
+    // "." and "/" both sanitize to "-", so these share every sanitized
+    // character; only a hash over the raw path can tell them apart.
+    const dotted = SANITIZED_200 + ".one";
+    const slashed = SANITIZED_200 + "/one";
+    expect(slugifyProjectPath(dotted)).not.toBe(slugifyProjectPath(slashed));
+  });
+
+  it("keeps the hash a non-negative integer when the int32 accumulator wraps", () => {
+    // 1515 characters: hash31 overflows many times and lands on a
+    // negative int32 (-777817439). Without Math.abs the slug would carry
+    // a stray dash; without `| 0` the accumulator would reach Infinity.
+    const deep = "/home/user/" + "deep/".repeat(300) + "leaf";
+    const hash = slugifyProjectPath(deep).slice(201);
+    expect(hash).toBe((777_817_439).toString(36));
+    expect(hash).not.toMatch(/[-.]/);
+    expect(Number.parseInt(hash, 36)).toBe(777_817_439);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// deslugifyProjectPath
+// ─────────────────────────────────────────────────────────────────────
+
+describe("deslugifyProjectPath", () => {
+  it("round-trips a unix path with no lossy characters", () => {
+    const p = "/home/user/code/foo";
+    expect(deslugifyProjectPath(slugifyProjectPath(p))).toBe(p);
+  });
+
+  it("recovers a Windows drive path with forward slashes", () => {
+    expect(deslugifyProjectPath("C--Users-Vishal-Project")).toBe("C:/Users/Vishal/Project");
+  });
+
+  it("returns the raw slug for a truncated slug instead of fabricating a path", () => {
+    const slug = slugifyProjectPath(SANITIZED_201);
+    expect(deslugifyProjectPath(slug)).toBe(slug);
+  });
+
+  it("returns an unrecognized shape unchanged", () => {
+    expect(deslugifyProjectPath("no-leading-dash")).toBe("no-leading-dash");
   });
 });
 

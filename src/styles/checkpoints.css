@@ -1,0 +1,119 @@
+/* ============================================================================
+   Claude Manager — File Checkpoints Styles
+
+   The tab is built from the shared list vocabulary, so almost nothing is
+   declared here. Its two levels render as a `.panel` (which is what gives a
+   tab its scroll, see tabs.css) holding a `.search-row`, a `.list`, and `.item`
+   rows with `.item-row1` / `.item-name` / `.item-time` / `.item-prompt` inside
+   — exactly the shape Sessions, Skills and Commands use. The file level adds
+   the shared <BackButton> and `.d-head` / `.d-title` heading used by every
+   other detail view.
+
+   What lives here is only what is genuinely checkpoint-specific: the version
+   list that expands underneath a file row, the clamped directory line, and the
+   unmatched-backup note. Everything else — row padding, hover, active fill,
+   focus ring, the count caption, the search field, buttons, empty and error
+   states — is owned by components.css / components-native.css / sessions.css
+   and must not be restated.
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Checkpoints — row details
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* The project a session ran in, inside the row's meta line. Slightly firmer
+   than the rest of that line: it is the fact a user scans for. */
+.ckpt-project {
+  color: var(--fg-section);
+}
+
+/* The directory a tracked file lives in. A path matters from its RIGHT-hand
+   end (the leaf folder), so the span is clamped and ellipsized from the LEFT
+   via `direction: rtl`; the untruncated path stays on the row's title. The
+   clamp keeps a deep path from pushing the version summary beside it out of
+   the row. */
+.ckpt-dir {
+  display: inline-block;
+  max-width: 60%;
+  vertical-align: bottom;
+  direction: rtl;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg-muted);
+}
+
+/* Count of backups the transcript can no longer map to a path, shown beside
+   the list count. Muted: it explains a discrepancy, it is not a warning the
+   user must act on. */
+.ckpt-orphans {
+  color: var(--fg-muted);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Checkpoints — expanded version list
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* Sits directly under the file row it belongs to, inside the same `.list`. The
+   inset tint (not a border) is what ties it to that row — a rule here would
+   survive into quiet density, where the rows above it have none. */
+.ckpt-versions {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
+  background: var(--role-track-bg);
+}
+
+.ckpt-open-btn {
+  align-self: flex-start;
+  margin-bottom: var(--space-xs);
+}
+
+.ckpt-version {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  min-width: 0;
+}
+
+/* A pruned version stays listed so version numbers do not silently skip, but
+   it reads as inert. */
+.ckpt-version--gone {
+  opacity: 0.55;
+}
+
+.ckpt-version-num {
+  flex: 0 0 auto;
+  min-width: 2.5em;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckpt-version-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ckpt-version-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.ckpt-version-gone-note {
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}

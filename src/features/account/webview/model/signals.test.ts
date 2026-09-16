@@ -16,6 +16,7 @@ const SUCCESS: QuotaSuccess = {
   quota: {
     fiveHour: { utilization: 10, resetsAt: "" },
     sevenDay: { utilization: 20, resetsAt: "" },
+    spendLimit: null,
     capturedAt: new Date().toISOString(),
     fetchedAt: new Date().toISOString(),
   },
@@ -23,12 +24,20 @@ const SUCCESS: QuotaSuccess = {
     model: "Opus 4.6",
     contextUsedPercent: 3,
     contextSize: 1_000_000,
+    contextTokens: null,
     sessionCostUsd: 0.97,
     linesAdded: 214,
     linesRemoved: 179,
     version: "2.1.86",
+    sessionName: "",
     capturedAt: new Date().toISOString(),
     promptCache: null,
+    // An ordinary session: no worktree, no open PR, and a checkout whose
+    // origin Claude Code did not report. All three absent is the common
+    // shape, and it must render as nothing at all.
+    pr: null,
+    worktree: null,
+    repo: null,
   },
 };
 

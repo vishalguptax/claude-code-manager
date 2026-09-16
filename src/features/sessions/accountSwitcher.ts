@@ -6,6 +6,7 @@
  * provider so the ~250-line QuickPick wiring doesn't bloat the coordinator.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import { postAccountData } from "./accountPush";
 import { parseAccountData } from "../account/parser";
 import {
@@ -59,7 +60,7 @@ export function profileRowText(
 
 /** Minimal context the switcher needs from the view provider. */
 export interface AccountSwitcherContext {
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
   /** Re-entrant dispatch for the save-profile flow. */
   dispatch(msg: WebviewMessage): Promise<void>;
 }

@@ -13,6 +13,8 @@
  */
 import * as vscode from "vscode";
 import { getWebviewHtml } from "../../extension/html";
+import { broadcastSink, type PanelSink } from "../../extension/panelSink";
+import { ensureUnreadBaseline } from "./state";
 import { getCurrentBranch, onBranchChange } from "../../extension/git";
 import { setTerminalRegistry } from "../../extension/terminal";
 import type { AccountData } from "../account/types";
@@ -50,7 +52,15 @@ import type { Agent } from "../agents/types";
 export class ClaudeSessionViewProvider
   implements vscode.WebviewViewProvider, HostContext, WatcherContext, ProviderActionsContext
 {
-  private view?: vscode.WebviewView;
+  /**
+   * Every live panel. The container is contributed to both the activity
+   * bar and the secondary sidebar, so the user can open it on either
+   * side — or both at once. The host state below is shared across them;
+   * only the webviews are per-panel.
+   */
+  private views = new Set<vscode.WebviewView>();
+  /** Stable broadcast handle over {@link views}; see {@link getWebview}. */
+  private sink?: PanelSink;
   private sessions: Session[] = [];
   private skills: Skill[] = [];
   private commands: Command[] = [];
@@ -99,11 +109,41 @@ export class ClaudeSessionViewProvider
 
   // ── Context accessors (HostContext / WatcherContext / ProviderActionsContext) ──
 
-  getWebview(): vscode.Webview | undefined {
-    return this.view?.webview;
+  getWebview(): PanelSink | undefined {
+    if (this.views.size === 0) return undefined;
+    // Memoised, and NOT merely for allocation: accountPush dedupes its
+    // payload in a WeakMap keyed on this object. A fresh sink per call
+    // would never hit that cache, silently turning every push into a
+    // redundant one. The handle is invalidated whenever the panel set
+    // changes, which is exactly when a re-push IS wanted.
+    this.sink ??= broadcastSink([...this.views].map((v) => v.webview));
+    return this.sink;
   }
   isDisposed(): boolean {
-    return this.view === undefined;
+    return this.views.size === 0;
+  }
+  /**
+   * The view id a "show the panel" command should focus.
+   *
+   * Prefers a panel already on screen, then any resolved one, and only
+   * then the activity bar. Focusing a view the user never opened would
+   * pop open a sidebar they had closed; focusing one that has not
+   * resolved on this host is a silent no-op, which is the failure this
+   * avoids.
+   */
+  preferredFocusViewId(fallback: string): string {
+    for (const view of this.views) {
+      if (view.visible) return view.viewType;
+    }
+    for (const view of this.views) return view.viewType;
+    return fallback;
+  }
+  /** True while any panel is on screen — drives the visibility-gated poller. */
+  private anyVisible(): boolean {
+    for (const view of this.views) {
+      if (view.visible) return true;
+    }
+    return false;
   }
   /**
    * Regenerate the webview document so the Preact app re-mounts from
@@ -111,9 +151,9 @@ export class ClaudeSessionViewProvider
    * are reapplied on every reset. Called by the global reloadAll.
    */
   resetWebviewHtml(): void {
-    const view = this.view;
-    if (!view) return;
-    view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
+    for (const view of this.views) {
+      view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
+    }
   }
   getSessions(): Session[] {
     return this.sessions;
@@ -214,7 +254,9 @@ export class ClaudeSessionViewProvider
 
   /** Called by VS Code when the webview view becomes visible. */
   resolveWebviewView(view: vscode.WebviewView): void {
-    this.view = view;
+    const isFirstPanel = this.views.size === 0;
+    this.views.add(view);
+    this.sink = undefined;
     // A re-resolved view (window reload, panel move, context eviction) is a
     // brand-new webview whose in-memory state — including its derived
     // currentProject — has reset to empty. The workspace-path dedupe cache
@@ -230,6 +272,45 @@ export class ClaudeSessionViewProvider
     };
     view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
     view.webview.onDidReceiveMessage((msg: WebviewMessage) => this.dispatch(msg));
+
+    // Drive the process-death poller off panel visibility. With the panel
+    // hidden there is no UI to update, so the poll is pure CPU waste —
+    // and with two panels it is "any of them visible", or opening the
+    // second would be undone by the first reporting itself hidden.
+    this.viewSubscriptions.push(
+      view.onDidChangeVisibility(() => {
+        if (this.anyVisible()) {
+          this.livePoll.start();
+          // Re-sync on re-show: while hidden, sessions may have died
+          // without the poller catching it. One immediate refresh closes
+          // the gap before the slow tick kicks back in.
+          this.refreshLiveState();
+        } else {
+          this.livePoll.stop();
+        }
+      }),
+    );
+
+    view.onDidDispose(() => {
+      this.views.delete(view);
+      this.sink = undefined;
+      // Shared state outlives one panel: tear it down only when the last
+      // one closes, or closing the left panel would silently stop the
+      // right one from ever updating again.
+      if (this.views.size === 0) {
+        this.disposeLifecycle();
+      } else if (!this.anyVisible()) {
+        this.livePoll.stop();
+      }
+    });
+
+    // Everything below is shared across panels — one watcher fleet, one
+    // poller, one set of listeners. A second panel reuses them.
+    if (!isFirstPanel) return;
+
+    // Start unread tracking from now, once. Everything already on disk
+    // predates it and counts as read — see ensureUnreadBaseline.
+    ensureUnreadBaseline(Date.now());
 
     // Sweep leftover .bak files from an interrupted profile swap.
     void sweepSwitchBackups();
@@ -251,9 +332,10 @@ export class ClaudeSessionViewProvider
     // churn the project-name UI.
     this.viewSubscriptions.push(
       onBranchChange(() => {
-        const wv = this.view?.webview;
-        if (!wv) return;
-        wv.postMessage({ type: "workspaceBranch", data: getCurrentBranch() });
+        this.getWebview()?.postMessage({
+          type: "workspaceBranch",
+          data: getCurrentBranch(),
+        });
       }),
     );
 
@@ -268,34 +350,11 @@ export class ClaudeSessionViewProvider
 
     this.viewSubscriptions.push(
       this.terminals.onChange((ids) => {
-        this.view?.webview.postMessage({ type: "terminalSessions", ids });
+        this.getWebview()?.postMessage({ type: "terminalSessions", ids });
       }),
     );
 
-    // Drive the process-death poller off webview visibility. When the
-    // panel is hidden we have no UI to update, so the poll is pure CPU
-    // waste — pause it.
     this.livePoll.start();
-    this.viewSubscriptions.push(
-      view.onDidChangeVisibility(() => {
-        if (this.view?.visible) {
-          this.livePoll.start();
-          // Re-sync on re-show: while hidden, sessions may have died
-          // without the poller catching it. One immediate refresh closes
-          // the gap before the slow tick kicks back in.
-          this.refreshLiveState();
-        } else {
-          this.livePoll.stop();
-        }
-      }),
-    );
-
-    view.onDidDispose(() => {
-      // Clear `view` so any pending debounce timers find a null webview and
-      // bail instead of posting to a disposed surface.
-      this.view = undefined;
-      this.disposeLifecycle();
-    });
   }
 
   private disposeLifecycle(): void {

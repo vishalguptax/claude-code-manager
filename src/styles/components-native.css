@@ -640,12 +640,27 @@
   border-color: var(--accent);
 }
 
-/* The outlined icon button — same square, same hover, edge made visible. The
-   base already reserves `border: 1px solid transparent`, so this colours that
-   reserved border rather than adding one: no variant shifts by a pixel
-   relative to the other, and the two can sit in one toolbar row. */
+/* The outlined icon button — same square, edge made visible. The base already
+   reserves `border: 1px solid transparent`, so this colours that reserved
+   border rather than adding one: no variant shifts by a pixel relative to the
+   other, and the two can sit in one toolbar row.
+
+   Colour comes from `.btn-outline`, NOT from `.btn-icon`. A lone toolbar glyph
+   wants `icon.foreground` so it matches the ones VS Code draws beside it — but
+   this variant exists precisely to pair with a labelled outline button, and
+   inheriting the icon colour left the collapse chevrons a different shade from
+   the "Select" label 8px away. Two controls in one strip, drawn as the same
+   shape, reading as two different colours. */
 .btn-icon-outline {
   border-color: var(--border);
+  color: var(--fg-muted);
+}
+/* Matches `.btn-outline:hover` exactly — same text colour, same accent edge,
+   and no ghost fill, so the pair lights up identically under the pointer. */
+.btn-icon-outline:hover:not(:disabled) {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--accent);
 }
 /* In a dense strip beside compact outline buttons, the full control height is
    taller than its neighbours. Match their box so a toolbar row reads level. */
@@ -657,9 +672,7 @@
   padding: 2px var(--space-sm);
   border-radius: var(--radius-sm);
 }
-.btn-icon-outline:hover {
-  border-color: var(--role-text-secondary);
-}
+
 
 /* Higher specificity (.btn.btn-icon) so the inset offset wins over the generic
    `.btn:focus-visible` rule below regardless of source order — an icon button's

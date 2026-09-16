@@ -13,6 +13,13 @@
  * `index * itemHeight` model drifts — rows land at the wrong offset (janky
  * scroll) and the spacer disagrees with real content (the scrollbar thumb
  * resizes as you scroll). Measuring each row removes both.
+ *
+ * Accessibility: only a window of rows is in the DOM, so a screen reader
+ * that counted the rendered children would announce "3 of 7" for a list
+ * of thousands. Each row therefore carries `aria-setsize` (the real
+ * total) and `aria-posinset` (its real index), which is exactly the case
+ * those attributes exist for. The absolutely-positioned spacer is marked
+ * presentational so it does not sit between the list and its items.
  */
 import type { ComponentChild } from "preact";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -24,6 +31,11 @@ export interface VirtualListProps<T> {
   renderItem: (item: T, index: number) => ComponentChild;
   overscan?: number;
   class?: string;
+  /**
+   * Accessible name for the list. Optional because some call sites sit
+   * inside an already-labelled region, where a second name is noise.
+   */
+  label?: string;
 }
 
 /** Cumulative top offset for each index plus the grand total. */
@@ -56,7 +68,7 @@ function findStart(offsets: number[], top: number): number {
 }
 
 export function VirtualList<T>(props: VirtualListProps<T>) {
-  const { items, itemHeight, renderItem, overscan = 4, class: cls } = props;
+  const { items, itemHeight, renderItem, overscan = 4, class: cls, label } = props;
   const count = items.length;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -163,6 +175,9 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
       <div
         key={i}
         ref={setRowEl(i)}
+        role="listitem"
+        aria-setsize={items.length}
+        aria-posinset={i + 1}
         style={{ position: "absolute", top: `${offsets[i]}px`, left: 0, right: 0 }}
       >
         {renderItem(item, i)}
@@ -171,8 +186,17 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
   }
 
   return (
-    <div ref={containerRef} class={cls ? `virtual-list ${cls}` : "virtual-list"}>
-      <div class="virtual-list-spacer" style={{ height: `${total}px`, position: "relative" }}>
+    <div
+      ref={containerRef}
+      role="list"
+      aria-label={label}
+      class={cls ? `virtual-list ${cls}` : "virtual-list"}
+    >
+      <div
+        role="presentation"
+        class="virtual-list-spacer"
+        style={{ height: `${total}px`, position: "relative" }}
+      >
         {rows}
       </div>
     </div>

@@ -9,6 +9,7 @@
  * context and delegates MCP messages here.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import * as path from "path";
 import {
   addMcpServer,
@@ -26,7 +27,7 @@ import type { McpServer, McpServerScope } from "./types";
 /** Narrow host surface the MCP handler needs. Implemented by the provider. */
 export interface McpHostContext {
   /** The live webview, or undefined if the view is not currently resolved. */
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
   /** Absolute workspace path, or undefined when no folder is open. */
   getWorkspace(): string | undefined;
   /** Cache the parsed server list so other host code can read it. */
@@ -59,7 +60,7 @@ function shellArg(value: string): string {
  * second message type for what is conceptually one MCP snapshot. Any
  * config parse failures ride the message's `errors` field.
  */
-function pushServers(ctx: McpHostContext, wv: vscode.Webview): void {
+function pushServers(ctx: McpHostContext, wv: PanelSink): void {
   const { servers, errors } = parseMcpServers(ctx.getWorkspace());
   ctx.setMcpServers(servers);
   wv.postMessage({

@@ -29,6 +29,13 @@ export interface AccountApi {
   /** Hand a rendered stats-card PNG (bare base64, no data-URL prefix) to
    * the host to save via a native dialog. */
   saveStatsImage(pngBase64: string): void;
+  /**
+   * Open an external URL through the host. The webview's CSP forbids
+   * navigation, so the PR/MR link posts the shared `openUrl` message and
+   * lets `vscode.env.openExternal` handle it — the same route the footer
+   * and the MCP/Skills browse links already take.
+   */
+  openUrl(url: string): void;
 }
 
 /**
@@ -58,5 +65,6 @@ export function useAccountApi(): AccountApi {
     promptSaveProfile: () => send({ type: "promptSaveProfile" }),
     openAccountSwitcher: () => send({ type: "openAccountSwitcher" }),
     saveStatsImage: (pngBase64) => send({ type: "saveStatsImage", pngBase64 }),
+    openUrl: (url) => send({ type: "openUrl", url }),
   };
 }

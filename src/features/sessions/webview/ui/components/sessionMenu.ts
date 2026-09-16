@@ -8,6 +8,8 @@
  *   Copy resume command  → copyCommand     (host copies `claude --resume <id>`)
  *   Copy session ID      → navigator.clipboard (webview-local, no host round-trip)
  *   Export session…      → exportSession   (host Save dialog)
+ *   Archive / Unarchive  → archiveSession / unarchiveSession
+ *   Mark unread          → markSessionUnread
  *   Delete session       → confirmDelete   (host confirm, then userState update)
  *
  * Kept separate from the row component so the action wiring is unit-testable
@@ -15,6 +17,7 @@
  */
 import type { ContextMenuItem } from "../../../../../webview/shared/ui";
 import {
+  sendArchiveSession,
   sendConfirmDelete,
   sendCopyCommand,
   sendExportSession,
@@ -22,6 +25,8 @@ import {
   sendPinSession,
   sendPromoteTemp,
   sendRenameSession,
+  sendMarkSessionUnread,
+  sendUnarchiveSession,
   sendUnpinSession,
 } from "../../api";
 
@@ -34,6 +39,8 @@ export function buildSessionMenuItems(
   sessionId: string,
   isPinned: boolean,
   isTemp = false,
+  isArchived = false,
+  isUnread = false,
 ): ContextMenuItem[] {
   const items: ContextMenuItem[] = [];
   if (isTemp) {
@@ -76,6 +83,24 @@ export function buildSessionMenuItems(
       icon: "upload",
       separatorBefore: true,
       onSelect: () => sendExportSession(sessionId),
+    },
+    // Only offered for a session that currently reads as read — marking an
+    // already-unread session unread is a no-op the user would have to think
+    // about to discover.
+    ...(isUnread
+      ? []
+      : [
+          {
+            label: "Mark as unread",
+            icon: "eye-off",
+            onSelect: () => sendMarkSessionUnread(sessionId),
+          } satisfies ContextMenuItem,
+        ]),
+    {
+      label: isArchived ? "Unarchive" : "Archive",
+      icon: isArchived ? "archive-restore" : "archive",
+      onSelect: () =>
+        isArchived ? sendUnarchiveSession(sessionId) : sendArchiveSession(sessionId),
     },
     {
       label: "Delete session",

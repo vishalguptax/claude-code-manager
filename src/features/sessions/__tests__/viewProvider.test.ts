@@ -33,6 +33,7 @@ interface FakeWebview {
 interface FakeWebviewView {
   webview: FakeWebview;
   visible: boolean;
+  viewType: string;
   onDidDispose: (cb: () => void) => { dispose: () => void };
   onDidChangeVisibility: (cb: () => void) => { dispose: () => void };
   _disposeCallbacks: Array<() => void>;
@@ -56,6 +57,7 @@ function makeFakeView(): FakeWebviewView {
       },
     },
     visible: true,
+    viewType: "claudeCodeManager.view",
     onDidDispose(cb: () => void) {
       view._disposeCallbacks.push(cb);
       return { dispose: () => {} };
@@ -168,6 +170,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -214,6 +219,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -264,6 +272,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -339,6 +350,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -380,6 +394,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -434,6 +451,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -523,6 +543,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -581,6 +604,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -649,6 +675,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -702,6 +731,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -763,6 +795,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -785,5 +820,97 @@ describe("ClaudeSessionViewProvider", () => {
     ];
     _fireWorkspaceFoldersChange();
     expect(view.webview.posted.length).toBe(before);
+  });
+
+  describe("two panels at once", () => {
+    /** Resolve `count` panels on one provider and hand them back. */
+    async function withPanels(count: number) {
+      const { ClaudeSessionViewProvider } = await import("../viewProvider");
+      const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+      const views = Array.from({ length: count }, (_, i) => {
+        const v = makeFakeView();
+        v.viewType = i === 0 ? "claudeCodeManager.view" : "claudeCodeManager.secondaryView";
+        provider.resolveWebviewView(v as unknown as vscode.WebviewView);
+        return v;
+      });
+      return { provider, views };
+    }
+
+    it("delivers a host push to every open panel", async () => {
+      // The bug this replaced: a single `view` slot meant the second
+      // panel to resolve silently hijacked the first, which then went
+      // dead while still on screen.
+      const { provider, views } = await withPanels(2);
+      for (const v of views) v.webview.posted.length = 0;
+
+      provider.getWebview()?.postMessage({ type: "probe" });
+
+      for (const v of views) {
+        expect(v.webview.posted.map((m) => m.type)).toContain("probe");
+      }
+    });
+
+    it("hands back the same sink across calls so payload dedupe still works", async () => {
+      // accountPush keys a WeakMap on this object; a fresh handle per
+      // call would silently disable that dedupe.
+      const { provider } = await withPanels(2);
+      expect(provider.getWebview()).toBe(provider.getWebview());
+    });
+
+    it("issues a fresh sink once the panel set changes", async () => {
+      const { provider, views } = await withPanels(2);
+      const before = provider.getWebview();
+      views[1]._dispose();
+      expect(provider.getWebview()).not.toBe(before);
+    });
+
+    it("keeps the surviving panel live when the other closes", async () => {
+      const { provider, views } = await withPanels(2);
+      views[1]._dispose();
+      views[0].webview.posted.length = 0;
+
+      expect(provider.isDisposed()).toBe(false);
+      provider.getWebview()?.postMessage({ type: "probe" });
+      expect(views[0].webview.posted.map((m) => m.type)).toContain("probe");
+    });
+
+    it("stops posting to a panel that has closed", async () => {
+      const { provider, views } = await withPanels(2);
+      views[1]._dispose();
+      const closedCount = views[1].webview.posted.length;
+
+      provider.getWebview()?.postMessage({ type: "probe" });
+      expect(views[1].webview.posted.length).toBe(closedCount);
+    });
+
+    it("counts as disposed only once the last panel closes", async () => {
+      const { provider, views } = await withPanels(2);
+      views[0]._dispose();
+      expect(provider.isDisposed()).toBe(false);
+      views[1]._dispose();
+      expect(provider.isDisposed()).toBe(true);
+      expect(provider.getWebview()).toBeUndefined();
+    });
+
+    it("focuses a visible panel, preferring it over a hidden one", async () => {
+      const { provider, views } = await withPanels(2);
+      views[0]._fireVisibilityChange(false);
+      expect(provider.preferredFocusViewId("fallback")).toBe(
+        "claudeCodeManager.secondaryView",
+      );
+    });
+
+    it("falls back when no panel has been opened", async () => {
+      const { ClaudeSessionViewProvider } = await import("../viewProvider");
+      const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+      expect(provider.preferredFocusViewId("fallback")).toBe("fallback");
+    });
+
+    it("gives the second panel its own document", async () => {
+      const { views } = await withPanels(2);
+      for (const v of views) {
+        expect(v.webview.html).toContain("<html");
+      }
+    });
   });
 });

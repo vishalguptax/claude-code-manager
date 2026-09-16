@@ -32,6 +32,68 @@ const getSessionDetail = v.object({
 });
 const pinSession = v.object({ type: v.literal("pinSession"), sessionId: v.string() });
 const unpinSession = v.object({ type: v.literal("unpinSession"), sessionId: v.string() });
+const getPromptHistory = v.object({ type: v.literal("getPromptHistory") });
+const copyPrompt = v.object({ type: v.literal("copyPrompt"), text: v.string() });
+const openPromptSession = v.object({
+  type: v.literal("openPromptSession"),
+  sessionId: v.string(),
+});
+// project + fileName, never a path: the host re-derives the location, so a
+// compromised webview cannot address a file outside the memory store.
+// Plugins carries its own scope picklist: unlike every other settings
+// surface it must address the admin-managed file too, and widening the
+// shared `scope` would let "managed" through on messages that cannot
+// write there.
+const pluginScope = v.picklist(["global", "project", "local", "managed"]);
+const getPlugins = v.object({ type: v.literal("getPlugins") });
+const openPluginDirectory = v.object({
+  type: v.literal("openPluginDirectory"),
+  id: v.string(),
+});
+const openPluginSettings = v.object({
+  type: v.literal("openPluginSettings"),
+  scope: pluginScope,
+});
+const copyPluginId = v.object({ type: v.literal("copyPluginId"), id: v.string() });
+const setPluginEnabled = v.object({
+  type: v.literal("setPluginEnabled"),
+  id: v.string(),
+  enabled: v.boolean(),
+  scope: pluginScope,
+});
+const getMemories = v.object({ type: v.literal("getMemories") });
+const openMemory = v.object({
+  type: v.literal("openMemory"),
+  project: v.string(),
+  fileName: v.string(),
+});
+const revealMemory = v.object({
+  type: v.literal("revealMemory"),
+  project: v.string(),
+  fileName: v.string(),
+});
+const deleteMemory = v.object({
+  type: v.literal("deleteMemory"),
+  project: v.string(),
+  fileName: v.string(),
+});
+const archiveSession = v.object({ type: v.literal("archiveSession"), sessionId: v.string() });
+const unarchiveSession = v.object({
+  type: v.literal("unarchiveSession"),
+  sessionId: v.string(),
+});
+const archiveSessions = v.object({
+  type: v.literal("archiveSessions"),
+  sessionIds: v.array(v.string()),
+});
+const markSessionRead = v.object({
+  type: v.literal("markSessionRead"),
+  sessionId: v.string(),
+});
+const markSessionUnread = v.object({
+  type: v.literal("markSessionUnread"),
+  sessionId: v.string(),
+});
 const confirmDelete = v.object({
   type: v.literal("confirmDelete"),
   sessionId: v.string(),
@@ -217,11 +279,19 @@ const sessions = v.object({
   data: v.unknown(),
   stats: v.optional(v.unknown()),
 });
+// Every field the host actually sends must be declared. valibot's `object`
+// STRIPS undeclared keys rather than rejecting them, and messageBus
+// dispatches the parsed value — so a field missing here never reaches the
+// webview, silently. `archived` and `readAt` were missing, which left the
+// archive permanently empty and every session showing as unread.
 const userState = v.object({
   type: v.literal("userState"),
   pinned: v.optional(v.array(v.string())),
   deleted: v.optional(v.array(v.string())),
   renames: v.optional(v.record(v.string(), v.string())),
+  archived: v.optional(v.array(v.string())),
+  readAt: v.optional(v.record(v.string(), v.number())),
+  unreadBaseline: v.optional(v.number()),
 });
 const navigateList = v.object({ type: v.literal("navigateList") });
 const skills = v.object({ type: v.literal("skills"), data: v.unknown() });
@@ -299,6 +369,65 @@ const viewTerminal = v.object({
 });
 // === END SESSIONS MESSAGES ===
 
+// === CHECKPOINTS MESSAGES ===
+// The webview never names a blob file: it sends (sessionId, filePath,
+// version) and the host re-derives sha256(filePath).slice(0,16)@v<N>. That
+// keeps the blob grammar — and the traversal guard behind it — host-side.
+const getCheckpointSessions = v.object({ type: v.literal("getCheckpointSessions") });
+const getCheckpoints = v.object({
+  type: v.literal("getCheckpoints"),
+  sessionId: v.string(),
+});
+const checkpointTarget = {
+  sessionId: v.string(),
+  filePath: v.string(),
+  version: v.number(),
+};
+const diffCheckpoint = v.object({
+  type: v.literal("diffCheckpoint"),
+  ...checkpointTarget,
+});
+const restoreCheckpoint = v.object({
+  type: v.literal("restoreCheckpoint"),
+  ...checkpointTarget,
+});
+// Host → webview. Payloads pass through as `unknown` so the shared protocol
+// stays free of the feature-local CheckpointFile / CheckpointSessionSummary
+// types; the checkpoints feature narrows on receipt (mirrors `sessions`).
+const checkpointSessions = v.object({
+  type: v.literal("checkpointSessions"),
+  data: v.unknown(),
+});
+const checkpoints = v.object({
+  type: v.literal("checkpoints"),
+  sessionId: v.string(),
+  data: v.unknown(),
+  orphanCount: v.number(),
+});
+// === END CHECKPOINTS MESSAGES ===
+
+// Host → webview for the prompts / memory / plugins tabs. Payloads pass
+// through as `unknown` for the same reason the checkpoint ones do: the
+// shared protocol stays free of feature-local types and each feature
+// narrows on receipt.
+//
+// These MUST be here, not only in messages.ts. messageBus validates every
+// inbound message with parseMessage and drops what it cannot parse, so a
+// reply that type-checks but has no schema is discarded at runtime and the
+// tab sits on its loading skeleton forever.
+const promptHistory = v.object({
+  type: v.literal("promptHistory"),
+  data: v.unknown(),
+});
+const memoryStore = v.object({
+  type: v.literal("memoryStore"),
+  data: v.unknown(),
+});
+const pluginsData = v.object({
+  type: v.literal("pluginsData"),
+  data: v.unknown(),
+});
+
 export const messageSchema = v.variant("type", [
   ready,
   markDemoSeen,
@@ -312,6 +441,23 @@ export const messageSchema = v.variant("type", [
   getSessionDetail,
   pinSession,
   unpinSession,
+  getPromptHistory,
+  copyPrompt,
+  openPromptSession,
+  getPlugins,
+  openPluginDirectory,
+  openPluginSettings,
+  copyPluginId,
+  setPluginEnabled,
+  getMemories,
+  openMemory,
+  revealMemory,
+  deleteMemory,
+  archiveSession,
+  unarchiveSession,
+  archiveSessions,
+  markSessionRead,
+  markSessionUnread,
   confirmDelete,
   renameSession,
   forkSession,
@@ -414,6 +560,17 @@ export const messageSchema = v.variant("type", [
   createWorktree,
   viewTerminal,
   // === END SESSIONS MESSAGES ===
+  // === CHECKPOINTS MESSAGES ===
+  getCheckpointSessions,
+  getCheckpoints,
+  diffCheckpoint,
+  restoreCheckpoint,
+  checkpointSessions,
+  promptHistory,
+  memoryStore,
+  pluginsData,
+  checkpoints,
+  // === END CHECKPOINTS MESSAGES ===
 ]);
 
 export function parseMessage(input: unknown): Message {

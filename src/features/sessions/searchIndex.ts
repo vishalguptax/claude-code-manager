@@ -19,6 +19,8 @@
  */
 import * as fs from "fs";
 import { LRU } from "../../core/lru";
+import { createLineDecoder } from "../../core/lineDecoder";
+import { openFileNoFollow } from "../../core/safeOpen";
 import type { SessionEntry } from "./types";
 
 /**
@@ -159,17 +161,17 @@ interface Extracted {
  * that as "no content to search."
  */
 function extractContent(filePath: string, startOffset = 0): Extracted {
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return { content: "", truncated: false, tailOffset: 0 };
   }
 
   const parts: string[] = [];
   let charsSoFar = 0;
   const buf = Buffer.alloc(READ_CHUNK);
-  let leftover = "";
+  const decoder = createLineDecoder();
   let bytesRead: number;
   let pos = startOffset;
   // Offset of the next unconsumed line. Starts as the leftover's own start,
@@ -178,14 +180,15 @@ function extractContent(filePath: string, startOffset = 0): Extracted {
   let truncated = false;
 
   try {
-    do {
+    // Loop to EOF: a short read is legal mid-file, so gating on a full
+    // chunk would silently truncate. Decoding goes through the shared line
+    // decoder so a multi-byte character spanning a boundary is not turned
+    // into replacement characters.
+    while (true) {
       bytesRead = fs.readSync(fd, buf, 0, READ_CHUNK, pos);
       if (bytesRead === 0) break;
       pos += bytesRead;
-      const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
-      const lines = chunk.split("\n");
-      leftover = lines.pop() ?? "";
-      for (const line of lines) {
+      for (const line of decoder.push(buf, bytesRead)) {
         lineOffset += Buffer.byteLength(line) + 1; // + the "\n" we split on
         if (!line.trim()) continue;
         const text = extractLineText(line);
@@ -198,8 +201,9 @@ function extractContent(filePath: string, startOffset = 0): Extracted {
         truncated = true;
         break;
       }
-    } while (bytesRead === READ_CHUNK);
+    }
 
+    const leftover = decoder.end();
     if (!truncated && leftover.trim()) {
       const text = extractLineText(leftover);
       if (text) parts.push(text);
@@ -314,27 +318,28 @@ const SEARCH_SCAN_YIELD_EVERY = 256;
  * in-memory index (both join messages with "\n" so a query cannot span them).
  */
 async function scanTail(filePath: string, startOffset: number, q: string): Promise<boolean> {
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return false;
   }
 
   const buf = Buffer.alloc(READ_CHUNK);
-  let leftover = "";
+  const decoder = createLineDecoder();
   let pos = startOffset;
   let bytesRead: number;
 
   try {
-    do {
+    // Loop to EOF: a short read is legal mid-file, so gating on a full
+    // chunk would silently truncate. Decoding goes through the shared line
+    // decoder so a multi-byte character spanning a boundary is not turned
+    // into replacement characters.
+    while (true) {
       bytesRead = fs.readSync(fd, buf, 0, READ_CHUNK, pos);
       if (bytesRead === 0) break;
       pos += bytesRead;
-      const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
-      const lines = chunk.split("\n");
-      leftover = lines.pop() ?? "";
-      for (const line of lines) {
+      for (const line of decoder.push(buf, bytesRead)) {
         if (!line.trim()) continue;
         const text = extractLineText(line);
         if (text && text.toLowerCase().includes(q)) return true;
@@ -342,8 +347,9 @@ async function scanTail(filePath: string, startOffset: number, q: string): Promi
       // Yield between chunks: a multi-megabyte tail must not block the host
       // while the user is still typing.
       await new Promise<void>((resolve) => setImmediate(resolve));
-    } while (bytesRead === READ_CHUNK);
+    }
 
+    const leftover = decoder.end();
     if (leftover.trim()) {
       const text = extractLineText(leftover);
       if (text && text.toLowerCase().includes(q)) return true;

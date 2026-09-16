@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as path from "path";
 import * as os from "os";
-import { claudeSettingsPath, SETTINGS_FILE } from "../config";
+import { claudeSettingsPath, CLAUDE_DIR, FILE_HISTORY_DIR, SETTINGS_FILE } from "../config";
 
 const ws = path.join("C:", "work", "repo");
 
@@ -24,5 +24,14 @@ describe("claudeSettingsPath", () => {
   it("returns null for project/local without a workspace", () => {
     expect(claudeSettingsPath("project")).toBeNull();
     expect(claudeSettingsPath("local")).toBeNull();
+  });
+});
+
+describe("FILE_HISTORY_DIR", () => {
+  it("points at Claude Code's per-file backup tree", () => {
+    // The blob layout underneath is <sessionId>/<pathHash>@v<N>; the feature
+    // depends on this root being exactly where the CLI writes it.
+    expect(FILE_HISTORY_DIR).toBe(path.join(os.homedir(), ".claude", "file-history"));
+    expect(FILE_HISTORY_DIR).toBe(path.join(CLAUDE_DIR, "file-history"));
   });
 });

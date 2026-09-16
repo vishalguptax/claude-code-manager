@@ -196,6 +196,7 @@ function SkillList({ list, searching, renderSkill, onBrowse }: SkillListProps) {
   if (list.length > VIRTUAL_THRESHOLD) {
     return (
       <VirtualList
+        label="Skills"
         class="list"
         items={rows}
         itemHeight={VIRTUAL_ROW_HEIGHT}

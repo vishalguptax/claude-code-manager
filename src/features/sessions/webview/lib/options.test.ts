@@ -47,6 +47,8 @@ function scope(over: Partial<FilterScope> = {}): FilterScope {
     worktrees: {},
     repoRoot: null,
     now: 10_000,
+    archived: NONE,
+    showArchived: false,
     ...over,
   };
 }

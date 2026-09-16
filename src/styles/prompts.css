@@ -1,0 +1,40 @@
+/* ============================================================================
+   Claude Manager — Prompt History Styles
+
+   The tab is built from the shared vocabulary, so almost nothing belongs here:
+     - panel shell + scroll             → .panel (base.css / tabs.css)
+     - search field row                 → .search-row (components.css)
+     - project dropdown row             → .filter-row (components.css)
+     - result count caption             → .list-count (components.css)
+     - windowed list container          → .list / .virtual-list (base.css /
+                                          components.css)
+     - row, its rhythm, hover + focus   → .item and friends (sessions.css),
+                                          density variant in density.css
+     - chips, badges, empty states      → .tag / .vsc-badge / .empty-state
+
+   What is left is the one thing a prompt row does differently from every other
+   row in the extension: its title IS the content, and the content is unbounded.
+   ============================================================================ */
+
+
+/* A prompt is not a name. `.item-name` (sessions.css) ellipsises one line,
+   which is right for a session title and wrong for a paragraph the user wrote:
+   two lines is where a prompt stops being identifiable from its first clause.
+   Clamped rather than cut in TS — the full text stays in the DOM for selection
+   and for the row's `title`, while the measured row height stays bounded
+   whether the prompt is five characters or five thousand. */
+.prompt-item .item-name {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* A history line that recorded no session has nowhere to go, so the row is not
+   a button and must not offer the pointer `.item` gives every other row. */
+.prompt-item:not([role="button"]) {
+  cursor: default;
+}

@@ -134,7 +134,12 @@ export function CommandsListView() {
               {filtered.length} command{filtered.length === 1 ? "" : "s"}
             </div>
             {rows.length > VIRTUALIZE_THRESHOLD ? (
-              <VirtualList items={rows} itemHeight={ROW_HEIGHT} renderItem={renderItem} />
+              <VirtualList
+                label="Commands"
+                items={rows}
+                itemHeight={ROW_HEIGHT}
+                renderItem={renderItem}
+              />
             ) : (
               rows.map(renderItem)
             )}

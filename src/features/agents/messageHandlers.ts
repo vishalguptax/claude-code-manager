@@ -9,6 +9,7 @@
  * featureHandlers monolith) plus create / update / delete / duplicate.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import { parseMessage } from "../../shared/protocol/schemas";
 import { parseAgents } from "./parser";
 import { createAgent, updateAgent, deleteAgent, duplicateAgent } from "./writer";
@@ -16,13 +17,13 @@ import type { Agent } from "./types";
 
 /** Narrow host surface the agents handler needs. Implemented by the provider. */
 export interface AgentHostContext {
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
   getWorkspace(): string | undefined;
   setAgents(agents: Agent[]): void;
 }
 
 /** Re-parse agents and push the fresh list (+ any parse errors) to the webview. */
-function pushAgents(ctx: AgentHostContext, wv: vscode.Webview): void {
+function pushAgents(ctx: AgentHostContext, wv: PanelSink): void {
   const { agents, errors } = parseAgents(ctx.getWorkspace());
   ctx.setAgents(agents);
   wv.postMessage({ type: "agents", data: agents, errors });

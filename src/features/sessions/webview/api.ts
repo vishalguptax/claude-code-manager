@@ -84,6 +84,26 @@ export const sendPinSession = (sessionId: string): void =>
 export const sendUnpinSession = (sessionId: string): void =>
   post({ type: "unpinSession", sessionId });
 
+/** Archive a session — hidden from the default list, still restorable. */
+export const sendArchiveSession = (sessionId: string): void =>
+  post({ type: "archiveSession", sessionId });
+
+/** Restore an archived session to the default list. */
+export const sendUnarchiveSession = (sessionId: string): void =>
+  post({ type: "unarchiveSession", sessionId });
+
+/** Archive several sessions in one host round-trip. */
+export const sendArchiveSessions = (sessionIds: string[]): void =>
+  post({ type: "archiveSessions", sessionIds });
+
+/** Stamp a session read as of now (the host supplies the clock). */
+export const sendMarkSessionRead = (sessionId: string): void =>
+  post({ type: "markSessionRead", sessionId });
+
+/** Drop a session's read mark so it reads as unread again. */
+export const sendMarkSessionUnread = (sessionId: string): void =>
+  post({ type: "markSessionUnread", sessionId });
+
 /** Hide a session from the list (host confirms first via confirmDelete). */
 export const sendConfirmDelete = (sessionId: string, callback?: string): void =>
   post({ type: "confirmDelete", sessionId, callback });

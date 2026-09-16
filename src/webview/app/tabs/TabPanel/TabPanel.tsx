@@ -38,8 +38,12 @@ const featureLoaders = {
   skills: () => import("../../../../features/skills/webview/index"),
   commands: () => import("../../../../features/commands/webview/index"),
   hooks: () => import("../../../../features/hooks/webview/index"),
+  checkpoints: () => import("../../../../features/checkpoints/webview/index"),
   mcp: () => import("../../../../features/mcp/webview/index"),
   agents: () => import("../../../../features/agents/webview/index"),
+  prompts: () => import("../../../../features/prompts/webview/index"),
+  memory: () => import("../../../../features/memory/webview/index"),
+  plugins: () => import("../../../../features/plugins/webview/index"),
   account: () => import("../../../../features/account/webview/index"),
   config: () => import("../../../../features/config/webview/index"),
 } as const;

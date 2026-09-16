@@ -13,6 +13,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { SESSIONS_DIR } from "../../core/config";
 import { LRU } from "../../core/lru";
+import { openFileNoFollow } from "../../core/safeOpen";
 import { getSessionFile } from "./metaParser";
 import { getProcessStartTimes } from "./procTime";
 import type { Session } from "./types";
@@ -228,21 +229,26 @@ function detectPendingInteraction(filePath: string): boolean {
   const cached = pendingCache.get(filePath);
   if (cached && cached.mtimeMs === stat.mtimeMs) return cached.pending;
 
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
+    pendingCache.set(filePath, { mtimeMs: stat.mtimeMs, pending: false });
+    return false;
+  }
+
   let text: string;
   try {
     const start = Math.max(0, stat.size - PENDING_TAIL_READ_BYTES);
     const length = stat.size - start;
     const buf = Buffer.alloc(length);
-    const fd = fs.openSync(filePath, "r");
-    try {
-      fs.readSync(fd, buf, 0, length, start);
-    } finally {
-      fs.closeSync(fd);
-    }
+    fs.readSync(fd, buf, 0, length, start);
     text = buf.toString("utf-8");
   } catch {
     pendingCache.set(filePath, { mtimeMs: stat.mtimeMs, pending: false });
     return false;
+  } finally {
+    fs.closeSync(fd);
   }
 
   // Single forward pass: add ids on tool_use, remove on tool_result.

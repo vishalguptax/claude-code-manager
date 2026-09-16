@@ -99,3 +99,92 @@ describe("stylesheet integrity", () => {
     expect(opens).toBe(closes);
   });
 });
+
+/**
+ * Row action buttons are hidden by default and revealed by an explicit list
+ * of row-class selectors. That list is easy to extend a tab without, and the
+ * failure is silent: the button renders, occupies no visible state, and is
+ * simply never seen. That is exactly what happened to the Plugins tab —
+ * every row's copy button was invisible from the day it shipped.
+ *
+ * `.list-item` in the reveal list is what makes the rule general: every row
+ * built on the shared <ListItem> carries it, so a new tab is covered on
+ * arrival rather than when someone notices.
+ */
+describe("row action reveal", () => {
+  const components = fs.readFileSync(path.join(STYLES, "components.css"), "utf8");
+
+  it("reveals on hover and focus for any shared list row", () => {
+    const body = strip(components);
+    for (const selector of [
+      ".list-item:hover .item-copy-btn",
+      ".list-item:hover .item-chat-btn",
+      ".list-item:focus-within .item-copy-btn",
+      ".list-item:focus-within .item-chat-btn",
+    ]) {
+      expect(body).toContain(selector);
+    }
+  });
+
+  it("keeps the buttons hidden by default", () => {
+    // If this ever stops being true the reveal rule is pointless, and the
+    // buttons would be permanently lit on every row instead.
+    expect(strip(components)).toMatch(/\.item-copy-btn,\s*\n\.item-chat-btn \{\s*opacity: 0;/);
+  });
+
+  it("is not re-declared by any feature stylesheet", () => {
+    // One owner per selector (CLAUDE.md). A feature patching its own reveal
+    // is the symptom of the shared list having missed it.
+    const offenders = FILES.filter((f) => f !== "components.css").filter((f) =>
+      /:hover\s+\.item-copy-btn|:focus-within\s+\.item-copy-btn/.test(
+        strip(fs.readFileSync(path.join(STYLES, f), "utf8")),
+      ),
+    );
+    expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * `outline` and `icon-outline` are the same control drawn with and without a
+ * label, and every use puts them side by side — collapse beside "Select",
+ * refresh beside the search field, continue beside "New Session". They have
+ * to read as one family.
+ *
+ * They drifted because `icon-outline` inherited its colour from `.btn-icon`,
+ * which deliberately uses `icon.foreground` so a LONE toolbar glyph matches
+ * the ones VS Code draws beside it. Correct in isolation, wrong when paired:
+ * the collapse chevrons sat at a visibly different shade from the "Select"
+ * label 8px away.
+ */
+describe("outline button family", () => {
+  const native = strip(fs.readFileSync(path.join(STYLES, "components-native.css"), "utf8"));
+
+  /** Declarations inside the first rule whose selector list matches. */
+  const ruleBody = (selector: string): string => {
+    const at = native.indexOf(`${selector} {`);
+    expect(at).toBeGreaterThan(-1);
+    return native.slice(at, native.indexOf("}", at));
+  };
+
+  it("draws both variants in the same resting colour", () => {
+    expect(ruleBody(".btn-outline")).toContain("color: var(--fg-muted)");
+    expect(ruleBody(".btn-icon-outline")).toContain("color: var(--fg-muted)");
+  });
+
+  it("lights both up identically on hover", () => {
+    const text = ruleBody(".btn-outline:hover:not(:disabled)");
+    const icon = ruleBody(".btn-icon-outline:hover:not(:disabled)");
+    for (const decl of ["color: var(--fg)", "border-color: var(--accent)"]) {
+      expect(text).toContain(decl);
+      expect(icon).toContain(decl);
+    }
+  });
+
+  it("gives the icon variant no ghost fill its labelled twin lacks", () => {
+    // .btn-icon:hover paints a ghost background; inheriting it here would
+    // make one of the pair fill on hover while the other only changes edge.
+    expect(ruleBody(".btn-icon-outline:hover:not(:disabled)")).toContain(
+      "background: transparent",
+    );
+  });
+});

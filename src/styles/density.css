@@ -25,7 +25,8 @@
 
    Every selector here mirrors one in a feature stylesheet: `.item`
    (sessions.css), `.cmd-item` / `.hook-item` (features.css), `.mcp-item`
-   (mcp.css), `.agent-item` (agents.css). Keep this list in step when a new
+   (mcp.css), `.agent-item` (agents.css), `.mem-item` (memory.css),
+   `.plg-item` (plugins.css). Keep this list in step when a new
    list feature lands — a row class missing from here keeps its rule in quiet
    mode and reads as a bug.
 
@@ -39,6 +40,8 @@
 [data-density="quiet"] .cmd-item,
 [data-density="quiet"] .hook-item,
 [data-density="quiet"] .mcp-item,
+[data-density="quiet"] .mem-item,
+[data-density="quiet"] .plg-item,
 [data-density="quiet"] .agent-item {
   border-bottom: none;
   padding-top: var(--space-xl);

@@ -1,0 +1,149 @@
+/* ============================================================================
+   Claude Manager — Memory Styles
+   The memory list rows and the single-memory detail view.
+
+   Shared chrome lives in the component layer and is NOT repeated here:
+     - panel shell + scroll region       → .panel / .list        (base.css, tabs.css)
+     - search + filter rows              → .search-row / .filter-row (components.css)
+     - health lens                       → .scope-filter          (components.css)
+     - list rows                         → .list-item             (components.css)
+     - result count caption              → .list-count            (components.css)
+     - chips                             → .vsc-badge--*          (components.css)
+     - buttons (ghost/danger/icon)       → .btn-*                 (components-native.css)
+     - back affordance                   → .back-btn              (components.css)
+     - detail head / actions / sections  → .d-*                   (sessions.css)
+     - empty + error states              → .empty-state / .error-banner
+   This file keeps only what is memory-specific: the three-line row, the
+   excerpt block and the link graph.
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Memory — list rows
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.mem-item {
+  /* .list-item (components.css) owns the cursor, hover, active and focus ring.
+     Two deltas only: the shared row is block-level and this one stacks three
+     lines, and the wider inset lines the row text up with the search field,
+     the lens and the count caption above it, which all sit at --space-2xl. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-2xl);
+  /* Row separator. Mirrored by density.css, which removes it in quiet mode. */
+  border-bottom: 1px solid var(--border);
+}
+
+.mem-row-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.mem-name {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The `metadata.type` chip. Claude Code writes four values today but the
+   parser passes any value through, so this must stay legible for a string it
+   has never seen — hence no per-value colouring. */
+.mem-type {
+  flex: 0 0 auto;
+}
+
+/* Two lines of the memory's own words. Clamped rather than ellipsized on one
+   line: a one-line description reads as a title, two lines read as content,
+   and the whole text is one click away in the detail view. */
+.mem-desc {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mem-row-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  min-width: 0;
+}
+
+.mem-project {
+  color: var(--fg-section);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mem-file {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Memory — detail view
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* The title takes focus when the detail view opens (focus follows navigation),
+   so it needs a visible ring — `.d-title` is not a control and shows none. */
+.mem-detail-title:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The memory's own prose, shown as written. Not `.d-pre`: this is a few lines
+   of English, not a code block, so it takes the body face without the box. */
+.mem-excerpt {
+  font-size: var(--fs-base);
+  line-height: 1.6;
+  color: var(--fg-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mem-link-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mem-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+}
+
+/* A target no file declares. Struck rather than hidden: the reference is
+   still in the memory's text, and the user has to see it to fix it. */
+.mem-link-broken {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--fg-muted);
+  text-decoration: line-through;
+}

@@ -28,6 +28,15 @@ export type FilterDimension = "project" | "date" | "branch" | "worktree";
 export interface FilterScope {
   deleted: Set<string>;
   pinned: Set<string>;
+  /**
+   * Session IDs the user archived. Excluded from the list unless
+   * {@link FilterScope.showArchived} is on — archiving means "out of my
+   * way", not "gone", so the rows stay reachable behind a toggle where
+   * deleted ones do not.
+   */
+  archived: Set<string>;
+  /** When true the archived rows are shown instead of hidden. */
+  showArchived: boolean;
   /** "current" | "all" | a repoRoot | a project name. */
   project: string;
   /** Lowercased folder name of the open workspace, "" when unresolved. */
@@ -102,6 +111,10 @@ export function matchesScope(
   except?: FilterDimension,
 ): boolean {
   if (scope.deleted.has(s.id)) return false;
+  // Archived rows are hidden by default and shown EXCLUSIVELY when the
+  // toggle is on: mixing them back into the ordinary list would make the
+  // toggle read as "show more" rather than "show the archive".
+  if (scope.showArchived !== scope.archived.has(s.id)) return false;
   if (except !== "project" && !matchesProject(s, scope)) return false;
   if (except !== "date" && !matchesDate(s, scope)) return false;
   if (except !== "branch" && !matchesBranch(s, scope)) return false;

@@ -43,6 +43,28 @@ export type Message =
   | { type: "getSessionDetail"; sessionId: string; mode?: DetailMode; query?: string }
   | { type: "pinSession"; sessionId: string }
   | { type: "unpinSession"; sessionId: string }
+  | { type: "getPromptHistory" }
+  | { type: "copyPrompt"; text: string }
+  | { type: "openPromptSession"; sessionId: string }
+  | { type: "getPlugins" }
+  | { type: "openPluginDirectory"; id: string }
+  | { type: "openPluginSettings"; scope: "global" | "project" | "local" | "managed" }
+  | { type: "copyPluginId"; id: string }
+  | {
+      type: "setPluginEnabled";
+      id: string;
+      enabled: boolean;
+      scope: "global" | "project" | "local" | "managed";
+    }
+  | { type: "getMemories" }
+  | { type: "openMemory"; project: string; fileName: string }
+  | { type: "revealMemory"; project: string; fileName: string }
+  | { type: "deleteMemory"; project: string; fileName: string }
+  | { type: "archiveSession"; sessionId: string }
+  | { type: "unarchiveSession"; sessionId: string }
+  | { type: "archiveSessions"; sessionIds: string[] }
+  | { type: "markSessionRead"; sessionId: string }
+  | { type: "markSessionUnread"; sessionId: string }
   | { type: "confirmDelete"; sessionId: string; callback?: string }
   | { type: "renameSession"; sessionId: string }
   | { type: "forkSession"; sessionId: string }
@@ -126,7 +148,15 @@ export type Message =
   | { type: "workspaceBranch"; data: string }
   | { type: "settings"; [extra: string]: unknown }
   | { type: "sessions"; data: unknown; stats?: unknown }
-  | { type: "userState"; pinned?: string[]; deleted?: string[]; renames?: Record<string, string> }
+  | {
+      type: "userState";
+      pinned?: string[];
+      deleted?: string[];
+      renames?: Record<string, string>;
+      archived?: string[];
+      readAt?: Record<string, number>;
+      unreadBaseline?: number;
+    }
   | { type: "navigateList" }
   | { type: "skills"; data: unknown }
   | { type: "skillDetail"; data: unknown }
@@ -143,6 +173,9 @@ export type Message =
   // whatever parsed successfully.
   | { type: "hooks"; data: unknown; errors?: string[] }
   | { type: "mcpServers"; data: unknown; errors?: string[] }
+  | { type: "promptHistory"; data: unknown }
+  | { type: "memoryStore"; data: unknown }
+  | { type: "pluginsData"; data: unknown }
   | { type: "agents"; data: unknown; errors?: string[] }
   | { type: "quotaData"; result: unknown }
   | { type: "terminalSessions"; ids: string[] }
@@ -156,6 +189,25 @@ export type Message =
    */
   | { type: "worktrees"; map: Record<string, unknown> }
   | { type: "viewTerminal"; sessionId: string }
+  // === CHECKPOINTS MESSAGES ===
+  /**
+   * File Checkpoints: Claude Code's per-file version backups under
+   * ~/.claude/file-history. The webview never names a blob — it sends the
+   * session, the absolute file path and the version, and the host re-derives
+   * `sha256(path).slice(0,16)@v<N>` itself.
+   */
+  | { type: "getCheckpointSessions" }
+  | { type: "getCheckpoints"; sessionId: string }
+  | { type: "diffCheckpoint"; sessionId: string; filePath: string; version: number }
+  | { type: "restoreCheckpoint"; sessionId: string; filePath: string; version: number }
+  /** Host → webview. `data` is CheckpointSessionSummary[], narrowed by the feature. */
+  | { type: "checkpointSessions"; data: unknown }
+  /**
+   * Host → webview. `data` is CheckpointFile[]. `orphanCount` is how many
+   * blobs the session directory holds that no transcript line maps to a path.
+   */
+  | { type: "checkpoints"; sessionId: string; data: unknown; orphanCount: number }
+  // === END CHECKPOINTS MESSAGES ===
   // === SESSIONS MESSAGES ===
   // Inbound (webview → host) session messages handled in
   // features/sessions/messageHandlers.ts. `search`/`filter` ask the host to
@@ -202,6 +254,23 @@ type WebviewMessageType =
   | "getSessionDetail"
   | "pinSession"
   | "unpinSession"
+  | "getPromptHistory"
+  | "copyPrompt"
+  | "openPromptSession"
+  | "getPlugins"
+  | "openPluginDirectory"
+  | "openPluginSettings"
+  | "copyPluginId"
+  | "setPluginEnabled"
+  | "getMemories"
+  | "openMemory"
+  | "revealMemory"
+  | "deleteMemory"
+  | "archiveSession"
+  | "unarchiveSession"
+  | "archiveSessions"
+  | "markSessionRead"
+  | "markSessionUnread"
   | "confirmDelete"
   | "renameSession"
   | "forkSession"
@@ -271,6 +340,10 @@ type WebviewMessageType =
   | "resetSettings"
   | "restoreSettingsSnapshot"
   | "deleteSettingsSnapshot"
+  | "getCheckpointSessions"
+  | "getCheckpoints"
+  | "diffCheckpoint"
+  | "restoreCheckpoint"
   // === SESSIONS MESSAGES ===
   | "search"
   | "filter"
@@ -309,4 +382,6 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "terminalSessions",
   "tempSessions",
   "worktrees",
+  "checkpointSessions",
+  "checkpoints",
 ];
