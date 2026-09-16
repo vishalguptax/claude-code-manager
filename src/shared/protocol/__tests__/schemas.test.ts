@@ -80,6 +80,16 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "markSessionUnread", sessionId: "s" });
   });
 
+  it("accepts the host replies the new tabs wait on", () => {
+    // Regression guard. These three type-checked via messages.ts but had no
+    // schema, so messageBus dropped every reply and the Prompts, Memory and
+    // Plugins tabs sat on their loading skeletons forever. A variant that
+    // exists in one file and not the other is invisible to the compiler.
+    roundTrip({ type: "promptHistory", data: { entries: [] } });
+    roundTrip({ type: "memoryStore", data: { projects: [] } });
+    roundTrip({ type: "pluginsData", data: { plugins: [] } });
+  });
+
   it("rejects archive messages carrying the wrong payload shape", () => {
     // The dispatch gate is the only thing between a malformed message and
     // a state write, so the negative case matters as much as the positive.

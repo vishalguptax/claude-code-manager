@@ -398,6 +398,28 @@ const checkpoints = v.object({
 });
 // === END CHECKPOINTS MESSAGES ===
 
+// Host → webview for the prompts / memory / plugins tabs. Payloads pass
+// through as `unknown` for the same reason the checkpoint ones do: the
+// shared protocol stays free of feature-local types and each feature
+// narrows on receipt.
+//
+// These MUST be here, not only in messages.ts. messageBus validates every
+// inbound message with parseMessage and drops what it cannot parse, so a
+// reply that type-checks but has no schema is discarded at runtime and the
+// tab sits on its loading skeleton forever.
+const promptHistory = v.object({
+  type: v.literal("promptHistory"),
+  data: v.unknown(),
+});
+const memoryStore = v.object({
+  type: v.literal("memoryStore"),
+  data: v.unknown(),
+});
+const pluginsData = v.object({
+  type: v.literal("pluginsData"),
+  data: v.unknown(),
+});
+
 export const messageSchema = v.variant("type", [
   ready,
   markDemoSeen,
@@ -536,6 +558,9 @@ export const messageSchema = v.variant("type", [
   diffCheckpoint,
   restoreCheckpoint,
   checkpointSessions,
+  promptHistory,
+  memoryStore,
+  pluginsData,
   checkpoints,
   // === END CHECKPOINTS MESSAGES ===
 ]);
