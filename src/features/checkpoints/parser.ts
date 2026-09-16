@@ -47,6 +47,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { FILE_HISTORY_DIR } from "../../core/config";
 import { openFileNoFollow } from "../../core/safeOpen";
+import { createLineDecoder } from "../../core/lineDecoder";
 import type {
   CheckpointFile,
   CheckpointSessionSummary,
@@ -207,7 +208,7 @@ export function scanSnapshotLines(
   const records: Record<string, TrackedFileBackup>[] = [];
   const CHUNK = 64 * 1024;
   const buf = Buffer.alloc(CHUNK);
-  let leftover = "";
+  const decoder = createLineDecoder();
   let bytesRead: number;
 
   const take = (line: string): void => {
@@ -225,15 +226,15 @@ export function scanSnapshotLines(
   };
 
   try {
-    do {
+    // Loop to EOF: a short read is legal mid-file, so gating on a full
+    // chunk would silently truncate. The shared decoder carries partial
+    // lines AND partial multi-byte sequences across the boundary.
+    while (true) {
       bytesRead = fs.readSync(fd, buf, 0, CHUNK, null);
       if (bytesRead === 0) break;
-      const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
-      const lines = chunk.split("\n");
-      // The final element may be a partial line — carry it into the next chunk.
-      leftover = lines.pop() ?? "";
-      for (const line of lines) take(line);
-    } while (bytesRead === CHUNK);
+      for (const line of decoder.push(buf, bytesRead)) take(line);
+    }
+    const leftover = decoder.end();
     if (leftover) take(leftover);
   } catch {
     // A read error mid-file yields whatever we already folded rather than

@@ -17,6 +17,7 @@ import * as path from "path";
 import { HISTORY_FILE, PROJECTS_DIR } from "../../core/config";
 import { LRU } from "../../core/lru";
 import { openFileNoFollow } from "../../core/safeOpen";
+import { createLineDecoder } from "../../core/lineDecoder";
 import { deslugifyProjectPath } from "./portable";
 import {
   extractProjectName,
@@ -313,7 +314,7 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
   let aiTitle = "";
   const CHUNK = 64 * 1024;
   const buf = Buffer.alloc(CHUNK);
-  let leftover = "";
+  const decoder = createLineDecoder();
   let bytesRead: number;
 
   const captureRename = (line: string, message: { content?: unknown } | undefined): void => {
@@ -334,13 +335,13 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
   };
 
   try {
-    do {
+    // Loop to EOF: a short read is legal mid-file, so gating on a full
+    // chunk would silently truncate. The shared line decoder keeps a
+    // multi-byte character spanning a boundary intact.
+    while (true) {
       bytesRead = fs.readSync(fd, buf, 0, CHUNK, null);
       if (bytesRead === 0) break;
-      const chunk = leftover + buf.toString("utf-8", 0, bytesRead);
-      const lines = chunk.split("\n");
-      leftover = lines.pop() ?? "";
-      for (const line of lines) {
+      for (const line of decoder.push(buf, bytesRead)) {
         if (!line.trim()) continue;
         let entry: SessionEntry;
         try {
@@ -384,8 +385,9 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
           }
         }
       }
-    } while (bytesRead === CHUNK);
+    }
 
+    const leftover = decoder.end();
     if (leftover.trim()) {
       try {
         const entry = JSON.parse(leftover) as SessionEntry;
