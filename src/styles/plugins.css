@@ -1,0 +1,206 @@
+/* ============================================================================
+   Claude Manager — Plugins Styles
+   Plugin rows, marketplace rows, the policy block, and the enable switch.
+
+   Shared chrome lives in the component layer and is NOT repeated here:
+     - badge box (display/padding/radius/font)  → .vsc-badge (components-native.css)
+     - search field + clear                      → .vsc-search (components-native.css)
+     - segmented view filter                     → .scope-filter / .vsc-segmented
+     - buttons (primary/secondary/icon/danger)   → .btn-* (components-native.css)
+     - list rows                                 → .list-item (components.css)
+     - parse-error strip                         → .error-banner (components.css)
+     - empty states                              → .empty-state (components.css)
+   This file keeps only what is Plugins-specific: the row's stacked layout,
+   the "why" and warning lines, the enable switch, and the policy block.
+
+   Register order note: loaded after the shared layers so these rules layer on
+   top of `.list-item`, and before density.css so row padding stays
+   overridable there.
+   ============================================================================ */
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Plugins — Tab shell
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.plg-tab {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.plg-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-2xl);
+  border-bottom: 1px solid var(--border);
+}
+
+.plg-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Plugins — Row
+   ────────────────────────────────────────────────────────────────────────────── */
+
+/* A plugin row and a marketplace row share the shared `.list-item` box; these
+   add the Plugins-specific padding, divider and stacked lines. */
+.plg-item,
+.plg-mkt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-2xl);
+  border-bottom: 1px solid var(--border);
+}
+.plg-item:last-child,
+.plg-mkt:last-child {
+  border-bottom: none;
+}
+.plg-item:focus-visible {
+  outline: 1px solid var(--list-focus);
+  outline-offset: -1px;
+}
+
+/* A plugin Claude Code is not loading reads quieter than one it is. */
+.plg-item.plg-item-off {
+  opacity: 0.72;
+}
+.plg-item.plg-item-off:hover {
+  opacity: 1;
+}
+
+.plg-item-row1 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.plg-item-name {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.plg-item-source {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-size: var(--fs-sm);
+  font-family: var(--mono);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plg-item-version::before {
+  content: "·";
+  margin-right: var(--space-sm);
+}
+
+/* The one-line answer to "why is it in this state". Wraps: truncating the
+   reason would defeat the row. */
+.plg-item-detail {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+}
+
+/* A finding the user has to act on — a policy violation, an unfetched
+   marketplace, an inert settings key. */
+.plg-item-warning {
+  font-size: var(--fs-sm);
+  color: var(--orange);
+  background: var(--orange-bg);
+  border-left: 2px solid var(--orange);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+/* user: on › project: off › local: on */
+.plg-item-chain {
+  font-size: var(--fs-xs);
+  font-family: var(--mono);
+  color: var(--fg-muted);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Plugins — Enable switch
+
+   Geometry mirrors `.mcp-switch` (mcp.css) rather than reusing it: that
+   selector is owned by the MCP stylesheet, and restating a class another file
+   declares is exactly the cascade collision the CSS rules forbid. If a third
+   feature needs a switch, this and `.mcp-switch` move to the component layer
+   together.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.plg-switch {
+  flex: none;
+  width: 26px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--input-bg);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--transition-control), border-color var(--transition-control);
+}
+.plg-switch:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+.plg-switch[aria-checked="true"] {
+  background: var(--role-primary-bg);
+  border-color: var(--role-primary-bg);
+}
+
+.plg-switch-knob {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--fg-dim);
+  transition: transform var(--transition-control), background var(--transition-control);
+}
+.plg-switch[aria-checked="true"] .plg-switch-knob {
+  transform: translateX(12px);
+  background: var(--role-primary-fg);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Plugins — Policy block
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.plg-policy {
+  border-bottom: 1px solid var(--border);
+}
+
+.plg-policy-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-2xl);
+}
+
+.plg-policy-key {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-family: var(--mono);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
