@@ -266,6 +266,11 @@ export function refreshSettings(ctx: ProviderActionsContext): void {
     // is already re-pushed on every configuration change, so switching the
     // setting re-skins the panel without a reload.
     density: rootConfig.get<string>("density", "comfortable"),
+    // Same reasoning as density: ride the message that already re-pushes on
+    // every configuration change, so hiding or reordering a tab in settings
+    // takes effect live rather than needing a panel reload.
+    hiddenTabs: rootConfig.get<string[]>("hiddenTabs", []),
+    tabOrder: rootConfig.get<string[]>("tabOrder", []),
     // Persisted in extension globalState so the cinematic intro auto-plays
     // exactly once per VS Code install and survives panel reloads.
     demoSeen: ctx.globalState?.get<boolean>(DEMO_SEEN_KEY) ?? false,

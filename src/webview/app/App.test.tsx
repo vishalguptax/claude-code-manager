@@ -10,7 +10,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { cleanup, fireEvent, render } from "@testing-library/preact";
-import { activeTab, density } from "../shared/model";
+import { activeTab, density, hiddenTabsPref, tabOrderPref } from "../shared/model";
 import { _resetPaletteSources } from "../shared/model/palette";
 import { TABS } from "./tabs/tabRegistry";
 import { _resetHostBusy, hostBusy } from "../shared/model/hostBusy";
@@ -21,6 +21,8 @@ afterEach(() => {
   cleanup();
   activeTab.value = "sessions";
   density.value = "comfortable";
+  hiddenTabsPref.value = [];
+  tabOrderPref.value = [];
   _resetHostBusy();
   _resetPaletteSources();
 });
@@ -133,6 +135,21 @@ describe("App", () => {
     fireEvent.mouseDown(row as HTMLElement);
     expect(activeTab.value).toBe("config");
     expect(container.querySelector(".palette")).toBeNull();
+  });
+
+  // A tab hidden via claudeManager.hiddenTabs is not just off the strip — it
+  // must not offer a back door through "Go to" either, or hiding it would
+  // just relocate the clutter rather than remove it.
+  it("does not offer navigation to a hidden tab", () => {
+    hiddenTabsPref.value = ["checkpoints", "prompts"];
+    const { container } = render(h(App, {}));
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    const titles = Array.from(container.querySelectorAll(".palette-item-title")).map(
+      (n) => n.textContent,
+    );
+    expect(titles).not.toContain("Checkpoints");
+    expect(titles).not.toContain("Prompts");
+    expect(titles).toContain("Sessions");
   });
 
   // ── Crash containment ────────────────────────────────────────────

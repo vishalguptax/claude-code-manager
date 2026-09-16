@@ -6,7 +6,9 @@ export {
   applyShellSettings,
   type Density,
   density,
+  hiddenTabsPref,
   ready,
+  tabOrderPref,
   theme,
 } from "./globalSignals";
 export { _resetIntro, closeIntro, introVisible, maybeShowIntro } from "./intro";

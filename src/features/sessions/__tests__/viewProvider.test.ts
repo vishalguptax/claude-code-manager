@@ -288,6 +288,8 @@ describe("ClaudeSessionViewProvider", () => {
           defaultProject: "all",
           restoreCount: 6,
           density: "quiet",
+          hiddenTabs: ["checkpoints"],
+          tabOrder: ["account", "config"],
         };
         return key in values ? values[key] : defaultValue;
       },
@@ -311,6 +313,29 @@ describe("ClaudeSessionViewProvider", () => {
     // change without a reload — refreshSettings is the only push the
     // configuration-change handler makes.
     expect(settingsMsgs[0].density).toBe("quiet");
+    expect(settingsMsgs[0].hiddenTabs).toEqual(["checkpoints"]);
+    expect(settingsMsgs[0].tabOrder).toEqual(["account", "config"]);
+  });
+
+  it("defaults hiddenTabs and tabOrder to empty arrays when unset", async () => {
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: (_key: string, defaultValue?: unknown) => defaultValue,
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    view.webview.posted.length = 0;
+
+    provider.refreshSettings();
+
+    const settingsMsgs = view.webview.posted.filter((m) => m.type === "settings");
+    // Empty is what makes a fresh install behave exactly as it did before
+    // these settings existed — every tab, in the registry's own order.
+    expect(settingsMsgs[0].hiddenTabs).toEqual([]);
+    expect(settingsMsgs[0].tabOrder).toEqual([]);
   });
 
   it("defaults density to comfortable when the setting is unset", async () => {

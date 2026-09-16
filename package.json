@@ -248,6 +248,50 @@
           ],
           "description": "How list rows in the sidebar are separated. Applies to every tab."
         },
+        "claudeManager.hiddenTabs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "sessions",
+              "checkpoints",
+              "prompts",
+              "skills",
+              "mcp",
+              "agents",
+              "commands",
+              "hooks",
+              "plugins",
+              "memory",
+              "account",
+              "config"
+            ]
+          },
+          "default": [],
+          "description": "Tab ids to hide from the sidebar, e.g. \"checkpoints\", \"prompts\". Hiding every tab is refused rather than honoured — if this list would hide all of them, it is ignored and every tab shows instead."
+        },
+        "claudeManager.tabOrder": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "sessions",
+              "checkpoints",
+              "prompts",
+              "skills",
+              "mcp",
+              "agents",
+              "commands",
+              "hooks",
+              "plugins",
+              "memory",
+              "account",
+              "config"
+            ]
+          },
+          "default": [],
+          "description": "Left-to-right order for the tabs listed here, by id. A tab left out keeps its built-in position and is appended after the ones you listed. Unknown or duplicate ids are ignored, so an id from a removed tab never breaks this list."
+        },
         "claudeManager.sessions.terminalLinking": {
           "type": "boolean",
           "default": false,

@@ -14,11 +14,15 @@ import { useEdgeAutoScroll } from "../../../shared/hooks";
 import { cx } from "../../../shared/lib";
 import { activeTab } from "../../../shared/model";
 import { Icon } from "../../../shared/ui";
-import { TABS } from "../tabRegistry";
+import { visibleTabs } from "../lib";
 import { ReloadButton } from "./ReloadButton";
 
 export function TabBar() {
   const current = activeTab.value;
+  // Reading `.value` here is what makes this component re-render — and the
+  // correction effect below re-run — whenever claudeManager.hiddenTabs or
+  // claudeManager.tabOrder changes.
+  const tabs = visibleTabs.value;
   const ref = useRef<HTMLDivElement>(null);
 
   // The strip hides its scrollbar, so when the tabs overflow there is nothing
@@ -31,11 +35,11 @@ export function TabBar() {
   // activation" tab pattern, which matches how the rest of the webview's
   // segmented controls behave.
   const move = (delta: number): void => {
-    const i = TABS.findIndex((t) => t.id === current);
+    const i = tabs.findIndex((t) => t.id === current);
     if (i === -1) return;
-    const next = (i + delta + TABS.length) % TABS.length;
-    activeTab.value = TABS[next].id;
-    focusTab(TABS[next].id);
+    const next = (i + delta + tabs.length) % tabs.length;
+    activeTab.value = tabs[next].id;
+    focusTab(tabs[next].id);
   };
 
   const focusTab = (id: string): void => {
@@ -59,6 +63,16 @@ export function TabBar() {
     el?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [current]);
 
+  // A tab the user is sitting on can stop existing out from under them —
+  // claudeManager.hiddenTabs applies live, no reload required. Land on the
+  // new first tab rather than a blank pane with no active cell in the strip.
+  // `resolveVisibleTabs` guarantees `tabs` is never empty, so `tabs[0]` is
+  // always safe.
+  useEffect(() => {
+    if (tabs.some((t) => t.id === current)) return;
+    activeTab.value = tabs[0].id;
+  }, [tabs, current]);
+
   const onKeyDown = (e: KeyboardEvent): void => {
     switch (e.key) {
       case "ArrowRight":
@@ -73,12 +87,12 @@ export function TabBar() {
         break;
       case "Home":
         e.preventDefault();
-        activeTab.value = TABS[0].id;
-        focusTab(TABS[0].id);
+        activeTab.value = tabs[0].id;
+        focusTab(tabs[0].id);
         break;
       case "End": {
         e.preventDefault();
-        const last = TABS[TABS.length - 1];
+        const last = tabs[tabs.length - 1];
         activeTab.value = last.id;
         focusTab(last.id);
         break;
@@ -93,7 +107,7 @@ export function TabBar() {
   return (
     <div class="tab-bar">
       <div class="tab-list" role="tablist" ref={ref} onKeyDown={onKeyDown}>
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = tab.id === current;
           return (
             <button

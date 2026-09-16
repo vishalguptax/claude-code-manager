@@ -1,13 +1,21 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, fireEvent } from "@testing-library/preact";
+import { h } from "preact";
 import { TabBar } from "../TabBar";
-import { activeTab } from "../../../shared/model";
+import { activeTab, hiddenTabsPref, tabOrderPref } from "../../../shared/model";
 import { TABS } from "../tabRegistry";
 
 describe("TabBar", () => {
   beforeEach(() => {
     activeTab.value = "sessions";
+    hiddenTabsPref.value = [];
+    tabOrderPref.value = [];
+  });
+
+  afterEach(() => {
+    hiddenTabsPref.value = [];
+    tabOrderPref.value = [];
   });
 
   it("renders a tablist with one role=tab button per registered tab", () => {
@@ -112,5 +120,76 @@ describe("TabBar", () => {
     (mcp as unknown as { scrollIntoView?: unknown }).scrollIntoView = undefined;
     expect(() => fireEvent.click(mcp as HTMLButtonElement)).not.toThrow();
     expect(activeTab.value).toBe("mcp");
+  });
+
+  // ── claudeManager.hiddenTabs / claudeManager.tabOrder ──────────────
+
+  describe("visibility and order preferences", () => {
+    it("omits a hidden tab's button entirely", () => {
+      hiddenTabsPref.value = ["skills", "mcp"];
+      const { container } = render(<TabBar />);
+      expect(container.querySelectorAll('[role="tab"]').length).toBe(TABS.length - 2);
+      expect(container.querySelector('[data-tab="skills"]')).toBeNull();
+      expect(container.querySelector('[data-tab="mcp"]')).toBeNull();
+      expect(container.querySelector('[data-tab="sessions"]')).toBeTruthy();
+    });
+
+    it("renders tabs in the configured order", () => {
+      tabOrderPref.value = ["config", "account"];
+      const { container } = render(<TabBar />);
+      const ids = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]')).map(
+        (t) => t.dataset.tab,
+      );
+      expect(ids.slice(0, 2)).toEqual(["config", "account"]);
+      expect(ids).toHaveLength(TABS.length);
+    });
+
+    it("keyboard navigation and Home/End move within the visible set only", () => {
+      hiddenTabsPref.value = ["checkpoints", "prompts"];
+      activeTab.value = "sessions";
+      const { container } = render(<TabBar />);
+      const list = container.querySelector('[role="tablist"]') as HTMLElement;
+
+      fireEvent.keyDown(list, { key: "ArrowRight" });
+      // With checkpoints/prompts hidden, the tab after sessions is skills.
+      expect(activeTab.value).toBe("skills");
+
+      fireEvent.keyDown(list, { key: "End" });
+      expect(activeTab.value).toBe(TABS[TABS.length - 1].id);
+      expect(activeTab.value).not.toBe("checkpoints");
+      expect(activeTab.value).not.toBe("prompts");
+    });
+
+    it("falls back to showing every tab rather than rendering zero", () => {
+      // resolveVisibleTabs' safety net: hiding every current tab id must
+      // not leave the strip empty.
+      hiddenTabsPref.value = TABS.map((t) => t.id);
+      const { container } = render(<TabBar />);
+      expect(container.querySelectorAll('[role="tab"]').length).toBe(TABS.length);
+    });
+
+    it("moves off a tab that becomes hidden while it is the active one", () => {
+      // Applying claudeManager.hiddenTabs is live — no reload required — so
+      // a tab the user is sitting on can stop existing mid-session. Landing
+      // on a blank pane with no active cell in the strip would be worse
+      // than moving to the new first tab.
+      activeTab.value = "mcp";
+      const { rerender } = render(<TabBar />);
+
+      hiddenTabsPref.value = ["mcp"];
+      rerender(h(TabBar, {}));
+
+      expect(activeTab.value).toBe(TABS[0].id);
+    });
+
+    it("leaves the active tab alone when it is not the one being hidden", () => {
+      activeTab.value = "config";
+      const { rerender } = render(<TabBar />);
+
+      hiddenTabsPref.value = ["mcp"];
+      rerender(h(TabBar, {}));
+
+      expect(activeTab.value).toBe("config");
+    });
   });
 });

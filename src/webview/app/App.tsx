@@ -18,7 +18,7 @@ import { Footer } from "./Footer";
 import { Intro } from "./Intro";
 import { TooltipLayer } from "./TooltipLayer";
 import { TabBar, TabPanel } from "./tabs";
-import { TABS } from "./tabs/tabRegistry";
+import { visibleTabs } from "./tabs/lib";
 
 export function App() {
   const current = activeTab.value;
@@ -41,10 +41,17 @@ export function App() {
   // mounted yet and therefore have registered no items of their own. It is
   // also the answer you want in exactly that case: you cannot search a tab you
   // have never opened, but you can go to it.
+  //
+  // Reads `visibleTabs.value` fresh on every call rather than a captured
+  // snapshot — the palette invokes this source function per query, so a tab
+  // hidden via claudeManager.hiddenTabs after the palette first opened stops
+  // appearing on the very next keystroke, not just after a reload. Hiding a
+  // tab from the strip and still offering it here would leave the exact
+  // clutter the setting exists to remove, just one layer deeper.
   useEffect(
     () =>
       registerPaletteSource("shell", () =>
-        TABS.map((tab) => ({
+        visibleTabs.value.map((tab) => ({
           id: `tab:${tab.id}`,
           title: tab.label,
           group: "Go to",
