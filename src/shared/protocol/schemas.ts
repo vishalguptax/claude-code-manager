@@ -252,6 +252,11 @@ const setSetting = v.object({
 });
 const promptAddDirectory = v.object({ type: v.literal("promptAddDirectory") });
 const openExtensionSettings = v.object({ type: v.literal("openExtensionSettings") });
+const setTabPreferences = v.object({
+  type: v.literal("setTabPreferences"),
+  hidden: v.array(v.string()),
+  order: v.array(v.string()),
+});
 const runCommand = v.object({ type: v.literal("runCommand"), command: v.string() });
 const promptRemovePermission = v.object({
   type: v.literal("promptRemovePermission"),
@@ -522,6 +527,7 @@ export const messageSchema = v.variant("type", [
   setSetting,
   promptAddDirectory,
   openExtensionSettings,
+  setTabPreferences,
   runCommand,
   promptRemovePermission,
   resetSettings,

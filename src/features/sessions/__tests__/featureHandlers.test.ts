@@ -37,6 +37,7 @@ vi.mock("../../account/parser", () => ({
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => mockGetWorkspace() }));
 vi.mock("../../../extension/terminal", () => ({
   createTerminal: (...args: unknown[]) => mockCreateTerminal(...args),
+  runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
 }));
 vi.mock("../../skills/parser", () => ({ parseSkills: () => mockParseSkills() }));
 vi.mock("../../agents/parser", () => ({ parseAgents: () => mockParseAgents() }));
@@ -261,6 +262,50 @@ describe("promptAddHook", () => {
     const { ctx } = harness();
     await handleFeatureMessage({ type: "promptAddHook" }, ctx);
     expect(err).toHaveBeenCalledWith("Failed to write hook to settings.json.");
+  });
+});
+
+describe("setTabPreferences", () => {
+  it("writes hiddenTabs and tabOrder to the same config service, both at User scope", async () => {
+    const updates: Array<[string, unknown, unknown]> = [];
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: (_key: string, def?: unknown) => def,
+      inspect: () => undefined,
+      update: async (key: string, value: unknown, target?: unknown) => {
+        updates.push([key, value, target]);
+      },
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+
+    const { ctx } = harness();
+    const handled = await handleFeatureMessage(
+      { type: "setTabPreferences", hidden: ["checkpoints"], order: ["account", "config"] },
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(updates).toEqual([
+      ["hiddenTabs", ["checkpoints"], vscode.ConfigurationTarget.Global],
+      ["tabOrder", ["account", "config"], vscode.ConfigurationTarget.Global],
+    ]);
+  });
+
+  it("writes both arrays even when empty, so clearing every preference round-trips", async () => {
+    const updates: Array<[string, unknown]> = [];
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: (_key: string, def?: unknown) => def,
+      inspect: () => undefined,
+      update: async (key: string, value: unknown) => {
+        updates.push([key, value]);
+      },
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "setTabPreferences", hidden: [], order: [] }, ctx);
+
+    expect(updates).toEqual([
+      ["hiddenTabs", []],
+      ["tabOrder", []],
+    ]);
   });
 });
 

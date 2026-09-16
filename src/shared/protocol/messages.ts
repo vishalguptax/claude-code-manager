@@ -139,6 +139,12 @@ export type Message =
   | { type: "setSetting"; key: string; value: unknown; scope?: SettingsScope }
   | { type: "promptAddDirectory" }
   | { type: "openExtensionSettings" }
+  /**
+   * Write claudeManager.hiddenTabs / claudeManager.tabOrder in one call, so
+   * a drag-drop reorder followed immediately by a checkbox toggle cannot
+   * race into two independent writes that clobber each other.
+   */
+  | { type: "setTabPreferences"; hidden: string[]; order: string[] }
   | { type: "runCommand"; command: string }
   | { type: "promptRemovePermission"; scope: SettingsScope; tool: string; list: PermissionList }
   | { type: "resetSettings"; scope: SettingsScope }
@@ -335,6 +341,7 @@ type WebviewMessageType =
   | "setSetting"
   | "promptAddDirectory"
   | "openExtensionSettings"
+  | "setTabPreferences"
   | "runCommand"
   | "promptRemovePermission"
   | "resetSettings"

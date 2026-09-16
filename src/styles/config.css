@@ -216,3 +216,68 @@
      level with the label inside it, rather than with the button's box. */
   align-self: center;
 }
+
+/* ── Sidebar tabs (TabsView) ──────────────────────────────────────────
+   Show/hide + reorder rows for claudeManager.hiddenTabs / .tabOrder. Not
+   built on .list-item: this list is never navigated into (no detail view,
+   no active-row concept), only edited in place, so the navigation-row
+   affordances (click-to-open, active fill) would be false promises. */
+.cfg-tabs-list {
+  display: flex;
+  flex-direction: column;
+}
+.cfg-tab-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  cursor: grab;
+}
+.cfg-tab-row:active {
+  cursor: grabbing;
+}
+/* Dragged row stays in the list (native HTML5 DnD does not remove it) but
+   dims so the drop target underneath it is legible. */
+.cfg-tab-row[aria-grabbed="true"] {
+  opacity: 0.5;
+}
+
+/* Three-bar grip, drawn rather than shipped as a fourth Icon SVG — a plain
+   rectangle stack reads as "draggable" as clearly as any dedicated glyph
+   and costs nothing in the bundle. */
+.cfg-tab-grip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+  padding: 2px;
+}
+.cfg-tab-grip span {
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--fg-muted);
+}
+
+.cfg-tab-row > svg {
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+
+/* The row's own checkbox: no top/bottom margin (the row itself supplies the
+   vertical rhythm via .cfg-tab-row's padding), and it takes the remaining
+   width so the move buttons stay pinned right regardless of label length. */
+.cfg-tab-checkbox {
+  flex: 1;
+  min-width: 0;
+}
+
+.cfg-tab-move {
+  display: flex;
+  flex-shrink: 0;
+}
+/* One chevron-down glyph is shipped; "up" is that same glyph rotated, the
+   same trick .session-group-chevron uses rather than adding a second SVG. */
+.cfg-tab-move-up svg {
+  transform: rotate(180deg);
+}

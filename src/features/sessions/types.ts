@@ -367,6 +367,7 @@ export type WebviewMessage =
   | { type: "openAgentFile"; path: string }
   | { type: "openFile"; path: string }
   | { type: "openExtensionSettings" }
+  | { type: "setTabPreferences"; hidden: string[]; order: string[] }
   | { type: "getAccountData" }
   | { type: "launchSlash"; command: string }
   | { type: "setModel"; model: string }

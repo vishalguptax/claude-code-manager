@@ -22,7 +22,7 @@ import {
 } from "../hooks/writer";
 import { resolveSettingsPath } from "../account/parser";
 import { getWorkspace } from "../../extension/workspace";
-import { createTerminal } from "../../extension/terminal";
+import { createTerminal, runInTerminal } from "../../extension/terminal";
 import { KNOWN_HOOK_EVENTS } from "../hooks/events";
 import type { HookScope } from "../hooks/types";
 import type { WebviewMessage } from "./types";
@@ -183,7 +183,7 @@ export async function handleFeatureMessage(
       // Code actually loaded (same launch pattern as launchSlash).
       const term = createTerminal("hooks");
       term.show();
-      term.sendText("claude");
+      runInTerminal(term, "claude");
       setTimeout(() => term.sendText("/hooks"), 1800);
       break;
     }
@@ -274,6 +274,18 @@ export async function handleFeatureMessage(
 
     case "openExtensionSettings": {
       vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");
+      break;
+    }
+
+    case "setTabPreferences": {
+      // Both keys in one config-service call so VS Code fires exactly one
+      // `onDidChangeConfiguration`, and the panel's own listener re-pushes
+      // `settings` once rather than twice. `Global` (User scope): tab
+      // layout is a personal preference about the sidebar, not something a
+      // workspace should be able to force on whoever opens it.
+      const cfg = vscode.workspace.getConfiguration("claudeManager");
+      await cfg.update("hiddenTabs", msg.hidden, vscode.ConfigurationTarget.Global);
+      await cfg.update("tabOrder", msg.order, vscode.ConfigurationTarget.Global);
       break;
     }
 

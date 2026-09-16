@@ -3,6 +3,7 @@
  * no state): snapshot formatters and the Behavior-settings option builders.
  */
 export { formatKb, formatTime } from "./format";
+export { moveTab, toggleHiddenTab } from "./tabPrefs";
 export {
   buildEffortOptions,
   buildModelOptions,

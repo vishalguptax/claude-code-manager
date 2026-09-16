@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { Intro } from "./Intro";
 import { _resetIntro, introVisible } from "../../shared/model";
 import { setVscodeApi } from "../../shared/hooks/useApi";
-import { TABS } from "../tabs/tabRegistry";
+import { TABS } from "../../shared/model";
 
 const posted: unknown[] = [];
 
@@ -33,6 +33,21 @@ describe("Intro", () => {
       expect(screen.getByText(t.label)).toBeTruthy();
     }
     expect(screen.getByText("Get started")).toBeTruthy();
+  });
+
+  // The regression this guards: a tab is added to TABS and BLURBS is never
+  // updated for it, so the row renders with an icon and a label and a
+  // blank second line — the intro's whole job is explaining what each
+  // surface does, and "names every surface" alone does not catch a name
+  // with nothing said about it.
+  it("gives every tab a non-empty blurb, not just a label", () => {
+    introVisible.value = true;
+    const { container } = render(<Intro />);
+    const blurbs = container.querySelectorAll(".intro-item-blurb");
+    expect(blurbs).toHaveLength(TABS.length);
+    for (const b of blurbs) {
+      expect(b.textContent?.trim().length).toBeGreaterThan(0);
+    }
   });
 
   it("marks the intro seen and hides on Get started", () => {

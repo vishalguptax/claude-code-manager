@@ -61,7 +61,7 @@ import {
   isClaudeCodeExtensionInstalled,
   openPromptInExtension,
 } from "../../extension/claudeCodeExtension";
-import { createTerminal } from "../../extension/terminal";
+import { createTerminal, runInTerminal } from "../../extension/terminal";
 import { getTempSessionIds, promoteTempSession } from "../../extension/ephemeralSession";
 import { handlePromptsMessage, type PromptsHostContext } from "../prompts";
 import { handleMemoryMessage, type MemoryHostContext } from "../memory";
@@ -203,7 +203,7 @@ function makeCommandsHost(ctx: HostContext): CommandsHost {
     launchChat: async (prompt) => {
       const term = createTerminal("ask");
       term.show();
-      term.sendText("claude");
+      runInTerminal(term, "claude");
       setTimeout(() => term.sendText(prompt), 1800);
     },
     workspacePath: getWorkspace() || undefined,
@@ -223,14 +223,14 @@ function makeMcpHost(ctx: HostContext): McpHostContext {
     runShellCommand: (label, command) => {
       const term = createTerminal(label);
       term.show();
-      term.sendText(command);
+      runInTerminal(term, command);
     },
     runSlashCommand: (label, slash) => {
       // Same timing as launchSlash: open claude, wait for the REPL to
       // enter raw mode, then type the slash command.
       const term = createTerminal(label);
       term.show();
-      term.sendText("claude");
+      runInTerminal(term, "claude");
       setTimeout(() => term.sendText(slash), 1800);
     },
   };
@@ -449,7 +449,7 @@ async function handleSessionMessage(
         // pattern launchSlash uses for /login + /config.
         const term = createTerminal("ask");
         term.show();
-        term.sendText("claude");
+        runInTerminal(term, "claude");
         setTimeout(() => term.sendText(prompt), 1800);
       }
       break;

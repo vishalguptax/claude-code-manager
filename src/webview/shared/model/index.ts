@@ -6,7 +6,9 @@ export {
   applyShellSettings,
   type Density,
   density,
+  hiddenTabsPref,
   ready,
+  tabOrderPref,
   theme,
 } from "./globalSignals";
 export { _resetIntro, closeIntro, introVisible, maybeShowIntro } from "./intro";
@@ -27,9 +29,11 @@ export {
   registerPaletteSource,
   scoreItem,
 } from "./palette";
+export { resolveVisibleTabs } from "./resolveTabs";
 export {
   _resetSections,
   collapsedSections,
   isSectionCollapsed,
   toggleSection,
 } from "./sections";
+export { type Feature, TABS } from "./tabRegistry";

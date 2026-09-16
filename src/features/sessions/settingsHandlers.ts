@@ -19,7 +19,7 @@ import {
 } from "../account/parser";
 import type { PermissionScope } from "../account/types";
 import { getWorkspace } from "../../extension/workspace";
-import { createTerminal } from "../../extension/terminal";
+import { createTerminal, runInTerminal } from "../../extension/terminal";
 import type { WebviewMessage } from "./types";
 import type { HostContext } from "./hostContext";
 
@@ -71,7 +71,7 @@ export async function handleSettingsMessage(
       const command = msg.command;
       const term = createTerminal(command);
       term.show();
-      term.sendText("claude");
+      runInTerminal(term, "claude");
       setTimeout(() => term.sendText(command), 1800);
       vscode.window.showInformationMessage(
         `Opening ${command}. If it doesn't auto-enter, type ${command} manually in the Claude terminal.`,
