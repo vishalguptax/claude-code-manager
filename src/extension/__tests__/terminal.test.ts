@@ -48,14 +48,30 @@ describe("createTerminal — reuse", () => {
     expect(term.name).toBe("Claude");
   });
 
-  it("reuses an empty, non-interacted terminal instead of creating a new one", () => {
-    const existing = makeTerminal({ name: "bash" });
+  it("reuses an empty, non-interacted terminal that already carries the name", () => {
+    const existing = makeTerminal({ name: "Claude" });
     vscode.window.terminals.push(existing);
 
     const term = createTerminal("Claude");
 
     expect(term).toBe(existing);
     expect(vscode.window.terminals).toHaveLength(1);
+  });
+
+  it("does not adopt an idle terminal belonging to something else", () => {
+    // The regression: VS Code cannot rename a terminal after creation, so
+    // adopting the Claude Code extension's idle tab left the session
+    // labelled "2.1.273 claude-code-manager" — and ran `claude --resume`
+    // inside a terminal another extension owned.
+    const foreign = makeTerminal({ name: "2.1.273 claude-code-manager" });
+    vscode.window.terminals.push(foreign);
+
+    const term = createTerminal("session abc1234");
+
+    expect(term).not.toBe(foreign);
+    expect(term.name).toBe("session abc1234");
+    expect(foreign.sentText).toEqual([]);
+    expect(vscode.window.terminals).toHaveLength(2);
   });
 
   it("does not reuse a terminal the user has typed in", () => {
@@ -85,7 +101,7 @@ describe("createTerminal — reuse", () => {
   });
 
   it("does not reuse a terminal it has already handed out (WeakSet guard)", () => {
-    const empty = makeTerminal();
+    const empty = makeTerminal({ name: "Claude" });
     vscode.window.terminals.push(empty);
 
     const first = createTerminal("Claude");
@@ -106,7 +122,7 @@ describe("createTerminal — reuse guard (running sessions)", () => {
     // it through the REPL, not by typing at the shell) and the in-memory
     // sentTo WeakSet was wiped by the reload — so the old heuristic would
     // hijack it. The activation guard must mark it ineligible.
-    const restored = makeTerminal({ name: "claude" });
+    const restored = makeTerminal({ name: "Claude" });
     vscode.window.terminals.push(restored);
 
     const guard = initTerminalReuseGuard();
@@ -123,7 +139,7 @@ describe("createTerminal — reuse guard (running sessions)", () => {
     // launched `claude`). isInteractedWith stays false, but the shell
     // execution marks the terminal not-empty.
     const guard = initTerminalReuseGuard(); // no terminals yet
-    const running = makeTerminal({ name: "bash" });
+    const running = makeTerminal({ name: "mcp" });
     vscode.window.terminals.push(running);
     _fireShellExecutionStart(running);
 
@@ -137,7 +153,7 @@ describe("createTerminal — reuse guard (running sessions)", () => {
 
   it("still reuses a genuinely empty terminal opened after activation", () => {
     const guard = initTerminalReuseGuard(); // seeds nothing
-    const scratch = makeTerminal({ name: "bash" });
+    const scratch = makeTerminal({ name: "mcp" });
     vscode.window.terminals.push(scratch);
 
     const term = createTerminal("mcp");
@@ -150,7 +166,7 @@ describe("createTerminal — reuse guard (running sessions)", () => {
 
 describe("createTerminal — cwd handling", () => {
   it("sends `cd` to a reused terminal when cwd is provided", () => {
-    const empty = makeTerminal();
+    const empty = makeTerminal({ name: "Claude" });
     vscode.window.terminals.push(empty);
 
     createTerminal("Claude", "/home/user/project");
@@ -159,7 +175,7 @@ describe("createTerminal — cwd handling", () => {
   });
 
   it("normalizes Windows backslashes to forward slashes before `cd`", () => {
-    const empty = makeTerminal();
+    const empty = makeTerminal({ name: "Claude" });
     vscode.window.terminals.push(empty);
 
     createTerminal("Claude", "C:\\Users\\Me\\project");

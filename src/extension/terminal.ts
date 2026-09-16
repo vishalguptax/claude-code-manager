@@ -162,17 +162,28 @@ function getTerminalLocation(): vscode.TerminalEditorLocationOptions | undefined
  * Respects user settings for terminal location and editor position.
  * The Claude Code icon is shown in its tab.
  *
- * Before creating a new terminal, tries to reuse any empty one — a terminal
- * that's still alive and that the user has literally never typed in
- * (`state.isInteractedWith === false`). This covers both Claude's own empty
- * tabs and user-opened scratch terminals. If a cwd is requested, we `cd` into
- * it first so the caller's subsequent sendText runs in the right directory.
- * The double-quoted path works across bash, zsh, cmd, and powershell.
+ * Before creating a new terminal, tries to reuse an empty one — still alive,
+ * never typed in (`state.isInteractedWith === false`), and ALREADY CARRYING
+ * THE NAME WE WANT. If a cwd is requested, we `cd` into it first so the
+ * caller's subsequent sendText runs in the right directory. The double-quoted
+ * path works across bash, zsh, cmd, and powershell.
+ *
+ * The name match is not cosmetic. VS Code has no API to rename a terminal
+ * after creation, so reusing a differently-named one hands the user a tab
+ * labelled something else entirely — which is how sessions ended up showing
+ * "2.1.273 claude-code-manager": we adopted an idle terminal belonging to the
+ * Claude Code extension and inherited the title it had written for itself.
+ * Worse than the label, that also meant typing `claude --resume` into a
+ * terminal another extension owned. Reuse now only ever recycles a tab of
+ * ours that is already correctly labelled; anything else gets a fresh one.
  */
 export function createTerminal(name: string, cwd?: string, sessionId?: string): vscode.Terminal {
   const empty = vscode.window.terminals.find(
     (t) =>
-      t.exitStatus === undefined && !t.state.isInteractedWith && !sentTo.has(t),
+      t.exitStatus === undefined &&
+      !t.state.isInteractedWith &&
+      !sentTo.has(t) &&
+      t.name === name,
   );
   if (empty) {
     // Git-bash on Windows interprets backslashes as escapes, so normalize to
