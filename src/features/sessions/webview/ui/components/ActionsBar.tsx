@@ -86,7 +86,7 @@ export function ActionsBar() {
         New Session
       </Button>
       <Button
-        variant="icon"
+        variant="icon-outline"
         iconName="history"
         title="Continue your most recent session in this workspace (claude --continue)"
         ariaLabel="Continue last session"
@@ -97,7 +97,7 @@ export function ActionsBar() {
           this click immediately reopens, which reads as a flicker. */}
       <div ref={moreRef} class="actions-more">
         <Button
-          variant="icon"
+          variant="icon-outline"
           iconName="more-horizontal"
           title="More ways to start a session"
           ariaLabel="More session actions"

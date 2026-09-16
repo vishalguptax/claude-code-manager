@@ -574,25 +574,54 @@
   white-space: nowrap;
 }
 
+/* Pill, not block. A chip annotates the row it sits on, so a hairline drawn
+   from its OWN colour defines its edge while the fill behind it stays light —
+   a flat filled block at the same tint has to be dark enough to see, which
+   made it compete with the session title.
+
+   The border is `currentColor`, so every variant below gets a matching edge
+   for free by setting `color` alone, and none of them can drift out of step
+   with its own fill.
+
+   `box-sizing` is load-bearing: the shared chip box fixes height at 18px, and
+   without it the new 1px border would push these two pixels taller than the
+   badges they sit beside.
+
+   The UI font, not mono. The base used to set --mono and then every variant
+   below — folder, temp, worktree — overrode it straight back to `inherit`,
+   which is the shape of a default nobody wanted: only the plain branch chip
+   ever rendered in mono, so beside the folder chip it sat visibly larger
+   (mono carries a taller x-height and a wider advance at the same px) and fit
+   fewer characters before ellipsising. These chips hold branch names, skill
+   keywords and folder names — labels, not code. Anything that genuinely needs
+   a fixed pitch can opt in. */
 .tag {
-  font-family: var(--mono);
-  background: var(--badge-neutral-bg);
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  background: color-mix(in srgb, var(--badge-neutral-bg) 55%, transparent);
   color: var(--badge-neutral-fg);
   max-width: 120px;
 }
+/* Project chip — the quietest member of the set. It names the row's ambient
+   context rather than anything exceptional about the row, and in the default
+   "current project" scope it is the SAME string on every row. A filled pill on
+   a constant would outweigh the branch beside it, which is the chip that
+   actually varies. So it takes the pill's geometry and edge but no fill, which
+   keeps it legibly part of the same system while sitting a rank below. */
 .tag.folder {
-  font-family: inherit;
-  background: var(--bg-hover);
+  background: none;
+  border-color: color-mix(in srgb, currentColor 16%, transparent);
   color: var(--fg-dim);
 }
 /* Temp (ephemeral) session marker — a quiet amber pill so it reads as a
-   transient state, not an error. Non-mono to sit apart from the branch tag. */
+   transient state, not an error. */
 .tag.tag-temp {
-  font-family: inherit;
   font-weight: 600;
   letter-spacing: 0.3px;
-  background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #d49a00) 18%, transparent);
+  background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #d49a00) 12%, transparent);
   color: var(--vscode-editorWarning-foreground, #d49a00);
+  border-color: color-mix(in srgb, var(--vscode-editorWarning-foreground, #d49a00) 40%, transparent);
   flex: none;
 }
 
@@ -603,10 +632,24 @@
 .tag.tag-wt {
   gap: var(--space-xs);
   max-width: 200px;
-  font-family: inherit;
 }
-.tag.tag-wt .icon {
+/* One owner for chip glyph size. At 12px against --fs-xs text the icon was
+   larger than the label it prefixes, so it read as the chip's subject rather
+   than its marker. 10px sits just under the cap height, which is where a
+   leading glyph belongs.
+
+   Sized here rather than at each call site so a chip added elsewhere cannot
+   drift out of step — the `size` prop still writes the SVG's own attributes,
+   and this overrides them for every chip at once. */
+.tag .icon {
   flex: none;
+  width: 9px;
+  height: 9px;
+  /* A leading glyph marks the chip; it is not the chip's content. Holding it
+     just under full strength stops the denser icons — git-branch is two rings,
+     a line and an arc where folder is a single outline — from out-weighing the
+     label beside them at the same box size. */
+  opacity: 0.75;
 }
 .tag-wt__name {
   overflow: hidden;
@@ -614,7 +657,6 @@
   white-space: nowrap;
 }
 .tag-wt__branch {
-  font-family: var(--mono);
   opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -625,17 +667,26 @@
   margin: 0 var(--space-xs);
   opacity: 0.6;
 }
+/* Colour is spent only where it means something. A Claude-created worktree is
+   the extension's own artefact, so it carries the accent; a user-created one
+   is ordinary and stays neutral, already distinguished by its branch glyph
+   against the bot glyph. Tinting the plain branch chip as well was tempting
+   and rejected — a colour every row wears is decoration, and it would have put
+   the chip back into competition with the title it annotates. */
 .tag.tag-wt--claude {
-  background: color-mix(in srgb, var(--accent, #3794ff) 16%, transparent);
+  background: color-mix(in srgb, var(--accent, #3794ff) 11%, transparent);
   color: var(--accent, #3794ff);
+  border-color: color-mix(in srgb, var(--accent, #3794ff) 38%, transparent);
 }
 .tag.tag-wt--user {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, var(--bg-hover) 70%, transparent);
   color: var(--fg-dim);
 }
-/* Locked = git holds a lock (session likely running): a subtle ring. */
+/* Locked = git holds a lock (session likely running). Now that every chip has
+   an edge, the ring is that edge drawn firmly rather than a second inset one
+   stacked inside it. */
 .tag.tag-wt--locked {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+  border-color: color-mix(in srgb, currentColor 65%, transparent);
 }
 /* Removed from disk: dim + strike the name so it reads as gone. */
 .tag.tag-wt--missing {

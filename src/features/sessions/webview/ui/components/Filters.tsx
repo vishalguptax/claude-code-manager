@@ -306,7 +306,7 @@ export function Filters() {
           <span class="search-spinner" role="status" aria-label="Searching transcripts" />
         ) : null}
         <Button
-          variant="icon"
+          variant="icon-outline"
           class={cx("search-side-btn", open && "is-open")}
           iconName="filter"
           title={open ? "Hide filters" : "Filter sessions"}
@@ -314,7 +314,7 @@ export function Filters() {
           onClick={() => setOpen((v) => !v)}
         />
         <Button
-          variant="icon"
+          variant="icon-outline"
           class="search-side-btn"
           iconName="refresh-cw"
           title="Refresh sessions"

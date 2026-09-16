@@ -7,7 +7,7 @@
  * the list view owns selection / navigation logic and this stays testable in
  * isolation.
  */
-import { Button, Icon } from "../../../../../webview/shared/ui";
+import { Button, Icon, Tag } from "../../../../../webview/shared/ui";
 import { fmtRelativeTime } from "../../../../../webview/utils";
 import { cx } from "../../../../../webview/shared/lib";
 import { now } from "../../../../../webview/shared/model";
@@ -210,40 +210,30 @@ export function SessionItem({
 
       <div class="item-row2">
         {isTemp ? (
-          <span
-            class="tag tag-temp"
+          <Tag
+            variant="temp"
+            text="Temp"
             title="Temp session — its transcript is deleted when the terminal closes. Right-click → Make permanent to keep it."
-          >
-            Temp
-          </span>
+          />
         ) : null}
         {wt ? (
-          <span
-            class={cx("tag tag-wt", {
-              "tag-wt--claude": wt.kind === "claude",
-              "tag-wt--user": wt.kind === "user",
-              "tag-wt--missing": !wt.exists,
-              "tag-wt--locked": wt.exists && wt.locked,
-            })}
+          <Tag
+            variant="worktree"
+            tone={wt.kind === "claude" ? "claude" : "user"}
+            icon={wt.kind === "claude" ? "bot" : "git-branch"}
+            text={wtName}
+            detail={wtBranch || undefined}
+            missing={!wt.exists}
+            locked={wt.locked}
             title={wtTitle}
-          >
-            <Icon name={wt.kind === "claude" ? "bot" : "git-branch"} size={12} />
-            <span class="tag-wt__name">{wtName}</span>
-            {wtBranch ? <span class="tag-wt__branch">{wtBranch}</span> : null}
-          </span>
+          />
         ) : branch ? (
-          <span class="tag" title={branch}>
-            <Icon name="git-branch" size={12} />
-            <span class="tag-text">{branch}</span>
-          </span>
+          <Tag icon="git-branch" text={branch} title={branch} />
         ) : null}
-        <span class="item-proj" title={session.project}>
-          <Icon name="folder" size={12} />
-          <span class="tag-text">{session.project}</span>
-        </span>
+        <Tag variant="folder" icon="folder" text={session.project} title={session.project} />
         {isPinned ? (
           <span class="pin-icon" title="Pinned">
-            <Icon name="pin" size={14} />
+            <Icon name="pin" size={11} />
           </span>
         ) : null}
       </div>

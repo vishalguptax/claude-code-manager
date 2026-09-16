@@ -118,13 +118,24 @@ describe("SessionItem", () => {
   });
 
   it("hides the HEAD branch tag", () => {
+    // :not(.folder) — the project is a chip too, so a bare `.tag` would match
+    // it and this would pass for the wrong reason.
     const { container } = renderItem(session({ id: "a", branch: "HEAD" }));
-    expect(container.querySelector(".item-row2 .tag")).toBeNull();
+    expect(container.querySelector(".item-row2 .tag:not(.folder)")).toBeNull();
   });
 
   it("shows a real branch tag", () => {
     const { container } = renderItem(session({ id: "a", branch: "feature/x" }));
     expect(container.querySelector(".tag")?.textContent).toBe("feature/x");
+  });
+
+  it("renders the project as a chip, not loose text", () => {
+    // `.tag.folder` was defined in components.css and wired to nothing — the
+    // row rendered a bare `.item-proj` icon + text beside a pill branch tag.
+    const { container } = renderItem(session({ id: "a", project: "myproj" }));
+    const folder = container.querySelector(".tag.folder");
+    expect(folder?.textContent).toBe("myproj");
+    expect(container.querySelector(".item-proj")).toBeNull();
   });
 
   it("shows the pin icon when pinned", () => {
@@ -272,8 +283,9 @@ describe("SessionItem", () => {
       const { container } = renderItem(session({ id: "a", branch: "worktree-feat" }), {
         worktree: ref({ branch: "worktree-feat" }),
       });
-      // The only .tag in row2 is the worktree badge itself.
-      const tags = container.querySelectorAll(".item-row2 .tag");
+      // The only branch-bearing chip in row2 is the worktree badge itself —
+      // the project chip is excluded, it is not a branch.
+      const tags = container.querySelectorAll(".item-row2 .tag:not(.folder)");
       expect(tags).toHaveLength(1);
       expect(tags[0].classList.contains("tag-wt")).toBe(true);
     });
