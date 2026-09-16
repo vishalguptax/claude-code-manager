@@ -14,6 +14,7 @@
  * trusting an unvalidated `unknown` in the meantime.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import { deleteMemory, openMemory, revealMemory } from "./commands";
 import { loadMemoryStore } from "./parser";
 import type { MemoryRequest, MemoryResponse } from "./types";
@@ -21,7 +22,7 @@ import type { MemoryRequest, MemoryResponse } from "./types";
 /** Narrow host surface the memory handler needs. */
 export interface MemoryHostContext {
   /** The live webview, or undefined when the view is not resolved. */
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
 }
 
 /** Message types this feature owns. */
@@ -62,7 +63,7 @@ export function parseMemoryMessage(raw: unknown): MemoryRequest | null {
 }
 
 /** Re-read the store and push it to the webview. */
-function pushStore(wv: vscode.Webview): void {
+function pushStore(wv: PanelSink): void {
   const message: MemoryResponse = { type: "memoryStore", data: loadMemoryStore() };
   wv.postMessage(message);
 }

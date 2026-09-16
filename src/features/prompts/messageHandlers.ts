@@ -13,6 +13,7 @@
  * deleted and `parseMessage` used instead — the call sites do not change.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import { copyPromptToClipboard, openPromptSession } from "./commands";
 import { readPromptHistory } from "./parser";
 import type { PromptsWebviewMessage } from "./types";
@@ -20,7 +21,7 @@ import type { PromptsWebviewMessage } from "./types";
 /** Narrow host surface the prompts handler needs. */
 export interface PromptsHostContext {
   /** The live webview, or undefined when the view is not resolved. */
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
   /**
    * Open the session a prompt belongs to. Bound by the provider to the
    * sessions feature's existing resume path — this feature owns no terminal,

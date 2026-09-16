@@ -11,11 +11,9 @@ import { setSessionStorage } from "../features/sessions/commands";
 import { setExtensionUri, initTerminalReuseGuard } from "./terminal";
 import {
   ACTIVITY_BAR_VIEW_ID,
-  DEFAULT_PLACEMENT,
-  PLACEMENT_SETTING,
   SECONDARY_SIDEBAR_VIEW_ID,
-  USE_SECONDARY_SIDEBAR_CONTEXT_KEY,
-  resolvePlacement,
+  SUPPORTS_SECONDARY_SIDEBAR_CONTEXT_KEY,
+  supportsSecondarySidebar,
 } from "./secondarySidebar";
 import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
@@ -139,38 +137,21 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(startActiveSessionWatcher(provider.terminals));
 
-  // Placement: the manifest contributes this panel to both the activity
-  // bar and the secondary sidebar under mutually exclusive `when` clauses,
-  // and `claudeManager.placement` picks which one is live. Publishing the
-  // key on every activation (rather than only when moving) keeps a stale
-  // value from a previous window out of the decision.
-  //
-  // Mutable because the setting can change while we are running, and the
-  // focus commands below close over it.
-  let activeViewId = ACTIVITY_BAR_VIEW_ID;
-
-  const applyPlacement = (): void => {
-    const setting = vscode.workspace
-      .getConfiguration("claudeManager")
-      .get<string>(PLACEMENT_SETTING, DEFAULT_PLACEMENT);
-    const placement = resolvePlacement(vscode.version, setting);
-    activeViewId = placement.viewId;
-    void vscode.commands.executeCommand(
-      "setContext",
-      USE_SECONDARY_SIDEBAR_CONTEXT_KEY,
-      placement.useSecondarySidebar,
-    );
-  };
-  applyPlacement();
-
-  // Moving the panel is a one-line settings edit, so it must not need a
-  // window reload: flipping the context key re-evaluates both `when`
-  // clauses and VS Code relocates the container in place.
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration(`claudeManager.${PLACEMENT_SETTING}`)) applyPlacement();
-    }),
+  // The container is contributed to BOTH the activity bar and the
+  // secondary sidebar, so the panel can be opened from either side. The
+  // secondary entry is gated on the contribution point existing at all
+  // (VS Code 1.106+); the activity-bar entry carries no gate, so it is
+  // there whatever the host and whatever this code decides.
+  void vscode.commands.executeCommand(
+    "setContext",
+    SUPPORTS_SECONDARY_SIDEBAR_CONTEXT_KEY,
+    supportsSecondarySidebar(vscode.version),
   );
+
+  // Which panel a "show it" command should focus is a runtime question —
+  // whichever the user actually has open — so it is asked per invocation
+  // rather than decided once here.
+  const focusViewId = (): string => provider.preferredFocusViewId(ACTIVITY_BAR_VIEW_ID);
 
   // One provider instance backs both ids: the `when` clauses guarantee
   // only one of them is ever contributed, so only one resolves and the
@@ -187,7 +168,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.open", () => {
-      vscode.commands.executeCommand(`${activeViewId}.focus`);
+      vscode.commands.executeCommand(`${focusViewId()}.focus`);
     }),
   );
 
@@ -197,7 +178,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // the panel was visible beforehand.
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.switchAccount", async () => {
-      await vscode.commands.executeCommand(`${activeViewId}.focus`);
+      await vscode.commands.executeCommand(`${focusViewId()}.focus`);
       provider.openAccountSwitcher();
     }),
   );
@@ -209,7 +190,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // push (no-op when the view is already visible).
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.reload", async () => {
-      await vscode.commands.executeCommand(`${activeViewId}.focus`);
+      await vscode.commands.executeCommand(`${focusViewId()}.focus`);
       await provider.reloadAll();
     }),
   );

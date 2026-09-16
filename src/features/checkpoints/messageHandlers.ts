@@ -8,6 +8,7 @@
  * context and delegates checkpoint messages here.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import { parseMessage } from "../../shared/protocol/schemas";
 import { openCheckpointDiff, restoreCheckpoint } from "./commands";
 import { listCheckpointSessions, parseSessionCheckpoints } from "./parser";
@@ -15,7 +16,7 @@ import { listCheckpointSessions, parseSessionCheckpoints } from "./parser";
 /** Narrow host surface the checkpoints handler needs. */
 export interface CheckpointsHostContext {
   /** The live webview, or undefined when the view is not resolved. */
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
   /**
    * Display name + project folder for a session id, from the host's cached
    * session list. Undefined when the transcript is no longer on disk — the

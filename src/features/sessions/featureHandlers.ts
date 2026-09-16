@@ -8,6 +8,7 @@
  * here until they get the same treatment.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import * as path from "path";
 import * as fs from "fs";
 import { parseSkills } from "../skills/parser";
@@ -28,7 +29,7 @@ import type { WebviewMessage } from "./types";
 import type { HostContext } from "./hostContext";
 
 /** Re-parse hooks and push the fresh list (+ any parse errors) to the webview. */
-function pushHooks(ctx: HostContext, wv: vscode.Webview, workspace: string): void {
+function pushHooks(ctx: HostContext, wv: PanelSink, workspace: string): void {
   const { hooks, errors } = parseHooks(workspace || undefined);
   ctx.setHooks(hooks);
   wv.postMessage({ type: "hooks", data: hooks, errors });

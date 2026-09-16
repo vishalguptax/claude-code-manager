@@ -95,7 +95,29 @@ describe("activate", () => {
   });
 });
 
-describe("secondary sidebar placement", () => {
+/**
+ * Minimal WebviewView double. Only the members `resolveWebviewView`
+ * touches are present; anything else appearing here later means the
+ * provider grew a dependency worth noticing.
+ */
+function makeWebviewView(viewType: string, visible = true): vscode.WebviewView {
+  return {
+    viewType,
+    visible,
+    webview: {
+      options: {},
+      html: "",
+      cspSource: "vscode-webview:",
+      asWebviewUri: (u: unknown) => u,
+      postMessage: async () => true,
+      onDidReceiveMessage: () => ({ dispose: () => {} }),
+    },
+    onDidDispose: () => ({ dispose: () => {} }),
+    onDidChangeVisibility: () => ({ dispose: () => {} }),
+  } as unknown as vscode.WebviewView;
+}
+
+describe("panel placement", () => {
   /** Register spies and run activate(), returning the spies. */
   function activateWithSpies() {
     vi.spyOn(ClaudeSessionViewProvider.prototype, "refreshSettings").mockImplementation(() => {});
@@ -122,80 +144,37 @@ describe("secondary sidebar placement", () => {
     (entry?.[1] as () => void)();
   }
 
-  /** Pin `claudeManager.placement` for the duration of one activation. */
-  function withPlacement(value: string): void {
-    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
-      get: (key: string, fallback?: unknown) => (key === "placement" ? value : fallback),
-      inspect: () => undefined,
-      update: async () => {},
-    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
-  }
-
-  it("keeps the panel in the activity bar by default, even on a capable host", () => {
-    // The regression that prompted this: upgrading silently relocated a
-    // panel the user had deliberately left in the activity bar.
+  it("advertises secondary-sidebar support on a capable host", () => {
     _setVersion("1.137.0");
     const { executeCommandSpy } = activateWithSpies();
 
     expect(executeCommandSpy).toHaveBeenCalledWith(
       "setContext",
-      "claudeCodeManager:useSecondarySidebar",
-      false,
-    );
-  });
-
-  it("moves the panel when the setting asks and the host can render it", () => {
-    _setVersion("1.137.0");
-    withPlacement("secondarySidebar");
-    const { executeCommandSpy } = activateWithSpies();
-
-    expect(executeCommandSpy).toHaveBeenCalledWith(
-      "setContext",
-      "claudeCodeManager:useSecondarySidebar",
+      "claudeCodeManager:supportsSecondarySidebar",
       true,
     );
   });
 
-  it("refuses to move on a host too old to render the secondary sidebar", () => {
+  it("withholds the secondary sidebar on a host that cannot render it", () => {
     _setVersion("1.105.2");
-    withPlacement("secondarySidebar");
     const { executeCommandSpy } = activateWithSpies();
 
     expect(executeCommandSpy).toHaveBeenCalledWith(
       "setContext",
-      "claudeCodeManager:useSecondarySidebar",
+      "claudeCodeManager:supportsSecondarySidebar",
       false,
     );
   });
 
-  it("re-applies the placement when the setting changes, without a reload", () => {
-    _setVersion("1.137.0");
+  it("withholds it when the version cannot be parsed", () => {
+    _setVersion("not-a-version");
     const { executeCommandSpy } = activateWithSpies();
-    expect(executeCommandSpy).toHaveBeenLastCalledWith(
-      "setContext",
-      "claudeCodeManager:useSecondarySidebar",
-      false,
-    );
-
-    withPlacement("secondarySidebar");
-    _fireConfigChange("claudeManager.placement");
 
     expect(executeCommandSpy).toHaveBeenCalledWith(
       "setContext",
-      "claudeCodeManager:useSecondarySidebar",
-      true,
+      "claudeCodeManager:supportsSecondarySidebar",
+      false,
     );
-  });
-
-  it("ignores configuration changes to unrelated settings", () => {
-    _setVersion("1.137.0");
-    const { executeCommandSpy } = activateWithSpies();
-    const before = executeCommandSpy.mock.calls.filter((c) => c[0] === "setContext").length;
-
-    _fireConfigChange("claudeManager.density");
-
-    const after = executeCommandSpy.mock.calls.filter((c) => c[0] === "setContext").length;
-    expect(after).toBe(before);
   });
 
   it("registers one provider instance for both view ids", () => {
@@ -208,13 +187,14 @@ describe("secondary sidebar placement", () => {
       "claudeCodeManager.view",
       "claudeCodeManager.secondaryView",
     ]);
+    // One instance, so both panels share the session cache and watchers.
     expect(registrations[0][1]).toBe(registrations[1][1]);
     for (const call of registrations) {
       expect(call[2]).toEqual({ webviewOptions: { retainContextWhenHidden: true } });
     }
   });
 
-  it("focuses the activity-bar view under the default placement", () => {
+  it("falls back to the activity-bar view when no panel is open yet", () => {
     _setVersion("1.137.0");
     const { executeCommandSpy, registerCommandSpy } = activateWithSpies();
 
@@ -222,25 +202,15 @@ describe("secondary sidebar placement", () => {
     expect(executeCommandSpy).toHaveBeenCalledWith("claudeCodeManager.view.focus");
   });
 
-  it("focuses the secondary-sidebar view once the setting moves it", () => {
+  it("focuses the panel the user actually has open", () => {
+    // Focusing a view that never resolved on this host is a silent
+    // no-op — the failure this lookup exists to avoid.
     _setVersion("1.137.0");
-    withPlacement("secondarySidebar");
-    const { executeCommandSpy, registerCommandSpy } = activateWithSpies();
+    const { executeCommandSpy, registerCommandSpy, registerProviderSpy } = activateWithSpies();
+    const provider = registerProviderSpy.mock.calls[0][1] as ClaudeSessionViewProvider;
+    provider.resolveWebviewView(makeWebviewView("claudeCodeManager.secondaryView"));
 
     runCommand(registerCommandSpy, "claudeManager.open");
-    expect(executeCommandSpy).toHaveBeenCalledWith("claudeCodeManager.secondaryView.focus");
-  });
-
-  it("follows the panel when the placement changes after activation", () => {
-    // Focus targets a view id; if the command kept pointing at the old id
-    // after a move, Cmd+Alt+C would silently do nothing.
-    _setVersion("1.137.0");
-    const { executeCommandSpy, registerCommandSpy } = activateWithSpies();
-
-    withPlacement("secondarySidebar");
-    _fireConfigChange("claudeManager.placement");
-    runCommand(registerCommandSpy, "claudeManager.open");
-
     expect(executeCommandSpy).toHaveBeenCalledWith("claudeCodeManager.secondaryView.focus");
   });
 });

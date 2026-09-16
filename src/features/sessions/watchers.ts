@@ -12,6 +12,7 @@
  * All extension-host state lives in `ctx`, owned by the view provider.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import { postAccountData } from "./accountPush";
 import * as path from "path";
 import * as os from "os";
@@ -47,7 +48,7 @@ import type { ConfigFeature } from "./providerActions";
  */
 export interface WatcherContext {
   /** The live webview, or undefined once the view is disposed. */
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
   /** Mutable cached session list — patched in place by the targeted path. */
   getSessions(): Session[];
   setSessions(sessions: Session[]): void;

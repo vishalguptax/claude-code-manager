@@ -14,6 +14,7 @@
  * nothing else here changes.
  */
 import * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import { copyPluginId, openPluginSettingsFile, revealPluginDirectory } from "./commands";
 import { parsePluginsData, settingsScopePaths } from "./parser";
 import { type SettingsWriter, setPluginEnabled } from "./state";
@@ -26,7 +27,7 @@ import type {
 /** Narrow host surface the Plugins handler needs. Implemented by the provider. */
 export interface PluginsHostContext {
   /** The live webview, or undefined if the view is not currently resolved. */
-  getWebview(): vscode.Webview | undefined;
+  getWebview(): PanelSink | undefined;
   /** Absolute workspace path, or undefined when no folder is open. */
   getWorkspace(): string | undefined;
   /**
@@ -86,7 +87,7 @@ export function asPluginsMessage(raw: unknown): PluginsWebviewMessage | null | u
 }
 
 /** Re-parse and push the whole snapshot. */
-function pushPlugins(ctx: PluginsHostContext, wv: vscode.Webview): PluginsData {
+function pushPlugins(ctx: PluginsHostContext, wv: PanelSink): PluginsData {
   const data = parsePluginsData(ctx.getWorkspace());
   wv.postMessage({ type: "pluginsData", data });
   return data;

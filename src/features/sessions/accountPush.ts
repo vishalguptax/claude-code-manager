@@ -23,12 +23,13 @@
  * Keyed per Webview (WeakMap) so a panel remount resets the state.
  */
 import type * as vscode from "vscode";
+import type { PanelSink } from "../../extension/panelSink";
 import type { AccountData } from "../account/types";
 
-const lastPushed = new WeakMap<vscode.Webview, string>();
+const lastPushed = new WeakMap<PanelSink, string>();
 
 export function postAccountData(
-  wv: vscode.Webview,
+  wv: PanelSink,
   data: AccountData,
   dedupe = false,
 ): void {

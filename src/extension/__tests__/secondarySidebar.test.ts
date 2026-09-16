@@ -3,9 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import {
   ACTIVITY_BAR_VIEW_ID,
-  DEFAULT_PLACEMENT,
-  USE_SECONDARY_SIDEBAR_CONTEXT_KEY,
-  resolvePlacement,
+  SUPPORTS_SECONDARY_SIDEBAR_CONTEXT_KEY,
   SECONDARY_SIDEBAR_VIEW_ID,
   supportsSecondarySidebar,
 } from "../secondarySidebar";
@@ -49,87 +47,49 @@ describe("placement identifiers", () => {
   it("matches the manifest", () => {
     expect(ACTIVITY_BAR_VIEW_ID).toBe("claudeCodeManager.view");
     expect(SECONDARY_SIDEBAR_VIEW_ID).toBe("claudeCodeManager.secondaryView");
-    expect(USE_SECONDARY_SIDEBAR_CONTEXT_KEY).toBe(
-      "claudeCodeManager:useSecondarySidebar",
+    expect(SUPPORTS_SECONDARY_SIDEBAR_CONTEXT_KEY).toBe(
+      "claudeCodeManager:supportsSecondarySidebar",
     );
   });
 
-  // The two contributions must carry opposite `when` clauses on the same
-  // key. Same polarity twice means the panel shows twice (or not at all),
-  // and neither failure mode is visible in a unit test of activate().
-  it("contributes both placements with mutually exclusive when clauses", () => {
+  it("offers both placements, with the activity bar ungated", () => {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(__dirname, "../../../package.json"), "utf8"),
     ) as {
       contributes: {
         viewsContainers: Record<string, Array<{ id: string; when?: string }>>;
         views: Record<string, Array<{ id: string; when?: string }>>;
+        configuration: { properties: Record<string, unknown> };
       };
     };
     const { viewsContainers, views } = manifest.contributes;
 
-    // Activity bar is the NEGATED clause, so an unset key — an old host, an
-    // unparseable version, activation that has not run — lands there.
-    expect(viewsContainers.activitybar[0].when).toBe(`!${USE_SECONDARY_SIDEBAR_CONTEXT_KEY}`);
-    expect(viewsContainers.secondarySidebar[0].when).toBe(USE_SECONDARY_SIDEBAR_CONTEXT_KEY);
+    // No `when` on the activity bar: it must survive an old host, an
+    // unparseable version, and activation code that has not run yet.
+    expect(viewsContainers.activitybar[0].when).toBeUndefined();
+    expect(views[viewsContainers.activitybar[0].id][0].when).toBeUndefined();
+    expect(views[viewsContainers.activitybar[0].id][0].id).toBe(ACTIVITY_BAR_VIEW_ID);
 
-    const activityView = views[viewsContainers.activitybar[0].id][0];
+    // The secondary side is gated on the contribution point existing —
+    // a capability check, NOT the negation of the activity bar's clause.
+    // Negating it would make the two mutually exclusive again, which is
+    // the behaviour this replaced.
+    expect(viewsContainers.secondarySidebar[0].when).toBe(
+      SUPPORTS_SECONDARY_SIDEBAR_CONTEXT_KEY,
+    );
     const secondaryView = views[viewsContainers.secondarySidebar[0].id][0];
-    expect(activityView.id).toBe(ACTIVITY_BAR_VIEW_ID);
-    expect(activityView.when).toBe(`!${USE_SECONDARY_SIDEBAR_CONTEXT_KEY}`);
     expect(secondaryView.id).toBe(SECONDARY_SIDEBAR_VIEW_ID);
-    expect(secondaryView.when).toBe(USE_SECONDARY_SIDEBAR_CONTEXT_KEY);
+    expect(secondaryView.when).toBe(SUPPORTS_SECONDARY_SIDEBAR_CONTEXT_KEY);
   });
 
-  it("declares the placement setting with the activity bar as default", () => {
-    // The default is what decides whether upgrading silently relocates a
-    // panel the user had where they wanted it.
+  it("no longer declares a placement setting", () => {
+    // Both sides are always available, so choosing one is VS Code's job
+    // (hide the container) rather than a setting of ours.
     const manifest = JSON.parse(
       fs.readFileSync(path.join(__dirname, "../../../package.json"), "utf8"),
-    ) as {
-      contributes: {
-        configuration: { properties: Record<string, { default?: unknown; enum?: string[] }> };
-      };
-    };
-    const prop = manifest.contributes.configuration.properties["claudeManager.placement"];
-    expect(prop).toBeDefined();
-    expect(prop.default).toBe(DEFAULT_PLACEMENT);
-    expect(prop.default).toBe("activityBar");
-    expect(prop.enum).toEqual(["activityBar", "secondarySidebar"]);
-  });
-});
-
-describe("resolvePlacement", () => {
-  it("keeps the panel in the activity bar by default", () => {
-    const r = resolvePlacement("1.137.0", "activityBar");
-    expect(r.useSecondarySidebar).toBe(false);
-    expect(r.viewId).toBe(ACTIVITY_BAR_VIEW_ID);
-  });
-
-  it("moves it to the secondary sidebar when asked on a capable host", () => {
-    const r = resolvePlacement("1.137.0", "secondarySidebar");
-    expect(r.useSecondarySidebar).toBe(true);
-    expect(r.viewId).toBe(SECONDARY_SIDEBAR_VIEW_ID);
-  });
-
-  it("falls back to the activity bar when the host is too old to render it", () => {
-    // The user asked for a position, not for the panel to vanish.
-    const r = resolvePlacement("1.105.2", "secondarySidebar");
-    expect(r.useSecondarySidebar).toBe(false);
-    expect(r.viewId).toBe(ACTIVITY_BAR_VIEW_ID);
-  });
-
-  it("falls back to the activity bar for an unset or unknown setting", () => {
-    for (const value of [undefined, "", "sidebar", "ACTIVITYBAR", "panel"]) {
-      const r = resolvePlacement("1.137.0", value);
-      expect(r.useSecondarySidebar).toBe(false);
-      expect(r.viewId).toBe(ACTIVITY_BAR_VIEW_ID);
-    }
-  });
-
-  it("falls back to the activity bar when the version is unparseable", () => {
-    for (const version of [undefined, "", "abc", "1", "1.x.0"]) {
-      expect(resolvePlacement(version, "secondarySidebar").useSecondarySidebar).toBe(false);
-    }
+    ) as { contributes: { configuration: { properties: Record<string, unknown> } } };
+    expect(manifest.contributes.configuration.properties).not.toHaveProperty(
+      "claudeManager.placement",
+    );
   });
 });
