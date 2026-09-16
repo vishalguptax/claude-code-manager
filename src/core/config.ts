@@ -17,6 +17,17 @@ export const PROJECTS_DIR: string = path.join(CLAUDE_DIR, "projects");
 /** Directory containing session name/metadata JSON files */
 export const SESSIONS_DIR: string = path.join(CLAUDE_DIR, "sessions");
 
+/**
+ * Root of Claude Code's per-file version backups
+ * (`~/.claude/file-history/<sessionId>/<pathHash>@v<N>`). Each blob is the
+ * full contents of one file at one point in a session; there is no index
+ * file — the path↔blob mapping only exists in the session transcript's
+ * `file-history-snapshot` lines. Claude Code prunes this tree on its own
+ * `cleanupPeriodDays` schedule, so a blob the transcript still cites can
+ * legitimately be gone.
+ */
+export const FILE_HISTORY_DIR: string = path.join(CLAUDE_DIR, "file-history");
+
 /** Path to the extension's user state file (pins/deletes) */
 export const STATE_FILE: string = path.join(CLAUDE_DIR, ".csm-state.json");
 

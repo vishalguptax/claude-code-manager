@@ -1,0 +1,210 @@
+/* ============================================================================
+   Claude Manager — File Checkpoints Styles
+   Session rows, file rows, and the expanded per-file version list.
+
+   Shared chrome lives in the component layer and is NOT repeated here:
+     - list rows                                  → .list-item (components.css)
+     - result count caption                        → .list-count (components.css)
+     - search field                                → .vsc-search (components-native.css)
+     - buttons (ghost/danger/icon)                 → .btn-* (components-native.css)
+     - back affordance                             → .back-btn (components.css)
+     - empty + error states                        → .empty-state / .error-banner
+   This file keeps only what is checkpoint-specific: the two row layouts and
+   the version list that expands underneath a file.
+   ============================================================================ */
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Checkpoints — shell
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.ckpt-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ckpt-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-2xl);
+  border-bottom: 1px solid var(--border);
+}
+
+.ckpt-header-title {
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ckpt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-2xl);
+}
+
+/* Count of blobs the transcript can no longer map to a path. Muted: it is an
+   explanation for a discrepancy, not a warning the user must act on. */
+.ckpt-orphans {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+
+.ckpt-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Checkpoints — rows (session + file share one two-line shape)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.ckpt-session,
+.ckpt-file-row {
+  /* .list-item (components.css) is block-level; these rows stack two lines,
+     so they opt into flex here rather than the shared rule changing for all. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-xs);
+  padding: var(--space-lg) var(--space-2xl);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Keyboard focus ring comes from .list-item:focus-visible (components.css). */
+
+.ckpt-row-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.ckpt-row-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+  min-width: 0;
+}
+
+.ckpt-session-label,
+.ckpt-file-name {
+  font-size: var(--fs-md);
+  font-weight: 500;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ckpt-project {
+  color: var(--fg-section);
+}
+
+/* Directory line is the least important thing in the row; let it take the
+   remaining width and ellipsize from the left-hand end of the path. */
+.ckpt-file-dir {
+  flex: 1 1 auto;
+  min-width: 0;
+  direction: rtl;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg-muted);
+}
+
+.ckpt-time {
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Latest-version pill on a file row. */
+.ckpt-badge {
+  flex: 0 0 auto;
+  padding: 0 var(--space-sm);
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--badge-neutral-fg);
+  background: var(--badge-neutral-bg);
+}
+
+
+/* ──────────────────────────────────────────────────────────────────────────────
+   Checkpoints — expanded version list
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.ckpt-versions {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-sm) var(--space-2xl) var(--space-lg);
+  border-bottom: 1px solid var(--border);
+  /* Inset panel tint so the expansion reads as belonging to the row above. */
+  background: var(--role-track-bg);
+}
+
+.ckpt-open-btn {
+  align-self: flex-start;
+  margin-bottom: var(--space-xs);
+}
+
+.ckpt-version {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  min-width: 0;
+}
+
+/* A pruned version stays listed so version numbers do not silently skip, but
+   it reads as inert. */
+.ckpt-version--gone {
+  opacity: 0.55;
+}
+
+.ckpt-version-num {
+  flex: 0 0 auto;
+  min-width: 2.5em;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckpt-version-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ckpt-version-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.ckpt-version-gone-note {
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}

@@ -16,6 +16,7 @@ export const TABS: readonly Feature[] = [
   { id: "agents", label: "Agents", icon: "bot" },
   { id: "commands", label: "Commands", icon: "terminal-square" },
   { id: "hooks", label: "Hooks", icon: "webhook" },
+  { id: "checkpoints", label: "Checkpoints", icon: "history" },
   { id: "account", label: "Account", icon: "circle-user" },
   { id: "config", label: "Config", icon: "settings" },
 ] as const;

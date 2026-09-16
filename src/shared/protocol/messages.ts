@@ -156,6 +156,25 @@ export type Message =
    */
   | { type: "worktrees"; map: Record<string, unknown> }
   | { type: "viewTerminal"; sessionId: string }
+  // === CHECKPOINTS MESSAGES ===
+  /**
+   * File Checkpoints: Claude Code's per-file version backups under
+   * ~/.claude/file-history. The webview never names a blob — it sends the
+   * session, the absolute file path and the version, and the host re-derives
+   * `sha256(path).slice(0,16)@v<N>` itself.
+   */
+  | { type: "getCheckpointSessions" }
+  | { type: "getCheckpoints"; sessionId: string }
+  | { type: "diffCheckpoint"; sessionId: string; filePath: string; version: number }
+  | { type: "restoreCheckpoint"; sessionId: string; filePath: string; version: number }
+  /** Host → webview. `data` is CheckpointSessionSummary[], narrowed by the feature. */
+  | { type: "checkpointSessions"; data: unknown }
+  /**
+   * Host → webview. `data` is CheckpointFile[]. `orphanCount` is how many
+   * blobs the session directory holds that no transcript line maps to a path.
+   */
+  | { type: "checkpoints"; sessionId: string; data: unknown; orphanCount: number }
+  // === END CHECKPOINTS MESSAGES ===
   // === SESSIONS MESSAGES ===
   // Inbound (webview → host) session messages handled in
   // features/sessions/messageHandlers.ts. `search`/`filter` ask the host to
@@ -271,6 +290,10 @@ type WebviewMessageType =
   | "resetSettings"
   | "restoreSettingsSnapshot"
   | "deleteSettingsSnapshot"
+  | "getCheckpointSessions"
+  | "getCheckpoints"
+  | "diffCheckpoint"
+  | "restoreCheckpoint"
   // === SESSIONS MESSAGES ===
   | "search"
   | "filter"
@@ -309,4 +332,6 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "terminalSessions",
   "tempSessions",
   "worktrees",
+  "checkpointSessions",
+  "checkpoints",
 ];

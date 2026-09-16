@@ -7,6 +7,37 @@ function roundTrip(msg: Message): void {
   expect(parsed).toEqual(msg);
 }
 
+describe("parseMessage — checkpoints", () => {
+  const sessionId = "09285b5a-1542-4940-b2a8-ef73977f6fe1";
+
+  it("accepts the webview → host checkpoint messages", () => {
+    roundTrip({ type: "getCheckpointSessions" });
+    roundTrip({ type: "getCheckpoints", sessionId });
+    roundTrip({ type: "diffCheckpoint", sessionId, filePath: "/a/b.ts", version: 2 });
+    roundTrip({ type: "restoreCheckpoint", sessionId, filePath: "/a/b.ts", version: 2 });
+  });
+
+  it("accepts the host → webview checkpoint replies", () => {
+    roundTrip({ type: "checkpointSessions", data: [] });
+    roundTrip({ type: "checkpoints", sessionId, data: [], orphanCount: 3 });
+  });
+
+  it("rejects a checkpoint target with a non-numeric version", () => {
+    expect(() =>
+      parseMessage({
+        type: "diffCheckpoint",
+        sessionId,
+        filePath: "/a/b.ts",
+        version: "2",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a checkpoint request with no session id", () => {
+    expect(() => parseMessage({ type: "getCheckpoints" })).toThrow();
+  });
+});
+
 describe("parseMessage — webview to host", () => {
   it("accepts trivial signal messages", () => {
     roundTrip({ type: "ready" });

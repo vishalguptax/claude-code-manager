@@ -5,11 +5,11 @@
  * frame 1 of a tab activation — there's no flash of a generic loader before
  * the content-aware shape appears.
  *
- * Five of the six list-shaped tabs (skills / commands / hooks / mcp / agents)
- * share the same `<ListSkeleton />` shell because their loaded shape is the
- * same — search row + scope filter + scrolling list. The other three each
- * mirror their own layout (sessions list shell, account profile/quota/usage
- * stack, config settings card).
+ * The list-shaped tabs (skills / commands / hooks / checkpoints / mcp /
+ * agents) share the same `<ListSkeleton />` shell because their loaded shape
+ * is the same — search row + scope filter + scrolling list. The other three
+ * each mirror their own layout (sessions list shell, account profile/quota/
+ * usage stack, config settings card).
  *
  * Keys MUST match `TABS` ids in `tabRegistry.ts` exactly. The TabPanel falls
  * back to `<ListSkeleton />` for any unknown id, which keeps the panel
@@ -41,6 +41,7 @@ export const tabSkeletons: Readonly<Record<string, TabSkeleton>> = {
   skills: DefaultListSkeleton,
   commands: DefaultListSkeleton,
   hooks: DefaultListSkeleton,
+  checkpoints: DefaultListSkeleton,
   mcp: DefaultListSkeleton,
   agents: DefaultListSkeleton,
   account: AccountSkeleton,

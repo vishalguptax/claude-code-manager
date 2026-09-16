@@ -36,6 +36,7 @@ const FILES = [
   "skills.css",
   "commands.css",
   "hooks.css",
+  "checkpoints.css",
   "features.css",
   "mcp.css",
   "agents.css",

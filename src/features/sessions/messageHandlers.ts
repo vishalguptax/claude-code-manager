@@ -23,6 +23,7 @@ import {
   getLastParseWarning,
 } from "./parser";
 import { searchContent } from "./searchIndex";
+import { getSessionFile } from "./metaParser";
 import {
   loadState,
   pinSession,
@@ -61,6 +62,10 @@ import { handleFeatureMessage } from "./featureHandlers";
 import { handleAccountMessage } from "./accountHandlers";
 import { handleSettingsMessage } from "./settingsHandlers";
 import { handleMcpMessage, type McpHostContext } from "../mcp/messageHandlers";
+import {
+  handleCheckpointsMessage,
+  type CheckpointsHostContext,
+} from "../checkpoints/messageHandlers";
 import { handleAgentMessage, type AgentHostContext } from "../agents/messageHandlers";
 import { dispatchCommandsMessage, type CommandsHost } from "../commands/messageHandlers";
 import { getWorkspace } from "../../extension/workspace";
@@ -123,6 +128,7 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
     // without importing the provider.
     if (await dispatchCommandsMessage(msg, makeCommandsHost(ctx))) return;
     if (await handleMcpMessage(msg, makeMcpHost(ctx))) return;
+    if (await handleCheckpointsMessage(msg, makeCheckpointsHost(ctx))) return;
     if (await handleAgentMessage(msg, makeAgentHost(ctx))) return;
     if (await handleFeatureMessage(msg, ctx)) return;
     if (await handleAccountMessage(msg, ctx)) return;
@@ -215,6 +221,32 @@ function makeMcpHost(ctx: HostContext): McpHostContext {
       term.sendText("claude");
       setTimeout(() => term.sendText(slash), 1800);
     },
+  };
+}
+
+/**
+ * Adapt the shared {@link HostContext} to the checkpoints feature's
+ * {@link CheckpointsHostContext}.
+ *
+ * Checkpoint blobs are keyed by session id only, so the feature needs two
+ * things the sessions panel already has: a display label for an id, and the
+ * transcript that holds the path↔blob mapping. Both are read from the cached
+ * session list / file index, so neither costs a disk walk.
+ */
+function makeCheckpointsHost(ctx: HostContext): CheckpointsHostContext {
+  return {
+    getWebview: () => ctx.getWebview(),
+    describeSession: (sessionId) => {
+      const session = ctx.getSessions().find((s) => s.id === sessionId);
+      if (!session) return undefined;
+      return {
+        // Fall back through the same ladder the session rows use: an
+        // explicit name, then the first-prompt summary, then the short id.
+        label: session.name || session.summary || sessionId.slice(0, 8),
+        project: session.project,
+      };
+    },
+    transcriptPath: (sessionId) => getSessionFile(sessionId),
   };
 }
 

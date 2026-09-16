@@ -70,7 +70,39 @@ export const workspace = {
     onDidDelete: (_l: () => void): MockDisposable => ({ dispose: () => {} }),
     dispose: () => {},
   }),
+  /**
+   * Documents the host considers open. Empty by default; a test that needs
+   * the "file is open in an editor" branch pushes a {@link MockTextDocument}.
+   */
+  textDocuments: [] as MockTextDocument[],
+  openTextDocument: async (_target?: unknown): Promise<unknown> => undefined,
+  /** Resolves true (edit applied). Tests spy to assert the edit or refuse it. */
+  applyEdit: async (_edit: unknown): Promise<boolean> => true,
+  registerTextDocumentContentProvider: (
+    _scheme: string,
+    _provider: unknown,
+  ): MockDisposable => ({ dispose: () => {} }),
+  /**
+   * `vscode.workspace.fs`. `writeFile` is a no-op that records nothing by
+   * default — tests that care assert on a `vi.spyOn` of it, which is how
+   * "the write never happened" is proved.
+   */
+  fs: {
+    writeFile: async (_uri: unknown, _content: Uint8Array): Promise<void> => {},
+    readFile: async (_uri: unknown): Promise<Uint8Array> => new Uint8Array(),
+    stat: async (_uri: unknown): Promise<unknown> => ({ size: 0 }),
+  },
 };
+
+/** Minimal `vscode.TextDocument` stub for the open-editor branches. */
+export interface MockTextDocument {
+  uri: { fsPath: string; scheme: string };
+  isDirty: boolean;
+  lineCount: number;
+  lineAt: (line: number) => { range: { end: MockPosition } };
+  getText: () => string;
+  save: () => Promise<boolean>;
+}
 
 /** Test helper: fire onDidChangeWorkspaceFolders listeners. */
 export function _fireWorkspaceFoldersChange(): void {
@@ -182,6 +214,7 @@ export const window = {
   showInformationMessage: async (..._args: unknown[]) => undefined,
   showWarningMessage: async (..._args: unknown[]) => undefined,
   showErrorMessage: async (..._args: unknown[]) => undefined,
+  showTextDocument: async (_doc: unknown, _options?: unknown): Promise<unknown> => undefined,
   showInputBox: async (_options?: unknown) => undefined,
   showOpenDialog: async (_options?: unknown): Promise<unknown> => undefined,
   showSaveDialog: async (_options?: unknown): Promise<unknown> => undefined,
@@ -252,6 +285,27 @@ export const Uri = {
     path: value,
     toString: () => value,
   }),
+  /**
+   * `vscode.Uri.from` — the only way to build a URI on a custom scheme with a
+   * query. Mirrors the real API's component shape.
+   */
+  from: (components: {
+    scheme: string;
+    authority?: string;
+    path?: string;
+    query?: string;
+    fragment?: string;
+  }) => {
+    const path = components.path ?? "";
+    const query = components.query ?? "";
+    return {
+      fsPath: path,
+      scheme: components.scheme,
+      path,
+      query,
+      toString: () => `${components.scheme}:${path}${query ? `?${query}` : ""}`,
+    };
+  },
   joinPath: (base: { path: string }, ...pathSegments: string[]) => {
     const joined = [base.path, ...pathSegments].join("/");
     return { fsPath: joined, scheme: "file", path: joined, toString: () => joined };
@@ -299,5 +353,35 @@ export class EventEmitter {
   }
   dispose() {
     this.listeners = [];
+  }
+}
+
+/** `vscode.Position`. Only the two fields the checkpoint restore path reads. */
+export class Position {
+  constructor(
+    public line: number,
+    public character: number,
+  ) {}
+}
+
+/** Alias so the MockTextDocument interface can name the class above. */
+export type MockPosition = Position;
+
+/** `vscode.Range`. */
+export class Range {
+  constructor(
+    public start: Position,
+    public end: Position,
+  ) {}
+}
+
+/**
+ * `vscode.WorkspaceEdit`. Records the replacements rather than applying them,
+ * so a test can assert exactly what would be written.
+ */
+export class WorkspaceEdit {
+  replacements: Array<{ uri: unknown; range: Range; newText: string }> = [];
+  replace(uri: unknown, range: Range, newText: string): void {
+    this.replacements.push({ uri, range, newText });
   }
 }

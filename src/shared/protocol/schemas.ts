@@ -299,6 +299,43 @@ const viewTerminal = v.object({
 });
 // === END SESSIONS MESSAGES ===
 
+// === CHECKPOINTS MESSAGES ===
+// The webview never names a blob file: it sends (sessionId, filePath,
+// version) and the host re-derives sha256(filePath).slice(0,16)@v<N>. That
+// keeps the blob grammar — and the traversal guard behind it — host-side.
+const getCheckpointSessions = v.object({ type: v.literal("getCheckpointSessions") });
+const getCheckpoints = v.object({
+  type: v.literal("getCheckpoints"),
+  sessionId: v.string(),
+});
+const checkpointTarget = {
+  sessionId: v.string(),
+  filePath: v.string(),
+  version: v.number(),
+};
+const diffCheckpoint = v.object({
+  type: v.literal("diffCheckpoint"),
+  ...checkpointTarget,
+});
+const restoreCheckpoint = v.object({
+  type: v.literal("restoreCheckpoint"),
+  ...checkpointTarget,
+});
+// Host → webview. Payloads pass through as `unknown` so the shared protocol
+// stays free of the feature-local CheckpointFile / CheckpointSessionSummary
+// types; the checkpoints feature narrows on receipt (mirrors `sessions`).
+const checkpointSessions = v.object({
+  type: v.literal("checkpointSessions"),
+  data: v.unknown(),
+});
+const checkpoints = v.object({
+  type: v.literal("checkpoints"),
+  sessionId: v.string(),
+  data: v.unknown(),
+  orphanCount: v.number(),
+});
+// === END CHECKPOINTS MESSAGES ===
+
 export const messageSchema = v.variant("type", [
   ready,
   markDemoSeen,
@@ -414,6 +451,14 @@ export const messageSchema = v.variant("type", [
   createWorktree,
   viewTerminal,
   // === END SESSIONS MESSAGES ===
+  // === CHECKPOINTS MESSAGES ===
+  getCheckpointSessions,
+  getCheckpoints,
+  diffCheckpoint,
+  restoreCheckpoint,
+  checkpointSessions,
+  checkpoints,
+  // === END CHECKPOINTS MESSAGES ===
 ]);
 
 export function parseMessage(input: unknown): Message {
