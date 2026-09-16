@@ -26,6 +26,9 @@ import type {
   PromptCacheStats,
   RateWindow,
   StatuslineCache,
+  StatuslinePullRequest,
+  StatuslineRepo,
+  StatuslineWorktree,
 } from "./statuslineCore";
 
 /** One rate-limit window as the UI renders it. */
@@ -90,6 +93,16 @@ export interface LiveSession {
    * ratio is cheap, a prefix that rebuilds every turn is not.
    */
   promptCache: PromptCacheStats | null;
+  /**
+   * Open PR / MR on the rendering session's branch, or null. Claude Code
+   * resolved it against the forge; we could not, since we make no
+   * network call.
+   */
+  pr: StatuslinePullRequest | null;
+  /** The worktree this session runs in, or null outside a worktree session. */
+  worktree: StatuslineWorktree | null;
+  /** Origin remote's repository identity, or null when unreported. */
+  repo: StatuslineRepo | null;
 }
 
 /** Combined payload — quota + live session, both from one cache read. */
@@ -199,6 +212,9 @@ export function readQuota(workspacePath?: string): QuotaResult {
         capturedAt: captured,
         sessionName: cache.sessionName,
         promptCache: cache.promptCache ?? null,
+        pr: cache.pr ?? null,
+        worktree: cache.worktree ?? null,
+        repo: cache.repo ?? null,
       },
     },
   };

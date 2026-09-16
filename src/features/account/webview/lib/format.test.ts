@@ -388,3 +388,56 @@ describe("accountKey", () => {
     expect(accountKey(data)).toBe("|x@y.com");
   });
 });
+
+import { formatPrRef, formatRepo, formatReviewState } from "./format";
+
+describe("formatRepo", () => {
+  it("renders owner/name for a github.com remote", () => {
+    expect(formatRepo({ host: "github.com", owner: "acme", name: "widgets" })).toBe(
+      "acme/widgets",
+    );
+  });
+
+  it("names the host when the remote is anywhere else", () => {
+    // A self-hosted GitLab and github.com/acme/widgets are different
+    // repositories that would otherwise render identically.
+    expect(formatRepo({ host: "gitlab.acme.dev", owner: "acme", name: "widgets" })).toBe(
+      "gitlab.acme.dev/acme/widgets",
+    );
+  });
+
+  it("falls back to owner/name when the host is unreported", () => {
+    expect(formatRepo({ host: "", owner: "acme", name: "widgets" })).toBe("acme/widgets");
+  });
+
+  it("is empty when there is no repo", () => {
+    expect(formatRepo(null)).toBe("");
+  });
+});
+
+describe("formatPrRef", () => {
+  it("writes a GitHub pull request as #N", () => {
+    expect(formatPrRef({ number: 412, url: "", reviewState: "", kind: "" })).toBe("#412");
+  });
+
+  it("writes a GitLab merge request as !N", () => {
+    // GitLab's own convention, and the reason Claude Code sends `kind`.
+    expect(formatPrRef({ number: 88, url: "", reviewState: "", kind: "mr" })).toBe("!88");
+  });
+
+  it("is empty when there is no PR", () => {
+    expect(formatPrRef(null)).toBe("");
+  });
+});
+
+describe("formatReviewState", () => {
+  it("de-underscores the states the CLI ships today", () => {
+    expect(formatReviewState("changes_requested")).toBe("changes requested");
+    expect(formatReviewState("approved")).toBe("approved");
+    expect(formatReviewState("draft")).toBe("draft");
+  });
+
+  it("renders a state added after we shipped rather than dropping it", () => {
+    expect(formatReviewState("merge_conflict_detected")).toBe("merge conflict detected");
+  });
+});

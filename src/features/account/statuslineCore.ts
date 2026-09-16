@@ -88,6 +88,81 @@ export interface StatuslineCache {
    * (no requests yet, or an older CLI).
    */
   promptCache: PromptCacheStats | null;
+  /**
+   * Open PR / MR on the branch the rendering session is on, or null when
+   * there is none (or the CLI predates the block). Claude Code resolves
+   * this from the forge itself — we cannot, since we make no network
+   * call — so it is only available by reading what it already sends us.
+   */
+  pr: StatuslinePullRequest | null;
+  /**
+   * The worktree a `--worktree` session is running in, or null for an
+   * ordinary session. Present only inside such a session.
+   */
+  worktree: StatuslineWorktree | null;
+  /**
+   * Repository identity derived from the origin remote, or null when
+   * there is no origin (or the CLI predates the block). Lives under the
+   * payload's `workspace` block, flattened here because nothing else in
+   * that block is rendered.
+   */
+  repo: StatuslineRepo | null;
+}
+
+/**
+ * An open pull request / merge request for the current branch, as the
+ * CLI's own footer badge shows it.
+ */
+export interface StatuslinePullRequest {
+  /** PR number, or the GitLab MR iid. */
+  number: number;
+  /** PR/MR URL, or "" when unreported. */
+  url: string;
+  /**
+   * Review status — "approved", "pending", "changes_requested" and
+   * "draft" today.
+   *
+   * Deliberately a plain string, not a union. The set is owned by Claude
+   * Code and grows across releases; a union would make a value added
+   * next release a type error here and, worse, tempt a parser into
+   * dropping it. An unrecognised state still renders.
+   */
+  reviewState: string;
+  /**
+   * Forge flavour. "mr" means a GitLab merge request, which is written
+   * `!123` rather than `#123`; "" for a GitHub PR, where the CLI omits
+   * the field. Kept as a string for the same reason as `reviewState`.
+   */
+  kind: string;
+}
+
+/** The git worktree a `--worktree` session is running in. */
+export interface StatuslineWorktree {
+  /** Worktree name/slug, e.g. "my-feature". Never empty. */
+  name: string;
+  /** Absolute path to the worktree directory, or "" when unreported. */
+  path: string;
+  /** Branch checked out in the worktree, or "" when unreported. */
+  branch: string;
+  /** Directory Claude was in before entering the worktree, or "". */
+  originalCwd: string;
+  /**
+   * Branch that was checked out before entering the worktree, or "".
+   * This is the fact a worktree session actually raises — "which branch
+   * was I on?" — and nothing else on disk still answers it once the
+   * session has moved.
+   */
+  originalBranch: string;
+}
+
+/** Repository identity from the origin remote. */
+export interface StatuslineRepo {
+  /** Forge host, e.g. "github.com". "" when unreported. */
+  host: string;
+  /** Owner / org / group. Never empty. */
+  owner: string;
+  /** Repository name. Never empty. */
+  name: string;
 }
 
 /**
@@ -246,6 +321,33 @@ interface StatuslinePayload {
     miss_causes?: unknown;
     recache_tokens_if_cold?: unknown;
   } | null;
+  pr?: {
+    number?: unknown;
+    url?: unknown;
+    review_state?: unknown;
+    kind?: unknown;
+  } | null;
+  worktree?: {
+    name?: unknown;
+    path?: unknown;
+    branch?: unknown;
+    original_cwd?: unknown;
+    original_branch?: unknown;
+  } | null;
+  workspace?: {
+    repo?: RepoPayload | null;
+  } | null;
+}
+
+/**
+ * The payload's `workspace.repo` block. Its keys are already the ones we
+ * persist — no snake_case to translate — so {@link repoOf} serves both
+ * the live payload and the revive path.
+ */
+interface RepoPayload {
+  host?: unknown;
+  owner?: unknown;
+  name?: unknown;
 }
 
 interface RatePayload {
@@ -377,6 +479,67 @@ function contextOf(
 }
 
 /**
+ * Parse the payload's `pr` block.
+ *
+ * `number` is both the block's liveness signal and the only thing the
+ * link can be labelled with, so a non-numeric value (the string "123",
+ * say) rejects the whole block rather than being coerced — "#NaN" or
+ * "#undefined" would be worse than showing nothing. Everything else is
+ * independently optional: a PR with no review yet has no `review_state`,
+ * and GitHub PRs carry no `kind` at all.
+ */
+function prOf(raw: StatuslinePayload["pr"]): StatuslinePullRequest | null {
+  if (!raw || typeof raw.number !== "number" || !Number.isFinite(raw.number)) {
+    return null;
+  }
+  return {
+    number: raw.number,
+    url: str(raw.url),
+    reviewState: str(raw.review_state),
+    kind: str(raw.kind),
+  };
+}
+
+/**
+ * Parse the payload's `worktree` block.
+ *
+ * `name` is the worktree's label and its liveness signal — a path with
+ * no name reads as an unrelated directory, which is worse than silence.
+ * `branch` and `original_branch` are optional in the CLI's own schema.
+ */
+function worktreeOf(
+  raw: StatuslinePayload["worktree"],
+): StatuslineWorktree | null {
+  if (!raw || typeof raw.name !== "string" || raw.name.length === 0) return null;
+  return {
+    name: raw.name,
+    path: str(raw.path),
+    branch: str(raw.branch),
+    originalCwd: str(raw.original_cwd),
+    originalBranch: str(raw.original_branch),
+  };
+}
+
+/**
+ * Parse a `workspace.repo` block.
+ *
+ * `owner` and `name` are required together: the rendered form is
+ * "owner/name", and half of that is a dangling slash. `host` is
+ * genuinely optional and stays "" when unreported.
+ *
+ * Also used by {@link reviveCache} — this block's persisted keys are
+ * identical to its payload keys, so one function covers both.
+ */
+function repoOf(raw: unknown): StatuslineRepo | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const { host, owner, name } = raw as RepoPayload;
+  const ownerStr = str(owner);
+  const nameStr = str(name);
+  if (!ownerStr || !nameStr) return null;
+  return { host: str(host), owner: ownerStr, name: nameStr };
+}
+
+/**
  * Parse a raw statusline payload string into a `StatuslineCache`.
  * Returns null only when the input isn't valid JSON — a valid payload
  * missing every field still yields a cache (with nulls) so the caller
@@ -421,6 +584,9 @@ export function extractCache(raw: string, now: number): StatuslineCache | null {
     model: modelCapture,
     sessions: sessionId ? { [sessionId]: sessionCapture } : {},
     promptCache: promptCacheOf(payload.prompt_cache),
+    pr: prOf(payload.pr),
+    worktree: worktreeOf(payload.worktree),
+    repo: repoOf(payload.workspace?.repo),
     context: contextOf(ctx),
     cost:
       cost && typeof cost.total_cost_usd === "number"
@@ -476,6 +642,36 @@ export function reviveCache(value: unknown): StatuslineCache | null {
       spendLimit: raw.rateLimits?.spendLimit ?? null,
     },
     promptCache: revivePromptCache(raw.promptCache),
+    pr: revivePr(raw.pr),
+    worktree: reviveWorktree(raw.worktree),
+    repo: repoOf(raw.repo),
+  };
+}
+
+/** Back-fill a persisted `pr` block; null for caches that predate it. */
+function revivePr(value: unknown): StatuslinePullRequest | null {
+  if (typeof value !== "object" || value === null) return null;
+  const raw = value as Partial<StatuslinePullRequest>;
+  if (typeof raw.number !== "number" || !Number.isFinite(raw.number)) return null;
+  return {
+    number: raw.number,
+    url: str(raw.url),
+    reviewState: str(raw.reviewState),
+    kind: str(raw.kind),
+  };
+}
+
+/** Back-fill a persisted `worktree` block; null for caches that predate it. */
+function reviveWorktree(value: unknown): StatuslineWorktree | null {
+  if (typeof value !== "object" || value === null) return null;
+  const raw = value as Partial<StatuslineWorktree>;
+  if (typeof raw.name !== "string" || raw.name.length === 0) return null;
+  return {
+    name: raw.name,
+    path: str(raw.path),
+    branch: str(raw.branch),
+    originalCwd: str(raw.originalCwd),
+    originalBranch: str(raw.originalBranch),
   };
 }
 

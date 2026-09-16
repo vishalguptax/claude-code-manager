@@ -321,3 +321,216 @@ describe("resolveActiveModel", () => {
     expect(resolveActiveModel(null, NOW)).toBeNull();
   });
 });
+
+import { reviveCache } from "../statuslineCore";
+
+/**
+ * The three blocks that say WHERE a session is working, mirroring the
+ * CLI's own schema (v2.1.273) key for key. `kind` is deliberately absent:
+ * Claude Code omits it for GitHub PRs and sends "mr" only for GitLab.
+ */
+const PLACE_PAYLOAD = {
+  pr: {
+    number: 412,
+    url: "https://github.com/acme/widgets/pull/412",
+    review_state: "changes_requested",
+  },
+  worktree: {
+    name: "my-feature",
+    path: "/Users/dev/code/widgets-my-feature",
+    branch: "feat/my-feature",
+    original_cwd: "/Users/dev/code/widgets",
+    original_branch: "main",
+  },
+  workspace: {
+    current_dir: "/Users/dev/code/widgets-my-feature",
+    project_dir: "/Users/dev/code/widgets-my-feature",
+    added_dirs: [],
+    git_worktree: "my-feature",
+    repo: { host: "github.com", owner: "acme", name: "widgets" },
+  },
+};
+
+describe("extractCache — pr / worktree / repo", () => {
+  it("normalises all three blocks from a full payload", () => {
+    const cache = extractCache(JSON.stringify(PLACE_PAYLOAD), NOW)!;
+    expect(cache.pr).toEqual({
+      number: 412,
+      url: "https://github.com/acme/widgets/pull/412",
+      reviewState: "changes_requested",
+      kind: "",
+    });
+    expect(cache.worktree).toEqual({
+      name: "my-feature",
+      path: "/Users/dev/code/widgets-my-feature",
+      branch: "feat/my-feature",
+      originalCwd: "/Users/dev/code/widgets",
+      originalBranch: "main",
+    });
+    expect(cache.repo).toEqual({ host: "github.com", owner: "acme", name: "widgets" });
+  });
+
+  it("yields nulls, not throws, when every block is absent", () => {
+    const cache = extractCache("{}", NOW)!;
+    expect(cache.pr).toBeNull();
+    expect(cache.worktree).toBeNull();
+    expect(cache.repo).toBeNull();
+  });
+
+  it("survives the blocks being explicitly null", () => {
+    const cache = extractCache(
+      JSON.stringify({ pr: null, worktree: null, workspace: null }),
+      NOW,
+    )!;
+    expect(cache.pr).toBeNull();
+    expect(cache.worktree).toBeNull();
+    expect(cache.repo).toBeNull();
+  });
+
+  it("keeps a PR that has no review yet and no kind", () => {
+    const cache = extractCache(
+      JSON.stringify({ pr: { number: 7, url: "https://example.test/pull/7" } }),
+      NOW,
+    )!;
+    expect(cache.pr).toEqual({
+      number: 7,
+      url: "https://example.test/pull/7",
+      reviewState: "",
+      kind: "",
+    });
+  });
+
+  it("carries the GitLab merge-request kind through verbatim", () => {
+    const cache = extractCache(
+      JSON.stringify({
+        pr: { number: 88, url: "https://gitlab.test/acme/widgets/-/merge_requests/88", kind: "mr" },
+      }),
+      NOW,
+    )!;
+    expect(cache.pr?.kind).toBe("mr");
+    expect(cache.pr?.number).toBe(88);
+  });
+
+  it("keeps a review_state the CLI added after we shipped", () => {
+    // The set is closed in the CLI but grows across releases. A value we
+    // have never seen must survive the parse — dropping it would silently
+    // under-report the PR's status.
+    const cache = extractCache(
+      JSON.stringify({ pr: { number: 3, review_state: "merge_conflict" } }),
+      NOW,
+    )!;
+    expect(cache.pr?.reviewState).toBe("merge_conflict");
+  });
+
+  it("keeps a worktree with no branch and no original branch", () => {
+    const cache = extractCache(
+      JSON.stringify({ worktree: { name: "spike", path: "/tmp/spike", original_cwd: "/repo" } }),
+      NOW,
+    )!;
+    expect(cache.worktree).toEqual({
+      name: "spike",
+      path: "/tmp/spike",
+      branch: "",
+      originalCwd: "/repo",
+      originalBranch: "",
+    });
+  });
+
+  it("returns a null repo when the workspace block carries none", () => {
+    // `repo` is derived from the origin remote, so a checkout with no
+    // origin has a workspace block and no repo inside it.
+    const cache = extractCache(
+      JSON.stringify({
+        workspace: { current_dir: "/repo", project_dir: "/repo", added_dirs: [] },
+      }),
+      NOW,
+    )!;
+    expect(cache.repo).toBeNull();
+  });
+
+  it("rejects a repo missing half of owner/name rather than rendering a dangling slash", () => {
+    const owner = extractCache(
+      JSON.stringify({ workspace: { repo: { host: "github.com", owner: "acme" } } }),
+      NOW,
+    )!;
+    expect(owner.repo).toBeNull();
+    const name = extractCache(
+      JSON.stringify({ workspace: { repo: { host: "github.com", name: "widgets" } } }),
+      NOW,
+    )!;
+    expect(name.repo).toBeNull();
+  });
+
+  it("rejects wrong types cleanly instead of coercing them into nonsense", () => {
+    // A string where the number belongs kills the whole block: the number
+    // is the only label the link could carry, and "#NaN" is worse than
+    // silence.
+    const strNumber = extractCache(
+      JSON.stringify({ pr: { number: "412", url: "https://example.test/pull/412" } }),
+      NOW,
+    )!;
+    expect(strNumber.pr).toBeNull();
+
+    // A number where the URL belongs drops only the URL — the PR number
+    // still orients the user, it just cannot be a link.
+    const numUrl = extractCache(JSON.stringify({ pr: { number: 412, url: 9 } }), NOW)!;
+    expect(numUrl.pr).toEqual({ number: 412, url: "", reviewState: "", kind: "" });
+
+    // Same rule for the other two blocks' identity fields.
+    expect(extractCache(JSON.stringify({ worktree: { name: 7, path: "/x" } }), NOW)!.worktree)
+      .toBeNull();
+    expect(
+      extractCache(JSON.stringify({ workspace: { repo: { owner: 1, name: 2 } } }), NOW)!.repo,
+    ).toBeNull();
+  });
+
+  it("does not treat an arrayed block as an object", () => {
+    const cache = extractCache(
+      JSON.stringify({ pr: [], worktree: [], workspace: { repo: [] } }),
+      NOW,
+    )!;
+    expect(cache.pr).toBeNull();
+    expect(cache.worktree).toBeNull();
+    expect(cache.repo).toBeNull();
+  });
+});
+
+describe("reviveCache — pr / worktree / repo", () => {
+  it("back-fills nulls for a cache written before these fields existed", () => {
+    const legacy = {
+      capturedAt: 1_700_000_000_000,
+      version: "2.1.86",
+      model: { id: "claude-opus-4-6", displayName: "Opus 4.6" },
+      context: { usedPercent: 3, size: 1_000_000 },
+      cost: { totalUsd: 0.97, durationMs: 1, linesAdded: 2, linesRemoved: 3 },
+      rateLimits: { fiveHour: { usedPercent: 6, resetsAt: 0 } },
+    };
+    const cache = reviveCache(legacy)!;
+    expect(cache.pr).toBeNull();
+    expect(cache.worktree).toBeNull();
+    expect(cache.repo).toBeNull();
+    // The fields that predate this revision are untouched.
+    expect(cache.version).toBe("2.1.86");
+    expect(cache.rateLimits.fiveHour).toEqual({ usedPercent: 6, resetsAt: 0 });
+  });
+
+  it("round-trips a cache the current tap wrote", () => {
+    const fresh = extractCache(JSON.stringify(PLACE_PAYLOAD), NOW)!;
+    const revived = reviveCache(JSON.parse(JSON.stringify(fresh)))!;
+    expect(revived.pr).toEqual(fresh.pr);
+    expect(revived.worktree).toEqual(fresh.worktree);
+    expect(revived.repo).toEqual(fresh.repo);
+  });
+
+  it("drops persisted blocks whose identity field is unusable", () => {
+    const cache = reviveCache({
+      capturedAt: 1,
+      pr: { number: "412" },
+      worktree: { name: "", path: "/x" },
+      repo: { owner: "acme" },
+    })!;
+    expect(cache.pr).toBeNull();
+    expect(cache.worktree).toBeNull();
+    expect(cache.repo).toBeNull();
+  });
+});

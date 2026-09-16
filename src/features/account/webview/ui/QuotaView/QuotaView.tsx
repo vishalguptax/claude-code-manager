@@ -21,12 +21,31 @@
  */
 
 import { useState } from "preact/hooks";
-import { Button, Icon, SectionHeader } from "../../../../../webview/shared/ui";
+import {
+  Badge,
+  Button,
+  Icon,
+  SectionHeader,
+  Tag,
+  type BadgeVariant,
+} from "../../../../../webview/shared/ui";
 import { now } from "../../../../../webview/shared/model";
-import type { QuotaError, QuotaSuccess } from "../../../quota";
-import type { PromptCacheStats } from "../../../statuslineCore";
+import type { LiveSession, QuotaError, QuotaSuccess } from "../../../quota";
+import type {
+  PromptCacheStats,
+  StatuslinePullRequest,
+  StatuslineWorktree,
+} from "../../../statuslineCore";
 import type { AccountApi } from "../../api";
-import { formatMissCause, formatNumber, quotaFreshness, weeklyPace } from "../../lib";
+import {
+  formatMissCause,
+  formatNumber,
+  formatPrRef,
+  formatRepo,
+  formatReviewState,
+  quotaFreshness,
+  weeklyPace,
+} from "../../lib";
 import { describeProfileQuota } from "../../../profileQuota";
 import {
   accountData,
@@ -68,6 +87,10 @@ export function QuotaView({ api }: QuotaViewProps) {
     if (quotaStatus.value.kind !== "success") setQuotaLoading();
     api.fetchQuota();
   };
+
+  // The PR/MR link goes out through the host, never through webview
+  // navigation — the CSP forbids the latter outright.
+  const openUrl = (url: string): void => api.openUrl(url);
 
   const install = (e: Event): void => {
     e.stopPropagation();
@@ -131,7 +154,7 @@ export function QuotaView({ api }: QuotaViewProps) {
       </SectionHeader>
       {collapsed ? null : (
         <div class="section-body">
-          <QuotaBody onInstall={install} onRefresh={refresh} />
+          <QuotaBody onInstall={install} onRefresh={refresh} onOpenUrl={openUrl} />
         </div>
       )}
     </section>
@@ -141,9 +164,11 @@ export function QuotaView({ api }: QuotaViewProps) {
 function QuotaBody({
   onInstall,
   onRefresh,
+  onOpenUrl,
 }: {
   onInstall: (e: Event) => void;
   onRefresh: (e: Event) => void;
+  onOpenUrl: (url: string) => void;
 }) {
   const status = quotaStatus.value;
 
@@ -173,7 +198,7 @@ function QuotaBody({
     return <QuotaSwitched onRetry={onRefresh} />;
   }
 
-  return <QuotaSuccessBody data={status.data} />;
+  return <QuotaSuccessBody data={status.data} onOpenUrl={onOpenUrl} />;
 }
 
 /**
@@ -229,7 +254,13 @@ function NotInstalled({
   );
 }
 
-function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
+function QuotaSuccessBody({
+  data,
+  onOpenUrl,
+}: {
+  data: QuotaSuccess;
+  onOpenUrl: (url: string) => void;
+}) {
   const { fiveHour, sevenDay } = data.quota;
   if (!fiveHour && !sevenDay) {
     return (
@@ -252,6 +283,7 @@ function QuotaSuccessBody({ data }: { data: QuotaSuccess }) {
         />
       ) : null}
       <PromptCacheRow stats={data.live.promptCache} />
+      <BranchFacts live={data.live} onOpenUrl={onOpenUrl} />
     </div>
   );
 }
@@ -320,6 +352,116 @@ function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
         </span>
       </div>
       <div class="acct-quota-cache-detail">{detail.join(" · ")}</div>
+    </div>
+  );
+}
+
+/**
+ * Where this session is working: repository, worktree, and the open
+ * PR / MR on its branch. All three come straight from Claude Code's
+ * statusline payload, which resolves them against git and the forge —
+ * the PR in particular is something we could not derive ourselves
+ * without a network call, and there will never be one here.
+ *
+ * Set as a footnote under the bars, in the same register as the
+ * prompt-cache row: these are orientation facts, not figures, and must
+ * not compete with the utilization they sit beneath. The whole block
+ * disappears when the payload carries none of them, which is the common
+ * case — an ordinary session, no worktree, no open PR.
+ */
+function BranchFacts({
+  live,
+  onOpenUrl,
+}: {
+  live: LiveSession;
+  onOpenUrl: (url: string) => void;
+}) {
+  const { pr, worktree, repo } = live;
+  if (!pr && !worktree && !repo) return null;
+  return (
+    <div class="acct-quota-branch">
+      {repo ? (
+        <div class="acct-quota-branch-line">
+          <span class="acct-quota-branch-label">Repo</span>
+          <span class="acct-quota-branch-value">{formatRepo(repo)}</span>
+        </div>
+      ) : null}
+      {worktree ? <WorktreeLine worktree={worktree} /> : null}
+      {pr ? <PrLine pr={pr} onOpenUrl={onOpenUrl} /> : null}
+    </div>
+  );
+}
+
+function WorktreeLine({ worktree }: { worktree: StatuslineWorktree }) {
+  return (
+    <div class="acct-quota-branch-line">
+      <span class="acct-quota-branch-label">Worktree</span>
+      {/* The same pill Sessions uses for a worktree, so the two tabs name
+          the same thing the same way. `detail` carries the branch. */}
+      <Tag
+        variant="worktree"
+        icon="git-branch"
+        text={worktree.name}
+        detail={worktree.branch || undefined}
+        title={worktree.path || undefined}
+      />
+      {/* "Which branch was I on before?" is the question a worktree
+          session actually raises, and once Claude has moved, nothing else
+          on screen still answers it. */}
+      {worktree.originalBranch ? (
+        <span class="acct-quota-branch-note">was on {worktree.originalBranch}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Review states that earn a colour. Everything else — "pending",
+ * "draft", and any state a later Claude Code release adds — stays
+ * neutral on purpose: a state we cannot interpret must still render,
+ * but it must not imply a verdict we did not read.
+ */
+const REVIEW_STATE_VARIANTS: Record<string, BadgeVariant> = {
+  approved: "status",
+  changes_requested: "danger",
+};
+
+function PrLine({
+  pr,
+  onOpenUrl,
+}: {
+  pr: StatuslinePullRequest;
+  onOpenUrl: (url: string) => void;
+}) {
+  // "!123" vs "#123" is GitLab's own convention and the reason Claude
+  // Code sends `kind` at all — the number cannot tell the forges apart.
+  const ref = formatPrRef(pr);
+  const label = pr.kind === "mr" ? "Merge request" : "Pull request";
+  return (
+    <div class="acct-quota-branch-line">
+      <span class="acct-quota-branch-label">{label}</span>
+      {pr.url ? (
+        <Button
+          variant="ghost"
+          class="acct-quota-pr"
+          iconName="external-link"
+          title={pr.url}
+          ariaLabel={`Open ${label.toLowerCase()} ${ref}`}
+          onClick={() => onOpenUrl(pr.url)}
+        >
+          {ref}
+        </Button>
+      ) : (
+        // A PR with no URL is still worth naming — the number is how the
+        // user finds it — it just cannot be a link.
+        <span class="acct-quota-branch-value">{ref}</span>
+      )}
+      {pr.reviewState ? (
+        <Badge
+          text={formatReviewState(pr.reviewState)}
+          variant={REVIEW_STATE_VARIANTS[pr.reviewState] ?? "default"}
+        />
+      ) : null}
     </div>
   );
 }

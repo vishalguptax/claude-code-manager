@@ -33,6 +33,7 @@ function stubApi(): AccountApi {
     promptSaveProfile: vi.fn(),
     openAccountSwitcher: vi.fn(),
     saveStatsImage: vi.fn(),
+    openUrl: vi.fn(),
   };
 }
 
@@ -56,6 +57,12 @@ const SUCCESS: QuotaSuccess = {
     sessionName: "",
     capturedAt: new Date().toISOString(),
     promptCache: null,
+    // An ordinary session: no worktree, no open PR, and a checkout whose
+    // origin Claude Code did not report. All three absent is the common
+    // shape, and it must render as nothing at all.
+    pr: null,
+    worktree: null,
+    repo: null,
   },
 };
 
@@ -409,5 +416,145 @@ describe("QuotaView", () => {
       expect(screen.getByText("40 requests · 8 missed")).toBeTruthy();
       expect(screen.getByText("80% hit")).toBeTruthy();
     });
+  });
+});
+
+/**
+ * The repo / worktree / PR footnote. Fixtures mirror the statusline
+ * payload's real shapes — a GitHub PR carries no `kind`, a GitLab MR
+ * carries "mr" — because that distinction is the whole reason the field
+ * is read at all.
+ */
+describe("QuotaView — branch facts", () => {
+  beforeEach(() => _resetAccountState());
+
+  const withPlace = (over: Partial<QuotaSuccess["live"]>): QuotaSuccess => ({
+    ...SUCCESS,
+    live: { ...SUCCESS.live, ...over },
+  });
+
+  const GITHUB_PR = {
+    number: 412,
+    url: "https://github.com/acme/widgets/pull/412",
+    reviewState: "approved",
+    kind: "",
+  };
+
+  it("renders nothing at all when there is no repo, worktree or PR", () => {
+    setQuotaSuccess(SUCCESS);
+    const { container } = render(h(QuotaView, { api: stubApi() }));
+    expect(container.querySelector(".acct-quota-branch")).toBeNull();
+    expect(screen.queryByText("Pull request")).toBeNull();
+  });
+
+  it("writes a GitHub pull request with # and opens its URL through the host", () => {
+    setQuotaSuccess(withPlace({ pr: GITHUB_PR }));
+    const api = stubApi();
+    render(h(QuotaView, { api }));
+    expect(screen.getByText("Pull request")).toBeTruthy();
+    expect(screen.getByText("#412")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Open pull request #412"));
+    // Via the shared openUrl message, never webview navigation — the CSP
+    // forbids the latter.
+    expect(api.openUrl).toHaveBeenCalledWith("https://github.com/acme/widgets/pull/412");
+  });
+
+  it("writes a GitLab merge request with ! and names it as one", () => {
+    setQuotaSuccess(
+      withPlace({
+        pr: {
+          number: 88,
+          url: "https://gitlab.test/acme/widgets/-/merge_requests/88",
+          reviewState: "pending",
+          kind: "mr",
+        },
+      }),
+    );
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("!88")).toBeTruthy();
+    expect(screen.getByText("Merge request")).toBeTruthy();
+    expect(screen.queryByText("#88")).toBeNull();
+  });
+
+  it("chips the review state, colouring only the two it can interpret", () => {
+    setQuotaSuccess(withPlace({ pr: GITHUB_PR }));
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("approved").classList.contains("vsc-badge--status")).toBe(true);
+
+    _resetAccountState();
+    setQuotaSuccess(withPlace({ pr: { ...GITHUB_PR, reviewState: "changes_requested" } }));
+    const changes = render(h(QuotaView, { api: stubApi() }));
+    expect(changes.container.querySelector(".vsc-badge--danger")?.textContent).toBe(
+      "changes requested",
+    );
+  });
+
+  it("renders a review state the CLI added after we shipped, neutrally", () => {
+    // The set grows across releases. Dropping an unknown value would
+    // silently under-report the PR; colouring it would claim a verdict we
+    // never read.
+    setQuotaSuccess(withPlace({ pr: { ...GITHUB_PR, reviewState: "merge_conflict" } }));
+    const { container } = render(h(QuotaView, { api: stubApi() }));
+    const chip = screen.getByText("merge conflict");
+    expect(chip).toBeTruthy();
+    expect(container.querySelector(".vsc-badge--danger")).toBeNull();
+    expect(container.querySelector(".vsc-badge--status")).toBeNull();
+  });
+
+  it("names a PR with no URL without pretending it is a link", () => {
+    setQuotaSuccess(withPlace({ pr: { ...GITHUB_PR, url: "", reviewState: "" } }));
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("#412")).toBeTruthy();
+    expect(screen.queryByLabelText(/^Open pull request/)).toBeNull();
+  });
+
+  it("shows the worktree with its branch and the branch it came from", () => {
+    setQuotaSuccess(
+      withPlace({
+        worktree: {
+          name: "my-feature",
+          path: "/Users/dev/code/widgets-my-feature",
+          branch: "feat/my-feature",
+          originalCwd: "/Users/dev/code/widgets",
+          originalBranch: "main",
+        },
+      }),
+    );
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("Worktree")).toBeTruthy();
+    expect(screen.getByText("my-feature")).toBeTruthy();
+    expect(screen.getByText("feat/my-feature")).toBeTruthy();
+    // The question a worktree session actually raises.
+    expect(screen.getByText("was on main")).toBeTruthy();
+  });
+
+  it("omits the origin branch when Claude did not report one", () => {
+    setQuotaSuccess(
+      withPlace({
+        worktree: {
+          name: "spike",
+          path: "/tmp/spike",
+          branch: "",
+          originalCwd: "/repo",
+          originalBranch: "",
+        },
+      }),
+    );
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("spike")).toBeTruthy();
+    expect(screen.queryByText(/^was on/)).toBeNull();
+  });
+
+  it("shows owner/name for a github.com repo and adds the host for anything else", () => {
+    setQuotaSuccess(withPlace({ repo: { host: "github.com", owner: "acme", name: "widgets" } }));
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("acme/widgets")).toBeTruthy();
+
+    _resetAccountState();
+    setQuotaSuccess(
+      withPlace({ repo: { host: "gitlab.acme.dev", owner: "acme", name: "widgets" } }),
+    );
+    const selfHosted = render(h(QuotaView, { api: stubApi() }));
+    expect(selfHosted.getByText("gitlab.acme.dev/acme/widgets")).toBeTruthy();
   });
 });

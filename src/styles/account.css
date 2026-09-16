@@ -554,21 +554,28 @@
    down", so it deliberately reads as a footnote to them rather than
    competing for the same visual weight. Separated by a hairline so it
    is legible as a different kind of fact. */
-.acct-quota-cache {
+/* `.acct-quota-branch` (repo / worktree / PR) is the same kind of fact in
+   the same register, so it shares the footnote box rather than restating
+   it — one declaration, two owners. Only what genuinely differs is
+   declared separately below. */
+.acct-quota-cache,
+.acct-quota-branch {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding-top: var(--space-sm);
   border-top: 1px solid var(--border);
 }
-.acct-quota-cache-head {
+.acct-quota-cache-head,
+.acct-quota-branch-line {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
 }
 /* Footnote weight, not row weight. At --fs-sm/500/--fg this matched the
    quota labels exactly and read as a fourth window missing its bar. */
-.acct-quota-cache-label {
+.acct-quota-cache-label,
+.acct-quota-branch-label {
   font-size: var(--fs-xs);
   color: var(--fg-dim);
 }
@@ -576,7 +583,8 @@
    quota percentages occupy, because the same position with the opposite
    polarity (98% here is good, 98% there is nearly blocked) is exactly
    what made the row misread. */
-.acct-quota-cache-value {
+.acct-quota-cache-value,
+.acct-quota-branch-value {
   font-size: var(--fs-xs);
   color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
@@ -585,9 +593,25 @@
 .acct-quota-cache-head .acct-quota-info {
   margin-inline-start: auto;
 }
-.acct-quota-cache-detail {
+.acct-quota-cache-detail,
+.acct-quota-branch-note {
   font-size: var(--fs-xs);
   color: var(--fg-muted);
+}
+
+/* The PR/MR link. A ghost <Button> so the affordance, hover and focus ring
+   come from the shared control rather than from a private link rule; this
+   only sheds the control-height geometry, which would tower over an
+   --fs-xs footnote line. */
+.acct-quota-pr {
+  height: auto;
+  padding: 0 var(--space-xs);
+  font-size: var(--fs-xs);
+  color: var(--link);
+}
+.acct-quota-pr .icon {
+  width: 11px;
+  height: 11px;
 }
 
 /* Progress bar — rounded track with an absolute fill. 200ms ease-out

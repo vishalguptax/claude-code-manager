@@ -30,6 +30,7 @@ describe("useAccountApi (typed Preact bridge)", () => {
     api.openSettingsFile("project");
     api.promptAddPermission("local", "allow");
     api.saveStatsImage("QUJD");
+    api.openUrl("https://github.com/acme/widgets/pull/412");
 
     expect(post).toHaveBeenCalledWith({ type: "getAccountData" });
     expect(post).toHaveBeenCalledWith({ type: "fetchQuota" });
@@ -44,6 +45,12 @@ describe("useAccountApi (typed Preact bridge)", () => {
       list: "deny",
     });
     expect(post).toHaveBeenCalledWith({ type: "saveStatsImage", pngBase64: "QUJD" });
-    expect(post).toHaveBeenCalledTimes(16);
+    // The PR/MR link rides the shared `openUrl` message the footer and the
+    // MCP/Skills browse links already use — no account-specific variant.
+    expect(post).toHaveBeenCalledWith({
+      type: "openUrl",
+      url: "https://github.com/acme/widgets/pull/412",
+    });
+    expect(post).toHaveBeenCalledTimes(17);
   });
 });

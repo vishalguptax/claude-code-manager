@@ -93,6 +93,46 @@ describe("readQuota", () => {
     expect(result.data.live.version).toBe("2.1.86");
   });
 
+  it("threads the pr / worktree / repo blocks into the live session", () => {
+    state.cache = JSON.stringify({
+      capturedAt: 1_700_000_000_000,
+      version: "2.1.273",
+      model: null,
+      context: null,
+      cost: null,
+      rateLimits: { fiveHour: null, sevenDay: null },
+      pr: {
+        number: 412,
+        url: "https://github.com/acme/widgets/pull/412",
+        reviewState: "approved",
+        kind: "",
+      },
+      worktree: {
+        name: "my-feature",
+        path: "/Users/dev/code/widgets-my-feature",
+        branch: "feat/my-feature",
+        originalCwd: "/Users/dev/code/widgets",
+        originalBranch: "main",
+      },
+      repo: { host: "github.com", owner: "acme", name: "widgets" },
+    });
+    const result = readQuota();
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.live.pr).toEqual({
+      number: 412,
+      url: "https://github.com/acme/widgets/pull/412",
+      reviewState: "approved",
+      kind: "",
+    });
+    expect(result.data.live.worktree?.name).toBe("my-feature");
+    expect(result.data.live.worktree?.originalBranch).toBe("main");
+    expect(result.data.live.repo).toEqual({
+      host: "github.com",
+      owner: "acme",
+      name: "widgets",
+    });
+  });
+
   it("yields null windows + null live fields when the cache omits them", () => {
     state.cache = JSON.stringify({
       capturedAt: 1_700_000_000_000,
@@ -110,6 +150,11 @@ describe("readQuota", () => {
     expect(result.data.live.model).toBe("");
     expect(result.data.live.contextUsedPercent).toBeNull();
     expect(result.data.live.sessionCostUsd).toBeNull();
+    // A cache from a tap that predates these blocks reads as "no PR, no
+    // worktree, no repo" rather than crashing the whole quota read.
+    expect(result.data.live.pr).toBeNull();
+    expect(result.data.live.worktree).toBeNull();
+    expect(result.data.live.repo).toBeNull();
   });
 
   it("blanks a reset time of 0", () => {

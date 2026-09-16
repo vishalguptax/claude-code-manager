@@ -6,7 +6,11 @@
  */
 
 import type { AccountData, UsageStats } from "../../types";
-import type { PromptCacheMissCause } from "../../statuslineCore";
+import type {
+  PromptCacheMissCause,
+  StatuslinePullRequest,
+  StatuslineRepo,
+} from "../../statuslineCore";
 import { cutoffDaysForPeriod, type Period } from "./heatmap";
 
 // Note: the model-picker option builder lived here in v1 but the Account
@@ -470,4 +474,44 @@ export function formatMissCause(cause: PromptCacheMissCause | null): string {
     return `${joined} (${parts.join(" / ")} tools)`;
   }
   return joined;
+}
+
+/**
+ * The forge that needs no naming. Every other host is spelled out, so a
+ * self-hosted GitLab or a Bitbucket remote is distinguishable at a
+ * glance, while the overwhelmingly common case stays "owner/name".
+ */
+const IMPLIED_REPO_HOST = "github.com";
+
+/**
+ * Repository identity as one line: "owner/name", or "host/owner/name"
+ * when the remote is not on github.com. "" when there is no repo.
+ */
+export function formatRepo(repo: StatuslineRepo | null): string {
+  if (!repo) return "";
+  const path = `${repo.owner}/${repo.name}`;
+  return repo.host && repo.host !== IMPLIED_REPO_HOST ? `${repo.host}/${path}` : path;
+}
+
+/**
+ * The PR/MR reference as each forge writes it: "#123" for a GitHub pull
+ * request, "!123" for a GitLab merge request. The convention is GitLab's
+ * own and is stated in Claude Code's schema, which is why `kind` exists
+ * at all — the number alone cannot tell the two apart.
+ */
+export function formatPrRef(pr: StatuslinePullRequest | null): string {
+  if (!pr) return "";
+  return `${pr.kind === "mr" ? "!" : "#"}${pr.number}`;
+}
+
+/**
+ * Review status as a chip label.
+ *
+ * Claude Code names these in snake_case from a set it owns and that
+ * grows across releases, so an unrecognised value is de-underscored and
+ * shown rather than dropped: a state we have never seen is still
+ * information, and hiding it would silently under-report the PR.
+ */
+export function formatReviewState(state: string): string {
+  return state.replace(/_/g, " ");
 }
