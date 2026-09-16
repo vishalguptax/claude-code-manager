@@ -26,7 +26,10 @@ import {
   getWorktree,
   getWorktreeOptions,
   hasWorktreeSessions,
+  allGroupsCollapsed,
   collapsedGroupsSignal,
+  groupLabelsSignal,
+  setGroupsCollapsed,
   initFilterPersistence,
   pruneUnmatchedFilters,
   loadPersistedFilters,
@@ -627,6 +630,65 @@ describe("sessions signals", () => {
       toggleGroupCollapsed("Pinned");
       expect(collapsedGroupsSignal.value).not.toBe(before);
       expect(before.has("Pinned")).toBe(false);
+    });
+  });
+
+  describe("setGroupsCollapsed", () => {
+    it("collapses and expands every label it is given", () => {
+      setGroupsCollapsed(["Today", "Pinned"], true);
+      expect([...collapsedGroupsSignal.value].sort()).toEqual(["Pinned", "Today"]);
+      setGroupsCollapsed(["Today", "Pinned"], false);
+      expect(collapsedGroupsSignal.value.size).toBe(0);
+    });
+
+    it("leaves sections the filters are hiding exactly as the user left them", () => {
+      // Collapsing "everything" must mean everything on SCREEN. A label that
+      // is filtered out would otherwise come back folded once the filter
+      // cleared, having been changed while the user could not see it.
+      toggleGroupCollapsed("August 2026");
+      setGroupsCollapsed(["Today"], true);
+      expect([...collapsedGroupsSignal.value].sort()).toEqual(["August 2026", "Today"]);
+
+      setGroupsCollapsed(["Today"], false);
+      expect([...collapsedGroupsSignal.value]).toEqual(["August 2026"]);
+    });
+
+    it("replaces the Set rather than mutating it", () => {
+      const before = collapsedGroupsSignal.value;
+      setGroupsCollapsed(["Today"], true);
+      expect(collapsedGroupsSignal.value).not.toBe(before);
+    });
+
+    it("is a no-op for an empty label list", () => {
+      const before = collapsedGroupsSignal.value;
+      setGroupsCollapsed([], true);
+      expect([...collapsedGroupsSignal.value]).toEqual([...before]);
+    });
+  });
+
+  describe("allGroupsCollapsed", () => {
+    it("is false while any section on screen is still open", () => {
+      // Both filters opened: "recent" would drop the older session and the
+      // project scope would drop both, leaving nothing to prove.
+      filterDateSignal.value = "all";
+      filterProjectSignal.value = "all";
+      sessionsSignal.value = [
+        session({ id: "a", endTime: Date.now() }),
+        session({ id: "b", endTime: Date.now() - 3 * 86400000 }),
+      ];
+      expect(groupLabelsSignal.value.length).toBe(2);
+      setGroupsCollapsed([groupLabelsSignal.value[0]], true);
+      expect(allGroupsCollapsed.value).toBe(false);
+
+      setGroupsCollapsed(groupLabelsSignal.value, true);
+      expect(allGroupsCollapsed.value).toBe(true);
+    });
+
+    it("is false with no sections at all — there is nothing to unfold", () => {
+      filterProjectSignal.value = "all";
+      sessionsSignal.value = [];
+      expect(groupLabelsSignal.value).toEqual([]);
+      expect(allGroupsCollapsed.value).toBe(false);
     });
   });
 

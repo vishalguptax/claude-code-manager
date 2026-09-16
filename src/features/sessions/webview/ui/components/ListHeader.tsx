@@ -1,7 +1,8 @@
 /**
- * The strip above the session list. At rest it shows the session count and a
- * "Select" toggle; in bulk mode it becomes a toolbar with pin/unpin, export,
- * delete, and cancel actions scoped to the current selection.
+ * The strip above the session list. At rest it shows the session count, a
+ * collapse/expand-all toggle, and a "Select" toggle; in bulk mode it becomes a
+ * toolbar with pin/unpin, export, delete, and cancel actions scoped to the
+ * current selection.
  */
 import { useRef } from "preact/hooks";
 import { useEdgeAutoScroll } from "../../../../../webview/shared/hooks";
@@ -9,7 +10,10 @@ import { Button, Icon } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { sendBulkDeleteSessions, sendBulkExportSessions, sendBulkPinSessions } from "../../api";
 import {
+  allGroupsCollapsed,
   bulkModeSignal,
+  groupLabelsSignal,
+  setGroupsCollapsed,
   clearSelection,
   pinnedSignal,
   selectionSignal,
@@ -31,19 +35,38 @@ export function ListHeader({ totalCount }: ListHeaderProps) {
   const count = selection.size;
 
   if (!bulk) {
+    const labels = groupLabelsSignal.value;
+    const allCollapsed = allGroupsCollapsed.value;
     return (
       <div ref={stripRef} class="list-header" role="toolbar" aria-label="Session list header">
         <span class="list-header-label">
           {totalCount} session{totalCount !== 1 ? "s" : ""}
         </span>
-        <button
-          type="button"
-          class="list-count-toggle"
+        {/* Only offered when there is more than one section: with a single
+            section the control does exactly what that section's own header
+            already does, one row below. */}
+        {/* Icon-only, deliberately. A label that swapped "Collapse" for "Expand"
+            resized the button on every press and shoved Select sideways with
+            it. The glyph already carries the direction — its chevrons converge
+            to fold and diverge to unfold — and this is the form VS Code gives
+            the same control in its own tree toolbars. */}
+        {labels.length > 1 ? (
+          <Button
+            variant="icon-outline"
+            iconName={allCollapsed ? "chevrons-up-down" : "chevrons-down-up"}
+            title={allCollapsed ? "Expand all sections" : "Collapse all sections"}
+            ariaLabel={allCollapsed ? "Expand all sections" : "Collapse all sections"}
+            onClick={() => setGroupsCollapsed(labels, !allCollapsed)}
+          />
+        ) : null}
+        <Button
+          variant="outline"
+          iconName="check"
           title="Enter bulk-select mode"
           onClick={() => setBulkMode(true)}
         >
-          <Icon name="check" size={12} /> Select
-        </button>
+          Select
+        </Button>
       </div>
     );
   }

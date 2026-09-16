@@ -128,6 +128,24 @@ export function toggleGroupCollapsed(label: string): void {
   collapsedGroupsSignal.value = next;
 }
 
+/**
+ * Collapse or expand every section at once.
+ *
+ * Takes the labels explicitly rather than reading the rows itself: only the
+ * sections currently on screen should be touched, and a label the filters have
+ * hidden must keep whatever state the user last gave it. Collapsing everything
+ * while a filter is narrow would otherwise silently collapse sections the user
+ * cannot even see, and they would find them folded when the filter cleared.
+ */
+export function setGroupsCollapsed(labels: readonly string[], collapsed: boolean): void {
+  const next = new Set(collapsedGroupsSignal.value);
+  for (const label of labels) {
+    if (collapsed) next.add(label);
+    else next.delete(label);
+  }
+  collapsedGroupsSignal.value = next;
+}
+
 /** Session ids that currently have an open terminal in the editor/panel. */
 export const openTerminalsSignal = signal<Set<string>>(new Set());
 
@@ -424,6 +442,23 @@ export const rowsSignal = computed<Row[]>(() =>
 
 /** Reactive count of the filtered list — handy for headers. */
 export const filteredCount = computed(() => filteredSignal.value.length);
+
+/** Labels of the sections currently on screen, in display order. */
+export const groupLabelsSignal = computed<string[]>(() =>
+  rowsSignal.value.flatMap((r) => (r.kind === "header" ? [r.label] : [])),
+);
+
+/**
+ * True when every section on screen is collapsed, so one control can both
+ * fold and unfold. Vacuously false with no sections at all — there is nothing
+ * to unfold, and the control hides in that case anyway.
+ */
+export const allGroupsCollapsed = computed<boolean>(() => {
+  const labels = groupLabelsSignal.value;
+  if (labels.length === 0) return false;
+  const collapsed = collapsedGroupsSignal.value;
+  return labels.every((l) => collapsed.has(l));
+});
 
 // ── Delta application ──
 
