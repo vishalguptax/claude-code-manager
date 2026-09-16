@@ -33,7 +33,6 @@ import {
   selectedIdSignal,
   selectionSignal,
   archivedSignal,
-  isUnread,
   sessionsSignal,
   toggleGroupCollapsed,
   toggleSelected,
@@ -43,7 +42,6 @@ import {
 import { isSameRepo } from "../../lib";
 import {
   sendGetSessionDetail,
-  sendMarkSessionRead,
   sendResumeSession,
   sendViewTerminal,
 } from "../../api";
@@ -115,15 +113,6 @@ export function ListView() {
     detailLoadingSignal.value = true;
     viewSignal.value = "detail";
     sendGetSessionDetail(id);
-    // Opening a session IS reading it. The host stamps the mark and echoes
-    // a fresh userState back, so the badge clears without a local guess.
-    sendMarkSessionRead(id);
-  };
-
-  /** Unread state for the row the context menu is open on. */
-  const menuSessionUnread = (id: string): boolean => {
-    const s = sessionsSignal.value.find((x) => x.id === id);
-    return s ? isUnread(id, s.endTime) : false;
   };
 
   const resume = (id: string): void => {
@@ -226,7 +215,6 @@ export function ListView() {
                 pinned.has(menu.sessionId),
                 tempSessions.has(menu.sessionId),
                 archived.has(menu.sessionId),
-                menuSessionUnread(menu.sessionId),
               )
             : []
         }

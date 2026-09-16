@@ -79,7 +79,7 @@ So you can **switch between Claude accounts in VS Code** without a full logout a
 <table>
 <tr>
 <td width="160" align="center"><strong>Sessions</strong></td>
-<td>Active sessions pinned to the top with live status dots, unread markers for what changed since you last looked. Archive a session to get it out of the way without deleting it. <strong>View</strong> action focuses the terminal hosting a running session (any shell, including external CLIs). Resume, continue, restore-workspace, pin, rename, fork, import, export, bulk-select. Full-text transcript search. Filter by project + git branch, current scope marked + pinned. ai-title display, ephemeral "temp" sessions that wipe on close.</td>
+<td>Active sessions pinned to the top with live status dots. Archive a session to get it out of the way without deleting it. <strong>View</strong> action focuses the terminal hosting a running session (any shell, including external CLIs). Resume, continue, restore-workspace, pin, rename, fork, import, export, bulk-select. Full-text transcript search. Filter by project + git branch, current scope marked + pinned. ai-title display, ephemeral "temp" sessions that wipe on close.</td>
 </tr>
 <tr>
 <td align="center"><strong>Checkpoints</strong></td>

@@ -358,9 +358,8 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
         // the last thing the user or Claude actually said (a background
         // task finishing after the terminal closed, for one). Counting
         // those inflated `endTime` on 63 of 78 real sessions checked
-        // against this file, which is what made a session with nothing
-        // new to read still show as unread: its last "activity" was a
-        // line the user never saw and never could have.
+        // against this file, which mis-sorted the list and the "recent"
+        // filter: a session's last "activity" was a line nobody saw.
         if (entry.message && typeof entry.timestamp === "string") {
           const ts = Date.parse(entry.timestamp);
           if (!Number.isNaN(ts)) {

@@ -14,7 +14,6 @@
 import * as vscode from "vscode";
 import { getWebviewHtml } from "../../extension/html";
 import { broadcastSink, type PanelSink } from "../../extension/panelSink";
-import { ensureUnreadBaseline } from "./state";
 import { getCurrentBranch, onBranchChange } from "../../extension/git";
 import { setTerminalRegistry } from "../../extension/terminal";
 import type { AccountData } from "../account/types";
@@ -307,10 +306,6 @@ export class ClaudeSessionViewProvider
     // Everything below is shared across panels — one watcher fleet, one
     // poller, one set of listeners. A second panel reuses them.
     if (!isFirstPanel) return;
-
-    // Start unread tracking from now, once. Everything already on disk
-    // predates it and counts as read — see ensureUnreadBaseline.
-    ensureUnreadBaseline(Date.now());
 
     // Sweep leftover .bak files from an interrupted profile swap.
     void sweepSwitchBackups();

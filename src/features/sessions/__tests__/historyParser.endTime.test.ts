@@ -11,9 +11,8 @@
  * said (a background task finishing after the terminal closed, for one).
  *
  * Counting those inflated `endTime` on 63 of 78 real sessions checked
- * against a live `~/.claude` directory, which is what let a session with
- * nothing new to read still show as unread in the sidebar: its "last
- * activity" was a line the user never saw and never could have.
+ * against a live `~/.claude` directory, which mis-sorted the list and the
+ * "recent" filter: a session's "last activity" was a line nobody saw.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "fs";

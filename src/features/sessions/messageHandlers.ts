@@ -36,8 +36,6 @@ import {
   archiveSession,
   unarchiveSession,
   archiveSessions,
-  markSessionRead,
-  markSessionUnread,
 } from "./state";
 import {
   openProject,
@@ -526,21 +524,6 @@ async function handleSessionMessage(
 
     case "archiveSessions": {
       const state = archiveSessions(msg.sessionIds);
-      wv.postMessage({ type: "userState", ...state });
-      break;
-    }
-
-    case "markSessionRead": {
-      // Stamped host-side: the webview's clock is the same machine's, but
-      // the read mark is compared against transcript timestamps the host
-      // produced, so both sides of that comparison come from one clock.
-      const state = markSessionRead(msg.sessionId, Date.now());
-      wv.postMessage({ type: "userState", ...state });
-      break;
-    }
-
-    case "markSessionUnread": {
-      const state = markSessionUnread(msg.sessionId);
       wv.postMessage({ type: "userState", ...state });
       break;
     }

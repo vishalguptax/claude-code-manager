@@ -12,7 +12,6 @@ import { fmtRelativeTime } from "../../../../../webview/utils";
 import { cx } from "../../../../../webview/shared/lib";
 import { now } from "../../../../../webview/shared/model";
 import { pathTail } from "../../lib";
-import { isUnread } from "../../model";
 import type { Session, WorktreeRef } from "../../../types";
 
 /**
@@ -117,11 +116,6 @@ export function SessionItem({
   // printed the identical string twice — one row, one sentence, said twice.
   const showSubPrompt = Boolean(session.name && firstPrompt && firstPrompt !== displayName);
   const liveStatus = session.isLive ? session.status ?? "" : "";
-  // Unread = activity newer than the user's read mark, or never opened.
-  // A live session is excluded: its dot already says "something is
-  // happening here", and two indicators on one row compete.
-  const unread = !session.isLive && isUnread(session.id, session.endTime);
-
   const onClick = (e: MouseEvent): void => {
     if (bulkMode) {
       onToggleSelect(session.id, e.shiftKey === true);
@@ -156,14 +150,6 @@ export function SessionItem({
       onContextMenu={onRowContextMenu}
     >
       <div class="item-row1">
-        {unread ? (
-          <span
-            class="unread-dot"
-            role="img"
-            aria-label="Unread — new activity since you last opened this"
-            title="Unread — new activity since you last opened this"
-          />
-        ) : null}
         {session.isLive ? (
           <span
             class="live-dot"
@@ -173,7 +159,7 @@ export function SessionItem({
             aria-label={liveTitleForStatus(session.status)}
           />
         ) : null}
-        <span class={cx("item-name", { "is-unread": unread })} title={displayName}>
+        <span class="item-name" title={displayName}>
           {displayName}
         </span>
         <span class="item-time" title={absDate}>

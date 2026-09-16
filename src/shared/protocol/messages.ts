@@ -63,8 +63,6 @@ export type Message =
   | { type: "archiveSession"; sessionId: string }
   | { type: "unarchiveSession"; sessionId: string }
   | { type: "archiveSessions"; sessionIds: string[] }
-  | { type: "markSessionRead"; sessionId: string }
-  | { type: "markSessionUnread"; sessionId: string }
   | { type: "confirmDelete"; sessionId: string; callback?: string }
   | { type: "renameSession"; sessionId: string }
   | { type: "forkSession"; sessionId: string }
@@ -160,8 +158,6 @@ export type Message =
       deleted?: string[];
       renames?: Record<string, string>;
       archived?: string[];
-      readAt?: Record<string, number>;
-      unreadBaseline?: number;
     }
   | { type: "navigateList" }
   | { type: "skills"; data: unknown }
@@ -275,8 +271,6 @@ type WebviewMessageType =
   | "archiveSession"
   | "unarchiveSession"
   | "archiveSessions"
-  | "markSessionRead"
-  | "markSessionUnread"
   | "confirmDelete"
   | "renameSession"
   | "forkSession"

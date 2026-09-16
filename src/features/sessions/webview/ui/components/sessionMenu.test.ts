@@ -14,9 +14,8 @@ function fire(
   isPinned = false,
   isTemp = false,
   isArchived = false,
-  isUnread = false,
 ): unknown {
-  const item = buildSessionMenuItems("sid", isPinned, isTemp, isArchived, isUnread).find(
+  const item = buildSessionMenuItems("sid", isPinned, isTemp, isArchived).find(
     (i) => i.label === label,
   );
   if (!item) throw new Error(`no menu item: ${label}`);
@@ -27,7 +26,7 @@ function fire(
 beforeEach(() => post.mockClear());
 
 describe("buildSessionMenuItems", () => {
-  it("lists every action for a read, unpinned, unarchived session", () => {
+  it("lists every action for an unpinned, unarchived session", () => {
     const labels = buildSessionMenuItems("sid", false).map((i) => i.label);
     expect(labels).toEqual([
       "Rename session",
@@ -36,17 +35,9 @@ describe("buildSessionMenuItems", () => {
       "Copy resume command",
       "Copy session ID",
       "Export session…",
-      "Mark as unread",
       "Archive",
       "Delete session",
     ]);
-  });
-
-  it("omits Mark as unread for a session that is already unread", () => {
-    // Offering it would be a no-op the user has to try to discover.
-    const labels = buildSessionMenuItems("sid", false, false, false, true).map((i) => i.label);
-    expect(labels).not.toContain("Mark as unread");
-    expect(labels).toContain("Archive");
   });
 
   it("flips Archive to Unarchive for an archived session", () => {
@@ -64,10 +55,6 @@ describe("buildSessionMenuItems", () => {
       type: "unarchiveSession",
       sessionId: "sid",
     });
-  });
-
-  it("Mark as unread posts markSessionUnread", () => {
-    expect(fire("Mark as unread")).toEqual({ type: "markSessionUnread", sessionId: "sid" });
   });
 
   it("flips the pin row to Unpin when pinned", () => {

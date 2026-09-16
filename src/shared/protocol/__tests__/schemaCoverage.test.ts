@@ -69,8 +69,8 @@ describe("protocol schema coverage", () => {
     // undeclared keys rather than rejecting them, and messageBus
     // dispatches the parsed value — so a field present in the type and
     // absent from the schema disappears in transit with no error. That
-    // is how `archived` and `readAt` never reached the webview, leaving
-    // the archive empty and every session marked unread.
+    // is how `archived` never reached the webview, leaving the archive
+    // permanently empty.
     const typeFields = fieldsByVariant(messagesSrc, /\btype:\s*"([a-zA-Z][\w]*)"/);
     const schemaFields = schemaFieldsByVariant(schemasSrc);
 

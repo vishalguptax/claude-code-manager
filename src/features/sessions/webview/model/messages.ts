@@ -10,6 +10,7 @@
 import type { Message } from "../../../../shared/protocol/messages";
 import { maybeShowIntro } from "../../../../webview/shared/model";
 import type { Session, SessionDetail, SessionGroup, Stats, WorktreeRef } from "../../types";
+import { sendSearchFullText } from "../api";
 import { flattenGroups } from "../lib";
 import {
   type SessionsDelta,
@@ -28,8 +29,6 @@ import {
   setOpenTerminals,
   setTempSessions,
   setPinned,
-  setReadAt,
-  setUnreadBaseline,
   setWorkspacePath,
   setWorktrees,
   pruneUnmatchedFilters,
@@ -72,8 +71,6 @@ export function handleMessage(msg: Message): void {
       if (msg.pinned) setPinned(msg.pinned);
       if (msg.deleted) setDeleted(msg.deleted);
       if (msg.archived) setArchived(msg.archived);
-      if (msg.readAt) setReadAt(msg.readAt);
-      if (typeof msg.unreadBaseline === "number") setUnreadBaseline(msg.unreadBaseline);
       break;
     }
     case "navigateList": {

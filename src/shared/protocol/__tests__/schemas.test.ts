@@ -76,8 +76,6 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "archiveSession", sessionId: "s" });
     roundTrip({ type: "unarchiveSession", sessionId: "s" });
     roundTrip({ type: "archiveSessions", sessionIds: ["a", "b"] });
-    roundTrip({ type: "markSessionRead", sessionId: "s" });
-    roundTrip({ type: "markSessionUnread", sessionId: "s" });
   });
 
   it("preserves every field of a userState push", () => {
@@ -85,15 +83,13 @@ describe("parseMessage — webview to host", () => {
     // `object` strips undeclared keys instead of rejecting them, and the
     // bus dispatches the PARSED value. A field missing from the schema
     // therefore vanishes in transit with no error anywhere. `archived`
-    // and `readAt` did exactly that.
+    // did exactly that.
     roundTrip({
       type: "userState",
       pinned: ["a"],
       deleted: ["b"],
       renames: { c: "name" },
       archived: ["d"],
-      readAt: { e: 1_700_000_000_000 },
-      unreadBaseline: 1_700_000_000_000,
     });
   });
 
@@ -114,7 +110,6 @@ describe("parseMessage — webview to host", () => {
     expect(() => parseMessage({ type: "archiveSession", sessionId: 7 })).toThrow();
     expect(() => parseMessage({ type: "archiveSessions", sessionIds: "a" })).toThrow();
     expect(() => parseMessage({ type: "archiveSessions", sessionIds: [1, 2] })).toThrow();
-    expect(() => parseMessage({ type: "markSessionRead" })).toThrow();
   });
 
   it("accepts skills messages", () => {

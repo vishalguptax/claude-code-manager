@@ -274,10 +274,6 @@ export type ExtensionMessage =
       renames: Record<string, string>;
       /** Session IDs the user archived — hidden from the default list. */
       archived: string[];
-      /** Session ID -> epoch ms the user last opened it. */
-      readAt: Record<string, number>;
-      /** Epoch ms unread tracking began; 0 before it is established. */
-      unreadBaseline: number;
     }
   | { type: "navigateList" }
   | { type: "error"; message: string }
@@ -342,8 +338,6 @@ export type WebviewMessage =
   | { type: "archiveSession"; sessionId: string }
   | { type: "unarchiveSession"; sessionId: string }
   | { type: "archiveSessions"; sessionIds: string[] }
-  | { type: "markSessionRead"; sessionId: string }
-  | { type: "markSessionUnread"; sessionId: string }
   | { type: "deleteSession"; sessionId: string }
   | { type: "renameSession"; sessionId: string }
   | { type: "confirmDelete"; sessionId: string; callback?: string }

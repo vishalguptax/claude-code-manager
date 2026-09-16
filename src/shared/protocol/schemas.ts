@@ -86,14 +86,6 @@ const archiveSessions = v.object({
   type: v.literal("archiveSessions"),
   sessionIds: v.array(v.string()),
 });
-const markSessionRead = v.object({
-  type: v.literal("markSessionRead"),
-  sessionId: v.string(),
-});
-const markSessionUnread = v.object({
-  type: v.literal("markSessionUnread"),
-  sessionId: v.string(),
-});
 const confirmDelete = v.object({
   type: v.literal("confirmDelete"),
   sessionId: v.string(),
@@ -287,16 +279,14 @@ const sessions = v.object({
 // Every field the host actually sends must be declared. valibot's `object`
 // STRIPS undeclared keys rather than rejecting them, and messageBus
 // dispatches the parsed value — so a field missing here never reaches the
-// webview, silently. `archived` and `readAt` were missing, which left the
-// archive permanently empty and every session showing as unread.
+// webview, silently. `archived` was missing once, which left the archive
+// permanently empty.
 const userState = v.object({
   type: v.literal("userState"),
   pinned: v.optional(v.array(v.string())),
   deleted: v.optional(v.array(v.string())),
   renames: v.optional(v.record(v.string(), v.string())),
   archived: v.optional(v.array(v.string())),
-  readAt: v.optional(v.record(v.string(), v.number())),
-  unreadBaseline: v.optional(v.number()),
 });
 const navigateList = v.object({ type: v.literal("navigateList") });
 const skills = v.object({ type: v.literal("skills"), data: v.unknown() });
@@ -461,8 +451,6 @@ export const messageSchema = v.variant("type", [
   archiveSession,
   unarchiveSession,
   archiveSessions,
-  markSessionRead,
-  markSessionUnread,
   confirmDelete,
   renameSession,
   forkSession,
