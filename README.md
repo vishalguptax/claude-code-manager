@@ -5,7 +5,7 @@
 <h1>Claude Code Manager</h1>
 <p><em>(formerly Claude Manager)</em></p>
 
-<p><strong>Every <a href="https://claude.ai/code">Claude Code</a> session, skill, slash command, hook, MCP server, and agent, one click away in your VS Code sidebar. Works with both the Claude Code CLI and the official VS Code extension.</strong></p>
+<p><strong>Every <a href="https://claude.ai/code">Claude Code</a> session, file checkpoint, prompt, skill, slash command, hook, MCP server, agent, and plugin, one click away in your VS Code sidebar. Works with both the Claude Code CLI and the official VS Code extension.</strong></p>
 
 <p><a href="https://claudecodemanager.vishalg.in"><strong>claudecodemanager.vishalg.in</strong></a></p>
 
@@ -28,7 +28,7 @@
 </div>
 
 <p align="center">
-<sub>Local-first &bull; Zero telemetry &bull; Zero accounts &bull; Works in VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod</sub>
+<sub>Local-first &bull; Zero telemetry &bull; Zero accounts &bull; Docks to either sidebar &bull; Works in VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod</sub>
 </p>
 
 <br>
@@ -56,7 +56,7 @@ Three ways, pick whichever is closest:
 | **Status bar** | Click the **Claude Code Manager** chip at the bottom of the editor |
 | **Command palette** | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> &rarr; *Claude Code Manager: Open* |
 
-That's it.
+That's it. On VS Code 1.106+, the panel is also available from the **secondary sidebar** — drag its icon there if you'd rather it sit beside the official Claude Code chat panel than on the primary activity bar.
 
 <br>
 
@@ -65,6 +65,8 @@ That's it.
 Claude Code is powerful, but the terminal isn't built for browsing. Finding a session you ran last week means scrollback hunting. Editing an MCP server means hand-patching JSON. Keeping track of every custom slash command, hook, and agent is its own job.
 
 Claude Code Manager turns all of it into a sidebar you can click and search. Same Claude Code underneath, just one keystroke closer. It works whether you run the Claude Code **CLI**, the official **VS Code extension**, or both. Sessions from either show up in the same list, and Resume sends you back to wherever the session started (configurable).
+
+Claude Code also keeps things most people never see: a versioned backup of every file it edits, every prompt you've ever typed, the auto-memory it writes to itself. Claude Code Manager reads all of it too — diff and restore a file Claude changed, search your entire prompt history, browse what it remembers about a project — the same way it already does for sessions and MCP servers.
 
 It also folds the jobs you'd otherwise wire up with separate single-purpose tools into one install: a usage tracker (like ccusage), an account switcher (like claude-swap), and an MCP manager all live in the same sidebar.
 
@@ -77,7 +79,15 @@ So you can **switch between Claude accounts in VS Code** without a full logout a
 <table>
 <tr>
 <td width="160" align="center"><strong>Sessions</strong></td>
-<td>Active sessions pinned to the top with live status dots. <strong>View</strong> action focuses the terminal hosting a running session (any shell, including external CLIs). Resume, continue, restore-workspace, pin, rename, fork, import, export, bulk-select. Full-text transcript search. Filter by project + git branch, current scope marked + pinned. ai-title display, ephemeral "temp" sessions that wipe on close.</td>
+<td>Active sessions pinned to the top with live status dots, unread markers for what changed since you last looked. Archive a session to get it out of the way without deleting it. <strong>View</strong> action focuses the terminal hosting a running session (any shell, including external CLIs). Resume, continue, restore-workspace, pin, rename, fork, import, export, bulk-select. Full-text transcript search. Filter by project + git branch, current scope marked + pinned. ai-title display, ephemeral "temp" sessions that wipe on close.</td>
+</tr>
+<tr>
+<td align="center"><strong>Checkpoints</strong></td>
+<td>Every file Claude edits is versioned to disk whether you knew it or not. Diff any version against what's on disk now, or restore one — a closed file restores byte-exact, an open one goes through your own undo stack.</td>
+</tr>
+<tr>
+<td align="center"><strong>Prompts</strong></td>
+<td>Full-text search across every prompt you've ever typed to Claude Code, across every project. Retried prompts collapse into one row with a count instead of repeating.</td>
 </tr>
 <tr>
 <td align="center"><strong>Skills</strong></td>
@@ -96,8 +106,16 @@ So you can **switch between Claude accounts in VS Code** without a full logout a
 <td>Enable, disable, delete, or inspect MCP servers, no JSON editing. API keys and secrets masked automatically. <strong>Auth-health banner</strong> surfaces connectors that need re-auth.</td>
 </tr>
 <tr>
+<td align="center"><strong>Plugins</strong></td>
+<td>What's installed, what's enabled, and what disagrees — a plugin enabled from a marketplace your policy doesn't allow, or an entry in settings with nothing installed behind it. Enable or disable per scope.</td>
+</tr>
+<tr>
 <td align="center"><strong>Agents</strong></td>
 <td>Browse project and plugin agents with Sonnet / Opus / Haiku badges and description previews.</td>
+</tr>
+<tr>
+<td align="center"><strong>Memory</strong></td>
+<td>Browse, search, and prune Claude Code's auto-memory per project, with broken-link and orphan detection you can't get from just listing the directory.</td>
 </tr>
 <tr>
 <td align="center"><strong>Account</strong></td>
@@ -105,7 +123,7 @@ So you can **switch between Claude accounts in VS Code** without a full logout a
 </tr>
 <tr>
 <td align="center"><strong>Config</strong></td>
-<td>Model selector, tool-use confirmation mode, reasoning effort, commit/PR attribution, session retention. Per-scope permissions editor (allow/deny). Settings-history snapshots with one-click restore. Brain backup &amp; restore.</td>
+<td>Model selector, tool-use confirmation mode, reasoning effort, commit/PR attribution, session retention. Per-scope permissions editor (allow/deny). Settings-history snapshots with one-click restore. Brain backup &amp; restore. <strong>Sidebar tabs</strong> section to show, hide, and reorder every tab above by drag or checkbox.</td>
 </tr>
 <tr>
 <td align="center"><strong>Status bar</strong></td>
@@ -181,6 +199,9 @@ Open Settings (<kbd>Ctrl</kbd>+<kbd>,</kbd>) and search **Claude Code Manager**.
 | `sessions.resumeIn` | `auto` | Where Resume / New / Continue opens Claude: `auto` (match the session's origin), `terminal`, `extension` (Claude Code chat tab), or `ask` (prompt each time) |
 | `marketplaceSkillsUrl` | unset | Override URL for the in-panel Skills marketplace link |
 | `marketplaceMcpUrl` | unset | Override URL for the in-panel MCP marketplace link |
+| `density` | `comfortable` | Row spacing in every list: `comfortable` (hairline between rows) or `quiet` (whitespace only, like VS Code's own file tree) |
+| `hiddenTabs` | `[]` | Tab ids to hide from the sidebar — editable as a list here, or with checkboxes from the Config tab's **Sidebar tabs** section |
+| `tabOrder` | `[]` | Custom left-to-right order for the tabs you list; anything left out keeps its default place after them |
 
 Full reference in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
@@ -223,7 +244,7 @@ Requires VS Code 1.90+ and [Claude Code](https://claude.ai/code) installed. (On 
 
 Bug reports and PRs are welcome. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local setup, build, and architecture. Browse [open issues](https://github.com/vishalguptax/claude-code-manager/issues), [open a new one](https://github.com/vishalguptax/claude-code-manager/issues/new), or check the [changelog](CHANGELOG.md).
 
-**Architecture (v2):** the webview is built with [Preact](https://preactjs.com/) + [@preact/signals](https://preactjs.com/guide/v10/signals/), feature-sliced under `src/features/*/webview/`, bundled by esbuild as a tiny shell that lazy-loads one code-split chunk per feature tab. Every message between the extension host and the webview flows through a single shared protocol validated at runtime with [valibot](https://valibot.dev/), so malformed frames are rejected rather than acted on. The webview runs under a strict CSP (`default-src 'none'`, nonce-only scripts) and makes no network calls. Lint + format is [Biome](https://biomejs.dev/); 1,400+ unit tests gate every change. Upgrading from v1? See the [v1→v2 migration guide](docs/migration/v1-to-v2.md). There's nothing you need to do.
+**Architecture (v2):** the webview is built with [Preact](https://preactjs.com/) + [@preact/signals](https://preactjs.com/guide/v10/signals/), feature-sliced under `src/features/*/webview/`, bundled by esbuild as a tiny shell that lazy-loads one code-split chunk per feature tab. Every message between the extension host and the webview flows through a single shared protocol validated at runtime with [valibot](https://valibot.dev/), so malformed frames are rejected rather than acted on. The webview runs under a strict CSP (`default-src 'none'`, nonce-only scripts) and makes no network calls. Lint + format is [Biome](https://biomejs.dev/); 3,600+ unit tests gate every change. Upgrading from v1? See the [v1→v2 migration guide](docs/migration/v1-to-v2.md). There's nothing you need to do.
 
 <br>
 

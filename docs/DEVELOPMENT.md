@@ -29,17 +29,26 @@ npm install
 
 ```
 src/
-  core/           → Shared config, types, utilities
+  core/           → Shared config, types, utilities — no vscode import
   extension/      → VS Code extension host (activation, terminal, git, html)
+  shared/protocol/→ Host↔webview message types + runtime (valibot) validation
   features/
-    sessions/     → Session browsing, parsing, commands, webview
+    sessions/     → Session browsing, parsing, resume/fork/import/export
+    checkpoints/  → Diff & restore versioned file backups Claude Code keeps
+    prompts/      → Full-text search across every prompt you've typed
     skills/       → Skills browsing and management
     commands/     → Slash commands browsing
     hooks/        → Hooks viewer
     mcp/          → MCP server management
     agents/       → Agents browser
+    plugins/      → Installed/enabled plugin & marketplace policy view
+    memory/       → Auto-memory browser, broken-link & orphan detection
+    account/      → Profile switching, usage stats, quota
+    config/       → Settings, permissions, snapshots, sidebar-tab prefs
+    brain/        → Export/import your whole ~/.claude setup as a zip
+    diagnostics/  → Self-test / doctor command
   styles/         → CSS files (one per feature + base + components)
-  webview/        → Webview entry point, icons, shared utilities
+  webview/        → App shell, tab registry, shared component library
 media/            → Icons and images
 dist/             → Build output (gitignored)
 ```
@@ -138,8 +147,14 @@ The extension exposes these user-configurable settings (search "Claude Manager" 
 | Default Date Filter | `claudeManager.sessions.defaultFilter` | `recent` | `recent`, `week`, `month`, `all` |
 | Default Project Filter | `claudeManager.sessions.defaultProject` | `current` | `current`, `all` |
 | Restore Count | `claudeManager.sessions.restoreCount` | `4` | 1–12 |
+| Restore Window (minutes) | `claudeManager.sessions.restoreWindowMinutes` | `30` | number |
 | Resume Destination | `claudeManager.sessions.resumeIn` | `auto` | `auto`, `terminal`, `extension`, `ask` |
 | Terminal Linking | `claudeManager.sessions.terminalLinking` | `false` | `true`, `false` |
+| Marketplace Skills URL | `claudeManager.marketplaceSkillsUrl` | Anthropic's Skills wiki | any URL |
+| Marketplace MCP URL | `claudeManager.marketplaceMcpUrl` | `https://mcp.so` | any URL |
+| Density | `claudeManager.density` | `comfortable` | `comfortable`, `quiet` |
+| Hidden Tabs | `claudeManager.hiddenTabs` | `[]` | array of tab ids — also editable with checkboxes from the Config tab's Sidebar tabs section |
+| Tab Order | `claudeManager.tabOrder` | `[]` | array of tab ids, left-to-right — also editable by drag from the same section |
 
 ---
 
@@ -147,26 +162,46 @@ The extension exposes these user-configurable settings (search "Claude Manager" 
 
 **The extension is local-first.** By default it does not make any network calls. There is exactly **one** opt-in exception:
 
-## Opt-in quota fetch
+## Opt-in quota card — no network call, not even to Anthropic
 
-When the user clicks **Check quota** / **Refresh** on the Account tab's Quota card, the extension-host code (`src/features/account/quota.ts`) issues a single HTTPS request:
+An earlier version of this extension called `api.anthropic.com` directly
+with the user's OAuth token to fetch quota. That violated Anthropic's
+Consumer Terms — the subscription credential is restricted to the
+official Claude Code client — and risked the user's account. It is gone.
+`src/features/account/quota.ts` makes no network call and never reads
+`~/.claude/.credentials.json` at all; its own header comment carries the
+full reasoning.
 
-```
-GET https://api.anthropic.com/api/oauth/usage
-Authorization: Bearer <accessToken from ~/.claude/.credentials.json>
-anthropic-beta: oauth-2025-04-20
-```
+The current mechanism (opt-in from the Account tab's Quota card) lets
+Claude Code — the authorized client — do the fetch itself, the same way
+it always does to render its own terminal statusline:
 
-The response contains subscription utilization percentages and reset timestamps only — no message content, no account-wide identifiers beyond what's already in the user's local credentials file. The `accessToken` never crosses the extension/webview boundary.
+1. `src/features/account/statuslineInstall.ts` writes a small tap script
+   as `statusLine.command` in Claude Code's own `settings.json`, at
+   whichever scope the user is in (global/project/local), preserving any
+   command already there so it still runs and still renders.
+2. Claude Code invokes that command on every statusline render, same as
+   it would invoke the user's own command, and pipes it the same JSON
+   payload it always pipes a statusline command — which includes the
+   5-hour/7-day utilization it already computed for its own UI.
+3. The tap caches that payload to `~/.claude/.claude-manager/statusline.json`
+   and re-emits the original command's own output unchanged, so nothing
+   about the user's actual statusline changes.
+4. `quota.ts` only ever reads that cache file from disk.
 
-Nothing else in the codebase makes outbound HTTP requests. If you add one, register it here and update the README's FAQ / Privacy section in the same commit.
+Turning the toggle off removes the tap and restores the prior
+`statusLine.command` exactly.
+
+Nothing in the codebase makes outbound HTTP requests. If you add one,
+register it here and update the README's FAQ / Privacy section in the
+same commit.
 
 ## Data sources read from disk
 
 | Path | Used for |
 | :-- | :-- |
 | `~/.claude.json` | Profile, startup count, account identity |
-| `~/.claude/.credentials.json` | OAuth token (quota fetch only; token is never exposed to the webview) |
+| `~/.claude/.credentials.json` | OAuth token &mdash; read only for saving/restoring account profiles; never sent anywhere, never exposed to the webview |
 | `~/.claude/settings.json` | Model, voice, attribution, status-line settings |
 | `~/.claude/stats-cache.json` | Per-day activity, model-usage totals, streaks |
 | `~/.claude/projects/<slug>/*.jsonl` | Session transcripts — parsed for list, detail, full-text search, and live-delta discovery of extension-originated sessions |
@@ -174,6 +209,10 @@ Nothing else in the codebase makes outbound HTTP requests. If you add one, regis
 | `~/.claude/manager-accounts/<slug>/` | Saved account profiles &mdash; snapshots of `.claude.json` + `.credentials.json` + a `profile.json` label. Written ONLY when the user clicks "Save profile"; deleted immediately on "Remove". |
 | Project `.claude/` | Workspace-scoped skills, commands, hooks, MCP servers, agents |
 | Project `.mcp.json` | Workspace-scoped MCP server definitions |
+| `~/.claude/file-history/<sessionId>/` | Versioned file backups Claude Code keeps &mdash; the Checkpoints tab's diff/restore |
+| `~/.claude/history.jsonl` | Every prompt ever typed, across every project &mdash; the Prompts tab's search index |
+| `~/.claude/projects/<slug>/memory/` | Per-project auto-memory Claude Code writes to itself &mdash; the Memory tab |
+| `~/.claude/plugins/` | Installed plugin manifests and marketplace policy &mdash; the Plugins tab |
 
 ---
 
