@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.12.0] - 2026-09-16
+
+Choose which sidebar tabs show and in what order, right from the Config tab — plus a fix that gets terminal tab animations working the way they do when you type `claude` yourself.
+
+See [docs/releases/v2.12.0.md](docs/releases/v2.12.0.md) for full details.
+
 ## [2.11.0] - 2026-09-16
 
 Four new tabs — Checkpoints, Prompts, Memory and Plugins — surfacing data Claude Code already keeps on disk but nothing could read, plus unread marks and an archive for sessions, and a panel that now opens from either side bar.
