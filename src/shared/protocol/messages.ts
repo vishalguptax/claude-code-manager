@@ -43,6 +43,23 @@ export type Message =
   | { type: "getSessionDetail"; sessionId: string; mode?: DetailMode; query?: string }
   | { type: "pinSession"; sessionId: string }
   | { type: "unpinSession"; sessionId: string }
+  | { type: "getPromptHistory" }
+  | { type: "copyPrompt"; text: string }
+  | { type: "openPromptSession"; sessionId: string }
+  | { type: "getPlugins" }
+  | { type: "openPluginDirectory"; id: string }
+  | { type: "openPluginSettings"; scope: "global" | "project" | "local" | "managed" }
+  | { type: "copyPluginId"; id: string }
+  | {
+      type: "setPluginEnabled";
+      id: string;
+      enabled: boolean;
+      scope: "global" | "project" | "local" | "managed";
+    }
+  | { type: "getMemories" }
+  | { type: "openMemory"; project: string; fileName: string }
+  | { type: "revealMemory"; project: string; fileName: string }
+  | { type: "deleteMemory"; project: string; fileName: string }
   | { type: "archiveSession"; sessionId: string }
   | { type: "unarchiveSession"; sessionId: string }
   | { type: "archiveSessions"; sessionIds: string[] }
@@ -155,6 +172,9 @@ export type Message =
   // whatever parsed successfully.
   | { type: "hooks"; data: unknown; errors?: string[] }
   | { type: "mcpServers"; data: unknown; errors?: string[] }
+  | { type: "promptHistory"; data: unknown }
+  | { type: "memoryStore"; data: unknown }
+  | { type: "pluginsData"; data: unknown }
   | { type: "agents"; data: unknown; errors?: string[] }
   | { type: "quotaData"; result: unknown }
   | { type: "terminalSessions"; ids: string[] }
@@ -233,6 +253,18 @@ type WebviewMessageType =
   | "getSessionDetail"
   | "pinSession"
   | "unpinSession"
+  | "getPromptHistory"
+  | "copyPrompt"
+  | "openPromptSession"
+  | "getPlugins"
+  | "openPluginDirectory"
+  | "openPluginSettings"
+  | "copyPluginId"
+  | "setPluginEnabled"
+  | "getMemories"
+  | "openMemory"
+  | "revealMemory"
+  | "deleteMemory"
   | "archiveSession"
   | "unarchiveSession"
   | "archiveSessions"

@@ -32,6 +32,51 @@ const getSessionDetail = v.object({
 });
 const pinSession = v.object({ type: v.literal("pinSession"), sessionId: v.string() });
 const unpinSession = v.object({ type: v.literal("unpinSession"), sessionId: v.string() });
+const getPromptHistory = v.object({ type: v.literal("getPromptHistory") });
+const copyPrompt = v.object({ type: v.literal("copyPrompt"), text: v.string() });
+const openPromptSession = v.object({
+  type: v.literal("openPromptSession"),
+  sessionId: v.string(),
+});
+// project + fileName, never a path: the host re-derives the location, so a
+// compromised webview cannot address a file outside the memory store.
+// Plugins carries its own scope picklist: unlike every other settings
+// surface it must address the admin-managed file too, and widening the
+// shared `scope` would let "managed" through on messages that cannot
+// write there.
+const pluginScope = v.picklist(["global", "project", "local", "managed"]);
+const getPlugins = v.object({ type: v.literal("getPlugins") });
+const openPluginDirectory = v.object({
+  type: v.literal("openPluginDirectory"),
+  id: v.string(),
+});
+const openPluginSettings = v.object({
+  type: v.literal("openPluginSettings"),
+  scope: pluginScope,
+});
+const copyPluginId = v.object({ type: v.literal("copyPluginId"), id: v.string() });
+const setPluginEnabled = v.object({
+  type: v.literal("setPluginEnabled"),
+  id: v.string(),
+  enabled: v.boolean(),
+  scope: pluginScope,
+});
+const getMemories = v.object({ type: v.literal("getMemories") });
+const openMemory = v.object({
+  type: v.literal("openMemory"),
+  project: v.string(),
+  fileName: v.string(),
+});
+const revealMemory = v.object({
+  type: v.literal("revealMemory"),
+  project: v.string(),
+  fileName: v.string(),
+});
+const deleteMemory = v.object({
+  type: v.literal("deleteMemory"),
+  project: v.string(),
+  fileName: v.string(),
+});
 const archiveSession = v.object({ type: v.literal("archiveSession"), sessionId: v.string() });
 const unarchiveSession = v.object({
   type: v.literal("unarchiveSession"),
@@ -366,6 +411,18 @@ export const messageSchema = v.variant("type", [
   getSessionDetail,
   pinSession,
   unpinSession,
+  getPromptHistory,
+  copyPrompt,
+  openPromptSession,
+  getPlugins,
+  openPluginDirectory,
+  openPluginSettings,
+  copyPluginId,
+  setPluginEnabled,
+  getMemories,
+  openMemory,
+  revealMemory,
+  deleteMemory,
   archiveSession,
   unarchiveSession,
   archiveSessions,

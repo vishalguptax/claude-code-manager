@@ -63,6 +63,10 @@ import {
 } from "../../extension/claudeCodeExtension";
 import { createTerminal } from "../../extension/terminal";
 import { getTempSessionIds, promoteTempSession } from "../../extension/ephemeralSession";
+import { handlePromptsMessage, type PromptsHostContext } from "../prompts";
+import { handleMemoryMessage, type MemoryHostContext } from "../memory";
+import { handlePluginsMessage, type PluginsHostContext } from "../plugins";
+import { writeSettingsValue } from "../account/parser";
 import { handleFeatureMessage } from "./featureHandlers";
 import { handleAccountMessage } from "./accountHandlers";
 import { handleSettingsMessage } from "./settingsHandlers";
@@ -134,6 +138,9 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
     if (await dispatchCommandsMessage(msg, makeCommandsHost(ctx))) return;
     if (await handleMcpMessage(msg, makeMcpHost(ctx))) return;
     if (await handleCheckpointsMessage(msg, makeCheckpointsHost(ctx))) return;
+    if (await handlePromptsMessage(msg, makePromptsHost(ctx))) return;
+    if (await handleMemoryMessage(msg, makeMemoryHost(ctx))) return;
+    if (await handlePluginsMessage(msg, makePluginsHost(ctx))) return;
     if (await handleAgentMessage(msg, makeAgentHost(ctx))) return;
     if (await handleFeatureMessage(msg, ctx)) return;
     if (await handleAccountMessage(msg, ctx)) return;
@@ -238,6 +245,43 @@ function makeMcpHost(ctx: HostContext): McpHostContext {
  * transcript that holds the path↔blob mapping. Both are read from the cached
  * session list / file index, so neither costs a disk walk.
  */
+/**
+ * Prompt History needs exactly two things from the host: the webview to
+ * reply on, and the ability to open the session a prompt came from. The
+ * resume path stays owned by this feature — prompts depends on the
+ * capability, not on the sessions module.
+ */
+function makePromptsHost(ctx: HostContext): PromptsHostContext {
+  return {
+    getWebview: () => ctx.getWebview(),
+    resumeSession: (sessionId) => resumeSession(sessionId, false, ctx.getSessions()),
+  };
+}
+
+/** Memory reads and writes only its own files; the webview is its whole
+ *  host surface. */
+function makeMemoryHost(ctx: HostContext): MemoryHostContext {
+  return { getWebview: () => ctx.getWebview() };
+}
+
+/**
+ * Plugins toggles `enabledPlugins` in settings.json, so it takes the
+ * settings writer as an injected capability rather than importing the
+ * account feature. The writer already refuses an unparseable file,
+ * snapshots before writing, and renames atomically; passing it here is
+ * what turns the tab from read-only into one that can flip a plugin.
+ */
+function makePluginsHost(ctx: HostContext): PluginsHostContext {
+  return {
+    getWebview: () => ctx.getWebview(),
+    getWorkspace: () => getWorkspace(),
+    // The writer's scope type is `ClaudeSettingsScope`, which excludes
+    // "managed" — the admin policy file is never ours to write, and the
+    // feature's own `writableScope()` already resolves it to null.
+    writeSettingsValue,
+  };
+}
+
 function makeCheckpointsHost(ctx: HostContext): CheckpointsHostContext {
   return {
     getWebview: () => ctx.getWebview(),

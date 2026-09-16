@@ -44,6 +44,9 @@ export const tabSkeletons: Readonly<Record<string, TabSkeleton>> = {
   checkpoints: DefaultListSkeleton,
   mcp: DefaultListSkeleton,
   agents: DefaultListSkeleton,
+  prompts: DefaultListSkeleton,
+  memory: DefaultListSkeleton,
+  plugins: DefaultListSkeleton,
   account: AccountSkeleton,
   config: ConfigSkeleton,
 };

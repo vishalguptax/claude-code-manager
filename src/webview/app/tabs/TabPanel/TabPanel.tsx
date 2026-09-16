@@ -41,6 +41,9 @@ const featureLoaders = {
   checkpoints: () => import("../../../../features/checkpoints/webview/index"),
   mcp: () => import("../../../../features/mcp/webview/index"),
   agents: () => import("../../../../features/agents/webview/index"),
+  prompts: () => import("../../../../features/prompts/webview/index"),
+  memory: () => import("../../../../features/memory/webview/index"),
+  plugins: () => import("../../../../features/plugins/webview/index"),
   account: () => import("../../../../features/account/webview/index"),
   config: () => import("../../../../features/config/webview/index"),
 } as const;
