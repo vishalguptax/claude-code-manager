@@ -4,7 +4,7 @@
  * Stateless: all interaction is delegated to the props callbacks so the
  * component stays trivially testable.
  */
-import { Badge, Button } from "../../../../../webview/shared/ui";
+import { Badge, Button, Tag } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import type { Skill } from "../../../types";
 
@@ -74,9 +74,7 @@ export function SkillItem(props: SkillItemProps) {
       {skill.tags.length ? (
         <div class="item-row2">
           {skill.tags.map((t) => (
-            <span key={t} class="tag">
-              {t}
-            </span>
+            <Tag key={t} text={t} title={t} />
           ))}
         </div>
       ) : null}

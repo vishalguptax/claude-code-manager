@@ -3,7 +3,7 @@
  * (frontmatter stripped). Rendered when a skill is selected; the back
  * button clears the selection to return to the list.
  */
-import { BackButton, Badge, Button } from "../../../../../webview/shared/ui";
+import { BackButton, Badge, Button, Tag } from "../../../../../webview/shared/ui";
 import { useApi, useCopyFeedback } from "../../../../../webview/shared/hooks";
 import type { Skill } from "../../../types";
 import { deleteSkill, launchSkillInChat, newSession, openSkillFile } from "../../api";
@@ -43,9 +43,7 @@ export function DetailView({ skill }: DetailViewProps) {
         <div class="d-tags">
           <Badge text={skill.scope} scope={skill.scope} class="skill-scope-badge" />
           {skill.tags.map((t) => (
-            <span key={t} class="tag">
-              {t}
-            </span>
+            <Tag key={t} text={t} title={t} />
           ))}
         </div>
       </div>

@@ -38,6 +38,18 @@ describe("Button", () => {
     expect(container.querySelector('[data-icon="copy"]')).toBeTruthy();
   });
 
+  it("gives the outlined icon variant the same square geometry", () => {
+    // It is `icon` with its reserved border coloured in, so it must keep the
+    // sizing and hover class — otherwise the two variants sit a pixel apart
+    // in the same toolbar row.
+    const { container } = render(
+      <Button variant="icon-outline" iconName="filter" ariaLabel="Filter" />,
+    );
+    const btn = container.querySelector("button");
+    expect(btn?.classList.contains("btn-icon")).toBe(true);
+    expect(btn?.classList.contains("btn-icon-outline")).toBe(true);
+  });
+
   it("renders a leading icon when iconName is given", () => {
     const { container } = render(<Button iconName="plus">Add</Button>);
     expect(container.querySelector('[data-icon="plus"]')).toBeTruthy();

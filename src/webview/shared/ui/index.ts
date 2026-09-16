@@ -54,6 +54,7 @@ export {
   type StatTileGridProps,
   type StatTileProps,
 } from "./StatTile";
+export { Tag, type TagProps, type TagTone, type TagVariant } from "./Tag";
 export { TextArea, type TextAreaProps } from "./TextArea";
 export { TextField, type TextFieldProps, type TextFieldType } from "./TextField";
 export { VirtualList, type VirtualListProps } from "./VirtualList";

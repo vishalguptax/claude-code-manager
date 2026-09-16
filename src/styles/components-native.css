@@ -620,6 +620,47 @@
   background: var(--role-ghost-active-bg);
   color: var(--role-text-primary);
 }
+/* Outlined TEXT button — an edge, no fill. Ghost is for icon-only affordances
+   and for tertiary actions inside a strip that already carries a fill; this is
+   for a labelled action that has to hold its own on a plain surface. Compact
+   metrics, because every current use sits in a dense toolbar row. */
+.btn-outline {
+  height: auto;
+  padding: 2px var(--space-md);
+  gap: var(--space-xs);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+}
+.btn-outline:hover:not(:disabled) {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+/* The outlined icon button — same square, same hover, edge made visible. The
+   base already reserves `border: 1px solid transparent`, so this colours that
+   reserved border rather than adding one: no variant shifts by a pixel
+   relative to the other, and the two can sit in one toolbar row. */
+.btn-icon-outline {
+  border-color: var(--border);
+}
+/* In a dense strip beside compact outline buttons, the full control height is
+   taller than its neighbours. Match their box so a toolbar row reads level. */
+.list-header .btn-icon-outline {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 2px var(--space-sm);
+  border-radius: var(--radius-sm);
+}
+.btn-icon-outline:hover {
+  border-color: var(--role-text-secondary);
+}
+
 /* Higher specificity (.btn.btn-icon) so the inset offset wins over the generic
    `.btn:focus-visible` rule below regardless of source order — an icon button's
    square is tight, so the ring sits INSIDE the box rather than 1px outside. */

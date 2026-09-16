@@ -23,7 +23,27 @@ import type { ComponentChildren } from "preact";
 import { cx } from "../../lib";
 import { Icon } from "../Icon";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "icon" | "danger";
+/**
+ * `outline` is a text button drawn as an edge with no fill — for toolbar
+ * actions that must stay legible on a strip without competing with the filled
+ * primary beside them. It replaced `.list-count-toggle`, a bespoke rule that
+ * was reimplementing exactly this and could drift from it.
+ *
+ * `icon-outline` is `icon` with its border made visible. Icon buttons are
+ * chromeless by default because VS Code's own toolbars are, which is right for
+ * a glyph floating in a row — but a glyph sitting in a toolbar beside a filled
+ * primary button and a bordered search field reads as unfinished rather than
+ * restrained. The outline puts it in the same family as the controls it lines
+ * up with, without promoting it to a secondary button's weight.
+ */
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "outline"
+  | "icon"
+  | "icon-outline"
+  | "danger";
 
 export interface ButtonProps {
   variant?: ButtonVariant;
@@ -64,7 +84,9 @@ export function Button(props: ButtonProps) {
       class={cx(
         "btn",
         `btn-${variant}`,
-        variant === "icon" && "btn-icon",
+        // Both icon variants take the square geometry and hover; the outline
+        // one only adds a visible edge on top of it.
+        (variant === "icon" || variant === "icon-outline") && "btn-icon",
         loading && "is-loading",
         props.class,
       )}
