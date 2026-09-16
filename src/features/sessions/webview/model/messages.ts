@@ -22,11 +22,13 @@ import {
   restoreCountSignal,
   selectedIdSignal,
   sessionsSignal,
+  setArchived,
   setDeleted,
   setFullTextHits,
   setOpenTerminals,
   setTempSessions,
   setPinned,
+  setReadAt,
   setWorkspacePath,
   setWorktrees,
   pruneUnmatchedFilters,
@@ -68,6 +70,8 @@ export function handleMessage(msg: Message): void {
     case "userState": {
       if (msg.pinned) setPinned(msg.pinned);
       if (msg.deleted) setDeleted(msg.deleted);
+      if (msg.archived) setArchived(msg.archived);
+      if (msg.readAt) setReadAt(msg.readAt);
       break;
     }
     case "navigateList": {

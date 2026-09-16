@@ -35,6 +35,8 @@ function scope(over: Partial<FilterScope> = {}): FilterScope {
     worktrees: {},
     repoRoot: null,
     now: NOW,
+    archived: new Set<string>(),
+    showArchived: false,
     ...over,
   };
 }
@@ -123,5 +125,37 @@ describe("matchesScope", () => {
 
   it("never admits a deleted session", () => {
     expect(matchesScope(recent, scope({ deleted: new Set(["recent"]) }))).toBe(false);
+  });
+
+  describe("archive", () => {
+    it("hides an archived session from the default list", () => {
+      expect(matchesScope(recent, scope({ archived: new Set(["recent"]) }))).toBe(false);
+    });
+
+    it("shows ONLY archived sessions once the toggle is on", () => {
+      // The toggle swaps the list rather than widening it — an archived
+      // row appearing next to live ones would make "Archived" read as
+      // "show more", and the user could not tell the two apart.
+      const sc = scope({ archived: new Set(["recent"]), showArchived: true });
+      expect(matchesScope(recent, sc)).toBe(true);
+      expect(matchesScope(old, sc)).toBe(false);
+    });
+
+    it("still excludes a deleted session while viewing the archive", () => {
+      const sc = scope({
+        archived: new Set(["recent"]),
+        deleted: new Set(["recent"]),
+        showArchived: true,
+      });
+      expect(matchesScope(recent, sc)).toBe(false);
+    });
+
+    it("keeps applying the other filters inside the archive", () => {
+      // `old` is archived and on branch "dev": viewing the archive must
+      // not smuggle it past an unrelated branch filter.
+      const sc = scope({ archived: new Set(["old"]), showArchived: true });
+      expect(matchesScope(old, { ...sc, branch: "main" })).toBe(false);
+      expect(matchesScope(old, { ...sc, branch: "dev" })).toBe(true);
+    });
   });
 });

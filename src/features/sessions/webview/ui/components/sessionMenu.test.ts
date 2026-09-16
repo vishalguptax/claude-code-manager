@@ -9,8 +9,16 @@ vi.mock("../../../../../webview/shared/hooks", () => ({
 }));
 
 /** Fire the menu item with the given label and return the message it posted. */
-function fire(label: string, isPinned = false): unknown {
-  const item = buildSessionMenuItems("sid", isPinned).find((i) => i.label === label);
+function fire(
+  label: string,
+  isPinned = false,
+  isTemp = false,
+  isArchived = false,
+  isUnread = false,
+): unknown {
+  const item = buildSessionMenuItems("sid", isPinned, isTemp, isArchived, isUnread).find(
+    (i) => i.label === label,
+  );
   if (!item) throw new Error(`no menu item: ${label}`);
   item.onSelect();
   return post.mock.calls.at(-1)?.[0];
@@ -19,7 +27,7 @@ function fire(label: string, isPinned = false): unknown {
 beforeEach(() => post.mockClear());
 
 describe("buildSessionMenuItems", () => {
-  it("lists all eight v1 actions when unpinned", () => {
+  it("lists every action for a read, unpinned, unarchived session", () => {
     const labels = buildSessionMenuItems("sid", false).map((i) => i.label);
     expect(labels).toEqual([
       "Rename session",
@@ -28,8 +36,38 @@ describe("buildSessionMenuItems", () => {
       "Copy resume command",
       "Copy session ID",
       "Export session…",
+      "Mark as unread",
+      "Archive",
       "Delete session",
     ]);
+  });
+
+  it("omits Mark as unread for a session that is already unread", () => {
+    // Offering it would be a no-op the user has to try to discover.
+    const labels = buildSessionMenuItems("sid", false, false, false, true).map((i) => i.label);
+    expect(labels).not.toContain("Mark as unread");
+    expect(labels).toContain("Archive");
+  });
+
+  it("flips Archive to Unarchive for an archived session", () => {
+    const labels = buildSessionMenuItems("sid", false, false, true).map((i) => i.label);
+    expect(labels).toContain("Unarchive");
+    expect(labels).not.toContain("Archive");
+  });
+
+  it("Archive posts archiveSession", () => {
+    expect(fire("Archive")).toEqual({ type: "archiveSession", sessionId: "sid" });
+  });
+
+  it("Unarchive posts unarchiveSession", () => {
+    expect(fire("Unarchive", false, false, true)).toEqual({
+      type: "unarchiveSession",
+      sessionId: "sid",
+    });
+  });
+
+  it("Mark as unread posts markSessionUnread", () => {
+    expect(fire("Mark as unread")).toEqual({ type: "markSessionUnread", sessionId: "sid" });
   });
 
   it("flips the pin row to Unpin when pinned", () => {

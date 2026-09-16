@@ -43,6 +43,7 @@ import {
   defaultProjectSignal,
   filterBranchSignal,
   filterDateSignal,
+  showArchivedSignal,
   filterProjectSignal,
   filterWorktreeSignal,
   fullTextLoadingSignal,
@@ -341,6 +342,26 @@ export function Filters() {
                 filterDateSignal.value = next;
               }}
             />
+          </div>
+          {/* The archive is otherwise unreachable: archived rows leave the
+              list entirely, so without a way back in they read as deleted.
+              A toggle, not a filter chip, because it SWAPS the list rather
+              than narrowing it. */}
+          <div class="filter-row">
+            <Button
+              variant={showArchivedSignal.value ? "outline" : "ghost"}
+              iconName={showArchivedSignal.value ? "archive-restore" : "archive"}
+              title={
+                showArchivedSignal.value
+                  ? "Back to active sessions"
+                  : "Show archived sessions"
+              }
+              onClick={() => {
+                showArchivedSignal.value = !showArchivedSignal.value;
+              }}
+            >
+              {showArchivedSignal.value ? "Viewing archive" : "Archived"}
+            </Button>
           </div>
         </div>
       ) : null}

@@ -58,6 +58,16 @@ export const statsSignal = signal<Stats>(EMPTY_STATS);
 export const pinnedSignal = signal<Set<string>>(new Set());
 /** Deleted (hidden) session IDs from persisted user state. */
 export const deletedSignal = signal<Set<string>>(new Set());
+/** Session IDs the user archived, from the host's userState message. */
+export const archivedSignal = signal<Set<string>>(new Set());
+/**
+ * Session ID -> epoch ms the user last opened it. A session missing from
+ * this map has never been opened, which is exactly the state that should
+ * read as unread.
+ */
+export const readAtSignal = signal<Record<string, number>>({});
+/** When on, the list shows the archive instead of the live sessions. */
+export const showArchivedSignal = signal(false);
 /** Currently open detail, or null when on the list. */
 export const detailSignal = signal<SessionDetail | null>(null);
 /** True while a detail request is in flight (shows the loading shell). */
@@ -209,6 +219,28 @@ export function setDeleted(ids: string[]): void {
   deletedSignal.value = new Set(ids);
 }
 
+/** Replace archived ids from a host userState message. */
+export function setArchived(ids: string[]): void {
+  archivedSignal.value = new Set(ids);
+}
+
+/** Replace read marks from a host userState message. */
+export function setReadAt(marks: Record<string, number>): void {
+  readAtSignal.value = marks;
+}
+
+/**
+ * True when a session has activity the user has not seen.
+ *
+ * Reads the signal directly rather than taking state as an argument so
+ * the row badge and any future unread count cannot disagree about it.
+ */
+export function isUnread(sessionId: string, endTime: number): boolean {
+  const mark = readAtSignal.value[sessionId];
+  if (mark === undefined) return true;
+  return endTime > mark;
+}
+
 /**
  * Apply a fresh full-text result set only if it still matches the live
  * query. Replies for a superseded query are dropped so a slow host scan
@@ -318,6 +350,8 @@ export function currentScope(): FilterScope {
   return {
     deleted: deletedSignal.value,
     pinned: pinnedSignal.value,
+    archived: archivedSignal.value,
+    showArchived: showArchivedSignal.value,
     project: filterProjectSignal.value,
     currentProject: currentProjectSignal.value,
     date: filterDateSignal.value,
@@ -653,6 +687,9 @@ export function _resetSessionsSignals(): void {
   statsSignal.value = EMPTY_STATS;
   pinnedSignal.value = new Set();
   deletedSignal.value = new Set();
+  archivedSignal.value = new Set();
+  readAtSignal.value = {};
+  showArchivedSignal.value = false;
   detailSignal.value = null;
   detailLoadingSignal.value = false;
   viewSignal.value = "list";

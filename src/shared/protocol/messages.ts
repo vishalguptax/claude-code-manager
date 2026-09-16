@@ -43,6 +43,11 @@ export type Message =
   | { type: "getSessionDetail"; sessionId: string; mode?: DetailMode; query?: string }
   | { type: "pinSession"; sessionId: string }
   | { type: "unpinSession"; sessionId: string }
+  | { type: "archiveSession"; sessionId: string }
+  | { type: "unarchiveSession"; sessionId: string }
+  | { type: "archiveSessions"; sessionIds: string[] }
+  | { type: "markSessionRead"; sessionId: string }
+  | { type: "markSessionUnread"; sessionId: string }
   | { type: "confirmDelete"; sessionId: string; callback?: string }
   | { type: "renameSession"; sessionId: string }
   | { type: "forkSession"; sessionId: string }
@@ -126,7 +131,14 @@ export type Message =
   | { type: "workspaceBranch"; data: string }
   | { type: "settings"; [extra: string]: unknown }
   | { type: "sessions"; data: unknown; stats?: unknown }
-  | { type: "userState"; pinned?: string[]; deleted?: string[]; renames?: Record<string, string> }
+  | {
+      type: "userState";
+      pinned?: string[];
+      deleted?: string[];
+      renames?: Record<string, string>;
+      archived?: string[];
+      readAt?: Record<string, number>;
+    }
   | { type: "navigateList" }
   | { type: "skills"; data: unknown }
   | { type: "skillDetail"; data: unknown }
@@ -221,6 +233,11 @@ type WebviewMessageType =
   | "getSessionDetail"
   | "pinSession"
   | "unpinSession"
+  | "archiveSession"
+  | "unarchiveSession"
+  | "archiveSessions"
+  | "markSessionRead"
+  | "markSessionUnread"
   | "confirmDelete"
   | "renameSession"
   | "forkSession"

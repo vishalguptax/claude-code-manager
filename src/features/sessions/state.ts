@@ -1,6 +1,6 @@
 /**
- * Session state persistence — pin/delete operations on disk.
- * Pure Node.js file I/O, no VS Code dependency.
+ * Session state persistence — pin / delete / archive / read-mark
+ * operations on disk. Pure Node.js file I/O, no VS Code dependency.
  */
 import * as fs from "fs";
 import { STATE_FILE } from "../../core/config";
@@ -23,10 +23,23 @@ export function loadState(): UserState {
           if (typeof v === "string") renames[k] = v;
         }
       }
+      const rawReadAt = obj.readAt;
+      const readAt: Record<string, number> = {};
+      if (typeof rawReadAt === "object" && rawReadAt !== null) {
+        for (const [k, v] of Object.entries(rawReadAt)) {
+          // A non-finite mark would make every comparison against it
+          // false, silently pinning the session to "read" forever.
+          if (typeof v === "number" && Number.isFinite(v)) readAt[k] = v;
+        }
+      }
       return {
         pinned: Array.isArray(obj.pinned) ? (obj.pinned as string[]) : [],
         deleted: Array.isArray(obj.deleted) ? (obj.deleted as string[]) : [],
         renames,
+        // Absent in state files written before archiving existed, which
+        // is every file on disk today — default rather than discard.
+        archived: Array.isArray(obj.archived) ? (obj.archived as string[]) : [],
+        readAt,
       };
     }
   } catch (err: unknown) {
@@ -35,7 +48,7 @@ export function loadState(): UserState {
       console.warn(`[claude-manager] Failed to load state from ${STATE_FILE}:`, err.message);
     }
   }
-  return { pinned: [], deleted: [], renames: {} };
+  return { pinned: [], deleted: [], renames: {}, archived: [], readAt: {} };
 }
 
 /**
@@ -139,4 +152,88 @@ export function renameSession(sessionId: string, name: string): UserState {
   }
   saveState(state);
   return state;
+}
+
+/**
+ * Archive a session — hide it from the default list without discarding
+ * it. No-op when already archived. A pinned session is unpinned on the
+ * way in: pinning means "keep this at the top", archiving means "get
+ * this out of my way", and holding both would render a session pinned
+ * to the top of a list it is excluded from.
+ */
+export function archiveSession(sessionId: string): UserState {
+  const state = loadState();
+  if (!state.archived.includes(sessionId)) {
+    state.archived.push(sessionId);
+    state.pinned = state.pinned.filter((id) => id !== sessionId);
+    saveState(state);
+  }
+  return state;
+}
+
+/** Restore an archived session to the default list. No-op when not archived. */
+export function unarchiveSession(sessionId: string): UserState {
+  const state = loadState();
+  if (state.archived.includes(sessionId)) {
+    state.archived = state.archived.filter((id) => id !== sessionId);
+    saveState(state);
+  }
+  return state;
+}
+
+/** Archive several sessions in one write. */
+export function archiveSessions(sessionIds: string[]): UserState {
+  const state = loadState();
+  const adding = sessionIds.filter((id) => !state.archived.includes(id));
+  if (adding.length === 0) return state;
+  state.archived.push(...adding);
+  state.pinned = state.pinned.filter((id) => !adding.includes(id));
+  saveState(state);
+  return state;
+}
+
+/**
+ * Mark a session read as of `at` (epoch ms, injected so callers can
+ * stamp a consistent time and tests need no clock).
+ *
+ * The mark only ever moves forward. Reopening an old session must not
+ * rewind it behind activity the user has already seen.
+ */
+export function markSessionRead(sessionId: string, at: number): UserState {
+  const state = loadState();
+  if (!Number.isFinite(at)) return state;
+  const prev = state.readAt[sessionId];
+  if (prev !== undefined && prev >= at) return state;
+  state.readAt[sessionId] = at;
+  saveState(state);
+  return state;
+}
+
+/**
+ * Mark a session unread by dropping its read mark entirely.
+ *
+ * Dropping the entry rather than zeroing it keeps "never opened" and
+ * "deliberately marked unread" as the same state, which is what the
+ * user means by both.
+ */
+export function markSessionUnread(sessionId: string): UserState {
+  const state = loadState();
+  if (!(sessionId in state.readAt)) return state;
+  delete state.readAt[sessionId];
+  saveState(state);
+  return state;
+}
+
+/**
+ * True when `lastActivityMs` is newer than the session's read mark.
+ * Pure, so the list and the badge count cannot disagree.
+ */
+export function isSessionUnread(
+  state: UserState,
+  sessionId: string,
+  lastActivityMs: number,
+): boolean {
+  const mark = state.readAt[sessionId];
+  if (mark === undefined) return true;
+  return lastActivityMs > mark;
 }

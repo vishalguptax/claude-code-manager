@@ -186,6 +186,24 @@
   gap: var(--space-lg);
 }
 
+/* Unread marker. Deliberately quieter than .live-dot: "new since you
+   looked" is a lower-urgency fact than "running right now". The two
+   never share a row (SessionItem suppresses unread while live) but must
+   still read as different classes of thing — hence no pulse, and the
+   badge colour rather than green. */
+.unread-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vscode-activityBarBadge-background, var(--accent));
+}
+/* The name carries the weight too: a 7px dot is easy to miss in a long
+   list, and colour alone would not survive a high-contrast theme. */
+.item-name.is-unread {
+  font-weight: 600;
+}
+
 .live-dot {
   flex-shrink: 0;
   width: 8px;

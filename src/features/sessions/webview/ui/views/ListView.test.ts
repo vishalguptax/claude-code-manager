@@ -171,8 +171,15 @@ describe("ListView", () => {
     });
     const menu = container.querySelector(".ctx-menu");
     expect(menu).toBeTruthy();
-    // All eight v1 actions are present (7 rows incl. pin variant).
-    expect(menu?.querySelectorAll(".ctx-item").length).toBe(7);
+    // 7 original rows (incl. the pin variant) plus Archive. "Mark as
+    // unread" is absent because this session has no read mark yet, so it
+    // already reads as unread.
+    const labels = Array.from(menu?.querySelectorAll(".ctx-item") ?? []).map(
+      (el) => el.textContent?.trim() ?? "",
+    );
+    expect(labels).toHaveLength(8);
+    expect(labels).toContain("Archive");
+    expect(labels).not.toContain("Mark as unread");
   });
 
   it("Ctrl+A selects every session while in bulk mode", () => {

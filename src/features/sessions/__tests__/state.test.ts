@@ -28,9 +28,21 @@ import {
   pinSessions,
   unpinSessions,
   deleteSessions,
+  archiveSession,
+  unarchiveSession,
+  archiveSessions,
+  markSessionRead,
+  markSessionUnread,
+  isSessionUnread,
 } from "../state";
 
-const empty = () => ({ pinned: [] as string[], deleted: [] as string[], renames: {} as Record<string, string> });
+const empty = () => ({
+  pinned: [] as string[],
+  deleted: [] as string[],
+  renames: {} as Record<string, string>,
+  archived: [] as string[],
+  readAt: {} as Record<string, number>,
+});
 
 describe("loadState", () => {
   beforeEach(() => {
@@ -233,5 +245,134 @@ describe("bulk pin/unpin/delete", () => {
     saveState({ pinned: [], deleted: ["a"], renames: {} });
     const state = deleteSessions(["a", "b"]);
     expect(state.deleted.sort()).toEqual(["a", "b"]);
+  });
+});
+
+
+describe("archive", () => {
+  beforeEach(() => {
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  });
+
+  it("archives a session and persists it", () => {
+    archiveSession("s-1");
+    expect(loadState().archived).toEqual(["s-1"]);
+  });
+
+  it("is a no-op when the session is already archived", () => {
+    archiveSession("s-1");
+    archiveSession("s-1");
+    expect(loadState().archived).toEqual(["s-1"]);
+  });
+
+  it("unpins on archive, because pinned-to-the-top of a list it is excluded from is incoherent", () => {
+    pinSession("s-1");
+    archiveSession("s-1");
+    const state = loadState();
+    expect(state.archived).toEqual(["s-1"]);
+    expect(state.pinned).toEqual([]);
+  });
+
+  it("restores an archived session", () => {
+    archiveSession("s-1");
+    unarchiveSession("s-1");
+    expect(loadState().archived).toEqual([]);
+  });
+
+  it("is a no-op when unarchiving something never archived", () => {
+    unarchiveSession("nope");
+    expect(loadState().archived).toEqual([]);
+  });
+
+  it("archives many in one write, skipping duplicates", () => {
+    archiveSession("s-1");
+    archiveSessions(["s-1", "s-2", "s-3"]);
+    expect(loadState().archived).toEqual(["s-1", "s-2", "s-3"]);
+  });
+
+  it("bulk archive unpins every session it archives", () => {
+    pinSessions(["s-1", "s-2"]);
+    archiveSessions(["s-1", "s-2"]);
+    const state = loadState();
+    expect(state.pinned).toEqual([]);
+    expect(state.archived).toEqual(["s-1", "s-2"]);
+  });
+
+  it("reads an archived list written by a previous run", () => {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ archived: ["old"] }));
+    expect(loadState().archived).toEqual(["old"]);
+  });
+
+  it("defaults archived to empty for state files predating the field", () => {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ pinned: ["a"], deleted: [] }));
+    const state = loadState();
+    expect(state.archived).toEqual([]);
+    expect(state.pinned).toEqual(["a"]);
+  });
+});
+
+describe("read marks", () => {
+  beforeEach(() => {
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  });
+
+  it("records a read mark", () => {
+    markSessionRead("s-1", 1000);
+    expect(loadState().readAt["s-1"]).toBe(1000);
+  });
+
+  it("moves the mark forward", () => {
+    markSessionRead("s-1", 1000);
+    markSessionRead("s-1", 2000);
+    expect(loadState().readAt["s-1"]).toBe(2000);
+  });
+
+  it("never rewinds the mark behind activity already seen", () => {
+    markSessionRead("s-1", 2000);
+    markSessionRead("s-1", 1000);
+    expect(loadState().readAt["s-1"]).toBe(2000);
+  });
+
+  it("ignores a non-finite timestamp rather than poisoning the mark", () => {
+    markSessionRead("s-1", Number.NaN);
+    expect(loadState().readAt["s-1"]).toBeUndefined();
+  });
+
+  it("marking unread drops the entry entirely", () => {
+    markSessionRead("s-1", 1000);
+    markSessionUnread("s-1");
+    expect("s-1" in loadState().readAt).toBe(false);
+  });
+
+  it("marking unread is a no-op when there is no mark", () => {
+    markSessionUnread("s-1");
+    expect(loadState().readAt).toEqual({});
+  });
+
+  it("drops non-numeric marks from a corrupt state file", () => {
+    // A non-finite mark would compare false against every activity time,
+    // silently pinning the session to "read" forever.
+    fs.writeFileSync(
+      STATE_FILE,
+      JSON.stringify({ readAt: { good: 5, bad: "nope", worse: null } }),
+    );
+    expect(loadState().readAt).toEqual({ good: 5 });
+  });
+
+  it("treats a never-opened session as unread", () => {
+    expect(isSessionUnread(empty(), "s-1", 1000)).toBe(true);
+  });
+
+  it("is unread when activity is newer than the mark", () => {
+    const state = { ...empty(), readAt: { "s-1": 1000 } };
+    expect(isSessionUnread(state, "s-1", 2000)).toBe(true);
+  });
+
+  it("is read when activity is older than or equal to the mark", () => {
+    const state = { ...empty(), readAt: { "s-1": 2000 } };
+    expect(isSessionUnread(state, "s-1", 1000)).toBe(false);
+    expect(isSessionUnread(state, "s-1", 2000)).toBe(false);
   });
 });

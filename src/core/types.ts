@@ -10,4 +10,22 @@ export interface UserState {
   deleted: string[];
   /** Map of session ID -> user-assigned name (takes precedence over CLI rename) */
   renames: Record<string, string>;
+  /**
+   * Session IDs the user has archived by hand.
+   *
+   * Distinct from `deleted`: archiving hides a session from the default
+   * list but keeps it findable and restorable, where deleting is the
+   * user saying they never want to see it again. Claude Code itself
+   * draws the same line — it archives idle sessions rather than
+   * removing them.
+   */
+  archived: string[];
+  /**
+   * Map of session ID -> epoch ms when the user last opened it.
+   *
+   * A session reads as unread when its newest activity is later than
+   * this mark, so the absence of an entry means "never opened", which
+   * is exactly the state that should render as unread.
+   */
+  readAt: Record<string, number>;
 }

@@ -73,6 +73,21 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "searchFullText", query: "needle" });
     roundTrip({ type: "promoteTempSession", sessionId: "s" });
     roundTrip({ type: "createWorktree", sessionId: "s" });
+    roundTrip({ type: "archiveSession", sessionId: "s" });
+    roundTrip({ type: "unarchiveSession", sessionId: "s" });
+    roundTrip({ type: "archiveSessions", sessionIds: ["a", "b"] });
+    roundTrip({ type: "markSessionRead", sessionId: "s" });
+    roundTrip({ type: "markSessionUnread", sessionId: "s" });
+  });
+
+  it("rejects archive messages carrying the wrong payload shape", () => {
+    // The dispatch gate is the only thing between a malformed message and
+    // a state write, so the negative case matters as much as the positive.
+    expect(() => parseMessage({ type: "archiveSession" })).toThrow();
+    expect(() => parseMessage({ type: "archiveSession", sessionId: 7 })).toThrow();
+    expect(() => parseMessage({ type: "archiveSessions", sessionIds: "a" })).toThrow();
+    expect(() => parseMessage({ type: "archiveSessions", sessionIds: [1, 2] })).toThrow();
+    expect(() => parseMessage({ type: "markSessionRead" })).toThrow();
   });
 
   it("accepts skills messages", () => {

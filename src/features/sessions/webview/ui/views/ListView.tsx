@@ -32,6 +32,8 @@ import {
   selectAll,
   selectedIdSignal,
   selectionSignal,
+  archivedSignal,
+  isUnread,
   sessionsSignal,
   toggleGroupCollapsed,
   toggleSelected,
@@ -39,7 +41,12 @@ import {
   worktreesSignal,
 } from "../../model";
 import { isSameRepo } from "../../lib";
-import { sendGetSessionDetail, sendResumeSession, sendViewTerminal } from "../../api";
+import {
+  sendGetSessionDetail,
+  sendMarkSessionRead,
+  sendResumeSession,
+  sendViewTerminal,
+} from "../../api";
 import { ActionsBar } from "../components/ActionsBar";
 import { Filters } from "../components/Filters";
 import { GroupHeader } from "../components/GroupHeader";
@@ -70,6 +77,7 @@ export function ListView() {
   const query = searchQuerySignal.value;
   const openTerminals = openTerminalsSignal.value;
   const tempSessions = tempSessionsSignal.value;
+  const archived = archivedSignal.value;
   const currentProject = currentProjectSignal.value;
   const worktrees = worktreesSignal.value;
   const repoRoot = currentRepoRootSignal.value;
@@ -107,6 +115,15 @@ export function ListView() {
     detailLoadingSignal.value = true;
     viewSignal.value = "detail";
     sendGetSessionDetail(id);
+    // Opening a session IS reading it. The host stamps the mark and echoes
+    // a fresh userState back, so the badge clears without a local guess.
+    sendMarkSessionRead(id);
+  };
+
+  /** Unread state for the row the context menu is open on. */
+  const menuSessionUnread = (id: string): boolean => {
+    const s = sessionsSignal.value.find((x) => x.id === id);
+    return s ? isUnread(id, s.endTime) : false;
   };
 
   const resume = (id: string): void => {
@@ -208,6 +225,8 @@ export function ListView() {
                 menu.sessionId,
                 pinned.has(menu.sessionId),
                 tempSessions.has(menu.sessionId),
+                archived.has(menu.sessionId),
+                menuSessionUnread(menu.sessionId),
               )
             : []
         }

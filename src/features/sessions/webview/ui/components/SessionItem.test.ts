@@ -4,6 +4,7 @@ import { h } from "preact";
 import { fireEvent, render } from "@testing-library/preact";
 import type { Session, WorktreeRef } from "../../../types";
 import { SessionItem, liveTitleForStatus } from "./SessionItem";
+import { readAtSignal } from "../../model";
 
 function ref(over: Partial<WorktreeRef> = {}): WorktreeRef {
   return {
@@ -317,6 +318,43 @@ describe("SessionItem", () => {
       const badge = container.querySelector(".tag-wt");
       expect(badge?.classList.contains("tag-wt--locked")).toBe(true);
       expect(badge?.getAttribute("title")).toContain("in active use");
+    });
+  });
+
+  describe("unread marker", () => {
+    it("marks a session with no read mark as unread", () => {
+      readAtSignal.value = {};
+      const { container } = renderItem(session({ id: "a", endTime: 1000 }));
+      expect(container.querySelector(".unread-dot")).toBeTruthy();
+      expect(container.querySelector(".item-name")?.classList.contains("is-unread")).toBe(
+        true,
+      );
+    });
+
+    it("clears once the read mark is newer than the activity", () => {
+      readAtSignal.value = { a: 2000 };
+      const { container } = renderItem(session({ id: "a", endTime: 1000 }));
+      expect(container.querySelector(".unread-dot")).toBeNull();
+      expect(container.querySelector(".item-name")?.classList.contains("is-unread")).toBe(
+        false,
+      );
+    });
+
+    it("returns to unread when new activity lands after the mark", () => {
+      readAtSignal.value = { a: 1000 };
+      const { container } = renderItem(session({ id: "a", endTime: 3000 }));
+      expect(container.querySelector(".unread-dot")).toBeTruthy();
+    });
+
+    it("never shows the unread dot on a live session", () => {
+      // The live dot already says "something is happening here"; two
+      // indicators on one row compete for the same glance.
+      readAtSignal.value = {};
+      const { container } = renderItem(
+        session({ id: "a", endTime: 1000, isLive: true, status: "busy" }),
+      );
+      expect(container.querySelector(".unread-dot")).toBeNull();
+      expect(container.querySelector(".live-dot")).toBeTruthy();
     });
   });
 });

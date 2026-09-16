@@ -32,6 +32,23 @@ const getSessionDetail = v.object({
 });
 const pinSession = v.object({ type: v.literal("pinSession"), sessionId: v.string() });
 const unpinSession = v.object({ type: v.literal("unpinSession"), sessionId: v.string() });
+const archiveSession = v.object({ type: v.literal("archiveSession"), sessionId: v.string() });
+const unarchiveSession = v.object({
+  type: v.literal("unarchiveSession"),
+  sessionId: v.string(),
+});
+const archiveSessions = v.object({
+  type: v.literal("archiveSessions"),
+  sessionIds: v.array(v.string()),
+});
+const markSessionRead = v.object({
+  type: v.literal("markSessionRead"),
+  sessionId: v.string(),
+});
+const markSessionUnread = v.object({
+  type: v.literal("markSessionUnread"),
+  sessionId: v.string(),
+});
 const confirmDelete = v.object({
   type: v.literal("confirmDelete"),
   sessionId: v.string(),
@@ -349,6 +366,11 @@ export const messageSchema = v.variant("type", [
   getSessionDetail,
   pinSession,
   unpinSession,
+  archiveSession,
+  unarchiveSession,
+  archiveSessions,
+  markSessionRead,
+  markSessionUnread,
   confirmDelete,
   renameSession,
   forkSession,

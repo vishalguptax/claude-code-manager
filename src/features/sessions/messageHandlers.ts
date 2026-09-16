@@ -33,6 +33,11 @@ import {
   pinSessions as bulkPinState,
   unpinSessions as bulkUnpinState,
   deleteSessions as bulkDeleteState,
+  archiveSession,
+  unarchiveSession,
+  archiveSessions,
+  markSessionRead,
+  markSessionUnread,
 } from "./state";
 import {
   openProject,
@@ -463,6 +468,39 @@ async function handleSessionMessage(
       break;
     }
 
+    case "archiveSession": {
+      const state = archiveSession(msg.sessionId);
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "unarchiveSession": {
+      const state = unarchiveSession(msg.sessionId);
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "archiveSessions": {
+      const state = archiveSessions(msg.sessionIds);
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "markSessionRead": {
+      // Stamped host-side: the webview's clock is the same machine's, but
+      // the read mark is compared against transcript timestamps the host
+      // produced, so both sides of that comparison come from one clock.
+      const state = markSessionRead(msg.sessionId, Date.now());
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "markSessionUnread": {
+      const state = markSessionUnread(msg.sessionId);
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
     case "deleteSession": {
       const state = deleteSession(msg.sessionId);
       wv.postMessage({ type: "userState", ...state });
@@ -472,12 +510,10 @@ async function handleSessionMessage(
     case "confirmDelete": {
       const result = await confirmDeleteSession(msg.sessionId, msg.callback);
       if (result) {
-        wv.postMessage({
-          type: "userState",
-          pinned: result.pinned,
-          deleted: result.deleted,
-          renames: loadState().renames,
-        });
+        // Post the whole freshly-loaded state rather than rebuilding it
+        // from `result`: every other userState producer spreads loadState(),
+        // and a hand-built subset silently drops any field added later.
+        wv.postMessage({ type: "userState", ...loadState() });
         if (result.navigateToList) {
           wv.postMessage({ type: "navigateList" });
         }
