@@ -13,6 +13,7 @@ import type { Session, SessionDetail, SessionGroup, Stats, WorktreeRef } from ".
 import { sendSearchFullText } from "../api";
 import { flattenGroups } from "../lib";
 import {
+  FULLTEXT_MIN_CHARS,
   type SessionsDelta,
   applyDefaultFilters,
   applyDelta,
@@ -20,6 +21,9 @@ import {
   detailLoadingSignal,
   detailSignal,
   loadedSignal,
+  markFullTextLoading,
+  markSearchIndexReady,
+  searchQuerySignal,
   restoreCountSignal,
   selectedIdSignal,
   sessionsSignal,
@@ -88,6 +92,18 @@ export function handleMessage(msg: Message): void {
     case "fullTextResults":
       setFullTextHits(msg.query, msg.ids);
       break;
+    case "searchIndexReady": {
+      markSearchIndexReady();
+      // Re-issue the live query. The earlier scan ran against a partly-built
+      // index, and its result is cached under this exact query string — so
+      // retyping the same word would not refresh it. Nothing else re-sends.
+      const query = searchQuerySignal.value;
+      if (query.length >= FULLTEXT_MIN_CHARS) {
+        markFullTextLoading();
+        sendSearchFullText(query);
+      }
+      break;
+    }
     case "tempSessions":
       setTempSessions(msg.ids);
       break;

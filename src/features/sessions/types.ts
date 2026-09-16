@@ -284,6 +284,13 @@ export type ExtensionMessage =
    */
   | { type: "fullTextResults"; query: string; ids: string[] }
   /**
+   * The background transcript index finished building. Sent on every build
+   * completion, because a search issued while the index was still filling
+   * scanned a partial corpus and its (possibly empty) reply is cached against
+   * a query the user has no reason to retype.
+   */
+  | { type: "searchIndexReady" }
+  /**
    * Git-worktree metadata for the current session list, keyed by session id.
    * Resolved host-side (one `git worktree list` per repo) and posted after the
    * `sessions` message so the list renders instantly and worktree badges +

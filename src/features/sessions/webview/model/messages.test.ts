@@ -1,5 +1,14 @@
 // @vitest-environment happy-dom
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// The index-ready handler re-sends a search through the api layer, so the
+// postMessage bridge must be observable here.
+const post = vi.fn();
+vi.mock("../../../../webview/shared/hooks", () => ({
+  useApi: () => ({ post: (m: unknown) => post(m) }),
+  setVscodeApi: vi.fn(),
+}));
+
 import type { Message } from "../../../../shared/protocol/messages";
 import type { Session, SessionDetail, SessionGroup } from "../../types";
 import { handleDelta, handleMessage } from "./messages";
@@ -8,8 +17,11 @@ import {
   deletedSignal,
   detailLoadingSignal,
   detailSignal,
+  fullTextLoadingSignal,
   loadedSignal,
   pinnedSignal,
+  searchIndexReadySignal,
+  searchPendingSignal,
   searchQuerySignal,
   selectedIdSignal,
   sessionsSignal,
@@ -164,5 +176,51 @@ describe("sessions message handling", () => {
     handleMessage({ type: "settings", demoSeen: true } as unknown as Message);
     expect(introVisible.value).toBe(false);
     _resetIntro();
+  });
+});
+
+describe("searchIndexReady", () => {
+  beforeEach(() => {
+    _resetSessionsSignals();
+    post.mockClear();
+  });
+
+  it("re-issues the live query, because the earlier scan saw a partial index", () => {
+    searchQuerySignal.value = "deploy";
+    setFullTextHits("deploy", []);
+
+    handleMessage({ type: "searchIndexReady" } as Message);
+
+    expect(post).toHaveBeenCalledWith({ type: "searchFullText", query: "deploy" });
+    expect(searchIndexReadySignal.value).toBe(true);
+    expect(fullTextLoadingSignal.value).toBe(true);
+  });
+
+  it("does not re-issue a query below the scan threshold", () => {
+    searchQuerySignal.value = "d";
+
+    handleMessage({ type: "searchIndexReady" } as Message);
+
+    expect(post).not.toHaveBeenCalled();
+    expect(searchIndexReadySignal.value).toBe(true);
+  });
+
+  it("does not re-issue when no query is active", () => {
+    handleMessage({ type: "searchIndexReady" } as Message);
+
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("keeps the spinner up while a query is live but the index is still building", () => {
+    searchQuerySignal.value = "deploy";
+    setFullTextHits("deploy", []);
+    // A reply landed, so the in-flight flag cleared — but the index was partial.
+    expect(fullTextLoadingSignal.value).toBe(false);
+    expect(searchPendingSignal.value).toBe(true);
+
+    handleMessage({ type: "searchIndexReady" } as Message);
+    setFullTextHits("deploy", ["a"]);
+
+    expect(searchPendingSignal.value).toBe(false);
   });
 });

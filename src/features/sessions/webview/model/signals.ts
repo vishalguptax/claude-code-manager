@@ -85,6 +85,30 @@ export const fullTextSignal = signal<{ query: string; ids: Set<string> }>({
  * user knows more results may still be coming.
  */
 export const fullTextLoadingSignal = signal<boolean>(false);
+/**
+ * Minimum query length before asking the host for a transcript scan. Below
+ * this, metadata matches from `searchHaystack` are enough and a host scan
+ * returns thousands of low-value hits.
+ *
+ * Lives in the model because two callers must agree on it: the search box that
+ * issues the scan, and the index-ready handler that re-issues it.
+ */
+export const FULLTEXT_MIN_CHARS = 2;
+/**
+ * False until the host reports its transcript index finished building. A scan
+ * answered before this is true saw a partial corpus, so its result is not
+ * final — {@link searchPendingSignal} keeps the spinner up to say so.
+ */
+export const searchIndexReadySignal = signal<boolean>(false);
+/**
+ * True while transcript results for the live query may still change: either a
+ * scan is in flight, or the index behind it is still filling.
+ */
+export const searchPendingSignal = computed<boolean>(
+  () =>
+    fullTextLoadingSignal.value ||
+    (searchQuerySignal.value.length >= FULLTEXT_MIN_CHARS && !searchIndexReadySignal.value),
+);
 
 /** Active project filter: "current", "all", or a concrete project name. */
 export const filterProjectSignal = signal<string>("current");
@@ -240,6 +264,11 @@ export function clearFullTextHits(): void {
 /** Signal that a host transcript scan has been dispatched for `query`. */
 export function markFullTextLoading(): void {
   fullTextLoadingSignal.value = true;
+}
+
+/** Record that the host's transcript index finished building. */
+export function markSearchIndexReady(): void {
+  searchIndexReadySignal.value = true;
 }
 
 /** Enter or leave bulk mode, clearing the selection on exit. */
@@ -673,6 +702,7 @@ export function _resetSessionsSignals(): void {
   searchQuerySignal.value = "";
   fullTextSignal.value = { query: "", ids: new Set() };
   fullTextLoadingSignal.value = false;
+  searchIndexReadySignal.value = false;
   filterProjectSignal.value = "current";
   filterDateSignal.value = "recent";
   filterBranchSignal.value = "all";

@@ -38,6 +38,7 @@ import { cx } from "../../../../../webview/shared/lib";
 import type { DateFilter } from "../../../../../webview/types";
 import { sendRefresh, sendSearchFullText } from "../../api";
 import {
+  FULLTEXT_MIN_CHARS,
   clearFullTextHits,
   defaultDateSignal,
   defaultProjectSignal,
@@ -46,22 +47,16 @@ import {
   showArchivedSignal,
   filterProjectSignal,
   filterWorktreeSignal,
-  fullTextLoadingSignal,
   getBranchOptions,
   getProjectOptions,
   getWorktreeOptions,
   hasWorktreeSessions,
   markFullTextLoading,
+  searchPendingSignal,
   searchQuerySignal,
 } from "../../model";
 import type { WorktreeFilter } from "../../model";
 
-/**
- * Minimum query length before asking the host for a transcript scan. Below
- * this, metadata matches from `searchHaystack` are enough and a host scan
- * returns thousands of low-value hits.
- */
-const FULLTEXT_MIN_CHARS = 2;
 /** Debounce window for search input, per sessions special-consideration F. */
 const SEARCH_DEBOUNCE_MS = 250;
 
@@ -303,7 +298,7 @@ export function Filters() {
     <>
       <div class="search-row">
         <SearchBox />
-        {fullTextLoadingSignal.value ? (
+        {searchPendingSignal.value ? (
           <span class="search-spinner" role="status" aria-label="Searching transcripts" />
         ) : null}
         <Button

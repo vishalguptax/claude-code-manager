@@ -297,6 +297,7 @@ const fullTextResults = v.object({
   query: v.string(),
   ids: v.array(v.string()),
 });
+const searchIndexReady = v.object({ type: v.literal("searchIndexReady") });
 const errorMsg = v.object({ type: v.literal("error"), message: v.string() });
 // Host acknowledgement that a webview-originated message finished dispatch.
 // Drives the shared busy indicator: every request gets exactly one ack.
@@ -532,6 +533,7 @@ export const messageSchema = v.variant("type", [
   skillDetail,
   sessionDetail,
   fullTextResults,
+  searchIndexReady,
   errorMsg,
   reloadComplete,
   projects,

@@ -205,6 +205,12 @@ export function refreshLiveState(ctx: ProviderActionsContext): void {
  * Build the full-text search index in the background, chunked so the
  * event loop keeps responding. A stale-generation check on every chunk
  * prevents two overlapping builds from corrupting each other.
+ *
+ * Completion is announced to the webview. Without it, a search typed while
+ * the build was still running scanned a near-empty index, and the webview
+ * cached that empty result against the live query — retyping the same word
+ * changed nothing, so transcript search looked permanently broken until the
+ * query text itself changed.
  */
 export function buildSearchIndex(ctx: ProviderActionsContext): void {
   const myGen = ctx.nextIndexBuildGen();
@@ -232,7 +238,11 @@ export function buildSearchIndex(ctx: ProviderActionsContext): void {
     }
     if (start + CHUNK < snapshot.length) {
       setTimeout(() => processChunk(start + CHUNK), 0);
+      return;
     }
+    // Last chunk. Only the build that is still current may announce readiness —
+    // a superseded build returned above, so its stale "ready" never fires.
+    ctx.getWebview()?.postMessage({ type: "searchIndexReady" });
   };
   setTimeout(() => processChunk(0), 0);
 }
