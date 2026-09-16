@@ -19,7 +19,7 @@ import { EmptyState, SlowLoadNotice, useLoadPhase } from "../../../webview/share
 import type { AccountData, PermissionScope } from "../types";
 import { createConfigApi } from "./api";
 import { configData, configError, loading, permissionScope, permissionSearch } from "./model";
-import { BrainView, PermissionsView, SettingsView, SnapshotsView } from "./ui";
+import { BrainView, PermissionsView, SettingsView, SnapshotsView, TabsView } from "./ui";
 
 /**
  * Apply an inbound host message to the config signals. Exported for unit
@@ -80,6 +80,7 @@ export default function ConfigTab() {
   return (
     <div class="panel">
       <SettingsView data={data} api={api} />
+      <TabsView api={api} />
       <PermissionsView
         data={data}
         api={api}

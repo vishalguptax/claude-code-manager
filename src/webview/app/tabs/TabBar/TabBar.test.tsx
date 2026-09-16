@@ -4,7 +4,7 @@ import { render, fireEvent } from "@testing-library/preact";
 import { h } from "preact";
 import { TabBar } from "../TabBar";
 import { activeTab, hiddenTabsPref, tabOrderPref } from "../../../shared/model";
-import { TABS } from "../tabRegistry";
+import { TABS } from "../../../shared/model";
 
 describe("TabBar", () => {
   beforeEach(() => {
@@ -151,8 +151,8 @@ describe("TabBar", () => {
       const list = container.querySelector('[role="tablist"]') as HTMLElement;
 
       fireEvent.keyDown(list, { key: "ArrowRight" });
-      // With checkpoints/prompts hidden, the tab after sessions is skills.
-      expect(activeTab.value).toBe("skills");
+      // With checkpoints/prompts hidden, the tab after sessions is account.
+      expect(activeTab.value).toBe("account");
 
       fireEvent.keyDown(list, { key: "End" });
       expect(activeTab.value).toBe(TABS[TABS.length - 1].id);

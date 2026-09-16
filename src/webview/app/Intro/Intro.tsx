@@ -12,9 +12,8 @@
  */
 
 import { useApi } from "../../shared/hooks";
-import { closeIntro, introVisible } from "../../shared/model";
+import { closeIntro, introVisible, TABS } from "../../shared/model";
 import { Button, Icon, Modal } from "../../shared/ui";
-import { TABS } from "../tabs/tabRegistry";
 
 /**
  * One-line "what's here" per tab, keyed by tab id. Order and icons come

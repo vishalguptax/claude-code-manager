@@ -277,6 +277,18 @@ export async function handleFeatureMessage(
       break;
     }
 
+    case "setTabPreferences": {
+      // Both keys in one config-service call so VS Code fires exactly one
+      // `onDidChangeConfiguration`, and the panel's own listener re-pushes
+      // `settings` once rather than twice. `Global` (User scope): tab
+      // layout is a personal preference about the sidebar, not something a
+      // workspace should be able to force on whoever opens it.
+      const cfg = vscode.workspace.getConfiguration("claudeManager");
+      await cfg.update("hiddenTabs", msg.hidden, vscode.ConfigurationTarget.Global);
+      await cfg.update("tabOrder", msg.order, vscode.ConfigurationTarget.Global);
+      break;
+    }
+
     default:
       return false;
   }

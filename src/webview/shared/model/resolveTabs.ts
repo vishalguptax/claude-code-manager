@@ -6,7 +6,7 @@
  * without mounting a signal or a component — the reactive wrapper around
  * this lives in `visibleTabs.ts`.
  */
-import type { Feature } from "../tabRegistry";
+import type { Feature } from "./tabRegistry";
 
 /**
  * Reorder `all` so any id present in `order` comes first, in the sequence

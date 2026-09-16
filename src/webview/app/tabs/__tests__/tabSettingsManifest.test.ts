@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
-import { TABS } from "../tabRegistry";
+import { TABS } from "../../../shared/model";
 
 const pkg = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../../../../../package.json"), "utf8"),

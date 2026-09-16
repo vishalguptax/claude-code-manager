@@ -18,6 +18,7 @@ export interface ConfigApi {
   setSetting(key: string, value: unknown, scope?: SettingsScope): void;
   openSettingsFile(scope: SettingsScope): void;
   openExtensionSettings(): void;
+  setTabPreferences(hidden: string[], order: string[]): void;
   resetSettings(scope: SettingsScope): void;
   launchSlash(command: string): void;
   runCommand(command: string): void;
@@ -41,6 +42,7 @@ export function createConfigApi(post: (msg: unknown) => void): ConfigApi {
     setSetting: (key, value, scope = "global") => send({ type: "setSetting", key, value, scope }),
     openSettingsFile: (scope) => send({ type: "openSettingsFile", scope }),
     openExtensionSettings: () => send({ type: "openExtensionSettings" }),
+    setTabPreferences: (hidden, order) => send({ type: "setTabPreferences", hidden, order }),
     resetSettings: (scope) => send({ type: "resetSettings", scope }),
     launchSlash: (command) => send({ type: "launchSlash", command }),
     runCommand: (command) => send({ type: "runCommand", command }),

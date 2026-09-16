@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { hiddenTabsPref, tabOrderPref } from "../../../../shared/model";
-import { TABS } from "../../tabRegistry";
+import { TABS, hiddenTabsPref, tabOrderPref } from "../../../../shared/model";
 import { visibleTabs } from "../visibleTabs";
 
 const ids = (): string[] => visibleTabs.value.map((t) => t.id);

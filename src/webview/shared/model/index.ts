@@ -29,9 +29,11 @@ export {
   registerPaletteSource,
   scoreItem,
 } from "./palette";
+export { resolveVisibleTabs } from "./resolveTabs";
 export {
   _resetSections,
   collapsedSections,
   isSectionCollapsed,
   toggleSection,
 } from "./sections";
+export { type Feature, TABS } from "./tabRegistry";

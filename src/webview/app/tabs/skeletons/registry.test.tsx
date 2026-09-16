@@ -2,7 +2,7 @@
 import { render } from "@testing-library/preact";
 import { h } from "preact";
 import { describe, expect, it } from "vitest";
-import { TABS } from "../tabRegistry";
+import { TABS } from "../../../shared/model";
 import { resolveTabSkeleton, tabSkeletons } from "./registry";
 
 /** Render `Component` and return the rendered root container for assertion. */

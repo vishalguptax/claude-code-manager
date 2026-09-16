@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Feature } from "../../tabRegistry";
+import type { Feature } from "../tabRegistry";
 import { resolveVisibleTabs } from "../resolveTabs";
 
 const ALL: Feature[] = [

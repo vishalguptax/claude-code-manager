@@ -1,5 +1,5 @@
 /**
- * Barrel for the config slice's ui segment — the four section views that
+ * Barrel for the config slice's ui segment — the five section views that
  * make up the Config tab. Each is a CDD folder with a co-located test.
  *
  * `ConfigSkeleton` lives in the SHELL (`src/webview/app/tabs/skeletons/`) so
@@ -10,3 +10,4 @@ export { BrainView, type BrainViewProps } from "./BrainView";
 export { PermissionsView, type PermissionsViewProps } from "./PermissionsView";
 export { SettingsView, type SettingsViewProps } from "./SettingsView";
 export { SnapshotsView, type SnapshotsViewProps } from "./SnapshotsView";
+export { TabsView, type TabsViewProps } from "./TabsView";

@@ -41,6 +41,13 @@ describe("createConfigApi", () => {
     api.openExtensionSettings();
     expect(post).toHaveBeenLastCalledWith({ type: "openExtensionSettings" });
 
+    api.setTabPreferences(["checkpoints"], ["account", "config"]);
+    expect(post).toHaveBeenLastCalledWith({
+      type: "setTabPreferences",
+      hidden: ["checkpoints"],
+      order: ["account", "config"],
+    });
+
     api.resetSettings("global");
     expect(post).toHaveBeenLastCalledWith({ type: "resetSettings", scope: "global" });
 

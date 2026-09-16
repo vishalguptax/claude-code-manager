@@ -8,9 +8,7 @@
  * currently visible or in what order.
  */
 import { computed } from "@preact/signals";
-import { hiddenTabsPref, tabOrderPref } from "../../../shared/model";
-import { TABS } from "../tabRegistry";
-import { resolveVisibleTabs } from "./resolveTabs";
+import { hiddenTabsPref, resolveVisibleTabs, TABS, tabOrderPref } from "../../../shared/model";
 
 export const visibleTabs = computed(() =>
   resolveVisibleTabs(TABS, hiddenTabsPref.value, tabOrderPref.value),

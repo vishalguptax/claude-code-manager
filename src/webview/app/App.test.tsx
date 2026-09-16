@@ -12,7 +12,7 @@ import { h } from "preact";
 import { cleanup, fireEvent, render } from "@testing-library/preact";
 import { activeTab, density, hiddenTabsPref, tabOrderPref } from "../shared/model";
 import { _resetPaletteSources } from "../shared/model/palette";
-import { TABS } from "./tabs/tabRegistry";
+import { TABS } from "../shared/model";
 import { _resetHostBusy, hostBusy } from "../shared/model/hostBusy";
 import { App } from "./App";
 import { ErrorBoundary } from "./ErrorBoundary";

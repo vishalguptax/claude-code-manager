@@ -3,7 +3,7 @@
  * the static tab registry.
  */
 
+export { type Feature, TABS } from "../../shared/model";
 export { resolveVisibleTabs, visibleTabs } from "./lib";
 export { TabBar } from "./TabBar";
 export { TabPanel, type TabPanelProps } from "./TabPanel";
-export { type Feature, TABS } from "./tabRegistry";

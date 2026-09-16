@@ -264,6 +264,50 @@ describe("promptAddHook", () => {
   });
 });
 
+describe("setTabPreferences", () => {
+  it("writes hiddenTabs and tabOrder to the same config service, both at User scope", async () => {
+    const updates: Array<[string, unknown, unknown]> = [];
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: (_key: string, def?: unknown) => def,
+      inspect: () => undefined,
+      update: async (key: string, value: unknown, target?: unknown) => {
+        updates.push([key, value, target]);
+      },
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+
+    const { ctx } = harness();
+    const handled = await handleFeatureMessage(
+      { type: "setTabPreferences", hidden: ["checkpoints"], order: ["account", "config"] },
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(updates).toEqual([
+      ["hiddenTabs", ["checkpoints"], vscode.ConfigurationTarget.Global],
+      ["tabOrder", ["account", "config"], vscode.ConfigurationTarget.Global],
+    ]);
+  });
+
+  it("writes both arrays even when empty, so clearing every preference round-trips", async () => {
+    const updates: Array<[string, unknown]> = [];
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: (_key: string, def?: unknown) => def,
+      inspect: () => undefined,
+      update: async (key: string, value: unknown) => {
+        updates.push([key, value]);
+      },
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "setTabPreferences", hidden: [], order: [] }, ctx);
+
+    expect(updates).toEqual([
+      ["hiddenTabs", []],
+      ["tabOrder", []],
+    ]);
+  });
+});
+
 describe("routing", () => {
   it("returns false for an unhandled message type", async () => {
     const { ctx } = harness();

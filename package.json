@@ -254,6 +254,7 @@
             "type": "string",
             "enum": [
               "sessions",
+              "account",
               "checkpoints",
               "prompts",
               "skills",
@@ -263,7 +264,6 @@
               "hooks",
               "plugins",
               "memory",
-              "account",
               "config"
             ]
           },
@@ -276,6 +276,7 @@
             "type": "string",
             "enum": [
               "sessions",
+              "account",
               "checkpoints",
               "prompts",
               "skills",
@@ -285,7 +286,6 @@
               "hooks",
               "plugins",
               "memory",
-              "account",
               "config"
             ]
           },

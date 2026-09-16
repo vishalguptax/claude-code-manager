@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { Intro } from "./Intro";
 import { _resetIntro, introVisible } from "../../shared/model";
 import { setVscodeApi } from "../../shared/hooks/useApi";
-import { TABS } from "../tabs/tabRegistry";
+import { TABS } from "../../shared/model";
 
 const posted: unknown[] = [];
 
