@@ -77,7 +77,16 @@
         {
           "id": "claudeCodeManager",
           "title": "Claude Code Manager",
-          "icon": "media/icon.svg"
+          "icon": "media/icon.svg",
+          "when": "claudeCodeManager:doesNotSupportSecondarySidebar"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "claudeCodeManagerSecondary",
+          "title": "Claude Code Manager",
+          "icon": "media/icon.svg",
+          "when": "!claudeCodeManager:doesNotSupportSecondarySidebar"
         }
       ]
     },
@@ -86,7 +95,16 @@
         {
           "type": "webview",
           "id": "claudeCodeManager.view",
-          "name": "Claude Code Manager"
+          "name": "Claude Code Manager",
+          "when": "claudeCodeManager:doesNotSupportSecondarySidebar"
+        }
+      ],
+      "claudeCodeManagerSecondary": [
+        {
+          "type": "webview",
+          "id": "claudeCodeManager.secondaryView",
+          "name": "Claude Code Manager",
+          "when": "!claudeCodeManager:doesNotSupportSecondarySidebar"
         }
       ]
     },
@@ -126,7 +144,7 @@
         "command": "claudeManager.reload",
         "key": "ctrl+alt+r",
         "mac": "cmd+alt+r",
-        "when": "focusedView == claudeCodeManager.view"
+        "when": "focusedView == claudeCodeManager.view || focusedView == claudeCodeManager.secondaryView"
       }
     ],
     "configuration": {

@@ -205,6 +205,18 @@ export const window = {
   }),
 };
 
+/**
+ * `vscode.version` — the host's semver string. Defaults to our
+ * `engines.vscode` floor so version-gated code takes the conservative
+ * branch unless a test opts in via `_setVersion`.
+ */
+export let version = "1.90.0";
+
+/** Test helper: override `vscode.version` for a version-gated test. */
+export function _setVersion(value: string): void {
+  version = value;
+}
+
 export const QuickPickItemKind = {
   Separator: -1,
   Default: 0,

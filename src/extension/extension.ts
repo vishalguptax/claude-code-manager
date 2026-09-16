@@ -9,6 +9,12 @@ import * as path from "path";
 import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
 import { setSessionStorage } from "../features/sessions/commands";
 import { setExtensionUri, initTerminalReuseGuard } from "./terminal";
+import {
+  ACTIVITY_BAR_VIEW_ID,
+  NO_SECONDARY_SIDEBAR_CONTEXT_KEY,
+  SECONDARY_SIDEBAR_VIEW_ID,
+  supportsSecondarySidebar,
+} from "./secondarySidebar";
 import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
 import { getWorkspace } from "./workspace";
 import {
@@ -131,17 +137,38 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(startActiveSessionWatcher(provider.terminals));
 
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      "claudeCodeManager.view",
-      provider,
-      { webviewOptions: { retainContextWhenHidden: true } },
-    ),
-  );
+  // Placement: the manifest contributes this panel to both the activity
+  // bar and the secondary sidebar, gated on a context key. Set the key
+  // on hosts that predate the `secondarySidebar` contribution point so
+  // exactly one of the two `when` clauses evaluates true. See
+  // secondarySidebar.ts for the polarity argument.
+  const hasSecondarySidebar = supportsSecondarySidebar(vscode.version);
+  if (!hasSecondarySidebar) {
+    void vscode.commands.executeCommand(
+      "setContext",
+      NO_SECONDARY_SIDEBAR_CONTEXT_KEY,
+      true,
+    );
+  }
+  // The view id that actually exists on this host — the other view is
+  // registered too (registration is cheap and VS Code never resolves a
+  // view whose `when` is false) but focusing it would be a no-op.
+  const activeViewId = hasSecondarySidebar ? SECONDARY_SIDEBAR_VIEW_ID : ACTIVITY_BAR_VIEW_ID;
+
+  // One provider instance backs both ids: the `when` clauses guarantee
+  // only one of them is ever contributed, so only one resolves and the
+  // provider still sees a single webview lifecycle.
+  for (const viewId of [ACTIVITY_BAR_VIEW_ID, SECONDARY_SIDEBAR_VIEW_ID]) {
+    context.subscriptions.push(
+      vscode.window.registerWebviewViewProvider(viewId, provider, {
+        webviewOptions: { retainContextWhenHidden: true },
+      }),
+    );
+  }
 
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.open", () => {
-      vscode.commands.executeCommand("claudeCodeManager.view.focus");
+      vscode.commands.executeCommand(`${activeViewId}.focus`);
     }),
   );
 
@@ -151,7 +178,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // the panel was visible beforehand.
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.switchAccount", async () => {
-      await vscode.commands.executeCommand("claudeCodeManager.view.focus");
+      await vscode.commands.executeCommand(`${activeViewId}.focus`);
       provider.openAccountSwitcher();
     }),
   );
@@ -163,7 +190,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // push (no-op when the view is already visible).
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.reload", async () => {
-      await vscode.commands.executeCommand("claudeCodeManager.view.focus");
+      await vscode.commands.executeCommand(`${activeViewId}.focus`);
       await provider.reloadAll();
     }),
   );
