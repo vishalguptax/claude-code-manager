@@ -53,14 +53,6 @@
   opacity: 1;
 }
 
-/* Reveal the row's copy affordance on the row you are pointing at. The shared
-   `.item-copy-btn` rule (components.css) hides it by default and names the row
-   classes that uncover it; this is the Plugins entry in that vocabulary. */
-.plg-item:hover .item-copy-btn,
-.plg-item:focus-within .item-copy-btn {
-  opacity: 1;
-}
-
 .plg-item-row1 {
   display: flex;
   align-items: center;

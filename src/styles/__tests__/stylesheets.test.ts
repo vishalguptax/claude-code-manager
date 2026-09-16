@@ -99,3 +99,47 @@ describe("stylesheet integrity", () => {
     expect(opens).toBe(closes);
   });
 });
+
+/**
+ * Row action buttons are hidden by default and revealed by an explicit list
+ * of row-class selectors. That list is easy to extend a tab without, and the
+ * failure is silent: the button renders, occupies no visible state, and is
+ * simply never seen. That is exactly what happened to the Plugins tab —
+ * every row's copy button was invisible from the day it shipped.
+ *
+ * `.list-item` in the reveal list is what makes the rule general: every row
+ * built on the shared <ListItem> carries it, so a new tab is covered on
+ * arrival rather than when someone notices.
+ */
+describe("row action reveal", () => {
+  const components = fs.readFileSync(path.join(STYLES, "components.css"), "utf8");
+
+  it("reveals on hover and focus for any shared list row", () => {
+    const body = strip(components);
+    for (const selector of [
+      ".list-item:hover .item-copy-btn",
+      ".list-item:hover .item-chat-btn",
+      ".list-item:focus-within .item-copy-btn",
+      ".list-item:focus-within .item-chat-btn",
+    ]) {
+      expect(body).toContain(selector);
+    }
+  });
+
+  it("keeps the buttons hidden by default", () => {
+    // If this ever stops being true the reveal rule is pointless, and the
+    // buttons would be permanently lit on every row instead.
+    expect(strip(components)).toMatch(/\.item-copy-btn,\s*\n\.item-chat-btn \{\s*opacity: 0;/);
+  });
+
+  it("is not re-declared by any feature stylesheet", () => {
+    // One owner per selector (CLAUDE.md). A feature patching its own reveal
+    // is the symptom of the shared list having missed it.
+    const offenders = FILES.filter((f) => f !== "components.css").filter((f) =>
+      /:hover\s+\.item-copy-btn|:focus-within\s+\.item-copy-btn/.test(
+        strip(fs.readFileSync(path.join(STYLES, f), "utf8")),
+      ),
+    );
+    expect(offenders).toEqual([]);
+  });
+});
