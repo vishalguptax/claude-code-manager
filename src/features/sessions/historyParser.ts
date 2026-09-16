@@ -16,6 +16,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { HISTORY_FILE, PROJECTS_DIR } from "../../core/config";
 import { LRU } from "../../core/lru";
+import { openFileNoFollow } from "../../core/safeOpen";
 import { deslugifyProjectPath } from "./portable";
 import {
   extractProjectName,
@@ -293,10 +294,10 @@ function readOrphanSessionData(filePath: string): OrphanData | null {
 }
 
 function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return null;
   }
 

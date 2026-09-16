@@ -20,6 +20,7 @@ import {
   SESSION_META_READ_BYTES,
 } from "../../core/config";
 import { LRU } from "../../core/lru";
+import { openFileNoFollow } from "../../core/safeOpen";
 
 /** Maximum bytes to read from a session file when extracting name hints (rename/summary). */
 const NAME_HINT_READ_BYTES = 256 * 1024; // 256 KB — covers most sessions
@@ -170,10 +171,10 @@ export function extractProjectName(projectPath: string): string {
  * (plus the accumulated results array).
  */
 export function parseJsonlFile<T>(filePath: string): T[] {
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return [];
   }
 
@@ -314,10 +315,10 @@ export function invalidateSessionFileIndex(): void {
 
 function computeSessionMeta(filePath: string): SessionMeta {
   const result = { branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "" };
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return result;
   }
 

@@ -19,6 +19,7 @@
  */
 import * as fs from "fs";
 import { LRU } from "../../core/lru";
+import { openFileNoFollow } from "../../core/safeOpen";
 import type { SessionEntry } from "./types";
 
 /**
@@ -159,10 +160,10 @@ interface Extracted {
  * that as "no content to search."
  */
 function extractContent(filePath: string, startOffset = 0): Extracted {
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return { content: "", truncated: false, tailOffset: 0 };
   }
 
@@ -314,10 +315,10 @@ const SEARCH_SCAN_YIELD_EVERY = 256;
  * in-memory index (both join messages with "\n" so a query cannot span them).
  */
 async function scanTail(filePath: string, startOffset: number, q: string): Promise<boolean> {
-  let fd: number;
-  try {
-    fd = fs.openSync(filePath, "r");
-  } catch {
+  // Symlink-safe: a planted link under ~/.claude/projects/ must not
+  // make us read (and display) a file outside the transcript tree.
+  const fd = openFileNoFollow(filePath);
+  if (fd === null) {
     return false;
   }
 
