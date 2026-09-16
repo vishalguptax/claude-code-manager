@@ -350,7 +350,18 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
           continue;
         }
         if (!cwd && typeof entry.cwd === "string") cwd = entry.cwd;
-        if (typeof entry.timestamp === "string") {
+        // Only a real conversational turn (a line carrying `message`) may
+        // set first/lastTimestamp. The transcript interleaves plain
+        // bookkeeping lines — file-history-snapshot, summary, ai-title,
+        // queued-command-uuids-changed and the like — that carry a
+        // `timestamp` with no `message` at all, often written well after
+        // the last thing the user or Claude actually said (a background
+        // task finishing after the terminal closed, for one). Counting
+        // those inflated `endTime` on 63 of 78 real sessions checked
+        // against this file, which is what made a session with nothing
+        // new to read still show as unread: its last "activity" was a
+        // line the user never saw and never could have.
+        if (entry.message && typeof entry.timestamp === "string") {
           const ts = Date.parse(entry.timestamp);
           if (!Number.isNaN(ts)) {
             if (!firstTimestamp || ts < firstTimestamp) firstTimestamp = ts;
@@ -391,7 +402,8 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
     if (leftover.trim()) {
       try {
         const entry = JSON.parse(leftover) as SessionEntry;
-        if (typeof entry.timestamp === "string") {
+        // Same message-only rule as the main loop above.
+        if (entry.message && typeof entry.timestamp === "string") {
           const ts = Date.parse(entry.timestamp);
           if (!Number.isNaN(ts) && ts > lastTimestamp) lastTimestamp = ts;
         }
