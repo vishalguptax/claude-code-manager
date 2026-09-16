@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.11.0] - 2026-09-16
+
+Four new tabs — Checkpoints, Prompts, Memory and Plugins — surfacing data Claude Code already keeps on disk but nothing could read, plus unread marks and an archive for sessions, and a panel that now opens from either side bar.
+
+See [docs/releases/v2.11.0.md](docs/releases/v2.11.0.md) for full details.
+
 ## [2.10.9] - 2026-09-14
 
 Reverts the chip and badge restyling from 2.10.7 and 2.10.8 — consistent, but no visible improvement in the panel.
