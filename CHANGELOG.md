@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.12.1] - 2026-09-16
+
+A session with nothing new to read no longer shows as unread — the real cause was bookkeeping lines Claude Code writes to the transcript after you've closed the terminal, not the read-tracking logic itself.
+
+See [docs/releases/v2.12.1.md](docs/releases/v2.12.1.md) for full details.
+
 ## [2.12.0] - 2026-09-16
 
 Choose which sidebar tabs show and in what order, right from the Config tab — plus a fix that gets terminal tab animations working the way they do when you type `claude` yourself.
