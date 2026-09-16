@@ -171,15 +171,15 @@ describe("ListView", () => {
     });
     const menu = container.querySelector(".ctx-menu");
     expect(menu).toBeTruthy();
-    // 7 original rows (incl. the pin variant) plus Archive. "Mark as
-    // unread" is absent because this session has no read mark yet, so it
-    // already reads as unread.
+    // 7 original rows (incl. the pin variant) plus Archive and Mark as
+    // unread. The session reads as READ here because no unread baseline
+    // has been set, which is the default until the host establishes one.
     const labels = Array.from(menu?.querySelectorAll(".ctx-item") ?? []).map(
       (el) => el.textContent?.trim() ?? "",
     );
-    expect(labels).toHaveLength(8);
+    expect(labels).toHaveLength(9);
     expect(labels).toContain("Archive");
-    expect(labels).not.toContain("Mark as unread");
+    expect(labels).toContain("Mark as unread");
   });
 
   it("Ctrl+A selects every session while in bulk mode", () => {

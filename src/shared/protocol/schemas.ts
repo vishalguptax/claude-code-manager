@@ -279,11 +279,19 @@ const sessions = v.object({
   data: v.unknown(),
   stats: v.optional(v.unknown()),
 });
+// Every field the host actually sends must be declared. valibot's `object`
+// STRIPS undeclared keys rather than rejecting them, and messageBus
+// dispatches the parsed value — so a field missing here never reaches the
+// webview, silently. `archived` and `readAt` were missing, which left the
+// archive permanently empty and every session showing as unread.
 const userState = v.object({
   type: v.literal("userState"),
   pinned: v.optional(v.array(v.string())),
   deleted: v.optional(v.array(v.string())),
   renames: v.optional(v.record(v.string(), v.string())),
+  archived: v.optional(v.array(v.string())),
+  readAt: v.optional(v.record(v.string(), v.number())),
+  unreadBaseline: v.optional(v.number()),
 });
 const navigateList = v.object({ type: v.literal("navigateList") });
 const skills = v.object({ type: v.literal("skills"), data: v.unknown() });

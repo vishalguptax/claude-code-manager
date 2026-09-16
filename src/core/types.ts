@@ -24,8 +24,19 @@ export interface UserState {
    * Map of session ID -> epoch ms when the user last opened it.
    *
    * A session reads as unread when its newest activity is later than
-   * this mark, so the absence of an entry means "never opened", which
-   * is exactly the state that should render as unread.
+   * its mark. The absence of an entry means "never opened", which is
+   * only meaningful for sessions that postdate {@link unreadBaseline}.
    */
   readAt: Record<string, number>;
+  /**
+   * Epoch ms when unread tracking began on this machine, or 0 before it
+   * has been established.
+   *
+   * Without it, turning the feature on marks every session in the
+   * user's history unread at once — a dot on all 77 rows carries no
+   * more information than a dot on none. Sessions whose last activity
+   * predates the baseline are treated as already read, so the marker
+   * only ever means "this changed since you started tracking".
+   */
+  unreadBaseline: number;
 }

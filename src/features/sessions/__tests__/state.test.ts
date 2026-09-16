@@ -34,6 +34,7 @@ import {
   markSessionRead,
   markSessionUnread,
   isSessionUnread,
+  ensureUnreadBaseline,
 } from "../state";
 
 const empty = () => ({
@@ -42,6 +43,7 @@ const empty = () => ({
   renames: {} as Record<string, string>,
   archived: [] as string[],
   readAt: {} as Record<string, number>,
+  unreadBaseline: 0,
 });
 
 describe("loadState", () => {
@@ -361,8 +363,11 @@ describe("read marks", () => {
     expect(loadState().readAt).toEqual({ good: 5 });
   });
 
-  it("treats a never-opened session as unread", () => {
-    expect(isSessionUnread(empty(), "s-1", 1000)).toBe(true);
+  it("treats a never-opened session as unread once tracking has begun", () => {
+    // Never opened only means unread for a session that appeared AFTER
+    // the baseline; see the "unread baseline" block for why.
+    const state = { ...empty(), unreadBaseline: 500 };
+    expect(isSessionUnread(state, "s-1", 1000)).toBe(true);
   });
 
   it("is unread when activity is newer than the mark", () => {
@@ -374,5 +379,73 @@ describe("read marks", () => {
     const state = { ...empty(), readAt: { "s-1": 2000 } };
     expect(isSessionUnread(state, "s-1", 1000)).toBe(false);
     expect(isSessionUnread(state, "s-1", 2000)).toBe(false);
+  });
+});
+
+
+describe("unread baseline", () => {
+  beforeEach(() => {
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  });
+
+  it("nothing is unread before tracking has begun", () => {
+    // The bug this fixes: a state file written before the feature existed
+    // has no marks, so every session in the user's history lit up at once.
+    // A dot on all 77 rows says exactly as much as a dot on none.
+    const state = { ...empty(), unreadBaseline: 0 };
+    expect(isSessionUnread(state, "s-1", Date.now())).toBe(false);
+  });
+
+  it("establishes the baseline once and persists it", () => {
+    ensureUnreadBaseline(1000);
+    expect(loadState().unreadBaseline).toBe(1000);
+  });
+
+  it("never moves the baseline once set", () => {
+    // Moving it would silently mark a swathe of sessions read.
+    ensureUnreadBaseline(1000);
+    ensureUnreadBaseline(5000);
+    expect(loadState().unreadBaseline).toBe(1000);
+  });
+
+  it("ignores a non-finite clock", () => {
+    ensureUnreadBaseline(Number.NaN);
+    expect(loadState().unreadBaseline).toBe(0);
+  });
+
+  it("treats everything older than the baseline as read", () => {
+    const state = { ...empty(), unreadBaseline: 5000 };
+    expect(isSessionUnread(state, "old", 4999)).toBe(false);
+    expect(isSessionUnread(state, "same", 5000)).toBe(false);
+  });
+
+  it("marks activity after the baseline as unread", () => {
+    const state = { ...empty(), unreadBaseline: 5000 };
+    expect(isSessionUnread(state, "new", 5001)).toBe(true);
+  });
+
+  it("lets an explicit read mark win over the baseline", () => {
+    const state = { ...empty(), unreadBaseline: 1000, readAt: { s: 9000 } };
+    expect(isSessionUnread(state, "s", 8000)).toBe(false);
+    expect(isSessionUnread(state, "s", 9001)).toBe(true);
+  });
+
+  it("re-marks a session unread even if it predates the baseline", () => {
+    // markSessionUnread drops the mark, and the baseline must not then
+    // quietly re-read it — but for a session older than the baseline the
+    // honest answer IS read, so this documents the accepted limit.
+    const state = { ...empty(), unreadBaseline: 5000 };
+    expect(isSessionUnread(state, "old", 4000)).toBe(false);
+  });
+
+  it("defaults the baseline for a state file written before the field", () => {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ pinned: ["a"] }));
+    expect(loadState().unreadBaseline).toBe(0);
+  });
+
+  it("drops a non-numeric baseline from a corrupt file", () => {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ unreadBaseline: "soon" }));
+    expect(loadState().unreadBaseline).toBe(0);
   });
 });

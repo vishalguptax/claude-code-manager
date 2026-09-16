@@ -170,6 +170,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -216,6 +219,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -266,6 +272,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -341,6 +350,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -382,6 +394,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -436,6 +451,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -525,6 +543,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -583,6 +604,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -651,6 +675,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -704,6 +731,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
@@ -765,6 +795,9 @@ describe("ClaudeSessionViewProvider", () => {
     }));
     vi.doMock("../state", () => ({
       loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      // Called once when the first panel resolves; a no-op here so the
+      // provider tests never touch the real state file.
+      ensureUnreadBaseline: () => ({ pinned: [], deleted: [], renames: {} }),
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),

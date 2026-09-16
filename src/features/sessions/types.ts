@@ -276,6 +276,8 @@ export type ExtensionMessage =
       archived: string[];
       /** Session ID -> epoch ms the user last opened it. */
       readAt: Record<string, number>;
+      /** Epoch ms unread tracking began; 0 before it is established. */
+      unreadBaseline: number;
     }
   | { type: "navigateList" }
   | { type: "error"; message: string }

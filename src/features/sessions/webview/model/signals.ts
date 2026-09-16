@@ -66,6 +66,11 @@ export const archivedSignal = signal<Set<string>>(new Set());
  * read as unread.
  */
 export const readAtSignal = signal<Record<string, number>>({});
+/**
+ * Epoch ms when unread tracking began, mirrored from the host. 0 means
+ * it has not started, in which case nothing is unread — see isUnread.
+ */
+export const unreadBaselineSignal = signal(0);
 /** When on, the list shows the archive instead of the live sessions. */
 export const showArchivedSignal = signal(false);
 /** Currently open detail, or null when on the list. */
@@ -229,6 +234,11 @@ export function setReadAt(marks: Record<string, number>): void {
   readAtSignal.value = marks;
 }
 
+/** Mirror the host's unread baseline. */
+export function setUnreadBaseline(at: number): void {
+  unreadBaselineSignal.value = at;
+}
+
 /**
  * True when a session has activity the user has not seen.
  *
@@ -237,8 +247,14 @@ export function setReadAt(marks: Record<string, number>): void {
  */
 export function isUnread(sessionId: string, endTime: number): boolean {
   const mark = readAtSignal.value[sessionId];
-  if (mark === undefined) return true;
-  return endTime > mark;
+  if (mark !== undefined) return endTime > mark;
+  // Never opened. That only means "unread" for a session that appeared
+  // after tracking began — otherwise every session already on disk when
+  // the feature arrived would be marked at once, which tells the user
+  // nothing. Mirrors isSessionUnread on the host.
+  const baseline = unreadBaselineSignal.value;
+  if (baseline === 0) return false;
+  return endTime > baseline;
 }
 
 /**
@@ -689,6 +705,7 @@ export function _resetSessionsSignals(): void {
   deletedSignal.value = new Set();
   archivedSignal.value = new Set();
   readAtSignal.value = {};
+  unreadBaselineSignal.value = 0;
   showArchivedSignal.value = false;
   detailSignal.value = null;
   detailLoadingSignal.value = false;

@@ -29,6 +29,7 @@ import {
   setTempSessions,
   setPinned,
   setReadAt,
+  setUnreadBaseline,
   setWorkspacePath,
   setWorktrees,
   pruneUnmatchedFilters,
@@ -72,6 +73,7 @@ export function handleMessage(msg: Message): void {
       if (msg.deleted) setDeleted(msg.deleted);
       if (msg.archived) setArchived(msg.archived);
       if (msg.readAt) setReadAt(msg.readAt);
+      if (typeof msg.unreadBaseline === "number") setUnreadBaseline(msg.unreadBaseline);
       break;
     }
     case "navigateList": {

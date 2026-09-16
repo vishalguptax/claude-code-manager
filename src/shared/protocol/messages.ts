@@ -155,6 +155,7 @@ export type Message =
       renames?: Record<string, string>;
       archived?: string[];
       readAt?: Record<string, number>;
+      unreadBaseline?: number;
     }
   | { type: "navigateList" }
   | { type: "skills"; data: unknown }

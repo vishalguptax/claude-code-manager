@@ -80,6 +80,23 @@ describe("parseMessage — webview to host", () => {
     roundTrip({ type: "markSessionUnread", sessionId: "s" });
   });
 
+  it("preserves every field of a userState push", () => {
+    // roundTrip asserts deep equality, which is the point: valibot's
+    // `object` strips undeclared keys instead of rejecting them, and the
+    // bus dispatches the PARSED value. A field missing from the schema
+    // therefore vanishes in transit with no error anywhere. `archived`
+    // and `readAt` did exactly that.
+    roundTrip({
+      type: "userState",
+      pinned: ["a"],
+      deleted: ["b"],
+      renames: { c: "name" },
+      archived: ["d"],
+      readAt: { e: 1_700_000_000_000 },
+      unreadBaseline: 1_700_000_000_000,
+    });
+  });
+
   it("accepts the host replies the new tabs wait on", () => {
     // Regression guard. These three type-checked via messages.ts but had no
     // schema, so messageBus dropped every reply and the Prompts, Memory and

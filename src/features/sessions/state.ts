@@ -40,6 +40,10 @@ export function loadState(): UserState {
         // is every file on disk today — default rather than discard.
         archived: Array.isArray(obj.archived) ? (obj.archived as string[]) : [],
         readAt,
+        unreadBaseline:
+          typeof obj.unreadBaseline === "number" && Number.isFinite(obj.unreadBaseline)
+            ? obj.unreadBaseline
+            : 0,
       };
     }
   } catch (err: unknown) {
@@ -48,7 +52,7 @@ export function loadState(): UserState {
       console.warn(`[claude-manager] Failed to load state from ${STATE_FILE}:`, err.message);
     }
   }
-  return { pinned: [], deleted: [], renames: {}, archived: [], readAt: {} };
+  return { pinned: [], deleted: [], renames: {}, archived: [], readAt: {}, unreadBaseline: 0 };
 }
 
 /**
@@ -225,8 +229,29 @@ export function markSessionUnread(sessionId: string): UserState {
 }
 
 /**
- * True when `lastActivityMs` is newer than the session's read mark.
- * Pure, so the list and the badge count cannot disagree.
+ * Establish the unread baseline if it has not been set, and return the
+ * resulting state. Called once when the panel first comes up.
+ *
+ * `now` is injected rather than read from a clock so the caller controls
+ * it and tests need no fake timers.
+ */
+export function ensureUnreadBaseline(now: number): UserState {
+  const state = loadState();
+  if (state.unreadBaseline > 0 || !Number.isFinite(now)) return state;
+  state.unreadBaseline = now;
+  saveState(state);
+  return state;
+}
+
+/**
+ * True when a session has activity the user has not seen.
+ *
+ * An explicit read mark always wins. Without one the session has never
+ * been opened, which counts as unread ONLY if it was last active after
+ * tracking began — otherwise enabling the feature would light up the
+ * user's entire back catalogue at once, which says nothing.
+ *
+ * Pure, so the list and any badge count cannot disagree.
  */
 export function isSessionUnread(
   state: UserState,
@@ -234,6 +259,9 @@ export function isSessionUnread(
   lastActivityMs: number,
 ): boolean {
   const mark = state.readAt[sessionId];
-  if (mark === undefined) return true;
-  return lastActivityMs > mark;
+  if (mark !== undefined) return lastActivityMs > mark;
+  // Baseline of 0 means tracking has not started yet; nothing is unread
+  // until it has, rather than everything.
+  if (state.unreadBaseline === 0) return false;
+  return lastActivityMs > state.unreadBaseline;
 }
