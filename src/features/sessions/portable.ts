@@ -3,10 +3,10 @@
  *
  * Background: a Claude session lives at
  *   ~/.claude/projects/<slug>/<sessionId>.jsonl
- * where <slug> is the absolute project path with `/`, `\`, and `:` replaced
- * by `-`. Claude CLI's `--resume <id>` looks up sessions only inside the
- * slug directory matching the *current* working directory. So importing a
- * session requires three things, verified empirically:
+ * where <slug> is the absolute project path with every non-alphanumeric
+ * character replaced by `-`. Claude CLI's `--resume <id>` looks up sessions
+ * only inside the slug directory matching the *current* working directory.
+ * So importing a session requires three things, verified empirically:
  *
  *   1. The internal `sessionId` field on every line must equal the filename.
  *   2. The file must live in the slug directory matching the cwd of the
@@ -20,36 +20,89 @@
 import type { Session } from "./types";
 
 /**
+ * Longest slug Claude CLI writes verbatim. Beyond this it truncates and
+ * appends a hash so two long sibling paths cannot collide on disk.
+ */
+const MAX_SLUG_LENGTH = 200;
+
+/**
+ * The CLI's string hash: the classic `h * 31 + c` accumulator, kept in
+ * int32 by the `| 0` on every step (which is what makes overflow wrap
+ * instead of losing precision to float64). Reproduced bit-for-bit
+ * because the result is baked into directory names already on disk.
+ */
+function hash31(input: string): number {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = ((h << 5) - h + input.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
+/**
  * Convert an absolute filesystem path to the directory name Claude CLI uses
- * inside ~/.claude/projects. The rule, observed from real session dirs, is:
- * replace every `/`, `\`, and `:` with `-`. The drive letter on Windows
- * therefore produces a doubled dash (e.g. `C:\` → `C--`).
+ * inside ~/.claude/projects.
+ *
+ * The rule is the CLI's own, read off the decompiled bundle (v2.1.273) and
+ * verified against real directories in ~/.claude/projects: replace **every**
+ * non-alphanumeric character with `-`. Not just separators — dots, spaces,
+ * underscores, `@`, `+` and non-ASCII all collapse too. A path containing
+ * `/.claude-worktrees/` produces `--claude-worktrees-`, the doubled dash
+ * coming from the separator plus the dot. The drive letter on Windows
+ * produces the same doubling (`C:\` → `C--`).
+ *
+ * If the sanitized form exceeds 200 characters the CLI truncates it to 200
+ * and appends `-<hash>`, where the hash is `hash31` over the *original*
+ * path (not the sanitized one) in base 36. That keeps two long paths that
+ * share their first 200 sanitized characters in separate directories.
  *
  * The slug must preserve case — Windows directories show both `C--Users-...`
  * and `c--Users-...` depending on how the cwd was capitalized when the
  * session was first created.
  */
 export function slugifyProjectPath(absPath: string): string {
-  return absPath.replace(/[/\\:]/g, "-");
+  const sanitized = absPath.replace(/[^a-zA-Z0-9]/g, "-");
+  if (sanitized.length <= MAX_SLUG_LENGTH) return sanitized;
+  return `${sanitized.slice(0, MAX_SLUG_LENGTH)}-${Math.abs(hash31(absPath)).toString(36)}`;
 }
 
 /**
- * Best-effort inverse of `slugifyProjectPath`. Used as a fallback for
- * orphan sessions whose JSONL never records a `cwd` line — without a
- * path we can't open the project when the user clicks Resume.
+ * The shape a truncated slug has: exactly MAX_SLUG_LENGTH sanitized
+ * characters, then `-`, then the base-36 hash. `Math.abs` of an int32 is at
+ * most 2147483648, which is 6 base-36 digits, so the suffix is 1–6 chars.
+ */
+const TRUNCATED_SLUG = new RegExp(`^.{${MAX_SLUG_LENGTH}}-[0-9a-z]{1,6}$`);
+
+/**
+ * Recover the *shape* of a project path from its slug. This is not an
+ * inverse of `slugifyProjectPath` and cannot be one: the slug rule
+ * collapses separators, dots, spaces, underscores and every other
+ * non-alphanumeric character onto the same `-`, so `a.b`, `a b` and `a/b`
+ * all slugify identically. The result is a plausible path, not the path.
  *
- * The slugify rule is lossy (dashes in folder names collide with path
- * separators), so we can only recover the *shape* of the path, not
- * the exact separator characters. We detect two common shapes:
+ * Only use it for orphan sessions whose JSONL never recorded a `cwd` line
+ * — without something to show, Resume has nothing to open. Whenever a real
+ * `cwd` is available it wins; never call this in preference to one.
+ *
+ * Shapes we recognize:
  *
  *  - Windows drive paths: `^([A-Za-z])--(.*)$` → `C:/...` (forward
  *    slashes chosen so both Node and VS Code accept the path).
  *  - Unix paths: leading `-` from the root `/`.
  *
- * Anything else is returned unchanged — better to show the raw slug
- * than to invent a bogus path.
+ * Truncated slugs are refused outright. Once the CLI has cut the path at
+ * 200 characters and appended a hash, the missing tail is gone and the
+ * hash is one-way — any path we produced would be a fabrication with a
+ * bogus `-<hash>` segment glued on the end. We return the raw slug
+ * instead, and so we do for any shape we don't recognize: showing the
+ * slug is honest, inventing a path is not.
  */
 export function deslugifyProjectPath(slug: string): string {
+  // A short-enough slug can in principle match the truncation shape by
+  // coincidence. We accept that false positive: its cost is showing a raw
+  // slug instead of a path, which is far cheaper than a fabricated path.
+  if (TRUNCATED_SLUG.test(slug)) return slug;
+
   const windowsMatch = /^([A-Za-z])--(.*)$/.exec(slug);
   if (windowsMatch) {
     return `${windowsMatch[1]}:/${windowsMatch[2].replace(/-/g, "/")}`;

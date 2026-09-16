@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
+import { slugifyProjectPath } from "../portable";
 
 // Hoist the temp dir so vi.mock factories can see it.
 const { CLAUDE_DIR, PROJECTS_DIR, EXPORT_DIR } = vi.hoisted(() => {
@@ -119,7 +120,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 }
 
 function writeSessionFile(sess: Session, content: string): string {
-  const slug = sess.projectPath.replace(/[/\\:]/g, "-");
+  const slug = slugifyProjectPath(sess.projectPath);
   const dir = path.join(PROJECTS_DIR, slug);
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${sess.id}.jsonl`);
@@ -258,7 +259,7 @@ describe("importSessionFile", () => {
     });
 
     // Verify a session file was written under the workspace's slug
-    const slug = workspaceDir.replace(/[/\\:]/g, "-");
+    const slug = slugifyProjectPath(workspaceDir);
     const targetDir = path.join(PROJECTS_DIR, slug);
     expect(fs.existsSync(targetDir)).toBe(true);
     const writtenFiles = fs.readdirSync(targetDir).filter((f) => f.endsWith(".jsonl"));
@@ -362,7 +363,7 @@ describe("importSessionFile", () => {
     await importSessionFile([], () => {});
     await importSessionFile([], () => {});
 
-    const slug = EXPORT_DIR.replace(/[/\\:]/g, "-");
+    const slug = slugifyProjectPath(EXPORT_DIR);
     const targetDir = path.join(PROJECTS_DIR, slug);
     const writtenFiles = fs.readdirSync(targetDir).filter((f) => f.endsWith(".jsonl"));
     expect(writtenFiles).toHaveLength(2);
@@ -440,7 +441,7 @@ describe("importMultipleSessionFiles", () => {
   }
 
   function jsonlFilesUnder(projectPath: string): string[] {
-    const dir = path.join(PROJECTS_DIR, projectPath.replace(/[/\\:]/g, "-"));
+    const dir = path.join(PROJECTS_DIR, slugifyProjectPath(projectPath));
     if (!fs.existsSync(dir)) return [];
     return fs.readdirSync(dir).filter((f) => f.endsWith(".jsonl"));
   }
@@ -585,7 +586,7 @@ describe("last-folder memory", () => {
       projectKey: "claude-manager",
       searchHaystack: "test\nclaude-manager\nmain\nx",
     };
-    const slug = sess.projectPath.replace(/[/\\:]/g, "-");
+    const slug = slugifyProjectPath(sess.projectPath);
     fs.mkdirSync(path.join(PROJECTS_DIR, slug), { recursive: true });
     fs.writeFileSync(
       path.join(PROJECTS_DIR, slug, `${sess.id}.jsonl`),
@@ -622,7 +623,7 @@ describe("last-folder memory", () => {
       projectKey: "p",
       searchHaystack: "\np\n\nx",
     };
-    const slug = sess.projectPath.replace(/[/\\:]/g, "-");
+    const slug = slugifyProjectPath(sess.projectPath);
     fs.mkdirSync(path.join(PROJECTS_DIR, slug), { recursive: true });
     fs.writeFileSync(
       path.join(PROJECTS_DIR, slug, `${sess.id}.jsonl`),
@@ -657,7 +658,7 @@ describe("last-folder memory", () => {
       projectKey: "p",
       searchHaystack: "\np\n\nx",
     };
-    const slug = sess.projectPath.replace(/[/\\:]/g, "-");
+    const slug = slugifyProjectPath(sess.projectPath);
     fs.mkdirSync(path.join(PROJECTS_DIR, slug), { recursive: true });
     fs.writeFileSync(
       path.join(PROJECTS_DIR, slug, `${sess.id}.jsonl`),
