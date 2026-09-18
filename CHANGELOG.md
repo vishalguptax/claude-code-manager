@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.13.0] - 2026-09-18
+
+Unchecking a tab in Config no longer leaves the panel blank — and when something else does go wrong, the panel now tells you what happened instead of dying silently.
+
+See [docs/releases/v2.13.0.md](docs/releases/v2.13.0.md) for full details.
+
 ## [2.12.1] - 2026-09-16
 
 A session with nothing new to read no longer shows as unread — the real cause was bookkeeping lines Claude Code writes to the transcript after you've closed the terminal, not the read-tracking logic itself.
