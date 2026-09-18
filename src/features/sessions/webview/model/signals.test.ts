@@ -245,6 +245,23 @@ describe("sessions signals", () => {
       expect(filteredSignal.value).not.toBe(first);
     });
 
+    it("drops section headers while a search is active", () => {
+      const now = Date.now();
+      sessionsSignal.value = [
+        session({ id: "a", searchHaystack: "widget", endTime: now, isLive: true }),
+        session({ id: "b", searchHaystack: "widget", endTime: now - 5 * 86400000 }),
+      ];
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "all";
+      searchQuerySignal.value = "widget";
+      const rows = rowsSignal.value;
+      expect(rows.every((r) => r.kind === "session")).toBe(true);
+      expect(rows).toHaveLength(2);
+      // Clearing the query restores the sectioned view.
+      searchQuerySignal.value = "";
+      expect(rowsSignal.value.some((r) => r.kind === "header")).toBe(true);
+    });
+
     it("rowsSignal is memoized against non-filter changes too", () => {
       sessionsSignal.value = [session({ id: "a", endTime: Date.now() })];
       filterProjectSignal.value = "all";

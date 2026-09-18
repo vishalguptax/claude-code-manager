@@ -472,13 +472,22 @@ export function getBranchOptions(): BranchOption[] {
 export const filteredSignal = computed(getFiltered);
 
 /** Memoized header+session rows for the virtual list, derived from the
- *  filtered list + pins. Same memoization benefit as {@link filteredSignal}. */
-export const rowsSignal = computed<Row[]>(() =>
+ *  filtered list + pins. Same memoization benefit as {@link filteredSignal}.
+ *
+ *  A search produces a FLAT list: the Active / Today / Pinned / date sections
+ *  answer "what have I been working on", which is a question the user stopped
+ *  asking the moment they typed a query. Under search they only fragment the
+ *  result set — a three-hit search could arrive as three one-row sections, and
+ *  a collapsed section would silently hide a match. Results stay in the
+ *  filtered order (pinned first, then most recent). */
+export const rowsSignal = computed<Row[]>(() => {
+  const list = filteredSignal.value;
+  if (searchQuerySignal.value) return list.map((session): Row => ({ kind: "session", session }));
   // `now` comes from the clock here rather than being threaded through: the
   // list re-derives on every session/filter change anyway, so the day buckets
   // refresh on the next interaction after midnight.
-  buildRows(filteredSignal.value, pinnedSignal.value, collapsedGroupsSignal.value, Date.now()),
-);
+  return buildRows(list, pinnedSignal.value, collapsedGroupsSignal.value, Date.now());
+});
 
 /** Reactive count of the filtered list — handy for headers. */
 export const filteredCount = computed(() => filteredSignal.value.length);
