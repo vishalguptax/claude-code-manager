@@ -10,6 +10,7 @@
  * into a provider instance's private fields directly.
  */
 import * as vscode from "vscode";
+import { pingWebview } from "../diagnostics/healthCheck";
 import type { PanelSink } from "../../extension/panelSink";
 import { postAccountData } from "./accountPush";
 import * as path from "path";
@@ -285,6 +286,11 @@ export function refreshSettings(ctx: ProviderActionsContext): void {
     // exactly once per VS Code install and survives panel reloads.
     demoSeen: ctx.globalState?.get<boolean>(DEMO_SEEN_KEY) ?? false,
   });
+
+  // A settings push is exactly when the panel has been seen to go blank, so
+  // it is when liveness is worth checking. Silence is logged; see
+  // diagnostics/healthCheck.ts.
+  pingWebview((msg) => wv.postMessage(msg), "a settings push");
 }
 
 /**

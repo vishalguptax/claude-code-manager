@@ -387,3 +387,44 @@ button,
 .load-notice-retry {
   margin-top: 8px;
 }
+
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Crash surface — the banner crashSurface.ts paints for an exception that
+   escaped the Preact error boundary (a host-message handler, an async
+   callback, module top-level). Fixed rather than in flow: the tree it would
+   sit inside is exactly what may have failed.
+   ────────────────────────────────────────────────────────────────────────── */
+.crash-surface {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  overflow: auto;
+  padding: var(--space-lg);
+  background: var(--bg);
+  color: var(--fg);
+}
+.crash-surface-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  margin-bottom: var(--space-sm);
+  color: var(--vscode-errorForeground, var(--fg));
+}
+.crash-surface-actions {
+  display: flex;
+  gap: var(--space-sm);
+  /* Sits under the detail: the message is what the user reads first, the
+     actions are what they do about it. */
+  margin-top: var(--space-md);
+}
+.crash-surface-detail {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--fg-muted);
+  /* A stack is long lines: wrap them rather than adding a horizontal
+     scrollbar to a message the user is meant to read and paste. */
+  white-space: pre-wrap;
+  word-break: break-word;
+}

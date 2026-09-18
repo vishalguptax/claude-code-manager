@@ -3,6 +3,7 @@
  * shared protocol parser, then fans out to per-prefix feature handlers.
  */
 import { type Message, parseMessage } from "../../../shared/protocol/schemas";
+import { recordError } from "./errorLog";
 
 export type Handler = (msg: Message) => void;
 
@@ -36,6 +37,7 @@ export function dispatch(msg: Message): void {
           h(msg);
         } catch (err) {
           console.error("[claude-manager] handler error", err);
+          recordError(`handler:${msg.type}`, err);
         }
       }
     }
@@ -59,6 +61,7 @@ export function initMessageBus(): void {
       dispatch(msg);
     } catch (err) {
       console.error("[claude-manager] invalid message", err);
+      recordError("message", err);
     }
   });
 }

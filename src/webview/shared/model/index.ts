@@ -11,6 +11,14 @@ export {
   tabOrderPref,
   theme,
 } from "./globalSignals";
+export {
+  _resetErrorLog,
+  type ErrorEntry,
+  formatErrorLog,
+  getErrorLog,
+  recordError,
+  setErrorSink,
+} from "./errorLog";
 export { _resetIntro, closeIntro, introVisible, maybeShowIntro } from "./intro";
 export {
   _resetMessageBus,

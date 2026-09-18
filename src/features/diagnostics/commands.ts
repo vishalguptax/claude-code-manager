@@ -5,6 +5,8 @@
  * editor tab so the user can read + copy + paste into a bug report.
  */
 import * as vscode from "vscode";
+import { formatErrors, getOutputChannel } from "./errorLog";
+import { buildIssueUrl, buildReport, DEFAULT_ISSUE_TITLE } from "./report";
 import { runDiagnostics } from "./runner";
 import type { DiagnosticCheck } from "./types";
 
@@ -124,4 +126,71 @@ export async function runDiagnosticsCommand(): Promise<void> {
   await vscode.window.showTextDocument(doc, { preview: false });
 }
 
-export const __internals = { formatReport, compareSemver, checkVsCodeVersion, checkWorkspace };
+/** Plain-text rendering of the checks, for the bug report's code block. */
+function formatChecksPlain(checks: DiagnosticCheck[]): string {
+  return checks.map((c) => `${STATUS_ICON[c.status]} ${c.label}: ${c.detail}`).join("\n");
+}
+
+/** The repository the issue is filed against — matches package.json. */
+const REPO_URL = "https://github.com/vishalguptax/claude-code-manager";
+
+/**
+ * "Report a problem": assemble the environment, the session's error log and
+ * the diagnostic checks into one markdown report, then let the user choose
+ * what to do with it. Nothing leaves the machine unless the user picks the
+ * GitHub option, which opens their browser on a prefilled issue form — the
+ * extension itself still makes no network calls.
+ */
+export async function reportIssueCommand(): Promise<void> {
+  const extension = vscode.extensions.getExtension("vishalguptax.claude-manager");
+  const checks = await runAllChecks();
+  const report = buildReport({
+    env: {
+      extensionVersion: (extension?.packageJSON as { version?: string } | undefined)?.version ?? "unknown",
+      vscodeVersion: vscode.version,
+      platform: process.platform,
+      osRelease: process.versions.electron ? `electron ${process.versions.electron}` : undefined,
+    },
+    errors: formatErrors(),
+    checks: formatChecksPlain(checks),
+  });
+
+  const COPY = "Copy report";
+  const ISSUE = "Open GitHub issue";
+  const DOCUMENT = "Open as document";
+  const LOG = "Show error log";
+  const choice = await vscode.window.showQuickPick([COPY, ISSUE, DOCUMENT, LOG], {
+    title: "Report a problem",
+    placeHolder: "The report includes your environment, diagnostics and this session's errors",
+  });
+  if (!choice) return;
+
+  if (choice === COPY) {
+    await vscode.env.clipboard.writeText(report);
+    vscode.window.showInformationMessage("Report copied. Paste it into the issue.");
+    return;
+  }
+  if (choice === ISSUE) {
+    // The clipboard carries the full text; the URL may be truncated.
+    await vscode.env.clipboard.writeText(report);
+    await vscode.env.openExternal(
+      vscode.Uri.parse(buildIssueUrl(REPO_URL, DEFAULT_ISSUE_TITLE, report)),
+    );
+    return;
+  }
+  if (choice === DOCUMENT) {
+    const doc = await vscode.workspace.openTextDocument({ content: report, language: "markdown" });
+    await vscode.window.showTextDocument(doc, { preview: false });
+    return;
+  }
+  getOutputChannel().show(true);
+}
+
+export const __internals = {
+  formatReport,
+  formatChecksPlain,
+  compareSemver,
+  checkVsCodeVersion,
+  checkWorkspace,
+  REPO_URL,
+};

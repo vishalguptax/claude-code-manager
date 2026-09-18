@@ -130,6 +130,10 @@
       {
         "command": "claudeManager.runDiagnostics",
         "title": "Claude Code Manager: Run Diagnostics"
+      },
+      {
+        "command": "claudeManager.reportIssue",
+        "title": "Claude Code Manager: Report a Problem"
       }
     ],
     "keybindings": [

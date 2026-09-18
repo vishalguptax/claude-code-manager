@@ -250,6 +250,23 @@ const setTabPreferences = v.object({
   order: v.array(v.string()),
 });
 const runCommand = v.object({ type: v.literal("runCommand"), command: v.string() });
+const webviewError = v.object({
+  type: v.literal("webviewError"),
+  source: v.string(),
+  message: v.string(),
+  stack: v.optional(v.string()),
+});
+const reportIssue = v.object({ type: v.literal("reportIssue") });
+const ping = v.object({ type: v.literal("ping"), id: v.number() });
+const pong = v.object({
+  type: v.literal("pong"),
+  id: v.number(),
+  tabs: v.number(),
+  rootLength: v.number(),
+  activeTab: v.string(),
+  errors: v.number(),
+  details: v.optional(v.string()),
+});
 const promptRemovePermission = v.object({
   type: v.literal("promptRemovePermission"),
   scope,
@@ -518,6 +535,10 @@ export const messageSchema = v.variant("type", [
   openExtensionSettings,
   setTabPreferences,
   runCommand,
+  webviewError,
+  reportIssue,
+  ping,
+  pong,
   promptRemovePermission,
   resetSettings,
   restoreSettingsSnapshot,

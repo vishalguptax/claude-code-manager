@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { __internals } from "../commands";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import * as vscode from "vscode";
+import { __internals, reportIssueCommand } from "../commands";
+
+
+afterEach(() => vi.restoreAllMocks());
 
 const { formatReport, compareSemver } = __internals;
 
@@ -52,5 +56,38 @@ describe("formatReport", () => {
       { id: "a", label: "x", status: "pass", detail: "ok" },
     ]);
     expect(md).not.toContain("## Fix hints");
+  });
+});
+
+describe("reportIssueCommand", () => {
+  it("copies the full report when the user picks Copy", async () => {
+    vi.spyOn(vscode.window, "showQuickPick").mockResolvedValue("Copy report" as never);
+    const write = vi.spyOn(vscode.env.clipboard, "writeText").mockResolvedValue();
+    vi.spyOn(vscode.window, "showInformationMessage").mockResolvedValue(undefined as never);
+
+    await reportIssueCommand();
+
+    expect(write).toHaveBeenCalledWith(expect.stringContaining("### Environment"));
+  });
+
+  it("opens the prefilled issue form, and still copies the untruncated report", async () => {
+    vi.spyOn(vscode.window, "showQuickPick").mockResolvedValue("Open GitHub issue" as never);
+    const write = vi.spyOn(vscode.env.clipboard, "writeText").mockResolvedValue();
+    const open = vi.spyOn(vscode.env, "openExternal").mockResolvedValue(true);
+
+    await reportIssueCommand();
+
+    expect(write).toHaveBeenCalled();
+    const uri = open.mock.calls[0]?.[0] as { toString(): string };
+    expect(String(uri)).toContain("/issues/new?");
+  });
+
+  it("does nothing when the picker is dismissed", async () => {
+    vi.spyOn(vscode.window, "showQuickPick").mockResolvedValue(undefined as never);
+    const write = vi.spyOn(vscode.env.clipboard, "writeText").mockResolvedValue();
+
+    await reportIssueCommand();
+
+    expect(write).not.toHaveBeenCalled();
   });
 });

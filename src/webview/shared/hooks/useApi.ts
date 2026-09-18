@@ -41,6 +41,14 @@ const bridge = {
 };
 
 /**
+ * Post to the host from code that is not a component — the crash surface,
+ * which must work when the Preact tree is exactly what failed.
+ */
+export function postToHost(msg: unknown): void {
+  bridge.post(msg);
+}
+
+/**
  * Preact hook returning the host postMessage bridge. Every post also
  * arms the shared busy indicator, which the host's `ack` clears — slow
  * handlers surface as a progress bar instead of a dead panel.

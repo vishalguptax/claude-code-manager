@@ -33,7 +33,7 @@ import {
 import { startActiveSessionWatcher } from "../features/sessions/activeSessionWatcher";
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
-import { runDiagnosticsCommand } from "../features/diagnostics/commands";
+import { reportIssueCommand, runDiagnosticsCommand } from "../features/diagnostics/commands";
 
 /**
  * Activate the Claude Manager extension.
@@ -201,6 +201,13 @@ export function activate(context: vscode.ExtensionContext): void {
   // editor is the obvious medium for a one-shot text report.
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.runDiagnostics", () => runDiagnosticsCommand()),
+  );
+
+  // "Report a Problem" — the same report the crash surface offers, reachable
+  // from the palette when the panel did not crash but something still looks
+  // wrong. Assembles environment + diagnostics + this session's errors.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("claudeManager.reportIssue", () => reportIssueCommand()),
   );
 
   // Re-push settings to the open webview whenever the user changes a

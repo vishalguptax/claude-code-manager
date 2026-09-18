@@ -29,6 +29,8 @@ describe("ErrorBoundary", () => {
         </ErrorBoundary>,
       );
       expect(screen.getByText(/Something went wrong/i)).toBeTruthy();
+      // The thrown message rides along so a crash report has a cause in it.
+      expect(screen.getByText("boom")).toBeTruthy();
     } finally {
       console.error = orig;
     }

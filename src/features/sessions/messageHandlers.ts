@@ -11,6 +11,7 @@
  * and are re-exported here so existing imports (`./messageHandlers`)
  * keep working.
  */
+import { recordError as recordHostError } from "../diagnostics/errorLog";
 import * as vscode from "vscode";
 import {
   parseSessions,
@@ -146,6 +147,14 @@ export async function dispatch(msg: WebviewMessage, ctx: HostContext): Promise<v
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[claude-manager] Message handler error (${msg.type}):`, message);
+    // The webview shows this one; the log keeps it. Without this the host half
+    // of a failure was missing from every bug report.
+    recordHostError({
+      at: Date.now(),
+      source: `host:${msg.type}`,
+      message,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     wv.postMessage({ type: "error", message: `Internal error: ${message}` });
   } finally {
     // Perf tripwire: name any handler that held the dispatch for longer

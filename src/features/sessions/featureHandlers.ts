@@ -8,6 +8,9 @@
  * here until they get the same treatment.
  */
 import * as vscode from "vscode";
+import { getOutputChannel, recordError as recordWebviewError } from "../diagnostics/errorLog";
+import { handlePong } from "../diagnostics/healthCheck";
+import { reportIssueCommand } from "../diagnostics/commands";
 import type { PanelSink } from "../../extension/panelSink";
 import * as path from "path";
 import * as fs from "fs";
@@ -274,6 +277,38 @@ export async function handleFeatureMessage(
 
     case "openExtensionSettings": {
       vscode.commands.executeCommand("workbench.action.openSettings", "claudeManager");
+      break;
+    }
+
+    case "webviewError": {
+      // The panel's own console is out of reach for most users, so the
+      // webview's failures are mirrored into the output channel — that is
+      // where "report a problem" reads them from, and they outlive the panel.
+      recordWebviewError({
+        at: Date.now(),
+        source: `webview:${msg.source}`,
+        message: msg.message,
+        stack: msg.stack,
+      });
+      break;
+    }
+
+    case "pong": {
+      getOutputChannel().appendLine(
+        `[${new Date().toISOString()}] [health] ${handlePong({
+          id: msg.id,
+          tabs: msg.tabs,
+          rootLength: msg.rootLength,
+          activeTab: msg.activeTab,
+          errors: msg.errors,
+          details: msg.details,
+        })}`,
+      );
+      break;
+    }
+
+    case "reportIssue": {
+      await reportIssueCommand();
       break;
     }
 

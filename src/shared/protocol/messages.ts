@@ -144,10 +144,36 @@ export type Message =
    */
   | { type: "setTabPreferences"; hidden: string[]; order: string[] }
   | { type: "runCommand"; command: string }
+  /**
+   * A failure the webview caught, mirrored to the host so it lands in the
+   * output channel — the panel has no console the user can reach, so this is
+   * the only copy of the error that survives a reload.
+   */
+  | { type: "webviewError"; source: string; message: string; stack?: string }
+  /** Open the "report a problem" flow (clipboard / GitHub issue / document). */
+  | { type: "reportIssue" }
+  /**
+   * Health-check reply. The host pings after each settings push; a panel
+   * that has gone blank answers nothing, and that silence is logged. The
+   * census says what the webview believes it rendered, which is the
+   * difference between "the app died" and "the app is fine, the view is
+   * not being shown".
+   */
+  | {
+      type: "pong";
+      id: number;
+      tabs: number;
+      rootLength: number;
+      activeTab: string;
+      errors: number;
+      /** Compact key=value dump: geometry, computed styles, overlays. */
+      details?: string;
+    }
   | { type: "promptRemovePermission"; scope: SettingsScope; tool: string; list: PermissionList }
   | { type: "resetSettings"; scope: SettingsScope }
   | { type: "restoreSettingsSnapshot"; scope: SettingsScope; snapshotId: string }
   | { type: "deleteSettingsSnapshot"; scope: SettingsScope; snapshotId: string }
+  | { type: "ping"; id: number }
   | { type: "workspacePath"; data: string }
   | { type: "workspaceBranch"; data: string }
   | { type: "settings"; [extra: string]: unknown }
@@ -338,6 +364,10 @@ type WebviewMessageType =
   | "openExtensionSettings"
   | "setTabPreferences"
   | "runCommand"
+  | "webviewError"
+  | "reportIssue"
+  | "pong"
+  | "ping"
   | "promptRemovePermission"
   | "resetSettings"
   | "restoreSettingsSnapshot"

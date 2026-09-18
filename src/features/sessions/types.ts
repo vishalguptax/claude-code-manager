@@ -369,6 +369,17 @@ export type WebviewMessage =
   | { type: "openFile"; path: string }
   | { type: "openExtensionSettings" }
   | { type: "setTabPreferences"; hidden: string[]; order: string[] }
+  | { type: "webviewError"; source: string; message: string; stack?: string }
+  | { type: "reportIssue" }
+  | {
+      type: "pong";
+      id: number;
+      tabs: number;
+      rootLength: number;
+      activeTab: string;
+      errors: number;
+      details?: string;
+    }
   | { type: "getAccountData" }
   | { type: "launchSlash"; command: string }
   | { type: "setModel"; model: string }
