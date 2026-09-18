@@ -201,20 +201,23 @@
 /* A superseded key that still takes effect: shown as a notice with a
    one-click clear, not as a control that invites further use. */
 .cfg-deprecated {
+  /* Stacked, not text-beside-button: the sidebar is ~250px wide, so a row
+     layout left the notice a ~120px column that wrapped to six lines while
+     the button's nowrap label pushed past the panel edge. */
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
   gap: var(--space-sm);
-  justify-content: space-between;
 }
+/* The key name is the subject of the notice, so it leads as its own line —
+   inline it would be a mono run too long to wrap inside the prose column. */
+.cfg-deprecated .cfg-code {
+  align-self: stretch;
+}
+/* The hint's own margin-top separates it from the control it normally sits
+   under; here the flex gap already does that. */
 .cfg-deprecated .field-hint {
-  flex: 1;
-  /* The hint's own margin-top exists to separate it from the control it
-     normally sits under. Here it sits BESIDE a button, so that margin
-     only pushes the text down and out of line with it. */
   margin-top: 0;
-  /* Match the button's cap height so the first line of the notice reads
-     level with the label inside it, rather than with the button's box. */
-  align-self: center;
 }
 
 /* ── Sidebar tabs (TabsView) ──────────────────────────────────────────

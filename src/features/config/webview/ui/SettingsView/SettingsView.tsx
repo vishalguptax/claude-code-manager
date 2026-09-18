@@ -363,10 +363,10 @@ export function SettingsView({ data, api }: SettingsViewProps) {
                 clear rather than resurrected as its own checkbox. */}
             {s.includeCoAuthoredBySet && !s.includeCoAuthoredBy ? (
               <div class="field cfg-deprecated">
+                <code class="cfg-code">includeCoAuthoredBy: false</code>
                 <div class="field-hint">
-                  <code class="cfg-code">includeCoAuthoredBy: false</code> is set and
-                  suppresses the trailer above. Claude Code has replaced it with the
-                  attribution fields.
+                  This legacy key suppresses the commit trailer above. Claude Code
+                  has replaced it with the attribution fields.
                 </div>
                 <Button
                   iconName="trash-2"
