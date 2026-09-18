@@ -373,6 +373,16 @@
    ────────────────────────────────────────────────────────────────────────── */
 
 .cb {
+  /* Containing block for .cb-input below, and NOT optional: the input is
+     absolutely positioned, so without this it resolves against the initial
+     containing block — the document. Its static position then lands wherever
+     the row happens to be inside a scrolled panel (y≈2250 for the last row of
+     Config's tab list), which hands the DOCUMENT that much scrollable
+     overflow. Clicking the label focuses the input, the browser scrolls the
+     document to reveal it, and #root (100vh) leaves the viewport with no
+     scrollbar to get back: the panel goes blank while still rendering
+     perfectly. */
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);

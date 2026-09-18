@@ -188,3 +188,29 @@ describe("outline button family", () => {
     );
   });
 });
+
+describe("nothing can scroll the document out from under the app", () => {
+  /**
+   * Regression: `.cb-input` is absolutely positioned. With no positioned
+   * ancestor it resolved against the document, so every checkbox in a long
+   * scrolled panel added its static position to the document's scrollable
+   * overflow. Clicking one focused it, the browser scrolled the document, and
+   * #root (100vh) left the viewport — a blank panel that was rendering fine,
+   * with no scrollbar to scroll back.
+   */
+  const read = (file: string): string => strip(fs.readFileSync(path.join(STYLES, file), "utf-8"));
+  const ruleBody = (css: string, selector: string): string => {
+    const match = new RegExp(`(^|\\})\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`, "m").exec(css);
+    return match?.[2] ?? "";
+  };
+
+  it("gives .cb-input a positioned ancestor", () => {
+    const css = read("components-native.css");
+    expect(ruleBody(css, ".cb-input")).toMatch(/position:\s*absolute/);
+    expect(ruleBody(css, ".cb")).toMatch(/position:\s*relative/);
+  });
+
+  it("keeps the scrolling inside the panel, which owns it on purpose", () => {
+    expect(read("tabs.css")).toMatch(/\.tab-content \.panel\s*\{[^}]*overflow-y:\s*auto/);
+  });
+});
