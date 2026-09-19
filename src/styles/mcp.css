@@ -81,7 +81,7 @@
 /* Disabled pill — genuinely disabled, so it keeps the muted/disabled colour.
    Read-only pill is defined once in components.css (a read-only item isn't
    disabled). */
-.mcp-disabled-badge { background: var(--badge-neutral-bg); color: var(--fg-muted); opacity: 0.8; }
+.mcp-disabled-badge { background: var(--badge-neutral-bg); color: var(--fg-muted); }
 
 /* Standalone block note under the action row (plugin / user-scope hints).
    A direct .panel child, so it must carry the panel's --space-2xl inset. */
@@ -200,8 +200,8 @@
   /* Match the search-row inset so the banner lines up with the content
      below it instead of spanning edge-to-edge. */
   margin: var(--space-sm) var(--space-2xl);
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: var(--orange-bg);
+  border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent);
   border-radius: var(--radius);
   font-size: var(--fs-sm);
   line-height: 1.4;
@@ -216,9 +216,9 @@ button.mcp-auth-banner {
   font-family: inherit;
   transition: background var(--transition-control);
 }
-.mcp-auth-banner:hover { background: rgba(245, 158, 11, 0.18); }
+.mcp-auth-banner:hover { background: color-mix(in srgb, var(--orange) 18%, transparent); }
 .mcp-auth-banner:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
-.mcp-auth-banner svg { color: rgb(245, 158, 11); flex-shrink: 0; margin-top: 1px; }
+.mcp-auth-banner svg { color: var(--orange); flex-shrink: 0; margin-top: 1px; }
 .mcp-auth-banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 /* Trailing call-to-action pinned right, so the banner reads as clickable. */
 .mcp-auth-banner-go {
@@ -251,7 +251,7 @@ button.mcp-auth-banner {
   border-radius: 50%;
   flex-shrink: 0;
 }
-.mcp-health-dot.is-ok { background: var(--green, #2ea043); }
+.mcp-health-dot.is-ok { background: var(--green, #3fb950); }
 .mcp-health-dot.is-missing { background: var(--vscode-editorError-foreground, #f14c4c); }
 
 

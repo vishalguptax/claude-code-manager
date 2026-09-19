@@ -760,10 +760,9 @@ describe("sessions signals", () => {
       expect([...collapsedGroupsSignal.value].sort()).toEqual(["August 2026", "Pinned"]);
     });
 
-    it("never persists a collapsed Today, so tomorrow's work is not pre-hidden", () => {
-      // "Today" means different sessions tomorrow. Storing it would hide the
-      // next day's work behind a preference set about a different day — the
-      // exact problem the day sections exist to fix.
+    it("persists every collapsed label, relative ones included", () => {
+      // Collapsing "Today" states a preference about that section, not about
+      // the sessions that happen to sit in it right now, so it outlives them.
       initPersistence(makeApi());
       initFilterPersistence();
       toggleGroupCollapsed("Today");
@@ -774,17 +773,20 @@ describe("sessions signals", () => {
 
       _resetSessionsSignals();
       loadPersistedFilters();
-      expect([...collapsedGroupsSignal.value]).toEqual(["Mon, Sep 7"]);
+      expect([...collapsedGroupsSignal.value].sort()).toEqual([
+        "Active",
+        "Mon, Sep 7",
+        "Today",
+        "Yesterday",
+      ]);
     });
 
-    it("drops a volatile label already in stored state", () => {
-      // A build that stored "Today" before the filter existed must not keep
-      // hiding today's work forever.
+    it("restores a relative label from stored state", () => {
       const api = makeApi();
       initPersistence(api);
       api.setState?.({ "sessions.collapsedGroups": ["Today", "Pinned"] });
       loadPersistedFilters();
-      expect([...collapsedGroupsSignal.value]).toEqual(["Pinned"]);
+      expect([...collapsedGroupsSignal.value].sort()).toEqual(["Pinned", "Today"]);
     });
 
     it("the eager first run does not persist defaults, so host defaultFilter/defaultProject still apply", () => {

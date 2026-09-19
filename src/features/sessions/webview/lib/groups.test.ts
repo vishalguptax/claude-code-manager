@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Session, SessionGroup } from "../../types";
-import { buildRows, flattenGroups, isVolatileLabel, sessionDayLabel } from "./groups";
+import { buildRows, flattenGroups, sessionDayLabel } from "./groups";
 
 function session(id: string, over: Partial<Session> = {}): Session {
   return {
@@ -89,21 +89,6 @@ describe("sessionDayLabel", () => {
       if (label !== seen[seen.length - 1]) seen.push(label);
     }
     expect(new Set(seen).size).toBe(seen.length);
-  });
-});
-
-describe("isVolatileLabel", () => {
-  it("flags the labels whose meaning changes overnight", () => {
-    expect(isVolatileLabel("Active")).toBe(true);
-    expect(isVolatileLabel("Today")).toBe(true);
-    expect(isVolatileLabel("Yesterday")).toBe(true);
-  });
-
-  it("treats absolute labels as stable", () => {
-    expect(isVolatileLabel("Pinned")).toBe(false);
-    expect(isVolatileLabel("Mon, Sep 7")).toBe(false);
-    expect(isVolatileLabel("Aug 27 – Sep 2")).toBe(false);
-    expect(isVolatileLabel("August 2026")).toBe(false);
   });
 });
 

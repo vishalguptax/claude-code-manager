@@ -22,23 +22,10 @@ export type Row =
   | { kind: "header"; label: string; count: number; collapsed: boolean }
   | { kind: "session"; session: Session };
 
-/** Section labels whose meaning shifts with the calendar. See {@link isVolatileLabel}. */
 const ACTIVE_LABEL = "Active";
 const TODAY_LABEL = "Today";
 const PINNED_LABEL = "Pinned";
 const YESTERDAY_LABEL = "Yesterday";
-
-/**
- * True for a section label that means something different tomorrow than it does
- * today. Collapse state for these is deliberately NOT persisted: a stored
- * "Today collapsed" would hide the next day's work behind a preference the user
- * set about different sessions, which is the exact problem the day sections
- * exist to solve. Absolute labels ("Mon, Sep 8", "August 2026") are stable and
- * persist fine.
- */
-export function isVolatileLabel(label: string): boolean {
-  return label === ACTIVE_LABEL || label === TODAY_LABEL || label === YESTERDAY_LABEL;
-}
 
 /** Whole days from `ts`'s local calendar date back to `now`'s. Same day = 0. */
 function dayDiff(ts: number, now: number): number {

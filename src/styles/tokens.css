@@ -4,12 +4,34 @@
 
 :root {
   --bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
-  --bg-hover: var(--vscode-list-hoverBackground, rgba(255,255,255,0.06));
+  --bg-hover: var(--vscode-list-hoverBackground, rgba(127,127,127,0.10));
   --bg-active: var(--vscode-list-activeSelectionBackground);
   --bg-active-fg: var(--vscode-list-activeSelectionForeground);
   --fg: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground));
   --fg-dim: var(--vscode-descriptionForeground);
-  --fg-muted: var(--vscode-disabledForeground);
+  /* QUIET TEXT AND ICONS — meta lines, row action glyphs, outline-button
+     chevrons, footer links, palette icons, key names. Live, readable UI that
+     simply must not compete with the title beside it.
+
+     This was --vscode-disabledForeground, which is the single lowest-contrast
+     colour a theme ships: its whole job is to say "this control is off", and
+     several popular themes put it near 2:1 against the sidebar. Around seventy
+     call sites used it for things that are not disabled at all — the row
+     copy/chat buttons, the collapse chevrons, the command-palette icons — so
+     on those themes the sidebar's glyphs were barely visible. The --role-text-*
+     block further down already stated the rule ("Never use disabledForeground
+     for structural text"); the role layer obeyed it and --fg-muted never did.
+
+     Mixing toward the background instead of naming a second theme colour is
+     what keeps the step honest: --fg-muted is always exactly one notch quieter
+     than --fg-dim, in every theme, and can never invert past it the way a
+     rival theme token can. */
+  --fg-muted: color-mix(in srgb, var(--vscode-descriptionForeground, var(--fg)) 85%, var(--bg));
+  /* GENUINELY DISABLED — a control that cannot be actioned. The only correct
+     home for disabledForeground. Never pair it with an extra opacity: the
+     theme colour is already the dimmest one available, and dimming it again
+     is what made disabled menu rows unreadable rather than merely inert. */
+  --fg-disabled: var(--vscode-disabledForeground);
   /* Section-header foreground — VS Code's own SOURCE CONTROL / EXPLORER
      group titles use this dedicated token (falls back to the panel
      foreground on themes that leave it unset). Keeping section labels on
@@ -41,16 +63,44 @@
   --btn-bg: var(--vscode-button-background);
   --btn-fg: var(--vscode-button-foreground);
   --btn-hover: var(--vscode-button-hoverBackground);
-  --btn-sec-bg: var(--vscode-button-secondaryBackground, var(--vscode-list-hoverBackground, rgba(255,255,255,0.08)));
+  --btn-sec-bg: var(--vscode-button-secondaryBackground, var(--vscode-list-hoverBackground, rgba(127,127,127,0.14)));
   --btn-sec-fg: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  --btn-sec-hover: var(--vscode-button-secondaryHoverBackground, rgba(255,255,255,0.12));
+  --btn-sec-hover: var(--vscode-button-secondaryHoverBackground, rgba(127,127,127,0.20));
   --link: var(--vscode-textLink-foreground);
-  --green: #2ea043;
-  --green-bg: rgba(46,160,67,0.15);
+
+  /* ── SEMANTIC PALETTE (dark surfaces) ─────────────────────────────────
+     Status hues: running/success green, protocol blue, scope purple, plan
+     amber, warning orange, error red. The DARK values live here; the light
+     override at the bottom of this file restates the same six for a white
+     surface. Everything else in the sidebar rides a --vscode-* variable and
+     is polarity-correct for free; these six are the only hardcoded hues, so
+     they are the only ones that need the pair.
+
+     The set that used to live here was GitHub Primer's DARK scale (#58a6ff,
+     #a371f7, #3fb950, #f85149). Those are built to sit on a near-black
+     surface; measured on a white one they come in at 2.2–3.4:1, so on every
+     light theme the MCP type chips, the plan badge, the agent scope icons and
+     the running-session dot were pale marks you had to hunt for. The light
+     block swaps in Primer's LIGHT scale — the same hues darkened until they
+     clear 4.5:1 on white — so each half is AA against its own surface and one
+     call site reads correctly in either mode.
+
+     Two greens (#2ea043 and #3fb950) were carrying identical meaning; the
+     darker of the pair measured 3.5:1 even on dark, below AA. They are one
+     token now, with --color-green-badge kept as an alias so the four call
+     sites that name it are untouched.
+
+     Every tint background derives from its hue with color-mix rather than
+     repeating it as a second hardcoded rgba(). A literal would have pinned
+     the light themes to a wash of the DARK hue while the text on top of it
+     had already moved. The 15% ratio reproduces the previous rgba alphas
+     exactly, so dark themes render unchanged. */
+  --green: #3fb950;
+  --green-bg: color-mix(in srgb, var(--green) 15%, transparent);
   --orange: var(--vscode-notificationsWarningIcon-foreground, #f5a623);
-  --orange-bg: rgba(245,166,35,0.15);
+  --orange-bg: color-mix(in srgb, var(--orange) 15%, transparent);
   --red: var(--vscode-errorForeground, #f85149);
-  --red-bg: rgba(248,81,73,0.15);
+  --red-bg: color-mix(in srgb, var(--red) 15%, transparent);
   --mono: var(--vscode-editor-font-family, monospace);
   /* Alias kept for call sites that reference --font-mono (sessions session-id,
      account quota code chips). Without this definition those fell through to
@@ -68,16 +118,17 @@
   --menu-border: var(--vscode-menu-border, var(--border));
   --menu-fg: var(--vscode-menu-foreground, var(--fg));
   --color-blue: #58a6ff;
-  --color-blue-bg: rgba(88,166,255,0.15);
+  --color-blue-bg: color-mix(in srgb, var(--color-blue) 15%, transparent);
   --color-purple: #a371f7;
-  --color-purple-bg: rgba(163,113,247,0.15);
-  --color-green-badge: #3fb950;
-  --color-green-badge-bg: rgba(63,185,80,0.15);
+  --color-purple-bg: color-mix(in srgb, var(--color-purple) 15%, transparent);
+  /* Alias, not a second green — see the palette note above. */
+  --color-green-badge: var(--green);
+  --color-green-badge-bg: var(--green-bg);
   /* Warm accent for the subscription-plan chip. Not --orange: that one is
      wired to notificationsWarningIcon-foreground, so a Max plan would inherit
      the editor's WARNING colour and read as a problem rather than a tier. */
   --color-amber: #ff9966;
-  --color-amber-bg: rgba(255,153,102,0.15);
+  --color-amber-bg: color-mix(in srgb, var(--color-amber) 15%, transparent);
   /* ── Type scale ──────────────────────────────────────────────────────
      Every step is a ratio of the font size the USER configured, not a fixed
      pixel count. It was six absolute px values, which meant a developer who
@@ -212,4 +263,38 @@
   --role-control-fg: var(--vscode-dropdown-foreground, var(--vscode-input-foreground, var(--input-fg)));
   --role-control-border: var(--vscode-dropdown-border,
     var(--vscode-input-border, var(--vscode-contrastBorder, var(--border))));
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   SEMANTIC PALETTE — light surfaces
+
+   VS Code stamps `vscode-light`, `vscode-dark`, `vscode-high-contrast` or
+   `vscode-high-contrast-light` onto <body> precisely so a webview can branch
+   on theme polarity; src/webview/shared/hooks/useTheme.ts already reads the
+   same classes. `body.<class>` (0,1,1) outranks the `:root` block above
+   (0,1,0) and every painted element is a descendant of <body>, so the swap
+   reaches the whole app through normal inheritance — no duplicated rules.
+
+   Values are GitHub Primer's light foreground scale, the light-mode
+   counterpart of the dark hues in :root, each chosen at the point it clears
+   4.5:1 on white. The -bg tints are not restated: they are color-mix()
+   derivations of the hue directly above, so they follow this swap by
+   themselves.
+
+   High-contrast LIGHT is included; high-contrast DARK is not, because it is a
+   dark surface and the :root values are already the right ones for it.
+   ────────────────────────────────────────────────────────────────────────── */
+body.vscode-light,
+body.vscode-high-contrast-light {
+  --green: #1a7f37;
+  --color-blue: #0969da;
+  --color-purple: #8250df;
+  /* Warm without being the warning colour, same intent as the dark #ff9966:
+     Primer's "severe" orange, the one step that stays orange at AA on white
+     instead of collapsing into brown. */
+  --color-amber: #bc4c00;
+  /* Theme variable first, exactly as in :root — only the fallback hex, used
+     by the rare theme that leaves the colour unset, moves to the light scale. */
+  --orange: var(--vscode-notificationsWarningIcon-foreground, #9a6700);
+  --red: var(--vscode-errorForeground, #cf222e);
 }

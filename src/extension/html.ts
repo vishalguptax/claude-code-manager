@@ -37,7 +37,8 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --bg-active-fg: var(--vscode-list-activeSelectionForeground);
       --fg: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground));
       --fg-dim: var(--vscode-descriptionForeground);
-      --fg-muted: var(--vscode-disabledForeground);
+      --fg-muted: color-mix(in srgb, var(--vscode-descriptionForeground, var(--fg)) 85%, var(--bg));
+      --fg-disabled: var(--vscode-disabledForeground);
       --border: var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border));
       --accent: var(--vscode-focusBorder);
       --badge-bg: var(--vscode-badge-background);
@@ -54,12 +55,12 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --btn-sec-fg: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
       --btn-sec-hover: var(--vscode-button-secondaryHoverBackground, rgba(255,255,255,0.12));
       --link: var(--vscode-textLink-foreground);
-      --green: #2ea043;
-      --green-bg: rgba(46,160,67,0.15);
+      --green: #3fb950;
+      --green-bg: color-mix(in srgb, var(--green) 15%, transparent);
       --orange: var(--vscode-notificationsWarningIcon-foreground, #f5a623);
-      --orange-bg: rgba(245,166,35,0.15);
+      --orange-bg: color-mix(in srgb, var(--orange) 15%, transparent);
       --red: var(--vscode-errorForeground, #f85149);
-      --red-bg: rgba(248,81,73,0.15);
+      --red-bg: color-mix(in srgb, var(--red) 15%, transparent);
       --mono: var(--vscode-editor-font-family, monospace);
       --shadow: rgba(0,0,0,0.25);
       --dropdown-bg: var(--vscode-dropdown-background, var(--input-bg));
@@ -68,11 +69,13 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --menu-border: var(--vscode-menu-border, var(--border));
       --menu-fg: var(--vscode-menu-foreground, var(--fg));
       --color-blue: #58a6ff;
-      --color-blue-bg: rgba(88,166,255,0.15);
+      --color-blue-bg: color-mix(in srgb, var(--color-blue) 15%, transparent);
       --color-purple: #a371f7;
-      --color-purple-bg: rgba(163,113,247,0.15);
-      --color-green-badge: #3fb950;
-      --color-green-badge-bg: rgba(63,185,80,0.15);
+      --color-purple-bg: color-mix(in srgb, var(--color-purple) 15%, transparent);
+      --color-green-badge: var(--green);
+      --color-green-badge-bg: var(--green-bg);
+      --color-amber: #ff9966;
+      --color-amber-bg: color-mix(in srgb, var(--color-amber) 15%, transparent);
       --fs-root: var(--vscode-font-size, 13px);
       --fs-xs: calc(var(--fs-root) * 0.77);
       --fs-sm: calc(var(--fs-root) * 0.85);
@@ -90,6 +93,18 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --space-lg: 10px;
       --space-xl: 12px;
       --space-2xl: 14px;
+    }
+    /* Light-surface half of the semantic palette — see the long note at the
+       foot of src/styles/tokens.css. VS Code stamps these classes on <body>,
+       and body (0,1,1) outranks :root (0,1,0). */
+    body.vscode-light,
+    body.vscode-high-contrast-light {
+      --green: #1a7f37;
+      --color-blue: #0969da;
+      --color-purple: #8250df;
+      --color-amber: #bc4c00;
+      --orange: var(--vscode-notificationsWarningIcon-foreground, #9a6700);
+      --red: var(--vscode-errorForeground, #cf222e);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {

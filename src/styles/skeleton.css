@@ -212,7 +212,11 @@
 }
 .skeleton-d-msg.is-user {
   border-left-color: var(--accent);
-  background: rgba(127, 127, 255, 0.04);
+  /* Tint derived from the same accent the border uses, rather than the
+     blue-violet literal that used to sit here mirroring a `.d-msg.is-user`
+     rule no stylesheet declares any more. A fixed blue-violet is a dark-theme
+     assumption; the accent follows the theme. */
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 /* First line in each card is the role label — slightly dimmer so the row
    reads as a heading, matching .d-msg-role. */

@@ -177,12 +177,12 @@
   gap: var(--space-md);
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: var(--orange-bg);
+  border: 1px solid color-mix(in srgb, var(--orange) 35%, transparent);
   border-radius: var(--radius);
   font-size: var(--fs-sm);
 }
-.acct-banner svg { color: rgb(245, 158, 11); flex-shrink: 0; margin-top: 2px; }
+.acct-banner svg { color: var(--orange); flex-shrink: 0; margin-top: 2px; }
 .acct-banner-text {
   flex: 1;
   display: flex;
@@ -538,12 +538,11 @@
 .acct-quota-info {
   display: inline-flex;
   color: var(--fg-muted);
-  opacity: 0.7;
   cursor: help;
 }
 .acct-quota-info:hover,
 .acct-quota-info:focus-visible {
-  opacity: 1;
+  color: var(--fg);
 }
 .acct-quota-verdict.pace-ahead {
   color: var(--vscode-editorWarning-foreground, #d49a00);

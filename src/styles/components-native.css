@@ -115,13 +115,12 @@
 
 /* Disabled row — dimmed, no hover highlight, no pointer. */
 .vsc-menu-item.disabled {
-  color: var(--fg-muted);
+  color: var(--fg-disabled);
   cursor: default;
-  opacity: 0.6;
 }
 .vsc-menu-item.disabled:hover {
   background: none;
-  color: var(--fg-muted);
+  color: var(--fg-disabled);
 }
 
 /* Section separator — a hairline inset from the menu edges, in the dedicated

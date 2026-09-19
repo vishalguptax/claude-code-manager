@@ -5,7 +5,6 @@
 export {
   buildRows,
   flattenGroups,
-  isVolatileLabel,
   sessionDayLabel,
   type Row,
 } from "./groups";

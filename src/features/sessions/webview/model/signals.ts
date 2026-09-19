@@ -27,7 +27,6 @@ import {
   buildWorktreeOptions,
   currentRepoRoot,
   hasWorktrees,
-  isVolatileLabel,
   listBranches,
   matchesProject,
   matchesScope,
@@ -565,12 +564,7 @@ export function loadPersistedFilters(): void {
   if (typeof branch === "string") filterBranchSignal.value = branch;
 
   const collapsed = getPersisted<string[]>(PERSIST_KEY_COLLAPSED);
-  if (Array.isArray(collapsed)) {
-    // Drop volatile labels on the way in as well as on the way out. A build
-    // that persisted "Today" before this filter existed must not keep hiding
-    // today's work forever.
-    collapsedGroupsSignal.value = new Set(collapsed.filter((l) => !isVolatileLabel(l)));
-  }
+  if (Array.isArray(collapsed)) collapsedGroupsSignal.value = new Set(collapsed);
 }
 
 /**
@@ -680,12 +674,10 @@ export function initFilterPersistence(): void {
     setPersisted(PERSIST_KEY_FILTER_PROJECT, project);
     setPersisted(PERSIST_KEY_FILTER_DATE, date);
     setPersisted(PERSIST_KEY_FILTER_BRANCH, branch);
-    // Volatile labels are session-only: persisting a collapsed "Today" would
-    // hide tomorrow's work behind a preference set about today's.
-    setPersisted(
-      PERSIST_KEY_COLLAPSED,
-      [...collapsed].filter((l) => !isVolatileLabel(l)),
-    );
+    // Every label, including the relative ones ("Active", "Today",
+    // "Yesterday"). Collapsing a section states a preference about the section,
+    // not about the sessions in it today, so it outlives them.
+    setPersisted(PERSIST_KEY_COLLAPSED, [...collapsed]);
   });
 }
 

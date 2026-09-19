@@ -32,8 +32,10 @@
 }
 .empty-state > svg,
 .empty-state > .icon {
+  /* The quiet foreground is the whole dimming. This glyph is the only mark
+     on an otherwise blank panel, and the `opacity: 0.55` that used to sit on
+     top of it sank the illustration below the text it introduces. */
   color: var(--fg-muted);
-  opacity: 0.55;
   margin-bottom: var(--space-xs);
 }
 .empty-state-title {
@@ -207,7 +209,7 @@
    now and both tabs use the same component.
    ────────────────────────────────────────────────────────────────────────── */
 .section {
-  border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(255,255,255,0.1)));
+  border-bottom: 1px solid var(--vscode-panel-border, var(--border, rgba(127,127,127,0.18)));
   /* Section separation comes from the header's top padding + the body's bottom
      padding around the divider (~22px). Extra padding on the section itself
      stacks into an oversized gap above the next header. */
@@ -917,7 +919,6 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  opacity: 0.4;
 }
 .item-copy-btn:hover            { opacity: 1; color: var(--fg); background: var(--bg-hover); }
 .item-copy-btn.copied           { opacity: 1; color: var(--green); }

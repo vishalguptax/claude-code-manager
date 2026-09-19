@@ -92,7 +92,6 @@
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
-  opacity: 0.8;
 }
 
 .item {
@@ -476,7 +475,7 @@
   font-family: var(--font-mono, monospace);
   font-size: calc(var(--fs-xs) - 0.5px);
 }
-.d-meta-dot { color: var(--fg-muted); opacity: 0.5; }
+.d-meta-dot { color: var(--fg-muted); }
 
 /*
  * Stat strip — summary facts at a glance (messages · tools · tokens
