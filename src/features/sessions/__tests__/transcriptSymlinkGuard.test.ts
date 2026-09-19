@@ -103,7 +103,7 @@ describe("readSessionMeta", () => {
   it("returns empty metadata for a symlinked transcript", () => {
     const meta = readSessionMeta(plantSymlinkedTranscript());
 
-    expect(meta).toEqual({ branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "" });
+    expect(meta).toEqual({ branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "", customTitle: "" });
     expect(JSON.stringify(meta)).not.toContain(SECRET);
   });
 
@@ -112,7 +112,7 @@ describe("readSessionMeta", () => {
     fs.symlinkSync(path.join(tmp, "gone.jsonl"), dangling);
     const dir = path.join(tmp, "dir.jsonl");
     fs.mkdirSync(dir);
-    const empty = { branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "" };
+    const empty = { branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "", customTitle: "" };
 
     expect(readSessionMeta(dangling)).toEqual(empty);
     expect(readSessionMeta(dir)).toEqual(empty);

@@ -133,6 +133,7 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     let fileRename = "";
     let fileSummary = "";
     let fileAiTitle = "";
+    let fileCustomTitle = "";
     if (sessionFile) {
       const meta = readSessionMeta(sessionFile);
       branch = meta.branch;
@@ -140,6 +141,7 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
       fileRename = meta.rename;
       fileSummary = meta.summary;
       fileAiTitle = meta.aiTitle;
+      fileCustomTitle = meta.customTitle;
     }
 
     const summary =
@@ -147,15 +149,25 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
 
     // Resolve session name with priority:
     // 1. Extension-managed rename (always wins)
-    // 2. /rename command in transcript
-    // 3. CLI-generated `ai-title` (Claude 2.1+ terminal/session title)
-    // 4. Claude's older auto-generated meta `summary`
-    // 5. First-prompt summary — descriptive text a brand-new session has before
+    // 2. `custom-title` — an explicit rename from any host (Claude Code's own
+    //    "Rename session tab" sends `rename_session`; the CLI persists this).
+    //    A deliberate choice, so it outranks every generated title.
+    // 3. /rename command in transcript (the pre-`custom-title` shape)
+    // 4. CLI-generated `ai-title` (Claude 2.1+ terminal/session title)
+    // 5. Claude's older auto-generated meta `summary`
+    // 6. First-prompt summary — descriptive text a brand-new session has before
     //    the CLI generates an ai-title, so it beats the generic PID slug.
-    // 6. Live PID-file `name` (CLI auto-slug like `project-4b`) — last resort.
+    // 7. Live PID-file `name` (CLI auto-slug like `project-4b`) — last resort.
     let name = userRenames[sessionId] ?? "";
     if (!name)
-      name = fileRename || fileAiTitle || fileSummary || summary || sessionNames.get(sessionId) || "";
+      name =
+        fileCustomTitle ||
+        fileRename ||
+        fileAiTitle ||
+        fileSummary ||
+        summary ||
+        sessionNames.get(sessionId) ||
+        "";
 
     // Pre-compute lowercased lookup keys so the webview filter does not
     // allocate strings on every keystroke. searchHaystack joins fields with
@@ -243,6 +255,7 @@ interface OrphanData {
   rename: string;
   summary: string;
   aiTitle: string;
+  customTitle: string;
 }
 
 /**
@@ -312,6 +325,7 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
   let rename = "";
   let summary = "";
   let aiTitle = "";
+  let customTitle = "";
   const CHUNK = 64 * 1024;
   const buf = Buffer.alloc(CHUNK);
   const decoder = createLineDecoder();
@@ -378,6 +392,9 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
         if (e.type === "ai-title" && typeof e.aiTitle === "string") {
           aiTitle = (e.aiTitle as string).trim();
         }
+        if (e.type === "custom-title" && typeof e.customTitle === "string") {
+          customTitle = (e.customTitle as string).trim();
+        }
         captureRename(line, entry.message);
         if (entry.message?.role === "user" && !entry.isSidechain) {
           messageCount++;
@@ -429,6 +446,7 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
     rename,
     summary,
     aiTitle,
+    customTitle,
   };
 }
 
@@ -505,11 +523,19 @@ function discoverOrphanSessions(
           : data.firstPrompt;
 
       // Name resolution mirrors the history path: extension rename >
-      // /rename in transcript > ai-title (CLI 2.1+) > meta summary >
-      // first-prompt summary > active-session PID-file slug (last resort).
+      // custom-title (explicit host rename) > /rename in transcript >
+      // ai-title (CLI 2.1+) > meta summary > first-prompt summary >
+      // active-session PID-file slug (last resort).
       let name = userRenames[sessionId] ?? "";
       if (!name)
-        name = data.rename || data.aiTitle || data.summary || summary || sessionNames.get(sessionId) || "";
+        name =
+          data.customTitle ||
+          data.rename ||
+          data.aiTitle ||
+          data.summary ||
+          summary ||
+          sessionNames.get(sessionId) ||
+          "";
 
       const searchHaystack =
         `${name}\n${project}\n${data.branch}\n${summary}`.toLowerCase();

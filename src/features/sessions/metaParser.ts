@@ -226,6 +226,14 @@ export interface SessionMeta {
   summary: string;
   /** Latest CLI-generated topic title (`{type:"ai-title"}`). Higher quality than `summary`. */
   aiTitle: string;
+  /**
+   * Latest explicit rename (`{type:"custom-title"}`). Written by the CLI when
+   * a host renames the session — Claude Code's own "Rename session tab" sends
+   * `rename_session` over its control channel and the CLI persists this record
+   * (merge rule: last-wins). It is a deliberate user choice, so it outranks
+   * the generated `aiTitle`.
+   */
+  customTitle: string;
 }
 
 /**
@@ -254,6 +262,7 @@ const sessionMetaCache = new LRU<string, MetaCacheEntry>(META_CACHE_MAX);
  * - branch (latest gitBranch — reflects current branch even after switches)
  * - entrypoint (from early lines — never changes)
  * - rename (most recent /rename command)
+ * - customTitle (most recent explicit host rename)
  * - summary (most recent auto-generated summary)
  *
  * We need the tail because long-running sessions may have switched branches
@@ -316,7 +325,14 @@ export function invalidateSessionFileIndex(): void {
 }
 
 function computeSessionMeta(filePath: string): SessionMeta {
-  const result = { branch: "", entrypoint: "", rename: "", summary: "", aiTitle: "" };
+  const result = {
+    branch: "",
+    entrypoint: "",
+    rename: "",
+    summary: "",
+    aiTitle: "",
+    customTitle: "",
+  };
   // Symlink-safe: a planted link under ~/.claude/projects/ must not
   // make us read (and display) a file outside the transcript tree.
   const fd = openFileNoFollow(filePath);
@@ -366,6 +382,8 @@ function processMetaChunk(
   const hasRename = chunk.includes("/rename");
   const hasSummary = chunk.includes('"type":"summary"') || chunk.includes('"type": "summary"');
   const hasAiTitle = chunk.includes('"type":"ai-title"') || chunk.includes('"type": "ai-title"');
+  const hasCustomTitle =
+    chunk.includes('"type":"custom-title"') || chunk.includes('"type": "custom-title"');
 
   for (const line of chunk.split("\n")) {
     if (!line.trim()) continue;
@@ -396,6 +414,16 @@ function processMetaChunk(
       // Emitted by Claude CLI 2.1+ as the terminal/session title.
       if (hasAiTitle && entry.type === "ai-title" && typeof entry.aiTitle === "string") {
         result.aiTitle = (entry.aiTitle as string).trim();
+      }
+
+      // Explicit host rename (`type:"custom-title"`) — latest wins, matching
+      // the CLI's own merge rule for this record.
+      if (
+        hasCustomTitle &&
+        entry.type === "custom-title" &&
+        typeof entry.customTitle === "string"
+      ) {
+        result.customTitle = (entry.customTitle as string).trim();
       }
 
       // /rename command in user message — take the latest one seen

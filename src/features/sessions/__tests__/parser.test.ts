@@ -241,6 +241,94 @@ describe("parseSessions", () => {
     expect(sess!.name).toBe("user picked name");
   });
 
+  // `custom-title` is what the CLI persists when a host renames a session —
+  // Claude Code's "Rename session tab" sends `rename_session` and the CLI
+  // writes this record. An explicit rename must beat every generated title.
+  it("uses custom-title as session name (priority above ai-title)", () => {
+    writeHistoryEntry({
+      display: "first prompt",
+      timestamp: Date.now(),
+      project: "/projects/custom-title-app",
+      sessionId: "sess-custom",
+    });
+    writeSessionFile("custom-hash", "sess-custom", [
+      { type: "summary", summary: "older auto summary text", sessionId: "sess-custom" },
+      { type: "ai-title", aiTitle: "Generated topic title", sessionId: "sess-custom" },
+      { type: "custom-title", customTitle: "Payments spike", sessionId: "sess-custom" },
+      {
+        message: { role: "user", content: "first prompt" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+      },
+    ]);
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === "sess-custom");
+    expect(sess!.name).toBe("Payments spike");
+  });
+
+  it("uses the latest custom-title when the session is renamed twice", () => {
+    writeHistoryEntry({
+      display: "x",
+      timestamp: Date.now(),
+      project: "/projects/custom-multi",
+      sessionId: "sess-custom-multi",
+    });
+    writeSessionFile("custom-multi-hash", "sess-custom-multi", [
+      { type: "custom-title", customTitle: "First name", sessionId: "sess-custom-multi" },
+      {
+        message: { role: "user", content: "x" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+      },
+      { type: "custom-title", customTitle: "Second name", sessionId: "sess-custom-multi" },
+    ]);
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === "sess-custom-multi");
+    expect(sess!.name).toBe("Second name");
+  });
+
+  it("our own rename still overrides custom-title", () => {
+    writeHistoryEntry({
+      display: "x",
+      timestamp: Date.now(),
+      project: "/projects/custom-override",
+      sessionId: "sess-custom-override",
+    });
+    writeSessionFile("custom-override-hash", "sess-custom-override", [
+      {
+        type: "custom-title",
+        customTitle: "Renamed in Claude Code",
+        sessionId: "sess-custom-override",
+      },
+      {
+        message: { role: "user", content: "x" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+      },
+    ]);
+
+    const sessions = parseSessions({ "sess-custom-override": "renamed here" });
+    const sess = sessions.find((s) => s.id === "sess-custom-override");
+    expect(sess!.name).toBe("renamed here");
+  });
+
+  it("captures custom-title for orphan (extension-originated) sessions", () => {
+    const sessionId = "orphan-custom-title";
+    writeSessionFile("-home-user-orphan-custom", sessionId, [
+      { type: "ai-title", aiTitle: "Generated topic title", sessionId },
+      { type: "custom-title", customTitle: "Renamed in Claude Code", sessionId },
+      {
+        entrypoint: "claude-vscode",
+        message: { role: "user", content: "first prompt" },
+        timestamp: "2026-04-20T15:00:00.000Z",
+        cwd: "/home/user/orphan-custom",
+      },
+    ]);
+
+    const sessions = parseSessions();
+    const sess = sessions.find((s) => s.id === sessionId);
+    expect(sess!.name).toBe("Renamed in Claude Code");
+  });
+
   it("captures ai-title for orphan (extension-originated) sessions", () => {
     const sessionId = "orphan-ai-title";
     writeSessionFile("-home-user-orphan", sessionId, [
