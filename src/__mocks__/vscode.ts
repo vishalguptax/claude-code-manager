@@ -294,6 +294,14 @@ export const commands = {
   }),
 };
 
+/**
+ * `vscode.ThemeIcon` — a class in the real API, so terminal icon assertions
+ * can check `instanceof` and read `id`.
+ */
+export class ThemeIcon {
+  constructor(public readonly id: string) {}
+}
+
 export const Uri = {
   file: (path: string) => ({
     fsPath: path,

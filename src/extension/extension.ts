@@ -8,7 +8,7 @@ import * as os from "os";
 import * as path from "path";
 import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
 import { setSessionStorage } from "../features/sessions/commands";
-import { setExtensionUri, initTerminalReuseGuard } from "./terminal";
+import { initTerminalReuseGuard } from "./terminal";
 import {
   ACTIVITY_BAR_VIEW_ID,
   SECONDARY_SIDEBAR_VIEW_ID,
@@ -59,7 +59,6 @@ function timedStep(label: string, fn: () => void): void {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  setExtensionUri(context.extensionUri);
   // Protect every terminal alive right now (restored running `claude`
   // sessions after a reload, pre-existing user terminals) from the
   // empty-terminal reuse heuristic, and keep protecting any terminal the

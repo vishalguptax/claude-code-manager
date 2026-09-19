@@ -22,9 +22,6 @@ export function validateGitRef(name: string): string | null {
   return name;
 }
 
-/** Extension root URI, captured at activation so we can resolve asset paths for terminal icons. */
-let extensionUri: vscode.Uri | undefined;
-
 interface TerminalRegistrySink {
   register(sessionId: string, terminal: vscode.Terminal): void;
 }
@@ -35,19 +32,16 @@ export function setTerminalRegistry(reg: TerminalRegistrySink | undefined): void
 }
 
 /**
- * Register the extension's root URI so terminal icons can be resolved from bundled assets.
- * Called once during extension activation. Passing `undefined` clears it (used by tests).
+ * Tab icon for the terminals we create.
+ *
+ * Must be a ThemeIcon, not a bundled SVG URI. `TerminalEditorInput.getIcon()`
+ * returns the instance icon only when `ThemeIcon.isThemeIcon(icon)` holds, so
+ * a `Uri` iconPath renders in the panel's tab list but leaves editor-area
+ * terminal tabs with no icon at all — and our terminals default to the editor
+ * area. A codicon renders in both.
  */
-export function setExtensionUri(uri: vscode.Uri | undefined): void {
-  extensionUri = uri;
-}
-
-/**
- * Resolve the Claude Code icon URI for use as a terminal tab icon.
- */
-function getTerminalIcon(): vscode.Uri | undefined {
-  if (!extensionUri) return undefined;
-  return vscode.Uri.joinPath(extensionUri, "media", "terminal-icon.svg");
+function getTerminalIcon(): vscode.ThemeIcon {
+  return new vscode.ThemeIcon("sparkle");
 }
 
 /** Map user setting string to VS Code ViewColumn. */
@@ -259,6 +253,17 @@ function getTerminalLocation(): vscode.TerminalEditorLocationOptions | undefined
  * Worse than the label, that also meant typing `claude --resume` into a
  * terminal another extension owned. Reuse now only ever recycles a tab of
  * ours that is already correctly labelled; anything else gets a fresh one.
+ *
+ * The name is what the tab shows until `claude` takes over. VS Code 1.106+
+ * ships `terminal.integrated.tabs.allowAgentCliTitle` on by default: once the
+ * detected shell type is an agent CLI, `TerminalLabelComputer.refreshLabel`
+ * swaps the title template for `${sequence}` and ignores the API name, so the
+ * tab tracks the CLI's own OSC 0 session title from then on. That is the same
+ * behaviour a hand-opened `claude` gets, and it is better than a static label,
+ * so we do not fight it — there is no per-terminal opt-out anyway
+ * (`titleTemplate` is profile-only and absent from `vscode.TerminalOptions`),
+ * and turning the setting off globally would strip session titles from the
+ * user's own terminals too.
  */
 export function createTerminal(name: string, cwd?: string, sessionId?: string): vscode.Terminal {
   const empty = vscode.window.terminals.find(

@@ -6,7 +6,6 @@ import {
   createTerminal,
   initTerminalReuseGuard,
   runInTerminal,
-  setExtensionUri,
   validateGitRef,
 } from "../terminal";
 
@@ -39,7 +38,6 @@ beforeEach(() => {
   vi.restoreAllMocks();
   (vscode.window as { terminals: MockTerminal[] }).terminals = [];
   vscode.window.tabGroups.all = [];
-  setExtensionUri(undefined);
 });
 
 describe("createTerminal — reuse", () => {
@@ -365,19 +363,15 @@ describe("validateGitRef", () => {
   });
 });
 
-describe("setExtensionUri / icon path", () => {
-  it("passes undefined icon when setExtensionUri has not been called", () => {
-    const term = createTerminal("Claude");
-    expect(term.createOptions?.iconPath).toBeUndefined();
-  });
-
-  it("wires the icon into createTerminal options after setExtensionUri is called", () => {
-    setExtensionUri(vscode.Uri.file("/ext/root"));
-
+describe("terminal tab icon", () => {
+  // A Uri iconPath is dropped by TerminalEditorInput.getIcon(), which keeps
+  // only ThemeIcons — and our terminals default to the editor area.
+  it("uses a ThemeIcon so editor-area tabs render it", () => {
     const term = createTerminal("Claude");
 
-    const icon = term.createOptions?.iconPath as { path: string } | undefined;
-    expect(icon?.path).toBe("/ext/root/media/terminal-icon.svg");
+    const icon = term.createOptions?.iconPath;
+    expect(icon).toBeInstanceOf(vscode.ThemeIcon);
+    expect((icon as vscode.ThemeIcon).id).toBe("sparkle");
   });
 });
 
