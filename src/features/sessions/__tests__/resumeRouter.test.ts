@@ -17,13 +17,18 @@ vi.mock("../../../core/config", () => ({
  * this array; a fresh array is rebuilt in beforeEach.
  */
 let sentText: string[] = [];
+/** Terminal tab names passed to createTerminal, in call order. */
+let termNames: string[] = [];
 vi.mock("../../../extension/terminal", () => ({
-  createTerminal: () => ({
-    show: () => {},
-    sendText: (t: string) => {
-      sentText.push(t);
-    },
-  }),
+  createTerminal: (name: string) => {
+    termNames.push(name);
+    return {
+      show: () => {},
+      sendText: (t: string) => {
+        sentText.push(t);
+      },
+    };
+  },
   runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
   validateGitRef: (name: string) => (/^[A-Za-z0-9._/-]+$/.test(name) ? name : null),
 }));
@@ -109,6 +114,7 @@ function mockResumeIn(value: string): void {
 beforeEach(() => {
   vi.restoreAllMocks();
   sentText = [];
+  termNames = [];
   extensionPresent = false;
 });
 
@@ -321,5 +327,31 @@ describe("resumeSession routing", () => {
     // backed out, so neither destination should be launched.
     expect(openSpy).not.toHaveBeenCalled();
     expect(sentText).toEqual([]);
+  });
+});
+
+describe("terminal tab name", () => {
+  async function resumeInTerminal(sess: Session): Promise<void> {
+    mockSameWorkspace(sess);
+    mockBranch("main");
+    mockResumeIn("terminal");
+    await resumeSession(sess.id, false, [sess]);
+  }
+
+  it("uses the session name", async () => {
+    await resumeInTerminal(makeSession({ name: "fix auth bug" }));
+    expect(termNames).toEqual(["fix auth bug"]);
+  });
+
+  // An unnamed session used to yield "" here, and VS Code treats an empty
+  // name as no name at all — the tab fell back to the process name.
+  it("falls back to the short id when the session has no name", async () => {
+    await resumeInTerminal(makeSession({ id: "d78995d6-b8ff-e0d5-0f00-000000000000", name: "" }));
+    expect(termNames).toEqual(["d78995d6"]);
+  });
+
+  it("truncates a long name to fit the tab", async () => {
+    await resumeInTerminal(makeSession({ name: "a".repeat(40) }));
+    expect(termNames[0]).toBe(`${"a".repeat(23)}…`);
   });
 });

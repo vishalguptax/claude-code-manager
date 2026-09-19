@@ -569,7 +569,12 @@ const MAX_TERMINAL_NAME_LENGTH = 24;
  * and unhelpful when truncated.
  */
 function buildTerminalName(sess: Session | undefined, sessionId: string): string {
-  const raw = sess?.name ?? sessionId.slice(0, 8);
+  // `||`, not `??`: Session.name is `string` and is the empty string for a
+  // session nobody (and no parser fallback) ever named. `??` let that empty
+  // string through, and `createTerminal({ name: "" })` is treated by VS Code
+  // as no name at all — the tab silently fell back to the process name, which
+  // for the bundled CLI is the version directory it lives in ("2.1.276").
+  const raw = sess?.name || sessionId.slice(0, 8);
   return raw.length > MAX_TERMINAL_NAME_LENGTH
     ? raw.slice(0, MAX_TERMINAL_NAME_LENGTH - 1) + "…"
     : raw;
