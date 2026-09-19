@@ -215,6 +215,18 @@ No. **Zero network calls, ever.** The extension reads `~/.claude/` and renders i
 **How does the View button know which terminal hosts which session?**
 Two passive signals, no instrumentation of Claude itself. (1) An opt-in `SessionStart` hook records each CLI boot's `{sessionId, ppid}` into `~/.claude/.claude-manager/active-sessions.json`. Turn on **Claude Manager › Sessions: Terminal Linking** and the hook is added to your global `~/.claude/settings.json`; turn it off and it is removed. The extension matches `vscode.Terminal.processId` against the recorded parent PID. (2) For VS Code terminals with shell integration, `claude --resume <id>` typed at any prompt is caught directly from the shell-execution event. cmd.exe (no shell integration) is covered by the hook path. Stale entries auto-prune after 1h or a dead PID.
 
+**Why does my terminal tab say `2.1.276` instead of the session name?**
+That is VS Code, not the extension. Since 1.106, `terminal.integrated.tabs.allowAgentCliTitle` defaults to `true`: when a terminal's shell type is an agent CLI (`claude` is in VS Code's own list), the tab title template is forced to `${sequence}` and the name an extension set is ignored entirely. While Claude Code is writing a title you get its session summary — the same thing a hand-opened `claude` shows. In the gaps, before its first title and after it exits, the computed label is empty and VS Code substitutes the process name, which is the version directory the CLI runs from. There is no per-terminal opt-out for an extension to use, so this extension leaves your settings alone. If you would rather see session names on these tabs, set both of these yourself:
+
+```jsonc
+// Tabs named by an extension keep their name
+"terminal.integrated.tabs.allowAgentCliTitle": false,
+// Tabs with no extension-set name still follow the CLI's own title
+"terminal.integrated.tabs.title": "${sequence}"
+```
+
+They work as a pair: the first restores session names on Claude Code Manager's tabs, the second keeps CLI-driven titles on terminals you open yourself. Setting only the first labels those from the process instead. Side effect worth knowing: plain shells will also label their tabs from the title their shell writes, rather than `zsh` or `bash`.
+
 **Where are saved account profiles stored?**
 `~/.claude/manager-accounts/<slug>/`. Each slot holds a copy of `~/.claude.json` and `~/.claude/.credentials.json` plus a small `profile.json` with the label. These files include OAuth tokens (same plaintext format Claude CLI uses), so treat the folder as sensitive. Remove a profile and its token copy is deleted immediately.
 
