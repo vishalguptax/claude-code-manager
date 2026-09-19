@@ -37,7 +37,7 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       --bg-active-fg: var(--vscode-list-activeSelectionForeground);
       --fg: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground));
       --fg-dim: var(--vscode-descriptionForeground);
-      --fg-muted: color-mix(in srgb, var(--vscode-descriptionForeground, var(--fg)) 85%, var(--bg));
+      --fg-muted: color-mix(in srgb, var(--vscode-foreground, var(--fg)) 30%, var(--vscode-descriptionForeground, var(--fg)));
       --fg-disabled: var(--vscode-disabledForeground);
       --border: var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border));
       --accent: var(--vscode-focusBorder);

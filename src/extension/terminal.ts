@@ -31,19 +31,6 @@ export function setTerminalRegistry(reg: TerminalRegistrySink | undefined): void
   terminalRegistry = reg;
 }
 
-/**
- * Tab icon for the terminals we create.
- *
- * Must be a ThemeIcon, not a bundled SVG URI. `TerminalEditorInput.getIcon()`
- * returns the instance icon only when `ThemeIcon.isThemeIcon(icon)` holds, so
- * a `Uri` iconPath renders in the panel's tab list but leaves editor-area
- * terminal tabs with no icon at all — and our terminals default to the editor
- * area. A codicon renders in both.
- */
-function getTerminalIcon(): vscode.ThemeIcon {
-  return new vscode.ThemeIcon("sparkle");
-}
-
 /** Map user setting string to VS Code ViewColumn. */
 const VIEW_COLUMN_MAP: Record<string, vscode.ViewColumn> = {
   beside: vscode.ViewColumn.Beside,
@@ -237,7 +224,6 @@ function getTerminalLocation(): vscode.TerminalEditorLocationOptions | undefined
 /**
  * Create a new VS Code terminal with the given name and optional working directory.
  * Respects user settings for terminal location and editor position.
- * The Claude Code icon is shown in its tab.
  *
  * Before creating a new terminal, tries to reuse an empty one — still alive,
  * never typed in (`state.isInteractedWith === false`), and ALREADY CARRYING
@@ -283,10 +269,15 @@ export function createTerminal(name: string, cwd?: string, sessionId?: string): 
   }
 
   const location = getTerminalLocation();
+  // No `iconPath`: a terminal of ours should be an ordinary VS Code terminal.
+  // Branding it cost more than it bought — a `Uri` icon is dropped entirely by
+  // `TerminalEditorInput.getIcon()` (ThemeIcons only), and any custom icon
+  // replaces the stock one users already read, including the activity it shows
+  // while a command runs. The default icon behaves the same here as in a
+  // terminal opened by hand, which is the point.
   const term = vscode.window.createTerminal({
     name,
     cwd: cwd || undefined,
-    iconPath: getTerminalIcon(),
     ...(location ? { location } : {}),
   });
   sentTo.add(term);

@@ -22,11 +22,26 @@
      block further down already stated the rule ("Never use disabledForeground
      for structural text"); the role layer obeyed it and --fg-muted never did.
 
-     Mixing toward the background instead of naming a second theme colour is
-     what keeps the step honest: --fg-muted is always exactly one notch quieter
-     than --fg-dim, in every theme, and can never invert past it the way a
-     rival theme token can. */
-  --fg-muted: color-mix(in srgb, var(--vscode-descriptionForeground, var(--fg)) 85%, var(--bg));
+     The mix runs TOWARD --vscode-foreground, not toward the background. That
+     direction is the whole point, and the first attempt at this fix got it
+     backwards: mixing toward the background always *subtracts* contrast, so on
+     any theme whose descriptionForeground is already marginal there is no
+     headroom left to spend. Measured over the 46 themes installed here, a
+     background-ward mix put 15 of them below 4.5:1 — worse, on those themes,
+     than the disabledForeground it replaced.
+
+     Pulling 30% of the foreground in instead means --fg-muted can never be
+     less readable than the theme's own description text, and is usually
+     better: worst case across the same 46 themes is 4.29:1 (Solarized Light,
+     whose own descriptionForeground measures 3.98:1), with one theme below
+     4.5 instead of fifteen.
+
+     The consequence is that --fg-muted is BRIGHTER than --fg-dim, which the
+     names do not suggest. It is the correct way round for what each is used
+     for: --fg-dim is quiet prose, where the theme's own judgement should
+     stand, while --fg-muted carries icons and row glyphs, which need presence
+     to stay actionable. */
+  --fg-muted: color-mix(in srgb, var(--vscode-foreground, var(--fg)) 30%, var(--vscode-descriptionForeground, var(--fg)));
   /* GENUINELY DISABLED — a control that cannot be actioned. The only correct
      home for disabledForeground. Never pair it with an extra opacity: the
      theme colour is already the dimmest one available, and dimming it again

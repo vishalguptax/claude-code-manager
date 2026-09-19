@@ -185,7 +185,7 @@
   line-height: 1.2;
 }
 .tf-input::placeholder {
-  color: var(--vscode-input-placeholderForeground, var(--fg-dim));
+  color: var(--fg-muted);
   opacity: 1;
 }
 .tf-input:disabled {
@@ -217,7 +217,7 @@
   border-color: var(--vscode-focusBorder, var(--accent));
 }
 .ta-input::placeholder {
-  color: var(--vscode-input-placeholderForeground, var(--fg-dim));
+  color: var(--fg-muted);
   opacity: 1;
 }
 .ta-input:disabled {

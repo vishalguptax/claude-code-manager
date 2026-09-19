@@ -364,14 +364,12 @@ describe("validateGitRef", () => {
 });
 
 describe("terminal tab icon", () => {
-  // A Uri iconPath is dropped by TerminalEditorInput.getIcon(), which keeps
-  // only ThemeIcons — and our terminals default to the editor area.
-  it("uses a ThemeIcon so editor-area tabs render it", () => {
+  // Deliberately none: our terminals should look and behave like one the user
+  // opened by hand, stock icon and all.
+  it("sets no icon, leaving VS Code's default in place", () => {
     const term = createTerminal("Claude");
 
-    const icon = term.createOptions?.iconPath;
-    expect(icon).toBeInstanceOf(vscode.ThemeIcon);
-    expect((icon as vscode.ThemeIcon).id).toBe("sparkle");
+    expect(term.createOptions).not.toHaveProperty("iconPath");
   });
 });
 
