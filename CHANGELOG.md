@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.15.0] - 2026-09-20
+
+One new switch: keep your session names on the terminal tabs this extension opens, instead of watching a running `claude` replace them with a version number.
+
+See [docs/releases/v2.15.0.md](docs/releases/v2.15.0.md) for full details.
+
 ## [2.14.0] - 2026-09-20
 
 Session tabs get their identity back: renames you make in Claude Code's own UI now show up here, an unnamed session no longer opens a nameless terminal, and the terminal icon finally renders where the terminals actually open.
