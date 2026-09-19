@@ -10,6 +10,10 @@ import { ClaudeSessionViewProvider } from "../features/sessions/viewProvider";
 import { setSessionStorage } from "../features/sessions/commands";
 import { initTerminalReuseGuard } from "./terminal";
 import {
+  syncTerminalTitlePolicy,
+  watchKeepSessionNamesSetting,
+} from "./terminalTitlePolicy";
+import {
   ACTIVITY_BAR_VIEW_ID,
   SECONDARY_SIDEBAR_VIEW_ID,
   SUPPORTS_SECONDARY_SIDEBAR_CONTEXT_KEY,
@@ -65,6 +69,12 @@ export function activate(context: vscode.ExtensionContext): void {
   // moment it runs a command. Without this, an action like MCP reconnect or
   // login could inject `claude` + a slash command into a live session.
   context.subscriptions.push(initTerminalReuseGuard());
+  // Opt-in only: when `claudeManager.terminal.keepSessionNames` is on, hold
+  // VS Code's terminal tab-title settings at the pair that lets our session
+  // names survive a running `claude`; when it is off, put back what we found.
+  void syncTerminalTitlePolicy(context.globalState);
+  context.subscriptions.push(watchKeepSessionNamesSetting(context.globalState));
+
   // Wire persistent storage into the sessions commands module so the
   // export/import dialogs can remember the last folder the user chose.
   setSessionStorage(context.globalState);

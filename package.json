@@ -296,6 +296,12 @@
           "default": [],
           "description": "Left-to-right order for the tabs listed here, by id. A tab left out keeps its built-in position and is appended after the ones you listed. Unknown or duplicate ids are ignored, so an id from a removed tab never breaks this list."
         },
+        "claudeManager.terminal.keepSessionNames": {
+          "type": "boolean",
+          "default": false,
+          "description": "Keep the session name on terminal tabs Claude Code Manager opens. VS Code hands agent CLIs their own tab title, so a running claude replaces the session name with its title — and with the process name (\"2.1.276\") when it has written none. Turning this on sets terminal.integrated.tabs.allowAgentCliTitle to false and terminal.integrated.tabs.title to ${sequence} in your user settings; turning it off restores what you had. Terminals you open yourself keep following the CLI's title either way.",
+          "scope": "machine"
+        },
         "claudeManager.sessions.terminalLinking": {
           "type": "boolean",
           "default": false,
