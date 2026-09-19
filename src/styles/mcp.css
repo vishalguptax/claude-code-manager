@@ -81,7 +81,7 @@
 /* Disabled pill — genuinely disabled, so it keeps the muted/disabled colour.
    Read-only pill is defined once in components.css (a read-only item isn't
    disabled). */
-.mcp-disabled-badge { background: var(--badge-neutral-bg); color: var(--fg-muted); }
+.mcp-disabled-badge { background: var(--badge-neutral-bg); color: var(--fg-dim); }
 
 /* Standalone block note under the action row (plugin / user-scope hints).
    A direct .panel child, so it must carry the panel's --space-2xl inset. */
@@ -233,7 +233,7 @@ button.mcp-auth-banner {
 /* Keep the connector list from ballooning the banner: clamp to two lines
    with an ellipsis; the full list is in the title tooltip. */
 .mcp-auth-banner-names {
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-size: var(--fs-xs);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -367,7 +367,7 @@ button.mcp-auth-banner {
   height: 8px;
   margin-left: 2px;
   border-radius: 50%;
-  background: var(--fg-muted);
+  background: var(--fg-dim);
   transition: transform var(--transition-control), background var(--transition-control);
 }
 .mcp-switch[aria-checked="true"] {

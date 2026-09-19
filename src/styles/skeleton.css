@@ -207,7 +207,7 @@
   padding: var(--space-md);
   padding-left: var(--space-lg);
   margin-bottom: var(--space-sm);
-  border-left: 2px solid var(--fg-muted);
+  border-left: 2px solid var(--fg-dim);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .skeleton-d-msg.is-user {

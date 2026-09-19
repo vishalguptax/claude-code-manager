@@ -186,7 +186,7 @@
 }
 
 .hook-matcher-all {
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 .hook-item-command {

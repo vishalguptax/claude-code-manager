@@ -74,7 +74,7 @@
    as a row itself. */
 .cfg-note {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-style: italic;
   padding: var(--space-xs) 0;
 }
@@ -83,7 +83,7 @@
 .cfg-footnote {
   margin-top: var(--space-md);
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-style: italic;
 }
 
@@ -164,7 +164,7 @@
   display: flex;
   gap: var(--space-sm);
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   margin-top: 2px;
 }
 .cfg-snap-diff {
@@ -195,7 +195,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 /* A superseded key that still takes effect: shown as a notice with a
@@ -259,12 +259,12 @@
   width: 10px;
   height: 2px;
   border-radius: 1px;
-  background: var(--fg-muted);
+  background: var(--fg-dim);
 }
 
 .cfg-tab-row > svg {
   flex-shrink: 0;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 /* The row's own checkbox: no top/bottom margin (the row itself supplies the

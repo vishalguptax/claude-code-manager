@@ -92,13 +92,13 @@
      active/inactive pair for exactly this job; --fg / --fg-dim resolved to
      sideBar-foreground vs descriptionForeground, which in most dark themes are
      close enough that the active tab barely read as active. */
-  /* NOT panelTitle.inactiveForeground. That colour is tuned for the panel's
-     title row on panel.background, and themes treat it as a low-priority
-     accent: Dracula sets #6272A4, which is 3.36:1 against its own sidebar and
-     rendered this strip's icons as barely-there purple. --fg-muted is derived
-     from the theme's foreground, so it carries a contrast floor no theme can
-     undercut. */
-  color: var(--fg-muted);
+  /* NOT panelTitle.inactiveForeground. That colour styles the PANEL's title
+     row (PROBLEMS / OUTPUT / TERMINAL) against panel.background, where themes
+     treat it as a low-priority accent: Dracula sets #6272A4, which is 3.36:1
+     on its sidebar and rendered this strip's icons as barely-there purple.
+     This strip is sidebar chrome, so it takes the sidebar's own quiet text
+     colour — the same one every other secondary label here uses. */
+  color: var(--fg-dim);
   font-size: var(--fs-base);
   font-family: inherit;
   cursor: pointer;

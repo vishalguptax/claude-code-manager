@@ -8,49 +8,37 @@
   --bg-active: var(--vscode-list-activeSelectionBackground);
   --bg-active-fg: var(--vscode-list-activeSelectionForeground);
   --fg: var(--vscode-sideBar-foreground, var(--vscode-editor-foreground));
+  /* TEXT LEVELS — three, and only three, each one a VS Code variable.
+     --fg is body text, --fg-dim is quiet text (meta lines, row action glyphs,
+     outline-button chevrons, footer links, palette icons, key names), and
+     --fg-disabled is a control that cannot be actioned.
+
+     There used to be a fourth, --fg-muted, wired to --vscode-disabledForeground
+     and used at eighty call sites that were not disabled at all — row copy and
+     chat buttons, collapse chevrons, command-palette icons, every meta line.
+     disabledForeground is the lowest-contrast colour a theme ships, because its
+     whole job is to say "this control is off"; several popular themes put it
+     near 2:1 against the sidebar, which is why those glyphs were barely
+     visible. The --role-text-* block below already stated the rule — "Never use
+     disabledForeground for structural text" — and the role layer obeyed it
+     while --fg-muted never did.
+
+     The level itself was the mistake, not just its value: VS Code exposes a
+     colour for quiet text and a colour for disabled text, and nothing between.
+     A fourth name had no variable to stand on, so every attempt to give it one
+     meant deriving a colour the theme never chose. Those call sites are quiet
+     text; they belong on --fg-dim, which is what the rest of the sidebar
+     already used for exactly the same job. */
   --fg-dim: var(--vscode-descriptionForeground);
-  /* QUIET TEXT AND ICONS — meta lines, row action glyphs, outline-button
-     chevrons, footer links, palette icons, key names. Live, readable UI that
-     simply must not compete with the title beside it.
-
-     This was --vscode-disabledForeground, which is the single lowest-contrast
-     colour a theme ships: its whole job is to say "this control is off", and
-     several popular themes put it near 2:1 against the sidebar. Around seventy
-     call sites used it for things that are not disabled at all — the row
-     copy/chat buttons, the collapse chevrons, the command-palette icons — so
-     on those themes the sidebar's glyphs were barely visible. The --role-text-*
-     block further down already stated the rule ("Never use disabledForeground
-     for structural text"); the role layer obeyed it and --fg-muted never did.
-
-     The mix runs TOWARD --vscode-foreground, not toward the background. That
-     direction is the whole point, and the first attempt at this fix got it
-     backwards: mixing toward the background always *subtracts* contrast, so on
-     any theme whose descriptionForeground is already marginal there is no
-     headroom left to spend. Measured over the 46 themes installed here, a
-     background-ward mix put 15 of them below 4.5:1 — worse, on those themes,
-     than the disabledForeground it replaced.
-
-     Pulling 30% of the foreground in instead means --fg-muted can never be
-     less readable than the theme's own description text, and is usually
-     better: worst case across the same 46 themes is 4.29:1 (Solarized Light,
-     whose own descriptionForeground measures 3.98:1), with one theme below
-     4.5 instead of fifteen.
-
-     The consequence is that --fg-muted is BRIGHTER than --fg-dim, which the
-     names do not suggest. It is the correct way round for what each is used
-     for: --fg-dim is quiet prose, where the theme's own judgement should
-     stand, while --fg-muted carries icons and row glyphs, which need presence
-     to stay actionable. */
-  --fg-muted: color-mix(in srgb, var(--vscode-foreground, var(--fg)) 30%, var(--vscode-descriptionForeground, var(--fg)));
-  /* GENUINELY DISABLED — a control that cannot be actioned. The only correct
-     home for disabledForeground. Never pair it with an extra opacity: the
-     theme colour is already the dimmest one available, and dimming it again
-     is what made disabled menu rows unreadable rather than merely inert. */
+  /* The only correct home for disabledForeground. Never pair it with an extra
+     opacity: the theme colour is already the dimmest one available, and
+     dimming it again is what made disabled menu rows unreadable rather than
+     merely inert. */
   --fg-disabled: var(--vscode-disabledForeground);
   /* Section-header foreground — VS Code's own SOURCE CONTROL / EXPLORER
      group titles use this dedicated token (falls back to the panel
      foreground on themes that leave it unset). Keeping section labels on
-     this var instead of --fg-muted matches the native sidebar hierarchy:
+     this var instead of --fg-dim matches the native sidebar hierarchy:
      headers read as quiet structural labels, not disabled text. */
   --fg-section: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
   --border: var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border));

@@ -77,7 +77,7 @@
   align-items: center;
   gap: var(--space-md);
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   min-width: 0;
 }
 
@@ -144,6 +144,6 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   text-decoration: line-through;
 }

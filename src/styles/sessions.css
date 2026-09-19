@@ -53,7 +53,7 @@
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   padding: var(--space-sm) var(--space-2xl);
 }
 .session-group-header:hover {
@@ -91,7 +91,7 @@
 .session-group-count {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 .item {
@@ -138,7 +138,7 @@
   flex-wrap: nowrap;
   overflow-x: auto;
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   border-bottom: 1px solid var(--border);
 }
 .list-header::-webkit-scrollbar { display: none; }
@@ -198,8 +198,8 @@
    no pulse — keeps the row visually distinct from "busy" without
    stealing attention. */
 .live-dot[data-status="idle"] {
-  background: var(--fg-muted, #888);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fg-muted, #888) 25%, transparent);
+  background: var(--fg-dim, #888);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fg-dim, #888) 25%, transparent);
   animation: none;
 }
 /* Awaiting permission OR a multi-option user question: both block on
@@ -304,7 +304,7 @@
 
 .item-time {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -313,7 +313,7 @@
 .pin-icon {
   flex-shrink: 0;
   margin-left: auto;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   display: flex;
   align-items: center;
   font-size: var(--fs-sm);
@@ -452,7 +452,7 @@
   align-items: center;
   gap: var(--space-sm);
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   margin-top: var(--space-xs);
   margin-bottom: var(--space-md);
 }
@@ -475,7 +475,7 @@
   font-family: var(--font-mono, monospace);
   font-size: calc(var(--fs-xs) - 0.5px);
 }
-.d-meta-dot { color: var(--fg-muted); }
+.d-meta-dot { color: var(--fg-dim); }
 
 /*
  * Stat strip — summary facts at a glance (messages · tools · tokens
@@ -539,7 +539,7 @@
   line-height: 1.7;
   min-width: 0;
 }
-.d-worktree__k { flex: none; width: 68px; color: var(--fg-muted); }
+.d-worktree__k { flex: none; width: 68px; color: var(--fg-dim); }
 .d-worktree__v {
   min-width: 0;
   overflow: hidden;
@@ -642,7 +642,7 @@
 
 .d-msg-hint {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   margin-bottom: var(--space-md);
 }
 
@@ -715,7 +715,7 @@
 .d-msg {
   padding: var(--space-md);
   padding-left: var(--space-lg);
-  border-left: 2px solid var(--fg-muted);
+  border-left: 2px solid var(--fg-dim);
   margin-bottom: var(--space-sm);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
@@ -732,7 +732,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   margin-bottom: var(--space-xs);
 }
 .d-msg-user .d-msg-role { color: var(--accent); }
@@ -765,7 +765,7 @@
 .d-msg-time {
   margin-left: auto;
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
@@ -792,7 +792,7 @@
   border: none;
   padding: 0;
   border-radius: var(--radius-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   cursor: pointer;
   transition: color var(--transition-control), background var(--transition-control);
 }
@@ -803,7 +803,7 @@
 }
 /* Copy success flash — muted green, 900ms via the JS timeout. */
 .d-msg-action.is-copied {
-  color: var(--green, var(--vscode-testing-iconPassed, #22c55e));
+  color: var(--green);
 }
 
 /*
@@ -836,7 +836,7 @@
 .d-msg-tool-arg {
   flex: 1 1 auto;
   font-family: var(--font-mono, monospace);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -854,7 +854,7 @@
 }
 .d-msg-thinking > summary {
   cursor: pointer;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   list-style: revert;
   padding: var(--space-xs) 0;
   user-select: none;
@@ -865,7 +865,7 @@
   margin-top: var(--space-xs);
   padding: var(--space-sm) var(--space-md);
   border-left: 2px solid var(--border);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-size: var(--fs-sm);
   line-height: 1.55;
   white-space: pre-wrap;
@@ -882,7 +882,7 @@
 .d-msg-usage {
   margin-top: var(--space-sm);
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
   text-align: right;

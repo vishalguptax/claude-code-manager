@@ -185,7 +185,7 @@
   line-height: 1.2;
 }
 .tf-input::placeholder {
-  color: var(--fg-muted);
+  color: var(--vscode-input-placeholderForeground, var(--fg-dim));
   opacity: 1;
 }
 .tf-input:disabled {
@@ -217,7 +217,7 @@
   border-color: var(--vscode-focusBorder, var(--accent));
 }
 .ta-input::placeholder {
-  color: var(--fg-muted);
+  color: var(--vscode-input-placeholderForeground, var(--fg-dim));
   opacity: 1;
 }
 .ta-input:disabled {
@@ -640,7 +640,7 @@
   background: transparent;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-size: var(--fs-xs);
 }
 .btn-outline:hover:not(:disabled) {
@@ -662,7 +662,7 @@
    shape, reading as two different colours. */
 .btn-icon-outline {
   border-color: var(--border);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 /* Matches `.btn-outline:hover` exactly — same text colour, same accent edge,
    and no ghost fill, so the pair lights up identically under the pointer. */

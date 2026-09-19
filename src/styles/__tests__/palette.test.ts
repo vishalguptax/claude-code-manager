@@ -5,16 +5,17 @@
  * because a colour that is merely *hard to read* parses, builds and renders
  * exactly like one that is not:
  *
- *  1. `--fg-muted` resolved to `--vscode-disabledForeground` — the lowest
- *     contrast colour a theme ships — while ~70 call sites used it for live
- *     UI (row copy/chat buttons, collapse chevrons, palette icons, meta
- *     lines). On themes that take disabledForeground near 2:1, the sidebar's
- *     glyphs were barely visible.
+ *  1. A `--fg-muted` level wired to `--vscode-disabledForeground` — the
+ *     lowest-contrast colour a theme ships — carried ~80 call sites that were
+ *     not disabled at all (row copy/chat buttons, collapse chevrons, palette
+ *     icons, meta lines). On themes that take disabledForeground near 2:1 the
+ *     sidebar's glyphs were barely visible. The level is gone; those call
+ *     sites are quiet text and sit on `--fg-dim`.
  *  2. The hardcoded status hues were GitHub Primer's DARK scale only. On a
  *     light theme #58a6ff measures 2.2:1 and #3fb950 2.3:1 against white, so
  *     the MCP type chips, plan badge, agent scope icons and running-session
  *     dot washed out.
- *  3. Several rules dimmed the already-quiet `--fg-muted` a second time with
+ *  3. Several rules dimmed the already-quiet foreground a second time with
  *     `opacity`, multiplying two reductions that were each designed to be the
  *     only one.
  *
@@ -110,24 +111,64 @@ const lightTokens = declarations(lightBlock(strip(tokensCss)));
 
 // ── tests ───────────────────────────────────────────────────────────────────
 
-describe("quiet text is quiet, not disabled", () => {
-  it("does not wire --fg-muted to disabledForeground", () => {
-    expect(darkTokens.get("--fg-muted")).toBeDefined();
-    expect(darkTokens.get("--fg-muted")).not.toContain("disabledForeground");
+describe("text levels", () => {
+  /**
+   * Three levels, each one a VS Code variable: body, quiet, disabled. The bug
+   * was a fourth — `--fg-muted`, wired to disabledForeground and used at eighty
+   * call sites that were not disabled — and the lesson is that a level with no
+   * variable behind it has to invent a colour the theme never chose.
+   */
+  it("has exactly the levels VS Code gives colours for", () => {
+    expect([...darkTokens.keys()].filter((k) => /^--fg(-|$)/.test(k)).sort()).toEqual([
+      "--fg",
+      "--fg-dim",
+      "--fg-disabled",
+      "--fg-section",
+    ]);
   });
 
-  it("keeps a dedicated token for controls that genuinely are disabled", () => {
-    // Without somewhere correct to put it, disabledForeground creeps back into
-    // --fg-muted the next time a disabled state needs a colour.
-    expect(darkTokens.get("--fg-disabled")).toContain("disabledForeground");
+  it("spends disabledForeground on disabled controls and nothing else", () => {
+    const misuse = [...darkTokens.entries()]
+      .filter(([k, v]) => v.includes("disabledForeground") && k !== "--fg-disabled")
+      .map(([k]) => k);
+    expect(misuse).toEqual([]);
   });
 
-  it("derives --fg-muted from the description colour, so it can never invert past --fg-dim", () => {
-    // Naming a second theme variable would let a theme order the two however
-    // it liked; mixing toward the background fixes the step at one notch.
-    const muted = darkTokens.get("--fg-muted") ?? "";
-    expect(muted).toMatch(/^color-mix\(/);
-    expect(muted).toContain("descriptionForeground");
+  it("takes each level straight from its theme variable", () => {
+    // Deriving one — mixing, tinting, fading — is second-guessing the theme
+    // author, and makes the panel disagree with the editor around it. Whatever
+    // VS Code renders description text at, so do we.
+    expect(darkTokens.get("--fg-dim")).toBe("var(--vscode-descriptionForeground)");
+    expect(darkTokens.get("--fg-disabled")).toBe("var(--vscode-disabledForeground)");
+  });
+});
+
+describe("theme-owned colours are not second-guessed", () => {
+  /**
+   * A theme's own colour is used as shipped. Dracula's placeholder is 3.36:1;
+   * so is every other placeholder Dracula renders, and matching it is what
+   * keeps this panel looking like part of the editor rather than a page that
+   * disagrees with it.
+   *
+   * Borrowing the WRONG variable is the bug worth guarding. This tab strip is
+   * sidebar chrome, and it used to colour itself with panelTitle.*, which
+   * themes tune for the panel's title row against panel.background — Dracula
+   * puts #6272A4 there, and the strip's icons came out barely-there purple.
+   */
+  const tabs = strip(fs.readFileSync(path.join(ROOT, "src", "styles", "tabs.css"), "utf-8"));
+
+  it("colours the sidebar tab strip with sidebar text colours", () => {
+    expect(tabs).not.toContain("panelTitle-inactiveForeground");
+    expect(tabs).not.toContain("panelTitle-activeForeground");
+  });
+
+  it("leaves the placeholder colour to the theme", () => {
+    const native = strip(
+      fs.readFileSync(path.join(ROOT, "src", "styles", "components-native.css"), "utf-8"),
+    );
+    for (const m of native.matchAll(/::placeholder\s*\{([^}]*)\}/g)) {
+      expect(m[1]).toContain("--vscode-input-placeholderForeground");
+    }
   });
 });
 
@@ -166,9 +207,9 @@ describe("semantic palette covers both theme polarities", () => {
 
 describe("no rule dims the quiet foreground twice", () => {
   /**
-   * `--fg-muted` is already the reduced step. A rule that also sets `opacity`
-   * multiplies the two, and the product is what made row buttons and meta
-   * text unreadable on light themes.
+   * `--fg-dim` is already the theme's reduced step. A rule that also sets
+   * `opacity` multiplies the two, and the product is what made row buttons
+   * and meta text unreadable on light themes.
    *
    * Opacity is still legitimate for state — a disabled hook, a pruned
    * checkpoint version, a plugin that is not loading — so the guard is scoped
@@ -184,7 +225,7 @@ describe("no rule dims the quiet foreground twice", () => {
     const offenders: string[] = [];
     for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const [, selector, body] = m;
-      if (!/color:\s*var\(--fg-muted/.test(body)) continue;
+      if (!/color:\s*var\(--fg-dim/.test(body)) continue;
       const opacity = body.match(/(?:^|[;\s])opacity:\s*([\d.]+)/);
       if (opacity && Number(opacity[1]) < 1) {
         offenders.push(`${selector.trim().slice(0, 60)} (opacity ${opacity[1]})`);
@@ -269,7 +310,7 @@ describe("the pre-paint shell agrees with the stylesheet", () => {
     expect(shellRoot.size).toBeGreaterThan(20);
   });
 
-  it.each([...SEMANTIC_FG, "--fg-muted", "--fg-disabled"])("%s matches in both copies", (token) => {
+  it.each([...SEMANTIC_FG, "--fg-dim", "--fg-disabled"])("%s matches in both copies", (token) => {
     expect(shellRoot.has(token), `${token} missing from the html.ts shell`).toBe(true);
     expect({ token, value: shellRoot.get(token) }).toEqual({ token, value: darkTokens.get(token) });
   });

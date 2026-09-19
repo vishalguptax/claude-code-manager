@@ -167,8 +167,8 @@ describe("outline button family", () => {
   };
 
   it("draws both variants in the same resting colour", () => {
-    expect(ruleBody(".btn-outline")).toContain("color: var(--fg-muted)");
-    expect(ruleBody(".btn-icon-outline")).toContain("color: var(--fg-muted)");
+    expect(ruleBody(".btn-outline")).toContain("color: var(--fg-dim)");
+    expect(ruleBody(".btn-icon-outline")).toContain("color: var(--fg-dim)");
   });
 
   it("lights both up identically on hover", () => {

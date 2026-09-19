@@ -27,7 +27,7 @@
   text-align: center;
   gap: var(--space-sm);
   padding: calc(var(--space-2xl) * 2) var(--space-2xl);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-size: var(--fs-base);
 }
 .empty-state > svg,
@@ -35,7 +35,7 @@
   /* The quiet foreground is the whole dimming. This glyph is the only mark
      on an otherwise blank panel, and the `opacity: 0.55` that used to sit on
      top of it sank the illustration below the text it introduces. */
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   margin-bottom: var(--space-xs);
 }
 .empty-state-title {
@@ -131,7 +131,7 @@
    aligns the caption with the list rows below it (same inset as group labels). */
 .list-count {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   padding: var(--space-xs) var(--space-2xl) var(--space-xs);
 }
 
@@ -192,7 +192,7 @@
    and the folder path reads as context. */
 .group-sublabel {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   padding: var(--space-md) var(--space-2xl) 4px;
   font-family: var(--font-mono, monospace);
   letter-spacing: 0.2px;
@@ -266,7 +266,7 @@
 .section-icon {
   display: flex;
   align-items: center;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 .section-chevron { transition: transform var(--transition-control); }
 .section-chevron.collapsed { transform: rotate(-90deg); }
@@ -304,7 +304,7 @@
 .field-hint {
   margin-top: var(--space-xs);
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   line-height: 1.4;
 }
 
@@ -912,7 +912,7 @@
   height: 22px;
   background: none;
   border: none;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   cursor: pointer;
   border-radius: var(--radius-sm);
   padding: 0;
@@ -976,7 +976,7 @@
   height: 22px;
   background: none;
   border: none;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   cursor: pointer;
   border-radius: var(--radius-sm);
   padding: 0;
@@ -1149,7 +1149,7 @@
 }
 .stat-tile-label {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   margin-top: 1px;
 }
 
@@ -1193,7 +1193,7 @@
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.palette-input-row .icon { color: var(--fg-muted); flex-shrink: 0; }
+.palette-input-row .icon { color: var(--fg-dim); flex-shrink: 0; }
 .palette-input {
   flex: 1;
   min-width: 0;
@@ -1204,7 +1204,7 @@
   font-family: inherit;
   font-size: var(--fs-md);
 }
-.palette-input::placeholder { color: var(--fg-muted); }
+.palette-input::placeholder { color: var(--fg-dim); }
 
 .palette-list {
   overflow-y: auto;
@@ -1217,7 +1217,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   padding: var(--space-md) var(--space-xl) var(--space-xs);
 }
 
@@ -1232,7 +1232,7 @@
 /* Hover and keyboard share one highlight: the pointer moves the cursor rather
    than competing with it, so there is never a second "which one is selected?". */
 .palette-item.active { background: var(--bg-active); color: var(--bg-active-fg); }
-.palette-item-icon { display: flex; color: var(--fg-muted); flex-shrink: 0; width: 15px; }
+.palette-item-icon { display: flex; color: var(--fg-dim); flex-shrink: 0; width: 15px; }
 .palette-item.active .palette-item-icon { color: inherit; }
 .palette-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .palette-item-title {
@@ -1251,7 +1251,7 @@
 .palette-item.active .palette-item-sub { color: inherit; opacity: 0.72; }
 .palette-item-hint {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -1261,7 +1261,7 @@
   padding: var(--space-2xl) var(--space-xl);
   text-align: center;
   font-size: var(--fs-base);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 

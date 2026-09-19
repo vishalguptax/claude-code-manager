@@ -248,7 +248,7 @@
   margin-top: var(--space-xs);
   padding-top: var(--space-xs);
   border-top: 1px solid var(--border);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-size: var(--fs-xs);
 }
 
@@ -298,7 +298,7 @@
 
 .acct-heat-month {
   font-size: 9px;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   text-transform: uppercase;
   letter-spacing: 0.3px;
   align-self: end;
@@ -314,7 +314,7 @@
 
 .acct-heat-day {
   font-size: 9px;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   padding-right: var(--space-sm);
   align-self: center;
   line-height: 1;
@@ -427,7 +427,7 @@
 }
 .acct-quota-intro-text {
   margin: 0;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-size: var(--fs-sm);
   line-height: 1.55;
 }
@@ -451,14 +451,14 @@
   justify-content: center;
   gap: var(--space-lg);
   min-height: 120px;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-size: var(--fs-sm);
 }
 .acct-quota-spinner {
   display: inline-block;
   width: 14px;
   height: 14px;
-  border: 2px solid var(--fg-muted);
+  border: 2px solid var(--fg-dim);
   border-top-color: transparent;
   border-radius: 50%;
   animation: acct-quota-spin 0.8s linear infinite;
@@ -508,7 +508,7 @@
   justify-content: space-between;
   gap: var(--space-sm);
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 /* Countdown to the cap, opposite the reset timer. Tinted because it only
@@ -529,7 +529,7 @@
   gap: 4px;
   margin-top: 2px;
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 /* Marks that a longer reading exists. Always muted, even next to a tinted
@@ -537,7 +537,7 @@
    read as a second warning. */
 .acct-quota-info {
   display: inline-flex;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   cursor: help;
 }
 .acct-quota-info:hover,
@@ -595,7 +595,7 @@
 .acct-quota-cache-detail,
 .acct-quota-branch-note {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 /* The PR/MR link. A ghost <Button> so the affordance, hover and focus ring
@@ -645,7 +645,7 @@
   inset: 0 auto 0 0;
   border-radius: 999px;
   transition: width 240ms ease-out;
-  background: color-mix(in srgb, var(--fg-muted) 32%, transparent);
+  background: color-mix(in srgb, var(--fg-dim) 32%, transparent);
 }
 .acct-quota-bar-ghost.pace-ahead {
   background: color-mix(
@@ -659,10 +659,12 @@
   .acct-quota-bar-ghost { transition: none; }
 }
 
-/* Threshold tones — green → amber → red. Uses VS Code's debug/error
-   tokens with fallbacks so the palette is semantic, not random. */
+/* Threshold tones — green → amber → red, from the semantic palette in
+   tokens.css, which carries a light-theme half. These used to borrow
+   `testing.iconPassed` (the Test Explorer's pass glyph) behind three
+   different hardcoded greens. */
 .acct-quota-bar-fill.tone-low {
-  background: var(--green, var(--vscode-testing-iconPassed, #10b981));
+  background: var(--green);
 }
 .acct-quota-bar-fill.tone-mid {
   background: var(--vscode-editorWarning-foreground, #d49a00);
@@ -698,7 +700,7 @@
 }
 .acct-quota-freshness-inline {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
@@ -711,10 +713,10 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--vscode-testing-iconPassed, #3fb950);
+  background: var(--green);
 }
 .acct-quota-live-dot.is-stale {
-  background: var(--fg-muted);
+  background: var(--fg-dim);
 }
 
 /* Error state — icon + title + message + retry, laid out in a row so
@@ -748,7 +750,7 @@
 }
 .acct-quota-error-msg {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   line-height: 1.5;
 }
 .acct-quota-error .btn {
@@ -787,7 +789,7 @@
 
 .acct-breakdown-meta {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
   flex-shrink: 0;
@@ -829,7 +831,7 @@
 }
 .acct-toolbar-count {
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
   min-width: 36px;
@@ -1020,7 +1022,7 @@
      centre, which is the other half of the misalignment. */
   display: flex;
   align-items: center;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   transition: transform 150ms ease;
 }
 .acct-block-chevron.collapsed {
@@ -1030,7 +1032,7 @@
 .acct-block-count {
   margin-left: auto;
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   font-variant-numeric: tabular-nums;
 }
 @media (prefers-reduced-motion: reduce) {

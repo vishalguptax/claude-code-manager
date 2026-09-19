@@ -42,14 +42,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 /* Count of backups the transcript can no longer map to a path, shown beside
    the list count. Muted: it explains a discrepancy, it is not a warning the
    user must act on. */
 .ckpt-orphans {
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }
 
 
@@ -115,5 +115,5 @@
 .ckpt-version-gone-note {
   flex: 0 0 auto;
   font-size: var(--fs-xs);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
 }

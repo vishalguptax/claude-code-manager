@@ -33,7 +33,7 @@ body {
    CSS Variables Reference (defined by VS Code theme via inline <style>):
    --fs-xs, --fs-sm, --fs-base, --fs-md, --fs-lg, --fs-xl   Font sizes
    --mono                                                     Monospace font
-   --fg, --fg-dim, --fg-muted                                Text colors
+   --fg, --fg-dim, --fg-dim                                Text colors
    --bg-hover, --bg-active, --bg-active-fg                   Backgrounds
    --border, --shadow                                        Borders/shadows
    --input-bg, --input-fg, --input-border                    Form inputs
@@ -104,9 +104,9 @@ button {
    ────────────────────────────────────────────────────────────────────────────── */
 
 .text-sm   { font-size: var(--fs-sm); }
-.text-muted { color: var(--fg-muted); }
+.text-muted { color: var(--fg-dim); }
 .mono      { font-family: var(--mono); font-size: var(--fs-sm); }
-.label     { font-size: var(--fs-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-muted); }
+.label     { font-size: var(--fs-sm); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-dim); }
 .icon      { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .hidden    { display: none !important; }
 
@@ -335,7 +335,7 @@ button,
      rows above it. */
   padding: 0 var(--space-2xl);
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   border-top: 1px solid var(--vscode-panel-border, var(--border, rgba(127,127,127,0.18)));
 }
 .footer-name { color: var(--fg-dim); font-weight: 600; font-size: var(--fs-sm); }
@@ -345,7 +345,7 @@ button,
   gap: var(--space-xs);
 }
 .footer-link {
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   display: flex;
   align-items: center;
   background: none;
@@ -422,7 +422,7 @@ button,
   font-family: var(--mono);
   font-size: var(--fs-xs);
   line-height: 1.5;
-  color: var(--fg-muted);
+  color: var(--fg-dim);
   /* A stack is long lines: wrap them rather than adding a horizontal
      scrollbar to a message the user is meant to read and paste. */
   white-space: pre-wrap;
