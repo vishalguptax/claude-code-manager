@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.15.1] - 2026-09-20
+
+The sidebar's colours now hold up on every theme — row icons, chevrons and meta text were washed out on Dracula, Solarized Light and others, and the status chips were tuned for dark backgrounds only.
+
+See [docs/releases/v2.15.1.md](docs/releases/v2.15.1.md) for full details.
+
 ## [2.15.0] - 2026-09-20
 
 One new switch: keep your session names on the terminal tabs this extension opens, instead of watching a running `claude` replace them with a version number.
