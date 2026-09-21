@@ -388,7 +388,7 @@
     "mocha": "^11.8.0",
     "sharp": "^0.35.3",
     "size-limit": "^12.1.0",
-    "typescript": "^6.0.2",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
   "dependencies": {
