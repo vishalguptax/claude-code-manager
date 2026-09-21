@@ -373,28 +373,28 @@
     }
   ],
   "devDependencies": {
-    "@biomejs/biome": "^2.5.7",
+    "@biomejs/biome": "^2.5.14",
     "@size-limit/file": "^12.1.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/preact": "^3.2.4",
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.5.2",
-    "@types/vscode": "1.90.0",
+    "@types/vscode": "1.138.0",
     "@vitest/coverage-v8": "^4.1.10",
     "@vscode/test-electron": "^2.5.2",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "glob": "^13.0.6",
-    "happy-dom": "^20.11.1",
+    "happy-dom": "^20.14.5",
     "mocha": "^11.8.0",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "size-limit": "^12.1.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@preact/signals": "^2.11.0",
+    "@preact/signals": "^2.11.2",
     "clsx": "^2.1.1",
     "preact": "^10.29.8",
-    "valibot": "^1.4.0"
+    "valibot": "^1.5.0"
   }
 }
