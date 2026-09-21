@@ -38,7 +38,7 @@ jobs:
       - name: Bake live download count into site
         run: node scripts/build-site.mjs
       - name: Upload site/ artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
       - name: Deploy
