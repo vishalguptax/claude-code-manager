@@ -374,7 +374,7 @@
   ],
   "devDependencies": {
     "@biomejs/biome": "^2.5.7",
-    "@size-limit/file": "^12.1.0",
+    "@size-limit/file": "^14.0.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/preact": "^3.2.4",
     "@types/mocha": "^10.0.10",
@@ -387,7 +387,7 @@
     "happy-dom": "^20.11.1",
     "mocha": "^11.8.0",
     "sharp": "^0.35.3",
-    "size-limit": "^12.1.0",
+    "size-limit": "^14.0.0",
     "typescript": "^6.0.2",
     "vitest": "^4.1.10"
   },
