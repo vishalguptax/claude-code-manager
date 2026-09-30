@@ -161,12 +161,18 @@
         <p class="sec-tag">THE TOUR:</p>
         <h2>One minute. <em class="serif">The whole sidebar.</em></h2>
       </header>
-      <figure class="tour-video">
-        <video controls playsinline preload="none" poster="assets/video/poster.jpg" width="1600" height="900" aria-label="Claude Code Manager launch video: sessions, checkpoints, prompts, MCP servers, skills, commands, hooks, agents and account in the VS Code sidebar">
+      <!-- Ships with native controls so it works without JS; app.js swaps them for
+           the play button, a muted in-view preview, and sound on click. -->
+      <figure class="tour-video" id="tour-player">
+        <video id="tour-video" controls playsinline preload="none" poster="assets/video/poster.jpg" width="1600" height="900" aria-label="Claude Code Manager launch video: sessions, checkpoints, prompts, MCP servers, skills, commands, hooks, agents and account in the VS Code sidebar">
           <source src="assets/video/claude-code-manager.webm" type="video/webm">
           <source src="assets/video/claude-code-manager.mp4" type="video/mp4">
           <a href="assets/video/claude-code-manager.mp4">Download the tour (MP4)</a>
         </video>
+        <button class="tour-play" type="button" hidden aria-label="Play the one-minute tour with sound">
+          <span class="tour-play-disc" aria-hidden="true"><svg viewBox="0 0 24 24" width="30" height="30"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" fill="currentColor"/></svg></span>
+          <span class="tour-play-label">Watch the tour <span class="tour-play-time">0:59</span></span>
+        </button>
       </figure>
     </section>
 

@@ -27,11 +27,9 @@
 <img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/media/demo.gif" alt="Claude Code Manager sidebar demo showing sessions, skills, commands, hooks, MCP servers, agents, and account in VS Code" width="480">
 </div>
 
-<p align="center">
-<a href="https://claudecodemanager.vishalg.in/#tour"><img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/site/assets/video/poster.jpg" alt="Watch the one-minute Claude Code Manager tour" width="640"></a>
-<br>
-<sub><a href="https://claudecodemanager.vishalg.in/#tour">&#9654; Watch the one-minute tour</a></sub>
-</p>
+<div align="center">
+<a href="https://claudecodemanager.vishalg.in/#tour"><img src="https://raw.githubusercontent.com/vishalguptax/claude-code-manager/main/site/assets/video/readme-thumb.jpg" alt="Watch the one-minute Claude Code Manager tour" width="720"></a>
+</div>
 
 <p align="center">
 <sub>Local-first &bull; Zero telemetry &bull; Zero accounts &bull; Docks to either sidebar &bull; Works in VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod</sub>

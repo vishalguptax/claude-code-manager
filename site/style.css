@@ -210,12 +210,48 @@ code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .88em;
 .sec-head-2 { margin-top: clamp(3rem, 7vw, 5rem); }
 
 /* ================= tour video (dark sheet) ================= */
-.tour-video { max-width: 980px; margin: 0 auto; }
+.tour-video { max-width: 980px; margin: 0 auto; position: relative; }
 .tour-video video {
   display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
   border-radius: var(--r-lg); border: 1px solid var(--border);
   box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset, 0 30px 70px -36px rgba(0,0,0,.9);
   background: var(--sheet);
+}
+/* Play control: a clay disc and a glass pill, centred on the frame. While the
+   muted preview loops, a scrim keeps the button readable over moving UI. */
+.tour-video::after {
+  content: ""; position: absolute; inset: 0; border-radius: var(--r-lg); pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(10,9,11,.55) 0%, rgba(10,9,11,.15) 60%, rgba(10,9,11,0) 100%);
+  transition: opacity .3s var(--ease);
+}
+.tour-video.is-playing::after { opacity: 0; }
+.tour-play {
+  position: absolute; inset: 0; margin: auto; width: max-content; height: max-content;
+  display: inline-flex; align-items: center; gap: .9rem; padding: .55rem 1.4rem .55rem .55rem;
+  border: 1px solid rgba(255,255,255,.14); border-radius: 999px; cursor: pointer; z-index: 1;
+  background: rgba(18,17,20,.86); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  color: var(--text); font: 600 1.05rem/1 "Inter", system-ui, sans-serif; letter-spacing: -.01em;
+  box-shadow: 0 18px 50px -12px rgba(0,0,0,.8);
+  transition: transform .2s var(--ease), background .2s var(--ease);
+}
+.tour-play[hidden] { display: none; }
+.tour-play:hover { transform: scale(1.04); background: rgba(18,17,20,.94); }
+.tour-play:focus-visible { outline: 2px solid var(--clay); outline-offset: 4px; }
+.tour-play-disc {
+  display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%;
+  background: var(--clay); color: var(--clay-ink); padding-left: 4px;
+  box-shadow: 0 0 0 0 rgba(217,119,87,.5); animation: tour-pulse 2.4s ease-out infinite;
+}
+.tour-play-time { margin-left: .45rem; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
+@keyframes tour-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(217,119,87,.45); }
+  70%, 100% { box-shadow: 0 0 0 16px rgba(217,119,87,0); }
+}
+@media (prefers-reduced-motion: reduce) { .tour-play-disc { animation: none; } }
+@media (max-width: 560px) {
+  .tour-play { gap: .65rem; padding: .4rem 1rem .4rem .4rem; font-size: .92rem; }
+  .tour-play-disc { width: 48px; height: 48px; }
+  .tour-play-disc svg { width: 22px; height: 22px; }
 }
 
 /* ================= feature rows (dark sheet, full screenshots) ================= */

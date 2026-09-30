@@ -119,6 +119,56 @@
     });
   });
 
+  /* ---------- tour video ---------- */
+  // Browsers only autoplay muted video, and the narration carries this one. So
+  // the tour previews silently on a loop while it is on screen, and the play
+  // button restarts it from the top with sound — a click is the gesture that
+  // lets audio play.
+  var player = document.getElementById("tour-player");
+  var video = document.getElementById("tour-video");
+  if (player && video) {
+    var play = player.querySelector(".tour-play");
+    var withSound = false;
+    video.controls = false;
+    play.hidden = false;
+
+    var preview = function (on) {
+      if (withSound || reduce) return;
+      if (on) { video.muted = true; video.loop = true; var p = video.play(); if (p) p.catch(function () {}); }
+      else video.pause();
+    };
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { preview(e.intersectionRatio >= 0.5); });
+      }, { threshold: [0, 0.5] }).observe(video);
+    }
+
+    play.addEventListener("click", function () {
+      withSound = true;
+      video.muted = false; video.loop = false; video.currentTime = 0;
+      video.controls = true;
+      player.classList.add("is-playing");
+      play.hidden = true;
+      // If a browser still refuses audio, play muted with controls showing, so
+      // one tap on the volume icon brings the narration back.
+      var p = video.play();
+      if (p) p.catch(function () { video.muted = true; video.play().catch(function () {}); });
+    });
+    video.addEventListener("ended", function () {
+      withSound = false;
+      video.controls = false;
+      player.classList.remove("is-playing");
+      play.hidden = false;
+      play.querySelector(".tour-play-label").firstChild.textContent = "Watch again ";
+    });
+
+    // Links to #tour (README, social) land with the player centred, not the
+    // section heading at the top edge.
+    if (location.hash === "#tour") {
+      fontsReady.then(function () { video.scrollIntoView({ block: "center" }); });
+    }
+  }
+
   /* ---------- scroll reveal (default visible; hidden only when JS can reveal) ---------- */
   if (!reduce && "IntersectionObserver" in window) {
     var targets = Array.prototype.slice.call(
