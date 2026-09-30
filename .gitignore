@@ -26,3 +26,6 @@ brag-output*/
 
 # Per-machine Claude Code overrides (never commit)
 .claude/settings.local.json
+
+# macOS Finder metadata
+.DS_Store
