@@ -206,11 +206,13 @@
   font-size: var(--fs-sm);
   line-height: 1.4;
 }
-/* The banner is a button (opens /mcp to re-auth); keep the full-width left-
-   aligned banner look and add interactive affordances. The orange fill/border
-   above come from the class, overriding the global bare-button reset. */
+/* The banner is a button (opens /mcp to re-auth); keep the left-aligned
+   banner look and add interactive affordances. The orange fill/border above
+   come from the class, overriding the global bare-button reset.
+   No `width: 100%`: as a child of the flex-column .panel it already stretches
+   to the space between its side margins, and 100% plus those margins ran it
+   28px past the panel edge, where overflow: hidden clipped "Open /mcp". */
 button.mcp-auth-banner {
-  width: 100%;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
