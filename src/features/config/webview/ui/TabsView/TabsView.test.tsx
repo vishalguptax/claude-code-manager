@@ -6,6 +6,7 @@ import {
   hiddenTabsPref,
   TABS,
   tabOrderPref,
+  toggleSection,
 } from "../../../../../webview/shared/model";
 import { createConfigApi } from "../../api";
 import { TabsView } from "./TabsView";
@@ -31,6 +32,8 @@ beforeEach(() => {
   hiddenTabsPref.value = [];
   tabOrderPref.value = [];
   _resetSections();
+  // The section starts folded; open it so the rows are there to test.
+  toggleSection("config:tabs");
 });
 
 afterEach(() => {

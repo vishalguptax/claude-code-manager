@@ -33,15 +33,25 @@ describe("config signals", () => {
   });
 
   it("toggles a section on and off", () => {
-    expect(isSectionCollapsed("permissions")).toBe(false);
-    toggleSection("permissions");
-    expect(isSectionCollapsed("permissions")).toBe(true);
+    expect(isSectionCollapsed("settings")).toBe(false);
+    toggleSection("settings");
+    expect(isSectionCollapsed("settings")).toBe(true);
     // Ids are namespaced per tab so Config and Account cannot fold each
     // other's sections through the one shared store.
-    expect(collapsedSections.value.has("config:permissions")).toBe(true);
-    expect(collapsedSections.value.has("permissions")).toBe(false);
-    toggleSection("permissions");
-    expect(isSectionCollapsed("permissions")).toBe(false);
+    expect(collapsedSections.value.has("config:settings")).toBe(true);
+    expect(collapsedSections.value.has("settings")).toBe(false);
+    toggleSection("settings");
+    expect(isSectionCollapsed("settings")).toBe(false);
+  });
+
+  it("opens on Settings, with every other section folded", () => {
+    expect(isSectionCollapsed("settings")).toBe(false);
+    expect(isSectionCollapsed("permissions")).toBe(true);
+    expect(isSectionCollapsed("tabs")).toBe(true);
+    expect(isSectionCollapsed("snapshots")).toBe(true);
+    expect(isSectionCollapsed("brain")).toBe(true);
+    toggleSection("brain");
+    expect(isSectionCollapsed("brain")).toBe(false);
   });
 
   it("_resetConfigState clears everything", () => {

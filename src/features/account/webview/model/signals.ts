@@ -65,8 +65,20 @@ export const hasAccount = computed(() => accountData.value !== null);
  * wrappers namespace Account's ids so the two tabs cannot fold each other's
  * sections through one store.
  */
+/**
+ * Usage's breakdown blocks open folded: the heatmap and tiles answer "how
+ * much", and each block's count on its heading says what is inside without
+ * a long single column of every model, project, tool and MCP server.
+ */
+const COLLAPSED_BY_DEFAULT: ReadonlySet<string> = new Set([
+  "usage.models",
+  "usage.projects",
+  "usage.tools",
+  "usage.mcp",
+]);
+
 export function isSectionCollapsed(id: string): boolean {
-  return isSectionCollapsedShared(`account:${id}`);
+  return isSectionCollapsedShared(`account:${id}`, COLLAPSED_BY_DEFAULT.has(id));
 }
 
 export function toggleSection(id: string): void {

@@ -43,8 +43,20 @@ export function _resetConfigState(): void {
  * because Account needs the same behaviour; the prefix stops two tabs that
  * both have a section called "permissions" from folding each other's.
  */
+/**
+ * Sections that open folded, so the tab opens on Settings — the reason
+ * people come here — instead of a 340px column of every list at once.
+ * Permissions, tab layout, history and backup are each a click away.
+ */
+const COLLAPSED_BY_DEFAULT: ReadonlySet<string> = new Set([
+  "permissions",
+  "tabs",
+  "snapshots",
+  "brain",
+]);
+
 export function isSectionCollapsed(id: string): boolean {
-  return isSectionCollapsedShared(`config:${id}`);
+  return isSectionCollapsedShared(`config:${id}`, COLLAPSED_BY_DEFAULT.has(id));
 }
 
 export function toggleSection(id: string): void {

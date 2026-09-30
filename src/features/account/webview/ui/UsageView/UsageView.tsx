@@ -303,8 +303,9 @@ function BlockHeading({ children }: { children: ComponentChildren }) {
  * count keeps a folded block informative — you can see there are 12
  * tools without unfolding to find out.
  *
- * Collapse state rides the same persisted set the top-level sections
- * use, under a namespaced id, so a fold survives a reload.
+ * Collapse state rides the same set the top-level sections use, under a
+ * namespaced id. Blocks start folded (see COLLAPSED_BY_DEFAULT in the
+ * model), so the count is what a first glance shows.
  */
 function Block({
   id,

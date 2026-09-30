@@ -85,6 +85,9 @@ describe("ConfigTab", () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
+    // Permissions opens folded; unfold it from its header.
+    await waitFor(() => expect(screen.getByText("Permissions")).toBeTruthy());
+    fireEvent.click(screen.getByText("Permissions"));
     await waitFor(() => expect(screen.getByText("Bash(git:*)")).toBeTruthy());
     const removeBtn = document.querySelector(".cfg-perm-remove") as HTMLButtonElement;
     fireEvent.click(removeBtn);
@@ -98,6 +101,9 @@ describe("ConfigTab", () => {
     configData.value = makeConfigData();
     loading.value = false;
     await waitFor(() => expect(screen.getByText("Brain backup")).toBeTruthy());
+    // Folded by default — the Export button appears once the section opens.
+    expect(screen.queryByText("Export Brain…")).toBeNull();
+    fireEvent.click(screen.getByText("Brain backup"));
     fireEvent.click(screen.getByText("Export Brain…"));
     expect(post).toHaveBeenCalledWith({ type: "runCommand", command: "claudeManager.exportBrain" });
   });

@@ -49,6 +49,14 @@ describe("collapsed sections store", () => {
     ]);
   });
 
+  it("opens a collapsed-by-default section on the first toggle", () => {
+    expect(isSectionCollapsed("config:brain", true)).toBe(true);
+    toggleSection("config:brain");
+    expect(isSectionCollapsed("config:brain", true)).toBe(false);
+    toggleSection("config:brain");
+    expect(isSectionCollapsed("config:brain", true)).toBe(true);
+  });
+
   it("forgets everything on reset", () => {
     toggleSection("config:settings");
     _resetSections();

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { fireEvent, render, screen } from "@testing-library/preact";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { _resetSections, toggleSection } from "../../../../../webview/shared/model";
 import { createConfigApi } from "../../api";
 import { SnapshotsView } from "./SnapshotsView";
 
@@ -9,6 +10,12 @@ function setup(post = vi.fn()) {
 }
 
 describe("SnapshotsView", () => {
+  beforeEach(() => {
+    _resetSections();
+    // The section starts folded; open it so its body is there to test.
+    toggleSection("config:snapshots");
+  });
+
   it("renders snapshot rows and fires restore/delete", () => {
     const { api, post } = setup();
     render(

@@ -59,6 +59,15 @@ describe("account signals", () => {
     expect(isSectionCollapsed("usage")).toBe(false);
   });
 
+  it("opens its sections but folds Usage's breakdown blocks", () => {
+    for (const id of ["profile", "quota", "usage"]) expect(isSectionCollapsed(id)).toBe(false);
+    for (const id of ["models", "projects", "tools", "mcp"]) {
+      expect(isSectionCollapsed(`usage.${id}`)).toBe(true);
+    }
+    toggleSection("usage.tools");
+    expect(isSectionCollapsed("usage.tools")).toBe(false);
+  });
+
   it("produces a new Set per toggle (reactive identity changes)", () => {
     const before = collapsedSections.value;
     toggleSection("profile");

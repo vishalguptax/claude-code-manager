@@ -4,7 +4,12 @@ import { h } from "preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountData, UsageStats } from "../../../types";
 import { setVscodeApi } from "../../../../../webview/shared/hooks";
-import { _resetAccountState, timePeriod } from "../../model";
+import { _resetAccountState, timePeriod, toggleSection } from "../../model";
+
+/** Unfold every breakdown block — they start folded. */
+function openBlocks(): void {
+  for (const id of ["models", "projects", "tools", "mcp"]) toggleSection(`usage.${id}`);
+}
 import { UsageView } from "./UsageView";
 
 function makeUsage(over: Partial<UsageStats> = {}): UsageStats {
@@ -119,6 +124,7 @@ describe("UsageView", () => {
   });
 
   it("renders the by-model group with a cost total", () => {
+    openBlocks();
     const usage = makeUsage({
       byModel: [
         {
@@ -150,6 +156,7 @@ describe("UsageView", () => {
   });
 
   it("renders the projects, tools, and MCP breakdowns", () => {
+    openBlocks();
     const usage = makeUsage({
       byProject: [
         {
@@ -221,25 +228,26 @@ describe("UsageView", () => {
       expect(heads.length).toBeGreaterThan(0);
       for (const head of heads) {
         expect(head.querySelector(".acct-block-count")?.textContent).toMatch(/^\d+$/);
-        expect(head.getAttribute("aria-expanded")).toBe("true");
+        // Folded by default — the count is all a first glance shows.
+        expect(head.getAttribute("aria-expanded")).toBe("false");
       }
     });
 
-    it("hides a block's body when its heading is clicked, and remembers it", () => {
+    it("opens a folded block from its heading and folds it again", () => {
       const { container } = render(h(UsageView, { data: dataWith(withBreakdowns()) }));
       const head = container.querySelector(".acct-block-head") as HTMLElement;
       const block = head.parentElement as HTMLElement;
-      const before = block.childElementCount;
-
-      fireEvent.click(head);
-      expect(head.getAttribute("aria-expanded")).toBe("false");
-      expect(block.childElementCount).toBeLessThan(before);
-      // The heading itself survives — a folded block is still navigable.
-      expect(block.querySelector(".acct-block-head")).toBeTruthy();
+      const folded = block.childElementCount;
 
       fireEvent.click(head);
       expect(head.getAttribute("aria-expanded")).toBe("true");
-      expect(block.childElementCount).toBe(before);
+      expect(block.childElementCount).toBeGreaterThan(folded);
+
+      fireEvent.click(head);
+      expect(head.getAttribute("aria-expanded")).toBe("false");
+      expect(block.childElementCount).toBe(folded);
+      // The heading itself survives — a folded block is still navigable.
+      expect(block.querySelector(".acct-block-head")).toBeTruthy();
     });
 
     it("is reachable from the keyboard", () => {

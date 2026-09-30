@@ -14,17 +14,22 @@
  * Deliberately not persisted. A collapsed section is a reading position, not a
  * preference — coming back to a panel you folded last week and finding half of
  * it hidden is worse than re-folding it.
+ *
+ * A section can start collapsed (Config folds its rarely-used tail so the
+ * settings people came for are what the panel opens on). The set therefore
+ * holds the ids the user has flipped from their default; for a section open
+ * by default, that is simply "collapsed".
  */
 import { signal } from "@preact/signals";
 
 export const collapsedSections = signal<ReadonlySet<string>>(new Set());
 
 /** Whether the given section id is currently collapsed. */
-export function isSectionCollapsed(id: string): boolean {
-  return collapsedSections.value.has(id);
+export function isSectionCollapsed(id: string, collapsedByDefault = false): boolean {
+  return collapsedSections.value.has(id) !== collapsedByDefault;
 }
 
-/** Toggle a section, producing a new Set so signal subscribers re-render. */
+/** Flip a section from its current state, producing a new Set so signal subscribers re-render. */
 export function toggleSection(id: string): void {
   const next = new Set(collapsedSections.value);
   if (next.has(id)) next.delete(id);
