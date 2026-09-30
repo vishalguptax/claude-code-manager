@@ -1,0 +1,68 @@
+name: Republish
+
+# Publish an already-released version's .vsix to the marketplaces, without
+# bumping, tagging or rebuilding. For when a marketplace was down during the
+# Release run (v2.16.0: the VS Code Marketplace returned HTTP 503). Re-running
+# the failed Release job is not an option: it bumps and tags again and
+# collides with the tag that already exists.
+#
+# Publishes the exact file attached to the GitHub Release, so every channel
+# gets the bytes CI tested.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Released version to publish (its tag, e.g. 2.16.0)"
+        required: true
+        type: string
+      target:
+        description: "Where to publish"
+        required: true
+        type: choice
+        options: [vscode, openvsx, both]
+        default: vscode
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
+      GH_TOKEN: ${{ github.token }}
+      # Inputs reach shell through env, never inline expressions, so a crafted
+      # value cannot inject commands.
+      VERSION: ${{ inputs.version }}
+      TARGET: ${{ inputs.target }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Download the released .vsix
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::'$VERSION' is not a version like 2.16.0"; exit 1; }
+          gh release download "$VERSION" --pattern '*.vsix' --dir release
+          vsix=$(ls release/*.vsix)
+          # The asset must be the version asked for, not a mislabelled upload.
+          got=$(unzip -p "$vsix" extension/package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+          [ "$got" = "$VERSION" ] || { echo "::error::$vsix is version $got, not $VERSION"; exit 1; }
+          echo "VSIX=$vsix" >> "$GITHUB_ENV"
+
+      - name: Publish to VS Code Marketplace
+        if: ${{ inputs.target != 'openvsx' }}
+        run: |
+          [ -n "$VSCE_PAT" ] || { echo "::error::The VSCE_PAT secret is not set"; exit 1; }
+          bash scripts/publish-vsix.sh vscode "$VSIX"
+
+      - name: Publish to Open VSX
+        if: ${{ inputs.target != 'vscode' }}
+        run: |
+          [ -n "$OVSX_TOKEN" ] || { echo "::error::The OVSX_TOKEN secret is not set"; exit 1; }
+          bash scripts/publish-vsix.sh openvsx "$VSIX"

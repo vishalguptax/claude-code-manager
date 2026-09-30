@@ -19,6 +19,11 @@ on:
       - "media/demo.gif"
       - "scripts/generate-screenshots.mjs"
       - "scripts/screenshot-fixtures.js"
+      # CI and release plumbing. Nothing here ships (.github/** and scripts/**
+      # are in .vscodeignore), so a workflow fix must not publish a version.
+      # Release notes still trigger a release; see the note below.
+      - ".github/**"
+      - "scripts/publish-vsix.sh"
     # Note: docs/releases/** and CHANGELOG.md are NOT ignored —
     # the release skill commits a release notes file which should
     # trigger the publish workflow.
@@ -73,7 +78,9 @@ jobs:
 
       - name: Package
         id: package
-        run: pnpm dlx @vscode/vsce package --no-dependencies -o dist/
+        run: |
+          pnpm dlx @vscode/vsce package --no-dependencies -o dist/
+          echo "vsix=$(ls dist/*.vsix)" >> "$GITHUB_OUTPUT"
 
       - name: Commit version bump
         id: commit
@@ -89,17 +96,20 @@ jobs:
       # Publishes must not stop the GitHub Release below from being created,
       # but a failed publish must still fail the job (see the last step) —
       # v2.3.0 was silently rejected by the Marketplace behind a green run.
+      # Both marketplaces get the one .vsix built above, and the script retries
+      # transient outages (v2.16.0 missed the Marketplace on a single 503).
+      # If a publish still fails, run the Republish workflow for this version.
       - name: Publish to VS Code Marketplace
         id: vsce
         if: ${{ env.VSCE_PAT != '' }}
         continue-on-error: true
-        run: pnpm dlx @vscode/vsce publish --no-dependencies
+        run: bash scripts/publish-vsix.sh vscode "${{ steps.package.outputs.vsix }}"
 
       - name: Publish to Open VSX
         id: ovsx
         if: ${{ env.OVSX_TOKEN != '' }}
         continue-on-error: true
-        run: pnpm dlx ovsx publish dist/*.vsix -p "$OVSX_TOKEN"
+        run: bash scripts/publish-vsix.sh openvsx "${{ steps.package.outputs.vsix }}"
 
       # Use curated release notes if present (docs/releases/v{version}.md),
       # otherwise fall back to GitHub's auto-generated notes.
@@ -140,5 +150,5 @@ jobs:
       - name: Fail if a marketplace publish failed
         if: ${{ steps.vsce.outcome == 'failure' || steps.ovsx.outcome == 'failure' }}
         run: |
-          echo "::error::Publish failed — vsce: ${{ steps.vsce.outcome }}, ovsx: ${{ steps.ovsx.outcome }}"
+          echo "::error::Publish failed — vsce: ${{ steps.vsce.outcome }}, ovsx: ${{ steps.ovsx.outcome }}. Run the Republish workflow for ${{ steps.bump.outputs.version }} once the marketplace is back."
           exit 1
