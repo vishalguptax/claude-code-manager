@@ -8,6 +8,7 @@ import {
   currentProjectSignal,
   detailLoadingSignal,
   detailSignal,
+  setWorkspacePath,
   worktreesSignal,
   _resetSessionsSignals,
 } from "../../model";
@@ -128,6 +129,14 @@ describe("DetailView", () => {
     const { container, getByText } = render(h(DetailView, {}));
     expect(container.querySelector(".d-notice")).toBeTruthy();
     expect(getByText(/Open .* to resume/)).toBeTruthy();
+  });
+
+  it("shows the cross-project notice when the window has no folder open", () => {
+    setWorkspacePath("");
+    detailSignal.value = detail({ project: "proj", projectKey: "proj" });
+    const { container, queryByText } = render(h(DetailView, {}));
+    expect(container.querySelector(".d-notice")).toBeTruthy();
+    expect(queryByText("Resume")).toBeNull();
   });
 
   it("shows the resume action for a same-project session", () => {

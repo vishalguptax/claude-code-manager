@@ -128,6 +128,12 @@ export const worktreesSignal = signal<WorktreeMap>({});
 
 /** Workspace folder path, used to derive the current project name. */
 export const workspacePathSignal = signal<string>("");
+/**
+ * True once the host has posted the workspace path. Separates "not told yet"
+ * (show everything rather than an empty list) from "told: no folder open"
+ * (This Project matches nothing — another project's sessions are not this one).
+ */
+export const workspaceResolvedSignal = signal<boolean>(false);
 /** Lowercased current project name derived from the workspace path. */
 export const currentProjectSignal = signal<string>("");
 /** Current git branch of the workspace ("" = unknown / no repo). */
@@ -211,17 +217,17 @@ export const currentRepoRootSignal = computed<string | null>(() =>
 
 /**
  * Set the workspace path and derive the (lowercased) current project name.
- * When no workspace is open the derived name is empty and getFiltered shows
- * all sessions — the filter selection itself is left untouched.
+ * When no workspace is open the derived name is empty and "This Project"
+ * matches nothing — the filter selection itself is left untouched.
  */
 export function setWorkspacePath(p: string): void {
   workspacePathSignal.value = p;
+  workspaceResolvedSignal.value = true;
   const tail = p.replace(/\\/g, "/").split("/").filter(Boolean).pop() || "";
   currentProjectSignal.value = tail.toLowerCase();
-  // Do NOT mutate filterProjectSignal here. getFiltered already shows every
-  // session when currentProject is empty (it narrows only when a project is
-  // known), so an unresolved/empty workspace needs no filter change. Flipping
-  // "current" -> "all" would be captured by the persistence effect and
+  // Do NOT mutate filterProjectSignal here. An empty workspace needs no
+  // filter change: "This Project" simply matches nothing until a folder
+  // arrives. Flipping "current" -> "all" would be captured by the persistence effect and
   // durably corrupt the user's "This Project" choice on the common cold-start
   // race where workspaceFolders reads empty for one tick before resolving.
 }
@@ -359,6 +365,7 @@ export function currentScope(): FilterScope {
     showArchived: showArchivedSignal.value,
     project: filterProjectSignal.value,
     currentProject: currentProjectSignal.value,
+    workspaceResolved: workspaceResolvedSignal.value,
     date: filterDateSignal.value,
     branch: filterBranchSignal.value,
     worktree: filterWorktreeSignal.value,
@@ -395,6 +402,10 @@ export function getLastSessionGroup(): Session[] {
     candidates = candidates.filter((s) => worktrees[s.id]?.repoRoot === repoRoot);
   } else if (currentProject) {
     candidates = candidates.filter((s) => s.projectKey === currentProject);
+  } else if (workspaceResolvedSignal.value) {
+    // No folder open: restoring another project's terminals is not "this
+    // project". The host reports the empty group as "nothing to restore".
+    candidates = [];
   }
 
   return candidates
@@ -710,6 +721,7 @@ export function _resetSessionsSignals(): void {
   filterWorktreeSignal.value = "all";
   worktreesSignal.value = {};
   workspacePathSignal.value = "";
+  workspaceResolvedSignal.value = false;
   currentProjectSignal.value = "";
   currentBranchSignal.value = "";
   bulkModeSignal.value = false;

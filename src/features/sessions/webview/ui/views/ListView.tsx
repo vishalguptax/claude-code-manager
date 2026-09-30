@@ -37,9 +37,10 @@ import {
   toggleGroupCollapsed,
   toggleSelected,
   viewSignal,
+  workspaceResolvedSignal,
   worktreesSignal,
 } from "../../model";
-import { isSameRepo } from "../../lib";
+import { isOtherProject } from "../../lib";
 import {
   sendGetSessionDetail,
   sendResumeSession,
@@ -76,9 +77,13 @@ export function ListView() {
   const openTerminals = openTerminalsSignal.value;
   const tempSessions = tempSessionsSignal.value;
   const archived = archivedSignal.value;
-  const currentProject = currentProjectSignal.value;
   const worktrees = worktreesSignal.value;
-  const repoRoot = currentRepoRootSignal.value;
+  const workspace = {
+    currentProject: currentProjectSignal.value,
+    repoRoot: currentRepoRootSignal.value,
+    worktrees,
+    workspaceResolved: workspaceResolvedSignal.value,
+  };
   const [menu, setMenu] = useState<MenuState | null>(null);
 
   const rows = rowsSignal.value;
@@ -188,12 +193,7 @@ export function ListView() {
                 hasOpenTerminal={openTerminals.has(row.session.id)}
                 isTemp={tempSessions.has(row.session.id)}
                 worktree={worktrees[row.session.id]}
-                isDiffProject={
-                  Boolean(currentProject && row.session.projectKey !== currentProject) &&
-                  // A sibling worktree of the current repo is resumable (its
-                  // checkout path is intact), so it is NOT a "different project".
-                  !isSameRepo(row.session, worktrees, repoRoot)
-                }
+                isDiffProject={isOtherProject(row.session, workspace)}
                 onSelect={openDetail}
                 onResume={resume}
                 onView={view}

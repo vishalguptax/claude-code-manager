@@ -41,6 +41,8 @@ export interface FilterScope {
   project: string;
   /** Lowercased folder name of the open workspace, "" when unresolved. */
   currentProject: string;
+  /** True once the host has reported the workspace, even as "no folder". */
+  workspaceResolved: boolean;
   /** "recent" | "week" | "month" | "all" (anything else = no cutoff). */
   date: string;
   /** "all" or an exact branch label, with "(no branch)" for unset. */
@@ -56,12 +58,13 @@ export interface FilterScope {
 
 /** True when the session belongs to the scope's project selection. */
 export function matchesProject(s: Session, scope: FilterScope): boolean {
-  const { project, worktrees, repoRoot, currentProject } = scope;
+  const { project, worktrees, repoRoot, currentProject, workspaceResolved } = scope;
   if (project === "all") return true;
   if (project === "current") {
-    // Unknown scope (workspace not resolved yet) shows everything rather than
-    // an empty list that reads as "no sessions".
-    if (!repoRoot && !currentProject) return true;
+    // Not told the workspace yet: show everything rather than an empty list
+    // that reads as "no sessions". Told there is no folder: nothing is this
+    // project, so another project's sessions must not leak in.
+    if (!repoRoot && !currentProject) return !workspaceResolved;
     // A session with no worktree ref still belongs to the project when its
     // folder matches. Comparing only the ref dropped sessions whose directory
     // git could not resolve, and every session in the window between the list

@@ -312,6 +312,24 @@ describe("resumeSession routing", () => {
     }
   });
 
+  it("no folder open → opens the session's project instead of resuming in place", async () => {
+    const sess = makeSession({ entrypoint: "cli" });
+    (vscode.workspace as { workspaceFolders: unknown }).workspaceFolders = [];
+    mockResumeIn("terminal");
+    const openProjectSpy = vi
+      .spyOn(vscode.commands, "executeCommand")
+      .mockResolvedValue(undefined as never);
+
+    await resumeSession(sess.id, false, [sess]);
+
+    expect(openProjectSpy).toHaveBeenCalledWith(
+      "vscode.openFolder",
+      expect.objectContaining({ fsPath: sess.projectPath }),
+      { forceNewWindow: true },
+    );
+    expect(sentText).toEqual([]);
+  });
+
   it("ask mode + cancelled → neither target fires (clean bail-out)", async () => {
     const sess = makeSession({ entrypoint: "cli" });
     extensionPresent = true;

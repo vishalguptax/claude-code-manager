@@ -29,6 +29,7 @@ export {
   buildWorktreeOptions,
   currentRepoRoot,
   hasWorktrees,
+  isOtherProject,
   isSameRepo,
   matchesWorktreeFilter,
   pathTail,
@@ -36,4 +37,5 @@ export {
   type WorktreeFilter,
   type WorktreeMap,
   type WorktreeOption,
+  type WorkspaceScope,
 } from "./worktrees";

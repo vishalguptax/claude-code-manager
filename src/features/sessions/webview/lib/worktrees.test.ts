@@ -4,6 +4,7 @@ import {
   buildWorktreeOptions,
   currentRepoRoot,
   hasWorktrees,
+  isOtherProject,
   isSameRepo,
   matchesWorktreeFilter,
   pathTail,
@@ -78,6 +79,30 @@ describe("isSameRepo", () => {
     expect(isSameRepo(session({ id: "b" }), wt, "/repo")).toBe(false);
     expect(isSameRepo(session({ id: "c" }), wt, "/repo")).toBe(false);
     expect(isSameRepo(session({ id: "a" }), wt, null)).toBe(false);
+  });
+});
+
+describe("isOtherProject", () => {
+  const ws = { currentProject: "proj", repoRoot: null, worktrees: {}, workspaceResolved: true };
+
+  it("compares the session's project with the workspace's", () => {
+    expect(isOtherProject(session({ id: "a" }), ws)).toBe(false);
+    expect(isOtherProject(session({ id: "a", projectKey: "elsewhere" }), ws)).toBe(true);
+  });
+
+  it("treats a sibling worktree of the current repo as the same project", () => {
+    const s = session({ id: "a", projectKey: "feat" });
+    expect(isOtherProject(s, { ...ws, repoRoot: "/repo", worktrees: { a: ref() } })).toBe(false);
+  });
+
+  it("treats every session as another project's when no folder is open", () => {
+    const empty = { ...ws, currentProject: "" };
+    expect(isOtherProject(session({ id: "a" }), empty)).toBe(true);
+  });
+
+  it("treats nothing as another project's before the workspace is known", () => {
+    const unknown = { ...ws, currentProject: "", workspaceResolved: false };
+    expect(isOtherProject(session({ id: "a" }), unknown)).toBe(false);
   });
 });
 

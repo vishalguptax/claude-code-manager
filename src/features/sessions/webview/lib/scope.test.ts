@@ -29,6 +29,7 @@ function scope(over: Partial<FilterScope> = {}): FilterScope {
     pinned: new Set(),
     project: "all",
     currentProject: "",
+    workspaceResolved: false,
     date: "all",
     branch: "all",
     worktree: "all",
@@ -85,6 +86,13 @@ describe("matchesProject — This Project", () => {
   it("shows everything while the workspace is still unresolved", () => {
     const s = session({ id: "a" });
     expect(matchesProject(s, scope({ project: "current" }))).toBe(true);
+  });
+
+  it("matches nothing once the host reports no folder open", () => {
+    const s = session({ id: "a", projectKey: "elsewhere", project: "elsewhere" });
+    expect(matchesProject(s, scope({ project: "current", workspaceResolved: true }))).toBe(false);
+    // "All Projects" still reaches every session.
+    expect(matchesProject(s, scope({ project: "all", workspaceResolved: true }))).toBe(true);
   });
 
   it("accepts a concrete selection by repoRoot or by project name", () => {

@@ -55,6 +55,26 @@ export function isSameRepo(s: Session, worktrees: WorktreeMap, repoRoot: string 
   return ref !== undefined && ref.repoRoot === repoRoot;
 }
 
+/** The workspace facts {@link isOtherProject} reads. */
+export interface WorkspaceScope {
+  currentProject: string;
+  repoRoot: string | null;
+  worktrees: WorktreeMap;
+  workspaceResolved: boolean;
+}
+
+/**
+ * True when `s` belongs to a different project than the open workspace, so the
+ * UI offers "Open project" instead of resuming in place. A sibling worktree of
+ * the current repo is resumable (its checkout path is intact), so it is NOT
+ * different. With no folder open every session is another project's; before
+ * the workspace is known nothing is, so rows don't flash "Open" on startup.
+ */
+export function isOtherProject(s: Session, ws: WorkspaceScope): boolean {
+  if (!ws.currentProject && !ws.repoRoot) return ws.workspaceResolved;
+  return s.projectKey !== ws.currentProject && !isSameRepo(s, ws.worktrees, ws.repoRoot);
+}
+
 /**
  * The project-filter value a session groups under: its `repoRoot` when the
  * session ran in a worktree, else the plain project name (today's behaviour).

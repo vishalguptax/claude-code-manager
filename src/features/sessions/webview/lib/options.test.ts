@@ -41,6 +41,7 @@ function scope(over: Partial<FilterScope> = {}): FilterScope {
     pinned: NONE,
     project: "all",
     currentProject: "",
+    workspaceResolved: false,
     date: "all",
     branch: "all",
     worktree: "all",

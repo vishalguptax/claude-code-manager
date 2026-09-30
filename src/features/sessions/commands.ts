@@ -338,7 +338,9 @@ export async function resumeSession(
     ? `claude --resume ${sessionId} --fork-session`
     : `claude --resume ${sessionId}`;
   const ws = getWorkspace();
-  const differentProject = Boolean(ws && cwd && normPath(cwd) !== normPath(ws));
+  // A window with no folder open is no session's project: resuming in place
+  // would leave the user in an empty window, so it opens the project instead.
+  const differentProject = Boolean(cwd && (!ws || normPath(cwd) !== normPath(ws)));
 
   // Fork always uses the terminal — no extension equivalent. Resolve
   // the target up-front so we know whether a cross-workspace hop needs
@@ -366,7 +368,7 @@ export async function resumeSession(
     return;
   }
 
-  // Same project or no workspace. Worktree-aware from here: a session may have
+  // Same project (or a session with no recorded path). Worktree-aware from here: a session may have
   // run inside a git worktree, in which case that checkout already holds the
   // right branch and resuming there needs no `git checkout`. Clear the cache
   // first so a worktree created/removed since the last resolve is re-detected.

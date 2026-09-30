@@ -116,6 +116,19 @@ describe("sessions signals", () => {
       expect(getFiltered()).toHaveLength(2);
     });
 
+    it("shows nothing for This Project when the window has no folder open", () => {
+      sessionsSignal.value = [
+        session({ id: "a", projectKey: "alpha", project: "alpha" }),
+        session({ id: "b", projectKey: "beta", project: "beta" }),
+      ];
+      setWorkspacePath("");
+      filterProjectSignal.value = "current";
+      filterDateSignal.value = "all";
+      expect(getFiltered()).toEqual([]);
+      filterProjectSignal.value = "all";
+      expect(getFiltered()).toHaveLength(2);
+    });
+
     it("sorts pinned first then by most recent endTime", () => {
       sessionsSignal.value = [
         session({ id: "old", endTime: 100 }),
@@ -293,6 +306,12 @@ describe("sessions signals", () => {
   });
 
   describe("getLastSessionGroup", () => {
+    it("restores nothing when the window has no folder open", () => {
+      sessionsSignal.value = [session({ id: "a", projectKey: "alpha", project: "alpha" })];
+      setWorkspacePath("");
+      expect(getLastSessionGroup()).toEqual([]);
+    });
+
     it("returns the N most recent sessions, oldest first", () => {
       const now = Date.now();
       sessionsSignal.value = [
@@ -446,12 +465,12 @@ describe("sessions signals", () => {
       expect(currentProjectSignal.value).toBe("myapp");
     });
 
-    it("leaves the project filter untouched when no workspace (getFiltered shows all)", () => {
+    it("leaves the project filter untouched when no workspace", () => {
       // Regression: flipping "current" -> "all" here was captured by the
       // persistence effect and durably corrupted the user's "This Project"
       // choice on the cold-start race where the workspace reads empty for one
-      // tick. The filter must stay "current"; getFiltered handles the empty
-      // currentProject by showing everything.
+      // tick. The filter must stay "current"; the folder arriving a tick
+      // later re-scopes the list on its own.
       filterProjectSignal.value = "current";
       setWorkspacePath("");
       expect(filterProjectSignal.value).toBe("current");

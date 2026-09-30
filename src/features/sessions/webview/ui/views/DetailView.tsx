@@ -51,9 +51,10 @@ import {
   pinnedSignal,
   selectedIdSignal,
   viewSignal,
+  workspaceResolvedSignal,
   worktreesSignal,
 } from "../../model";
-import { isSameRepo, pathTail } from "../../lib";
+import { isOtherProject, pathTail } from "../../lib";
 import { MessageItem, fmtTokens } from "../components/MessageItem";
 import { liveTitleForStatus } from "../components/SessionItem";
 import { DetailSkeleton } from "./DetailSkeleton";
@@ -364,15 +365,14 @@ export function DetailView() {
 
   const date = new Date(d.startTime).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const branch = d.branch && d.branch !== "HEAD" ? d.branch : "";
-  const currentProject = currentProjectSignal.value;
   const worktrees = worktreesSignal.value;
   const worktree = worktrees[d.id];
-  const repoRoot = currentRepoRootSignal.value;
-  // A sibling worktree of the current repo is resumable in place, so it is not
-  // treated as a "different project" (that would hide Resume and offer "Open").
-  const isDiffProject =
-    Boolean(currentProject && d.projectKey !== currentProject) &&
-    !isSameRepo(d, worktrees, repoRoot);
+  const isDiffProject = isOtherProject(d, {
+    currentProject: currentProjectSignal.value,
+    repoRoot: currentRepoRootSignal.value,
+    worktrees,
+    workspaceResolved: workspaceResolvedSignal.value,
+  });
   const isPinned = pinnedSignal.value.has(d.id);
   // Detail info row only for real (non-main) worktrees — the main checkout is
   // the default and needs no callout.
