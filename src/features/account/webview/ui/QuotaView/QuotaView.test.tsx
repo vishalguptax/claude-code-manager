@@ -419,6 +419,40 @@ describe("QuotaView", () => {
   });
 });
 
+describe("QuotaView — limit reset link", () => {
+  beforeEach(() => _resetAccountState());
+
+  const withWindows = (fiveHour: number | null, sevenDay: number | null): QuotaSuccess => ({
+    ...SUCCESS,
+    quota: {
+      ...SUCCESS.quota,
+      fiveHour: fiveHour === null ? null : { utilization: fiveHour, resetsAt: "" },
+      sevenDay: sevenDay === null ? null : { utilization: sevenDay, resetsAt: "" },
+    },
+  });
+
+  it("stays hidden while both windows have room", () => {
+    setQuotaSuccess(withWindows(89, 75));
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.queryByText("Limit reset")).toBeNull();
+  });
+
+  it("opens claude.ai usage through the host once the 5-hour window is nearly spent", () => {
+    setQuotaSuccess(withWindows(100, 40));
+    const api = stubApi();
+    render(h(QuotaView, { api }));
+    fireEvent.click(screen.getByLabelText("Open claude.ai usage settings"));
+    expect(api.openUrl).toHaveBeenCalledWith("https://claude.ai/settings/usage");
+  });
+
+  it("also appears when only the weekly window is nearly spent", () => {
+    setQuotaSuccess(withWindows(null, 90));
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("Limit reset")).toBeTruthy();
+    expect(screen.getByText(/may have a free reset/)).toBeTruthy();
+  });
+});
+
 /**
  * The repo / worktree / PR footnote. Fixtures mirror the statusline
  * payload's real shapes — a GitHub PR carries no `kind`, a GitLab MR

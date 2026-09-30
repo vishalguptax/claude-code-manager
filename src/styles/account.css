@@ -601,14 +601,17 @@
 /* The PR/MR link. A ghost <Button> so the affordance, hover and focus ring
    come from the shared control rather than from a private link rule; this
    only sheds the control-height geometry, which would tower over an
-   --fs-xs footnote line. */
-.acct-quota-pr {
+   --fs-xs footnote line. The claude.ai limit-reset link is the same
+   footnote link, so it shares the rule. */
+.acct-quota-pr,
+.acct-quota-reset-link {
   height: auto;
   padding: 0 var(--space-xs);
   font-size: var(--fs-xs);
   color: var(--link);
 }
-.acct-quota-pr .icon {
+.acct-quota-pr .icon,
+.acct-quota-reset-link .icon {
   width: 11px;
   height: 11px;
 }

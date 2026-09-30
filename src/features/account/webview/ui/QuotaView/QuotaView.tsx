@@ -282,8 +282,66 @@ function QuotaSuccessBody({
           pace={weeklyPace(sevenDay, data.quota.capturedAt)}
         />
       ) : null}
+      <LimitResetRow
+        nearLimit={[fiveHour, sevenDay].some(
+          (w) => !!w && w.utilization >= RESET_HINT_UTILIZATION,
+        )}
+        onOpenUrl={onOpenUrl}
+      />
       <PromptCacheRow stats={data.live.promptCache} />
       <BranchFacts live={data.live} onOpenUrl={onOpenUrl} />
+    </div>
+  );
+}
+
+/**
+ * At or above this share of either window, point at claude.ai's limit
+ * reset. Resets are occasional and cannot be undone, so nudging toward
+ * one while the window still has room would spend it too early.
+ */
+const RESET_HINT_UTILIZATION = 90;
+
+/** Where claude.ai and Claude Desktop offer "Reset for free". */
+const CLAUDE_USAGE_URL = "https://claude.ai/settings/usage";
+
+/**
+ * Eligible plans occasionally receive a free limit reset (5-hour or
+ * weekly), but Anthropic only offers it in claude.ai and Claude Desktop —
+ * not in Claude Code, and not through any documented API
+ * (support.claude.com/en/articles/17007452). Triggering it ourselves
+ * would mean replaying claude.ai's private endpoint with the user's
+ * OAuth token, which the Consumer Terms and Claude Code's credential
+ * policy forbid regardless of whether a click started it. So this is a
+ * plain link: the user presses the button on Anthropic's own page.
+ *
+ * Worded as "may": nothing local tells us whether a reset is on offer.
+ */
+function LimitResetRow({
+  nearLimit,
+  onOpenUrl,
+}: {
+  nearLimit: boolean;
+  onOpenUrl: (url: string) => void;
+}) {
+  if (!nearLimit) return null;
+  return (
+    <div class="acct-quota-branch">
+      <div class="acct-quota-branch-line">
+        <span class="acct-quota-branch-label">Limit reset</span>
+        <Button
+          variant="ghost"
+          class="acct-quota-reset-link"
+          iconName="external-link"
+          title={CLAUDE_USAGE_URL}
+          ariaLabel="Open claude.ai usage settings"
+          onClick={() => onOpenUrl(CLAUDE_USAGE_URL)}
+        >
+          claude.ai usage
+        </Button>
+      </div>
+      <div class="acct-quota-branch-note">
+        Your plan may have a free reset there. Claude Code can't apply one.
+      </div>
     </div>
   );
 }
