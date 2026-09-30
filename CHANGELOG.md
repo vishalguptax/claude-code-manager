@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.16.0] - 2026-09-30
+
+Your 5-hour and weekly quota now live in the status bar, the Quota card points you to claude.ai's free limit reset when you're near a cap, and Config and Account open on what matters instead of every section at once.
+
+See [docs/releases/v2.16.0.md](docs/releases/v2.16.0.md) for full details.
+
 ## [2.15.1] - 2026-09-20
 
 The sidebar's colours now hold up on every theme — row icons, chevrons and meta text were washed out on Dracula, Solarized Light and others, and the status chips were tuned for dark backgrounds only.
