@@ -29,6 +29,7 @@ import {
   selfHealStatusline,
 } from "../features/account/statuslineInstall";
 import { warmModelCache } from "../features/account/models";
+import { startQuotaStatusBar } from "../features/account/quotaStatusBar";
 import { warmUsageAggregate } from "../features/account/projectStats";
 import {
   syncSessionTap,
@@ -446,18 +447,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Status bar item — click to open the Claude Manager sidebar.
-  // Note: VS Code status bar items only support built-in codicons ($(name)),
-  // not custom SVG/PNG icons. We use "sparkle" as the closest brand-fit icon.
-  const statusBarItem = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Right,
-    100,
-  );
-  statusBarItem.text = "$(sparkle) Claude Code Manager";
-  statusBarItem.tooltip = "Open Claude Code Manager sidebar";
-  statusBarItem.command = "claudeManager.open";
-  statusBarItem.show();
-  context.subscriptions.push(statusBarItem);
+  // Status bar item — click to open the sidebar; shows live quota when
+  // the statusline tap has data.
+  startQuotaStatusBar(context);
 }
 
 /**

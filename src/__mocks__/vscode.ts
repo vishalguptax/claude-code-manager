@@ -277,6 +277,10 @@ export const QuickPickItemKind = {
   Default: 0,
 } as const;
 
+export class ThemeColor {
+  constructor(public id: string) {}
+}
+
 export enum StatusBarAlignment {
   Left = 1,
   Right = 2,
