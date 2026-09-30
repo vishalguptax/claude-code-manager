@@ -226,6 +226,22 @@ describe("resolveWorktrees", () => {
     expect(map.has("")).toBe(false);
   });
 
+  it("re-lists worktrees on each batch so one created in between is detected", () => {
+    const main = ["worktree /repo", "branch refs/heads/main", ""];
+    let list = main;
+    execFileSync.mockImplementation((_bin: string, args: string[], opts: { cwd: string }) => {
+      const key = args.join(" ");
+      if (key === TOP) return `${opts.cwd}\n`;
+      if (key === COMMON) return "/repo/.git\n";
+      if (key === LIST) return list.join("\n");
+      throw new Error(`unexpected git invocation: git ${key}`);
+    });
+    resolveWorktrees(["/repo"]);
+    list = [...main, "worktree /repo/.claude/worktrees/new", "branch refs/heads/worktree-new", ""];
+    const ref = resolveWorktrees(["/repo/.claude/worktrees/new"]).get("/repo/.claude/worktrees/new");
+    expect(ref).toMatchObject({ path: "/repo/.claude/worktrees/new", kind: "claude", branch: "worktree-new" });
+  });
+
   it("dedupes directories that normalize equal", () => {
     mockGit({
       [TOP]: "/repo\n",

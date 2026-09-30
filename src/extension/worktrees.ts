@@ -149,8 +149,9 @@ export function classifyWorktree(
 /**
  * Module-level cache of parsed worktree lists, keyed by the git common dir so
  * every worktree of one repo shares a single `git worktree list` spawn within
- * a resolve batch. Cleared by {@link clearWorktreeCache} on reload/resume so a
- * newly created or pruned worktree is re-detected.
+ * a resolve batch. Every {@link resolveWorktrees} batch starts empty, and
+ * resume clears it via {@link clearWorktreeCache}, so a newly created or pruned
+ * worktree (or a branch switch) is re-detected.
  */
 const listCache = new Map<string, RawWorktree[]>();
 
@@ -294,6 +295,11 @@ export function resolveMissingClaudeWorktree(dir: string, branch: string): Workt
  * resolve, then fans the result back out to every original key.
  */
 export function resolveWorktrees(dirs: string[]): Map<string, WorktreeRef> {
+  // Scope the list cache to this batch. Batches run on every sessions push,
+  // and a list carried over from an earlier push would lack a worktree Claude
+  // created since — its sessions would fall through to the main worktree —
+  // and would keep reporting a branch the checkout has since left.
+  clearWorktreeCache();
   const out = new Map<string, WorktreeRef>();
   const byNorm = new Map<string, WorktreeRef | null>();
 
