@@ -209,6 +209,15 @@ code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .88em;
 .sec-sub code { background: var(--inset); padding: .05em .35em; border-radius: 5px; color: var(--text); }
 .sec-head-2 { margin-top: clamp(3rem, 7vw, 5rem); }
 
+/* ================= tour video (dark sheet) ================= */
+.tour-video { max-width: 980px; margin: 0 auto; }
+.tour-video video {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
+  border-radius: var(--r-lg); border: 1px solid var(--border);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.03) inset, 0 30px 70px -36px rgba(0,0,0,.9);
+  background: var(--sheet);
+}
+
 /* ================= feature rows (dark sheet, full screenshots) ================= */
 .feat {
   display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 4vw, 3.6rem);

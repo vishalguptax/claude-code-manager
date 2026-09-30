@@ -41,4 +41,7 @@ media/marketplace-icon.svg
 skills-lock.json
 CLAUDE.md
 marketing/**
+# Launch-video workbench (brag renders, captures, audio). Local-only output;
+# the published video lives in site/assets/video, which site/** already excludes.
+brag-output*/**
 site/**

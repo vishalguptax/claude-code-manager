@@ -78,6 +78,18 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
+    "@type": "VideoObject",
+    "name": "Claude Code Manager: a one-minute tour",
+    "description": "Sessions, file checkpoints, prompt history, MCP servers, skills, commands, hooks, agents and account usage in the VS Code sidebar. 100% local, zero telemetry.",
+    "thumbnailUrl": "https://claudecodemanager.vishalg.in/assets/video/poster.jpg",
+    "contentUrl": "https://claudecodemanager.vishalg.in/assets/video/claude-code-manager.mp4",
+    "uploadDate": "2026-09-30",
+    "duration": "PT59S"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
       { "@type": "Question", "name": "Does Claude Code Manager send anything to the network?", "acceptedAnswer": { "@type": "Answer", "text": "No. Zero network calls, ever. It reads ~/.claude/ and renders in a VS Code webview under a strict CSP. The opt-in Quota card is local too: your 5-hour and 7-day numbers are computed by Claude Code and shown in its statusline, and a tap caches that render to a file the extension reads from disk. It never calls Anthropic and never reads your OAuth token." } },
@@ -138,6 +150,24 @@
       <div class="editors" aria-label="Works in these editors">
         <span>VS Code</span><span>Cursor</span><span>Windsurf</span><span>Antigravity</span><span>VSCodium</span><span>Codespaces</span><span>Gitpod</span><span>Theia</span>
       </div>
+    </section>
+
+    <!-- ============ TOUR SHEET (dark, launch video) ============ -->
+    <!-- Self-hosted on purpose: a YouTube embed would set tracking cookies on a
+         page that promises zero telemetry. preload="none" keeps the 5 MB off the
+         initial load; the poster carries the frame until someone presses play. -->
+    <section id="tour" class="sheet sheet-dark">
+      <header class="sec-head">
+        <p class="sec-tag">THE TOUR:</p>
+        <h2>One minute. <em class="serif">The whole sidebar.</em></h2>
+      </header>
+      <figure class="tour-video">
+        <video controls playsinline preload="none" poster="assets/video/poster.jpg" width="1600" height="900" aria-label="Claude Code Manager launch video: sessions, checkpoints, prompts, MCP servers, skills, commands, hooks, agents and account in the VS Code sidebar">
+          <source src="assets/video/claude-code-manager.webm" type="video/webm">
+          <source src="assets/video/claude-code-manager.mp4" type="video/mp4">
+          <a href="assets/video/claude-code-manager.mp4">Download the tour (MP4)</a>
+        </video>
+      </figure>
     </section>
 
     <!-- ============ FEATURES SHEET (dark, full screenshots) ============ -->

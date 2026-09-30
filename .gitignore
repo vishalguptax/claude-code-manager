@@ -17,6 +17,8 @@ docs/backlog.md
 docs/prompts/
 .local-plans/
 scripts/_mock-tmp/
+# Launch-video workbench (brag renders and captures), local only
+brag-output*/
 
 # Local design tooling (impeccable skill) — not part of the product
 .agents/skills/impeccable/
