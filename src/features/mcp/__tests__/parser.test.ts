@@ -215,6 +215,16 @@ describe("project server enable/disable via settings arrays", () => {
     expect(server?.disabled).toBe(true);
   });
 
+  it("parseMcpServers reads a server as enabled again after a disable/enable round trip", () => {
+    // .mcp.json is untouched by the toggle, so its cached entry is reused
+    // across these parses — the disabled stamp must not stick to it.
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    setProjectMcpServerDisabled("srv", true, ws);
+    expect(parseMcpServers(ws).servers.find((s) => s.name === "srv")?.disabled).toBe(true);
+    setProjectMcpServerDisabled("srv", false, ws);
+    expect(parseMcpServers(ws).servers.find((s) => s.name === "srv")?.disabled).toBeUndefined();
+  });
+
   it("a local enabled entry overrides a project-scope disabled entry (precedence)", () => {
     writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
     writeJson(projectSettings, { disabledMcpjsonServers: ["srv"] });

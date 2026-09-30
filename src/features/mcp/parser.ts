@@ -323,28 +323,28 @@ export function parseMcpServers(workspacePath?: string): McpParseResult {
     servers.push(...readPluginMcpServers(plugin));
   }
 
-  // Stamp effective disabled state on project-scope servers. Applied
-  // post-cache (not baked into the .mcp.json-keyed cache above) since
-  // it depends on settings files, which have their own mtimes.
-  if (workspacePath) {
-    const states = readMcpToggleStates(workspacePath);
-    for (const server of servers) {
-      if (server.scope === "project" && isProjectServerDisabled(server.name, states)) {
-        server.disabled = true;
-      }
+  // Stamp per-parse state onto copies: the objects above are shared with
+  // the mtime cache, and mutating them would make a stamp outlive its
+  // cause — a server disabled once would stay disabled after re-enabling,
+  // because the toggle rewrites settings.local.json, not .mcp.json.
+  const toggleStates = workspacePath ? readMcpToggleStates(workspacePath) : [];
+  const stamped = servers.map((server) => {
+    const copy: McpServer = { ...server };
+    // Effective disabled state for project-scope servers lives in the
+    // settings files' toggle arrays, which have their own mtimes.
+    if (server.scope === "project" && isProjectServerDisabled(server.name, toggleStates)) {
+      copy.disabled = true;
     }
-  }
-
-  // Stamp a local, offline health signal on stdio servers: does the
-  // launch command resolve on PATH? url-transport servers are left
-  // undefined — the extension never probes network reachability.
-  for (const server of servers) {
+    // Local, offline health signal: does the stdio launch command resolve
+    // on PATH? url-transport servers are left undefined — the extension
+    // never probes network reachability.
     if (server.type === "stdio" && server.command) {
-      server.commandAvailable = commandExistsOnPath(server.command);
+      copy.commandAvailable = commandExistsOnPath(server.command);
     }
-  }
+    return copy;
+  });
 
-  return { servers, errors };
+  return { servers: stamped, errors };
 }
 
 /**
