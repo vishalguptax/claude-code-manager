@@ -11,31 +11,6 @@ import { pathTail, type WorktreeMap } from "./worktrees";
 import { matchesScope, type FilterScope } from "./scope";
 
 /**
- * All project names, current project first, then by most recent activity.
- * Used to populate the project filter dropdown.
- */
-export function orderProjects(
-  sessions: Session[],
-  deleted: Set<string>,
-  currentProject: string,
-): string[] {
-  const latestActivity = new Map<string, number>();
-  const keyByProject = new Map<string, string>();
-  for (const s of sessions) {
-    if (!keyByProject.has(s.project)) keyByProject.set(s.project, s.projectKey);
-    if (deleted.has(s.id)) continue;
-    const prev = latestActivity.get(s.project) || 0;
-    if (s.endTime > prev) latestActivity.set(s.project, s.endTime);
-  }
-
-  return [...latestActivity.keys()].sort((a, b) => {
-    if (keyByProject.get(a) === currentProject) return -1;
-    if (keyByProject.get(b) === currentProject) return 1;
-    return (latestActivity.get(b) || 0) - (latestActivity.get(a) || 0);
-  });
-}
-
-/**
  * Distinct branch names present in the (deletion-filtered) session list,
  * sorted alphabetically with the "(no branch)" sentinel last.
  */
@@ -123,8 +98,8 @@ export function buildProjectOptions(
     return parts.slice(-2).join("/") || label;
   };
 
-  // Current group first, then by most recent activity — the orderProjects
-  // comparator, applied over the (possibly repo-collapsed) group values.
+  // Current group first, then by most recent activity, over the (possibly
+  // repo-collapsed) group values.
   const values = [...counts.keys()].sort((a, b) => {
     if (isCurrentValue(a)) return -1;
     if (isCurrentValue(b)) return 1;

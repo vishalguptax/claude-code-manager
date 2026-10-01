@@ -194,7 +194,6 @@ export type Message =
   | { type: "error"; message: string }
   | { type: "ack" }
   | { type: "reloadComplete" }
-  | { type: "projects"; data: string[] }
   | { type: "accountData"; data: unknown }
   | { type: "commands"; data: unknown }
   // `errors` carries user-readable parse failures (malformed config files)
@@ -239,12 +238,7 @@ export type Message =
   // === END CHECKPOINTS MESSAGES ===
   // === SESSIONS MESSAGES ===
   // Inbound (webview → host) session messages handled in
-  // features/sessions/messageHandlers.ts. `search`/`filter` ask the host to
-  // re-group the session list server-side; the webview currently filters
-  // client-side instead, so these are a retained host capability rather than
-  // an actively-sent message (kept so the host stays able to serve them).
-  | { type: "search"; query: string }
-  | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
+  // features/sessions/messageHandlers.ts.
   | { type: "deleteSession"; sessionId: string }
   | { type: "copyMarkdown"; sessionId: string }
   | { type: "openFile"; path: string }
@@ -252,22 +246,7 @@ export type Message =
    * Recreate a Claude-created worktree removed from disk, then resume the
    * session inside it. The host runs `git worktree add` behind a confirm modal.
    */
-  | { type: "createWorktree"; sessionId: string }
-  /**
-   * Host → webview incremental session-list update. Carries only changed
-   * rows so a file-watcher tick does not re-post the entire tree. The
-   * webview applies it via signal mutation (`applyDelta`). Sessions are
-   * passed through as `unknown[]` to keep the shared protocol free of the
-   * feature-local `Session` type; the feature narrows on receipt.
-   *
-   * Receive side only today: the webview handles this, but the host still
-   * re-posts the full `sessions` list on each watcher tick, so nothing emits
-   * a delta yet. Kept wired so an incremental emitter can drop in later.
-   */
-  | {
-      type: "sessions.delta";
-      payload: { added?: unknown[]; updated?: unknown[]; removed?: string[] };
-    };
+  | { type: "createWorktree"; sessionId: string };
 // === END SESSIONS MESSAGES ===
 
 type WebviewMessageType =
@@ -377,8 +356,6 @@ type WebviewMessageType =
   | "diffCheckpoint"
   | "restoreCheckpoint"
   // === SESSIONS MESSAGES ===
-  | "search"
-  | "filter"
   | "deleteSession"
   | "copyMarkdown"
   | "openFile"
@@ -404,14 +381,12 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "error",
   "ack",
   "reloadComplete",
-  "projects",
   "accountData",
   "commands",
   "hooks",
   "mcpServers",
   "agents",
   "quotaData",
-  "sessions.delta",
   "terminalSessions",
   "tempSessions",
   "worktrees",

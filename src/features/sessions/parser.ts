@@ -41,10 +41,4 @@ export {
 
 export { parseSessionDetail } from "./detailParser";
 
-export {
-  filterSessions,
-  getStats,
-  getUniqueProjects,
-  groupSessions,
-  searchSessions,
-} from "./grouping";
+export { getStats, groupSessions } from "./grouping";

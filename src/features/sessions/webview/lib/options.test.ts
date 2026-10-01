@@ -4,7 +4,6 @@ import {
   buildBranchOptions,
   buildProjectOptions,
   listBranches,
-  orderProjects,
 } from "./options";
 import type { FilterScope } from "./scope";
 
@@ -53,24 +52,6 @@ function scope(over: Partial<FilterScope> = {}): FilterScope {
     ...over,
   };
 }
-
-describe("orderProjects", () => {
-  it("orders projects with current first then by activity", () => {
-    const sessions = [
-      session({ id: "a", project: "alpha", projectKey: "alpha", endTime: 10 }),
-      session({ id: "b", project: "beta", projectKey: "beta", endTime: 99 }),
-    ];
-    expect(orderProjects(sessions, NONE, "alpha")).toEqual(["alpha", "beta"]);
-  });
-
-  it("falls back to activity ordering when no current project", () => {
-    const sessions = [
-      session({ id: "a", project: "alpha", projectKey: "alpha", endTime: 10 }),
-      session({ id: "b", project: "beta", projectKey: "beta", endTime: 99 }),
-    ];
-    expect(orderProjects(sessions, NONE, "")).toEqual(["beta", "alpha"]);
-  });
-});
 
 describe("listBranches", () => {
   it("lists distinct branches with (no branch) last", () => {

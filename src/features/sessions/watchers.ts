@@ -21,7 +21,6 @@ import {
   parseSessions,
   groupSessions,
   getStats,
-  getUniqueProjects,
   getLastParseWarning,
   reparseSessionsBatch,
   readLiveSessions,
@@ -302,7 +301,6 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
       data: groupSessions(ctx.getSessions()),
       stats: getStats(ctx.getSessions()),
     });
-    wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
     wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
     const warning = getLastParseWarning();
     if (warning) wv.postMessage({ type: "error", message: warning });
@@ -372,7 +370,6 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
           data: groupSessions(sessions),
           stats: getStats(sessions),
         });
-        wv.postMessage({ type: "projects", data: getUniqueProjects(sessions) });
         wv.postMessage({ type: "tempSessions", ids: getTempSessionIds() });
         ctx.buildSearchIndex();
       } catch (err) {

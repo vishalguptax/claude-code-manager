@@ -237,7 +237,6 @@ describe("parseMessage — host to webview", () => {
     roundTrip({ type: "searchIndexReady" });
     roundTrip({ type: "error", message: "boom" });
     roundTrip({ type: "reloadComplete" });
-    roundTrip({ type: "projects", data: ["/a", "/b"] });
     roundTrip({ type: "accountData", data: { email: "a@b" } });
     roundTrip({ type: "commands", data: [] });
     roundTrip({ type: "hooks", data: [] });

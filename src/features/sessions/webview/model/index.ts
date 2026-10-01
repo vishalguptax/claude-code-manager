@@ -4,4 +4,4 @@
  * host-message handlers.
  */
 export * from "./signals";
-export { handleDelta, handleMessage } from "./messages";
+export { handleMessage } from "./messages";

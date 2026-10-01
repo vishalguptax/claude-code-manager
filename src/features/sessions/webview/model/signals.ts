@@ -1,10 +1,10 @@
 /**
  * Reactive feature state for the sessions webview, plus the pure selectors
- * and the delta-apply helper that drive list rendering.
+ * that drive list rendering.
  *
  * All mutable view state lives in `@preact/signals` so components re-render
  * automatically on change. The derived selectors (`getFiltered`,
- * `getLastSessionGroup`, `getProjects`) are pure functions of the current
+ * `getLastSessionGroup`) are pure functions of the current
  * signal values — they read `.value` and return a fresh array, so calling
  * them from inside a component body subscribes that component to every
  * input signal.
@@ -31,7 +31,6 @@ import {
   listBranches,
   matchesProject,
   matchesScope,
-  orderProjects,
 } from "../lib";
 
 // Re-export the option types so consumers can keep importing them from the
@@ -418,14 +417,6 @@ export function getLastSessionGroup(): Session[] {
 }
 
 /**
- * All project names, current project first, then by most recent activity.
- * Thin signal-reading wrapper over the pure `orderProjects` lib helper.
- */
-export function getProjects(): string[] {
-  return orderProjects(sessionsSignal.value, deletedSignal.value, currentProjectSignal.value);
-}
-
-/**
  * Distinct branch names present in the (deletion-filtered) session list,
  * sorted alphabetically with the "(no branch)" sentinel last. Thin
  * signal-reading wrapper over the pure `listBranches` lib helper.
@@ -520,30 +511,6 @@ export const allGroupsCollapsed = computed<boolean>(() => {
   const collapsed = collapsedGroupsSignal.value;
   return labels.every((l) => collapsed.has(l));
 });
-
-// ── Delta application ──
-
-/** Shape of a `sessions.delta` payload: incremental list mutations. */
-export interface SessionsDelta {
-  added?: Session[];
-  updated?: Session[];
-  removed?: string[];
-}
-
-/**
- * Apply an incremental delta to a session list, returning a NEW array
- * (never mutates the input) so a signal assignment triggers re-render.
- * Updates replace by id; additions append; removals drop by id. Unknown
- * updates are treated as additions so an out-of-order delta never loses
- * data.
- */
-export function applyDelta(list: Session[], delta: SessionsDelta): Session[] {
-  const byId = new Map(list.map((s) => [s.id, s]));
-  for (const s of delta.updated ?? []) byId.set(s.id, s);
-  for (const s of delta.added ?? []) byId.set(s.id, s);
-  for (const id of delta.removed ?? []) byId.delete(id);
-  return [...byId.values()];
-}
 
 // ── Filter persistence ──
 //

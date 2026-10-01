@@ -20,7 +20,6 @@ import {
   parseSessions,
   groupSessions,
   getStats,
-  getUniqueProjects,
   getLastParseWarning,
   getSessionFile,
   readLiveSessions,
@@ -190,11 +189,8 @@ export function refreshLiveState(ctx: ProviderActionsContext): void {
           stats: getStats(sessions),
         });
         postWorktrees(wv, sessions);
-        if (added) {
-          // A new session widens the project set and needs indexing for search.
-          wv.postMessage({ type: "projects", data: getUniqueProjects(sessions) });
-          ctx.buildSearchIndex();
-        }
+        // A new session needs indexing for search.
+        if (added) ctx.buildSearchIndex();
       } catch (err) {
         console.warn("[claude-manager] refreshLiveState failed:", err);
       }
@@ -396,7 +392,6 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
       stats: getStats(ctx.getSessions()),
     });
     postWorktrees(wv, ctx.getSessions());
-    wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });
     wv.postMessage({ type: "userState", ...loadState() });
     const warning = getLastParseWarning();
     if (warning) wv.postMessage({ type: "error", message: warning });

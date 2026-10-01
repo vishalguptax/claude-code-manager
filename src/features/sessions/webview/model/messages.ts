@@ -14,9 +14,7 @@ import { sendSearchFullText } from "../api";
 import { flattenGroups } from "../lib";
 import {
   FULLTEXT_MIN_CHARS,
-  type SessionsDelta,
   applyDefaultFilters,
-  applyDelta,
   currentBranchSignal,
   detailLoadingSignal,
   detailSignal,
@@ -142,22 +140,4 @@ export function handleMessage(msg: Message): void {
     default:
       break;
   }
-}
-
-/**
- * Apply a `sessions.delta` payload by mutating the list signal in place. The
- * shared protocol types the rows as `unknown[]`; we narrow to `Session[]` here
- * since the feature owns that type. Exported for unit tests.
- */
-export function handleDelta(payload: {
-  added?: unknown[];
-  updated?: unknown[];
-  removed?: string[];
-}): void {
-  const delta: SessionsDelta = {
-    added: payload.added as Session[] | undefined,
-    updated: payload.updated as Session[] | undefined,
-    removed: payload.removed,
-  };
-  sessionsSignal.value = applyDelta(sessionsSignal.value, delta);
 }

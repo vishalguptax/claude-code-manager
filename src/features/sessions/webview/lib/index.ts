@@ -21,7 +21,6 @@ export {
   buildBranchOptions,
   buildProjectOptions,
   listBranches,
-  orderProjects,
   type BranchOption,
   type ProjectOption,
 } from "./options";

@@ -263,7 +263,6 @@ export interface SessionEntry {
 export type ExtensionMessage =
   | { type: "sessions"; data: SessionGroup[]; stats: Stats }
   | { type: "sessionDetail"; data: SessionDetail }
-  | { type: "projects"; data: string[] }
   | { type: "workspacePath"; data: string }
   /**
    * Current git branch of the workspace, resolved via the VS Code Git
@@ -327,8 +326,6 @@ export type WebviewMessage =
   | { type: "markDemoSeen" }
   | { type: "continueLastSession" }
   | { type: "getSessionDetail"; sessionId: string; mode?: "first" | "last"; query?: string }
-  | { type: "search"; query: string }
-  | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
   /**
    * Recreate a Claude-created worktree that has since been removed from disk,

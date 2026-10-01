@@ -11,7 +11,7 @@ vi.mock("../../../../webview/shared/hooks", () => ({
 
 import type { Message } from "../../../../shared/protocol/messages";
 import type { Session, SessionDetail, SessionGroup } from "../../types";
-import { handleDelta, handleMessage } from "./messages";
+import { handleMessage } from "./messages";
 import {
   currentBranchSignal,
   deletedSignal,
@@ -101,12 +101,6 @@ describe("sessions message handling", () => {
     handleMessage({ type: "fullTextResults", query: "stale", ids: ["y"] } as Message);
     setFullTextHits("deploy", ["x"]);
     expect(true).toBe(true);
-  });
-
-  it("applies a delta to the session list", () => {
-    sessionsSignal.value = [session("a"), session("b")];
-    handleDelta({ added: [session("c")], removed: ["a"] });
-    expect(sessionsSignal.value.map((s) => s.id).sort()).toEqual(["b", "c"]);
   });
 
   it("ignores unrelated message types", () => {
