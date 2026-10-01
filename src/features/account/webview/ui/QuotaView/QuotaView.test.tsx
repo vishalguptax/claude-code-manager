@@ -592,3 +592,51 @@ describe("QuotaView — branch facts", () => {
     expect(selfHosted.getByText("gitlab.acme.dev/acme/widgets")).toBeTruthy();
   });
 });
+
+describe("QuotaView — live /usage fallback", () => {
+  beforeEach(() => _resetAccountState());
+
+  const minutesAgo = (m: number): string => new Date(Date.now() - m * 60_000).toISOString();
+
+  it("offers /usage while waiting for Claude Code's first render", () => {
+    setQuotaError({ kind: "no-data", message: "open a session first" });
+    const api = stubApi();
+    render(h(QuotaView, { api }));
+    fireEvent.click(screen.getByText("Check /usage"));
+    expect(api.launchSlash).toHaveBeenCalledWith("/usage");
+    expect(api.fetchQuota).not.toHaveBeenCalled();
+  });
+
+  it("offers /usage after an account switch, when the cache belongs to the old account", () => {
+    setQuotaSuccess({ ...SUCCESS, quota: { ...SUCCESS.quota, capturedAt: minutesAgo(5) } });
+    quotaAccountSince.value = Date.now();
+    const api = stubApi();
+    render(h(QuotaView, { api }));
+    fireEvent.click(screen.getByText("Check /usage"));
+    expect(api.launchSlash).toHaveBeenCalledWith("/usage");
+  });
+
+  it("offers /usage when the last render carried no rate limits", () => {
+    setQuotaSuccess({ ...SUCCESS, quota: { ...SUCCESS.quota, fiveHour: null, sevenDay: null } });
+    const api = stubApi();
+    render(h(QuotaView, { api }));
+    fireEvent.click(screen.getByText("Check /usage"));
+    expect(api.launchSlash).toHaveBeenCalledWith("/usage");
+  });
+
+  it("keeps an idle capture's bars and notes they may lag", () => {
+    setQuotaSuccess({ ...SUCCESS, quota: { ...SUCCESS.quota, capturedAt: minutesAgo(60) } });
+    const api = stubApi();
+    render(h(QuotaView, { api }));
+    expect(screen.getByText("5-hour window")).toBeTruthy();
+    expect(screen.getByText(/may lag/)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Check live usage with /usage"));
+    expect(api.launchSlash).toHaveBeenCalledWith("/usage");
+  });
+
+  it("stays out of the way while the capture is live", () => {
+    setQuotaSuccess(SUCCESS);
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.queryByText("Check /usage")).toBeNull();
+  });
+});
