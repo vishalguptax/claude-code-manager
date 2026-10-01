@@ -3,10 +3,9 @@ import { h } from "preact";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setVscodeApi } from "../../../../../webview/shared/hooks";
+import { claudeCodeInstalled, marketplaceSkillsUrl } from "../../../../../webview/shared/model";
 import { makeSkill } from "../../__tests__/fixtures";
 import {
-  claudeCodeInstalled,
-  marketplaceSkillsUrl,
   scopeFilter,
   searchQuery,
   selectedSkill,

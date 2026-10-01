@@ -6,6 +6,7 @@
  */
 import { useRef } from "preact/hooks";
 import { useApi } from "../../../../../webview/shared/hooks";
+import { claudeCodeInstalled, marketplaceSkillsUrl } from "../../../../../webview/shared/model";
 import {
   Button,
   EmptyState,
@@ -18,10 +19,8 @@ import type { Skill } from "../../../types";
 import { getSkillDetail, getSkills, launchSkillInChat, openUrl } from "../../api";
 import { groupSkills } from "../../lib";
 import {
-  claudeCodeInstalled,
   countByScope,
   filteredSkills,
-  marketplaceSkillsUrl,
   type ScopeFilter,
   scopeFilter,
   searchQuery,

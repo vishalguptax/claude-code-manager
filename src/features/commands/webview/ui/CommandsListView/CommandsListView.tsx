@@ -12,12 +12,12 @@ import {
   VirtualList,
 } from "../../../../../webview/shared/ui";
 import { useApi } from "../../../../../webview/shared/hooks";
+import { claudeCodeInstalled } from "../../../../../webview/shared/model";
 import type { Command } from "../../../types";
 import { getCommandsMsg, launchCommandInChatMsg, type Post } from "../../api";
 import { buildRows, copyCommand, type Row } from "../../lib";
 import {
   type ScopeFilter as ScopeFilterValue,
-  claudeCodeInstalled,
   commands,
   countByScope,
   filteredCommands,

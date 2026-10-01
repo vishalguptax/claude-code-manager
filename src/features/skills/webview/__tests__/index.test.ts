@@ -6,14 +6,7 @@ import { setVscodeApi } from "../../../../webview/shared/hooks";
 import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
 import type { Message } from "../../../../shared/protocol/messages";
 import SkillsTab, { registerSkillsHandlers } from "../index";
-import {
-  claudeCodeInstalled,
-  errorMessage,
-  loaded,
-  marketplaceSkillsUrl,
-  selectedSkill,
-  skills,
-} from "../model";
+import { errorMessage, loaded, selectedSkill, skills } from "../model";
 import { makeSkill } from "./fixtures";
 
 afterEach(cleanup);
@@ -24,8 +17,6 @@ beforeEach(() => {
   selectedSkill.value = null;
   loaded.value = false;
   errorMessage.value = null;
-  claudeCodeInstalled.value = false;
-  marketplaceSkillsUrl.value = "default";
 });
 
 describe("registerSkillsHandlers", () => {
@@ -76,23 +67,6 @@ describe("registerSkillsHandlers", () => {
     expect(errorMessage.value).toBe("boom");
     dispatch({ type: "skills", data: [] } as Message);
     expect(errorMessage.value).toBeNull();
-  });
-
-  it("reads marketplace url + install flag from settings", () => {
-    registerSkillsHandlers();
-    dispatch({
-      type: "settings",
-      marketplaceSkillsUrl: "https://mkt",
-      claudeCodeExtensionInstalled: true,
-    } as unknown as Message);
-    expect(marketplaceSkillsUrl.value).toBe("https://mkt");
-    expect(claudeCodeInstalled.value).toBe(true);
-  });
-
-  it("ignores a blank marketplace url", () => {
-    registerSkillsHandlers();
-    dispatch({ type: "settings", marketplaceSkillsUrl: "" } as unknown as Message);
-    expect(marketplaceSkillsUrl.value).toBe("default");
   });
 
   it("disposer unregisters handlers", () => {

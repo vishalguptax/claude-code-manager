@@ -3,7 +3,6 @@
  * derived `filteredCommands` view plus the scope-count helper.
  */
 export {
-  claudeCodeInstalled,
   commands,
   countByScope,
   errorMessage,

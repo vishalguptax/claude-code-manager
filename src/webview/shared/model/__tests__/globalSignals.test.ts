@@ -1,10 +1,16 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import type { Message } from "../../../../shared/protocol/schemas";
+import pkg from "../../../../../package.json";
 import {
   activeTab,
   applyShellSettings,
+  claudeCodeInstalled,
+  DEFAULT_MCP_MARKETPLACE_URL,
+  DEFAULT_SKILLS_MARKETPLACE_URL,
   density,
   hiddenTabsPref,
+  marketplaceMcpUrl,
+  marketplaceSkillsUrl,
   ready,
   tabOrderPref,
   theme,
@@ -135,6 +141,54 @@ describe("globalSignals", () => {
       hiddenTabsPref.value = ["skills"];
       applyShellSettings({ type: "ack" } as Message);
       expect(hiddenTabsPref.value).toEqual(["skills"]);
+    });
+  });
+
+  describe("host facts features gate on", () => {
+    const settings = (fields: Record<string, unknown>): Message =>
+      ({ type: "settings", ...fields }) as Message;
+
+    beforeEach(() => {
+      claudeCodeInstalled.value = false;
+      marketplaceSkillsUrl.value = DEFAULT_SKILLS_MARKETPLACE_URL;
+      marketplaceMcpUrl.value = DEFAULT_MCP_MARKETPLACE_URL;
+    });
+
+    // The defaults paint before the handshake lands, so they must be the
+    // manifest's own — otherwise the first click opens a different page than
+    // the setting says it will.
+    it("defaults the marketplace URLs to the manifest's defaults", () => {
+      const props = pkg.contributes.configuration.properties;
+      expect(DEFAULT_SKILLS_MARKETPLACE_URL).toBe(
+        props["claudeManager.marketplaceSkillsUrl"].default,
+      );
+      expect(DEFAULT_MCP_MARKETPLACE_URL).toBe(props["claudeManager.marketplaceMcpUrl"].default);
+    });
+
+    it("applies the install flag and both URLs from the startup push", () => {
+      applyShellSettings(
+        settings({
+          claudeCodeExtensionInstalled: true,
+          marketplaceSkillsUrl: "https://skills.example",
+          marketplaceMcpUrl: "https://mcp.example",
+        }),
+      );
+      expect(claudeCodeInstalled.value).toBe(true);
+      expect(marketplaceSkillsUrl.value).toBe("https://skills.example");
+      expect(marketplaceMcpUrl.value).toBe("https://mcp.example");
+    });
+
+    it("treats a missing or non-boolean install flag as not installed", () => {
+      claudeCodeInstalled.value = true;
+      applyShellSettings(settings({ claudeCodeExtensionInstalled: "yes" }));
+      expect(claudeCodeInstalled.value).toBe(false);
+    });
+
+    it("falls back to the default for a cleared or non-string URL", () => {
+      marketplaceMcpUrl.value = "https://mcp.example";
+      applyShellSettings(settings({ marketplaceSkillsUrl: "   ", marketplaceMcpUrl: 42 }));
+      expect(marketplaceSkillsUrl.value).toBe(DEFAULT_SKILLS_MARKETPLACE_URL);
+      expect(marketplaceMcpUrl.value).toBe(DEFAULT_MCP_MARKETPLACE_URL);
     });
   });
 });

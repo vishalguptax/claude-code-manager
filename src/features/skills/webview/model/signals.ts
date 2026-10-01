@@ -8,9 +8,6 @@ import type { Skill } from "../../types";
 
 export type ScopeFilter = "all" | "project" | "global" | "plugin";
 
-/** Default marketplace URL, mirrored from the host's `claudeManager.marketplaceSkillsUrl` setting. */
-const DEFAULT_SKILLS_URL = "https://github.com/anthropics/claude-code/wiki/Skills";
-
 /**
  * Whether the first `skills` (or terminating `error`) message has arrived.
  * Starts false so the tab shows the full-panel <Loading /> placeholder during
@@ -39,16 +36,6 @@ export const searchQuery = signal<string>("");
 /** Active scope filter. */
 export const scopeFilter = signal<ScopeFilter>("all");
 
-/**
- * Whether the official Claude Code extension is installed. Sourced from
- * the host `settings` message; gates the "Open in Chat" / launch-in-chat
- * affordances. Mirrors the old shared `extensionStatus` flag but kept in
- * the feature so the webview is self-contained.
- */
-export const claudeCodeInstalled = signal<boolean>(false);
-
-/** Marketplace URL for the "Browse community skills" button. */
-export const marketplaceSkillsUrl = signal<string>(DEFAULT_SKILLS_URL);
 
 /** Count of skills in a given scope. */
 export function countByScope(scope: Skill["scope"]): number {

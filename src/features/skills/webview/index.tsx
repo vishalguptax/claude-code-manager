@@ -13,14 +13,7 @@ import {
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { Skill } from "../types";
 import { getSkills } from "./api";
-import {
-  claudeCodeInstalled,
-  errorMessage,
-  loaded,
-  marketplaceSkillsUrl,
-  selectedSkill,
-  skills,
-} from "./model";
+import { errorMessage, loaded, selectedSkill, skills } from "./model";
 import { DetailView, ListView } from "./ui";
 
 /**
@@ -59,19 +52,6 @@ export function registerSkillsHandlers(): () => void {
     }
   });
 
-  // Marketplace URL + Claude Code install flag ride in on the host's
-  // `settings` message. Kept feature-local so the webview is self-contained.
-  const offSettings = registerFeatureHandler("settings", (msg) => {
-    if (msg.type !== "settings") return;
-    const s = msg as { marketplaceSkillsUrl?: unknown; claudeCodeExtensionInstalled?: unknown };
-    if (typeof s.marketplaceSkillsUrl === "string" && s.marketplaceSkillsUrl.length > 0) {
-      marketplaceSkillsUrl.value = s.marketplaceSkillsUrl;
-    }
-    if (typeof s.claudeCodeExtensionInstalled === "boolean") {
-      claudeCodeInstalled.value = s.claudeCodeExtensionInstalled;
-    }
-  });
-
   // Skills in the command palette. The source is called per query, so
   // it always reads the live signal without this module subscribing to it.
   const offPalette = registerPaletteSource("skills", () =>
@@ -90,7 +70,6 @@ export function registerSkillsHandlers(): () => void {
   );
   return () => {
     offSkills();
-    offSettings();
     offError();
     offPalette();
   };
