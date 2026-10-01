@@ -954,7 +954,7 @@ describe("pending-question detection (idle → awaiting_question)", () => {
 describe("Session pre-computed search keys", () => {
   beforeEach(setup);
 
-  it("populates projectKey as the lowercased project name", () => {
+  it("populates projectKey as the normalised full project path", () => {
     writeHistoryEntry({
       display: "hi",
       timestamp: Date.now(),
@@ -963,7 +963,29 @@ describe("Session pre-computed search keys", () => {
     });
     const sessions = parseSessions();
     expect(sessions[0].project).toBe("My-Project");
-    expect(sessions[0].projectKey).toBe("my-project");
+    expect(sessions[0].projectKey).toBe("/home/user/my-project");
+  });
+
+  it("keeps two repos that share a folder name apart", () => {
+    // Regression: keying on the folder name merged ~/work/api and
+    // ~/personal/api, and the casing dedupe then rewrote the second repo's
+    // projectPath to the first's — so Resume opened in the wrong folder.
+    const ts = Date.now();
+    writeHistoryEntry({ display: "a", timestamp: ts, project: "/home/user/work/api", sessionId: "sess-work" });
+    writeHistoryEntry({ display: "b", timestamp: ts + 1, project: "/home/user/personal/api", sessionId: "sess-personal" });
+    const byId = new Map(parseSessions().map((s) => [s.id, s]));
+    expect(byId.get("sess-work")?.projectPath).toBe("/home/user/work/api");
+    expect(byId.get("sess-personal")?.projectPath).toBe("/home/user/personal/api");
+    expect(byId.get("sess-work")?.projectKey).not.toBe(byId.get("sess-personal")?.projectKey);
+  });
+
+  it("still collapses casing variants of one path", () => {
+    const ts = Date.now();
+    writeHistoryEntry({ display: "a", timestamp: ts, project: "C:\\Users\\me\\App", sessionId: "sess-upper" });
+    writeHistoryEntry({ display: "b", timestamp: ts + 1, project: "c:\\users\\me\\app", sessionId: "sess-lower" });
+    const sessions = parseSessions();
+    expect(new Set(sessions.map((s) => s.projectKey)).size).toBe(1);
+    expect(new Set(sessions.map((s) => s.projectPath)).size).toBe(1);
   });
 
   it("populates searchHaystack with all searchable fields lowercased", () => {

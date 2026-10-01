@@ -37,9 +37,9 @@ export interface FilterScope {
   archived: Set<string>;
   /** When true the archived rows are shown instead of hidden. */
   showArchived: boolean;
-  /** "current" | "all" | a repoRoot | a project name. */
+  /** "current" | "all" | a repoRoot | a projectKey. */
   project: string;
-  /** Lowercased folder name of the open workspace, "" when unresolved. */
+  /** projectKey of the open workspace, "" when unresolved or none open. */
   currentProject: string;
   /** True once the host has reported the workspace, even as "no folder". */
   workspaceResolved: boolean;
@@ -73,11 +73,13 @@ export function matchesProject(s: Session, scope: FilterScope): boolean {
     return Boolean(currentProject) && s.projectKey === currentProject;
   }
   // A concrete selection is a repoRoot (the dropdown collapses each repo's
-  // worktrees under one option) or a plain project name. Accept either, so a
-  // selection persisted before worktree refs resolved still matches.
+  // worktrees under one option) or a projectKey. Accept either, so a
+  // selection persisted before worktree refs resolved still matches. A
+  // selection persisted as a bare folder name (before projects were keyed by
+  // path) matches nothing and is reset by pruneUnmatchedFilters.
   const ref = worktrees[s.id];
   if (ref && ref.repoRoot === project) return true;
-  return s.project === project;
+  return s.projectKey === project;
 }
 
 /** True when the session falls inside the scope's date window. */

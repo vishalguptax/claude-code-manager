@@ -66,6 +66,16 @@ describe("matchesProject — This Project", () => {
     expect(matchesProject(s, sc)).toBe(true);
   });
 
+  it("excludes another repo that merely shares the folder name", () => {
+    const s = session({ id: "a", project: "api", projectKey: "/home/me/personal/api" });
+    const sc = scope({
+      project: "current",
+      currentProject: "/home/me/work/api",
+      workspaceResolved: true,
+    });
+    expect(matchesProject(s, sc)).toBe(false);
+  });
+
   it("spans sibling worktrees of the same repo", () => {
     const s = session({ id: "a", projectKey: "other" });
     const sc = scope({

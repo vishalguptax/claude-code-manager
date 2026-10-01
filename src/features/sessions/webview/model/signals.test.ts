@@ -460,9 +460,9 @@ describe("sessions signals", () => {
   });
 
   describe("setWorkspacePath", () => {
-    it("derives a lowercased project name from the tail segment", () => {
-      setWorkspacePath("C:/Users/me/Projects/MyApp");
-      expect(currentProjectSignal.value).toBe("myapp");
+    it("derives the projectKey from the full workspace path", () => {
+      setWorkspacePath("C:\\Users\\me\\Projects\\MyApp\\");
+      expect(currentProjectSignal.value).toBe("c:/users/me/projects/myapp");
     });
 
     it("leaves the project filter untouched when no workspace", () => {

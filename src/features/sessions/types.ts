@@ -35,8 +35,12 @@ export interface Session {
   /** All user prompts in chronological order */
   prompts: string[];
   /**
-   * Lowercased project name. Pre-computed at parse time so case-insensitive
-   * project filter matching does not allocate strings on every keystroke.
+   * The project's identity: its path normalised by `normPath` (forward
+   * slashes, no trailing slash, lowercased). The full path, not the folder
+   * name — `~/work/api` and `~/personal/api` are different projects, and
+   * keying on the name merged them in "This Project" and rewrote one's
+   * Resume path to the other's. Lowercasing keeps path-casing variants
+   * (Windows drive letters, macOS case-insensitive volumes) as one project.
    */
   projectKey: string;
   /**

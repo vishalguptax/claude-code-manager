@@ -10,6 +10,7 @@
  * input signal.
  */
 import { computed, effect, signal } from "@preact/signals";
+import { normPath } from "../../../../core/utils";
 import { getPersisted, setPersisted } from "../../../../webview/persistence";
 import type { DateFilter, View } from "../../../../webview/types";
 import type { Session, SessionDetail, Stats, WorktreeRef } from "../../types";
@@ -134,7 +135,7 @@ export const workspacePathSignal = signal<string>("");
  * (This Project matches nothing — another project's sessions are not this one).
  */
 export const workspaceResolvedSignal = signal<boolean>(false);
-/** Lowercased current project name derived from the workspace path. */
+/** projectKey of the open workspace (`normPath` of its path); "" when none. */
 export const currentProjectSignal = signal<string>("");
 /** Current git branch of the workspace ("" = unknown / no repo). */
 export const currentBranchSignal = signal<string>("");
@@ -216,15 +217,16 @@ export const currentRepoRootSignal = computed<string | null>(() =>
 // ── Setters with derived side effects ──
 
 /**
- * Set the workspace path and derive the (lowercased) current project name.
+ * Set the workspace path and derive the current project key.
  * When no workspace is open the derived name is empty and "This Project"
  * matches nothing — the filter selection itself is left untouched.
  */
 export function setWorkspacePath(p: string): void {
   workspacePathSignal.value = p;
   workspaceResolvedSignal.value = true;
-  const tail = p.replace(/\\/g, "/").split("/").filter(Boolean).pop() || "";
-  currentProjectSignal.value = tail.toLowerCase();
+  // Same normalisation the host applies to Session.projectKey, so a session
+  // is this project only when it ran in this exact folder.
+  currentProjectSignal.value = p ? normPath(p) : "";
   // Do NOT mutate filterProjectSignal here. An empty workspace needs no
   // filter change: "This Project" simply matches nothing until a folder
   // arrives. Flipping "current" -> "all" would be captured by the persistence effect and

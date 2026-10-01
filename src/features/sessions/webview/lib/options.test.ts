@@ -101,6 +101,21 @@ describe("buildProjectOptions", () => {
     expect(opts.find((o) => o.value === "alpha")?.count).toBe(2);
   });
 
+  it("keeps same-named repos as separate options, labelled by parent folder", () => {
+    const sessions = [
+      session({ id: "w", project: "api", projectPath: "/home/me/work/api", projectKey: "/home/me/work/api", endTime: 200 }),
+      session({ id: "p", project: "api", projectPath: "/home/me/personal/api", projectKey: "/home/me/personal/api", endTime: 100 }),
+      session({ id: "o", project: "web", projectPath: "/home/me/web", projectKey: "/home/me/web", endTime: 50 }),
+    ];
+    const opts = buildProjectOptions(sessions, scope({ currentProject: "/home/me/work/api" }));
+    expect(opts.slice(2).map((o) => [o.value, o.label, o.count, o.isCurrent])).toEqual([
+      ["/home/me/work/api", "work/api", 1, true],
+      ["/home/me/personal/api", "personal/api", 1, false],
+      ["/home/me/web", "web", 1, false],
+    ]);
+    expect(opts[0]).toMatchObject({ value: "current", count: 1 });
+  });
+
   it("excludes deleted sessions from every count", () => {
     const sessions = [
       session({ id: "a", project: "alpha", projectKey: "alpha" }),

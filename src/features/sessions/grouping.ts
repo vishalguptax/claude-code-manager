@@ -73,7 +73,7 @@ export function getStats(sessions: Session[]): Stats {
   let totalMessages = 0;
 
   for (const s of sessions) {
-    projects.add(s.project);
+    projects.add(s.projectKey);
     if (s.endTime >= weekAgo) thisWeek++;
     totalMessages += s.messageCount;
   }
