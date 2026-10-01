@@ -176,6 +176,35 @@
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
+   Plugins — Browse
+
+   Rows are `.plg-item` rows. An available plugin is described rather than
+   diagnosed, so its description leads — clamped, because catalogs run to
+   several hundred characters and a row has to stay scannable — and the
+   catalog's category and author follow in the quietest type on the row.
+   ────────────────────────────────────────────────────────────────────────────── */
+
+.plg-avail-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.plg-avail-byline {
+  font-size: var(--fs-xs);
+  color: var(--fg-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* What the chosen scope means, set under the scope control it explains. */
+.plg-install-explain {
+  margin-top: var(--space-sm);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
    Plugins — Policy block
    ────────────────────────────────────────────────────────────────────────────── */
 

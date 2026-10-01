@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
-import { copyPluginId, openPluginSettingsFile, revealPluginDirectory } from "../commands";
+import {
+  copyPluginId,
+  installPluginCommand,
+  openPluginSettingsFile,
+  revealPluginDirectory,
+} from "../commands";
 import type { PluginEntry } from "../types";
 
 function entry(overrides: Partial<PluginEntry> = {}): PluginEntry {
@@ -96,5 +101,24 @@ describe("copyPluginId", () => {
     const write = vi.spyOn(vscode.env.clipboard, "writeText").mockResolvedValue(undefined);
     await copyPluginId("caveman@caveman");
     expect(write).toHaveBeenCalledWith("caveman@caveman");
+  });
+});
+
+describe("installPluginCommand", () => {
+  it("builds Claude Code's own install command at the given scope", () => {
+    expect(installPluginCommand("swift-lsp@claude-plugins-official", "user")).toBe(
+      "claude plugin install swift-lsp@claude-plugins-official --scope user",
+    );
+    expect(installPluginCommand("caveman@caveman", "local")).toBe(
+      "claude plugin install caveman@caveman --scope local",
+    );
+  });
+
+  // The string goes into a shell unquoted, so the builder checks the id
+  // itself rather than trusting whoever called it.
+  it("refuses an id a shell could read as syntax", () => {
+    expect(() => installPluginCommand("x;rm -rf ~@mkt", "user")).toThrow();
+    expect(() => installPluginCommand("$(whoami)@mkt", "user")).toThrow();
+    expect(() => installPluginCommand("not-an-id", "user")).toThrow();
   });
 });

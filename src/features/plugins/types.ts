@@ -34,6 +34,9 @@
  */
 export type PluginSettingsScope = "global" | "project" | "local" | "managed";
 
+/** Where `claude plugin install --scope` records an install. */
+export type PluginInstallScope = "user" | "project" | "local";
+
 /** One scope's opinion about one plugin. */
 export interface PluginScopeDecision {
   scope: PluginSettingsScope;
@@ -147,65 +150,33 @@ export interface PluginPolicyEntry {
   ignored: boolean;
 }
 
+/**
+ * A plugin a registered marketplace offers, from that marketplace's catalog.
+ * Already-installed entries stay in the list, flagged, so the catalog reads
+ * as the whole marketplace rather than a list with gaps.
+ */
+export interface AvailablePlugin {
+  /** `<name>@<marketplace>` — safe to pass to `claude plugin install` unquoted. */
+  id: string;
+  name: string;
+  marketplace: string;
+  description: string;
+  /** The catalog's category ("development", "database", …), or "". */
+  category: string;
+  /** The author's name, or "". */
+  author: string;
+  /** An https setup page, or "". */
+  homepage: string;
+  installed: boolean;
+}
+
 /** The whole payload the host sends to the Plugins tab. */
 export interface PluginsData {
   plugins: PluginEntry[];
   marketplaces: MarketplaceEntry[];
   policy: PluginPolicyEntry[];
+  /** Everything the registered marketplaces offer, installable or installed. */
+  available: AvailablePlugin[];
   /** Non-fatal problems: an unreadable settings file, an ignored alias key. */
   errors: string[];
-}
-
-// ── postMessage contract ───────────────────────────────────────────────────
-//
-// These variants are NOT yet in `src/shared/protocol/messages.ts`; adding
-// them there (and to schemas.ts) is the wiring step that lets the shared
-// valibot parser see them. Until then `messageHandlers.ts` validates inbound
-// messages with its own narrow guards and `webview/api.ts` posts unvalidated,
-// both marked at the point where the shared parser takes over.
-
-/** Ask the host for a fresh snapshot. */
-export interface GetPluginsMessage {
-  type: "getPlugins";
-}
-
-/** Reveal a plugin's install directory in the OS file manager. */
-export interface OpenPluginDirectoryMessage {
-  type: "openPluginDirectory";
-  id: string;
-}
-
-/** Open the settings file for a scope in an editor. */
-export interface OpenPluginSettingsMessage {
-  type: "openPluginSettings";
-  scope: PluginSettingsScope;
-}
-
-/** Copy a plugin id to the clipboard. */
-export interface CopyPluginIdMessage {
-  type: "copyPluginId";
-  id: string;
-}
-
-/** Write `enabledPlugins[id]` at an explicit scope. */
-export interface SetPluginEnabledMessage {
-  type: "setPluginEnabled";
-  id: string;
-  enabled: boolean;
-  scope: PluginSettingsScope;
-}
-
-/** Everything the Plugins tab can send to the host. */
-export type PluginsWebviewMessage =
-  | GetPluginsMessage
-  | OpenPluginDirectoryMessage
-  | OpenPluginSettingsMessage
-  | CopyPluginIdMessage
-  | SetPluginEnabledMessage;
-
-/** The single host → webview message. Its `type` carries the `plugins` prefix
- *  the shared message bus fans out on. */
-export interface PluginsDataMessage {
-  type: "pluginsData";
-  data: PluginsData;
 }

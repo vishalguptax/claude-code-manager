@@ -19,3 +19,10 @@ export {
   EDITABLE_SCOPES,
   type PluginMenuHandlers,
 } from "./menu";
+export {
+  buildCatalogRows,
+  type CatalogRow,
+  catalogByline,
+  filterAvailable,
+  INSTALL_SCOPES,
+} from "./catalog";

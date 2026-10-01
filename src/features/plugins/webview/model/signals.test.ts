@@ -10,6 +10,8 @@ import {
 import {
   _resetPluginsState,
   applyPluginsData,
+  available,
+  catalogQuery,
   isIssue,
   issues,
   loading,
@@ -20,6 +22,7 @@ import {
   searchQuery,
   view,
   viewCounts,
+  visibleAvailable,
   visibleMarketplaces,
   visiblePlugins,
 } from "./signals";
@@ -32,6 +35,7 @@ describe("applyPluginsData", () => {
     expect(plugins.value).toHaveLength(5);
     expect(marketplaces.value).toHaveLength(2);
     expect(policy.value).toHaveLength(1);
+    expect(available.value).toHaveLength(2);
     expect(loading.value).toBe(false);
   });
 
@@ -41,7 +45,7 @@ describe("applyPluginsData", () => {
   });
 
   it("handles an empty snapshot", () => {
-    applyPluginsData({ plugins: [], marketplaces: [], policy: [], errors: [] });
+    applyPluginsData({ plugins: [], marketplaces: [], policy: [], available: [], errors: [] });
     expect(plugins.value).toEqual([]);
     expect(loading.value).toBe(false);
   });
@@ -136,5 +140,33 @@ describe("_resetPluginsState", () => {
     expect(loading.value).toBe(true);
     expect(searchQuery.value).toBe("");
     expect(view.value).toBe("all");
+  });
+});
+
+describe("visibleAvailable", () => {
+  it("lists everything the marketplaces offer until a query narrows it", () => {
+    applyPluginsData(snapshot());
+    expect(visibleAvailable.value.map((p) => p.id)).toEqual([
+      "swift-lsp@claude-plugins-official",
+      "caveman@caveman",
+    ]);
+    catalogQuery.value = "language server";
+    expect(visibleAvailable.value.map((p) => p.id)).toEqual(["swift-lsp@claude-plugins-official"]);
+  });
+
+  // The list and Browse each keep their own query, so searching one never
+  // filters the other.
+  it("is not filtered by the installed list's search", () => {
+    applyPluginsData(snapshot());
+    searchQuery.value = "zzz";
+    expect(visibleAvailable.value).toHaveLength(2);
+  });
+
+  it("is cleared by a reset", () => {
+    applyPluginsData(snapshot());
+    catalogQuery.value = "swift";
+    _resetPluginsState();
+    expect(available.value).toEqual([]);
+    expect(catalogQuery.value).toBe("");
   });
 });

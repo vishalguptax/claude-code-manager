@@ -3,8 +3,17 @@ import * as os from "os";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
-import { asPluginsMessage, handlePluginsMessage } from "../messageHandlers";
+import { handlePluginsMessage } from "../messageHandlers";
 import type { PluginsHostContext } from "../messageHandlers";
+import { parsePluginsData } from "../parser";
+import type { AvailablePlugin, PluginsData } from "../types";
+
+// Pass the real parser through; the install cases swap in a fixed snapshot so
+// what the marketplaces offer does not depend on the machine running the tests.
+vi.mock("../parser", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../parser")>();
+  return { ...actual, parsePluginsData: vi.fn(actual.parsePluginsData) };
+});
 
 const CAVEMAN = "caveman@caveman";
 const ROOT = path.join(os.tmpdir(), "claude-manager-plugins-handler-test");
@@ -14,58 +23,22 @@ interface Harness {
   ctx: PluginsHostContext;
   posted: unknown[];
   write: ReturnType<typeof vi.fn>;
+  run: ReturnType<typeof vi.fn>;
 }
 
 function harness(overrides: Partial<PluginsHostContext> = {}): Harness {
   const posted: unknown[] = [];
   const write = vi.fn().mockReturnValue(true);
+  const run = vi.fn();
   const ctx: PluginsHostContext = {
     getWebview: () => ({ postMessage: (m: unknown) => posted.push(m) }) as never,
     getWorkspace: () => WORKSPACE,
     writeSettingsValue: write,
+    runShellCommand: run,
     ...overrides,
   };
-  return { ctx, posted, write };
+  return { ctx, posted, write, run };
 }
-
-describe("asPluginsMessage", () => {
-  it("defers on anything that is not a Plugins message", () => {
-    expect(asPluginsMessage({ type: "getMcpServers" })).toBeUndefined();
-    expect(asPluginsMessage(null)).toBeUndefined();
-    expect(asPluginsMessage("getPlugins")).toBeUndefined();
-    expect(asPluginsMessage({})).toBeUndefined();
-  });
-
-  it("accepts the well-formed variants", () => {
-    expect(asPluginsMessage({ type: "getPlugins" })).toEqual({ type: "getPlugins" });
-    expect(asPluginsMessage({ type: "copyPluginId", id: CAVEMAN })).toEqual({
-      type: "copyPluginId",
-      id: CAVEMAN,
-    });
-    expect(asPluginsMessage({ type: "openPluginSettings", scope: "local" })).toEqual({
-      type: "openPluginSettings",
-      scope: "local",
-    });
-    expect(
-      asPluginsMessage({ type: "setPluginEnabled", id: CAVEMAN, enabled: false, scope: "project" }),
-    ).toEqual({ type: "setPluginEnabled", id: CAVEMAN, enabled: false, scope: "project" });
-  });
-
-  it("claims but rejects a Plugins message with the wrong field types", () => {
-    expect(asPluginsMessage({ type: "copyPluginId" })).toBeNull();
-    expect(asPluginsMessage({ type: "openPluginDirectory", id: 7 })).toBeNull();
-    expect(asPluginsMessage({ type: "openPluginSettings", scope: "elsewhere" })).toBeNull();
-    expect(asPluginsMessage({ type: "setPluginEnabled", id: CAVEMAN, enabled: "yes", scope: "local" })).toBeNull();
-    expect(asPluginsMessage({ type: "setPluginEnabled", id: CAVEMAN, enabled: true })).toBeNull();
-  });
-
-  it("drops extra fields rather than passing them through", () => {
-    expect(asPluginsMessage({ type: "copyPluginId", id: CAVEMAN, extra: "x" })).toEqual({
-      type: "copyPluginId",
-      id: CAVEMAN,
-    });
-  });
-});
 
 describe("handlePluginsMessage", () => {
   beforeEach(() => {
@@ -172,5 +145,101 @@ describe("handlePluginsMessage", () => {
     );
     expect(write).not.toHaveBeenCalled();
     expect(String(error.mock.calls[0][0])).toContain("organisation");
+  });
+});
+
+describe("handlePluginsMessage — installPlugin", () => {
+  const offered = (id: string, installed = false): AvailablePlugin => {
+    const at = id.lastIndexOf("@");
+    return {
+      id,
+      name: id.slice(0, at),
+      marketplace: id.slice(at + 1),
+      description: "",
+      category: "",
+      author: "",
+      homepage: "",
+      installed,
+    };
+  };
+  const snapshot = (available: AvailablePlugin[]): PluginsData => ({
+    plugins: [],
+    marketplaces: [],
+    policy: [],
+    available,
+    errors: [],
+  });
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(parsePluginsData).mockReturnValue(
+      snapshot([offered("swift-lsp@claude-plugins-official"), offered(CAVEMAN, true)]),
+    );
+  });
+
+  it("runs Claude Code's own install command for an offered plugin", async () => {
+    const { ctx, run } = harness();
+    await handlePluginsMessage(
+      { type: "installPlugin", id: "swift-lsp@claude-plugins-official", scope: "user" },
+      ctx,
+    );
+    // A user install is folder-independent, so the terminal starts wherever.
+    expect(run).toHaveBeenCalledWith(
+      "plugin install swift-lsp",
+      "claude plugin install swift-lsp@claude-plugins-official --scope user",
+      undefined,
+    );
+  });
+
+  it("starts a project install's terminal in the workspace it records against", async () => {
+    const { ctx, run } = harness();
+    await handlePluginsMessage(
+      { type: "installPlugin", id: "swift-lsp@claude-plugins-official", scope: "project" },
+      ctx,
+    );
+    expect(run).toHaveBeenCalledWith(
+      "plugin install swift-lsp",
+      "claude plugin install swift-lsp@claude-plugins-official --scope project",
+      WORKSPACE,
+    );
+  });
+
+  it("refuses an id no marketplace offers, whatever the webview sent", async () => {
+    const error = vi.spyOn(vscode.window, "showErrorMessage").mockResolvedValue(undefined);
+    const { ctx, run } = harness();
+    await handlePluginsMessage({ type: "installPlugin", id: "evil@nowhere", scope: "user" }, ctx);
+    expect(run).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalled();
+  });
+
+  it("does not reinstall a plugin that is already installed", async () => {
+    const info = vi.spyOn(vscode.window, "showInformationMessage").mockResolvedValue(undefined);
+    const { ctx, run } = harness();
+    await handlePluginsMessage({ type: "installPlugin", id: CAVEMAN, scope: "user" }, ctx);
+    expect(run).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith(`${CAVEMAN} is already installed.`);
+  });
+
+  it("needs an open folder for a project or local install", async () => {
+    const error = vi.spyOn(vscode.window, "showErrorMessage").mockResolvedValue(undefined);
+    const { ctx, run } = harness({ getWorkspace: () => undefined });
+    await handlePluginsMessage(
+      { type: "installPlugin", id: "swift-lsp@claude-plugins-official", scope: "local" },
+      ctx,
+    );
+    expect(run).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalled();
+  });
+
+  it("rejects an install at a scope the CLI does not have", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { ctx, run } = harness();
+    await expect(
+      handlePluginsMessage(
+        { type: "installPlugin", id: "swift-lsp@claude-plugins-official", scope: "managed" },
+        ctx,
+      ),
+    ).resolves.toBe(true);
+    expect(run).not.toHaveBeenCalled();
   });
 });

@@ -7,9 +7,11 @@ export { handlePluginsMessage } from "./messageHandlers";
 export type { PluginsHostContext } from "./messageHandlers";
 export type { SettingsWriter } from "./state";
 export type {
+  AvailablePlugin,
   MarketplaceEntry,
   MarketplaceTrust,
   PluginEntry,
+  PluginInstallScope,
   PluginPolicyEntry,
   PluginSettingsScope,
   PluginStatus,

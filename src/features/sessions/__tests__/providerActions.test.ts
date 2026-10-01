@@ -16,6 +16,9 @@ vi.mock("../../mcp/parser", () => ({
   parseMcpServers: () => ({ servers: [{ name: "srv1" }], errors: [] }),
   readMcpAuthNeeds: () => ["needs-auth-server"],
 }));
+vi.mock("../../plugins", () => ({
+  parsePluginsData: () => ({ plugins: [{ id: "p@m" }], marketplaces: [], policy: [], available: [], errors: [] }),
+}));
 vi.mock("../../agents/parser", () => ({
   parseAgents: () => ({ agents: [{ name: "ag1" }], errors: [] }),
 }));
@@ -78,6 +81,16 @@ describe("reloadFeature", () => {
       servers: env.set.mcp,
       authNeeds: ["needs-auth-server"],
     });
+  });
+
+  it("posts a fresh plugins snapshot", () => {
+    reloadFeature(env.ctx as never, "plugins");
+    expect(env.posted).toEqual([
+      {
+        type: "pluginsData",
+        data: { plugins: [{ id: "p@m" }], marketplaces: [], policy: [], available: [], errors: [] },
+      },
+    ]);
   });
 
   it("no-ops when the webview is gone", () => {

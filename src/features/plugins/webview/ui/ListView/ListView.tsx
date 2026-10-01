@@ -43,9 +43,11 @@ type MenuState = { plugin: PluginEntry; x: number; y: number } | null;
 
 export interface ListViewProps {
   api: PluginsApi;
+  /** Open the Browse view of every plugin the added marketplaces offer. */
+  onBrowse: () => void;
 }
 
-export function ListView({ api }: ListViewProps) {
+export function ListView({ api, onBrowse }: ListViewProps) {
   const [menu, setMenu] = useState<MenuState>(null);
   const counts = viewCounts.value;
   const current = view.value;
@@ -75,6 +77,14 @@ export function ListView({ api }: ListViewProps) {
           }}
           placeholder="Search"
           ariaLabel="Search plugins"
+        />
+        <Button
+          variant="icon"
+          class="search-side-btn"
+          iconName="download"
+          title="Browse plugins to install"
+          ariaLabel="Browse plugins to install"
+          onClick={onBrowse}
         />
         <Button
           variant="icon"
@@ -110,6 +120,7 @@ export function ListView({ api }: ListViewProps) {
         <div class="list">
           <PluginsBody
             list={visiblePlugins.value}
+            onBrowse={onBrowse}
             view={current}
             selectedId={selectedId}
             onSelect={(plugin) => {
@@ -135,6 +146,7 @@ export function ListView({ api }: ListViewProps) {
 
 interface PluginsBodyProps {
   list: PluginEntry[];
+  onBrowse: () => void;
   view: PluginsView;
   selectedId: string | undefined;
   onSelect: (plugin: PluginEntry) => void;
@@ -145,6 +157,7 @@ interface PluginsBodyProps {
 
 function PluginsBody({
   list,
+  onBrowse,
   view: current,
   selectedId,
   onSelect,
@@ -163,12 +176,12 @@ function PluginsBody({
       <EmptyState
         icon="package"
         title="No plugins"
-        description={
-          <>
-            Install one with <code>/plugin</code> inside Claude Code.
-          </>
-        }
-      />
+        description="Install one from the marketplaces Claude Code has added."
+      >
+        <Button variant="secondary" iconName="download" onClick={onBrowse}>
+          Browse plugins
+        </Button>
+      </EmptyState>
     );
   }
 

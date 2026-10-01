@@ -43,6 +43,7 @@ import { parseCommands } from "../commands/parser";
 import { parseHooks } from "../hooks/parser";
 import { parseMcpServers, readMcpAuthNeeds } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
+import { parsePluginsData } from "../plugins";
 import { parseAccountData } from "../account/parser";
 import { clearModelCache, warmModelCache } from "../account/models";
 import { resetUsageAggregateCache, warmUsageAggregate } from "../account/projectStats";
@@ -61,7 +62,7 @@ import type { Agent } from "../agents/types";
  * Config-driven features that are parsed from files on disk and can be
  * re-pushed individually by the file watchers, without a full reloadAll.
  */
-export type ConfigFeature = "skills" | "commands" | "hooks" | "mcp" | "agents";
+export type ConfigFeature = "skills" | "commands" | "hooks" | "mcp" | "agents" | "plugins";
 
 /**
  * State + small callbacks the orchestration actions need. The provider
@@ -499,6 +500,10 @@ export function reloadFeature(ctx: ProviderActionsContext, feature: ConfigFeatur
         const { agents, errors } = parseAgents(ws);
         ctx.setAgents(agents);
         wv.postMessage({ type: "agents", data: agents, errors });
+        break;
+      }
+      case "plugins": {
+        wv.postMessage({ type: "pluginsData", data: parsePluginsData(ws) });
         break;
       }
     }

@@ -56,6 +56,8 @@ export type Message =
       enabled: boolean;
       scope: "global" | "project" | "local" | "managed";
     }
+  /** Install scopes are `claude plugin install --scope`'s own names. */
+  | { type: "installPlugin"; id: string; scope: "user" | "project" | "local" }
   | { type: "getMemories" }
   | { type: "openMemory"; project: string; fileName: string }
   | { type: "revealMemory"; project: string; fileName: string }
@@ -291,6 +293,7 @@ type WebviewMessageType =
   | "openPluginSettings"
   | "copyPluginId"
   | "setPluginEnabled"
+  | "installPlugin"
   | "getMemories"
   | "openMemory"
   | "revealMemory"

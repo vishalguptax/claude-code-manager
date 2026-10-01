@@ -13,7 +13,7 @@ import {
 import type { PluginsData } from "../../types";
 import { _resetPluginsState, selectedPlugin } from "../model";
 import PluginsTab, { registerPluginsHandlers } from "../index";
-import { snapshot } from "./fixtures";
+import { availablePlugin, snapshot } from "./fixtures";
 
 let posted: unknown[] = [];
 
@@ -23,13 +23,9 @@ function names(): string[] {
   return [...document.querySelectorAll(".plg-item-name")].map((n) => n.textContent ?? "");
 }
 
-/**
- * The shared bus is typed against the protocol union, which does not carry
- * `pluginsData` until the wiring commit adds it. The cast is what the tab's
- * own handler does, so the test exercises the same path.
- */
+/** Push a host snapshot through the shared bus, as the host does. */
 function deliver(data: PluginsData): void {
-  dispatch({ type: "pluginsData", data } as never);
+  dispatch({ type: "pluginsData", data });
 }
 
 beforeEach(() => {
@@ -202,5 +198,60 @@ describe("PluginsTab", () => {
     dispatch({ type: "pluginsSomethingElse" } as never);
     expect(collectPaletteItems("caveman")).toEqual([]);
     dispose();
+  });
+});
+
+describe("PluginsTab — browse and install", () => {
+  async function openBrowse(): Promise<void> {
+    render(h(PluginsTab, {}));
+    deliver(snapshot());
+    await waitFor(() => screen.getByLabelText("Browse plugins to install"));
+    fireEvent.click(screen.getByLabelText("Browse plugins to install"));
+    await waitFor(() => screen.getByText("Browse plugins"));
+  }
+
+  it("installs a plugin from Browse at the chosen scope", async () => {
+    await openBrowse();
+    fireEvent.click(screen.getByText("swift-lsp"));
+    await waitFor(() => screen.getByText("Install"));
+    fireEvent.click(screen.getByText("Local"));
+    fireEvent.click(screen.getByText("Install"));
+    expect(posted).toContainEqual({
+      type: "installPlugin",
+      id: "swift-lsp@claude-plugins-official",
+      scope: "local",
+    });
+  });
+
+  // No polling: the host's registry watcher pushes a fresh snapshot, and the
+  // open install view re-resolves against it.
+  it("flips the open install view to installed when the host's next snapshot says so", async () => {
+    await openBrowse();
+    fireEvent.click(screen.getByText("swift-lsp"));
+    await waitFor(() => screen.getByText("Install"));
+    deliver(snapshot({ available: [availablePlugin({ installed: true })] }));
+    await waitFor(() => expect(screen.getByText("Show installed")).toBeTruthy());
+  });
+
+  it("goes from an installed catalog entry to its plugin detail", async () => {
+    await openBrowse();
+    // "caveman" is also its marketplace's heading — click the row's name.
+    const row = [...document.querySelectorAll(".plg-item-name")].find((n) => n.textContent === "caveman");
+    if (!row) throw new Error("caveman row not rendered");
+    fireEvent.click(row);
+    await waitFor(() => screen.getByText("Show installed"));
+    fireEvent.click(screen.getByText("Show installed"));
+    await waitFor(() => expect(selectedPlugin.value?.id).toBe("caveman@caveman"));
+    expect(document.querySelector("#pluginsDetailView")).toBeTruthy();
+  });
+
+  it("returns from an install view to Browse, and from Browse to the list", async () => {
+    await openBrowse();
+    fireEvent.click(screen.getByText("swift-lsp"));
+    await waitFor(() => screen.getByText("Browse plugins"));
+    fireEvent.click(screen.getByText("Browse plugins"));
+    await waitFor(() => expect(document.querySelector("#pluginsCatalogView")).toBeTruthy());
+    fireEvent.click(screen.getByText("Plugins"));
+    await waitFor(() => expect(document.querySelector("#pluginsListView")).toBeTruthy());
   });
 });

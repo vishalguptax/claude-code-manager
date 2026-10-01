@@ -1,15 +1,14 @@
 /**
  * Typed webview → host senders for the Plugins tab.
  *
- * Other features run each outgoing message through `parseMessage` from the
- * shared valibot schema so a shape drift fails loudly in tests. These
- * variants are not in that schema yet, so calling it here would reject every
- * send. The message shapes are instead pinned by `PluginsWebviewMessage` at
- * compile time, and `send` is the single line that becomes
- * `post(parseMessage(msg))` once the variants land in
- * `src/shared/protocol/messages.ts` and `schemas.ts`.
+ * Every send is validated against the shared protocol schema before it
+ * leaves the webview, so a malformed message fails loudly in tests and dev
+ * rather than silently reaching the host. Callers pass plain arguments; this
+ * module owns the message shapes.
  */
-import type { PluginSettingsScope, PluginsWebviewMessage } from "../types";
+import type { WebviewMessage } from "../../../shared/protocol/messages";
+import { parseMessage } from "../../../shared/protocol/schemas";
+import type { PluginInstallScope, PluginSettingsScope } from "../types";
 
 /** The Plugins tab's outgoing surface. */
 export interface PluginsApi {
@@ -18,10 +17,13 @@ export interface PluginsApi {
   openSettings(scope: PluginSettingsScope): void;
   copyId(id: string): void;
   setEnabled(id: string, enabled: boolean, scope: PluginSettingsScope): void;
+  install(id: string, scope: PluginInstallScope): void;
+  openUrl(url: string): void;
 }
 
-function send(post: (m: unknown) => void, msg: PluginsWebviewMessage): void {
-  post(msg);
+/** Validate then post a webview message via the host bridge. */
+function send(post: (m: unknown) => void, msg: WebviewMessage): void {
+  post(parseMessage(msg));
 }
 
 /** Wrap the raw `post` from `useApi()` in Plugins-specific typed senders. */
@@ -41,6 +43,12 @@ export function createPluginsApi(post: (m: unknown) => void): PluginsApi {
     },
     setEnabled(id, enabled, scope) {
       send(post, { type: "setPluginEnabled", id, enabled, scope });
+    },
+    install(id, scope) {
+      send(post, { type: "installPlugin", id, scope });
+    },
+    openUrl(url) {
+      send(post, { type: "openUrl", url });
     },
   };
 }

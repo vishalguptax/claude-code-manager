@@ -136,6 +136,16 @@ describe("parseMessage — webview to host", () => {
     });
   });
 
+  it("accepts plugin install requests at the CLI's three scopes only", () => {
+    for (const scope of ["user", "project", "local"]) {
+      expect(() =>
+        parseMessage({ type: "installPlugin", id: "caveman@caveman", scope }),
+      ).not.toThrow();
+    }
+    expect(() => parseMessage({ type: "installPlugin", id: "caveman@caveman", scope: "managed" })).toThrow();
+    expect(() => parseMessage({ type: "installPlugin", scope: "user" })).toThrow();
+  });
+
   it("accepts mcp messages", () => {
     roundTrip({ type: "getMcpServers" });
     roundTrip({ type: "openMcpConfig", scope: "global" });

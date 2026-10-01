@@ -286,6 +286,11 @@ function makePluginsHost(ctx: HostContext): PluginsHostContext {
     // "managed" — the admin policy file is never ours to write, and the
     // feature's own `writableScope()` already resolves it to null.
     writeSettingsValue,
+    runShellCommand: (label, command, cwd) => {
+      const term = createTerminal(label, cwd);
+      term.show();
+      runInTerminal(term, command);
+    },
   };
 }
 

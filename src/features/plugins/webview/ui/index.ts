@@ -1,6 +1,10 @@
 /** Barrel for the Plugins tab's components. */
+export { AvailableDetail, type AvailableDetailProps } from "./AvailableDetail";
+export { AvailableItem, type AvailableItemProps } from "./AvailableItem";
 export { DetailView, type DetailViewProps } from "./DetailView";
+export { Fact, type FactProps } from "./Fact";
 export { ListView, type ListViewProps } from "./ListView";
 export { MarketplaceItem, type MarketplaceItemProps } from "./MarketplaceItem";
+export { PluginCatalog, type PluginCatalogProps } from "./PluginCatalog";
 export { PluginItem, type PluginItemProps } from "./PluginItem";
 export { PolicyList, type PolicyListProps } from "./PolicyList";

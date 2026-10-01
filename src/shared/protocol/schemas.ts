@@ -61,6 +61,11 @@ const setPluginEnabled = v.object({
   enabled: v.boolean(),
   scope: pluginScope,
 });
+const installPlugin = v.object({
+  type: v.literal("installPlugin"),
+  id: v.string(),
+  scope: v.picklist(["user", "project", "local"]),
+});
 const getMemories = v.object({ type: v.literal("getMemories") });
 const openMemory = v.object({
   type: v.literal("openMemory"),
@@ -462,6 +467,7 @@ export const messageSchema = v.variant("type", [
   openPluginSettings,
   copyPluginId,
   setPluginEnabled,
+  installPlugin,
   getMemories,
   openMemory,
   revealMemory,

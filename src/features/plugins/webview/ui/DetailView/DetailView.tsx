@@ -26,6 +26,7 @@ import {
   STATUS_LABEL,
   statusVariant,
 } from "../../lib";
+import { Fact } from "../Fact";
 
 export interface DetailViewProps {
   plugin: PluginEntry;
@@ -34,19 +35,6 @@ export interface DetailViewProps {
   onOpenDirectory: (id: string) => void;
   onCopyId: (id: string) => void;
   onOpenSettings: (scope: PluginSettingsScope) => void;
-}
-
-/** One labelled fact. Skipped entirely when the parser had no value for it. */
-function Fact({ k, value }: { k: string; value: string }) {
-  if (value === "") return null;
-  return (
-    <div class="d-kv">
-      <span class="d-k">{k}</span>
-      <span class="d-v" title={value}>
-        {value}
-      </span>
-    </div>
-  );
 }
 
 export function DetailView({
