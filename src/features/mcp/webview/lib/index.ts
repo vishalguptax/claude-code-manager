@@ -2,7 +2,6 @@
  * Barrel for the MCP slice's pure helpers (lib segment). No JSX, no state.
  */
 export {
-  MCP_BROWSE_URL,
   buildRows,
   connectionPreview,
   groupLabel,
@@ -17,3 +16,13 @@ export {
   canToggleMcp,
   type McpMenuHandlers,
 } from "./mcpMenu";
+export {
+  MCP_CATALOG,
+  catalogAuthHint,
+  catalogPreset,
+  configuredNames,
+  filterCatalog,
+  type McpCatalogAuth,
+  type McpCatalogEntry,
+  type McpFormPreset,
+} from "./catalog";

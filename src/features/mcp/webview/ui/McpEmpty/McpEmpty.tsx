@@ -1,6 +1,6 @@
 /**
  * Empty state shown when no MCP servers are configured at all. Explains where
- * config files live and offers a "browse community" link.
+ * config files live and offers the bundled catalog as the way to add one.
  *
  * Shape and spacing come from the shared <EmptyState>; this only supplies the
  * copy and the action, so an emptied MCP tab looks like an emptied Hooks or
@@ -9,10 +9,10 @@
 import { Button, EmptyState } from "../../../../../webview/shared/ui";
 
 export interface McpEmptyProps {
-  onBrowse: () => void;
+  onOpenCatalog: () => void;
 }
 
-export function McpEmpty({ onBrowse }: McpEmptyProps) {
+export function McpEmpty({ onOpenCatalog }: McpEmptyProps) {
   return (
     <EmptyState
       icon="plug"
@@ -25,8 +25,8 @@ export function McpEmpty({ onBrowse }: McpEmptyProps) {
         </>
       }
     >
-      <Button variant="secondary" onClick={onBrowse}>
-        Browse MCP servers
+      <Button variant="secondary" iconName="package" onClick={onOpenCatalog}>
+        Add from catalog
       </Button>
     </EmptyState>
   );

@@ -8,3 +8,4 @@ export { McpForm, type McpFormProps } from "./McpForm";
 export { DisabledBadge, ReadOnlyBadge, ScopeBadge, TypeBadge } from "./McpBadges";
 export { McpEmpty, type McpEmptyProps } from "./McpEmpty";
 export { McpItem, type McpItemProps } from "./McpItem";
+export { McpCatalog, type McpCatalogProps } from "./McpCatalog";

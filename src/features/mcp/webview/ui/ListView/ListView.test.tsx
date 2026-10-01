@@ -14,7 +14,7 @@ function props() {
   return {
     onSelect: vi.fn(),
     onCopyName: vi.fn(),
-    onBrowse: vi.fn(),
+    onOpenCatalog: vi.fn(),
     onRefresh: vi.fn(),
     onNew: vi.fn(),
     onReauth: vi.fn(),
@@ -78,13 +78,13 @@ describe("ListView", () => {
     expect(p.onSelect).toHaveBeenCalledOnce();
   });
 
-  it("fires browse and refresh from the side actions", () => {
+  it("fires catalog and refresh from the side actions", () => {
     const p = props();
     applyServers([srv({ name: "alpha", scope: "project" })]);
     render(h(ListView, p));
-    fireEvent.click(screen.getByLabelText("Browse MCP servers"));
+    fireEvent.click(screen.getByLabelText("Add MCP server from catalog"));
     fireEvent.click(screen.getByLabelText("Refresh MCP servers"));
-    expect(p.onBrowse).toHaveBeenCalledOnce();
+    expect(p.onOpenCatalog).toHaveBeenCalledOnce();
     expect(p.onRefresh).toHaveBeenCalledOnce();
   });
 

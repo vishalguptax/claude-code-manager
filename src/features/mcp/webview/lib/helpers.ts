@@ -5,9 +5,6 @@
  */
 import type { McpServer } from "../../types";
 
-/** Default community MCP directory the "Browse" action opens. */
-export const MCP_BROWSE_URL = "https://mcp.so";
-
 /** Group label for a server in the list view. */
 export function groupLabel(server: McpServer): string {
   if (server.scope === "project") return "Project Servers";

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { h } from "preact";
 import { fireEvent, render, screen } from "@testing-library/preact";
 import type { McpServer } from "../../../types";
+import { MCP_CATALOG, catalogPreset } from "../../lib";
 import { McpForm } from "./McpForm";
 
 function srv(p: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServer {
@@ -155,5 +156,73 @@ describe("McpForm", () => {
     render(h(McpForm, { server: null, onClose, onSubmit: () => {} }));
     fireEvent.click(screen.getByText("Cancel"));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("McpForm — catalog preset", () => {
+  const preset = (name: string) => {
+    const entry = MCP_CATALOG.find((e) => e.name === name);
+    if (!entry) throw new Error(`no catalog entry "${name}"`);
+    return catalogPreset(entry);
+  };
+
+  it("starts from the preset's fields, still editable", () => {
+    render(h(McpForm, { server: null, preset: preset("playwright"), onClose: () => {}, onSubmit: () => {} }));
+    expect((screen.getByLabelText("Server name") as HTMLInputElement).value).toBe("playwright");
+    expect((screen.getByLabelText("Command") as HTMLInputElement).value).toBe("npx");
+    expect((screen.getByLabelText("Args") as HTMLInputElement).value).toBe("@playwright/mcp@latest");
+    expect(screen.getByLabelText("Server scope")).toBeTruthy();
+  });
+
+  it("submits the preset at the picked scope", () => {
+    const onSubmit = vi.fn();
+    render(h(McpForm, { server: null, preset: preset("sentry"), onClose: () => {}, onSubmit }));
+    fireEvent.click(screen.getByText("Add"));
+    expect(onSubmit).toHaveBeenCalledWith(null, {
+      name: "sentry",
+      scope: "project",
+      transport: "http",
+      command: undefined,
+      args: undefined,
+      url: "https://mcp.sentry.dev/mcp",
+      env: {},
+      headers: {},
+    });
+  });
+
+  it("fixes a token server to project scope and says why", () => {
+    const onSubmit = vi.fn();
+    render(h(McpForm, { server: null, preset: preset("github"), onClose: () => {}, onSubmit }));
+    // No picker to choose global with — the scope is shown, not offered.
+    expect(screen.queryByLabelText("Server scope")).toBeNull();
+    expect(screen.getByText("Project (.mcp.json)")).toBeTruthy();
+    expect(screen.getByText(/expands \$\{VAR\} references only in a project/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Add"));
+    expect(onSubmit).toHaveBeenCalledWith(
+      null,
+      expect.objectContaining({
+        scope: "project",
+        headers: { Authorization: "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}" },
+      }),
+    );
+  });
+
+  it("shows the preset's note on what the server needs", () => {
+    render(h(McpForm, { server: null, preset: preset("linear"), onClose: () => {}, onSubmit: () => {} }));
+    expect(screen.getByText("Sign in from /mcp after adding.")).toBeTruthy();
+  });
+
+  it("ignores a preset when editing an existing server", () => {
+    render(
+      h(McpForm, {
+        server: srv({ name: "mine", scope: "global", command: "node" }),
+        preset: preset("github"),
+        onClose: () => {},
+        onSubmit: () => {},
+      }),
+    );
+    expect((screen.getByLabelText("Server name") as HTMLInputElement).value).toBe("mine");
+    expect(screen.queryByText("Reads GITHUB_PERSONAL_ACCESS_TOKEN from your environment.")).toBeNull();
+    expect(screen.queryByText("Project (.mcp.json)")).toBeNull();
   });
 });

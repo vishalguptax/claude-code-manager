@@ -5,15 +5,22 @@
  * addMcpServer / updateMcpServer. Fields adapt to the chosen transport:
  * stdio shows command + args, url transports (http/sse/ws) show a URL.
  * env and headers are entered as `KEY=value` lines and parsed on save.
+ *
+ * Add mode can start from a catalog preset: the fields arrive filled, stay
+ * editable, and nothing is written until Add. A preset may restrict scope to
+ * project (see McpFormPreset) and carry a note on what the server needs.
  */
 import { useState } from "preact/hooks";
 import { BackButton, Button, Dropdown, TextArea, TextField } from "../../../../../webview/shared/ui";
 import type { McpServerInput } from "../../../../../shared/protocol/messages";
 import type { McpServer } from "../../../types";
+import type { McpFormPreset } from "../../lib";
 
 export interface McpFormProps {
   /** The server being edited, or null to add a new one. */
   server: McpServer | null;
+  /** Starting values in add mode (ignored when editing). */
+  preset?: McpFormPreset;
   /** Existing servers (name + scope) for duplicate-name validation. */
   existing?: Array<{ name: string; scope: string }>;
   onClose: () => void;
@@ -58,20 +65,25 @@ function urlValidForTransport(url: string, transport: string): boolean {
   return transport === "ws" ? /^wss?:\/\/.+/i.test(u) : /^https?:\/\/.+/i.test(u);
 }
 
-export function McpForm({ server, existing = [], onClose, onSubmit }: McpFormProps) {
+export function McpForm({ server, preset, existing = [], onClose, onSubmit }: McpFormProps) {
   const isEdit = server !== null;
-  const [name, setName] = useState(server?.name ?? "");
-  const [transport, setTransport] = useState(server?.type ?? "stdio");
-  const [command, setCommand] = useState(server?.command ?? "");
-  const [args, setArgs] = useState((server?.args ?? []).join(" "));
-  const [url, setUrl] = useState(server?.url ?? "");
-  const [env, setEnv] = useState(recordToLines(server?.env));
-  const [headers, setHeaders] = useState(recordToLines(server?.headers));
+  const start = isEdit ? null : (preset?.input ?? null);
+  const projectOnly = !isEdit && (preset?.projectOnly ?? false);
+  const note = isEdit ? null : (preset?.note ?? null);
+  const [name, setName] = useState(server?.name ?? start?.name ?? "");
+  const [transport, setTransport] = useState(
+    server?.type ?? (start?.transport as McpServer["type"] | undefined) ?? "stdio",
+  );
+  const [command, setCommand] = useState(server?.command ?? start?.command ?? "");
+  const [args, setArgs] = useState((server?.args ?? start?.args ?? []).join(" "));
+  const [url, setUrl] = useState(server?.url ?? start?.url ?? "");
+  const [env, setEnv] = useState(recordToLines(server?.env ?? start?.env));
+  const [headers, setHeaders] = useState(recordToLines(server?.headers ?? start?.headers));
   const [scope, setScope] = useState(server?.scope === "global" ? "global" : "project");
 
   const isStdio = transport === "stdio";
   const trimmedName = name.trim();
-  const targetScope = isEdit ? (server as McpServer).scope : scope;
+  const targetScope = isEdit ? (server as McpServer).scope : projectOnly ? "project" : scope;
 
   // ── Validation ──
   const nameFormatValid = MCP_NAME_RE.test(trimmedName);
@@ -126,7 +138,17 @@ export function McpForm({ server, existing = [], onClose, onSubmit }: McpFormPro
           ) : null}
         </label>
 
-        {!isEdit ? (
+        {isEdit ? null : projectOnly ? (
+          // A one-option dropdown would look choosable; a fixed value with its
+          // reason reads as what it is.
+          <div class="mcp-form-field">
+            <span class="mcp-form-label">Scope</span>
+            <span class="mcp-form-value">Project (.mcp.json)</span>
+            <span class="mcp-form-hint">
+              Claude Code expands {"${VAR}"} references only in a project's .mcp.json.
+            </span>
+          </div>
+        ) : (
           <label class="mcp-form-field">
             <span class="mcp-form-label">Scope</span>
             <Dropdown
@@ -139,7 +161,7 @@ export function McpForm({ server, existing = [], onClose, onSubmit }: McpFormPro
               ]}
             />
           </label>
-        ) : null}
+        )}
 
         <label class="mcp-form-field">
           <span class="mcp-form-label">Transport</span>
@@ -232,6 +254,8 @@ export function McpForm({ server, existing = [], onClose, onSubmit }: McpFormPro
             ) : null}
           </label>
         ) : null}
+
+        {note ? <p class="mcp-form-note">{note}</p> : null}
 
         <div class="mcp-form-actions">
           <Button variant="primary" iconName="check" disabled={!canSave} onClick={submit}>

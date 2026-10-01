@@ -237,7 +237,7 @@
         "claudeManager.marketplaceMcpUrl": {
           "type": "string",
           "default": "https://mcp.so",
-          "description": "URL opened by the 'Browse MCP servers' button on the MCP tab. Override to point at a curated team registry."
+          "description": "URL opened by the 'Find more servers' link in the MCP tab's catalog. Override to point at a curated team registry."
         },
         "claudeManager.density": {
           "type": "string",

@@ -1,6 +1,6 @@
 /**
- * MCP servers list view. Renders the shared SearchInput, the shared ScopeFilter
- * (with two side actions — browse community + refresh), and the server list
+ * MCP servers list view. Renders the shared SearchInput (with side actions —
+ * add, add from catalog, refresh), the shared ScopeFilter, and the server list
  * grouped by scope. Selecting a row drives the detail view via the `selected`
  * signal. Large lists (>50 rows) render through the shared VirtualList with
  * group-label rows interleaved into a single flat sequence.
@@ -47,7 +47,8 @@ const ROW_HEIGHT = 48;
 export interface ListViewProps {
   onSelect: (server: McpServer) => void;
   onCopyName: (name: string) => void;
-  onBrowse: () => void;
+  /** Open the bundled catalog of curated servers. */
+  onOpenCatalog: () => void;
   onRefresh: () => void;
   onNew: () => void;
   /** Open Claude's /mcp panel — the surface where flagged connectors re-auth. */
@@ -62,7 +63,7 @@ export interface ListViewProps {
 export function ListView({
   onSelect,
   onCopyName,
-  onBrowse,
+  onOpenCatalog,
   onRefresh,
   onNew,
   menu,
@@ -106,7 +107,7 @@ export function ListView({
 
   let body: ComponentChildren;
   if (all.length === 0) {
-    body = <McpEmpty onBrowse={onBrowse} />;
+    body = <McpEmpty onOpenCatalog={onOpenCatalog} />;
   } else if (filtered.length === 0) {
     body = <EmptyState title={query ? "No matching servers" : "No servers found"} />;
   } else {
@@ -200,11 +201,11 @@ export function ListView({
         />
         <Button
           variant="icon"
-          iconName="globe"
+          iconName="package"
           class="search-side-btn"
-          title="Browse MCP servers (opens externally)"
-          ariaLabel="Browse MCP servers"
-          onClick={onBrowse}
+          title="Add from catalog"
+          ariaLabel="Add MCP server from catalog"
+          onClick={onOpenCatalog}
         />
         <Button
           variant="icon"
