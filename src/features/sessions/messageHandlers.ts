@@ -356,7 +356,12 @@ async function handleSessionMessage(
 
     case "ready": {
       ctx.setSessions(parseSessions(loadState().renames));
-      ctx.postWorkspacePath();
+      // `ready` comes from a webview that has never seen the workspace path:
+      // a fresh document (Refresh re-mounts it), or a Sessions tab whose
+      // handler was not registered when an earlier push went out. Either way
+      // the dedupe cache describes a different listener, so bypass it —
+      // otherwise "This Project" stays unscoped and lists every project.
+      ctx.postWorkspacePath(true);
       ctx.refreshSettings();
       wv.postMessage({ type: "sessions", data: groupSessions(ctx.getSessions()), stats: getStats(ctx.getSessions()) });
       postWorktrees(wv, ctx.getSessions());

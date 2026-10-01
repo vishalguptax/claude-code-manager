@@ -540,6 +540,52 @@ describe("ClaudeSessionViewProvider", () => {
     expect(view.webview.html).toContain("data-gen");
   });
 
+  it("re-posts the workspace path on ready after reloadAll re-mounts the webview", { timeout: 30000 }, async () => {
+    // Regression: reloadAll posts the path to the OLD document, then swaps the
+    // html. The re-mounted webview's `ready` used to hit the dedupe cache, so
+    // it never learned its project and "This Project" listed every project.
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    ws.workspaceFolders = [
+      { uri: { fsPath: "/home/user/proj" }, name: "proj", index: 0 },
+    ];
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    await view.webview._msgHandler!({ type: "ready" });
+
+    await provider.reloadAll();
+    view.webview.posted.length = 0;
+    // The fresh document's handshake.
+    await view.webview._msgHandler!({ type: "ready" });
+
+    expect(
+      view.webview.posted.filter((m) => m.type === "workspacePath").map((m) => m.data),
+    ).toEqual(["/home/user/proj"]);
+  });
+
   // Same cold dynamic-import slack as the sibling reload test above: the
   // doMock + `await import("../viewProvider")` pulls a fresh dep graph
   // (now including the importActual-wrapped account caches) through Vite's

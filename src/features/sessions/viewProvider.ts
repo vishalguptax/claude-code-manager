@@ -218,8 +218,8 @@ export class ClaudeSessionViewProvider
   dispatch(msg: WebviewMessage): Promise<void> {
     return dispatch(msg, this);
   }
-  postWorkspacePath(): void {
-    postWorkspacePath(this);
+  postWorkspacePath(force = false): void {
+    postWorkspacePath(this, force);
   }
   refreshSettings(): void {
     refreshSettings(this);
@@ -256,15 +256,6 @@ export class ClaudeSessionViewProvider
     const isFirstPanel = this.views.size === 0;
     this.views.add(view);
     this.sink = undefined;
-    // A re-resolved view (window reload, panel move, context eviction) is a
-    // brand-new webview whose in-memory state — including its derived
-    // currentProject — has reset to empty. The workspace-path dedupe cache
-    // lives on the provider and survives that recreation, so without this
-    // reset the upcoming `ready` post would be skipped as a no-op and the new
-    // webview would never learn its project. That leaves the "This Project"
-    // filter unscoped (shows every project, and buries new sessions past the
-    // recent-window cap). Invalidate the cache so `ready` always re-posts.
-    this.lastPostedWorkspace = undefined;
     view.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist", "webview")],

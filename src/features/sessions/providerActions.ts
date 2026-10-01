@@ -88,7 +88,7 @@ export interface ProviderActionsContext {
   setMcpServers(servers: McpServer[]): void;
   setAgents(agents: Agent[]): void;
 
-  postWorkspacePath(): void;
+  postWorkspacePath(force?: boolean): void;
   refreshSettings(): void;
   buildSearchIndex(): void;
 
