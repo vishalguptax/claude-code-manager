@@ -84,21 +84,35 @@ export function canonicalPath(p: string): string {
 }
 
 /**
- * Resolve the settings file path for a scope. Project/local scopes
- * need a workspace; without one they resolve to null.
+ * The workspace's own `.claude` directory (project skills, agents, commands,
+ * settings.json), or null when it has none: the workspace is the home folder,
+ * or its `.claude` IS the user-level config dir. Reading it anyway lists every
+ * user-level item a second time as "project", and writing it edits user-level
+ * files while the user believes they are changing the project.
  *
- * Project scope also resolves to null when the workspace IS the home
- * folder (or a link to it). Then "project" settings.json is literally
- * ~/.claude/settings.json: returning it let project-scoped edits silently
- * change global settings, and made the statusline self-heal see the global
- * tap as a "poisoned project tap" and delete it on every activation.
- * Local scope stays: ~/.claude/settings.local.json is a separate file, and
- * it is where Claude Code records MCP approvals for a session run in ~.
- *
- * The workspace is compared with the home folder, not `<ws>/.claude` with
+ * The workspace is compared with the home folder, not only `<ws>/.claude` with
  * CLAUDE_DIR: before Claude Code's first run ~/.claude does not exist, so
  * neither side canonicalises and a symlinked home slipped through as a
  * project — while the workspace and home always exist on disk.
+ */
+export function projectClaudeDir(workspacePath: string): string | null {
+  const dir = path.join(workspacePath, ".claude");
+  if (canonicalPath(workspacePath) === canonicalPath(os.homedir())) return null;
+  if (canonicalPath(dir) === canonicalPath(CLAUDE_DIR)) return null;
+  return dir;
+}
+
+/**
+ * Resolve the settings file path for a scope. Project/local scopes
+ * need a workspace; without one they resolve to null.
+ *
+ * Project scope also resolves to null when the workspace has no project
+ * dir of its own ({@link projectClaudeDir}). Then "project" settings.json is
+ * literally the global settings.json: returning it let project-scoped edits
+ * silently change global settings, and made the statusline self-heal see the
+ * global tap as a "poisoned project tap" and delete it on every activation.
+ * Local scope stays: ~/.claude/settings.local.json is a separate file, and
+ * it is where Claude Code records MCP approvals for a session run in ~.
  */
 export function claudeSettingsPath(
   scope: ClaudeSettingsScope,
@@ -106,10 +120,9 @@ export function claudeSettingsPath(
 ): string | null {
   if (scope === "global") return SETTINGS_FILE;
   if (!workspacePath) return null;
-  const dir = path.join(workspacePath, ".claude");
-  if (scope === "local") return path.join(dir, "settings.local.json");
-  if (canonicalPath(workspacePath) === canonicalPath(os.homedir())) return null;
-  return path.join(dir, "settings.json");
+  if (scope === "local") return path.join(workspacePath, ".claude", "settings.local.json");
+  const dir = projectClaudeDir(workspacePath);
+  return dir === null ? null : path.join(dir, "settings.json");
 }
 
 /**

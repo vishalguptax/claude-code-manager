@@ -13,6 +13,7 @@ vi.mock("os", async (importOriginal) => {
 import {
   canonicalPath,
   claudeSettingsPath,
+  projectClaudeDir,
   CLAUDE_DIR,
   CLAUDE_JSON_FILE,
   FILE_HISTORY_DIR,
@@ -96,6 +97,12 @@ describe("claudeSettingsPath", () => {
       expect(claudeSettingsPath("local", os.homedir())).toBe(
         path.join(os.homedir(), ".claude", "settings.local.json"),
       );
+    });
+
+    it("gives the home folder no project dir of its own", () => {
+      expect(projectClaudeDir(os.homedir())).toBeNull();
+      const sub = path.join(os.homedir(), "code", "repo");
+      expect(projectClaudeDir(sub)).toBe(path.join(sub, ".claude"));
     });
 
     it("still resolves a subfolder of $HOME", () => {
