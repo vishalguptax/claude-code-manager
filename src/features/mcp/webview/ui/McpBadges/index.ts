@@ -1,1 +1,1 @@
-export { DisabledBadge, ReadOnlyBadge, ScopeBadge, TypeBadge } from "./McpBadges";
+export { DisabledBadge, PendingApprovalBadge, ReadOnlyBadge, ScopeBadge, TypeBadge } from "./McpBadges";

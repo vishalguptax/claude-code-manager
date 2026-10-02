@@ -26,16 +26,16 @@
  * (self-heal re-copies the script when its bytes change).
  */
 import * as fs from "fs";
-import * as path from "path";
-import { execFileSync } from "child_process";
 import {
   CLAUDE_MANAGER_DIR,
   SETTINGS_FILE,
+  claudeSettingsPath,
   STATUSLINE_CACHE_FILE,
   STATUSLINE_INNER_FILE,
   STATUSLINE_TAP_FILE,
 } from "../../core/config";
-import { writeFileAtomic } from "../../core/atomicWrite";
+import { writeFileAtomic, type WriteOutcome } from "../../core/atomicWrite";
+import { commandNodeUsable, resolveNodePath } from "../../core/nodePath";
 import { writeSettingsValue } from "./parser";
 import {
   isTapCommand,
@@ -46,50 +46,9 @@ import {
 } from "./statuslineInner";
 import type { PermissionScope } from "./types";
 
-/**
- * Resolve an absolute `node` path at install time. Claude Code runs
- * `statusLine.command` in a shell whose PATH may differ from VS Code's
- * (the classic nvm case). Baking the absolute path makes the command
- * work regardless of that shell's PATH. Falls back to bare "node" when
- * detection fails — no worse than the PATH lookup.
- */
-let cachedNodePath: string | null = null;
-
-function resolveNodePath(): string {
-  // Memoised: node's location is stable for the session, so the `where`/`which`
-  // spawn runs at most once instead of on every install click (installStatusline
-  // is a user-triggered action; re-spawning each time added avoidable latency).
-  if (cachedNodePath !== null) return cachedNodePath;
-  const finder = process.platform === "win32" ? "where" : "which";
-  try {
-    const out = execFileSync(finder, ["node"], { encoding: "utf-8", timeout: 3000 });
-    const first = out
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .find(Boolean);
-    if (first) {
-      cachedNodePath = first;
-      return first;
-    }
-  } catch {
-    /* detection failed — fall back to PATH lookup at render time */
-  }
-  cachedNodePath = "node";
-  return cachedNodePath;
-}
-
 /** The `statusLine.command` value we install — runs the copied tap. */
 function tapCommand(): string {
   return `"${resolveNodePath()}" "${STATUSLINE_TAP_FILE}"`;
-}
-
-/** Settings file path for a given scope, or null when unreachable. */
-function settingsPathFor(scope: PermissionScope, workspacePath?: string): string | null {
-  if (scope === "global") return SETTINGS_FILE;
-  if (!workspacePath) return null;
-  if (scope === "project") return path.join(workspacePath, ".claude", "settings.json");
-  if (scope === "local") return path.join(workspacePath, ".claude", "settings.local.json");
-  return null;
 }
 
 /**
@@ -158,11 +117,11 @@ function writeStatusLine(
   command: string | null,
   scope: PermissionScope,
   workspacePath?: string,
-): boolean {
+): WriteOutcome {
   if (command === null || command === "") {
     return writeSettingsValue("statusLine", undefined, scope, workspacePath);
   }
-  const existing = readStatusLineObject(settingsPathFor(scope, workspacePath)) ?? {};
+  const existing = readStatusLineObject(claudeSettingsPath(scope, workspacePath)) ?? {};
   return writeSettingsValue(
     "statusLine",
     { ...existing, type: "command", command },
@@ -202,9 +161,9 @@ export interface EffectiveScope {
 
 export function resolveEffectiveScope(workspacePath?: string): EffectiveScope {
   if (workspacePath) {
-    const local = readCommandFromFile(settingsPathFor("local", workspacePath));
+    const local = readCommandFromFile(claudeSettingsPath("local", workspacePath));
     if (local !== null) return { scope: "local", command: local };
-    const project = readCommandFromFile(settingsPathFor("project", workspacePath));
+    const project = readCommandFromFile(claudeSettingsPath("project", workspacePath));
     if (project !== null) return { scope: "project", command: project };
   }
   const global = readCommandFromFile(SETTINGS_FILE);
@@ -252,22 +211,13 @@ function migrateV1(rec: InnerRecordV1): InnerRecordV2 {
 
 // ── Health checks ──
 
-/** Extract the quoted node path from a tap command, "" when bare. */
-function nodePathFromCommand(command: string): string {
-  const m = /^"([^"]+)"/.exec(command);
-  return m ? m[1] : "";
-}
-
 /**
  * "Working on THIS machine": exact tap path + the baked node binary
- * still exists (an nvm version switch can delete it — the command
+ * still runs (an nvm version switch can delete it — the command
  * would still contain the right tap path but never run).
  */
 function isTapHealthy(command: string): boolean {
-  if (!command.includes(STATUSLINE_TAP_FILE)) return false;
-  const node = nodePathFromCommand(command);
-  if (!node || node === "node") return true;
-  return fs.existsSync(node);
+  return command.includes(STATUSLINE_TAP_FILE) && commandNodeUsable(command);
 }
 
 /**
@@ -286,14 +236,14 @@ export function isStatuslineInstalled(workspacePath?: string): boolean {
  * offers a one-click removal.
  */
 export function detectForeignProjectTap(workspacePath?: string): boolean {
-  const cmd = readCommandFromFile(settingsPathFor("project", workspacePath));
+  const cmd = readCommandFromFile(claudeSettingsPath("project", workspacePath));
   return cmd !== null && isTapCommand(cmd);
 }
 
 /** Remove a tap entry from the shared project settings (user-approved). */
 export function removeForeignProjectTap(workspacePath?: string): boolean {
   if (!detectForeignProjectTap(workspacePath)) return false;
-  return writeStatusLine(null, "project", workspacePath);
+  return writeStatusLine(null, "project", workspacePath).ok;
 }
 
 export type InstallResult = { ok: true; repairedProject?: boolean } | { ok: false; error: string };
@@ -345,18 +295,23 @@ function ensureInstalled(tapSourcePath: string, workspacePath?: string): Install
           priorCommand: globalCmd !== null && !isTapCommand(globalCmd) ? globalCmd : "",
         };
       }
-      if (!writeStatusLine(tapCommand(), "global")) {
-        return { ok: false, error: "settings-write-failed" };
-      }
+      const wrote = writeStatusLine(tapCommand(), "global");
+      // Refused (see readJsonObjectForWrite) or the write failed. The
+      // error names the file and the reason: the Enable click surfaces
+      // this text verbatim.
+      if (!wrote.ok) return wrote;
     } else if (rec.global === null) {
       // Healthy tap but no record (sidecar lost) — nothing to chain.
       rec.global = { priorCommand: "" };
     }
 
-    // 4. Workspace pass.
+    // 4. Workspace pass. claudeSettingsPath answers null for project/local
+    //    when the workspace is $HOME (its "project" file IS the global
+    //    one); without that this pass saw the global tap as a poisoned
+    //    project tap and deleted it, flapping on every activation.
     let repairedProject = false;
     if (workspacePath) {
-      let projectCmd = readCommandFromFile(settingsPathFor("project", workspacePath));
+      let projectCmd = readCommandFromFile(claudeSettingsPath("project", workspacePath));
 
       // Poisoned shared file: replace the tap entry with the recorded
       // prior command (empty prior deletes the key entirely).
@@ -368,7 +323,7 @@ function ensureInstalled(tapSourcePath: string, workspacePath?: string): Install
         repairedProject = true;
       }
 
-      const localCmd = readCommandFromFile(settingsPathFor("local", workspacePath));
+      const localCmd = readCommandFromFile(claudeSettingsPath("local", workspacePath));
       if (localCmd !== null) {
         if (!isTapHealthy(localCmd)) {
           if (!isTapCommand(localCmd)) {
@@ -460,7 +415,7 @@ export function uninstallStatusline(workspacePath?: string): InstallResult {
         writeStatusLine(rec.global?.priorCommand ?? "", "global");
       }
       for (const [ws, o] of Object.entries(rec.workspaces)) {
-        const localCmd = readCommandFromFile(settingsPathFor("local", ws));
+        const localCmd = readCommandFromFile(claudeSettingsPath("local", ws));
         if (localCmd !== null && isTapCommand(localCmd)) {
           // sourceScope "project": we created the local key — delete it
           // (project supplies the command again). "local": restore the
@@ -478,7 +433,7 @@ export function uninstallStatusline(workspacePath?: string): InstallResult {
     // stray tap entry the sidecar didn't know about (including foreign
     // machines' paths in the shared project file).
     for (const scope of ["global", "project", "local"] as PermissionScope[]) {
-      const cmd = readCommandFromFile(settingsPathFor(scope, workspacePath));
+      const cmd = readCommandFromFile(claudeSettingsPath(scope, workspacePath));
       if (cmd !== null && isTapCommand(cmd)) {
         writeStatusLine(null, scope, workspacePath);
       }

@@ -163,12 +163,12 @@ export async function handleMcpMessage(
         vscode.window.showErrorMessage("No workspace folder open");
         return true;
       }
-      const ok = setProjectMcpServerDisabled(msg.name, msg.disabled, workspace);
-      if (ok && wv) {
+      const result = setProjectMcpServerDisabled(msg.name, msg.disabled, workspace);
+      if (result.ok && wv) {
         pushServers(ctx, wv);
-      } else if (!ok) {
+      } else if (!result.ok) {
         vscode.window.showErrorMessage(
-          `Failed to ${msg.disabled ? "disable" : "enable"} ${msg.name}`,
+          `Failed to ${msg.disabled ? "disable" : "enable"} ${msg.name}: ${result.error}`,
         );
       }
       return true;
@@ -193,11 +193,11 @@ export async function handleMcpMessage(
         "Delete",
       );
       if (choice !== "Delete") return true;
-      const ok = deleteMcpServer(msg.name, scope, ctx.getWorkspace());
-      if (ok && wv) {
+      const result = deleteMcpServer(msg.name, scope, ctx.getWorkspace());
+      if (!result.ok) {
+        vscode.window.showErrorMessage(result.error ?? `Failed to delete ${msg.name}`);
+      } else if (wv) {
         pushServers(ctx, wv);
-      } else if (!ok) {
-        vscode.window.showErrorMessage(`Failed to delete ${msg.name}`);
       }
       return true;
     }

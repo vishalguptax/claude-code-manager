@@ -196,7 +196,7 @@ describe("project server enable/disable via settings arrays", () => {
 
   it("disable writes the name to disabledMcpjsonServers in settings.local.json", () => {
     writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
-    expect(setProjectMcpServerDisabled("srv", true, ws)).toBe(true);
+    expect(setProjectMcpServerDisabled("srv", true, ws)).toEqual({ ok: true });
     expect(readLocal().disabledMcpjsonServers).toEqual(["srv"]);
   });
 
@@ -240,6 +240,33 @@ describe("project server enable/disable via settings arrays", () => {
     expect(readLocal().disabledMcpjsonServers).toBeUndefined();
   });
 
+  it("re-enabling records the approval in enabledMcpjsonServers", () => {
+    // enabledMcpjsonServers is Claude Code's approval list: a name in neither
+    // array is re-prompted for approval on the next session.
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    setProjectMcpServerDisabled("srv", true, ws);
+    setProjectMcpServerDisabled("srv", false, ws);
+    expect(readLocal().enabledMcpjsonServers).toEqual(["srv"]);
+    const server = parseMcpServers(ws).servers.find((s) => s.name === "srv");
+    expect(server?.disabled).toBeUndefined();
+    expect(server?.pendingApproval).toBeUndefined();
+  });
+
+  it("enabling keeps an approval the CLI already recorded, without duplicating it", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    writeJson(localSettings, { enabledMcpjsonServers: ["other", "srv"] });
+    setProjectMcpServerDisabled("srv", false, ws);
+    expect(readLocal().enabledMcpjsonServers).toEqual(["other", "srv"]);
+  });
+
+  it("disabling moves the name from the approval list to the disabled list", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    writeJson(localSettings, { enabledMcpjsonServers: ["srv"] });
+    setProjectMcpServerDisabled("srv", true, ws);
+    expect(readLocal().enabledMcpjsonServers).toBeUndefined();
+    expect(readLocal().disabledMcpjsonServers).toEqual(["srv"]);
+  });
+
   it("re-enabling records a local override when a broader scope still disables the name", () => {
     writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
     writeJson(projectSettings, { disabledMcpjsonServers: ["srv"] });
@@ -260,6 +287,73 @@ describe("project server enable/disable via settings arrays", () => {
     setProjectMcpServerDisabled("srv", true, ws);
     const config = JSON.parse(fs.readFileSync(mcpFile, "utf-8"));
     expect("disabled" in config.mcpServers.srv).toBe(false);
+  });
+
+  it("reads a server named in neither list as pending approval, not enabled", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    const server = parseMcpServers(ws).servers.find((s) => s.name === "srv");
+    expect(server?.disabled).toBeUndefined();
+    expect(server?.pendingApproval).toBe(true);
+  });
+
+  it("enableAllProjectMcpServers in any scope approves unnamed servers", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    writeJson(path.join(HOME, ".claude", "settings.json"), { enableAllProjectMcpServers: true });
+    const server = parseMcpServers(ws).servers.find((s) => s.name === "srv");
+    expect(server?.pendingApproval).toBeUndefined();
+    expect(server?.disabled).toBeUndefined();
+  });
+
+  it("an explicit disable still wins over enableAllProjectMcpServers", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    writeJson(localSettings, { enableAllProjectMcpServers: true, disabledMcpjsonServers: ["srv"] });
+    expect(parseMcpServers(ws).servers.find((s) => s.name === "srv")?.disabled).toBe(true);
+  });
+
+  it("does not mark global servers as pending approval", () => {
+    writeJson(path.join(HOME, ".claude.json"), { mcpServers: { g: { command: "node" } } });
+    expect(parseMcpServers(ws).servers.find((s) => s.name === "g")?.pendingApproval).toBeUndefined();
+  });
+
+  it.each([
+    ["freshly emptied", "", "is being written by Claude Code right now"],
+    ["freshly whitespace-only", "  \n", "is being written by Claude Code right now"],
+    ["malformed", '{ "permissions": ', "isn't valid JSON"],
+  ])("refuses to toggle when settings.local.json is %s, leaving it untouched", (_l, content, why) => {
+    // An empty file is what Claude Code's settings look like mid-write;
+    // rewriting it would keep nothing but our toggle arrays.
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    fs.mkdirSync(path.dirname(localSettings), { recursive: true });
+    fs.writeFileSync(localSettings, content);
+    const res = setProjectMcpServerDisabled("srv", true, ws);
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain(`${localSettings} ${why}`);
+    expect(fs.readFileSync(localSettings, "utf-8")).toBe(content);
+  });
+
+  it("toggles into a settings.local.json that has stayed empty past the settle window", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    fs.mkdirSync(path.dirname(localSettings), { recursive: true });
+    fs.writeFileSync(localSettings, "");
+    const old = new Date(Date.now() - 60_000);
+    fs.utimesSync(localSettings, old, old);
+    expect(setProjectMcpServerDisabled("srv", true, ws)).toEqual({ ok: true });
+    expect(readLocal()).toEqual({ disabledMcpjsonServers: ["srv"] });
+  });
+
+  it("refuses to toggle when settings.local.json exists but can't be read", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    fs.mkdirSync(localSettings, { recursive: true }); // EISDIR on read
+    const res = setProjectMcpServerDisabled("srv", true, ws);
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain(`${localSettings} couldn't be read`);
+    expect(fs.statSync(localSettings).isDirectory()).toBe(true);
+  });
+
+  it("creates settings.local.json when it is absent", () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { srv: { command: "node" } } });
+    expect(setProjectMcpServerDisabled("srv", false, ws)).toEqual({ ok: true });
+    expect(readLocal()).toEqual({ enabledMcpjsonServers: ["srv"] });
   });
 
   it("ignores a stale per-entry disabled key when computing disabled state", () => {
@@ -292,8 +386,8 @@ describe("parse error surfacing", () => {
 });
 
 describe("delete rejects plugin scope", () => {
-  it("deleteMcpServer returns false for plugin scope", () => {
-    expect(deleteMcpServer("docs", "plugin")).toBe(false);
+  it("deleteMcpServer refuses plugin scope", () => {
+    expect(deleteMcpServer("docs", "plugin").ok).toBe(false);
   });
 });
 
@@ -357,20 +451,20 @@ describe("addMcpServer / updateMcpServer", () => {
      * over a .mcp.json (or ~/.claude.json) it had failed to read,
      * discarding every other server in it.
      */
-    const HOSTILE: Array<[string, string]> = [
-      ["a JSON comment", '{\n // note\n "mcpServers": { "a": { "command": "x" } }\n}'],
-      ["a trailing comma", '{ "mcpServers": { "a": { "command": "x" } }, }'],
-      ["truncation", '{ "mcpServers": { "a": '],
-      ["a top-level array", '["nope"]'],
+    const HOSTILE: Array<[string, string, string]> = [
+      ["a JSON comment", '{\n // note\n "mcpServers": { "a": { "command": "x" } }\n}', "isn't valid JSON"],
+      ["a trailing comma", '{ "mcpServers": { "a": { "command": "x" } }, }', "isn't valid JSON"],
+      ["truncation", '{ "mcpServers": { "a": ', "isn't valid JSON"],
+      ["a top-level array", '["nope"]', "doesn't hold a JSON object"],
     ];
 
-    it.each(HOSTILE)("add refuses and leaves it byte-identical: %s", (_l, content) => {
+    it.each(HOSTILE)("add refuses and leaves it byte-identical: %s", (_l, content, why) => {
       const file = path.join(ws, ".mcp.json");
       fs.mkdirSync(ws, { recursive: true });
       fs.writeFileSync(file, content);
       const res = addMcpServer(input({ name: "new" }), ws);
       expect(res.ok).toBe(false);
-      expect(res.error).toContain("isn't valid JSON");
+      expect(res.error).toContain(`${file} ${why}`);
       expect(fs.readFileSync(file, "utf-8")).toBe(content);
     });
 
@@ -461,5 +555,109 @@ describe("commandExistsOnPath", () => {
     } finally {
       process.env.PATH = savedPath;
     }
+  });
+});
+
+describe("global-scope writes", () => {
+  const claudeJson = path.join(HOME, ".claude.json");
+  const legacy = path.join(HOME, ".claude", "mcp.json");
+  const lockDir = `${claudeJson}.lock`;
+
+  function globalInput(overrides: Partial<McpServerInput> = {}): McpServerInput {
+    return { name: "g", scope: "global", transport: "stdio", command: "node", env: {}, headers: {}, ...overrides };
+  }
+
+  function readClaudeJson(): Record<string, unknown> {
+    return JSON.parse(fs.readFileSync(claudeJson, "utf-8"));
+  }
+
+  const LIVE = {
+    oauthAccount: { emailAddress: "a@b.c" },
+    projects: { "/w": { hasTrustDialogAccepted: true } },
+    mcpServers: { existing: { command: "x" } },
+  };
+
+  it("adds a new global server to ~/.claude.json, keeping every other key", () => {
+    writeJson(claudeJson, LIVE);
+    expect(addMcpServer(globalInput()).ok).toBe(true);
+    const after = readClaudeJson();
+    expect(after.oauthAccount).toEqual(LIVE.oauthAccount);
+    expect(after.projects).toEqual(LIVE.projects);
+    expect(after.mcpServers).toEqual({ existing: { command: "x" }, g: { command: "node" } });
+    expect(fs.existsSync(legacy)).toBe(false);
+  });
+
+  it("adds to ~/.claude.json, not the legacy file, even when only the legacy file exists", () => {
+    // Claude Code never reads ~/.claude/mcp.json, so a server added there is invisible to it.
+    writeJson(legacy, { mcpServers: { old: { command: "o" } } });
+    expect(addMcpServer(globalInput()).ok).toBe(true);
+    expect(readClaudeJson().mcpServers).toEqual({ g: { command: "node" } });
+    expect(JSON.parse(fs.readFileSync(legacy, "utf-8")).mcpServers).toEqual({ old: { command: "o" } });
+  });
+
+  it("rejects adding a name the legacy file already holds", () => {
+    writeJson(legacy, { mcpServers: { g: { command: "o" } } });
+    const r = addMcpServer(globalInput());
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/already exists/);
+  });
+
+  it("edits and deletes a legacy-file server in the legacy file", () => {
+    writeJson(claudeJson, LIVE);
+    writeJson(legacy, { mcpServers: { old: { command: "o" } } });
+    expect(updateMcpServer("old", globalInput({ name: "old", command: "deno" })).ok).toBe(true);
+    expect(JSON.parse(fs.readFileSync(legacy, "utf-8")).mcpServers.old).toEqual({ command: "deno" });
+    expect(deleteMcpServer("old", "global").ok).toBe(true);
+    expect(JSON.parse(fs.readFileSync(legacy, "utf-8")).mcpServers).toEqual({});
+    expect(readClaudeJson()).toEqual(LIVE);
+  });
+
+  it("deletes a ~/.claude.json server, keeping every other key", () => {
+    writeJson(claudeJson, LIVE);
+    expect(deleteMcpServer("existing", "global").ok).toBe(true);
+    expect(readClaudeJson()).toEqual({ ...LIVE, mcpServers: {} });
+  });
+
+  it.each([
+    ["empty (mid-write)", "", "is being written by Claude Code right now"],
+    ["truncated", '{ "oauthAccount": ', "isn't valid JSON"],
+  ])("refuses add/update/delete when ~/.claude.json is %s", (_l, content, why) => {
+    fs.mkdirSync(HOME, { recursive: true });
+    fs.writeFileSync(claudeJson, content);
+    expect(addMcpServer(globalInput()).error).toContain(`${claudeJson} ${why}`);
+    expect(updateMcpServer("existing", globalInput()).ok).toBe(false);
+    expect(deleteMcpServer("existing", "global").ok).toBe(false);
+    expect(fs.readFileSync(claudeJson, "utf-8")).toBe(content);
+  });
+
+  it("refuses when ~/.claude.json exists but can't be read", () => {
+    fs.mkdirSync(claudeJson, { recursive: true }); // EISDIR on read
+    expect(addMcpServer(globalInput()).error).toContain("couldn't be read");
+  });
+
+  it("releases Claude Code's config lock after writing", () => {
+    writeJson(claudeJson, LIVE);
+    expect(addMcpServer(globalInput()).ok).toBe(true);
+    expect(fs.existsSync(lockDir)).toBe(false);
+  });
+
+  it(
+    "refuses, leaving ~/.claude.json untouched, while Claude Code holds its config lock",
+    () => {
+      writeJson(claudeJson, LIVE);
+      const before = fs.readFileSync(claudeJson, "utf-8");
+      fs.mkdirSync(lockDir); // fresh mtime: a live holder
+      const r = addMcpServer(globalInput());
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/Try again/);
+      expect(fs.readFileSync(claudeJson, "utf-8")).toBe(before);
+    },
+    15_000,
+  );
+
+  it("does not take the config lock for project .mcp.json writes", () => {
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(lockDir, { recursive: true });
+    expect(addMcpServer({ ...globalInput(), scope: "project" }, ws).ok).toBe(true);
   });
 });

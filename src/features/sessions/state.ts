@@ -4,6 +4,7 @@
  */
 import * as fs from "fs";
 import { STATE_FILE } from "../../core/config";
+import { writeFileAtomic } from "../../core/atomicWrite";
 import type { UserState } from "../../core/types";
 
 /**
@@ -42,12 +43,19 @@ export function loadState(): UserState {
 }
 
 /**
- * Persist the user state (pinned/deleted session IDs) to disk.
- * Writes atomically-ish via writeFileSync. Logs a warning on failure.
+ * Persist the user state (pinned/deleted session IDs) to disk. Logs a
+ * warning on failure.
+ *
+ * Atomic because every VS Code window reads and writes this one file: a
+ * window that loads it mid-write would see truncated JSON, fall back to the
+ * empty default above, and its next save would wipe every pin, rename and
+ * archive. Each mutator below therefore also loads, mutates and saves in one
+ * synchronous step — never holding a copy across an await — so a write from
+ * another window is never overwritten by stale state.
  */
 export function saveState(state: UserState): void {
   try {
-    fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    writeFileAtomic(STATE_FILE, JSON.stringify(state, null, 2));
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn(`[claude-manager] Failed to save state to ${STATE_FILE}:`, message);

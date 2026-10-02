@@ -23,6 +23,20 @@ export function DisabledBadge() {
   return <Badge text="disabled" variant="default" class="mcp-disabled-badge" />;
 }
 
+/**
+ * "needs approval" pill for a project server no settings file approves or
+ * rejects yet: Claude Code will prompt for it when a session starts.
+ */
+export function PendingApprovalBadge() {
+  return (
+    <Badge
+      text="needs approval"
+      variant="default"
+      title="Claude Code will ask you to approve this server when a session starts."
+    />
+  );
+}
+
 /** "read-only" pill shown on plugin-owned rows. */
 export function ReadOnlyBadge({ pluginName }: { pluginName?: string }) {
   return (

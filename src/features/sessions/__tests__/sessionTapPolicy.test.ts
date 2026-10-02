@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
 vi.mock("../sessionTapInstall", () => ({
-  ensureSessionStartHook: vi.fn(() => true),
-  removeSessionStartHook: vi.fn(() => true),
+  ensureSessionStartHook: vi.fn(() => ({ ok: true, changed: true })),
+  removeSessionStartHook: vi.fn(() => ({ ok: true, changed: true })),
   isSessionStartHookInstalled: vi.fn(() => false),
 }));
 
@@ -42,15 +42,15 @@ function captureConfigListener(): () => (e: {
 
 beforeEach(() => {
   vi.restoreAllMocks();
-  ensure.mockClear().mockReturnValue(true);
-  remove.mockClear().mockReturnValue(true);
+  ensure.mockClear().mockReturnValue({ ok: true, changed: true });
+  remove.mockClear().mockReturnValue({ ok: true, changed: true });
   installed.mockClear().mockReturnValue(false);
 });
 
 describe("syncSessionTap", () => {
   it("installs when the user turned it on", () => {
     setUserChoice(true);
-    syncSessionTap("/dist");
+    syncSessionTap("/dist", "activation");
     expect(ensure).toHaveBeenCalledWith("/dist");
     expect(remove).not.toHaveBeenCalled();
   });
@@ -58,7 +58,7 @@ describe("syncSessionTap", () => {
   it("removes the hook when the user turned it off", () => {
     setUserChoice(false);
     installed.mockReturnValue(true);
-    syncSessionTap("/dist");
+    syncSessionTap("/dist", "activation");
     expect(remove).toHaveBeenCalledTimes(1);
     expect(ensure).not.toHaveBeenCalled();
   });
@@ -68,7 +68,7 @@ describe("syncSessionTap", () => {
     // ~/.claude/settings.json exactly as it found it.
     setUserChoice(undefined);
     installed.mockReturnValue(false);
-    syncSessionTap("/dist");
+    syncSessionTap("/dist", "activation");
     expect(ensure).not.toHaveBeenCalled();
     expect(remove).not.toHaveBeenCalled();
   });
@@ -79,7 +79,7 @@ describe("syncSessionTap", () => {
     // keep working, including the node-path refresh ensure performs.
     setUserChoice(undefined);
     installed.mockReturnValue(true);
-    syncSessionTap("/dist");
+    syncSessionTap("/dist", "activation");
     expect(ensure).toHaveBeenCalledWith("/dist");
     expect(remove).not.toHaveBeenCalled();
   });
@@ -92,7 +92,7 @@ describe("syncSessionTap", () => {
       inspect: () => ({ workspaceValue: true }),
     } as never);
     installed.mockReturnValue(false);
-    syncSessionTap("/dist");
+    syncSessionTap("/dist", "activation");
     expect(ensure).not.toHaveBeenCalled();
   });
 
@@ -102,8 +102,59 @@ describe("syncSessionTap", () => {
       throw new Error("disk on fire");
     });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    expect(() => syncSessionTap("/dist")).not.toThrow();
+    expect(() => syncSessionTap("/dist", "activation")).not.toThrow();
     expect(warn).toHaveBeenCalled();
+  });
+});
+
+describe("syncSessionTap failure reporting", () => {
+  const MID_WRITE = {
+    ok: false as const,
+    reason: "mid-write" as const,
+    error: "/home/.claude/settings.json is being written by Claude Code right now",
+  };
+  const INVALID = {
+    ok: false as const,
+    reason: "invalid-json" as const,
+    error: "/home/.claude/settings.json isn't valid JSON",
+  };
+
+  it("tells a user who just turned it on why nothing was installed", () => {
+    setUserChoice(true);
+    ensure.mockReturnValue(MID_WRITE);
+    const toast = vi.spyOn(vscode.window, "showWarningMessage");
+    syncSessionTap("/dist", "setting-change");
+    expect(toast).toHaveBeenCalledWith(`Couldn't install the terminal-linking hook: ${MID_WRITE.error}.`);
+  });
+
+  it("tells a user who just turned it off why it is still there", () => {
+    setUserChoice(false);
+    remove.mockReturnValue(INVALID);
+    const toast = vi.spyOn(vscode.window, "showWarningMessage");
+    syncSessionTap("/dist", "setting-change");
+    expect(toast).toHaveBeenCalledWith(`Couldn't remove the terminal-linking hook: ${INVALID.error}.`);
+  });
+
+  it("stays silent at activation about a rewrite in progress", () => {
+    setUserChoice(true);
+    ensure.mockReturnValue(MID_WRITE);
+    const toast = vi.spyOn(vscode.window, "showWarningMessage");
+    const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+    syncSessionTap("/dist", "activation");
+    expect(toast).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("logs, but never toasts, any other refusal at activation", () => {
+    setUserChoice(true);
+    ensure.mockReturnValue(INVALID);
+    const toast = vi.spyOn(vscode.window, "showWarningMessage");
+    const log = vi.spyOn(console, "warn").mockImplementation(() => {});
+    syncSessionTap("/dist", "activation");
+    expect(toast).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      `[claude-manager] session tap: couldn't install the hook: ${INVALID.error}`,
+    );
   });
 });
 
@@ -116,6 +167,18 @@ describe("watchTerminalLinkingSetting", () => {
       affectsConfiguration: (s: string) => s === "claudeManager.sessions.terminalLinking",
     });
     expect(ensure).toHaveBeenCalledWith("/dist");
+  });
+
+  it("treats the change as a user request, so a refusal is reported", () => {
+    setUserChoice(true);
+    ensure.mockReturnValue({ ok: false, reason: "mid-write", error: "settings.json is being written" });
+    const toast = vi.spyOn(vscode.window, "showWarningMessage");
+    const listener = captureConfigListener();
+    watchTerminalLinkingSetting("/dist");
+    listener()({
+      affectsConfiguration: (s: string) => s === "claudeManager.sessions.terminalLinking",
+    });
+    expect(toast).toHaveBeenCalledTimes(1);
   });
 
   it("ignores unrelated setting changes", () => {

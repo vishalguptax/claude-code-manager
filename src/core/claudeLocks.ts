@@ -32,20 +32,16 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import { CLAUDE_DIR } from "../../core/config";
+import { CLAUDE_DIR, CLAUDE_JSON_FILE } from "./config";
 
-/**
- * Every lock path derives from CLAUDE_DIR rather than from `os.homedir()`
- * directly, so a test that redirects the config module also redirects the
- * locks. Deriving them independently would have unit tests creating lock
- * directories in the developer's real home and racing their actual Claude
- * Code.
- *
- * Claude Code's config file is a sibling of its config directory
- * (`~/.claude` and `~/.claude.json`), and the legacy credential lock is that
- * directory's name plus `.lock`.
+/*
+ * Every lock path derives from the config module's paths rather than from
+ * `os.homedir()` directly, so a test that redirects the config module also
+ * redirects the locks. Deriving them independently would have unit tests
+ * creating lock directories in the developer's real home and racing their
+ * actual Claude Code. The legacy credential lock is the config directory's
+ * name plus `.lock`.
  */
-const CLAUDE_JSON = `${CLAUDE_DIR}.json`;
 
 /**
  * One advisory lock: where it lives, and how long before a holder is presumed
@@ -72,12 +68,10 @@ export const CREDENTIAL_LOCKS: readonly LockSpec[] = [
 
 /** Lock guarding `~/.claude.json`. Shorter window: no network call under it. */
 export const CONFIG_LOCK: LockSpec = {
-  dir: `${CLAUDE_JSON}.lock`,
+  dir: `${CLAUDE_JSON_FILE}.lock`,
   staleMs: 10_000,
 };
 
-/** How often a holder touches the lock to prove it is still alive. */
-const HEARTBEAT_MS = 5_000;
 /** How long to wait for a lock before giving up. */
 const ACQUIRE_TIMEOUT_MS = 3_000;
 /** Gap between acquisition attempts. */
@@ -95,6 +89,16 @@ function mtimeMs(dir: string): number | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether a live holder has `spec` right now. A lock past its stale window
+ * reads as free: its holder is presumed dead, and the next acquisition will
+ * reclaim it.
+ */
+export function isLockHeld(spec: LockSpec): boolean {
+  const mtime = mtimeMs(spec.dir);
+  return mtime !== null && Date.now() - mtime < spec.staleMs;
 }
 
 /**
@@ -147,16 +151,21 @@ function tryAcquire(spec: LockSpec): "taken" | "held" | { detail: string } {
  *
  * `work` runs only when every lock is held. Its result is returned as-is; a
  * throw propagates after the locks are released.
+ *
+ * `work` must be synchronous, and short next to the stale windows: the locks
+ * are released the moment it returns, so a promise it hands back would run
+ * unlocked. There is no heartbeat for the same reason — a timer cannot fire
+ * while synchronous work blocks the event loop — so instead every lock is
+ * touched once, just before `work`, to restart its stale window after a slow
+ * multi-lock acquisition.
  */
 export function withLocks<T>(
   specs: readonly LockSpec[],
   work: () => T,
 ): { ok: true; value: T } | { ok: false; failure: LockFailure } {
   const held: LockSpec[] = [];
-  const heartbeats: ReturnType<typeof setInterval>[] = [];
 
   const releaseAll = (): void => {
-    for (const timer of heartbeats.splice(0)) clearInterval(timer);
     // Reverse order: the mirror of acquisition, so a watcher never sees us
     // holding the legacy lock without the primary.
     for (const spec of held.splice(0).reverse()) {
@@ -197,20 +206,19 @@ export function withLocks<T>(
     }
 
     held.push(spec);
-    // Keep proving we are alive. A Keychain write can outlast the config
-    // lock's 10s window, and a lock we let go stale could be reclaimed by
-    // Claude Code mid-write — the exact interleaving we are here to prevent.
-    const timer = setInterval(() => {
-      const now = new Date();
-      try {
-        fs.utimesSync(spec.dir, now, now);
-      } catch {
-        // The directory is gone; the interval is cleared on release anyway.
-      }
-    }, HEARTBEAT_MS);
-    // Never hold the event loop open for a lock heartbeat.
-    timer.unref?.();
-    heartbeats.push(timer);
+  }
+
+  // Taking a later lock can wait out most of ACQUIRE_TIMEOUT_MS, which ages
+  // the earlier ones toward a window short enough (10s for the config lock)
+  // that Claude Code could reclaim it mid-write — the exact interleaving we
+  // are here to prevent.
+  const now = new Date();
+  for (const spec of held) {
+    try {
+      fs.utimesSync(spec.dir, now, now);
+    } catch {
+      // Reclaimed already; the work still runs, as it would have a moment ago.
+    }
   }
 
   try {

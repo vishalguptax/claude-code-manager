@@ -5,7 +5,7 @@
  * and ensures `hooks.SessionStart` contains an entry that runs it.
  *
  * Idempotent: re-running refreshes the copied script but leaves the
- * settings entry alone unless the command line changed.
+ * settings entry alone while it still works (see isTapHealthy).
  *
  * Nothing here decides WHETHER the hook may exist — that is
  * `sessionTapPolicy`, which gates every call on the user's consent.
@@ -18,12 +18,18 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import { execFileSync } from "child_process";
 import {
   CLAUDE_MANAGER_DIR,
   SESSION_TAP_FILE,
   SETTINGS_FILE,
 } from "../../core/config";
+import {
+  describeReadRefusal,
+  readJsonObjectForWrite,
+  writeFileAtomic,
+  type ReadRefusalReason,
+} from "../../core/atomicWrite";
+import { commandNodeUsable, resolveNodePath } from "../../core/nodePath";
 
 interface HookCommandEntry {
   type: "command";
@@ -41,22 +47,18 @@ interface SettingsShape {
 }
 
 /**
- * Resolve an absolute `node` path. Claude CLI runs the hook in a shell
- * whose PATH may differ from VS Code's; baking the absolute path makes
- * the command work even when the user's interactive PATH doesn't
- * surface node (the classic nvm + non-interactive shell case).
+ * What an install or removal did. `changed` is false when settings.json
+ * already said the right thing. A failure carries its reason, so the
+ * caller can stay quiet about a rewrite in progress at activation yet tell
+ * a user who just flipped the setting why nothing happened.
  */
-function resolveNodePath(): string {
-  const finder = process.platform === "win32" ? "where" : "which";
-  try {
-    const out = execFileSync(finder, ["node"], { encoding: "utf-8", timeout: 3000 });
-    const first = out.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
-    if (first) return first;
-  } catch {
-    /* fall through to PATH-relative invocation */
-  }
-  return "node";
-}
+export type TapChange =
+  | { ok: true; changed: boolean }
+  | { ok: false; reason: ReadRefusalReason | "copy-failed" | "write-failed"; error: string };
+
+type TapFailure = Extract<TapChange, { ok: false }>;
+
+const UNCHANGED: TapChange = { ok: true, changed: false };
 
 /** The shell command Claude CLI runs for the SessionStart hook. */
 export function sessionTapCommand(): string {
@@ -85,89 +87,109 @@ function isOurTapCommand(command: unknown): boolean {
  * is the extension's bundled `dist/session-start-tap.js`; destination
  * is `~/.claude/.claude-manager/session-start-tap.js` so the path
  * survives extension updates that change the versioned install dir.
+ * Returns null once copied.
  */
-function copyTapScript(extensionDistDir: string): boolean {
+function copyTapScript(extensionDistDir: string): TapFailure | null {
   const source = path.join(extensionDistDir, "session-start-tap.js");
   try {
     fs.mkdirSync(CLAUDE_MANAGER_DIR, { recursive: true });
     fs.copyFileSync(source, SESSION_TAP_FILE);
-    return true;
-  } catch {
-    return false;
+    return null;
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "copy-failed",
+      error: `the hook script couldn't be copied to ${SESSION_TAP_FILE} (${(err as Error).message})`,
+    };
   }
 }
 
 /**
- * Read global settings.json for a read-modify-write pass.
+ * Read global settings.json for a read-modify-write pass, or the reason it
+ * must not be rewritten — see readJsonObjectForWrite.
  *
- * `{}` when the file is absent or blank — nothing to lose, creating it
- * is safe. **null when it exists but cannot be read as a JSON object**,
- * meaning the caller must not write.
- *
- * This previously returned `{}` in the unreadable case too, and the
- * caller wrote that back "fresh" — replacing the user's entire
- * settings.json with just our hook. A settings.json with one stray
- * comment (which Claude Code already refuses to load, so the user is
- * likely mid-repair) was emptied simply by opening the editor, since
- * this installer used to run unconditionally on every activation.
+ * Both looser answers emptied the user's settings.json. Returning `{}`
+ * for an unparseable file wrote back a file holding only our hook; so
+ * did returning `{}` for a freshly emptied file or a failed read, which is
+ * what a window activating while Claude Code rewrites the file sees.
  */
-function readSettings(): SettingsShape | null {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(SETTINGS_FILE, "utf-8");
-  } catch {
-    return {};
-  }
-  if (raw.trim() === "") return {};
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as SettingsShape;
-    }
-  } catch {
-    return null;
-  }
-  return null;
+function readSettings(): { ok: true; settings: SettingsShape } | TapFailure {
+  const read = readJsonObjectForWrite(SETTINGS_FILE);
+  return read.ok
+    ? { ok: true, settings: read.data as SettingsShape }
+    : { ok: false, reason: read.reason, error: describeReadRefusal(SETTINGS_FILE, read) };
 }
 
-/** Atomic write so a crash mid-write never corrupts settings.json. */
-function writeSettingsAtomic(settings: SettingsShape): void {
-  const tmp = `${SETTINGS_FILE}.tmp-${process.pid}-${Date.now()}`;
-  const body = `${JSON.stringify(settings, null, 2)}\n`;
-  fs.writeFileSync(tmp, body, "utf-8");
-  fs.renameSync(tmp, SETTINGS_FILE);
+/**
+ * Atomic (a crash mid-write never corrupts settings.json), and through
+ * a dotfile-manager symlink with the file's mode kept — see
+ * writeFileAtomic.
+ */
+function writeSettingsAtomic(settings: SettingsShape): TapChange {
+  try {
+    writeFileAtomic(SETTINGS_FILE, `${JSON.stringify(settings, null, 2)}\n`);
+    return { ok: true, changed: true };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "write-failed",
+      error: `${SETTINGS_FILE} couldn't be written (${(err as Error).message})`,
+    };
+  }
+}
+
+/**
+ * Whether an existing tap command still works as-is: it runs THIS
+ * machine's script path with a node binary that is still executable.
+ * Such a command is kept even when a fresh `sessionTapCommand()` would
+ * bake a different node: every window launched from another shell
+ * (fnm, nvm, asdf) resolves another node path, and rewriting on each
+ * one churned ~/.claude/settings.json on every activation.
+ */
+function isTapHealthy(command: string): boolean {
+  return command.endsWith(`"${SESSION_TAP_FILE}"`) && commandNodeUsable(command);
 }
 
 /**
  * Ensure `hooks.SessionStart` contains exactly one entry pointing at
  * our tap, preserving every other user-defined SessionStart hook
- * unchanged. Returns true when settings.json was modified.
+ * unchanged.
  */
-export function ensureSessionStartHook(extensionDistDir: string): boolean {
-  if (!copyTapScript(extensionDistDir)) return false;
-  const expectedCommand = sessionTapCommand();
+export function ensureSessionStartHook(extensionDistDir: string): TapChange {
+  const copyFailed = copyTapScript(extensionDistDir);
+  if (copyFailed) return copyFailed;
 
   // Refuse rather than rewrite a settings.json we cannot parse. Running
   // on every activation, a "write it back fresh" here emptied the file.
-  const settings = readSettings();
-  if (settings === null) return false;
+  const read = readSettings();
+  if (!read.ok) return read;
+  const settings = read.settings;
   const hooks = (settings.hooks ?? {}) as Record<string, SessionStartEntry[]>;
   const existing = Array.isArray(hooks.SessionStart) ? hooks.SessionStart : [];
 
   let foundOurs = false;
+  // Tracked explicitly: stripping a stale copy out of an entry that also
+  // holds user hooks changes the file without changing the entry count.
+  let changed = false;
   const next: SessionStartEntry[] = [];
   for (const entry of existing) {
-    if (!entry || typeof entry !== "object") continue;
+    if (!entry || typeof entry !== "object") {
+      changed = true;
+      continue;
+    }
     const sub = Array.isArray(entry.hooks) ? entry.hooks : [];
     const ours = sub.find(
       (s) => s && s.type === "command" && isOurTapCommand(s.command),
     );
     if (ours) {
-      if (ours.command === expectedCommand && (entry.matcher ?? "") === "") {
+      // One healthy entry is kept verbatim; any further copy of ours is a
+      // duplicate and dropped like a stale one.
+      if (!foundOurs && isTapHealthy(ours.command) && (entry.matcher ?? "") === "") {
         foundOurs = true;
         next.push(entry);
         continue;
       }
+      changed = true;
       const otherSubs = sub.filter((s) => s !== ours);
       if (otherSubs.length > 0) {
         next.push({ matcher: entry.matcher, hooks: otherSubs });
@@ -180,20 +202,15 @@ export function ensureSessionStartHook(extensionDistDir: string): boolean {
   if (!foundOurs) {
     next.push({
       matcher: "",
-      hooks: [{ type: "command", command: expectedCommand }],
+      hooks: [{ type: "command", command: sessionTapCommand() }],
     });
-  } else if (next.length === existing.length) {
-    return false;
+  } else if (!changed) {
+    return UNCHANGED;
   }
 
   hooks.SessionStart = next;
   settings.hooks = hooks;
-  try {
-    writeSettingsAtomic(settings);
-    return true;
-  } catch {
-    return false;
-  }
+  return writeSettingsAtomic(settings);
 }
 
 /**
@@ -207,9 +224,9 @@ export function ensureSessionStartHook(extensionDistDir: string): boolean {
  * cannot write to that file either.
  */
 export function isSessionStartHookInstalled(): boolean {
-  const settings = readSettings();
-  if (settings === null) return false;
-  const entries = settings.hooks?.SessionStart;
+  const read = readSettings();
+  if (!read.ok) return false;
+  const entries = read.settings.hooks?.SessionStart;
   if (!Array.isArray(entries)) return false;
   return entries.some(
     (entry) =>
@@ -222,14 +239,14 @@ export function isSessionStartHookInstalled(): boolean {
 
 /**
  * Remove the tap hook from settings.json (leaves the on-disk script in
- * place — harmless once unreferenced). Returns true when settings.json
- * was modified.
+ * place — harmless once unreferenced).
  */
-export function removeSessionStartHook(): boolean {
-  const settings = readSettings();
-  if (settings === null) return false;
+export function removeSessionStartHook(): TapChange {
+  const read = readSettings();
+  if (!read.ok) return read;
+  const settings = read.settings;
   const hooks = settings.hooks;
-  if (!hooks || !Array.isArray(hooks.SessionStart)) return false;
+  if (!hooks || !Array.isArray(hooks.SessionStart)) return UNCHANGED;
 
   const filtered: SessionStartEntry[] = [];
   let changed = false;
@@ -246,17 +263,12 @@ export function removeSessionStartHook(): boolean {
     if (remaining.length > 0) filtered.push({ matcher: entry.matcher, hooks: remaining });
   }
 
-  if (!changed) return false;
+  if (!changed) return UNCHANGED;
   if (filtered.length === 0) {
     delete hooks.SessionStart;
   } else {
     hooks.SessionStart = filtered;
   }
   settings.hooks = hooks;
-  try {
-    writeSettingsAtomic(settings);
-    return true;
-  } catch {
-    return false;
-  }
+  return writeSettingsAtomic(settings);
 }

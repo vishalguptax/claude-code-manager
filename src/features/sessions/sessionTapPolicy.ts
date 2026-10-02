@@ -29,6 +29,7 @@ import {
   ensureSessionStartHook,
   isSessionStartHookInstalled,
   removeSessionStartHook,
+  type TapChange,
 } from "./sessionTapInstall";
 
 const SECTION = "claudeManager.sessions";
@@ -55,6 +56,29 @@ function explicitChoice(): boolean | undefined {
 }
 
 /**
+ * What started a sync. Activation runs unasked in every window, so it
+ * stays quiet; a setting the user just changed is a request, and a request
+ * that did nothing has to say why.
+ */
+type SyncTrigger = "activation" | "setting-change";
+
+/**
+ * Tell the user, or the log, why the hook could not be brought in line.
+ * At activation a rewrite in progress is expected and the next activation
+ * converges, so it is not even logged; anything else is logged, never
+ * toasted — no window should nag on every start about a file the user may
+ * be repairing.
+ */
+function reportFailure(change: TapChange, action: string, trigger: SyncTrigger): void {
+  if (change.ok) return;
+  if (trigger === "setting-change") {
+    void vscode.window.showWarningMessage(`Couldn't ${action} the terminal-linking hook: ${change.error}.`);
+  } else if (change.reason !== "mid-write") {
+    console.warn(`[claude-manager] session tap: couldn't ${action} the hook: ${change.error}`);
+  }
+}
+
+/**
  * Bring settings.json in line with the current decision. Safe to call
  * repeatedly — both installer and remover are idempotent and report
  * "nothing to do" rather than rewriting.
@@ -62,19 +86,21 @@ function explicitChoice(): boolean | undefined {
  * The untouched-and-absent case does nothing at all: no settings read
  * turns into a write, and a first-run machine is left exactly as found.
  */
-export function syncSessionTap(extensionDistDir: string): void {
+export function syncSessionTap(extensionDistDir: string, trigger: SyncTrigger): void {
   try {
     const choice = explicitChoice();
     if (choice === true) {
-      ensureSessionStartHook(extensionDistDir);
+      reportFailure(ensureSessionStartHook(extensionDistDir), "install", trigger);
       return;
     }
     if (choice === false) {
-      removeSessionStartHook();
+      reportFailure(removeSessionStartHook(), "remove", trigger);
       return;
     }
     // Untouched: converge only what is already there, never introduce it.
-    if (isSessionStartHookInstalled()) ensureSessionStartHook(extensionDistDir);
+    if (isSessionStartHookInstalled()) {
+      reportFailure(ensureSessionStartHook(extensionDistDir), "update", trigger);
+    }
   } catch (err) {
     console.warn("[claude-manager] session tap sync failed:", err);
   }
@@ -90,6 +116,6 @@ export function watchTerminalLinkingSetting(
   extensionDistDir: string,
 ): vscode.Disposable {
   return vscode.workspace.onDidChangeConfiguration((e) => {
-    if (e.affectsConfiguration(SETTING)) syncSessionTap(extensionDistDir);
+    if (e.affectsConfiguration(SETTING)) syncSessionTap(extensionDistDir, "setting-change");
   });
 }

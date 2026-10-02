@@ -4,6 +4,33 @@ import { _fireConfigChange, _resetListeners, _setVersion } from "../../__mocks__
 import { ClaudeSessionViewProvider } from "../../features/sessions/viewProvider";
 import { activate } from "../extension";
 
+// Stubbed so the import command never touches the real ~/.claude.json;
+// the importer's own behaviour is covered in features/brain/__tests__.
+const brainImport = vi.hoisted(() => ({
+  summary: { written: [], overwritten: [], skipped: [], mergedMcpServers: [], warnings: [] } as {
+    written: string[];
+    overwritten: string[];
+    skipped: string[];
+    mergedMcpServers: string[];
+    warnings: string[];
+  },
+}));
+vi.mock("../../features/brain/importer", () => ({
+  readManifest: () => ({ sections: ["global"] }),
+  previewConflicts: () => ({ overwrites: [], mcpReplacements: [] }),
+  importBrain: () => brainImport.summary,
+}));
+vi.mock("fs", async (importOriginal) => {
+  const actual = (await importOriginal()) as typeof import("fs");
+  return {
+    ...actual,
+    readFileSync: (p: unknown, ...rest: unknown[]) =>
+      p === "/picked/brain.zip"
+        ? Buffer.from("zip")
+        : (actual.readFileSync as (...a: unknown[]) => unknown)(p, ...rest),
+  };
+});
+
 interface FakeContext {
   subscriptions: Array<{ dispose: () => void }>;
   extensionUri: { fsPath: string; scheme: string; path: string };
@@ -212,5 +239,42 @@ describe("panel placement", () => {
 
     runCommand(registerCommandSpy, "claudeManager.open");
     expect(executeCommandSpy).toHaveBeenCalledWith("claudeCodeManager.secondaryView.focus");
+  });
+});
+
+describe("claudeManager.importBrain", () => {
+  it("reports what landed and the MCP merge refusal instead of failing the import", async () => {
+    vi.spyOn(ClaudeSessionViewProvider.prototype, "refreshSettings").mockImplementation(() => {});
+    const registerCommandSpy = vi
+      .spyOn(vscode.commands, "registerCommand")
+      .mockReturnValue({ dispose: () => {} });
+    activate(makeContext() as unknown as vscode.ExtensionContext);
+    const refusal = "MCP servers were not merged: ~/.claude.json is locked by Claude Code";
+    brainImport.summary = {
+      written: ["/h/.claude/agents/a.md"],
+      overwritten: [],
+      skipped: ["global/mcpServers.json"],
+      mergedMcpServers: [],
+      warnings: [refusal],
+    };
+    vi.spyOn(vscode.window, "showOpenDialog").mockResolvedValue([{ fsPath: "/picked/brain.zip" }] as never);
+    vi.spyOn(vscode.window, "showQuickPick").mockImplementation(async (items) => items as never);
+    // The confirm dialog answers with its action button; the result dialog with "OK".
+    const warn = vi
+      .spyOn(vscode.window, "showWarningMessage")
+      .mockImplementation(async (...args: unknown[]) => args[2] as never);
+    const info = vi.spyOn(vscode.window, "showInformationMessage");
+    const error = vi.spyOn(vscode.window, "showErrorMessage");
+
+    const entry = registerCommandSpy.mock.calls.find((c) => c[0] === "claudeManager.importBrain");
+    await (entry?.[1] as () => Promise<void>)();
+
+    expect(error).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledWith("Brain import complete — 1 written · 1 skipped.");
+    expect(warn).toHaveBeenLastCalledWith(
+      "Brain import finished with warnings.",
+      { modal: true, detail: refusal },
+      "OK",
+    );
   });
 });

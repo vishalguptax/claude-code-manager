@@ -1,3 +1,4 @@
+import * as os from "os";
 import * as path from "path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +25,11 @@ vi.mock("fs", () => {
     },
     existsSync: (p: string): boolean =>
       fsState.files.has(String(p)) || fsState.dirs.has(String(p)),
+    // core/nodePath's executable check: a seeded file counts as runnable.
+    constants: { X_OK: 1 },
+    accessSync: (p: string): void => {
+      if (!fsState.files.has(String(p))) enoent();
+    },
     copyFileSync: (src: string, dst: string): void => {
       const v = fsState.files.get(String(src));
       if (v === undefined) enoent();
@@ -71,31 +77,35 @@ vi.mock("../parser", async () => {
   const cfg = await vi.importActual<typeof import("../../../core/config")>(
     "../../../core/config",
   );
-  const p = await vi.importActual<typeof import("path")>("path");
-  const settingsFileFor = (scope: string, workspacePath?: string): string | null => {
-    if (scope === "global") return cfg.SETTINGS_FILE;
-    if (!workspacePath) return null;
-    if (scope === "project") return p.join(workspacePath, ".claude", "settings.json");
-    if (scope === "local") return p.join(workspacePath, ".claude", "settings.local.json");
-    return null;
-  };
+  // The real resolver, so the $HOME guard applies here exactly as in
+  // production.
+  const settingsFileFor = (
+    scope: "global" | "project" | "local",
+    workspacePath?: string,
+  ): string | null => cfg.claudeSettingsPath(scope, workspacePath);
   return {
     writeSettingsValue: (
       key: string,
       value: unknown,
-      scope: string = "global",
+      scope: "global" | "project" | "local" = "global",
       workspacePath?: string,
-    ): boolean => {
+    ): { ok: true } | { ok: false; error: string } => {
       settings.calls.push({ key, value, scope, workspacePath });
       const filePath = settingsFileFor(scope, workspacePath);
-      if (!filePath) return false;
+      if (!filePath) return { ok: false, error: "no settings file" };
       let data: Record<string, unknown> = {};
       const raw = fsState.files.get(filePath);
       if (raw !== undefined) {
+        // Mirror the real writer's refusal of a file caught mid-rewrite
+        // (the vfs has no mtimes; a blank file here is always a fresh one)
+        // or one that does not parse.
+        if (raw.trim() === "") {
+          return { ok: false, error: `${filePath} is being written by Claude Code right now` };
+        }
         try {
           data = JSON.parse(raw) as Record<string, unknown>;
         } catch {
-          data = {};
+          return { ok: false, error: `${filePath} isn't valid JSON` };
         }
       }
       // Apply the dotted key generically, exactly as the real writer
@@ -119,7 +129,7 @@ vi.mock("../parser", async () => {
         target[parts[parts.length - 1]] = value;
       }
       fsState.files.set(filePath, JSON.stringify(data));
-      return true;
+      return { ok: true };
     },
   };
 });
@@ -285,6 +295,13 @@ describe("installStatusline (global-first)", () => {
     expect(readSidecar().global).toEqual({ priorCommand: "" });
   });
 
+  it("upgrades a bare-node tap once an absolute node can be resolved", () => {
+    seedSettingsAt(SETTINGS_FILE, `"node" "${STATUSLINE_TAP_FILE}"`);
+    installStatusline(TAP_SOURCE, WS);
+    expect(commandAt(SETTINGS_FILE)).toBe(TAP_COMMAND);
+    expect(readSidecar().global).toEqual({ priorCommand: "" });
+  });
+
   it("is idempotent — a second install changes nothing", () => {
     seedSettingsAt(PROJECT_SETTINGS, "project-bar.sh");
     installStatusline(TAP_SOURCE, WS);
@@ -314,6 +331,25 @@ describe("installStatusline (global-first)", () => {
     fsState.dirs.delete(WS);
     installStatusline(TAP_SOURCE);
     expect(readSidecar().workspaces[WS]).toBeUndefined();
+  });
+
+  it("refuses — passing on the writer's reason — when global settings.json is empty", () => {
+    // Claude Code mid-rewrite: the file exists but has no bytes yet.
+    fsState.files.set(SETTINGS_FILE, "");
+    const res = installStatusline(TAP_SOURCE, WS);
+    expect(res.ok).toBe(false);
+    expect(!res.ok && res.error).toBe(`${SETTINGS_FILE} is being written by Claude Code right now`);
+    expect(fsState.files.get(SETTINGS_FILE)).toBe("");
+  });
+
+  it("$HOME as the workspace: installs globally and never treats it as a project", () => {
+    const HOME = os.homedir();
+    fsState.dirs.add(HOME);
+    const res = installStatusline(TAP_SOURCE, HOME);
+    expect(res.ok && res.repairedProject).toBe(false);
+    expect(commandAt(SETTINGS_FILE)).toBe(TAP_COMMAND);
+    expect(readSidecar().workspaces[HOME]).toBeUndefined();
+    expect(settings.calls.every((c) => c.scope === "global")).toBe(true);
   });
 
   it("works with no workspace open (global only)", () => {
@@ -410,6 +446,25 @@ describe("selfHealStatusline", () => {
     expect(settings.calls).toEqual([]);
     // The foreign entry stays — cleanup is offered via notification.
     expect(commandAt(PROJECT_SETTINGS)).toBe(FOREIGN_TAP);
+  });
+
+  it("keeps the global tap when $HOME is opened — no 'poisoned project' flapping", () => {
+    const HOME = os.homedir();
+    fsState.dirs.add(HOME);
+    installStatusline(TAP_SOURCE, HOME);
+    settings.calls = [];
+    for (let i = 0; i < 3; i++) selfHealStatusline(TAP_SOURCE, HOME);
+    expect(settings.calls).toEqual([]);
+    expect(commandAt(SETTINGS_FILE)).toBe(TAP_COMMAND);
+    expect(detectForeignProjectTap(HOME)).toBe(false);
+  });
+
+  it("skips without writing when settings.json is caught empty mid-rewrite", () => {
+    installStatusline(TAP_SOURCE, WS);
+    fsState.files.set(SETTINGS_FILE, "");
+    const res = selfHealStatusline(TAP_SOURCE, WS);
+    expect(res.ok).toBe(false);
+    expect(fsState.files.get(SETTINGS_FILE)).toBe("");
   });
 
   it("re-wires global when settings got reverted", () => {

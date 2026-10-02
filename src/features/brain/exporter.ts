@@ -7,8 +7,7 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
-import { CLAUDE_DIR } from "../../core/config";
+import { CLAUDE_DIR, CLAUDE_JSON_FILE } from "../../core/config";
 import { writeZip, type ZipEntry } from "./zip";
 
 export type BrainScope = "global" | "project" | "both";
@@ -76,7 +75,7 @@ function walkFiles(dir: string, out: string[]): void {
  * machine-specific state and should NOT end up in a shared brain.
  */
 function readGlobalMcpServers(): string | null {
-  const claudeJson = path.join(os.homedir(), ".claude.json");
+  const claudeJson = CLAUDE_JSON_FILE;
   try {
     const raw = fs.readFileSync(claudeJson, "utf-8");
     const parsed = JSON.parse(raw) as { mcpServers?: unknown };

@@ -6,6 +6,7 @@ import {
   CONFIG_LOCK,
   CREDENTIAL_LOCKS,
   describeLockFailure,
+  isLockHeld,
   type LockSpec,
   withLocks,
 } from "../claudeLocks";
@@ -29,6 +30,11 @@ afterEach(() => {
   fs.rmSync(dir, { recursive: true, force: true });
   vi.useRealTimers();
 });
+
+// These cases contend for a live lock, so withLocks waits out its real 3 s
+// acquire timeout before giving up — more than Vitest's 5 s default once the
+// machine is busy. The budget matches the behaviour under test.
+const WAITS_OUT_ACQUIRE = 15_000;
 
 describe("withLocks", () => {
   it("runs the work and releases the lock afterwards", () => {
@@ -80,7 +86,7 @@ describe("withLocks", () => {
     if (!result.ok) expect(result.failure.reason).toBe("busy");
     // Someone else's lock must survive our failed attempt.
     expect(fs.existsSync(a.dir)).toBe(true);
-  });
+  }, WAITS_OUT_ACQUIRE);
 
   it("reclaims a lock whose holder died", () => {
     const a = lock("a.lock", 50);
@@ -105,7 +111,7 @@ describe("withLocks", () => {
     const result = withLocks([a], () => "should not run");
 
     expect(result.ok).toBe(false);
-  });
+  }, WAITS_OUT_ACQUIRE);
 
   it("releases locks it already holds when a later one cannot be taken", () => {
     const a = lock("a.lock");
@@ -118,7 +124,7 @@ describe("withLocks", () => {
     // The first lock must not be left behind for the stale timer to reap.
     expect(fs.existsSync(a.dir)).toBe(false);
     expect(fs.existsSync(b.dir)).toBe(true);
-  });
+  }, WAITS_OUT_ACQUIRE);
 
   it("reports an unavailable lock separately from a busy one", () => {
     // A path whose parent does not exist cannot be created at all — that is a
@@ -134,16 +140,24 @@ describe("withLocks", () => {
     }
   });
 
-  it("keeps the lock fresh while long work runs", async () => {
+  it("restarts every held lock's stale window just before the work runs", () => {
+    // `b` is held by a holder about to go stale, so taking it costs a few
+    // retries — time during which `a`, already ours, ages.
     const a = lock("a.lock", 60_000);
-    let observed = 0;
-    withLocks([a], () => {
-      observed = fs.statSync(a.dir).mtimeMs;
+    const b = lock("b.lock", 300);
+    fs.mkdirSync(b.dir);
+    const nearlyStale = new Date(Date.now() - 150);
+    fs.utimesSync(b.dir, nearlyStale, nearlyStale);
+
+    const started = Date.now();
+    let aMtime = 0;
+    const result = withLocks([a, b], () => {
+      aMtime = fs.statSync(a.dir).mtimeMs;
       return null;
     });
-    // The heartbeat only matters over seconds; assert it is wired rather than
-    // sleeping for one: the directory existed with a fresh mtime during work.
-    expect(Date.now() - observed).toBeLessThan(5_000);
+    expect(result.ok).toBe(true);
+    // Untouched, `a` would still carry its acquisition time (≈ started).
+    expect(aMtime - started).toBeGreaterThanOrEqual(100);
   });
 
   it("serialises two writers: the second cannot enter while the first holds", () => {
@@ -158,7 +172,7 @@ describe("withLocks", () => {
 
     expect(inner).not.toBeNull();
     expect(inner?.ok).toBe(false);
-  });
+  }, WAITS_OUT_ACQUIRE);
 });
 
 describe("lock specs", () => {
@@ -188,5 +202,25 @@ describe("lock specs", () => {
 describe("describeLockFailure", () => {
   it("tells the user to retry when the lock is merely busy", () => {
     expect(describeLockFailure({ reason: "busy", lock: "/x" })).toContain("Try again");
+  });
+});
+
+describe("isLockHeld", () => {
+  it("is false when nobody holds the lock", () => {
+    expect(isLockHeld(lock("a.lock"))).toBe(false);
+  });
+
+  it("is true while a live holder has it", () => {
+    const a = lock("a.lock");
+    fs.mkdirSync(a.dir);
+    expect(isLockHeld(a)).toBe(true);
+  });
+
+  it("is false for an abandoned lock past its stale window", () => {
+    const a = lock("a.lock", 1_000);
+    fs.mkdirSync(a.dir);
+    const old = new Date(Date.now() - 10_000);
+    fs.utimesSync(a.dir, old, old);
+    expect(isLockHeld(a)).toBe(false);
   });
 });

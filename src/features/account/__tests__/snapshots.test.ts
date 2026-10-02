@@ -15,7 +15,9 @@ const tmp = vi.hoisted(() => {
   return { snapshotsDir: pathLocal.join(dir, "snapshots"), root: dir };
 });
 
-vi.mock("../../../core/config", () => ({
+vi.mock("../../../core/config", async (importOriginal) => ({
+  // The real canonicaliser: snapshot buckets are keyed by it.
+  canonicalPath: (await importOriginal<typeof import("../../../core/config")>()).canonicalPath,
   CLAUDE_DIR: tmp.root,
   HISTORY_FILE: path.join(tmp.root, "history.jsonl"),
   PROJECTS_DIR: path.join(tmp.root, "projects"),
@@ -91,7 +93,7 @@ describe("snapshots module", () => {
       fs.writeFileSync(live, JSON.stringify({ a: i }));
       snapshotSettings("global", live, 100);
     }
-    pruneSnapshots("global", 2);
+    pruneSnapshots("global", live, 2);
     expect(listSnapshots("global", live)).toHaveLength(2);
   });
 
@@ -113,5 +115,86 @@ describe("snapshots module", () => {
     expect(list).toHaveLength(1);
     expect(deleteSnapshot("global", list[0].id)).toBe(true);
     expect(listSnapshots("global", live)).toHaveLength(0);
+  });
+});
+
+describe("project/local snapshots are scoped to their workspace", () => {
+  function projectFile(ws: string, body: Record<string, unknown>): string {
+    const file = path.join(tmp.root, ws, ".claude", "settings.json");
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(body));
+    return file;
+  }
+
+  it("lists only the workspace's own snapshots", () => {
+    const a = projectFile("ws-a", { who: "a" });
+    const b = projectFile("ws-b", { who: "b" });
+    snapshotSettings("project", a);
+    snapshotSettings("project", b);
+    snapshotSettings("project", b);
+    expect(listSnapshots("project", a)).toHaveLength(1);
+    expect(listSnapshots("project", b)).toHaveLength(2);
+  });
+
+  it.skipIf(process.platform === "win32")(
+    "keeps one history for a project opened through a symlink",
+    () => {
+      const real = projectFile("ws-real", { who: "real" });
+      const link = path.join(tmp.root, "ws-link");
+      fs.symlinkSync(path.join(tmp.root, "ws-real"), link, "dir");
+      snapshotSettings("project", path.join(link, ".claude", "settings.json"));
+      expect(listSnapshots("project", real)).toHaveLength(1);
+    },
+  );
+
+  it("refuses to restore another workspace's snapshot into this one", () => {
+    // The pre-fix bug: one shared project/ dir, so B's list offered A's
+    // snapshot and restoring wrote A's settings into B.
+    const a = projectFile("ws-a", { who: "a" });
+    const b = projectFile("ws-b", { who: "b" });
+    const idA = snapshotSettings("project", a)!;
+    expect(restoreSnapshot("project", b, idA)).toBe(false);
+    expect(JSON.parse(fs.readFileSync(b, "utf-8"))).toEqual({ who: "b" });
+    expect(restoreSnapshot("project", a, idA)).toBe(true);
+  });
+
+  it("does not let one project's writes evict another's history", () => {
+    const a = projectFile("ws-a", { who: "a" });
+    const b = projectFile("ws-b", { who: "b" });
+    snapshotSettings("project", a, 2);
+    for (let i = 0; i < 4; i++) snapshotSettings("project", b, 2);
+    expect(listSnapshots("project", a)).toHaveLength(1);
+    expect(listSnapshots("project", b)).toHaveLength(2);
+  });
+
+  it("deletes by id without needing the workspace", () => {
+    const a = projectFile("ws-a", { who: "a" });
+    const id = snapshotSettings("local", a)!;
+    expect(deleteSnapshot("local", id)).toBe(true);
+    expect(listSnapshots("local", a)).toHaveLength(0);
+  });
+
+  it("ignores legacy unbucketed project snapshots — their workspace is unknown", () => {
+    const a = projectFile("ws-a", { who: "a" });
+    const legacyDir = path.join(tmp.snapshotsDir, "project");
+    fs.mkdirSync(legacyDir, { recursive: true });
+    fs.writeFileSync(path.join(legacyDir, "settings-1700000000000.json"), '{"who":"?"}');
+    expect(listSnapshots("project", a)).toEqual([]);
+    expect(restoreSnapshot("project", a, "settings-1700000000000.json")).toBe(false);
+  });
+
+  it("rejects ids that are not ones we minted", () => {
+    const a = projectFile("ws-a", { who: "a" });
+    fs.writeFileSync(path.join(tmp.root, "escape.json"), "{}");
+    for (const bad of [
+      "../../escape.json",
+      "0123456789abcdef/../../escape.json",
+      "0123456789abcdef/settings-1.json/x",
+    ]) {
+      expect(restoreSnapshot("project", a, bad)).toBe(false);
+      expect(deleteSnapshot("project", bad)).toBe(false);
+    }
+    expect(deleteSnapshot("global", "0123456789abcdef/settings-1.json")).toBe(false);
+    expect(fs.existsSync(path.join(tmp.root, "escape.json"))).toBe(true);
   });
 });

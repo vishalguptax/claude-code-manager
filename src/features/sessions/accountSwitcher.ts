@@ -28,6 +28,37 @@ export interface ProfileRowText {
 }
 
 /**
+ * Claude Code warns about a login once its refresh token has three days or
+ * less left; the switcher uses the same threshold so the two agree.
+ */
+const LOGIN_EXPIRY_WARN_MS = 3 * 86_400_000;
+
+/** Whether a saved login can no longer sign in. False when the expiry is unrecorded. */
+function isLoginExpired(refreshTokenExpiresAt: number, now: number = Date.now()): boolean {
+  return refreshTokenExpiresAt > 0 && refreshTokenExpiresAt <= now;
+}
+
+/**
+ * A saved login's remaining life, worded for a switcher row, or "" while it
+ * has more than three days left (or the CLI never recorded it). The access
+ * token's own expiry is not this — it refreshes silently every few hours;
+ * the refresh token's is the one that forces a fresh `/login`.
+ */
+function describeLoginExpiry(refreshTokenExpiresAt: number, now: number = Date.now()): string {
+  if (!refreshTokenExpiresAt) return "";
+  if (isLoginExpired(refreshTokenExpiresAt, now)) return "login expired — sign in again";
+  const left = refreshTokenExpiresAt - now;
+  if (left > LOGIN_EXPIRY_WARN_MS) return "";
+  const days = Math.max(1, Math.ceil(left / 86_400_000));
+  return `login expires in ${days} day${days === 1 ? "" : "s"}`;
+}
+
+/** `Switch failed: <detail>.` without doubling a period the detail already ends with. */
+function switchFailureMessage(detail: string): string {
+  return `Switch failed: ${detail}${/[.!?]$/.test(detail) ? "" : "."}`;
+}
+
+/**
  * Text for one account row.
  *
  * The description carries what decides the click: whether this is where
@@ -46,13 +77,14 @@ export function profileRowText(
 ): ProfileRowText {
   const status = flags.isActive ? "Active" : flags.isDuplicate ? "Duplicate" : "";
   const quota = describeProfileQuota(profile.lastQuota ?? null, now);
+  const expiry = describeLoginExpiry(profile.refreshTokenExpiresAt, now);
   const meta: string[] = [];
   if (profile.email) meta.push(profile.email);
   if (profile.subscriptionType) meta.push(profile.subscriptionType);
   if (profile.organizationName) meta.push(profile.organizationName);
   if (flags.isDuplicate) meta.push("duplicate — remove if unused");
   return {
-    description: [status, quota].filter(Boolean).join(" · "),
+    description: [status, expiry, quota].filter(Boolean).join(" · "),
     // Every row keeps a `detail` so native row heights match.
     detail: meta.join(" · ") || "Saved profile",
   };
@@ -243,17 +275,25 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
     if (pick.action === "switch" && pick.slug) {
       if (pick.slug === activeSlug) return;
       const targetProfile = savedProfiles.find((p) => p.slug === pick.slug);
+      // An expired login still switches — the identity and tokens land —
+      // but Claude Code cannot use them and will ask for /login. Say so
+      // before, not after, so the user can pick a working account instead.
+      const expired = !!targetProfile && isLoginExpired(targetProfile.refreshTokenExpiresAt);
+      const confirmButton = expired ? "Switch anyway" : "Switch";
       const confirm = await vscode.window.showWarningMessage(
-        "Switch Claude account?",
-        { modal: true, detail: buildSwitchConfirmDetail(targetProfile) },
-        "Switch",
+        expired ? "This saved login has expired." : "Switch Claude account?",
+        {
+          modal: true,
+          detail: expired
+            ? `Switching works, but Claude Code will ask you to run /login for ${targetProfile.email || targetProfile.label} before it can be used. ${buildSwitchConfirmDetail(targetProfile)}`
+            : buildSwitchConfirmDetail(targetProfile),
+        },
+        confirmButton,
       );
-      if (confirm !== "Switch") return;
+      if (confirm !== confirmButton) return;
       const result = switchProfileSnapshot(pick.slug);
       if (!result.ok) {
-        vscode.window.showErrorMessage(
-          `Switch failed: ${result.detail ?? result.error}.`,
-        );
+        vscode.window.showErrorMessage(switchFailureMessage(result.detail ?? result.error));
       } else {
         // Set the honest expectation: the credentials are swapped
         // immediately (new sessions pick them up at once), but a Claude

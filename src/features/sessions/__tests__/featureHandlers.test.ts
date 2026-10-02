@@ -44,6 +44,9 @@ vi.mock("../../agents/parser", () => ({ parseAgents: () => mockParseAgents() }))
 
 import { handleFeatureMessage } from "../featureHandlers";
 
+/** A writer refusal; the handler must pass its reason through verbatim. */
+const REFUSAL = "/ws/.claude/settings.json isn't valid JSON, so it was left untouched";
+
 function makeHook(overrides: Partial<Hook> = {}): Hook {
   return {
     event: "PreToolUse",
@@ -106,20 +109,20 @@ describe("getHooks", () => {
 describe("toggleHookEnabled", () => {
   it("surfaces a failure with showErrorMessage and still refreshes the list", async () => {
     mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
-    mockToggleHookEnabled.mockReturnValue(false);
+    mockToggleHookEnabled.mockReturnValue({ ok: false, error: REFUSAL });
     const err = vi.spyOn(vscode.window, "showErrorMessage");
     const { ctx, posted } = harness();
     const hook = makeHook();
     await handleFeatureMessage({ type: "toggleHookEnabled", hook }, ctx);
     expect(err).toHaveBeenCalledTimes(1);
-    expect(err.mock.calls[0][0]).toContain("Failed to disable hook");
+    expect(err.mock.calls[0][0]).toBe(`Failed to disable hook: ${REFUSAL}. The list has been refreshed.`);
     expect(mockParseHooks).toHaveBeenCalled();
     expect(posted[0]).toMatchObject({ type: "hooks" });
   });
 
   it("does not report an error on success", async () => {
     mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
-    mockToggleHookEnabled.mockReturnValue(true);
+    mockToggleHookEnabled.mockReturnValue({ ok: true });
     const err = vi.spyOn(vscode.window, "showErrorMessage");
     const { ctx } = harness();
     await handleFeatureMessage({ type: "toggleHookEnabled", hook: makeHook() }, ctx);
@@ -138,15 +141,15 @@ describe("toggleHookEnabled", () => {
 });
 
 describe("deleteHook", () => {
-  it("surfaces a failure when the writer can't find the hook", async () => {
+  it("surfaces the writer's reason for a failure", async () => {
     mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
-    mockDeleteHook.mockReturnValue(false);
+    mockDeleteHook.mockReturnValue({ ok: false, error: REFUSAL });
     vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue("Delete" as never);
     const err = vi.spyOn(vscode.window, "showErrorMessage");
     const { ctx } = harness();
     await handleFeatureMessage({ type: "deleteHook", hook: makeHook() }, ctx);
     expect(err).toHaveBeenCalledTimes(1);
-    expect(err.mock.calls[0][0]).toContain("Failed to delete hook");
+    expect(err.mock.calls[0][0]).toBe(`Failed to delete hook: ${REFUSAL}. The list has been refreshed.`);
   });
 
   it("does nothing when the confirm modal is dismissed", async () => {
@@ -158,9 +161,9 @@ describe("deleteHook", () => {
 });
 
 describe("updateHook", () => {
-  it("surfaces a failure (e.g. non-command hook, or edited on disk)", async () => {
+  it("surfaces the writer's reason (e.g. non-command hook, or edited on disk)", async () => {
     mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
-    mockUpdateHook.mockReturnValue(false);
+    mockUpdateHook.mockReturnValue({ ok: false, error: REFUSAL });
     const err = vi.spyOn(vscode.window, "showErrorMessage");
     const { ctx } = harness();
     await handleFeatureMessage(
@@ -168,12 +171,12 @@ describe("updateHook", () => {
       ctx,
     );
     expect(err).toHaveBeenCalledTimes(1);
-    expect(err.mock.calls[0][0]).toContain("Failed to update hook");
+    expect(err.mock.calls[0][0]).toBe(`Failed to update hook: ${REFUSAL}. The list has been refreshed.`);
   });
 
   it("does not report an error on success", async () => {
     mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
-    mockUpdateHook.mockReturnValue(true);
+    mockUpdateHook.mockReturnValue({ ok: true });
     const err = vi.spyOn(vscode.window, "showErrorMessage");
     const { ctx } = harness();
     await handleFeatureMessage(
@@ -185,7 +188,7 @@ describe("updateHook", () => {
 
   it("uses updateHook (same file) when the scope is unchanged", async () => {
     mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
-    mockUpdateHook.mockReturnValue(true);
+    mockUpdateHook.mockReturnValue({ ok: true });
     const { ctx } = harness();
     await handleFeatureMessage(
       {
@@ -201,7 +204,7 @@ describe("updateHook", () => {
 
   it("uses moveHookToFile when the scope changes", async () => {
     mockResolveSettingsPath.mockImplementation((scope: string) => `/ws/.claude/${scope}.json`);
-    mockMoveHookToFile.mockReturnValue(true);
+    mockMoveHookToFile.mockReturnValue({ ok: true });
     const { ctx } = harness();
     await handleFeatureMessage(
       {
@@ -243,10 +246,61 @@ describe("promptAddHook", () => {
       .mockResolvedValueOnce("Write") // matcher
       .mockResolvedValueOnce("echo hi"); // command
     mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
-    mockAddHook.mockReturnValue(true);
+    mockAddHook.mockReturnValue({ ok: true });
     const { ctx } = harness();
     await handleFeatureMessage({ type: "promptAddHook" }, ctx);
     expect(mockAddHook).toHaveBeenCalledWith("/ws/.claude/settings.json", "PreToolUse", "Write", "echo hi");
+  });
+
+  it("names what a non-tool event's matcher is tested against", async () => {
+    vi.spyOn(vscode.window, "showQuickPick")
+      .mockResolvedValueOnce({ label: "Global", value: "global" } as never)
+      .mockResolvedValueOnce({ label: "SessionStart" } as never);
+    const input = vi
+      .spyOn(vscode.window, "showInputBox")
+      .mockResolvedValueOnce("compact")
+      .mockResolvedValueOnce("echo hi");
+    mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
+    mockAddHook.mockReturnValue({ ok: true });
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "promptAddHook" }, ctx);
+    expect(input.mock.calls[0][0]?.placeHolder).toContain("startup|resume|clear|compact");
+    expect(mockAddHook).toHaveBeenCalledWith("/ws/.claude/settings.json", "SessionStart", "compact", "echo hi");
+  });
+
+  it("skips the matcher prompt for an event Claude Code never matches", async () => {
+    vi.spyOn(vscode.window, "showQuickPick")
+      .mockResolvedValueOnce({ label: "Global", value: "global" } as never)
+      .mockResolvedValueOnce({ label: "Stop" } as never);
+    const input = vi.spyOn(vscode.window, "showInputBox").mockResolvedValueOnce("echo hi");
+    mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
+    mockAddHook.mockReturnValue({ ok: true });
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "promptAddHook" }, ctx);
+    expect(input).toHaveBeenCalledTimes(1);
+    expect(mockAddHook).toHaveBeenCalledWith("/ws/.claude/settings.json", "Stop", "", "echo hi");
+  });
+
+  it("offers Project and Local scopes when a workspace is open", async () => {
+    mockGetWorkspace.mockReturnValueOnce("/ws");
+    mockResolveSettingsPath.mockImplementation((scope: string) => `/ws/${scope}.json`);
+    const pick = vi.spyOn(vscode.window, "showQuickPick").mockResolvedValueOnce(undefined);
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "promptAddHook" }, ctx);
+    const scopes = (pick.mock.calls[0][0] as { value: string }[]).map((c) => c.value);
+    expect(scopes).toEqual(["global", "project", "local"]);
+  });
+
+  it("omits Project when the home folder is open (it would be the global file)", async () => {
+    mockGetWorkspace.mockReturnValueOnce("/home/me");
+    mockResolveSettingsPath.mockImplementation((scope: string) =>
+      scope === "project" ? null : `/home/me/${scope}.json`,
+    );
+    const pick = vi.spyOn(vscode.window, "showQuickPick").mockResolvedValueOnce(undefined);
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "promptAddHook" }, ctx);
+    const scopes = (pick.mock.calls[0][0] as { value: string }[]).map((c) => c.value);
+    expect(scopes).toEqual(["global", "local"]);
   });
 
   it("surfaces a failure from the writer", async () => {
@@ -257,11 +311,11 @@ describe("promptAddHook", () => {
       .mockResolvedValueOnce("Write")
       .mockResolvedValueOnce("echo hi");
     mockResolveSettingsPath.mockReturnValue("/ws/.claude/settings.json");
-    mockAddHook.mockReturnValue(false);
+    mockAddHook.mockReturnValue({ ok: false, error: REFUSAL });
     const err = vi.spyOn(vscode.window, "showErrorMessage");
     const { ctx } = harness();
     await handleFeatureMessage({ type: "promptAddHook" }, ctx);
-    expect(err).toHaveBeenCalledWith("Failed to write hook to settings.json.");
+    expect(err).toHaveBeenCalledWith(`Failed to add hook: ${REFUSAL}. The list has been refreshed.`);
   });
 });
 

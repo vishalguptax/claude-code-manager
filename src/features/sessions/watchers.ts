@@ -28,7 +28,7 @@ import {
   applyLiveState,
 } from "./parser";
 import { loadState } from "./state";
-import { getTempSessionIds } from "../../extension/ephemeralSession";
+import { getTempSessionIds } from "./ephemeralSession";
 import { CLAUDE_MANAGER_DIR, STATUSLINE_CACHE_FILE } from "../../core/config";
 import { getWorkspace } from "../../extension/workspace";
 import { parseAccountData } from "../account/parser";
@@ -104,6 +104,7 @@ function sessionIdFromTranscriptPath(filePath: string): string | null {
 export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   const watchers: vscode.FileSystemWatcher[] = [];
   let accountReparseTimer: NodeJS.Timeout | undefined;
+  let profileSyncRetryTimer: NodeJS.Timeout | undefined;
   let sessionsReparseTimer: NodeJS.Timeout | undefined;
   let sessionsBurstStartedAt = 0;
   let quotaCacheTimer: NodeJS.Timeout | undefined;
@@ -171,7 +172,15 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
         // No-op when no slot matches the live identity. Best-effort:
         // a write failure here must not block the reparse + UI push.
         try {
-          syncActiveProfileSnapshot();
+          const sync = syncActiveProfileSnapshot();
+          // Deferred = the tokens just changed and their owner isn't
+          // certain yet (mid-/login). The identity write that settles it
+          // usually fires this watcher again; a plain token refresh never
+          // does, so look again once the settle window has passed.
+          if (sync.kind === "deferred") {
+            if (profileSyncRetryTimer) clearTimeout(profileSyncRetryTimer);
+            profileSyncRetryTimer = setTimeout(onAccountChange, sync.retryInMs);
+          }
         } catch (err) {
           console.warn("[claude-manager] sync active profile failed:", err);
         }
@@ -481,6 +490,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   return {
     dispose(): void {
       if (accountReparseTimer) clearTimeout(accountReparseTimer);
+      if (profileSyncRetryTimer) clearTimeout(profileSyncRetryTimer);
       accountReparseTimer = undefined;
       if (sessionsReparseTimer) clearTimeout(sessionsReparseTimer);
       sessionsReparseTimer = undefined;

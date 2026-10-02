@@ -31,14 +31,15 @@ import type { PluginSettingsScope } from "./types";
 
 /**
  * Write one top-level settings key at an explicit scope, returning whether
- * it landed. Structurally `writeSettingsValue(key, value, scope, workspace)`.
+ * it landed and, when it did not, the user-facing reason (which names the
+ * file). Structurally `writeSettingsValue(key, value, scope, workspace)`.
  */
 export type SettingsWriter = (
   key: string,
   value: unknown,
   scope: ClaudeSettingsScope,
   workspacePath?: string,
-) => boolean;
+) => { ok: true } | { ok: false; error: string };
 
 /** Outcome of a toggle, phrased for a `showErrorMessage`. */
 export interface SetPluginEnabledResult {
@@ -162,9 +163,7 @@ export function setPluginEnabled(
     };
   }
 
-  const ok = write("enabledPlugins", next, target, workspacePath);
-  return ok
-    ? { ok: true }
-    : { ok: false, error: `Failed to write ${settingsPath}.` };
+  const wrote = write("enabledPlugins", next, target, workspacePath);
+  return wrote.ok ? { ok: true } : { ok: false, error: `${wrote.error}.` };
 }
 

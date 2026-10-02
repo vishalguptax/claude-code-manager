@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { h } from "preact";
 import { render, screen } from "@testing-library/preact";
-import { DisabledBadge, ReadOnlyBadge, ScopeBadge, TypeBadge } from "./McpBadges";
+import { DisabledBadge, PendingApprovalBadge, ReadOnlyBadge, ScopeBadge, TypeBadge } from "./McpBadges";
 
 describe("McpBadges", () => {
   it("renders each badge with its label and MCP modifier class on the shared chrome", () => {
@@ -33,5 +33,10 @@ describe("McpBadges", () => {
     rerender(h(TypeBadge, { type: "ws" }));
     expect(screen.getByText("ws")).toBeTruthy();
     expect(screen.queryByTitle(/deprecated/i)).toBeNull();
+  });
+
+  it("explains that a pending server will be prompted for by Claude Code", () => {
+    render(h(PendingApprovalBadge, {}));
+    expect(screen.getByText("needs approval").getAttribute("title")).toMatch(/ask you to approve/);
   });
 });

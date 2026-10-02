@@ -26,10 +26,32 @@ import {
 import { resolveSettingsPath } from "../account/parser";
 import { getWorkspace } from "../../extension/workspace";
 import { createTerminal, runInTerminal } from "../../extension/terminal";
-import { KNOWN_HOOK_EVENTS } from "../hooks/events";
+import { KNOWN_HOOK_EVENTS, matcherInfo, matcherPlaceholder } from "../hooks/events";
 import type { HookScope } from "../hooks/types";
 import type { WebviewMessage } from "./types";
 import type { HostContext } from "./hostContext";
+import type { WriteOutcome } from "../../core/atomicWrite";
+
+/**
+ * A hook scope with no settings file of its own: project scope when the
+ * workspace is the home folder (its .claude/settings.json is the global
+ * file), or project/local with no folder open.
+ */
+const NO_SETTINGS_FILE: WriteOutcome = {
+  ok: false,
+  error: "that scope has no settings file with the current folder",
+};
+
+/**
+ * Surface a refused or failed hook write. The writer's error says why —
+ * "being written, try again" and "not valid JSON, fix it" call for
+ * different actions — and the list is re-pushed either way, so it shows
+ * what is really on disk.
+ */
+function reportHookWrite(action: string, outcome: WriteOutcome): void {
+  if (outcome.ok) return;
+  vscode.window.showErrorMessage(`Failed to ${action}: ${outcome.error}. The list has been refreshed.`);
+}
 
 /** Re-parse hooks and push the fresh list (+ any parse errors) to the webview. */
 function pushHooks(ctx: HostContext, wv: PanelSink, workspace: string): void {
@@ -121,14 +143,10 @@ export async function handleFeatureMessage(
       if (msg.hook.scope === "plugin") break;
       const workspace = getWorkspace();
       const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
-      const ok = filePath
-        ? writerToggleHookEnabled(filePath, msg.hook, msg.hook.disabled)
-        : false;
-      if (!ok) {
-        vscode.window.showErrorMessage(
-          `Failed to ${msg.hook.disabled ? "enable" : "disable"} hook — it may have been edited on disk. The list has been refreshed.`,
-        );
-      }
+      reportHookWrite(
+        `${msg.hook.disabled ? "enable" : "disable"} hook`,
+        filePath ? writerToggleHookEnabled(filePath, msg.hook, msg.hook.disabled) : NO_SETTINGS_FILE,
+      );
       pushHooks(ctx, wv, workspace);
       break;
     }
@@ -146,12 +164,7 @@ export async function handleFeatureMessage(
       );
       if (choice !== "Delete") break;
       const filePath = resolveSettingsPath(msg.hook.scope, workspace || undefined);
-      const ok = filePath ? writerDeleteHook(filePath, msg.hook) : false;
-      if (!ok) {
-        vscode.window.showErrorMessage(
-          "Failed to delete hook — it may have been edited on disk. The list has been refreshed.",
-        );
-      }
+      reportHookWrite("delete hook", filePath ? writerDeleteHook(filePath, msg.hook) : NO_SETTINGS_FILE);
       pushHooks(ctx, wv, workspace);
       break;
     }
@@ -165,18 +178,15 @@ export async function handleFeatureMessage(
       const nextScope = msg.next.scope ?? msg.original.scope;
       // Never move a hook into plugin scope (read-only, plugin.json-owned).
       if (nextScope === "plugin") break;
-      let ok = false;
-      if (nextScope === msg.original.scope) {
-        ok = fromFile ? writerUpdateHook(fromFile, msg.original, msg.next) : false;
-      } else {
-        const toFile = resolveSettingsPath(nextScope, workspace || undefined);
-        ok = fromFile && toFile ? writerMoveHookToFile(fromFile, toFile, msg.original, msg.next) : false;
+      const sameScope = nextScope === msg.original.scope;
+      const toFile = sameScope ? fromFile : resolveSettingsPath(nextScope, workspace || undefined);
+      let outcome: WriteOutcome = NO_SETTINGS_FILE;
+      if (fromFile && toFile) {
+        outcome = sameScope
+          ? writerUpdateHook(fromFile, msg.original, msg.next)
+          : writerMoveHookToFile(fromFile, toFile, msg.original, msg.next);
       }
-      if (!ok) {
-        vscode.window.showErrorMessage(
-          "Failed to update hook — it may have been edited on disk, or is not editable (non-command hooks only support toggle/delete). The list has been refreshed.",
-        );
-      }
+      reportHookWrite("update hook", outcome);
       pushHooks(ctx, wv, workspace);
       break;
     }
@@ -205,9 +215,16 @@ export async function handleFeatureMessage(
       const scopeChoices: ScopeOption[] = [
         { label: "Global", description: "~/.claude/settings.json", value: "global" },
       ];
-      if (workspace) {
+      // Project has no file of its own when the home folder is open — it
+      // would be ~/.claude/settings.json, i.e. Global — so it is offered
+      // only when it resolves.
+      if (resolveSettingsPath("project", workspace || undefined)) {
         scopeChoices.push(
           { label: "Project", description: "<workspace>/.claude/settings.json", value: "project" },
+        );
+      }
+      if (workspace) {
+        scopeChoices.push(
           { label: "Local", description: "<workspace>/.claude/settings.local.json (gitignored)", value: "local" },
         );
       }
@@ -237,10 +254,16 @@ export async function handleFeatureMessage(
         event = custom.trim();
       }
 
-      const matcher = await vscode.window.showInputBox({
-        title: `Add hook — matcher (optional)`,
-        placeHolder: "Tool name / pattern, e.g. Write or Bash(git:*). Leave blank to match all.",
-      });
+      // Only ask for a matcher when Claude Code tests one for this event, and
+      // say what it is tested against — "Tool name" for a SessionStart hook
+      // invited a matcher that could never match.
+      const info = matcherInfo(event);
+      const matcher = info
+        ? await vscode.window.showInputBox({
+            title: `Add hook — matcher (optional)`,
+            placeHolder: matcherPlaceholder(info),
+          })
+        : "";
       if (matcher === undefined) break; // user cancelled (empty string is fine)
 
       const command = await vscode.window.showInputBox({
@@ -257,10 +280,7 @@ export async function handleFeatureMessage(
         );
         break;
       }
-      const ok = writerAddHook(filePath, event, matcher.trim(), command.trim());
-      if (!ok) {
-        vscode.window.showErrorMessage("Failed to write hook to settings.json.");
-      }
+      reportHookWrite("add hook", writerAddHook(filePath, event, matcher.trim(), command.trim()));
       pushHooks(ctx, wv, workspace);
       break;
     }

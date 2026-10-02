@@ -491,6 +491,8 @@ export interface SavedProfile {
   subscriptionType: string;
   savedAt: string;
   tokenExpiresAt: number;
+  /** When the saved login's refresh token stops working (ms epoch); 0 when unrecorded. */
+  refreshTokenExpiresAt: number;
   credentialsHash: string;
   /** Device-stable id from `.claude.json` — kept for legacy matching only. */
   userID: string;

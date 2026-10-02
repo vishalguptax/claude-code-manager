@@ -104,22 +104,31 @@ describe("DetailView", () => {
     expect(screen.getByText("disabled")).toBeTruthy();
   });
 
-  it("hides the matcher badge for a non-tool event", () => {
-    render(h(DetailView, { hook: hook({ event: "SessionStart", matcher: "" }) }));
+  it("hides the matcher badge for a blank-matcher hook on an unmatched event", () => {
+    render(h(DetailView, { hook: hook({ event: "Stop", matcher: "" }) }));
     expect(screen.queryByText(/matcher:/)).toBeNull();
   });
 
-  it("clears the matcher on save when re-homing to a non-tool event", () => {
-    const target = hook();
+  it("shows the matcher badge for a Notification hook", () => {
+    render(h(DetailView, { hook: hook({ event: "Notification", matcher: "permission_prompt" }) }));
+    expect(screen.getByText("matcher: permission_prompt")).toBeTruthy();
+  });
+
+  it("shows an existing matcher on an event this catalog doesn't know", () => {
+    render(h(DetailView, { hook: hook({ event: "SomeFutureEvent", matcher: "beta" }) }));
+    expect(screen.getByText("matcher: beta")).toBeTruthy();
+  });
+
+  it("saves a SessionStart hook's matcher unchanged through the edit flow", () => {
+    const target = hook({ event: "SessionStart", matcher: "compact" });
     render(h(DetailView, { hook: target }));
+    expect(screen.getByText("matcher: compact")).toBeTruthy();
     fireEvent.click(screen.getByText("Edit"));
-    fireEvent.click(screen.getByLabelText("Event")); // opens the Dropdown menu
-    fireEvent.click(screen.getByText("Session Start"));
     fireEvent.click(screen.getByText("Save"));
     expect(post).toHaveBeenCalledWith({
       type: "updateHook",
       original: target,
-      next: expect.objectContaining({ matcher: "", event: "SessionStart" }),
+      next: expect.objectContaining({ matcher: "compact", event: "SessionStart" }),
     });
   });
 

@@ -14,8 +14,6 @@ import { pingWebview } from "../diagnostics/healthCheck";
 import type { PanelSink } from "../../extension/panelSink";
 import { postAccountData } from "./accountPush";
 import * as path from "path";
-import * as os from "os";
-import * as fs from "fs";
 import {
   parseSessions,
   groupSessions,
@@ -44,6 +42,11 @@ import { parseHooks } from "../hooks/parser";
 import { parseMcpServers, readMcpAuthNeeds } from "../mcp/parser";
 import { parseAgents } from "../agents/parser";
 import { parseAccountData } from "../account/parser";
+import {
+  findInterruptedSwitch,
+  restoreInterruptedSwitch,
+  discardInterruptedSwitch,
+} from "../account/profiles";
 import { clearModelCache, warmModelCache } from "../account/models";
 import { resetUsageAggregateCache, warmUsageAggregate } from "../account/projectStats";
 import { readQuota } from "../account/quota";
@@ -565,60 +568,56 @@ export function checkForIdentityChange(ctx: ProviderActionsContext, data: Accoun
     });
 }
 
+/** "3 minutes ago" / "2 hours ago" / "4 days ago" for the sweep prompt. */
+function formatBackupAge(writtenAt: number): string {
+  const mins = Math.max(1, Math.round((Date.now() - writtenAt) / 60_000));
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 /**
- * Detect + recover from a profile switch that crashed between the
- * `.claude.json` rewrite and the credentials write. switchProfile copies
- * the live `.claude.json` to `~/.claude.json.bak` before the rename and
- * deletes the backup on success — so its presence on startup implies an
- * interrupted swap. Prompts: Restore previous / Discard backup / Later.
+ * Offer to recover from a profile switch that died between rewriting
+ * `~/.claude.json` and writing the credentials. Deciding whether a backup
+ * is a genuinely interrupted switch (and not another window's switch in
+ * flight, or someone else's file) belongs to `findInterruptedSwitch`; this
+ * only asks. Restore puts back the previous account's identity keys and
+ * nothing else — the tokens were never replaced, so that re-pairs them.
  */
 export async function sweepSwitchBackups(): Promise<void> {
-  const home = os.homedir();
-  const claudeDir = path.join(home, ".claude");
-  const claudeJsonBak = path.join(home, ".claude.json.bak");
-  const credsBak = path.join(claudeDir, ".credentials.json.bak");
-  const hasClaudeJsonBak = fs.existsSync(claudeJsonBak);
-  const hasCredsBak = fs.existsSync(credsBak);
-  if (!hasClaudeJsonBak && !hasCredsBak) return;
+  const pending = findInterruptedSwitch();
+  if (!pending) return;
 
+  const who = pending.email ? ` (${pending.email})` : "";
   const choice = await vscode.window.showWarningMessage(
-    "Found leftover backup from an interrupted profile switch.",
+    "Found a backup from an interrupted account switch.",
     {
       modal: true,
       detail:
-        "Claude Code Manager was interrupted while swapping accounts. The previous account's identity is still on disk as a .bak file. Restore it, discard it, or decide later.",
+        `An account switch was interrupted ${formatBackupAge(pending.writtenAt)}, so ~/.claude.json may name a different account than the one Claude Code is signed in with. ` +
+        `Restore previous puts back only the previous account's identity${who}; your projects, trust decisions and MCP settings stay as they are now. ` +
+        `Backup: ${pending.path}`,
     },
     "Restore previous",
     "Discard backup",
     "Later",
   );
 
-  const claudeJson = path.join(home, ".claude.json");
-  const credsFile = path.join(claudeDir, ".credentials.json");
-
   if (choice === "Restore previous") {
-    try {
-      if (hasClaudeJsonBak) fs.copyFileSync(claudeJsonBak, claudeJson);
-      if (hasCredsBak) fs.copyFileSync(credsBak, credsFile);
-      if (hasClaudeJsonBak) fs.rmSync(claudeJsonBak, { force: true });
-      if (hasCredsBak) fs.rmSync(credsBak, { force: true });
+    const result = restoreInterruptedSwitch(pending);
+    if (result.ok) {
       vscode.window.showInformationMessage(
-        "Previous Claude account restored. Reload the Claude Code Manager panel to refresh.",
+        result.data === "restored"
+          ? "Previous Claude account restored. Reload the Claude Code Manager panel to refresh."
+          : "Nothing to restore — the account state changed since the backup was found, so it was cleared.",
       );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      vscode.window.showErrorMessage(`Restore failed: ${msg}.`);
+    } else {
+      vscode.window.showErrorMessage(`Restore failed: ${result.detail ?? result.error}`);
     }
     return;
   }
-  if (choice === "Discard backup") {
-    try {
-      if (hasClaudeJsonBak) fs.rmSync(claudeJsonBak, { force: true });
-      if (hasCredsBak) fs.rmSync(credsBak, { force: true });
-    } catch {
-      // Best-effort cleanup; a persistent failure isn't worth surfacing.
-    }
-    return;
-  }
-  // choice === "Later" or modal dismissed — leave .bak files alone.
+  if (choice === "Discard backup") discardInterruptedSwitch(pending);
+  // "Later" or dismissed — leave the backup for the next window.
 }

@@ -5,14 +5,16 @@
  * reply re-renders the detail surface via the regular `hooks` round-trip.
  * Save is disabled while the command is empty.
  *
- * The matcher is single-line (shared <TextField>); the command is
+ * The matcher field follows the selected event: its placeholder names
+ * what Claude Code tests the matcher against (tool name, session source,
+ * notification type, …). The matcher is single-line (shared <TextField>); the command is
  * multi-line (shared <TextArea>). Event + scope use the shared
  * <Dropdown>; timeout is a small numeric <TextField>.
  */
 import { useState } from "preact/hooks";
 import { Button, Dropdown, Icon, TextArea, TextField } from "../../../../../webview/shared/ui";
 import type { SettingsScope } from "../../../../../shared/protocol/messages";
-import { KNOWN_HOOK_EVENTS, eventUsesMatcher } from "../../../events";
+import { KNOWN_HOOK_EVENTS, matcherInfo, matcherPlaceholder, showsMatcher } from "../../../events";
 import type { Hook } from "../../../types";
 import type { HookEditFields } from "../../api";
 
@@ -46,14 +48,17 @@ export function EditForm({ hook, onSave, onCancel }: EditFormProps) {
   // Timeout is optional, but if given it must be a positive integer (seconds).
   const timeoutValid = trimmedTimeout === "" || /^[1-9]\d*$/.test(trimmedTimeout);
   const canSave = trimmedCommand.length > 0 && timeoutValid;
-  const usesMatcher = eventUsesMatcher(event);
+  const info = matcherInfo(event);
+  // Keyed on the hook's ORIGINAL matcher, not the field: a hook that already
+  // has one keeps the field for any event so saving can never blank it, while
+  // a blank-matcher hook re-homed to an event Claude Code doesn't match on
+  // gets no field and saves "" (nothing stale to persist).
+  const showMatcher = showsMatcher(event, hook.matcher);
 
   const save = (): void => {
     if (!canSave) return;
     onSave({
-      // A matcher only means something for tool-matching events; re-homing to
-      // SessionStart/Stop/etc. must not silently persist a stale tool pattern.
-      matcher: usesMatcher ? matcher.trim() : "",
+      matcher: showMatcher ? matcher.trim() : "",
       command: trimmedCommand,
       event,
       scope,
@@ -80,7 +85,7 @@ export function EditForm({ hook, onSave, onCancel }: EditFormProps) {
         />
       </div>
 
-      {usesMatcher ? (
+      {showMatcher ? (
         <div class="hook-field">
           <span class="hook-field-label" id="hookEditMatcherLabel">
             Matcher
@@ -88,9 +93,12 @@ export function EditForm({ hook, onSave, onCancel }: EditFormProps) {
           <TextField
             value={matcher}
             ariaLabel="Matcher"
-            placeholder="Tool name or pattern (blank = match all)"
+            placeholder={matcherPlaceholder(info)}
             onInput={setMatcher}
           />
+          {!info ? (
+            <span class="hook-field-hint">Claude Code ignores the matcher for this event.</span>
+          ) : null}
         </div>
       ) : null}
 

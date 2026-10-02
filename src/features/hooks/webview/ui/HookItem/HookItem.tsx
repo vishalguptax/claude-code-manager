@@ -8,7 +8,7 @@
 import { cx } from "../../../../../webview/shared/lib";
 import { Badge, Button } from "../../../../../webview/shared/ui";
 import type { Hook } from "../../../types";
-import { eventUsesMatcher } from "../../../events";
+import { showsMatcher } from "../../../events";
 import { eventLabel, hookTitle, scopeLabel } from "../../lib";
 
 export interface HookItemProps {
@@ -49,7 +49,7 @@ export function HookItem({ hook, onOpen, onToggle, onDelete }: HookItemProps) {
         <span class="hook-item-name" title={title}>
           {title}
         </span>
-        {eventUsesMatcher(hook.event) ? (
+        {showsMatcher(hook.event, hook.matcher) ? (
           hook.matcher ? (
             <span class="hook-matcher" title={`Matcher: ${hook.matcher}`}>
               {hook.matcher}

@@ -15,10 +15,20 @@
  * signed in" for the majority of macOS users. This is GitHub issue #6.
  *
  * Design:
- *   - Source detection cascades file → platform-native (Keychain on
- *     macOS), matching Claude Code's own precedence. File wins when
- *     present so users who manually opt out of Keychain (or who
- *     legitimately have a file from an older CLI) continue to work.
+ *   - Source precedence matches Claude Code's own: on macOS the Keychain
+ *     item wins; elsewhere only the file exists. On macOS the file is a
+ *     fallback, and the two kinds of caller treat it differently:
+ *       - reads for display and identity (`readCredentials`,
+ *         `readCredentialsStatus`) fall back to it when the Keychain has
+ *         no item or is momentarily unreachable (locked, SSH), as the
+ *         CLI's own keychain-then-plaintext read does;
+ *       - reads a write depends on (`readCredentialsForWrite`) fall back
+ *         only when the Keychain has no item. Behind a locked Keychain the
+ *         file may be a stale leftover; persisting it, or writing tokens to
+ *         it, would save or install an account the CLI is not using.
+ *     Claude Code 2.1.287 made the Keychain win over a leftover
+ *     `.credentials.json`; letting the file win here would read a stale
+ *     account and send profile swaps to a file the CLI ignores.
  *   - All shell-outs use `execFileSync` with argv arrays — never a
  *     shell string, never user-controlled paths in `cwd` — so there is
  *     no command-injection surface.
@@ -270,7 +280,26 @@ function readFromKeychainDarwinStatus(): ReadStatus {
   }
   const status = readFromKeychainDarwinStatusUncached();
   keychainCache = { status, readAt: Date.now() };
+  if (status.state === "ok") noteKeychainHash(status.live.hash);
   return status;
+}
+
+/**
+ * When this process first saw the current Keychain item. A Keychain item has
+ * no mtime we can read without another `security` spawn, so the moment we
+ * observe a new hash stands in for it. That is never earlier than the real
+ * change, which errs on the side of "changed recently" — the safe direction
+ * for `credentialsChangedAt`'s callers.
+ *
+ * The very first sighting is stamped 0 ("long settled"): its real age is
+ * unknown, and treating every startup as a fresh credentials change would
+ * hold off profile sync and switching for no reason on every window open.
+ */
+let keychainSeen: { hash: string; at: number } | null = null;
+
+function noteKeychainHash(hash: string): void {
+  if (!keychainSeen) keychainSeen = { hash, at: 0 };
+  else if (keychainSeen.hash !== hash) keychainSeen = { hash, at: Date.now() };
 }
 
 function readFromKeychainDarwinStatusUncached(): ReadStatus {
@@ -370,14 +399,13 @@ export function probeKeychainStatus(): KeychainStatus {
 }
 
 /**
- * Read live credentials, picking source by precedence (file → macOS
- * Keychain). Returns null when no source yields a valid blob, which
- * callers treat as "not signed in".
+ * Read live credentials, picking source by precedence (macOS Keychain →
+ * file; see the module header). Returns null when no source yields a
+ * valid blob, which callers treat as "not signed in".
  */
 export function readCredentials(): LiveCredentials | null {
-  const fileRead = readFromFile();
-  if (fileRead) return fileRead;
-  return readFromKeychainDarwin();
+  const status = readCredentialsStatus();
+  return status.state === "ok" ? status.live : null;
 }
 
 /**
@@ -386,20 +414,19 @@ export function readCredentials(): LiveCredentials | null {
  * exist but momentarily unreadable" — they map to distinct UI
  * messages.
  *
- * Precedence: file backend first, Keychain only if the file backend
- * reported "missing" (so a file in transient state doesn't get
- * masked by a Keychain success — file is the authoritative store
- * once it exists, matching Claude CLI behaviour).
+ * For display and identity (see the module header): a usable Keychain
+ * item wins; otherwise the file decides, except that a file that is
+ * merely absent does not hide a Keychain that is momentarily unreadable —
+ * that is "try again", not "not signed in".
  */
 export function readCredentialsStatus():
   | { state: "ok"; live: LiveCredentials }
   | { state: "missing" }
   | { state: "transient" } {
+  const keychainStatus = readFromKeychainDarwinStatus();
+  if (keychainStatus.state === "ok") return keychainStatus;
   const fileStatus = readFromFileStatus();
-  if (fileStatus.state === "ok") return fileStatus;
-  if (fileStatus.state === "transient") return fileStatus;
-  // fileStatus.state === "missing" → consult platform-native store.
-  return readFromKeychainDarwinStatus();
+  return fileStatus.state === "missing" ? keychainStatus : fileStatus;
 }
 
 /**
@@ -418,6 +445,47 @@ export function readCredentialsRaceSafe(): LiveCredentials | null {
     if (first.hash === second.hash) return second;
   }
   return null;
+}
+
+/**
+ * When `live` last changed, in ms epoch: the file's mtime, or for the
+ * Keychain the moment this process first observed the item's current bytes
+ * (see `keychainSeen`). Lets callers order a credentials change against a
+ * `~/.claude.json` write — `/login` writes the tokens first and the account
+ * identity second, so tokens newer than the identity may belong to someone
+ * else. When the time cannot be read, returns now: "just changed" makes the
+ * caller wait rather than trust a pairing it cannot verify.
+ */
+export function credentialsChangedAt(live: LiveCredentials): number {
+  if (live.source.kind === "file") {
+    try {
+      return fs.statSync(live.source.locator).mtimeMs;
+    } catch {
+      return Date.now();
+    }
+  }
+  return keychainSeen && keychainSeen.hash === live.hash ? keychainSeen.at : Date.now();
+}
+
+/** Shown when a write is refused because the Keychain cannot be read. */
+export const KEYCHAIN_UNAVAILABLE_MESSAGE =
+  "The macOS Keychain is locked or unavailable — unlock it and try again";
+
+/**
+ * Credentials for a caller about to write: a profile switch, a restore, or
+ * a slot snapshot. Reads past the Keychain cache, whose value can predate a
+ * refresh by up to KEYCHAIN_CACHE_TTL_MS, and reports a momentarily
+ * unreadable Keychain as `keychain-unavailable` instead of falling back to
+ * the file (see the module header). Callers refuse on that state.
+ */
+export function readCredentialsForWrite():
+  | ReturnType<typeof readCredentialsStatus>
+  | { state: "keychain-unavailable" } {
+  invalidateKeychainCache();
+  const keychainStatus = readFromKeychainDarwinStatus();
+  if (keychainStatus.state === "transient") return { state: "keychain-unavailable" };
+  if (keychainStatus.state === "ok") return keychainStatus;
+  return readFromFileStatus();
 }
 
 /** Detected source for the currently-signed-in account, or null. */
@@ -570,40 +638,14 @@ export function deleteCredentials(source: CredentialsSource): boolean {
 
 /**
  * Decide which source a write should target when no explicit source is
- * known (e.g. an outside caller restoring a snapshot into a fresh
- * machine). Mirrors Claude CLI's precedence:
- *   - macOS: write to Keychain when the file is absent (default CLI
- *     install on Mac); write to file when the file exists (user has
- *     opted out, or restored a Linux snapshot).
- *   - Other platforms: file.
+ * known (e.g. restoring a snapshot while signed out). Mirrors Claude
+ * CLI's precedence: the Keychain on macOS — a file written there would
+ * be shadowed by any Keychain item the CLI finds first — and the file
+ * everywhere else.
  */
 export function defaultTargetSource(): CredentialsSource {
   if (process.platform === "darwin") {
-    try {
-      const stat = fs.statSync(CREDENTIALS_FILE);
-      if (stat.size > 0) {
-        return { kind: "file", locator: CREDENTIALS_FILE };
-      }
-    } catch {
-      /* file absent → keychain target */
-    }
     return { kind: "keychain-darwin", locator: KEYCHAIN_SERVICE };
   }
   return { kind: "file", locator: CREDENTIALS_FILE };
 }
-
-/**
- * Internal helpers exposed for tests. Real callers should use the
- * public surface — these escape hatches exist so backend probes can
- * be exercised directly without spinning up a real Keychain.
- */
-export const __internals = {
-  KEYCHAIN_SERVICE,
-  KEYCHAIN_LEGACY_SERVICE,
-  SECURITY_BIN,
-  readFromFile,
-  readFromKeychainDarwin,
-  runSecurityRead,
-  looksLikeCredentialsBlob,
-  invalidateKeychainCache,
-};

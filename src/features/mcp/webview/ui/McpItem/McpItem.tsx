@@ -7,7 +7,7 @@ import { cx } from "../../../../../webview/shared/lib";
 import { Button, ListItem } from "../../../../../webview/shared/ui";
 import { canToggleMcp, connectionPreview } from "../../lib";
 import type { McpServer } from "../../../types";
-import { DisabledBadge, ReadOnlyBadge, TypeBadge } from "../McpBadges";
+import { DisabledBadge, PendingApprovalBadge, ReadOnlyBadge, TypeBadge } from "../McpBadges";
 
 export interface McpItemProps {
   server: McpServer;
@@ -78,6 +78,7 @@ export function McpItem({
         ) : server.disabled ? (
           <DisabledBadge />
         ) : null}
+        {server.pendingApproval ? <PendingApprovalBadge /> : null}
         <TypeBadge type={server.type} />
         {server.scope === "plugin" ? <ReadOnlyBadge pluginName={server.pluginName} /> : null}
       </div>

@@ -53,8 +53,13 @@ vi.mock("../../account/projectStats", () => ({
 vi.mock("../../account/quota", () => ({
   readQuota: () => ({ ok: false }),
 }));
+let __syncOutcomes: Array<{ kind: string; retryInMs?: number }> = [];
+let __syncCalls = 0;
 vi.mock("../../account/profiles", () => ({
-  syncActiveProfile: () => {},
+  syncActiveProfile: () => {
+    __syncCalls++;
+    return __syncOutcomes.shift() ?? { kind: "none" };
+  },
 }));
 
 import { createWatchers, type WatcherContext } from "../watchers";
@@ -98,6 +103,8 @@ function makeCtx(): WatcherContext {
 beforeEach(() => {
   vi.useFakeTimers();
   __parseAccountCalls = 0;
+  __syncCalls = 0;
+  __syncOutcomes = [];
   captured = [];
   posted = [];
   reloadedFeatures = [];
@@ -261,5 +268,43 @@ describe("createWatchers — config artifacts update live", () => {
     vi.advanceTimersByTime(1000);
     expect(reloadedFeatures).toEqual([]);
     disposable.dispose();
+  });
+});
+
+describe("createWatchers — account watcher keeps the active profile in sync", () => {
+  function claudeJsonWatcher(): Captured {
+    const w = captured.find((c) => c.glob === ".claude.json");
+    if (!w) throw new Error(".claude.json watcher not registered");
+    return w;
+  }
+  const fire = (w: Captured): void => {
+    for (const h of w.handlers) h({ fsPath: path.join(w.base, w.glob) } as vscode.Uri);
+  };
+
+  it("looks again after the settle window when a sync is deferred", () => {
+    // A plain token refresh fires nothing further, so the watcher itself
+    // must come back once the tokens' owner can be trusted.
+    __syncOutcomes = [{ kind: "deferred", retryInMs: 5_000 }];
+    const disposable = createWatchers(makeCtx());
+    fire(claudeJsonWatcher());
+    vi.advanceTimersByTime(200);
+    expect(__syncCalls).toBe(1);
+
+    vi.advanceTimersByTime(5_000 + 200);
+    expect(__syncCalls).toBe(2);
+    // The second answer was not deferred: no third look.
+    vi.advanceTimersByTime(60_000);
+    expect(__syncCalls).toBe(2);
+    disposable.dispose();
+  });
+
+  it("drops a pending retry on dispose", () => {
+    __syncOutcomes = [{ kind: "deferred", retryInMs: 5_000 }];
+    const disposable = createWatchers(makeCtx());
+    fire(claudeJsonWatcher());
+    vi.advanceTimersByTime(200);
+    disposable.dispose();
+    vi.advanceTimersByTime(60_000);
+    expect(__syncCalls).toBe(1);
   });
 });

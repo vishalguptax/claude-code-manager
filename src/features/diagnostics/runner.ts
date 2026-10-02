@@ -10,10 +10,9 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { CLAUDE_DIR, STATS_CACHE_FILE } from "../../core/config";
+import { CLAUDE_DIR, CLAUDE_JSON_FILE, STATS_CACHE_FILE } from "../../core/config";
 import {
   readCredentials,
   probeKeychainStatus,
@@ -21,7 +20,6 @@ import {
 } from "../account/credentials";
 import type { DiagnosticCheck, DiagnosticStatus } from "./types";
 
-const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
 
 const execP = promisify(exec);
@@ -100,7 +98,7 @@ function checkClaudeDir(): DiagnosticCheck {
 }
 
 function checkClaudeJson(): DiagnosticCheck {
-  const data = safeReadJson(CLAUDE_JSON);
+  const data = safeReadJson(CLAUDE_JSON_FILE);
   if (!data || typeof data !== "object") {
     return check(
       "claudeJson",

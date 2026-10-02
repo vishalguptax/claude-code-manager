@@ -189,6 +189,7 @@ describe("ProfileView", () => {
             subscriptionType: "pro",
             savedAt: "",
             tokenExpiresAt: 0,
+            refreshTokenExpiresAt: 0,
             credentialsHash: "",
             userID: "",
             accountUuid: "",

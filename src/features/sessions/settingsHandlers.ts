@@ -18,6 +18,7 @@ import {
   restoreClaudeJsonFromBackup,
 } from "../account/parser";
 import type { PermissionScope } from "../account/types";
+import type { WriteOutcome } from "../../core/atomicWrite";
 import { getWorkspace } from "../../extension/workspace";
 import { createTerminal, runInTerminal } from "../../extension/terminal";
 import type { WebviewMessage } from "./types";
@@ -27,20 +28,26 @@ import type { HostContext } from "./hostContext";
 /**
  * Wrap a settings write so a refusal is visible.
  *
- * `writeSettingsValue` now returns false rather than clobbering a
- * settings.json it cannot parse. Left unreported that reads as a dead
- * control: the toggle flips, nothing happens, and the next host push
- * flips it back. The file has to be named, because the user has to go
- * fix it — Claude Code is ignoring it for the same reason we are.
+ * The writers refuse rather than clobber a settings.json they cannot
+ * safely merge into. Left unreported that reads as a dead control: the
+ * toggle flips, nothing happens, and the next host push flips it back.
+ * The outcome's error names the file and the reason — "being written,
+ * try again" and "not valid JSON, fix it" call for different actions.
  */
-function reportWrite(ok: boolean, scope: PermissionScope = "global"): boolean {
-  if (ok) return true;
-  const file = resolveSettingsPath(scope, getWorkspace() || undefined) ?? "settings.json";
-  vscode.window.showErrorMessage(
-    `Couldn't save: ${file} isn't valid JSON, so the change was not written. ` +
-      "Claude Code ignores the file in this state too. Fix or remove it, then try again.",
-    "Open file",
-  ).then((pick) => {
+function reportWrite(outcome: WriteOutcome, scope: PermissionScope = "global"): boolean {
+  if (outcome.ok) return true;
+  const file = resolveSettingsPath(scope, getWorkspace() || undefined);
+  if (file === null) {
+    // No file to blame: project scope has no file of its own when the
+    // workspace is the home folder (its .claude/settings.json is the global one).
+    vscode.window.showErrorMessage(
+      scope === "project"
+        ? "Couldn't save: with your home folder open, project settings would be your global settings. Use the global scope instead."
+        : "Couldn't save: open a folder first.",
+    );
+    return false;
+  }
+  vscode.window.showErrorMessage(`Couldn't save: ${outcome.error}.`, "Open file").then((pick) => {
     if (pick === "Open file") {
       void vscode.workspace
         .openTextDocument(file)
@@ -113,18 +120,23 @@ export async function handleSettingsMessage(
         "Restore",
       );
       if (confirm !== "Restore") break;
-      const restoredFrom = restoreClaudeJsonFromBackup();
-      if (restoredFrom) {
-        vscode.window.showInformationMessage(
-          `Restored ~/.claude.json from backup (${path.basename(restoredFrom)}).`,
-        );
-        const workspace = getWorkspace();
-        postAccountData(wv, parseAccountData(workspace || undefined));
-      } else {
+      // The parser re-validates the live file before touching it: the
+      // banner may have come from a read that caught Claude CLI
+      // mid-write, and the file is now whole and newer than any backup.
+      const result = restoreClaudeJsonFromBackup();
+      if (result.status === "no-backup") {
         vscode.window.showErrorMessage(
           "No valid backup found in ~/.claude/backups. You may need to re-run Claude to regenerate the config.",
         );
+        break;
       }
+      vscode.window.showInformationMessage(
+        result.status === "restored"
+          ? `Restored ~/.claude.json from backup (${path.basename(result.backupPath)}).`
+          : "~/.claude.json is valid again, so it no longer needs restoring. Nothing was changed.",
+      );
+      // Re-push either way so a stale "corrupted" banner clears.
+      postAccountData(wv, parseAccountData(getWorkspace() || undefined));
       break;
     }
 
@@ -185,7 +197,7 @@ export async function handleSettingsMessage(
         "Remove",
       );
       if (confirm !== "Remove") break;
-      removePermissionEntry(permScope, tool, permList, getWorkspace() || undefined);
+      reportWrite(removePermissionEntry(permScope, tool, permList, getWorkspace() || undefined), permScope);
       postAccountData(wv, parseAccountData(getWorkspace() || undefined));
       break;
     }
@@ -249,11 +261,8 @@ export async function handleSettingsMessage(
         break;
       }
       const next = [...existing, dir];
-      writeSettingsValue(
-        "permissions.additionalDirectories",
-        next,
-        "global",
-        workspace || undefined,
+      reportWrite(
+        writeSettingsValue("permissions.additionalDirectories", next, "global", workspace || undefined),
       );
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;
@@ -285,8 +294,14 @@ export async function handleSettingsMessage(
       const workspace = getWorkspace();
       const filePath = resolveSettingsPath(msg.scope, workspace || undefined);
       if (!filePath) {
+        // With a folder open, only project scope resolves to null: the
+        // folder is home, and its .claude/settings.json is the global file.
         vscode.window.showErrorMessage(
-          msg.scope === "global" ? "Could not resolve settings path" : "No workspace folder open",
+          msg.scope === "global"
+            ? "Could not resolve settings path"
+            : workspace
+              ? "With your home folder open, project settings are your global settings. Open the global settings file instead."
+              : "No workspace folder open",
         );
         break;
       }
@@ -301,7 +316,7 @@ export async function handleSettingsMessage(
 
     case "addPermission": {
       const workspace = getWorkspace();
-      addPermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);
+      reportWrite(addPermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined), msg.scope);
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }
@@ -357,7 +372,7 @@ export async function handleSettingsMessage(
       }
 
       if (tool && tool.trim()) {
-        addPermissionEntry(scope, tool.trim(), list, workspace || undefined);
+        reportWrite(addPermissionEntry(scope, tool.trim(), list, workspace || undefined), scope);
         postAccountData(wv, parseAccountData(workspace || undefined));
       }
       break;
@@ -365,7 +380,7 @@ export async function handleSettingsMessage(
 
     case "removePermission": {
       const workspace = getWorkspace();
-      removePermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined);
+      reportWrite(removePermissionEntry(msg.scope, msg.tool, msg.list, workspace || undefined), msg.scope);
       postAccountData(wv, parseAccountData(workspace || undefined));
       break;
     }

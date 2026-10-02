@@ -190,6 +190,24 @@ describe("toggleMcpServer", () => {
     );
     expect(err).toHaveBeenCalledWith("No workspace folder open");
   });
+
+  it("names the file and the reason when settings.local.json is refused", async () => {
+    const ws = path.join(HOME, "ws");
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { local: { command: "node" } } });
+    const localSettings = path.join(ws, ".claude", "settings.local.json");
+    fs.mkdirSync(path.dirname(localSettings), { recursive: true });
+    fs.writeFileSync(localSettings, "{ ,");
+    const err = vi.spyOn(vscode.window, "showErrorMessage");
+    const { ctx, posted } = harness(ws);
+    await handleMcpMessage(
+      { type: "toggleMcpServer", name: "local", scope: "project", disabled: true },
+      ctx,
+    );
+    expect(err).toHaveBeenCalledWith(
+      `Failed to disable local: ${localSettings} isn't valid JSON, so it was left untouched. Fix or remove it, then try again.`,
+    );
+    expect(posted).toHaveLength(0);
+  });
 });
 
 describe("deleteMcpServer", () => {
@@ -216,6 +234,18 @@ describe("deleteMcpServer", () => {
     await handleMcpMessage({ type: "deleteMcpServer", name: "local", scope: "project" }, ctx);
     const written = JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8"));
     expect(written.mcpServers.local).toBeDefined();
+    expect(posted).toHaveLength(0);
+  });
+
+  it("surfaces the parser's reason when the delete is refused", async () => {
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(ws, { recursive: true });
+    fs.writeFileSync(path.join(ws, ".mcp.json"), "{ ,");
+    vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue("Delete" as never);
+    const err = vi.spyOn(vscode.window, "showErrorMessage");
+    const { ctx, posted } = harness(ws);
+    await handleMcpMessage({ type: "deleteMcpServer", name: "local", scope: "project" }, ctx);
+    expect(err).toHaveBeenCalledWith(expect.stringContaining("isn't valid JSON"));
     expect(posted).toHaveLength(0);
   });
 

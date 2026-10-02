@@ -195,6 +195,47 @@ describe("parseHooks error surfacing", () => {
   });
 });
 
+describe("parseHooks scopes", () => {
+  const hookIn = (file: string, command: string): void => {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ hooks: { Stop: [{ matcher: "", command }] } }));
+  };
+
+  it("reads project and local settings from the workspace", () => {
+    const ws = fs.mkdtempSync(path.join(os.tmpdir(), "cm-hooks-ws-"));
+    try {
+      hookIn(tmp.settings, "g");
+      hookIn(path.join(ws, ".claude", "settings.json"), "p");
+      hookIn(path.join(ws, ".claude", "settings.local.json"), "l");
+      const list = parseHooks(ws).hooks.filter((h) => h.scope !== "plugin");
+      expect(list.map((h) => [h.scope, h.command])).toEqual([
+        ["global", "g"],
+        ["project", "p"],
+        ["local", "l"],
+      ]);
+    } finally {
+      fs.rmSync(ws, { recursive: true, force: true });
+    }
+  });
+
+  it("lists global hooks once when the home folder is the workspace", () => {
+    // ~/.claude/settings.json is the global file; reading it again as
+    // "project" duplicated every hook under an uneditable label.
+    hookIn(tmp.settings, "g");
+    const local = path.join(tmp.home, ".claude", "settings.local.json");
+    hookIn(local, "l");
+    try {
+      const list = parseHooks(tmp.home).hooks.filter((h) => h.scope !== "plugin");
+      expect(list.map((h) => [h.scope, h.command])).toEqual([
+        ["global", "g"],
+        ["local", "l"],
+      ]);
+    } finally {
+      fs.unlinkSync(local);
+    }
+  });
+});
+
 describe("parseHooks mtime caching", () => {
   it("returns cached hooks when settings.json mtime is unchanged", () => {
     const original = JSON.stringify({

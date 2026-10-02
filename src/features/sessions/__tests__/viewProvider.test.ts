@@ -500,7 +500,7 @@ describe("ClaudeSessionViewProvider", () => {
       addPermissionEntry: () => true,
       removePermissionEntry: () => true,
       resolveSettingsPath: () => "",
-      restoreClaudeJsonFromBackup: () => true,
+      restoreClaudeJsonFromBackup: () => ({ status: "restored", backupPath: "/home/.claude.json.backup" }),
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
@@ -587,7 +587,7 @@ describe("ClaudeSessionViewProvider", () => {
       addPermissionEntry: () => true,
       removePermissionEntry: () => true,
       resolveSettingsPath: () => "",
-      restoreClaudeJsonFromBackup: () => true,
+      restoreClaudeJsonFromBackup: () => ({ status: "restored", backupPath: "/home/.claude.json.backup" }),
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");

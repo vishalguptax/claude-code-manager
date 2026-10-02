@@ -18,8 +18,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { discoverModelsFromCli } from "./models";
 import { isUsageAggregateWarming } from "./projectStats";
-import * as os from "os";
-import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
+import { CLAUDE_DIR, CLAUDE_JSON_FILE, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
 import { listProfiles, getActiveProfileSlug } from "./profiles";
 import { readQuotaHistory } from "./quotaHistory";
 import { readCredentials } from "./credentials";
@@ -27,7 +26,12 @@ import { readClaudeJsonParsed } from "./claudeJsonCache";
 import { computeUsageStats } from "./usage";
 import { readStatuslineCache } from "./quota";
 import { resolveActiveModel } from "./statuslineCore";
-import { writeFileAtomic } from "../../core/atomicWrite";
+import {
+  describeReadRefusal,
+  readJsonObjectForWrite,
+  writeFileAtomic,
+  type WriteOutcome,
+} from "../../core/atomicWrite";
 import { snapshotSettings, listSnapshots, restoreSnapshot, deleteSnapshot } from "./snapshots";
 import type { SettingsSnapshot } from "./snapshots";
 import { isPermissionDefaultMode } from "./types";
@@ -39,7 +43,6 @@ import type {
   PermissionSet,
 } from "./types";
 
-const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 const CLAUDE_BACKUPS_DIR = path.join(CLAUDE_DIR, "backups");
 
 /**
@@ -100,8 +103,6 @@ function readClaudeJson(): {
   }
   return { data: null, primaryCorrupted: true };
 }
-const LOCAL_SETTINGS_NAME = "settings.local.json";
-const PROJECT_SETTINGS_NAME = "settings.json";
 
 // ── Profile ──
 
@@ -344,15 +345,13 @@ function readPermissionFile(filePath: string, scope: PermissionScope): Permissio
  * Read permissions from all three scopes (global, project, local).
  */
 function parsePermissions(workspacePath?: string): PermissionSet[] {
+  // Paths come from claudeSettingsPath so a scope with no file of its own
+  // (project, when the workspace is the home folder) is skipped rather than
+  // listing the global permissions a second time as "project".
   const result: PermissionSet[] = [];
-  result.push(readPermissionFile(SETTINGS_FILE, "global"));
-  if (workspacePath) {
-    result.push(
-      readPermissionFile(path.join(workspacePath, ".claude", PROJECT_SETTINGS_NAME), "project"),
-    );
-    result.push(
-      readPermissionFile(path.join(workspacePath, ".claude", LOCAL_SETTINGS_NAME), "local"),
-    );
+  for (const scope of ["global", "project", "local"] as const) {
+    const file = claudeSettingsPath(scope, workspacePath);
+    if (file) result.push(readPermissionFile(file, scope));
   }
   return result;
 }
@@ -405,50 +404,32 @@ export function parseAccountData(workspacePath?: string): AccountData {
 
 // ── Writers ──
 
-/**
- * Update a single key in settings.json, preserving other keys.
- * Supports nested keys with dot notation (e.g., "attribution.commit").
- */
-/** Read a file, or null when it does not exist / cannot be read. */
-function readFileOrNull(filePath: string): string | null {
-  try {
-    return fs.readFileSync(filePath, "utf-8");
-  } catch {
-    return null;
-  }
-}
-
 /** True for a JSON object — not null, not an array. */
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/**
- * Read a settings file as the object a read-modify-write pass may edit.
- *
- * Returns `{}` when the file is absent or blank — nothing to lose, so
- * creating it is safe — and null when it exists but cannot be read as a
- * JSON object. Null means REFUSE: merging into a document we cannot
- * parse is impossible, and continuing with an empty object (what every
- * writer here used to do) replaces the user's file with whatever single
- * key the caller was setting.
- *
- * Claude Code skips a settings.json with comments, a trailing comma or
- * any truncation, so that state is both plausible and exactly where the
- * contents matter most.
- */
-function readSettingsForWrite(filePath: string): Record<string, unknown> | null {
-  const raw = readFileOrNull(filePath);
-  if (raw === null || raw.trim() === "") return {};
-  let parsed: unknown;
+/** Write `data` to a settings file, or say why it could not be written. */
+function writeSettingsFile(filePath: string, data: Record<string, unknown>): WriteOutcome {
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `${filePath} couldn't be written (${(err as Error).message})` };
   }
-  return isPlainObject(parsed) ? parsed : null;
 }
 
+/** The refusal for a scope with no settings file of its own. */
+function noSettingsFile(scope: PermissionScope): WriteOutcome {
+  return { ok: false, error: `There is no ${scope} settings file without a workspace folder` };
+}
+
+/**
+ * Update a single key in settings.json, preserving other keys.
+ * Supports nested keys with dot notation (e.g., "attribution.commit").
+ * A refusal's `error` names the file and says why it was left alone.
+ */
 export function writeSettingsValue(
   key: string,
   value: unknown,
@@ -467,9 +448,9 @@ export function writeSettingsValue(
    * the UI, and silently destroyed it for anyone who already had it.
    */
   emptyString: "remove" | "value" = "remove",
-): boolean {
+): WriteOutcome {
   const filePath = resolveSettingsPath(scope, workspacePath);
-  if (!filePath) return false;
+  if (!filePath) return noSettingsFile(scope);
 
   // Read and validate BEFORE touching anything.
   //
@@ -488,9 +469,13 @@ export function writeSettingsValue(
   // reinstall and rewrote the file. Open the editor, lose your settings.
   //
   // Refusing is the only safe answer. We cannot merge into a document we
-  // cannot read, and we must not guess.
-  const data = readSettingsForWrite(filePath);
-  if (data === null) return false;
+  // cannot read, and we must not guess. That includes a freshly emptied
+  // file or a failed read (anything but ENOENT): it is what a window
+  // activating while Claude Code rewrites settings.json sees, and treating
+  // it as "absent" wrote back a file holding only `statusLine`.
+  const read = readJsonObjectForWrite(filePath);
+  if (!read.ok) return { ok: false, error: describeReadRefusal(filePath, read) };
+  const data = read.data;
 
   const parts = key.split(".");
   let target: Record<string, unknown> = data;
@@ -505,7 +490,10 @@ export function writeSettingsValue(
       // `{}` to make room for the new leaf silently deleted whatever was
       // there; a permission allowlist is not something to drop in order
       // to store a default mode.
-      return false;
+      return {
+        ok: false,
+        error: `"${parts.slice(0, i + 1).join(".")}" in ${filePath} isn't an object, so ${key} can't be set inside it. Fix it by hand, then try again`,
+      };
     }
     target = target[k] as Record<string, unknown>;
   }
@@ -522,13 +510,7 @@ export function writeSettingsValue(
     target[parts[parts.length - 1]] = value;
   }
 
-  try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
-    return true;
-  } catch {
-    return false;
-  }
+  return writeSettingsFile(filePath, data);
 }
 
 /**
@@ -539,36 +521,35 @@ export function addPermissionEntry(
   tool: string,
   list: "allow" | "deny",
   workspacePath?: string,
-): boolean {
+): WriteOutcome {
   const filePath = resolveSettingsPath(scope, workspacePath);
-  if (!filePath) return false;
+  if (!filePath) return noSettingsFile(scope);
 
   // Same refusal rule as writeSettingsValue: this used to swallow a parse
   // failure and write `{ permissions: { allow: [tool] } }` over the whole
   // file, so adding one allow rule to a settings.json with a stray
   // comment discarded everything else in it.
-  const data = readSettingsForWrite(filePath);
-  if (data === null) return false;
+  const read = readJsonObjectForWrite(filePath);
+  if (!read.ok) return { ok: false, error: describeReadRefusal(filePath, read) };
+  const data = read.data;
 
   if (data.permissions === undefined) data.permissions = {};
-  if (!isPlainObject(data.permissions)) return false;
+  if (!isPlainObject(data.permissions)) {
+    return { ok: false, error: `"permissions" in ${filePath} isn't an object. Fix it by hand, then try again` };
+  }
   const perms = data.permissions;
   if (perms[list] === undefined) perms[list] = [];
   // A non-array here would take the named property and lose it on
   // stringify — a silent no-op that reported success.
-  if (!Array.isArray(perms[list])) return false;
+  if (!Array.isArray(perms[list])) {
+    return { ok: false, error: `"permissions.${list}" in ${filePath} isn't a list. Fix it by hand, then try again` };
+  }
   const arr = perms[list] as string[];
   if (!arr.includes(tool)) arr.push(tool);
 
   snapshotSettings(scope, filePath);
 
-  try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
-    return true;
-  } catch {
-    return false;
-  }
+  return writeSettingsFile(filePath, data);
 }
 
 /**
@@ -579,28 +560,25 @@ export function removePermissionEntry(
   tool: string,
   list: "allow" | "deny",
   workspacePath?: string,
-): boolean {
+): WriteOutcome {
   const filePath = resolveSettingsPath(scope, workspacePath);
-  if (!filePath) return false;
+  if (!filePath) return noSettingsFile(scope);
 
-  const data = readSettingsForWrite(filePath);
-  if (data === null) return false;
-  snapshotSettings(scope, filePath);
+  const read = readJsonObjectForWrite(filePath);
+  if (!read.ok) return { ok: false, error: describeReadRefusal(filePath, read) };
+  const data = read.data;
 
   const perms = data.permissions as Record<string, unknown> | undefined;
-  if (!perms) return false;
-  const arr = perms[list] as unknown;
-  if (!Array.isArray(arr)) return false;
-  const idx = arr.indexOf(tool);
-  if (idx < 0) return false;
-  arr.splice(idx, 1);
-
-  try {
-    writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
-    return true;
-  } catch {
-    return false;
+  const arr = perms?.[list] as unknown;
+  const idx = Array.isArray(arr) ? arr.indexOf(tool) : -1;
+  if (idx < 0) {
+    return { ok: false, error: `"${tool}" is no longer in the ${list} list of ${filePath}` };
   }
+  // Snapshot only once there is something to change (see writeSettingsValue).
+  snapshotSettings(scope, filePath);
+  (arr as unknown[]).splice(idx, 1);
+
+  return writeSettingsFile(filePath, data);
 }
 
 /**
@@ -653,16 +631,36 @@ export function deleteSettingsSnapshot(
   return deleteSnapshot(scope, snapshotId);
 }
 
+/** Outcome of `restoreClaudeJsonFromBackup`. */
+type ClaudeJsonRestore =
+  | { status: "restored"; backupPath: string }
+  | { status: "healthy" }
+  | { status: "no-backup" };
+
+/** Whether the live ~/.claude.json currently parses to a JSON object. */
+function liveClaudeJsonHealthy(): boolean {
+  try {
+    return isPlainObject(JSON.parse(fs.readFileSync(CLAUDE_JSON_FILE, "utf-8")));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Restore ~/.claude.json from its most recent valid backup. Called when
  * Claude CLI has left the primary config empty or truncated (a common
  * symptom of a crashed or disk-full write — see ~/.claude/backups/ for
  * Claude's own backup history).
  *
- * Returns the absolute path of the backup that was used on success, or
- * null if no valid backup could be located. Never throws.
+ * The live file is re-checked first, and left alone when it now parses.
+ * The "corrupted" banner can come from a read that caught the CLI
+ * mid-write; by the time the user confirms, the file is whole again and
+ * NEWER than any backup, so restoring would roll back their config.
+ *
+ * Never throws.
  */
-export function restoreClaudeJsonFromBackup(): string | null {
+export function restoreClaudeJsonFromBackup(): ClaudeJsonRestore {
+  if (liveClaudeJsonHealthy()) return { status: "healthy" };
   try {
     const entries = fs.readdirSync(CLAUDE_BACKUPS_DIR);
     const backups = entries
@@ -676,8 +674,8 @@ export function restoreClaudeJsonFromBackup(): string | null {
         const raw = fs.readFileSync(backupPath, "utf-8");
         if (!raw.trim()) continue;
         JSON.parse(raw); // validate it parses before overwriting
-        writeFileAtomic(CLAUDE_JSON, raw);
-        return backupPath;
+        writeFileAtomic(CLAUDE_JSON_FILE, raw);
+        return { status: "restored", backupPath };
       } catch {
         // this backup is also bad — try the next one
       }
@@ -685,5 +683,5 @@ export function restoreClaudeJsonFromBackup(): string | null {
   } catch {
     // backups dir is missing
   }
-  return null;
+  return { status: "no-backup" };
 }

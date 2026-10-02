@@ -24,6 +24,27 @@ describe("McpItem", () => {
     expect(screen.getByText("node serve")).toBeTruthy();
   });
 
+  it("shows the needs-approval badge only for a pending server", () => {
+    const { rerender } = render(
+      h(McpItem, {
+        server: srv({ name: "files", scope: "project", pendingApproval: true }),
+        active: false,
+        onSelect: vi.fn(),
+        onCopyName: vi.fn(),
+      }),
+    );
+    expect(screen.getByText("needs approval")).toBeTruthy();
+    rerender(
+      h(McpItem, {
+        server: srv({ name: "files", scope: "project" }),
+        active: false,
+        onSelect: vi.fn(),
+        onCopyName: vi.fn(),
+      }),
+    );
+    expect(screen.queryByText("needs approval")).toBeNull();
+  });
+
   it("invokes onSelect when the row is clicked", () => {
     const onSelect = vi.fn();
     render(

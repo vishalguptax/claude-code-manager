@@ -38,6 +38,12 @@ export interface McpServer {
   /** Whether the server is explicitly disabled in the config. */
   disabled?: boolean;
   /**
+   * Project-scope only: named in neither `enabledMcpjsonServers` nor
+   * `disabledMcpjsonServers`, and no `enableAllProjectMcpServers` — Claude
+   * Code will ask the user to approve it before starting it.
+   */
+  pendingApproval?: boolean;
+  /**
    * Qualified plugin name (e.g. "caveman@caveman") when `scope` is
    * `"plugin"`. Undefined otherwise.
    */

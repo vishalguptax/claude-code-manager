@@ -2,11 +2,20 @@
  * Path constants for Claude CLI data directories.
  * Pure Node.js — no VS Code dependency.
  */
+import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 
 /** Root directory for Claude CLI data (~/.claude) */
 export const CLAUDE_DIR: string = path.join(os.homedir(), ".claude");
+
+/**
+ * Claude Code's main config file (~/.claude.json): account identity,
+ * per-project trust and MCP approvals, user-scope MCP servers. A sibling of
+ * CLAUDE_DIR, derived from it so a test that redirects the directory
+ * redirects this too.
+ */
+export const CLAUDE_JSON_FILE: string = `${CLAUDE_DIR}.json`;
 
 /** Path to the global history.jsonl file */
 export const HISTORY_FILE: string = path.join(CLAUDE_DIR, "history.jsonl");
@@ -45,8 +54,51 @@ export const SETTINGS_FILE: string = path.join(CLAUDE_DIR, "settings.json");
 export type ClaudeSettingsScope = "global" | "project" | "local";
 
 /**
+ * Canonical form of a path for identity comparison: symlinks resolved and
+ * case folded on the platforms whose default filesystems are
+ * case-insensitive. Use it wherever two spellings of one file must land on
+ * one key.
+ *
+ * Symlinks are resolved through the deepest ancestor that exists, so a file
+ * not created yet keys the same as it will once it exists — resolving only
+ * an existing path would key `<linked dir>/settings.local.json` one way
+ * before its first write and another way after.
+ */
+export function canonicalPath(p: string): string {
+  const resolved = path.resolve(p);
+  let real = resolved;
+  const missing: string[] = [];
+  for (let head = resolved; ; head = path.dirname(head)) {
+    try {
+      real = path.join(fs.realpathSync(head), ...missing);
+      break;
+    } catch {
+      // not on disk — try its parent, keeping this segment lexical
+      if (path.dirname(head) === head) break;
+      missing.unshift(path.basename(head));
+    }
+  }
+  return process.platform === "win32" || process.platform === "darwin"
+    ? real.toLowerCase()
+    : real;
+}
+
+/**
  * Resolve the settings file path for a scope. Project/local scopes
  * need a workspace; without one they resolve to null.
+ *
+ * Project scope also resolves to null when the workspace IS the home
+ * folder (or a link to it). Then "project" settings.json is literally
+ * ~/.claude/settings.json: returning it let project-scoped edits silently
+ * change global settings, and made the statusline self-heal see the global
+ * tap as a "poisoned project tap" and delete it on every activation.
+ * Local scope stays: ~/.claude/settings.local.json is a separate file, and
+ * it is where Claude Code records MCP approvals for a session run in ~.
+ *
+ * The workspace is compared with the home folder, not `<ws>/.claude` with
+ * CLAUDE_DIR: before Claude Code's first run ~/.claude does not exist, so
+ * neither side canonicalises and a symlinked home slipped through as a
+ * project — while the workspace and home always exist on disk.
  */
 export function claudeSettingsPath(
   scope: ClaudeSettingsScope,
@@ -54,8 +106,10 @@ export function claudeSettingsPath(
 ): string | null {
   if (scope === "global") return SETTINGS_FILE;
   if (!workspacePath) return null;
-  const name = scope === "local" ? "settings.local.json" : "settings.json";
-  return path.join(workspacePath, ".claude", name);
+  const dir = path.join(workspacePath, ".claude");
+  if (scope === "local") return path.join(dir, "settings.local.json");
+  if (canonicalPath(workspacePath) === canonicalPath(os.homedir())) return null;
+  return path.join(dir, "settings.json");
 }
 
 /**

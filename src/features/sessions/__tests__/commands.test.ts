@@ -77,7 +77,9 @@ import {
   importMultipleSessionFiles,
   resumeSession,
   setSessionStorage,
+  newTempSession,
 } from "../commands";
+import { getTempSessionIds, setEphemeralStorage } from "../ephemeralSession";
 import { writeZip, type ZipEntry } from "../../brain/zip";
 import type { Session } from "../types";
 
@@ -787,5 +789,32 @@ describe("resumeSession — malicious branch name", () => {
       expect(t).not.toContain('"');
       expect(t).not.toContain("rm -rf");
     }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// newTempSession
+// ─────────────────────────────────────────────────────────────────────
+
+describe("newTempSession", () => {
+  it("launches claude pinned to the session id the cleanup will delete", async () => {
+    mockedWorkspaceOverride = EXPORT_DIR;
+    setEphemeralStorage(makeMemento().memento as unknown as import("vscode").Memento);
+
+    await newTempSession();
+
+    const ids = getTempSessionIds();
+    expect(ids).toHaveLength(1);
+    expect(sentTextCalls).toEqual([`claude --session-id ${ids[0]}`]);
+  });
+
+  it("refuses without a workspace and launches nothing", async () => {
+    mockedWorkspaceOverride = "";
+    const warn = vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue(undefined);
+
+    await newTempSession();
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("Open a folder first"));
+    expect(sentTextCalls).toHaveLength(0);
   });
 });

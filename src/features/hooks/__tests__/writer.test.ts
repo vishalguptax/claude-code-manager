@@ -51,14 +51,12 @@ describe("addHook", () => {
     expect(inner[0]).toEqual({ type: "command", command: "echo hi" });
   });
 
-  it("rejects an empty command", () => {
-    expect(addHook(tmpFile, "PreToolUse", "Write", "  ") || true).toBe(true);
-    // Empty command short-circuits before writing — still no file content.
-    const exists = fs.existsSync(tmpFile);
-    if (exists) {
-      const data = read();
-      expect(data.hooks).toBeUndefined();
-    }
+  it("rejects an empty command without touching the file", () => {
+    expect(addHook(tmpFile, "PreToolUse", "Write", "  ")).toEqual({
+      ok: false,
+      error: "A hook needs both an event and a command",
+    });
+    expect(fs.existsSync(tmpFile)).toBe(false);
   });
 });
 
@@ -71,14 +69,14 @@ describe("plugin scope is read-only", () => {
       makeHook({ scope: "plugin", pluginName: "p@mkt" }),
       false,
     );
-    expect(ok).toBe(false);
+    expect(ok).toMatchObject({ ok: false });
     expect(fs.readFileSync(tmpFile, "utf-8")).toBe(before);
   });
 
   it("deleteHook refuses to mutate plugin-sourced hooks", () => {
     seed({ hooks: { PreToolUse: [{ matcher: "Write", command: "echo" }] } });
     const before = fs.readFileSync(tmpFile, "utf-8");
-    expect(deleteHook(tmpFile, makeHook({ scope: "plugin", pluginName: "p@mkt" }))).toBe(false);
+    expect(deleteHook(tmpFile, makeHook({ scope: "plugin", pluginName: "p@mkt" }))).toMatchObject({ ok: false });
     expect(fs.readFileSync(tmpFile, "utf-8")).toBe(before);
   });
 
@@ -90,7 +88,7 @@ describe("plugin scope is read-only", () => {
       makeHook({ scope: "plugin", pluginName: "p@mkt" }),
       { matcher: "Other", command: "echo new" },
     );
-    expect(ok).toBe(false);
+    expect(ok).toMatchObject({ ok: false });
     expect(fs.readFileSync(tmpFile, "utf-8")).toBe(before);
   });
 });
@@ -103,7 +101,7 @@ describe("toggleHookEnabled", () => {
       },
     });
     const hook = makeHook({ command: "echo hi" });
-    expect(toggleHookEnabled(tmpFile, hook, false)).toBe(true);
+    expect(toggleHookEnabled(tmpFile, hook, false)).toEqual({ ok: true });
     const data = read();
     expect(data.hooks).toBeUndefined();
     const disabled = data._disabled_hooks as Record<string, Array<Record<string, unknown>>>;
@@ -117,7 +115,7 @@ describe("toggleHookEnabled", () => {
       },
     });
     const hook = makeHook({ command: "echo hi", disabled: true });
-    expect(toggleHookEnabled(tmpFile, hook, true)).toBe(true);
+    expect(toggleHookEnabled(tmpFile, hook, true)).toEqual({ ok: true });
     const data = read();
     expect(data._disabled_hooks).toBeUndefined();
     const active = data.hooks as Record<string, Array<Record<string, unknown>>>;
@@ -255,12 +253,124 @@ describe("updateHook", () => {
       makeHook({ event: "PreToolUse", matcher: "Write", command: "c", commandIndex: 0 }),
       { matcher: "Edit", command: "c2", event: "PostToolUse", timeout: 15 },
     );
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     const data = read().hooks as Record<string, Array<Record<string, unknown>>>;
     expect(data.PreToolUse).toBeUndefined(); // old event array dropped
     const moved = data.PostToolUse[0].hooks as Array<Record<string, unknown>>;
     expect(data.PostToolUse[0].matcher).toBe("Edit");
     expect(moved[0]).toEqual({ type: "command", command: "c2", timeout: 15 });
+  });
+
+  it("re-homes a hook to a new event keeping `if`, `async`, `statusMessage` and unknown keys", () => {
+    const original = {
+      type: "command",
+      command: "c",
+      timeout: 15,
+      if: "Bash(git *)",
+      async: true,
+      statusMessage: "Checking…",
+      futureKey: { nested: 1 },
+    };
+    seed({ hooks: { PreToolUse: [{ matcher: "Bash", hooks: [original] }] } });
+    updateHook(
+      tmpFile,
+      makeHook({ event: "PreToolUse", matcher: "Bash", command: "c", commandIndex: 0 }),
+      { matcher: "Bash", command: "c2", event: "PostToolUse" },
+    );
+    const data = read().hooks as Record<string, Array<Record<string, unknown>>>;
+    const { timeout: _dropped, ...rest } = original;
+    expect(data.PostToolUse[0].hooks).toEqual([{ ...rest, command: "c2" }]);
+  });
+
+  it("re-homes a flat entry as a typed nested record without its group matcher", () => {
+    seed({ hooks: { PreToolUse: [{ matcher: "Write", command: "c", statusMessage: "s" }] } });
+    updateHook(tmpFile, makeHook({ command: "c" }), { matcher: "Edit", command: "c", event: "PostToolUse" });
+    const data = read().hooks as Record<string, Array<Record<string, unknown>>>;
+    expect(data.PostToolUse).toEqual([
+      { matcher: "Edit", hooks: [{ type: "command", command: "c", statusMessage: "s" }] },
+    ]);
+  });
+
+  describe("same-event matcher change in a multi-command group", () => {
+    const group = (): Record<string, unknown> => ({
+      matcher: "Bash",
+      note: "group key",
+      hooks: [
+        { type: "command", command: "a" },
+        { type: "command", command: "b", if: "Bash(rm *)" },
+      ],
+    });
+
+    it("moves only the edited command into a new group, leaving its sibling matched as before", () => {
+      seed({ hooks: { PreToolUse: [group()] } });
+      const ok = updateHook(
+        tmpFile,
+        makeHook({ matcher: "Bash", command: "b", commandIndex: 1 }),
+        { matcher: "Write", command: "b" },
+      );
+      expect(ok).toEqual({ ok: true });
+      expect((read().hooks as Record<string, unknown>).PreToolUse).toEqual([
+        { matcher: "Bash", note: "group key", hooks: [{ type: "command", command: "a" }] },
+        { matcher: "Write", note: "group key", hooks: [{ type: "command", command: "b", if: "Bash(rm *)" }] },
+      ]);
+    });
+
+    it("joins an existing group that already uses the new matcher", () => {
+      seed({
+        hooks: {
+          PreToolUse: [group(), { matcher: "Write", hooks: [{ type: "command", command: "w" }] }],
+        },
+      });
+      updateHook(tmpFile, makeHook({ matcher: "Bash", command: "a", commandIndex: 0 }), {
+        matcher: "Write",
+        command: "a2",
+      });
+      expect((read().hooks as Record<string, unknown>).PreToolUse).toEqual([
+        { matcher: "Bash", note: "group key", hooks: [{ type: "command", command: "b", if: "Bash(rm *)" }] },
+        {
+          matcher: "Write",
+          hooks: [
+            { type: "command", command: "w" },
+            { type: "command", command: "a2" },
+          ],
+        },
+      ]);
+    });
+
+    it("drops the old group once its last command moves to an existing group", () => {
+      seed({
+        hooks: {
+          PreToolUse: [
+            { matcher: "Bash", hooks: [{ type: "command", command: "a" }] },
+            { matcher: "Write", hooks: [{ type: "command", command: "w" }] },
+          ],
+        },
+      });
+      updateHook(tmpFile, makeHook({ matcher: "Bash", command: "a", commandIndex: 0 }), {
+        matcher: "Write",
+        command: "a",
+      });
+      expect((read().hooks as Record<string, unknown>).PreToolUse).toEqual([
+        {
+          matcher: "Write",
+          hooks: [
+            { type: "command", command: "w" },
+            { type: "command", command: "a" },
+          ],
+        },
+      ]);
+    });
+
+    it("re-matches a sole-command group in place when no group uses the new matcher", () => {
+      seed({ hooks: { PreToolUse: [{ matcher: "Bash", note: "k", hooks: [{ type: "command", command: "a" }] }] } });
+      updateHook(tmpFile, makeHook({ matcher: "Bash", command: "a", commandIndex: 0 }), {
+        matcher: "Write",
+        command: "a",
+      });
+      expect((read().hooks as Record<string, unknown>).PreToolUse).toEqual([
+        { matcher: "Write", note: "k", hooks: [{ type: "command", command: "a" }] },
+      ]);
+    });
   });
 
   it("refuses to rewrite a non-command hook (prompt/agent/http/mcp_tool)", () => {
@@ -281,7 +391,7 @@ describe("updateHook", () => {
       }),
       { matcher: "*", command: "new text" },
     );
-    expect(ok).toBe(false);
+    expect(ok).toMatchObject({ ok: false });
     expect(fs.readFileSync(tmpFile, "utf-8")).toBe(before);
   });
 });
@@ -301,13 +411,29 @@ describe("moveHookToFile (cross-scope)", () => {
       makeHook({ event: "PreToolUse", matcher: "Write", command: "c", commandIndex: 0 }),
       { matcher: "Write", command: "c", timeout: 20 },
     );
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     // Source emptied.
     expect(JSON.parse(fs.readFileSync(tmpFile, "utf-8")).hooks).toBeUndefined();
     // Destination has the moved hook.
     const dest = JSON.parse(fs.readFileSync(toFile, "utf-8")).hooks.PreToolUse[0];
     expect(dest.matcher).toBe("Write");
     expect(dest.hooks[0]).toEqual({ type: "command", command: "c", timeout: 20 });
+  });
+
+  it("carries the full original record into the destination file", () => {
+    const toFile = path.join(tmpDir, "settings.local.json");
+    seed({
+      hooks: {
+        Stop: [{ matcher: "", hooks: [{ type: "command", command: "c", async: true, statusMessage: "s", x: 1 }] }],
+      },
+    });
+    moveHookToFile(tmpFile, toFile, makeHook({ event: "Stop", matcher: "", command: "c", commandIndex: 0 }), {
+      matcher: "",
+      command: "c",
+      timeout: 5,
+    });
+    const dest = JSON.parse(fs.readFileSync(toFile, "utf-8")).hooks.Stop[0];
+    expect(dest.hooks[0]).toEqual({ type: "command", command: "c", async: true, statusMessage: "s", x: 1, timeout: 5 });
   });
 
   it("refuses a non-command hook", () => {
@@ -322,7 +448,7 @@ describe("moveHookToFile (cross-scope)", () => {
       makeHook({ event: "Stop", matcher: "*", command: "p", hookType: "prompt", commandIndex: 0 }),
       { matcher: "*", command: "p" },
     );
-    expect(ok).toBe(false);
+    expect(ok).toMatchObject({ ok: false });
   });
 });
 
@@ -348,7 +474,7 @@ describe("locating hooks by index vs. fallback scan", () => {
     });
     // The webview's snapshot is stale (file has only one entry, not four).
     const ok = deleteHook(tmpFile, makeHook({ command: "echo hi", entryIndex: 3 }));
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     const data = read();
     expect(data.hooks).toBeUndefined();
   });
@@ -371,7 +497,7 @@ describe("toggleHookEnabled on a multi-command entry", () => {
       },
     });
     const hook = makeHook({ event: "Stop", matcher: "*", command: "first", commandIndex: 0 });
-    expect(toggleHookEnabled(tmpFile, hook, false)).toBe(true);
+    expect(toggleHookEnabled(tmpFile, hook, false)).toEqual({ ok: true });
     const data = read();
 
     const active = data.hooks as Record<string, Array<Record<string, unknown>>>;
@@ -405,7 +531,7 @@ describe("never rewrites a settings.json it cannot parse", () => {
     fs.writeFileSync(tmpFile, content);
     expect(
       addHook(tmpFile, "PreToolUse", "Write", "echo hi"),
-    ).toBe(false);
+    ).toMatchObject({ ok: false });
     expect(fs.readFileSync(tmpFile, "utf-8")).toBe(content);
   });
 
@@ -418,23 +544,78 @@ describe("never rewrites a settings.json it cannot parse", () => {
       () => updateHook(tmpFile, hook, { event: "PreToolUse", matcher: "Read", command: "x" }),
     ]) {
       fs.writeFileSync(tmpFile, content);
-      expect(op()).toBe(false);
+      expect(op()).toMatchObject({ ok: false });
       expect(fs.readFileSync(tmpFile, "utf-8")).toBe(content);
     }
   });
 
-  it("still writes into an absent or blank file, and keeps unrelated keys", () => {
+  it.each(["", " \n"])(
+    "refuses a freshly emptied file — Claude Code may be mid-rewrite (%j)",
+    (content) => {
+      fs.writeFileSync(tmpFile, content);
+      expect(addHook(tmpFile, "PreToolUse", "Write", "echo hi")).toEqual({
+        ok: false,
+        error: `${tmpFile} is being written by Claude Code right now, so it was left untouched. Try again in a moment`,
+      });
+      expect(fs.readFileSync(tmpFile, "utf-8")).toBe(content);
+    },
+  );
+
+  it("writes into an empty file that has stayed empty past the settle window", () => {
+    // `touch settings.json`: refusing it forever would block every write.
+    fs.writeFileSync(tmpFile, "");
+    const old = new Date(Date.now() - 60_000);
+    fs.utimesSync(tmpFile, old, old);
+    expect(addHook(tmpFile, "PreToolUse", "Write", "echo hi")).toEqual({ ok: true });
+    expect(read().hooks).toBeTruthy();
+  });
+
+  it("says why a hostile file was refused", () => {
+    fs.writeFileSync(tmpFile, '{ "hooks": {}, }');
+    expect(addHook(tmpFile, "PreToolUse", "Write", "echo hi")).toEqual({
+      ok: false,
+      error: `${tmpFile} isn't valid JSON, so it was left untouched. Fix or remove it, then try again`,
+    });
+  });
+
+  it("refuses a path it cannot read (not ENOENT)", () => {
+    // A directory where the file should be: EISDIR, standing in for
+    // EACCES / EBUSY — the file exists, we just could not see it.
+    fs.mkdirSync(tmpFile);
+    expect(addHook(tmpFile, "PreToolUse", "Write", "echo hi")).toMatchObject({ ok: false });
+    expect(fs.statSync(tmpFile).isDirectory()).toBe(true);
+  });
+
+  it("still writes into an absent file, and keeps unrelated keys", () => {
     expect(
       addHook(tmpFile, "PreToolUse", "Write", "echo hi"),
-    ).toBe(true);
+    ).toEqual({ ok: true });
     expect(read().hooks).toBeTruthy();
 
     seed({ model: "opus", env: { A: "1" } });
     expect(
       addHook(tmpFile, "Stop", "", "echo bye"),
-    ).toBe(true);
+    ).toEqual({ ok: true });
     const after = read();
     expect(after.model).toBe("opus");
     expect(after.env).toEqual({ A: "1" });
+  });
+});
+
+describe("refusal reasons", () => {
+  it("says the hook moved when the file no longer holds it", () => {
+    seed({ hooks: {} });
+    expect(deleteHook(tmpFile, makeHook())).toEqual({
+      ok: false,
+      error: `The hook is no longer in ${tmpFile} — it may have been edited on disk`,
+    });
+  });
+
+  it("says why a non-command hook can't be edited", () => {
+    const result = updateHook(tmpFile, makeHook({ hookType: "prompt" }), { matcher: "", command: "x" });
+    expect(result).toEqual({
+      ok: false,
+      error: "Only command hooks can be edited; other hook types support toggle and delete",
+    });
   });
 });

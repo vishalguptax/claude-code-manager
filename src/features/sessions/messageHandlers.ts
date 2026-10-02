@@ -61,7 +61,7 @@ import {
   openPromptInExtension,
 } from "../../extension/claudeCodeExtension";
 import { createTerminal, runInTerminal } from "../../extension/terminal";
-import { getTempSessionIds, promoteTempSession } from "../../extension/ephemeralSession";
+import { getTempSessionIds, promoteTempSession } from "./ephemeralSession";
 import { handlePromptsMessage, type PromptsHostContext } from "../prompts";
 import { handleMemoryMessage, type MemoryHostContext } from "../memory";
 import { handlePluginsMessage, type PluginsHostContext } from "../plugins";

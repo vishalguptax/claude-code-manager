@@ -3,8 +3,7 @@
  * Pure Node.js file I/O, no VS Code dependency.
  */
 import * as fs from "fs";
-import * as path from "path";
-import * as os from "os";
+import { claudeSettingsPath } from "../../core/config";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { loadActivePlugins, type ActivePlugin } from "../../core/plugins";
 import { hookRecordIdentity, hookRecordTimeout, hookRecordType, type RawHookEntry } from "./hookRecord";
@@ -31,9 +30,6 @@ interface FileParseResult {
  * being re-read on every call.
  */
 const hooksCache = createMtimeCache<FileParseResult>();
-
-/** Path to the global settings file (~/.claude/settings.json). */
-const GLOBAL_SETTINGS_FILE: string = path.join(os.homedir(), ".claude", "settings.json");
 
 /**
  * Read hooks from a settings.json file at the given path.
@@ -181,15 +177,13 @@ export function parseHooks(workspacePath?: string): HooksParseResult {
     if (result.error) errors.push(result.error);
   };
 
-  // Global hooks
-  collect(readHooksFromFile(GLOBAL_SETTINGS_FILE, "global"));
-
-  // Project + local hooks
-  if (workspacePath) {
-    const projectSettings = path.join(workspacePath, ".claude", "settings.json");
-    const localSettings = path.join(workspacePath, ".claude", "settings.local.json");
-    collect(readHooksFromFile(projectSettings, "project"));
-    collect(readHooksFromFile(localSettings, "local"));
+  // claudeSettingsPath answers null for project/local without a workspace,
+  // and for project when the workspace is the home folder — that file IS
+  // the global one, and reading it twice listed every global hook again
+  // under a "project" label whose edits then failed to resolve.
+  for (const scope of ["global", "project", "local"] as const) {
+    const filePath = claudeSettingsPath(scope, workspacePath);
+    if (filePath) collect(readHooksFromFile(filePath, scope));
   }
 
   // Plugin-declared hooks (read-only). Plugin manifests are already

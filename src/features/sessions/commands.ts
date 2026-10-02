@@ -16,7 +16,7 @@ import {
   findWorktreeForBranch,
   clearWorktreeCache,
 } from "../../extension/worktrees";
-import { registerEphemeralTerminal } from "../../extension/ephemeralSession";
+import { registerEphemeralTerminal } from "./ephemeralSession";
 import { getWorkspace } from "../../extension/workspace";
 import {
   isClaudeCodeExtensionInstalled,
@@ -71,8 +71,8 @@ export async function newSession(): Promise<void> {
  * settings, skills, agents, hooks, and MCP servers are unchanged —
  * only the persisted transcript is throwaway.
  *
- * Requires a workspace folder: without a project path we cannot scope
- * the snapshot/diff that drives cleanup.
+ * Requires a workspace folder: the transcript lands in that project's
+ * directory, which is where cleanup looks for it.
  */
 export async function newTempSession(onCleaned?: () => void): Promise<void> {
   const ws = getWorkspace();
@@ -85,9 +85,11 @@ export async function newTempSession(onCleaned?: () => void): Promise<void> {
   const term = createTerminal("Claude (temp)", ws);
   // onCleaned reparses + re-pushes the list on close, since the file watcher
   // does not reliably observe cleanup's own unlink + history rewrite.
-  registerEphemeralTerminal(term, ws, onCleaned);
+  const { sessionId } = registerEphemeralTerminal(term, ws, onCleaned);
   term.show();
-  runInTerminal(term, "claude");
+  // Pin the id up front so close-time cleanup deletes exactly this transcript
+  // and never another session that started in the same project meanwhile.
+  runInTerminal(term, `claude --session-id ${sessionId}`);
 }
 
 /**

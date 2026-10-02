@@ -27,8 +27,13 @@ const tmp = vi.hoisted(() => {
   return { root };
 });
 
-vi.mock("../../../core/config", () => ({
+vi.mock("../../../core/config", async (importOriginal) => ({
+  // The real canonicaliser: snapshot buckets are keyed by it.
+  canonicalPath: (await importOriginal<typeof import("../../../core/config")>()).canonicalPath,
   CLAUDE_DIR: tmp.root,
+  // Inside the temp root: before this constant existed, the parser read the
+  // developer's real ~/.claude.json here.
+  CLAUDE_JSON_FILE: path.join(tmp.root, "claude.json"),
   HISTORY_FILE: path.join(tmp.root, "history.jsonl"),
   PROJECTS_DIR: path.join(tmp.root, "projects"),
   SESSIONS_DIR: path.join(tmp.root, "sessions"),
@@ -40,6 +45,8 @@ vi.mock("../../../core/config", () => ({
   claudeSettingsPath: (scope: string, workspacePath?: string) => {
     if (scope === "global") return path.join(tmp.root, "settings.json");
     if (!workspacePath) return null;
+    // Mirrors the real rule: project has no file of its own in the home folder.
+    if (scope === "project" && workspacePath === "/home-folder") return null;
     const name = scope === "local" ? "settings.local.json" : "settings.json";
     return path.join(workspacePath, ".claude", name);
   },
@@ -78,6 +85,12 @@ function writeJson(file: string, value: unknown): void {
 }
 
 describe("parseAccountData — permissions", () => {
+  it("lists no project scope when the workspace has no project file of its own", () => {
+    writeJson(GLOBAL_SETTINGS, { permissions: { allow: ["Read"], deny: [] } });
+    const scopes = parseAccountData("/home-folder").permissions.map((p) => p.scope);
+    expect(scopes).toEqual(["global", "local"]);
+  });
+
   it("parses allow/deny for the global scope from settings.json", () => {
     writeJson(GLOBAL_SETTINGS, {
       permissions: {
@@ -349,7 +362,7 @@ describe("writeSettingsValue — refuses to clobber a file it cannot read", () =
 
   it.each(HOSTILE)("refuses and leaves the file byte-identical: %s", (_label, content) => {
     fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
-    expect(writeSettingsValue("verbose", true)).toBe(false);
+    expect(writeSettingsValue("verbose", true)).toMatchObject({ ok: false });
     expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
   });
 
@@ -358,18 +371,40 @@ describe("writeSettingsValue — refuses to clobber a file it cannot read", () =
     // make room for defaultMode silently dropped an allowlist.
     const content = '{"permissions":["Bash(ls)"],"model":"opus"}';
     fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
-    expect(writeSettingsValue("permissions.defaultMode", "auto")).toBe(false);
+    expect(writeSettingsValue("permissions.defaultMode", "auto")).toEqual({
+      ok: false,
+      error: `"permissions" in ${GLOBAL_SETTINGS} isn't an object, so permissions.defaultMode can't be set inside it. Fix it by hand, then try again`,
+    });
     expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
   });
 
-  it("still writes to an absent or empty file — there is nothing to lose", () => {
+  it("still writes to an absent file — there is nothing to lose", () => {
     fs.rmSync(GLOBAL_SETTINGS, { force: true });
-    expect(writeSettingsValue("model", "opus")).toBe(true);
+    expect(writeSettingsValue("model", "opus")).toEqual({ ok: true });
     expect(JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8"))).toEqual({ model: "opus" });
+  });
 
-    fs.writeFileSync(GLOBAL_SETTINGS, "   ", "utf-8");
-    expect(writeSettingsValue("verbose", true)).toBe(true);
-    expect(JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8"))).toEqual({ verbose: true });
+  it.each(["", "   \n"])("refuses a freshly emptied file — Claude Code may be mid-rewrite (%j)", (content) => {
+    // A window activating while the CLI rewrites settings.json reads it
+    // empty; writing then left a file holding only our key.
+    fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
+    const midWrite = {
+      ok: false,
+      error: `${GLOBAL_SETTINGS} is being written by Claude Code right now, so it was left untouched. Try again in a moment`,
+    };
+    expect(writeSettingsValue("statusLine", { type: "command", command: "x" })).toEqual(midWrite);
+    expect(addPermissionEntry("global", "Bash(ls)", "allow")).toEqual(midWrite);
+    expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
+  });
+
+  it("writes into a file that has stayed empty past the settle window", () => {
+    // `touch settings.json`, or an editor that saved it blank: refusing it
+    // would make every write fail forever.
+    fs.writeFileSync(GLOBAL_SETTINGS, "", "utf-8");
+    const old = new Date(Date.now() - 60_000);
+    fs.utimesSync(GLOBAL_SETTINGS, old, old);
+    expect(writeSettingsValue("model", "opus")).toEqual({ ok: true });
+    expect(JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8"))).toEqual({ model: "opus" });
   });
 
   it("preserves every unrelated key on a valid file", () => {
@@ -380,7 +415,7 @@ describe("writeSettingsValue — refuses to clobber a file it cannot read", () =
       hooks: { SessionStart: [] },
     };
     writeJson(GLOBAL_SETTINGS, before);
-    expect(writeSettingsValue("sandbox.enabled", true)).toBe(true);
+    expect(writeSettingsValue("sandbox.enabled", true)).toEqual({ ok: true });
     const after = JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")) as Record<string, unknown>;
     for (const [k, v] of Object.entries(before)) {
       expect(after[k]).toEqual(v);
@@ -398,20 +433,23 @@ describe("permission writers refuse the same unreadable files", () => {
 
   it("add refuses and leaves the file byte-identical", () => {
     fs.writeFileSync(GLOBAL_SETTINGS, HOSTILE, "utf-8");
-    expect(addPermissionEntry("global", "Bash(ls)", "allow")).toBe(false);
+    expect(addPermissionEntry("global", "Bash(ls)", "allow")).toMatchObject({ ok: false });
     expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(HOSTILE);
   });
 
-  it("remove refuses too", () => {
+  it("remove refuses too, saying the file isn't valid JSON", () => {
     fs.writeFileSync(GLOBAL_SETTINGS, HOSTILE, "utf-8");
-    expect(removePermissionEntry("global", "Bash(ls)", "allow")).toBe(false);
+    expect(removePermissionEntry("global", "Bash(ls)", "allow")).toEqual({
+      ok: false,
+      error: `${GLOBAL_SETTINGS} isn't valid JSON, so it was left untouched. Fix or remove it, then try again`,
+    });
     expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(HOSTILE);
   });
 
   it("add refuses when permissions is not an object", () => {
     const content = '{"permissions":["Bash(ls)"]}';
     fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
-    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toBe(false);
+    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toMatchObject({ ok: false });
     expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
   });
 
@@ -420,18 +458,32 @@ describe("permission writers refuse the same unreadable files", () => {
     // a silent no-op that used to report success.
     const content = '{"permissions":{"allow":"Bash(ls)"}}';
     fs.writeFileSync(GLOBAL_SETTINGS, content, "utf-8");
-    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toBe(false);
+    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toMatchObject({ ok: false });
     expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(content);
   });
 
   it("still adds to a valid file and keeps everything else", () => {
     writeJson(GLOBAL_SETTINGS, { model: "opus", permissions: { allow: ["Bash(ls)"] } });
-    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toBe(true);
+    expect(addPermissionEntry("global", "Bash(cat)", "allow")).toEqual({ ok: true });
     const after = JSON.parse(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")) as {
       model: string;
       permissions: { allow: string[] };
     };
     expect(after.model).toBe("opus");
     expect(after.permissions.allow).toEqual(["Bash(ls)", "Bash(cat)"]);
+  });
+});
+
+describe("removePermissionEntry on a rule that is already gone", () => {
+  it("says so, and neither writes nor snapshots", () => {
+    writeJson(GLOBAL_SETTINGS, { permissions: { allow: ["Read"] } });
+    const before = fs.readFileSync(GLOBAL_SETTINGS, "utf-8");
+    fs.rmSync(path.join(tmp.root, "snapshots"), { recursive: true, force: true });
+    expect(removePermissionEntry("global", "Bash(ls)", "allow")).toEqual({
+      ok: false,
+      error: `"Bash(ls)" is no longer in the allow list of ${GLOBAL_SETTINGS}`,
+    });
+    expect(fs.readFileSync(GLOBAL_SETTINGS, "utf-8")).toBe(before);
+    expect(fs.existsSync(path.join(tmp.root, "snapshots"))).toBe(false);
   });
 });

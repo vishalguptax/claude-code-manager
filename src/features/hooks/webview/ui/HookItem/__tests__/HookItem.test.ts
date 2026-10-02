@@ -52,9 +52,24 @@ describe("HookItem", () => {
     expect(screen.getByText("*")).toBeTruthy();
   });
 
-  it("hides the matcher entirely for a non-tool event (matcher has no effect there)", () => {
-    renderItem({ hook: hook({ event: "SessionStart", matcher: "" }) });
+  it("hides the matcher for a blank-matcher hook on an event Claude Code never matches", () => {
+    renderItem({ hook: hook({ event: "Stop", matcher: "" }) });
     expect(screen.queryByText("*")).toBeNull();
+  });
+
+  it("shows a Notification hook's notification-type matcher", () => {
+    renderItem({ hook: hook({ event: "Notification", matcher: "idle_prompt" }) });
+    expect(screen.getByText("idle_prompt").classList.contains("hook-matcher")).toBe(true);
+  });
+
+  it("shows the all-matcher placeholder for a blank SessionStart matcher", () => {
+    renderItem({ hook: hook({ event: "SessionStart", matcher: "" }) });
+    expect(screen.getByText("*")).toBeTruthy();
+  });
+
+  it("shows an existing matcher on an event this catalog doesn't know", () => {
+    renderItem({ hook: hook({ event: "SomeFutureEvent", matcher: "beta" }) });
+    expect(screen.getByText("beta")).toBeTruthy();
   });
 
   // `.hook-item-command code` ellipsizes at the row edge, so the old

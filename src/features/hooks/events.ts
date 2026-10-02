@@ -8,13 +8,8 @@
  * catalog is updated.
  */
 
-/**
- * Events that match against a tool name — the only ones for which the `matcher`
- * field is meaningful. For every other event (SessionStart, Stop, Notification,
- * PreCompact, …) a matcher has no effect, so the UI must not show a matcher
- * badge/`*`/input that implies tool-matching the event can't do.
- */
-export const MATCHER_EVENTS: ReadonlySet<string> = new Set([
+/** Events whose matcher is tested against the tool name (`tool_name`). */
+const TOOL_EVENTS: ReadonlySet<string> = new Set([
   "PreToolUse",
   "PostToolUse",
   "PostToolUseFailure",
@@ -22,9 +17,84 @@ export const MATCHER_EVENTS: ReadonlySet<string> = new Set([
   "PermissionDenied",
 ]);
 
-/** True when the event uses the tool-name matcher field. */
+interface MatcherInfo {
+  /** What the matcher is tested against, phrased as a field label. */
+  subject: string;
+  /** Known values, `|`-joined the way a matcher alternates them. */
+  values?: string;
+}
+
+const TOOL_MATCHER: MatcherInfo = { subject: "Tool name or pattern" };
+
+/**
+ * Events whose `matcher` Claude Code actually tests, and what it tests it
+ * against. Verified 2026-10-02 against the Claude Code 2.1.287 binary: its
+ * match-query switch maps each event to one hook-input field (tool events →
+ * `tool_name`, SessionStart → `source`, Notification → `notification_type`,
+ * …) and skips matching entirely for every event it maps to nothing (Stop,
+ * UserPromptSubmit, TeammateIdle, …). `values` are the enums the same binary
+ * declares for those fields; Notification lists only the common types.
+ *
+ * This list drives display and input hints only. It must never be used to
+ * drop a matcher a hook already has (see `showsMatcher`): a CLI release can
+ * make another event matchable before this table catches up, and blanking
+ * the matcher would silently widen the hook to fire on every occurrence.
+ */
+const MATCHERS: Readonly<Record<string, MatcherInfo>> = {
+  ...Object.fromEntries([...TOOL_EVENTS].map((name) => [name, TOOL_MATCHER])),
+  UserPromptExpansion: { subject: "Command name" },
+  SessionStart: { subject: "Source", values: "startup|resume|clear|compact|fork" },
+  SessionEnd: { subject: "Reason", values: "clear|resume|logout|prompt_input_exit|other" },
+  Setup: { subject: "Trigger", values: "init|maintenance" },
+  PreCompact: { subject: "Trigger", values: "manual|auto" },
+  PostCompact: { subject: "Trigger", values: "manual|auto" },
+  PreModelSwitch: { subject: "Target model" },
+  PostModelSwitch: { subject: "Target model" },
+  Notification: {
+    subject: "Notification type",
+    values: "permission_prompt|idle_prompt|auth_success|elicitation_dialog",
+  },
+  StopFailure: { subject: "Error" },
+  SubagentStart: { subject: "Agent type" },
+  SubagentStop: { subject: "Agent type" },
+  Elicitation: { subject: "MCP server name" },
+  ElicitationResult: { subject: "MCP server name" },
+  ConfigChange: {
+    subject: "Source",
+    values: "user_settings|project_settings|local_settings|policy_settings|skills",
+  },
+  DirectoryAdded: { subject: "Source" },
+  InstructionsLoaded: {
+    subject: "Load reason",
+    values: "session_start|nested_traversal|path_glob_match|include|compact",
+  },
+  FileChanged: { subject: "File name" },
+};
+
+/** What the event's matcher is tested against, or undefined if Claude Code ignores it. */
+export function matcherInfo(event: string): MatcherInfo | undefined {
+  return Object.hasOwn(MATCHERS, event) ? MATCHERS[event] : undefined;
+}
+
+/** e.g. "Source: startup|resume|clear|compact|fork (blank = match all)". */
+export function matcherPlaceholder(info: MatcherInfo | undefined): string {
+  if (!info) return "Matcher";
+  const values = info.values ? `: ${info.values}` : "";
+  return `${info.subject}${values} (blank = match all)`;
+}
+
+/** True when Claude Code tests the matcher for this event. */
 export function eventUsesMatcher(event: string): boolean {
-  return MATCHER_EVENTS.has(event);
+  return matcherInfo(event) !== undefined;
+}
+
+/**
+ * Whether the UI should show a hook's matcher: always for a matchable event
+ * (blank reads as "match all"), and for any other event whenever one is set,
+ * so an existing matcher is never hidden from view or dropped on save.
+ */
+export function showsMatcher(event: string, matcher: string): boolean {
+  return eventUsesMatcher(event) || matcher !== "";
 }
 
 export interface HookEventInfo {

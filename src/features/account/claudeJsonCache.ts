@@ -16,14 +16,8 @@
  * data.
  */
 import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
+import { CLAUDE_JSON_FILE } from "../../core/config";
 import { createMtimeCache } from "../../core/mtimeCache";
-
-// Computed locally from os.homedir() to match parser.ts / profiles.ts (which
-// tests redirect by mocking `os`); avoids a hard dependency on the core/config
-// module that the account tests replace wholesale.
-const CLAUDE_JSON = path.join(os.homedir(), ".claude.json");
 
 interface ParsedClaudeJson {
   /** Raw file contents, or null when missing / unreadable. */
@@ -35,7 +29,7 @@ interface ParsedClaudeJson {
 const cache = createMtimeCache<ParsedClaudeJson>();
 
 function read(): ParsedClaudeJson {
-  return cache.get(CLAUDE_JSON, (filePath) => {
+  return cache.get(CLAUDE_JSON_FILE, (filePath) => {
     let raw: string;
     try {
       raw = fs.readFileSync(filePath, "utf-8");

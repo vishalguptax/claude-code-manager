@@ -77,7 +77,7 @@ describe("setPluginEnabled", () => {
     writeProjectSettings(
       JSON.stringify({ permissions: { allow: ["Bash"] }, enabledPlugins: { [SEO]: true } }),
     );
-    const write = vi.fn().mockReturnValue(true);
+    const write = vi.fn().mockReturnValue({ ok: true });
 
     expect(setPluginEnabled(CAVEMAN, true, "project", WORKSPACE, write)).toEqual({ ok: true });
     expect(write).toHaveBeenCalledWith(
@@ -90,7 +90,7 @@ describe("setPluginEnabled", () => {
 
   it("writes only the enabledPlugins key, leaving siblings to the writer", () => {
     writeProjectSettings(JSON.stringify({ hooks: {}, model: "opus" }));
-    const write = vi.fn().mockReturnValue(true);
+    const write = vi.fn().mockReturnValue({ ok: true });
     setPluginEnabled(CAVEMAN, false, "project", WORKSPACE, write);
     expect(write.mock.calls[0][0]).toBe("enabledPlugins");
     expect(write.mock.calls[0][1]).toEqual({ [CAVEMAN]: false });
@@ -103,7 +103,7 @@ describe("setPluginEnabled", () => {
   });
 
   it("refuses to edit managed settings", () => {
-    const write = vi.fn().mockReturnValue(true);
+    const write = vi.fn().mockReturnValue({ ok: true });
     const result = setPluginEnabled(CAVEMAN, true, "managed", WORKSPACE, write);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("organisation");
@@ -111,7 +111,7 @@ describe("setPluginEnabled", () => {
   });
 
   it("refuses a project scope with no workspace open", () => {
-    const write = vi.fn().mockReturnValue(true);
+    const write = vi.fn().mockReturnValue({ ok: true });
     const result = setPluginEnabled(CAVEMAN, true, "project", undefined, write);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("No workspace folder open");
@@ -119,7 +119,7 @@ describe("setPluginEnabled", () => {
   });
 
   it("refuses an unsafe plugin id before touching anything", () => {
-    const write = vi.fn().mockReturnValue(true);
+    const write = vi.fn().mockReturnValue({ ok: true });
     const result = setPluginEnabled("../../etc/passwd@evil", true, "project", WORKSPACE, write);
     expect(result.ok).toBe(false);
     expect(write).not.toHaveBeenCalled();
@@ -127,7 +127,7 @@ describe("setPluginEnabled", () => {
 
   it("refuses to write into a settings file it cannot parse", () => {
     writeProjectSettings("{ oops");
-    const write = vi.fn().mockReturnValue(true);
+    const write = vi.fn().mockReturnValue({ ok: true });
     const result = setPluginEnabled(CAVEMAN, true, "project", WORKSPACE, write);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("could not be read");
@@ -136,7 +136,7 @@ describe("setPluginEnabled", () => {
 
   it("refuses when enabledPlugins in the file is the wrong shape", () => {
     writeProjectSettings(JSON.stringify({ enabledPlugins: ["caveman@caveman"] }));
-    const write = vi.fn().mockReturnValue(true);
+    const write = vi.fn().mockReturnValue({ ok: true });
     const result = setPluginEnabled(CAVEMAN, true, "project", WORKSPACE, write);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("is not an object");
@@ -144,15 +144,15 @@ describe("setPluginEnabled", () => {
   });
 
   it("creates the map when the settings file does not exist yet", () => {
-    const write = vi.fn().mockReturnValue(true);
+    const write = vi.fn().mockReturnValue({ ok: true });
     expect(setPluginEnabled(CAVEMAN, true, "local", WORKSPACE, write)).toEqual({ ok: true });
     expect(write.mock.calls[0][1]).toEqual({ [CAVEMAN]: true });
   });
 
-  it("reports a failed write as a failure rather than a success", () => {
-    const write = vi.fn().mockReturnValue(false);
+  it("reports a refused write with the writer's reason", () => {
+    const reason = "/ws/.claude/settings.local.json isn't valid JSON, so it was left untouched";
+    const write = vi.fn().mockReturnValue({ ok: false, error: reason });
     const result = setPluginEnabled(CAVEMAN, true, "local", WORKSPACE, write);
-    expect(result.ok).toBe(false);
-    expect(result.error).toContain("Failed to write");
+    expect(result).toEqual({ ok: false, error: `${reason}.` });
   });
 });

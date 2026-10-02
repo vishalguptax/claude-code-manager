@@ -2,9 +2,18 @@
  * Settings snapshot history. Every `writeSettingsValue` /
  * `addPermissionEntry` / `removePermissionEntry` call writes a copy
  * of the live settings.json to
- * ~/.claude/.claude-manager-snapshots/<scope>/settings-<epoch>.json
+ * ~/.claude/.claude-manager-snapshots/<scope>/[<fileKey>/]settings-<epoch>.json
  * before the mutation lands. Restore = swap the live file for the
  * chosen snapshot's bytes after a confirm modal.
+ *
+ * Project/local snapshots live in a per-file bucket (`<fileKey>`, a hash
+ * of the live file's path) and carry it in their id. One shared
+ * directory per scope meant restoring in project B could write project
+ * A's settings into B, and every project's edits evicted the others'
+ * history from the shared ring. Global has one live file, so it keeps
+ * its unbucketed directory and ids (existing global history stays
+ * usable). Legacy unbucketed project/local snapshots are never listed or
+ * restored: nothing records which workspace they came from.
  *
  * Why a custom directory and not VS Code's `Memento`? Snapshots can
  * be megabytes for permission-heavy projects, they need to survive
@@ -13,9 +22,11 @@
  * file-per-snapshot also lets the user reach in with a diff tool if
  * the UI flow is ever stuck.
  */
+import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
-import { SETTINGS_SNAPSHOTS_DIR } from "../../core/config";
+import { SETTINGS_SNAPSHOTS_DIR, canonicalPath } from "../../core/config";
+import { writeFileAtomic } from "../../core/atomicWrite";
 import type { PermissionScope } from "./types";
 
 /** Default cap on how many snapshots we keep per scope. */
@@ -23,7 +34,11 @@ export const SNAPSHOT_KEEP_DEFAULT = 20;
 
 /** One snapshot's metadata, surfaced to the webview list. */
 export interface SettingsSnapshot {
-  /** Identifier used by the restore + delete messages. Filename, no path. */
+  /**
+   * Identifier used by the restore + delete messages: the filename, and
+   * for project/local `<fileKey>/<filename>`, so it names the file it
+   * belongs to.
+   */
   id: string;
   /** Epoch ms taken when the snapshot was written. */
   takenAtMs: number;
@@ -40,8 +55,44 @@ export interface SettingsSnapshot {
   sizeBytes: number;
 }
 
-function scopeDir(scope: PermissionScope): string {
-  return path.join(SETTINGS_SNAPSHOTS_DIR, scope);
+/**
+ * Bucket key for a project/local live file: a short hash of its canonical
+ * path. "" for global (one live file, no bucket). Canonical — symlinks
+ * resolved, case folded where the filesystem ignores case — so a project
+ * opened through a link, or with different casing on macOS, keeps one
+ * snapshot history instead of splitting into two.
+ */
+function fileKey(scope: PermissionScope, liveFilePath: string): string {
+  if (scope === "global") return "";
+  return crypto.createHash("sha256").update(canonicalPath(liveFilePath)).digest("hex").slice(0, 16);
+}
+
+function bucketDir(scope: PermissionScope, key: string): string {
+  return key
+    ? path.join(SETTINGS_SNAPSHOTS_DIR, scope, key)
+    : path.join(SETTINGS_SNAPSHOTS_DIR, scope);
+}
+
+const SNAPSHOT_NAME = /^settings-\d+(?:-\d+)?\.json$/;
+
+/**
+ * Split and validate a snapshot id. The id arrives from the webview, so
+ * it is checked against the exact shapes we mint — nothing else may
+ * reach a path join (no `..`, no separators beyond the one bucket).
+ */
+function parseId(
+  scope: PermissionScope,
+  snapshotId: string,
+): { key: string; name: string } | null {
+  const parts = snapshotId.split("/");
+  const [key, name] = parts.length === 2 ? parts : ["", parts[0]];
+  if (parts.length > 2 || !SNAPSHOT_NAME.test(name)) return null;
+  if (scope === "global" ? key !== "" : !/^[0-9a-f]{16}$/.test(key)) return null;
+  return { key, name };
+}
+
+function idFor(key: string, name: string): string {
+  return key ? `${key}/${name}` : name;
 }
 
 function safeReadJson(filePath: string): unknown {
@@ -106,7 +157,8 @@ export function snapshotSettings(
     return null;
   }
 
-  const dir = scopeDir(scope);
+  const key = fileKey(scope, liveFilePath);
+  const dir = bucketDir(scope, key);
   try {
     fs.mkdirSync(dir, { recursive: true });
   } catch {
@@ -126,12 +178,12 @@ export function snapshotSettings(
     return null;
   }
 
-  pruneSnapshots(scope, keep);
-  return filename;
+  pruneSnapshots(scope, liveFilePath, keep);
+  return idFor(key, filename);
 }
 
 /**
- * List snapshots for a scope, newest first, with diff annotations.
+ * List snapshots of one live file, newest first, with diff annotations.
  * Each entry's `changedKeys` shows what changed compared to the next
  * newer snapshot (or the live settings.json for the head).
  */
@@ -139,7 +191,8 @@ export function listSnapshots(
   scope: PermissionScope,
   liveFilePath: string,
 ): SettingsSnapshot[] {
-  const dir = scopeDir(scope);
+  const key = fileKey(scope, liveFilePath);
+  const dir = bucketDir(scope, key);
   let entries: string[] = [];
   try {
     entries = fs.readdirSync(dir);
@@ -175,7 +228,7 @@ export function listSnapshots(
       // ignore — size is informational
     }
     return {
-      id: s.name,
+      id: idFor(key, s.name),
       takenAtMs: s.epoch,
       scope,
       changedKeys,
@@ -185,15 +238,16 @@ export function listSnapshots(
 }
 
 /**
- * Roll the snapshot directory down to `keep` newest entries. Older
- * entries are unlinked. Best-effort — a failure to delete one entry
- * does not abort the rest of the prune.
+ * Roll one live file's snapshot directory down to `keep` newest
+ * entries. Older entries are unlinked. Best-effort — a failure to delete
+ * one entry does not abort the rest of the prune.
  */
 export function pruneSnapshots(
   scope: PermissionScope,
+  liveFilePath: string,
   keep: number = SNAPSHOT_KEEP_DEFAULT,
 ): void {
-  const dir = scopeDir(scope);
+  const dir = bucketDir(scope, fileKey(scope, liveFilePath));
   let entries: string[];
   try {
     entries = fs.readdirSync(dir);
@@ -218,13 +272,18 @@ export function pruneSnapshots(
  * Replace the live settings.json with the bytes stored at the given
  * snapshot. Snapshots the current live file first so the restore is
  * itself reversible. Returns true on success.
+ *
+ * Refuses a snapshot taken of a different file: a project/local id
+ * whose bucket is not this live file's is another workspace's settings.
  */
 export function restoreSnapshot(
   scope: PermissionScope,
   liveFilePath: string,
   snapshotId: string,
 ): boolean {
-  const src = path.join(scopeDir(scope), snapshotId);
+  const id = parseId(scope, snapshotId);
+  if (!id || id.key !== fileKey(scope, liveFilePath)) return false;
+  const src = path.join(bucketDir(scope, id.key), id.name);
   let bytes: Buffer;
   try {
     bytes = fs.readFileSync(src);
@@ -238,20 +297,24 @@ export function restoreSnapshot(
 
   try {
     fs.mkdirSync(path.dirname(liveFilePath), { recursive: true });
-    fs.writeFileSync(liveFilePath, bytes);
+    // Atomic: Claude Code reads this file at any moment, and a torn
+    // restore would leave it a file Claude Code skips entirely.
+    writeFileAtomic(liveFilePath, bytes);
     return true;
   } catch {
     return false;
   }
 }
 
-/** Delete a single snapshot by id. */
+/** Delete a single snapshot by id (the id names its own bucket). */
 export function deleteSnapshot(
   scope: PermissionScope,
   snapshotId: string,
 ): boolean {
+  const id = parseId(scope, snapshotId);
+  if (!id) return false;
   try {
-    fs.unlinkSync(path.join(scopeDir(scope), snapshotId));
+    fs.unlinkSync(path.join(bucketDir(scope, id.key), id.name));
     return true;
   } catch {
     return false;

@@ -12,7 +12,12 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import { writeFileAtomic } from "../../core/atomicWrite";
+import {
+  describeReadRefusal,
+  readJsonObjectForWrite,
+  writeFileAtomic,
+  type WriteOutcome,
+} from "../../core/atomicWrite";
 import { hookRecordIdentity, hookRecordType, type HookRecord, type RawHookEntry } from "./hookRecord";
 import type { Hook } from "./types";
 
@@ -23,46 +28,48 @@ interface SettingsShape {
 }
 
 /**
- * Read a settings file for a read-modify-write pass.
+ * Read a settings file for a read-modify-write pass, or the reason it must
+ * not be rewritten — see readJsonObjectForWrite.
  *
- * `{}` when absent or blank — nothing to lose, so creating it is safe.
- * **null when it exists but cannot be read as a JSON object**, meaning
- * the caller must not write.
- *
- * This used to answer the unreadable case with `{}` as well, and every
- * caller wrote that back — so toggling one hook in the Hooks tab
- * replaced a settings.json carrying a comment or a trailing comma with
- * nothing but that hook. Claude Code already refuses to load a file in
- * that state, so the user may well be mid-repair when they click.
+ * Both looser answers lost data. Answering `{}` for an unparseable file
+ * meant toggling one hook replaced a settings.json carrying a comment or
+ * a trailing comma with nothing but that hook. Answering `{}` for a freshly
+ * emptied file or a failed read did the same to a file Claude Code was
+ * rewriting at that moment.
  */
-function readSettings(filePath: string): SettingsShape | null {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(filePath, "utf-8");
-  } catch {
-    return {};
-  }
-  if (raw.trim() === "") return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as SettingsShape;
-    }
-  } catch {
-    return null;
-  }
-  return null;
+function readSettings(filePath: string): { ok: true; data: SettingsShape } | { ok: false; error: string } {
+  const read = readJsonObjectForWrite(filePath);
+  return read.ok
+    ? { ok: true, data: read.data as SettingsShape }
+    : { ok: false, error: describeReadRefusal(filePath, read) };
 }
 
-function writeSettings(filePath: string, data: SettingsShape): boolean {
+function writeSettings(filePath: string, data: SettingsShape): WriteOutcome {
   try {
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     writeFileAtomic(filePath, JSON.stringify(data, null, 2) + "\n");
-    return true;
-  } catch {
-    return false;
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: `${filePath} couldn't be written (${(err as Error).message})` };
   }
 }
+
+/** Plugin hooks live in plugin.json, owned by Claude Code's plugin installer. */
+const PLUGIN_HOOK: WriteOutcome = {
+  ok: false,
+  error: "Plugin hooks are managed by their plugin and can't be changed here",
+};
+
+/** The hook is not where the last parse saw it. */
+function hookNotFound(filePath: string): WriteOutcome {
+  return { ok: false, error: `The hook is no longer in ${filePath} — it may have been edited on disk` };
+}
+
+/** Only command hooks carry the fields an edit changes. */
+const NOT_EDITABLE: WriteOutcome = {
+  ok: false,
+  error: "Only command hooks can be edited; other hook types support toggle and delete",
+};
 
 interface Located {
   arr: RawHookEntry[];
@@ -159,26 +166,27 @@ function removeAt(match: Located | null): boolean {
 
 /**
  * Move a hook between the active (`hooks`) and parked
- * (`_disabled_hooks`) blocks. Returns true on success.
+ * (`_disabled_hooks`) blocks.
  */
 export function toggleHookEnabled(
   filePath: string,
   hook: Hook,
   enable: boolean,
-): boolean {
+): WriteOutcome {
   // Plugin-sourced hooks live in plugin.json (owned by claude-code's
   // plugin install machinery) and have no settings.json to mutate.
   // Refusing here keeps the rest of the writer simple — it only ever
   // sees settings.json shapes.
-  if (hook.scope === "plugin") return false;
-  const data = readSettings(filePath);
+  if (hook.scope === "plugin") return PLUGIN_HOOK;
+  const read = readSettings(filePath);
   // Refuse rather than replace a settings file we cannot parse.
-  if (data === null) return false;
+  if (!read.ok) return read;
+  const data = read.data;
   const sourceKey = enable ? "_disabled_hooks" : "hooks";
   const targetKey = enable ? "hooks" : "_disabled_hooks";
   const source = data[sourceKey] as Record<string, RawHookEntry[]> | undefined;
   const match = locateHook(source, hook);
-  if (!match) return false;
+  if (!match) return hookNotFound(filePath);
 
   // Move payload: preserve everything, never rebuild. A nested entry
   // with siblings moves only the targeted sub-record — `{ ...entry,
@@ -224,16 +232,17 @@ export function toggleHookEnabled(
   return writeSettings(filePath, data);
 }
 
-/** Permanently delete a hook entry. Returns true on success. */
-export function deleteHook(filePath: string, hook: Hook): boolean {
-  if (hook.scope === "plugin") return false;
-  const data = readSettings(filePath);
+/** Permanently delete a hook entry. */
+export function deleteHook(filePath: string, hook: Hook): WriteOutcome {
+  if (hook.scope === "plugin") return PLUGIN_HOOK;
+  const read = readSettings(filePath);
   // Refuse rather than replace a settings file we cannot parse.
-  if (data === null) return false;
+  if (!read.ok) return read;
+  const data = read.data;
   const blockKey = hook.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
   const match = locateHook(block, hook);
-  if (!removeAt(match)) return false;
+  if (!removeAt(match)) return hookNotFound(filePath);
   if (block && Array.isArray(block[hook.event]) && block[hook.event].length === 0) {
     delete block[hook.event];
   }
@@ -259,11 +268,56 @@ function applyTimeout(record: HookRecord, timeout: number | undefined): void {
   else record.timeout = timeout;
 }
 
-/** Build a fresh nested command record for a re-homed (moved) hook. */
-function buildCommandRecord(command: string, timeout: number | undefined): HookRecord {
-  const record: HookRecord = { type: "command", command };
-  if (timeout !== undefined) record.timeout = timeout;
+/**
+ * The edited copy of a located record, for re-homing it under another
+ * event or into another file. It starts from the whole original object —
+ * rebuilding `{ type, command, timeout }` dropped `if`, `async`,
+ * `statusMessage` and every key we don't know — and overrides only the
+ * edited fields. A flat entry is its own record, so its `matcher` (a group
+ * key) stays behind, and it gets the `type` the nested shape requires.
+ */
+function editedRecord(match: Located, next: HookEdit): HookRecord {
+  const record: HookRecord = { type: "command", ...match.record };
+  if (match.commandIndex === null) delete record.matcher;
+  record.command = next.command;
+  applyTimeout(record, next.timeout);
   return record;
+}
+
+/**
+ * Give one located record a new matcher within its event. The matcher is
+ * a property of the whole group entry, so setting it there re-matched
+ * every sibling command too. The record moves instead: into a group that
+ * already uses the new matcher, else into a new group cloned from its old
+ * one (keeping group-level keys) right after it. The old group is dropped
+ * only once empty. A flat entry, or a group with no siblings and no
+ * existing target, is re-matched in place.
+ */
+function rematchRecord(match: Located, matcher: string): void {
+  const { arr, entry, entryIndex, commandIndex, record } = match;
+  const inner = entry.hooks;
+  if (commandIndex === null || !Array.isArray(inner)) {
+    entry.matcher = matcher;
+    return;
+  }
+  const target = arr.find(
+    (e) =>
+      e !== entry &&
+      e &&
+      typeof e === "object" &&
+      Array.isArray(e.hooks) &&
+      (typeof e.matcher === "string" ? e.matcher : "") === matcher,
+  );
+  if (target) {
+    target.hooks!.push(record);
+  } else if (inner.length === 1) {
+    entry.matcher = matcher;
+    return;
+  } else {
+    arr.splice(entryIndex + 1, 0, { ...entry, matcher, hooks: [record] });
+  }
+  inner.splice(commandIndex, 1);
+  if (inner.length === 0) arr.splice(entryIndex, 1);
 }
 
 /** Append a `{ matcher, hooks: [record] }` entry under an event block. */
@@ -297,39 +351,42 @@ function dropEmpty(
 /**
  * Rewrite an existing command hook within its own settings file.
  *
- * A same-event edit mutates matcher/command/timeout IN PLACE, so the
- * record's `type`, `if`, and any unknown keys survive untouched
- * (lossless). Changing the event is a re-home: the record is removed
- * from the old event array and a fresh nested `{ matcher, hooks: [{
- * type, command, timeout }] }` entry is inserted under the new event.
+ * A same-event edit mutates command/timeout IN PLACE, so the record's
+ * `type`, `if`, and any unknown keys survive untouched (lossless); a
+ * matcher change moves just this record between groups (see
+ * rematchRecord). Changing the event is a re-home: the record is removed
+ * from the old event array and inserted, edited but otherwise whole, as
+ * a nested `{ matcher, hooks: [record] }` entry under the new event.
  *
  * Cross-scope moves go through {@link moveHookToFile} (two files).
  * Refuses plugin + non-command hooks.
  */
-export function updateHook(filePath: string, original: Hook, next: HookEdit): boolean {
-  if (original.scope === "plugin") return false;
-  if (original.hookType !== "command") return false;
-  const data = readSettings(filePath);
+export function updateHook(filePath: string, original: Hook, next: HookEdit): WriteOutcome {
+  if (original.scope === "plugin") return PLUGIN_HOOK;
+  if (original.hookType !== "command") return NOT_EDITABLE;
+  const read = readSettings(filePath);
   // Refuse rather than replace a settings file we cannot parse.
-  if (data === null) return false;
+  if (!read.ok) return read;
+  const data = read.data;
   const blockKey = original.disabled ? "_disabled_hooks" : "hooks";
   const block = data[blockKey] as Record<string, RawHookEntry[]> | undefined;
   const match = locateHook(block, original);
-  if (!match || !block) return false;
+  if (!match || !block) return hookNotFound(filePath);
 
   const targetEvent = next.event ?? original.event;
 
   if (targetEvent === original.event) {
-    match.entry.matcher = next.matcher;
     match.record.command = next.command;
     applyTimeout(match.record, next.timeout);
+    if (next.matcher !== original.matcher) rematchRecord(match, next.matcher);
     return writeSettings(filePath, data);
   }
 
   // Event change — re-home the record under the new event.
+  const record = editedRecord(match, next);
   removeAt(match);
   dropEmpty(data, blockKey, block, original.event);
-  insertHookEntry(data, blockKey, targetEvent, next.matcher, buildCommandRecord(next.command, next.timeout));
+  insertHookEntry(data, blockKey, targetEvent, next.matcher, record);
   return writeSettings(filePath, data);
 }
 
@@ -345,30 +402,27 @@ export function moveHookToFile(
   toFile: string,
   original: Hook,
   next: HookEdit,
-): boolean {
-  if (original.scope === "plugin") return false;
-  if (original.hookType !== "command") return false;
+): WriteOutcome {
+  if (original.scope === "plugin") return PLUGIN_HOOK;
+  if (original.hookType !== "command") return NOT_EDITABLE;
 
-  const fromData = readSettings(fromFile);
+  const fromRead = readSettings(fromFile);
   // Refuse rather than replace a settings file we cannot parse.
-  if (fromData === null) return false;
+  if (!fromRead.ok) return fromRead;
+  const fromData = fromRead.data;
   const blockKey = original.disabled ? "_disabled_hooks" : "hooks";
   const fromBlock = fromData[blockKey] as Record<string, RawHookEntry[]> | undefined;
   const match = locateHook(fromBlock, original);
-  if (!match || !fromBlock) return false;
+  if (!match || !fromBlock) return hookNotFound(fromFile);
 
   // Insert into the destination file first.
-  const toData = readSettings(toFile);
+  const toRead = readSettings(toFile);
   // Refuse rather than replace a settings file we cannot parse.
-  if (toData === null) return false;
-  insertHookEntry(
-    toData,
-    blockKey,
-    next.event ?? original.event,
-    next.matcher,
-    buildCommandRecord(next.command, next.timeout),
-  );
-  if (!writeSettings(toFile, toData)) return false;
+  if (!toRead.ok) return toRead;
+  const toData = toRead.data;
+  insertHookEntry(toData, blockKey, next.event ?? original.event, next.matcher, editedRecord(match, next));
+  const wroteTo = writeSettings(toFile, toData);
+  if (!wroteTo.ok) return wroteTo;
 
   // Then remove from the source.
   removeAt(match);
@@ -387,11 +441,14 @@ export function addHook(
   event: string,
   matcher: string,
   command: string,
-): boolean {
-  if (!event.trim() || !command.trim()) return false;
-  const data = readSettings(filePath);
+): WriteOutcome {
+  if (!event.trim() || !command.trim()) {
+    return { ok: false, error: "A hook needs both an event and a command" };
+  }
+  const read = readSettings(filePath);
   // Refuse rather than replace a settings file we cannot parse.
-  if (data === null) return false;
+  if (!read.ok) return read;
+  const data = read.data;
   let block = data.hooks;
   if (!block) {
     block = {};

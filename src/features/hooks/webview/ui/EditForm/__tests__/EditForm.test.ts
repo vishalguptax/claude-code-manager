@@ -69,22 +69,67 @@ describe("EditForm", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("hides the Matcher field for a non-tool event and clears it on save", () => {
+  it("round-trips a SessionStart matcher unchanged and names what it matches", () => {
+    // Regression: the form used to treat SessionStart as matcher-less, so
+    // saving blanked "compact" and the hook then fired on every session start.
     const onSave = vi.fn();
-    render(h(EditForm, { hook: { ...baseHook, event: "SessionStart", matcher: "" }, onSave, onCancel: vi.fn() }));
-    expect(screen.queryByLabelText("Matcher")).toBeNull();
+    const hook: Hook = { ...baseHook, event: "SessionStart", matcher: "compact" };
+    render(h(EditForm, { hook, onSave, onCancel: vi.fn() }));
+    const field = screen.getByLabelText("Matcher") as HTMLInputElement;
+    expect(field.value).toBe("compact");
+    expect(field.placeholder).toBe("Source: startup|resume|clear|compact|fork (blank = match all)");
     fireEvent.click(screen.getByText("Save"));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ matcher: "", event: "SessionStart" }));
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ matcher: "compact", event: "SessionStart" }),
+    );
   });
 
-  it("clears a stale matcher when re-homing from a tool event to a non-tool event", () => {
+  it("keeps the tool-name placeholder for tool events", () => {
+    render(h(EditForm, { hook: baseHook, onSave: vi.fn(), onCancel: vi.fn() }));
+    expect((screen.getByLabelText("Matcher") as HTMLInputElement).placeholder).toBe(
+      "Tool name or pattern (blank = match all)",
+    );
+    expect(screen.queryByText(/ignores the matcher/)).toBeNull();
+  });
+
+  it("preserves an existing matcher on an event this catalog doesn't know", () => {
+    // Defence in depth: a newer CLI may match on events not listed yet.
+    const onSave = vi.fn();
+    const hook: Hook = { ...baseHook, event: "SomeFutureEvent", matcher: "beta" };
+    render(h(EditForm, { hook, onSave, onCancel: vi.fn() }));
+    expect((screen.getByLabelText("Matcher") as HTMLInputElement).value).toBe("beta");
+    fireEvent.click(screen.getByText("Save"));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ matcher: "beta" }));
+  });
+
+  it("hides the Matcher field for a blank-matcher hook on an unmatched event", () => {
+    const onSave = vi.fn();
+    render(h(EditForm, { hook: { ...baseHook, event: "Stop", matcher: "" }, onSave, onCancel: vi.fn() }));
+    expect(screen.queryByLabelText("Matcher")).toBeNull();
+    fireEvent.click(screen.getByText("Save"));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ matcher: "", event: "Stop" }));
+  });
+
+  it("keeps an existing matcher visible, with a note, when re-homing to an unmatched event", () => {
     const onSave = vi.fn();
     render(h(EditForm, { hook: baseHook, onSave, onCancel: vi.fn() }));
     fireEvent.click(screen.getByLabelText("Event"));
-    fireEvent.click(screen.getByText("Session Start"));
+    fireEvent.click(screen.getByText("Stop"));
+    expect((screen.getByLabelText("Matcher") as HTMLInputElement).value).toBe("Write");
+    expect(screen.getByText("Claude Code ignores the matcher for this event.")).toBeTruthy();
+    fireEvent.click(screen.getByText("Save"));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ matcher: "Write", event: "Stop" }));
+  });
+
+  it("drops a matcher typed into a blank-matcher hook when re-homing to an unmatched event", () => {
+    const onSave = vi.fn();
+    render(h(EditForm, { hook: { ...baseHook, matcher: "" }, onSave, onCancel: vi.fn() }));
+    fireEvent.input(screen.getByLabelText("Matcher"), { target: { value: "Bash" } });
+    fireEvent.click(screen.getByLabelText("Event"));
+    fireEvent.click(screen.getByText("Stop"));
     expect(screen.queryByLabelText("Matcher")).toBeNull();
     fireEvent.click(screen.getByText("Save"));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ matcher: "", event: "SessionStart" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ matcher: "", event: "Stop" }));
   });
 
   it("fires onCancel", () => {

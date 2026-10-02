@@ -7,11 +7,16 @@
  * back into the live `~/.claude.json` (not into a standalone file) so
  * the surrounding oauthAccount + userID + projects blocks survive.
  * Incoming entries replace same-named existing entries.
+ *
+ * When ~/.claude.json exists but can't be merged into safely (or its lock
+ * can't be taken) the MCP entry is skipped with the reason as a warning,
+ * and the rest of the archive still imports.
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
-import { CLAUDE_DIR } from "../../core/config";
+import { CLAUDE_DIR, CLAUDE_JSON_FILE } from "../../core/config";
+import { describeReadRefusal, readJsonObjectForWrite, writeFileAtomic } from "../../core/atomicWrite";
+import { withLocks, CONFIG_LOCK } from "../../core/claudeLocks";
 import { readZip, type ZipEntry } from "./zip";
 import type { BrainManifest } from "./exporter";
 
@@ -70,7 +75,9 @@ function writeFileReplacing(
     } catch {
       // unreadable — fall through and overwrite
     }
-    fs.writeFileSync(absPath, data);
+    // Replacing a file Claude Code may read at any moment (settings.json,
+    // agents, skills): atomic, so it never sees a half-written one.
+    writeFileAtomic(absPath, data);
     summary.overwritten.push(absPath);
     return;
   }
@@ -78,7 +85,11 @@ function writeFileReplacing(
   summary.written.push(absPath);
 }
 
-/** Merge incoming mcpServers entries into ~/.claude.json, replacing same-named entries. */
+/**
+ * Merge incoming mcpServers entries into ~/.claude.json, replacing
+ * same-named entries. Throws, leaving the file untouched, when it can't
+ * be merged into safely.
+ */
 function mergeMcpServers(raw: string, summary: ImportSummary): void {
   let incoming: { mcpServers?: Record<string, unknown> };
   try {
@@ -89,23 +100,37 @@ function mergeMcpServers(raw: string, summary: ImportSummary): void {
   }
   if (!incoming.mcpServers) return;
 
-  const target = path.join(os.homedir(), ".claude.json");
-  let live: Record<string, unknown> = {};
-  try {
-    const liveRaw = fs.readFileSync(target, "utf-8");
-    if (liveRaw.trim()) live = JSON.parse(liveRaw) as Record<string, unknown>;
-  } catch {
-    // empty/corrupt — start from empty object
+  const servers = incoming.mcpServers;
+  const target = CLAUDE_JSON_FILE;
+  // ~/.claude.json also holds oauthAccount, per-project trust + MCP
+  // approvals and onboarding state, and Claude Code rewrites it whole under
+  // this lock. Holding it orders our read-modify-write against theirs.
+  const locked = withLocks([CONFIG_LOCK], () => {
+    const live = readLiveClaudeJson(target);
+    const merged: Record<string, unknown> = { ...((live.mcpServers as Record<string, unknown>) ?? {}) };
+    for (const [name, cfg] of Object.entries(servers)) merged[name] = cfg;
+    live.mcpServers = merged;
+    writeFileAtomic(target, JSON.stringify(live, null, 2));
+  });
+  if (!locked.ok) {
+    throw new Error(
+      `MCP servers were not merged: ${target} is locked by Claude Code. Try the import again in a moment`,
+    );
   }
+  summary.mergedMcpServers.push(...Object.keys(servers));
+}
 
-  const existingServers = (live.mcpServers as Record<string, unknown>) ?? {};
-  const merged: Record<string, unknown> = { ...existingServers };
-  for (const [name, cfg] of Object.entries(incoming.mcpServers)) {
-    merged[name] = cfg;
-    summary.mergedMcpServers.push(name);
-  }
-  live.mcpServers = merged;
-  fs.writeFileSync(target, JSON.stringify(live, null, 2));
+/**
+ * Read ~/.claude.json for a merge, under the shared refusal rule
+ * (readJsonObjectForWrite). A refused file — emptied by a rewrite in
+ * progress, unreadable, or corrupt — throws: merging into `{}` and writing
+ * it back would wipe the account, every project's trust and MCP approvals,
+ * and onboarding state, keeping nothing but `mcpServers`.
+ */
+function readLiveClaudeJson(target: string): Record<string, unknown> {
+  const read = readJsonObjectForWrite(target);
+  if (!read.ok) throw new Error(`MCP servers were not merged: ${describeReadRefusal(target, read)}`);
+  return read.data;
 }
 
 export function importBrain(
@@ -153,7 +178,15 @@ export function importBrain(
       // Special-case mcpServers.json — merge instead of overwriting
       // the live ~/.claude.json contents.
       if (relative === "mcpServers.json") {
-        mergeMcpServers(entry.data.toString("utf-8"), summary);
+        // A refusal must not abort the loop: files already written would
+        // stay written, the rest of the archive would be dropped, and the
+        // summary of what did land would be lost with the exception.
+        try {
+          mergeMcpServers(entry.data.toString("utf-8"), summary);
+        } catch (err) {
+          summary.skipped.push(entry.path);
+          summary.warnings.push((err as Error).message);
+        }
         continue;
       }
       const abs = safeJoin(CLAUDE_DIR, relative);
@@ -275,7 +308,7 @@ export function previewConflicts(
           mcpServers?: Record<string, unknown>;
         };
         if (!incoming.mcpServers) continue;
-        const target = path.join(os.homedir(), ".claude.json");
+        const target = CLAUDE_JSON_FILE;
         let live: Record<string, unknown> = {};
         try {
           const raw = fs.readFileSync(target, "utf-8");

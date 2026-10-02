@@ -18,7 +18,7 @@ interface Harness {
 
 function harness(overrides: Partial<PluginsHostContext> = {}): Harness {
   const posted: unknown[] = [];
-  const write = vi.fn().mockReturnValue(true);
+  const write = vi.fn().mockReturnValue({ ok: true });
   const ctx: PluginsHostContext = {
     getWebview: () => ({ postMessage: (m: unknown) => posted.push(m) }) as never,
     getWorkspace: () => WORKSPACE,

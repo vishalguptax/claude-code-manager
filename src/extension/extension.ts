@@ -19,7 +19,7 @@ import {
   SUPPORTS_SECONDARY_SIDEBAR_CONTEXT_KEY,
   supportsSecondarySidebar,
 } from "./secondarySidebar";
-import { setEphemeralStorage, sweepOrphans } from "./ephemeralSession";
+import { setEphemeralStorage, sweepOrphans } from "../features/sessions/ephemeralSession";
 import { getWorkspace } from "./workspace";
 import {
   detectForeignProjectTap,
@@ -79,8 +79,9 @@ export function activate(context: vscode.ExtensionContext): void {
   // Wire persistent storage into the sessions commands module so the
   // export/import dialogs can remember the last folder the user chose.
   setSessionStorage(context.globalState);
-  // Ephemeral (temp) session cleanup: wire storage, then drain any
-  // pending entries left behind by a prior VS Code crash or reload.
+  // Ephemeral (temp) session cleanup: wire storage, then reclaim pending
+  // entries whose owning extension host died (crash, reload). The list is
+  // shared by every window, so entries another open window owns are kept.
   setEphemeralStorage(context.globalState);
   timedStep("sweepOrphans", sweepOrphans);
 
@@ -121,7 +122,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Resume to View for the terminal hosting that session, regardless of
   // how it was started. Gated on consent and idempotent; see
   // sessionTapPolicy. Failures must not block activation.
-  timedStep("syncSessionTap", () => syncSessionTap(path.join(__dirname)));
+  timedStep("syncSessionTap", () => syncSessionTap(path.join(__dirname), "activation"));
   context.subscriptions.push(watchTerminalLinkingSetting(path.join(__dirname)));
 
   const provider = new ClaudeSessionViewProvider(
@@ -413,9 +414,9 @@ export function activate(context: vscode.ExtensionContext): void {
         if (summary.skipped.length) parts.push(`${summary.skipped.length} skipped`);
         const body = parts.length > 0 ? parts.join(" · ") : "Nothing to import";
         vscode.window.showInformationMessage(`Brain import complete — ${body}.`);
-        // Surface hook-path warnings separately so users can act on
-        // them without re-reading the summary toast. Only shown when
-        // the hook inspection actually flagged something.
+        // Surface warnings (hook commands naming paths missing here, an
+        // MCP merge ~/.claude.json refused) separately so users can act
+        // on them without re-reading the summary toast.
         if (summary.warnings.length > 0) {
           const lines = summary.warnings.slice(0, 5);
           const extra =
@@ -423,7 +424,7 @@ export function activate(context: vscode.ExtensionContext): void {
               ? `\n(+${summary.warnings.length - 5} more)`
               : "";
           vscode.window.showWarningMessage(
-            "Imported settings reference paths that don't exist on this machine.",
+            "Brain import finished with warnings.",
             {
               modal: true,
               detail: lines.join("\n") + extra,

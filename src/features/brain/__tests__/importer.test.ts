@@ -1,7 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+
+const { HOME } = vi.hoisted(() => {
+  const _path = require("path") as typeof import("path");
+  const _os = require("os") as typeof import("os");
+  return { HOME: _path.join(_os.tmpdir(), ".claude-test-brain-home") };
+});
+
+// ~/.claude.json (and the CLAUDE_DIR the global section restores into) must
+// resolve inside the test's own home, never the developer's real one.
+vi.mock("os", async () => {
+  const actual = await vi.importActual<typeof import("os")>("os");
+  return { ...actual, homedir: () => HOME };
+});
 import { writeZip } from "../zip";
 import { importBrain, previewConflicts, readManifest } from "../importer";
 
@@ -156,4 +169,90 @@ describe("brain importer", () => {
     expect(m?.version).toBe(1);
     expect(m?.sections).toEqual(["project"]);
   });
+});
+
+describe("brain importer — mcpServers merge into ~/.claude.json", () => {
+  const claudeJson = path.join(HOME, ".claude.json");
+
+  function mcpZip(mcpServers: Record<string, unknown>): Buffer {
+    return makeZip([
+      { path: "global/mcpServers.json", data: Buffer.from(JSON.stringify({ mcpServers })) },
+    ]);
+  }
+
+  beforeEach(() => {
+    fs.rmSync(HOME, { recursive: true, force: true });
+    fs.mkdirSync(HOME, { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(HOME, { recursive: true, force: true });
+  });
+
+  it("merges into the live file, keeping account, projects and onboarding state", () => {
+    const live = {
+      oauthAccount: { emailAddress: "a@b.c" },
+      projects: { "/w": { hasTrustDialogAccepted: true, enabledMcpjsonServers: ["x"] } },
+      hasCompletedOnboarding: true,
+      mcpServers: { keep: { command: "k" }, swap: { command: "old" } },
+    };
+    fs.writeFileSync(claudeJson, JSON.stringify(live));
+    const summary = importBrain(mcpZip({ swap: { command: "new" }, add: { command: "a" } }), undefined, ["global"]);
+    expect(summary.mergedMcpServers).toEqual(["swap", "add"]);
+    const after = JSON.parse(fs.readFileSync(claudeJson, "utf-8"));
+    expect(after.oauthAccount).toEqual(live.oauthAccount);
+    expect(after.projects).toEqual(live.projects);
+    expect(after.hasCompletedOnboarding).toBe(true);
+    expect(after.mcpServers).toEqual({ keep: { command: "k" }, swap: { command: "new" }, add: { command: "a" } });
+    expect(fs.existsSync(`${claudeJson}.lock`)).toBe(false);
+  });
+
+  it("creates ~/.claude.json when it does not exist", () => {
+    importBrain(mcpZip({ add: { command: "a" } }), undefined, ["global"]);
+    expect(JSON.parse(fs.readFileSync(claudeJson, "utf-8"))).toEqual({ mcpServers: { add: { command: "a" } } });
+  });
+
+  it.each([
+    ["empty (mid-write)", "", "is being written by Claude Code right now"],
+    ["truncated", '{ "oauthAccount": { "emailAddress": ', "isn't valid JSON"],
+    ["not an object", "[]", "doesn't hold a JSON object"],
+  ])("refuses to merge when ~/.claude.json is %s, leaving it untouched", (_l, content, why) => {
+    fs.writeFileSync(claudeJson, content);
+    const summary = importBrain(mcpZip({ add: { command: "a" } }), undefined, ["global"]);
+    expect(summary.warnings).toEqual([expect.stringContaining(`MCP servers were not merged: ${claudeJson} ${why}`)]);
+    expect(summary.skipped).toEqual(["global/mcpServers.json"]);
+    expect(summary.mergedMcpServers).toEqual([]);
+    expect(fs.readFileSync(claudeJson, "utf-8")).toBe(content);
+  });
+
+  it("refuses when ~/.claude.json exists but can't be read", () => {
+    fs.mkdirSync(claudeJson); // EISDIR on read
+    const summary = importBrain(mcpZip({ add: { command: "a" } }), undefined, ["global"]);
+    expect(summary.warnings).toEqual([expect.stringMatching(/couldn't be read/)]);
+  });
+
+  it("keeps importing the rest of the archive after a refused merge", () => {
+    fs.writeFileSync(claudeJson, "");
+    const zip = makeZip([
+      { path: "global/agents/before.md", data: Buffer.from("before") },
+      { path: "global/mcpServers.json", data: Buffer.from(JSON.stringify({ mcpServers: { a: {} } })) },
+      { path: "global/agents/after.md", data: Buffer.from("after") },
+    ]);
+    const summary = importBrain(zip, undefined, ["global"]);
+    expect(summary.written.map((p) => path.basename(p))).toEqual(["before.md", "after.md"]);
+    expect(summary.skipped).toEqual(["global/mcpServers.json"]);
+    expect(summary.warnings).toHaveLength(1);
+    expect(fs.readFileSync(path.join(HOME, ".claude", "agents", "after.md"), "utf-8")).toBe("after");
+  });
+
+  it(
+    "refuses while Claude Code holds its config lock",
+    () => {
+      fs.writeFileSync(claudeJson, "{}");
+      fs.mkdirSync(`${claudeJson}.lock`); // fresh mtime: a live holder
+      const summary = importBrain(mcpZip({ add: { command: "a" } }), undefined, ["global"]);
+      expect(summary.warnings).toEqual([expect.stringMatching(/locked/)]);
+      expect(fs.readFileSync(claudeJson, "utf-8")).toBe("{}");
+    },
+    15_000,
+  );
 });

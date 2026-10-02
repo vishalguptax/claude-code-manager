@@ -111,6 +111,53 @@ describe("saveState", () => {
     const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
     expect(data.pinned).toEqual(["new"]);
   });
+
+  it("replaces the file by rename, never truncating it in place", () => {
+    saveState({ pinned: ["old"], deleted: [], renames: {} });
+    const before = fs.statSync(STATE_FILE).ino;
+    saveState({ pinned: ["new"], deleted: [], renames: {} });
+    // A fresh inode proves rename-over: a truncate-then-write in place is what
+    // another window could read as empty JSON and then save back over every pin.
+    expect(fs.statSync(STATE_FILE).ino).not.toBe(before);
+    expect(JSON.parse(fs.readFileSync(STATE_FILE, "utf-8")).pinned).toEqual(["new"]);
+    expect(fs.readdirSync(TEMP_DIR)).toEqual([path.basename(STATE_FILE)]);
+  });
+
+  it("warns and leaves no temp file when the directory is missing", () => {
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      saveState({ pinned: ["x"], deleted: [], renames: {} });
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+    expect(fs.existsSync(TEMP_DIR)).toBe(false);
+  });
+});
+
+describe("cross-window writes", () => {
+  beforeEach(() => {
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  });
+
+  it("keeps a pin another window wrote since this window's last mutation", () => {
+    pinSession("ours-1");
+    // Another window pins + renames through the same file.
+    const other = loadState();
+    other.pinned.push("theirs");
+    other.renames.theirs = "Their name";
+    fs.writeFileSync(STATE_FILE, JSON.stringify(other));
+
+    pinSession("ours-2");
+    archiveSession("archived-here");
+
+    const state = loadState();
+    expect(state.pinned).toEqual(["ours-1", "theirs", "ours-2"]);
+    expect(state.renames).toEqual({ theirs: "Their name" });
+    expect(state.archived).toEqual(["archived-here"]);
+  });
 });
 
 describe("pinSession", () => {
