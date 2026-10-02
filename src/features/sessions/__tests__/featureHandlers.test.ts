@@ -40,6 +40,14 @@ vi.mock("../../../extension/terminal", () => ({
   runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
 }));
 vi.mock("../../skills/parser", () => ({ parseSkills: () => mockParseSkills() }));
+const mockFindSkill = vi.fn();
+const mockFindDeletableSkill = vi.fn();
+const mockDeleteSkillFolder = vi.fn();
+vi.mock("../../skills/access", () => ({
+  findSkill: (...a: unknown[]) => mockFindSkill(...a),
+  findDeletableSkill: (...a: unknown[]) => mockFindDeletableSkill(...a),
+  deleteSkillFolder: (...a: unknown[]) => mockDeleteSkillFolder(...a),
+}));
 vi.mock("../../agents/parser", () => ({ parseAgents: () => mockParseAgents() }));
 
 import { handleFeatureMessage } from "../featureHandlers";
@@ -373,5 +381,38 @@ describe("routing", () => {
     const ctx = { getWebview: () => undefined } as unknown as HostContext;
     expect(await handleFeatureMessage({ type: "getHooks" }, ctx)).toBe(true);
     expect(mockParseHooks).not.toHaveBeenCalled();
+  });
+});
+
+describe("skill paths from the webview", () => {
+  const skill = { id: "global:lint", name: "lint", scope: "global", path: "/home/dev/.claude/skills/lint" };
+
+  it("deletes only the skill the host resolved, after the user confirms", async () => {
+    mockFindDeletableSkill.mockReturnValue({ ok: true, skill });
+    vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue("Delete" as never);
+    const { ctx, posted } = harness();
+    await handleFeatureMessage({ type: "deleteSkill", skillPath: skill.path }, ctx);
+    expect(mockFindDeletableSkill).toHaveBeenCalledWith(skill.path, undefined);
+    expect(mockDeleteSkillFolder).toHaveBeenCalledWith(skill);
+    expect(posted.at(-1)).toMatchObject({ type: "skills" });
+  });
+
+  it("refuses an unresolved path without asking and without deleting", async () => {
+    mockFindDeletableSkill.mockReturnValue({ ok: false, error: "/etc is not a skill Claude Code loads — refresh the list." });
+    const warn = vi.spyOn(vscode.window, "showWarningMessage");
+    const err = vi.spyOn(vscode.window, "showErrorMessage");
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "deleteSkill", skillPath: "/etc" }, ctx);
+    expect(warn).not.toHaveBeenCalled();
+    expect(mockDeleteSkillFolder).not.toHaveBeenCalled();
+    expect(err).toHaveBeenCalledWith("/etc is not a skill Claude Code loads — refresh the list.");
+  });
+
+  it("opens SKILL.md only for a resolved skill", async () => {
+    mockFindSkill.mockReturnValue({ ok: false, error: "nope" });
+    const open = vi.spyOn(vscode.workspace, "openTextDocument");
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "openSkillFile", skillPath: "/etc" }, ctx);
+    expect(open).not.toHaveBeenCalled();
   });
 });

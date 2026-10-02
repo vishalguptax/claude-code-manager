@@ -11,6 +11,7 @@ export {
   loading,
   type ModelFilter,
   modelCounts,
+  noProjectScope,
   parseErrors,
   resetAgentsState,
   scopeLabel,

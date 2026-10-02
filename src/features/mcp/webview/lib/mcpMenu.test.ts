@@ -4,7 +4,6 @@ import {
   buildMcpMenu,
   canAuthMcp,
   canEditMcp,
-  canToggleMcp,
   type McpMenuHandlers,
 } from "./mcpMenu";
 
@@ -41,14 +40,6 @@ describe("MCP capability rules", () => {
     expect(canEditMcp(server({ scope: "global" }))).toBe(true);
   });
 
-  it("only toggles project servers", () => {
-    // Claude Code's switch is the disabledMcpjsonServers arrays, and those
-    // govern project .mcp.json servers alone.
-    expect(canToggleMcp(server({ scope: "project" }))).toBe(true);
-    expect(canToggleMcp(server({ scope: "global" }))).toBe(false);
-    expect(canToggleMcp(server({ scope: "plugin" }))).toBe(false);
-  });
-
   it("only offers auth for remote transports", () => {
     expect(canAuthMcp(server({ type: "http" }))).toBe(true);
     expect(canAuthMcp(server({ type: "sse" }))).toBe(true);
@@ -73,16 +64,23 @@ describe("buildMcpMenu", () => {
     expect(labels(server({ disabled: true }))).not.toContain("Disable");
   });
 
-  it("drops the toggle for a global server", () => {
-    const l = labels(server({ scope: "global" }));
-    expect(l).not.toContain("Disable");
-    expect(l).toContain("Edit…");
-    expect(l).toContain("Delete");
+  it("offers the toggle for local and global servers", () => {
+    // `/mcp` switches any server off for the project via disabledMcpServers.
+    for (const scope of ["local", "global"] as const) {
+      expect(labels(server({ scope }))).toEqual([
+        "Edit…",
+        "Disable",
+        "Copy Name",
+        "Open Config",
+        "Delete",
+      ]);
+    }
   });
 
-  it("leaves a plugin server read-only", () => {
-    // Nothing here may rewrite what a plugin ships.
-    expect(labels(server({ scope: "plugin" }))).toEqual(["Copy Name"]);
+  it("leaves a plugin server read-only apart from the per-project switch", () => {
+    // Nothing here may rewrite what a plugin ships; the switch lives in the
+    // project's config, not the plugin's.
+    expect(labels(server({ scope: "plugin" }))).toEqual(["Disable", "Copy Name"]);
   });
 
   it("adds auth entries for a remote server", () => {

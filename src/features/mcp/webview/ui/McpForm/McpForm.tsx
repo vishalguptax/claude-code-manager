@@ -7,8 +7,8 @@
  * env and headers are entered as `KEY=value` lines and parsed on save.
  *
  * Add mode can start from a catalog preset: the fields arrive filled, stay
- * editable, and nothing is written until Add. A preset may restrict scope to
- * project (see McpFormPreset) and carry a note on what the server needs.
+ * editable, and nothing is written until Add. A preset may carry a note on
+ * what the server needs.
  */
 import { useState } from "preact/hooks";
 import { BackButton, Button, Dropdown, TextArea, TextField } from "../../../../../webview/shared/ui";
@@ -68,7 +68,6 @@ function urlValidForTransport(url: string, transport: string): boolean {
 export function McpForm({ server, preset, existing = [], onClose, onSubmit }: McpFormProps) {
   const isEdit = server !== null;
   const start = isEdit ? null : (preset?.input ?? null);
-  const projectOnly = !isEdit && (preset?.projectOnly ?? false);
   const note = isEdit ? null : (preset?.note ?? null);
   const [name, setName] = useState(server?.name ?? start?.name ?? "");
   const [transport, setTransport] = useState(
@@ -79,11 +78,13 @@ export function McpForm({ server, preset, existing = [], onClose, onSubmit }: Mc
   const [url, setUrl] = useState(server?.url ?? start?.url ?? "");
   const [env, setEnv] = useState(recordToLines(server?.env ?? start?.env));
   const [headers, setHeaders] = useState(recordToLines(server?.headers ?? start?.headers));
-  const [scope, setScope] = useState(server?.scope === "global" ? "global" : "project");
+  // A new server defaults to local, `claude mcp add`'s own default: private
+  // to this user and this project, with nothing committed to the repo.
+  const [scope, setScope] = useState("local");
 
   const isStdio = transport === "stdio";
   const trimmedName = name.trim();
-  const targetScope = isEdit ? (server as McpServer).scope : projectOnly ? "project" : scope;
+  const targetScope = isEdit ? (server as McpServer).scope : scope;
 
   // ── Validation ──
   const nameFormatValid = MCP_NAME_RE.test(trimmedName);
@@ -138,17 +139,7 @@ export function McpForm({ server, preset, existing = [], onClose, onSubmit }: Mc
           ) : null}
         </label>
 
-        {isEdit ? null : projectOnly ? (
-          // A one-option dropdown would look choosable; a fixed value with its
-          // reason reads as what it is.
-          <div class="mcp-form-field">
-            <span class="mcp-form-label">Scope</span>
-            <span class="mcp-form-value">Project (.mcp.json)</span>
-            <span class="mcp-form-hint">
-              Claude Code expands {"${VAR}"} references only in a project's .mcp.json.
-            </span>
-          </div>
-        ) : (
+        {isEdit ? null : (
           <label class="mcp-form-field">
             <span class="mcp-form-label">Scope</span>
             <Dropdown
@@ -156,7 +147,8 @@ export function McpForm({ server, preset, existing = [], onClose, onSubmit }: Mc
               onChange={setScope}
               ariaLabel="Server scope"
               options={[
-                { value: "project", label: "Project (.mcp.json)" },
+                { value: "local", label: "Local (this project, just you)" },
+                { value: "project", label: "Project (.mcp.json, shared)" },
                 { value: "global", label: "Global (~/.claude.json)" },
               ]}
             />

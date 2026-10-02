@@ -86,3 +86,19 @@ describe("findExpiresAt", () => {
     expect(findExpiresAt(null)).toBeNull();
   });
 });
+
+describe("homeRelative", () => {
+  const { homeRelative } = __internals;
+  const home = "/Users/me";
+
+  it("names paths under the home folder with ~, as the default labels read", () => {
+    expect(homeRelative("/Users/me/.claude", home)).toBe("~/.claude");
+    expect(homeRelative("/Users/me/.claude.json", home)).toBe("~/.claude.json");
+    expect(homeRelative("/Users/me", home)).toBe("~");
+  });
+
+  it("leaves a config dir outside home, or a lookalike prefix, as is", () => {
+    expect(homeRelative("/work/claude/.claude.json", home)).toBe("/work/claude/.claude.json");
+    expect(homeRelative("/Users/meg/.claude", home)).toBe("/Users/meg/.claude");
+  });
+});

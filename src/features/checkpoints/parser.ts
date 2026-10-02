@@ -20,6 +20,22 @@
  * case, never a parse failure. A session's picture is the UNION across every
  * snapshot line, with the highest `version` per path winning as the latest.
  *
+ * Since Claude Code 2.1.287 a snapshot is also amended in place by delta
+ * lines, one tracked file each:
+ *
+ * ```json
+ * {"type":"file-history-delta","messageId":"…","snapshotMessageId":"…",
+ *   "trackingPath":"src/file.md","timestamp":"…","backup":{"backupFileName":
+ *   "7595ab38251e4a3e@v1","version":1,"backupTime":"…","realParentDir":"/abs"}}
+ * ```
+ *
+ * `trackingPath` is a `trackedFileBackups` key and `backup` its value, so a
+ * delta folds exactly like a one-entry snapshot ({@link scanBackupRecords}).
+ * Measured across 764 real deltas: every one was `version: 1` — the file's
+ * first backup — for a key its snapshot did not list, and no later snapshot
+ * re-stated that version. Ignoring deltas therefore loses each file's first
+ * version, and a file only ever recorded in deltas entirely.
+ *
  * Two details the shape above does not show, both confirmed against 67,390
  * real records: the map KEY is usually workspace-relative, not absolute, and
  * `realParentDir` is the absolute directory to resolve it against
@@ -52,6 +68,7 @@ import type {
   CheckpointFile,
   CheckpointSessionSummary,
   CheckpointVersion,
+  FileHistoryDeltaEntry,
   FileHistorySnapshotEntry,
   SessionCheckpoints,
   TrackedFileBackup,
@@ -84,11 +101,12 @@ const BACKUP_FILE_RE = /^([0-9a-f]{16})@v(\d+)$/;
 const MAX_BLOB_BYTES = 32 * 1024 * 1024;
 
 /**
- * Substring every snapshot line contains. Transcripts routinely run to tens of
- * megabytes and snapshot lines are a small fraction of them, so we reject on
- * the raw line before paying for `JSON.parse`.
+ * Substrings every snapshot and delta line contains. Transcripts routinely run
+ * to tens of megabytes and these lines are a small fraction of them, so we
+ * reject on the raw line before paying for `JSON.parse`.
  */
 const SNAPSHOT_MARKER = '"file-history-snapshot"';
+const DELTA_MARKER = '"file-history-delta"';
 
 /**
  * The blob filename prefix for an absolute file path:
@@ -190,14 +208,20 @@ export function readBlobIndex(sessionId: string): Map<string, BlobStat> {
 }
 
 /**
- * Stream a transcript and return every `trackedFileBackups` map it records,
- * in file order. Lines that are not snapshots are rejected on a substring test
+ * Stream a transcript and return every backup record it holds, in file order:
+ * each snapshot's `trackedFileBackups` map, and each delta as a one-entry map
+ * of `trackingPath -> backup`. Other lines are rejected on a substring test
  * before `JSON.parse`; malformed lines and empty snapshots are skipped.
+ *
+ * A delta's `snapshotMessageId` is deliberately not used to merge it into its
+ * snapshot: {@link foldBackupRecords} unions every record per `(path,
+ * version)` across the whole session and keeps the highest version as the
+ * latest, so which checkpoint a delta amends does not change the result.
  *
  * Reads in 64 KB chunks so only a chunk plus the accumulated records are
  * resident, however large the transcript is.
  */
-export function scanSnapshotLines(
+export function scanBackupRecords(
   transcriptPath: string,
 ): Record<string, TrackedFileBackup>[] {
   // Symlink-safe: the transcript tree is not ours, and a planted link must not
@@ -212,17 +236,22 @@ export function scanSnapshotLines(
   let bytesRead: number;
 
   const take = (line: string): void => {
-    if (!line.includes(SNAPSHOT_MARKER)) return;
-    let entry: FileHistorySnapshotEntry;
+    if (!line.includes(SNAPSHOT_MARKER) && !line.includes(DELTA_MARKER)) return;
+    let entry: FileHistorySnapshotEntry | FileHistoryDeltaEntry;
     try {
-      entry = JSON.parse(line) as FileHistorySnapshotEntry;
+      entry = JSON.parse(line) as FileHistorySnapshotEntry | FileHistoryDeltaEntry;
     } catch {
       return; // Partial write or corruption — skip the line, keep the file.
     }
-    if (entry?.type !== "file-history-snapshot") return;
-    const backups = entry.snapshot?.trackedFileBackups;
-    if (!backups || typeof backups !== "object") return;
-    records.push(backups);
+    if (entry?.type === "file-history-snapshot") {
+      const backups = entry.snapshot?.trackedFileBackups;
+      if (!backups || typeof backups !== "object") return;
+      records.push(backups);
+    } else if (entry?.type === "file-history-delta") {
+      const { trackingPath, backup } = entry;
+      if (typeof trackingPath !== "string" || !backup || typeof backup !== "object") return;
+      records.push({ [trackingPath]: backup });
+    }
   };
 
   try {
@@ -276,9 +305,9 @@ export function resolveTrackedPath(
 }
 
 /**
- * Fold snapshot records into one version list per file path.
+ * Fold backup records into one version list per file path.
  *
- * Pure: takes the records {@link scanSnapshotLines} produced and returns the
+ * Pure: takes the records {@link scanBackupRecords} produced and returns the
  * union across them. Later lines re-state earlier versions, so a version is
  * recorded once per `(path, version)` and the highest version per path is the
  * latest. Availability is left `false` here — {@link parseSessionCheckpoints}
@@ -287,7 +316,9 @@ export function resolveTrackedPath(
  * Three kinds of record are dropped:
  *
  *  - `backupFileName: null` — the common "tracked but not yet backed up" state
- *    (19,704 of 67,390 real records). There is no blob to offer.
+ *    (19,704 of 67,390 real records), and on a delta the file Claude Code
+ *    created, which had no contents before (426 of 764 real deltas, all v1).
+ *    There is no blob to offer either way.
  *  - a `backupFileName` that is not `<16 hex>@v<N>`, or a key that resolves to
  *    no real path — neither can address a blob.
  *  - a record whose blob hash disagrees with `sha256(resolvedPath)`. The two
@@ -296,7 +327,7 @@ export function resolveTrackedPath(
  *    Dropping it keeps the list consistent with diff/restore, which re-derive
  *    the blob name from the path and would refuse such a record anyway.
  */
-export function foldSnapshots(
+export function foldBackupRecords(
   records: Record<string, TrackedFileBackup>[],
 ): Map<string, CheckpointFile> {
   const byPath = new Map<string, CheckpointFile>();
@@ -374,7 +405,7 @@ export function foldSnapshots(
  * index holds under the file's hash, so a file is never under-reported because
  * a snapshot line was trimmed.
  *
- * Returns an empty file list when the transcript has no snapshot lines.
+ * Returns an empty file list when the transcript has no snapshot or delta lines.
  */
 export function parseSessionCheckpoints(
   sessionId: string,
@@ -385,7 +416,7 @@ export function parseSessionCheckpoints(
     return { sessionId, files: [], orphanCount: blobs.size };
   }
 
-  const byPath = foldSnapshots(scanSnapshotLines(transcriptPath));
+  const byPath = foldBackupRecords(scanBackupRecords(transcriptPath));
   const claimed = new Set<string>();
 
   for (const file of byPath.values()) {

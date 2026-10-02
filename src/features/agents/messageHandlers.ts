@@ -11,8 +11,9 @@
 import * as vscode from "vscode";
 import type { PanelSink } from "../../extension/panelSink";
 import { parseMessage } from "../../shared/protocol/schemas";
+import { findAgent, findEditableAgent } from "./access";
 import { parseAgents } from "./parser";
-import { createAgent, updateAgent, deleteAgent, duplicateAgent } from "./writer";
+import { createAgent, deleteAgent, duplicateAgent, noProjectScopeReason, updateAgent } from "./writer";
 import type { Agent } from "./types";
 
 /** Narrow host surface the agents handler needs. Implemented by the provider. */
@@ -22,11 +23,16 @@ export interface AgentHostContext {
   setAgents(agents: Agent[]): void;
 }
 
-/** Re-parse agents and push the fresh list (+ any parse errors) to the webview. */
+/**
+ * Re-parse agents and push the fresh list (+ any parse errors, and why there
+ * is no project scope when there is none) to the webview.
+ */
 function pushAgents(ctx: AgentHostContext, wv: PanelSink): void {
-  const { agents, errors } = parseAgents(ctx.getWorkspace());
+  const workspace = ctx.getWorkspace();
+  const { agents, errors } = parseAgents(workspace);
   ctx.setAgents(agents);
-  wv.postMessage({ type: "agents", data: agents, errors });
+  const noProjectScope = noProjectScopeReason(workspace) ?? undefined;
+  wv.postMessage({ type: "agents", data: agents, errors, noProjectScope });
 }
 
 /**
@@ -68,12 +74,20 @@ export async function handleAgentMessage(
       return true;
     }
 
+    // Every path below is the webview's: it is resolved to an agent the host
+    // parsed (and, for writes, one inside an editable agents dir) before any
+    // file is touched — see access.ts.
     case "openAgentFile": {
+      const found = findAgent(msg.path, ctx.getWorkspace());
+      if (!found.ok) {
+        vscode.window.showErrorMessage(found.error);
+        return true;
+      }
       try {
-        const doc = await vscode.workspace.openTextDocument(msg.path);
+        const doc = await vscode.workspace.openTextDocument(found.agent.path);
         await vscode.window.showTextDocument(doc);
       } catch {
-        vscode.window.showErrorMessage(`Could not open ${msg.path}`);
+        vscode.window.showErrorMessage(`Could not open ${found.agent.path}`);
       }
       return true;
     }
@@ -88,7 +102,8 @@ export async function handleAgentMessage(
     }
 
     case "updateAgent": {
-      const result = updateAgent(msg.path, msg.agent);
+      const found = findEditableAgent(msg.path, ctx.getWorkspace());
+      const result = found.ok ? updateAgent(found.agent.path, msg.agent) : found;
       if (!result.ok) {
         vscode.window.showErrorMessage(result.error ?? "Failed to update agent.");
       }
@@ -97,13 +112,18 @@ export async function handleAgentMessage(
     }
 
     case "deleteAgent": {
+      const found = findEditableAgent(msg.path, ctx.getWorkspace());
+      if (!found.ok) {
+        vscode.window.showErrorMessage(found.error);
+        return true;
+      }
       const choice = await vscode.window.showWarningMessage(
         "Delete this agent?",
-        { modal: true, detail: `This permanently deletes:\n${msg.path}` },
+        { modal: true, detail: `This permanently deletes:\n${found.agent.path}` },
         "Delete",
       );
       if (choice !== "Delete") return true;
-      const result = deleteAgent(msg.path);
+      const result = deleteAgent(found.agent.path);
       if (!result.ok) {
         vscode.window.showErrorMessage(result.error ?? "Failed to delete agent.");
       }
@@ -112,7 +132,8 @@ export async function handleAgentMessage(
     }
 
     case "duplicateAgent": {
-      const result = duplicateAgent(msg.path);
+      const found = findEditableAgent(msg.path, ctx.getWorkspace());
+      const result = found.ok ? duplicateAgent(found.agent.path) : found;
       if (!result.ok) {
         vscode.window.showErrorMessage(result.error ?? "Failed to duplicate agent.");
       }

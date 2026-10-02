@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { blocked, orphaned, plugin } from "../__tests__/fixtures";
+import { blocked, orphaned, plugin, syncedPlugin } from "../__tests__/fixtures";
 import { buildPluginMenu, EDITABLE_SCOPES } from "./menu";
 
 function handlers() {
@@ -74,5 +74,14 @@ describe("buildPluginMenu", () => {
       "project",
       "local",
     ]);
+  });
+});
+
+describe("buildPluginMenu — synced from claude.ai", () => {
+  it("offers no enable/disable but still the folder and id", () => {
+    const items = labels(buildPluginMenu(syncedPlugin, handlers()));
+    expect(items.some((l) => /^(Enable|Disable) in/.test(l))).toBe(false);
+    expect(items).toContain("Open plugin folder");
+    expect(items).toContain("Copy plugin id");
   });
 });

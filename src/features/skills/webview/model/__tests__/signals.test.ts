@@ -30,13 +30,19 @@ describe("skills signals", () => {
     expect(countByScope("plugin")).toBe(0);
   });
 
-  it("filteredSkills sorts project before global before plugin", () => {
+  it("filteredSkills sorts project, global, claude.ai, then plugin", () => {
     skills.value = [
       makeSkill({ id: "p", name: "p", scope: "plugin", pluginName: "z" }),
+      makeSkill({ id: "c", name: "c", scope: "claude.ai" }),
       makeSkill({ id: "g", name: "g", scope: "global" }),
       makeSkill({ id: "j", name: "j", scope: "project" }),
     ];
-    expect(filteredSkills.value.map((s) => s.scope)).toEqual(["project", "global", "plugin"]);
+    expect(filteredSkills.value.map((s) => s.scope)).toEqual([
+      "project",
+      "global",
+      "claude.ai",
+      "plugin",
+    ]);
   });
 
   it("filteredSkills narrows by scope filter", () => {

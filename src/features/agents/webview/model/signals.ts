@@ -21,6 +21,12 @@ export const loading = signal<boolean>(true);
 export const error = signal<string | null>(null);
 /** Non-fatal parse errors (unreadable agent dir/file) from the host. */
 export const parseErrors = signal<string[]>([]);
+/**
+ * Why the workspace has no project agents dir (no folder open, or it is the
+ * home folder), or null when project scope is available. The create form
+ * offers only Global and shows this reason instead.
+ */
+export const noProjectScope = signal<string | null>(null);
 /** Lowercased free-text search query. */
 export const searchQuery = signal<string>("");
 /** Active model filter. */
@@ -116,11 +122,16 @@ export const groupedAgents = computed<Array<{ label: string; items: Agent[] }>>(
 // ── Mutators (called by the message handler and views) ──
 
 /** Replace the agent list, record parse errors, and clear loading/error. */
-export function setAgents(next: Agent[], errors: string[] = []): void {
+export function setAgents(
+  next: Agent[],
+  errors: string[] = [],
+  projectScopeReason: string | null = null,
+): void {
   agents.value = next;
   loading.value = false;
   error.value = null;
   parseErrors.value = errors;
+  noProjectScope.value = projectScopeReason;
 }
 
 /** Record a host-reported error and clear loading. */
@@ -141,6 +152,7 @@ export function resetAgentsState(): void {
   loading.value = true;
   error.value = null;
   parseErrors.value = [];
+  noProjectScope.value = null;
   searchQuery.value = "";
   filterModel.value = "all";
 }

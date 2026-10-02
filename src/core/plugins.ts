@@ -10,11 +10,19 @@
  * which may declare custom subdirectory paths or inline `hooks`/
  * `mcpServers` blocks.
  *
+ * Plugins synced from the signed-in claude.ai account are a second source:
+ * they live under `~/.claude/plugins/synced/<bucket>/` (see claudeAiSync.ts)
+ * and are NOT recorded in installed_plugins.json. Claude Code identifies them
+ * as `<name>@synced`; they are read-only here.
+ *
  * Pure Node.js file I/O — no VS Code dependency.
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
+import { activeSyncedDir, SYNCED_DIR_NAME, syncedDirName } from "./claudeAiSync";
+import { readManagedSettings } from "./managedSettings";
+import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "./config";
+import { asObject, readJsonObject } from "./jsonFile";
 import { createMtimeCache } from "./mtimeCache";
 
 /** Install scope as recorded in `installed_plugins.json`. */
@@ -62,10 +70,23 @@ export interface ActivePlugin {
   installScope: PluginInstallScope;
   /** Parsed `.claude-plugin/plugin.json`, or `{}` when missing/invalid. */
   manifest: PluginManifest;
+  /**
+   * Synced from the signed-in claude.ai account (`marketplace` is then
+   * {@link SYNCED_MARKETPLACE}). Its files are replaced on every sync round
+   * and edits are never sent back, so everything it provides is read-only.
+   */
+  synced?: true;
 }
 
+/**
+ * Marketplace half of a synced plugin's id. Claude Code's own sentinel:
+ * `"name@synced"` for plugins synced from claude.ai.
+ */
+export const SYNCED_MARKETPLACE = "synced";
+
 /** Plugin root directory (`~/.claude/plugins/`). */
-const PLUGINS_ROOT: string = path.join(os.homedir(), ".claude", "plugins");
+const PLUGINS_ROOT: string = path.join(CLAUDE_DIR, "plugins");
+const SYNCED_PLUGINS_ROOT: string = path.join(PLUGINS_ROOT, SYNCED_DIR_NAME);
 const INSTALLED_PLUGINS_FILE: string = path.join(PLUGINS_ROOT, "installed_plugins.json");
 const BLOCKLIST_FILE: string = path.join(PLUGINS_ROOT, "blocklist.json");
 
@@ -207,6 +228,95 @@ function readManifest(installPath: string): PluginManifest {
 }
 
 /**
+ * Normalise one `enabledPlugins` value to a boolean.
+ *
+ * The schema is `Record<string, string[] | boolean | object>`: besides the
+ * plain boolean, Claude Code accepts an "extended format with version
+ * constraints". Any non-boolean form is a way of saying "load this one,
+ * pinned" — so it reads as enabled unless it carries an explicit
+ * `enabled: false`. Returns null for a value that means nothing at all, so
+ * the caller can drop the entry instead of inventing a decision for it.
+ */
+export function normaliseEnabledValue(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) return true;
+  const obj = asObject(value);
+  if (obj) return typeof obj.enabled === "boolean" ? obj.enabled : true;
+  return null;
+}
+
+/**
+ * Plugin ids that settings turn on in this context: `enabledPlugins` merged
+ * per id across user < project < local < managed settings, the highest
+ * scope that mentions an id deciding it.
+ */
+export function enabledPluginIds(workspacePath?: string): Set<string> {
+  const maps: unknown[] = [];
+  for (const file of [
+    SETTINGS_FILE,
+    workspacePath ? claudeSettingsPath("project", workspacePath) : null,
+    workspacePath ? claudeSettingsPath("local", workspacePath) : null,
+  ]) {
+    if (file === null) continue;
+    const res = readJsonObject(file);
+    if (res.kind === "ok") maps.push(res.data.enabledPlugins);
+  }
+  maps.push(readManagedSettings().settings?.enabledPlugins);
+
+  const decided = new Map<string, boolean>();
+  for (const map of maps) {
+    for (const [id, value] of Object.entries(asObject(map) ?? {})) {
+      const enabled = normaliseEnabledValue(value);
+      if (enabled !== null) decided.set(id, enabled);
+    }
+  }
+  return new Set([...decided].filter(([, on]) => on).map(([id]) => id));
+}
+
+/**
+ * Plugins synced from the active claude.ai account, from its bucket's
+ * `manifest.json` (`{ plugins: [{ name, generation?, … }] }`).
+ *
+ * A synced plugin whose name matches a local plugin that is ENABLED is
+ * skipped: Claude Code reports it as "synced-plugin-shadowed" — the copy on
+ * this machine "has the same name and takes precedence". The CLI only
+ * collects local copies with `enabled !== false` for that check, so an
+ * installed-but-off local plugin leaves the synced one loaded.
+ */
+function loadSyncedPlugins(localNames: Set<string>): ActivePlugin[] {
+  const bucket = activeSyncedDir(SYNCED_PLUGINS_ROOT, "plugins");
+  if (bucket === null) return [];
+  const res = readJsonObject(path.join(bucket, "manifest.json"));
+  const rows = res.kind === "ok" && Array.isArray(res.data.plugins) ? res.data.plugins : [];
+
+  const out: ActivePlugin[] = [];
+  for (const row of rows) {
+    const entry = asObject(row);
+    const name = typeof entry?.name === "string" ? entry.name : "";
+    if (name === "" || localNames.has(name.toLowerCase())) continue;
+    const dirName = syncedDirName(name, entry?.generation);
+    if (dirName === null) continue;
+    const installPath = path.join(bucket, dirName);
+    // Listed but not downloaded yet (or removed mid-round): not loaded.
+    try {
+      if (!fs.statSync(installPath).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    out.push({
+      name,
+      marketplace: SYNCED_MARKETPLACE,
+      qualifiedName: `${name}@${SYNCED_MARKETPLACE}`,
+      installPath,
+      installScope: "user",
+      manifest: readManifest(installPath),
+      synced: true,
+    });
+  }
+  return out;
+}
+
+/**
  * Discover plugins that should be active for the current context.
  *
  * - `user`-scope plugins are always active.
@@ -216,11 +326,11 @@ function readManifest(installPath: string): PluginManifest {
  *
  * Plugins listed in `blocklist.json`, missing on disk, or with
  * unparseable entries are silently skipped. Multiple entries for the
- * same plugin (same `installPath`) are deduplicated.
+ * same plugin (same `installPath`) are deduplicated. Plugins synced from
+ * the active claude.ai account follow the installed ones.
  */
 export function loadActivePlugins(workspacePath?: string): ActivePlugin[] {
   const installed = readInstalledPluginsFile();
-  if (Object.keys(installed).length === 0) return [];
 
   const blocked = readBlocklist();
   const wsNorm = workspacePath ? normalisePath(workspacePath) : undefined;
@@ -269,9 +379,14 @@ export function loadActivePlugins(workspacePath?: string): ActivePlugin[] {
   }
 
   // Stable ordering by qualified name keeps webview lists deterministic.
-  return [...byInstallPath.values()].sort((a, b) =>
+  const local = [...byInstallPath.values()].sort((a, b) =>
     a.qualifiedName.localeCompare(b.qualifiedName),
   );
+  const enabled = enabledPluginIds(workspacePath);
+  const synced = loadSyncedPlugins(
+    new Set(local.filter((p) => enabled.has(p.qualifiedName)).map((p) => p.name.toLowerCase())),
+  );
+  return [...local, ...synced];
 }
 
 /**

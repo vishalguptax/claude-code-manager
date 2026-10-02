@@ -20,7 +20,9 @@ const { CLAUDE_DIR, PROFILES_DIR, CLAUDE_JSON_PATH, CREDENTIALS_PATH } = vi.hois
 
 // Redirect CLAUDE_DIR so profiles.ts writes to our temp dir.
 vi.mock("../../../core/config", () => ({
+  CLAUDE_ENV: {},
   CLAUDE_DIR,
+  SECURE_STORAGE_DIR: CLAUDE_DIR,
   CLAUDE_JSON_FILE: CLAUDE_JSON_PATH,
   PROJECTS_DIR: path.join(CLAUDE_DIR, "projects"),
   HISTORY_FILE: path.join(CLAUDE_DIR, "history.jsonl"),
@@ -1046,6 +1048,9 @@ describe("switchProfile — live state safety", () => {
   it("refuses while Claude Code holds the config lock", () => {
     saveBothAccounts();
     fs.mkdirSync(CONFIG_LOCK_DIR);
+    // A live holder keeps renewing; dating it ahead keeps it live through a
+    // stall on a loaded machine.
+    fs.utimesSync(CONFIG_LOCK_DIR, new Date(Date.now() + 3_600_000), new Date(Date.now() + 3_600_000));
     try {
       const result = P.switchProfile("a");
       expect(result.ok).toBe(false);
@@ -1124,6 +1129,9 @@ describe("interrupted switch recovery", () => {
   it("does not prompt while the config lock is held", () => {
     interruptSwitch(120_000);
     fs.mkdirSync(CONFIG_LOCK_DIR);
+    // A live holder keeps renewing; dating it ahead keeps it live through a
+    // stall on a loaded machine.
+    fs.utimesSync(CONFIG_LOCK_DIR, new Date(Date.now() + 3_600_000), new Date(Date.now() + 3_600_000));
     try {
       expect(P.findInterruptedSwitch()).toBeNull();
     } finally {

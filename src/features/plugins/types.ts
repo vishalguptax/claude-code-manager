@@ -5,7 +5,8 @@
  * and never agree with each other:
  *
  *   1. INSTALLS — `~/.claude/plugins/installed_plugins.json` plus the
- *      extracted content under `~/.claude/plugins/cache/`. Owned by
+ *      extracted content under `~/.claude/plugins/cache/`, and the plugins
+ *      synced from claude.ai under `~/.claude/plugins/synced/`. Owned by
  *      `src/core/plugins.ts`.
  *   2. ENABLEMENT — the `enabledPlugins` map inside the settings files,
  *      resolved across scopes.
@@ -79,10 +80,21 @@ export type MarketplaceTrust =
 
 /** One plugin, reconciled across installs, settings and the blocklist. */
 export interface PluginEntry {
-  /** `<name>@<marketplace>`, the key Claude Code uses everywhere. */
+  /**
+   * `<name>@<marketplace>`, the key Claude Code uses everywhere. A plugin
+   * synced from claude.ai carries Claude Code's sentinel `<name>@synced`.
+   */
   id: string;
   name: string;
+  /** Marketplace name, or "claude.ai" for a synced plugin. */
   marketplace: string;
+  /**
+   * Synced from the signed-in claude.ai account (`~/.claude/plugins/synced/`).
+   * Sync turns it on, and its files are replaced every sync round, so it is
+   * read-only here: managed on claude.ai, or switched off with
+   * `syncClaudeAiPlugins: false`.
+   */
+  synced: boolean;
   /** From `.claude-plugin/plugin.json`. Empty when the manifest is absent. */
   description: string;
   /** Version directory name from the install record. Empty when not installed. */
@@ -146,7 +158,11 @@ export interface PluginPolicyEntry {
   value: string[] | boolean;
   /** Claude Code reads this key from managed settings only. */
   managedOnly: boolean;
-  /** `managedOnly` and it was found somewhere else — Claude Code ignores it. */
+  /**
+   * Found in a file Claude Code does not read it from — managed-only keys
+   * outside managed settings, and the claude.ai sync opt-outs in project or
+   * local settings. Claude Code ignores it.
+   */
   ignored: boolean;
 }
 

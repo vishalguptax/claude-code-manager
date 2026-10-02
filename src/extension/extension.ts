@@ -39,6 +39,8 @@ import { startActiveSessionWatcher } from "../features/sessions/activeSessionWat
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
 import { reportIssueCommand, runDiagnosticsCommand } from "../features/diagnostics/commands";
+import { CLAUDE_ENV } from "../core/config";
+import { watchClaudeConfigDirSetting } from "./claudeConfigDir";
 
 /**
  * Activate the Claude Manager extension.
@@ -64,6 +66,9 @@ function timedStep(label: string, fn: () => void): void {
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Claude paths were fixed when this bundle loaded; a later change to
+  // where Claude Code keeps its files needs a reload to take effect.
+  context.subscriptions.push(watchClaudeConfigDirSetting(CLAUDE_ENV));
   // Protect every terminal alive right now (restored running `claude`
   // sessions after a reload, pre-existing user terminals) from the
   // empty-terminal reuse heuristic, and keep protecting any terminal the

@@ -28,8 +28,15 @@ const { CLAUDE_DIR_TMP, CREDENTIALS_PATH } = vi.hoisted(() => {
   };
 });
 
+/** The config environment the next fresh import of the module sees. */
+const configEnv = vi.hoisted(() => ({ env: {} as Record<string, string> }));
+
 vi.mock("../../../core/config", () => ({
+  get CLAUDE_ENV() {
+    return configEnv.env;
+  },
   CLAUDE_DIR: CLAUDE_DIR_TMP,
+  SECURE_STORAGE_DIR: CLAUDE_DIR_TMP,
   PROJECTS_DIR: path.join(CLAUDE_DIR_TMP, "projects"),
   HISTORY_FILE: path.join(CLAUDE_DIR_TMP, "history.jsonl"),
   SESSIONS_DIR: path.join(CLAUDE_DIR_TMP, "sessions"),
@@ -696,5 +703,48 @@ describe("a blob without an account token", () => {
     fs.writeFileSync(CREDENTIALS_PATH, MCP_ONLY);
     expect(C.readCredentialsStatus().state).toBe("missing");
     expect(C.readCredentialsForWrite().state).toBe("no-account-token");
+  });
+});
+
+/**
+ * With `CLAUDE_CONFIG_DIR` set, Claude Code 2.1.287 keys its Keychain item
+ * by `-` + the first 8 hex digits of sha256(dir). A fixed name would read,
+ * and on an account switch overwrite, the default directory's login.
+ */
+describe("Keychain item for a custom CLAUDE_CONFIG_DIR", () => {
+  const originalPlatform = process.platform;
+  const CUSTOM_SERVICE = "Claude Code-credentials-cbe7f9b7"; // sha256("/Users/me/claude-work")
+  const CUSTOM_LEGACY = "Claude Code-cbe7f9b7";
+
+  beforeEach(async () => {
+    configEnv.env = { CLAUDE_CONFIG_DIR: "/Users/me/claude-work" };
+    vi.resetModules();
+    C = await import("../credentials");
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+  });
+  afterEach(() => {
+    configEnv.env = {};
+    Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+  });
+
+  it("reads the hashed item, then the hashed legacy item — never the default one", () => {
+    const services: string[] = [];
+    execFileMock.mockImplementation((_bin: string, args: string[]) => {
+      services.push(args[args.indexOf("-s") + 1]);
+      throw makeStatusError(44);
+    });
+    expect(C.readCredentials()).toBeNull();
+    expect(services).toEqual([CUSTOM_SERVICE, CUSTOM_LEGACY]);
+  });
+
+  it("writes an account switch to the hashed item", () => {
+    let args: string[] = [];
+    execFileMock.mockImplementation((_bin: string, a: string[]) => {
+      if (a[0] === "add-generic-password") args = a;
+      return "";
+    });
+    expect(C.defaultTargetSource()).toEqual({ kind: "keychain-darwin", locator: CUSTOM_SERVICE });
+    expect(C.writeCredentials(SAMPLE_RAW, C.defaultTargetSource())).toBe(true);
+    expect(args[args.indexOf("-s") + 1]).toBe(CUSTOM_SERVICE);
   });
 });

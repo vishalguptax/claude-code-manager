@@ -46,14 +46,22 @@
  * honoured ONLY from managed settings. Finding one in a user settings file is
  * itself a finding, reported via `PluginPolicyEntry.ignored`.
  *
- * Every read goes through `openFileNoFollow`: these files sit in trees the
- * extension does not own.
+ * Managed settings are the whole policy tier as Claude Code applies it —
+ * server-managed remote-settings.json, else managed-settings.json merged with
+ * its managed-settings.d drop-ins (see core/managedSettings.ts).
+ *
+ * Plugins synced from claude.ai (`<name>@synced`) arrive from
+ * `loadActivePlugins` with `synced: true`. They have no install record and
+ * no marketplace registration; sync itself is what turns them on.
+ *
+ * Every read goes through `readJsonObject` (no-follow): these files sit in
+ * trees the extension does not own.
  */
-import * as fs from "fs";
 import * as path from "path";
 import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
-import { type ActivePlugin, loadActivePlugins } from "../../core/plugins";
-import { openFileNoFollow } from "../../core/safeOpen";
+import { asObject, readJsonObject } from "../../core/jsonFile";
+import { readManagedSettings } from "../../core/managedSettings";
+import { type ActivePlugin, loadActivePlugins, normaliseEnabledValue } from "../../core/plugins";
 import { type RawCatalogPlugin, buildAvailablePlugins, catalogPath, parseCatalog } from "./catalog";
 import { isSafePluginId, splitPluginId } from "./ids";
 import {
@@ -90,91 +98,6 @@ export const BLOCKLIST_FILE: string = path.join(PLUGINS_ROOT, "blocklist.json");
 /** Anthropic's marketplace, exempt from `strictKnownMarketplaces` by name. */
 export const OFFICIAL_MARKETPLACE = "claude-plugins-official";
 
-/**
- * Settings files are read whole into memory. A settings.json past this is
- * not a settings file, and refusing beats allocating on a filename.
- */
-const MAX_JSON_BYTES = 8 * 1024 * 1024;
-
-/**
- * Admin policy file. Claude Code resolves the directory per platform
- * (`/Library/Application Support/ClaudeCode` on macOS,
- * `C:\Program Files\ClaudeCode` on Windows, `/etc/claude-code` elsewhere)
- * and reads `managed-settings.json` from it. MDM/registry policy sources
- * outside the filesystem are not reachable from here, so a machine managed
- * purely by MDM reports no policy — which is why the UI states the source
- * rather than claiming "no policy in force".
- */
-export function managedSettingsPath(platform: NodeJS.Platform = process.platform): string {
-  const dir =
-    platform === "darwin"
-      ? "/Library/Application Support/ClaudeCode"
-      : platform === "win32"
-        ? "C:\\Program Files\\ClaudeCode"
-        : "/etc/claude-code";
-  return path.join(dir, "managed-settings.json");
-}
-
-// ── Low-level reads ────────────────────────────────────────────────────────
-
-/** A plain JSON object, or null for anything else. */
-function asObject(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-/** Outcome of reading one JSON file: the object, or why there isn't one. */
-export type JsonRead =
-  | { kind: "ok"; data: Record<string, unknown> }
-  | { kind: "absent" }
-  | { kind: "invalid"; reason: string };
-
-/**
- * Read one JSON object from disk, refusing symlinks.
- *
- * `absent` and `invalid` are kept apart on purpose. A missing settings file
- * is the normal case and must stay silent; a file that exists but does not
- * parse is a user-visible problem — Claude Code skips such a file wholesale,
- * so every plugin the user configured in it is inert.
- */
-export function readJsonObject(filePath: string): JsonRead {
-  const fd = openFileNoFollow(filePath);
-  if (fd === null) {
-    // openFileNoFollow collapses missing / symlink / permission into null.
-    // Distinguish "not there" (silent) from "there but unreadable" (report).
-    try {
-      fs.lstatSync(filePath);
-    } catch {
-      return { kind: "absent" };
-    }
-    return { kind: "invalid", reason: "not a regular file, or unreadable" };
-  }
-  try {
-    const { size } = fs.fstatSync(fd);
-    if (size === 0) return { kind: "absent" };
-    if (size > MAX_JSON_BYTES) {
-      return { kind: "invalid", reason: `larger than ${MAX_JSON_BYTES} bytes` };
-    }
-    const buf = Buffer.alloc(size);
-    let offset = 0;
-    while (offset < size) {
-      const read = fs.readSync(fd, buf, offset, size - offset, offset);
-      if (read === 0) break;
-      offset += read;
-    }
-    const text = buf.subarray(0, offset).toString("utf-8");
-    if (text.trim() === "") return { kind: "absent" };
-    const parsed = asObject(JSON.parse(text));
-    if (parsed === null) return { kind: "invalid", reason: "not a JSON object" };
-    return { kind: "ok", data: parsed };
-  } catch (err) {
-    return { kind: "invalid", reason: (err as Error).message };
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
 /** A settings scope and the file it resolves to. */
 export interface SettingsScopePath {
   scope: PluginSettingsScope;
@@ -192,7 +115,7 @@ export interface SettingsScopePath {
 export function settingsScopePaths(
   workspacePath?: string,
   globalPath: string = SETTINGS_FILE,
-  managedPath: string = managedSettingsPath(),
+  managedPath: string = readManagedSettings().source,
 ): SettingsScopePath[] {
   const out: SettingsScopePath[] = [{ scope: "global", filePath: globalPath }];
   if (workspacePath) {
@@ -225,6 +148,21 @@ export function readSettingsScope(
     filePath,
     data: null,
     error: `${filePath} could not be read (${res.reason}) — Claude Code skips it too, so any plugins it configures are inactive.`,
+  };
+}
+
+/**
+ * The managed tier as one scope. Its `filePath` is the source that won, so
+ * "open managed settings" lands on the file whose policy is in force.
+ */
+export function readManagedScope(
+  read: ReturnType<typeof readManagedSettings> = readManagedSettings(),
+): SettingsScopeRead {
+  return {
+    scope: "managed",
+    filePath: read.source,
+    data: read.settings,
+    error: read.errors.length > 0 ? read.errors.join(" ") : null,
   };
 }
 
@@ -302,24 +240,6 @@ export function readPluginBlocklist(filePath: string = BLOCKLIST_FILE): string[]
   return out;
 }
 
-/**
- * Normalise one `enabledPlugins` value to a boolean.
- *
- * The schema is `Record<string, string[] | boolean | object>`: besides the
- * plain boolean, Claude Code accepts an "extended format with version
- * constraints". Any non-boolean form is a way of saying "load this one,
- * pinned" — so it reads as enabled unless it carries an explicit
- * `enabled: false`. Returns null for a value that means nothing at all, so
- * the caller can drop the entry instead of inventing a decision for it.
- */
-export function normaliseEnabledValue(value: unknown): boolean | null {
-  if (typeof value === "boolean") return value;
-  if (Array.isArray(value)) return true;
-  const obj = asObject(value);
-  if (obj) return typeof obj.enabled === "boolean" ? obj.enabled : true;
-  return null;
-}
-
 // ── Marketplace policy matching ────────────────────────────────────────────
 
 /** A marketplace identity, reduced to what a policy entry can match on. */
@@ -387,6 +307,12 @@ interface PolicyKeySpec {
   kind: "list" | "flag";
   /** Claude Code honours it from managed settings only. */
   managedOnly: boolean;
+  /**
+   * Claude Code reads it from user and managed settings only — a project or
+   * local file that sets it is ignored (the sync opt-outs: "Not read from
+   * project settings"; see core/claudeAiSync.ts, which reads them the same way).
+   */
+  userOrManagedOnly?: true;
 }
 
 /**
@@ -411,8 +337,8 @@ const POLICY_KEYS: readonly PolicyKeySpec[] = [
   { key: "allowedChannelPlugins", kind: "list", managedOnly: true },
   { key: "pluginSuggestionMarketplaces", kind: "list", managedOnly: true },
   { key: "disableCommandPluginSources", kind: "flag", managedOnly: true },
-  { key: "syncClaudeAiPlugins", kind: "flag", managedOnly: false },
-  { key: "syncClaudeAiSkills", kind: "flag", managedOnly: false },
+  { key: "syncClaudeAiPlugins", kind: "flag", managedOnly: false, userOrManagedOnly: true },
+  { key: "syncClaudeAiSkills", kind: "flag", managedOnly: false, userOrManagedOnly: true },
 ] as const;
 
 /**
@@ -445,6 +371,9 @@ function resolvePolicy(
   const lists = new Map<string, unknown[]>();
 
   for (const spec of POLICY_KEYS) {
+    // A file Claude Code does not read the key from, kept to report as
+    // ignored only when no file it does read sets the key.
+    let unread: PluginPolicyEntry | null = null;
     // Highest precedence wins outright; scan from the top.
     for (let i = scopes.length - 1; i >= 0; i--) {
       const scope = scopes[i];
@@ -454,13 +383,19 @@ function resolvePolicy(
 
       if (spec.kind === "flag") {
         if (typeof raw !== "boolean") continue;
-        entries.push({
+        const entry: PluginPolicyEntry = {
           key: spec.key,
           scope: scope.scope,
           value: raw,
           managedOnly: spec.managedOnly,
           ignored: spec.managedOnly && scope.scope !== "managed",
-        });
+        };
+        if (spec.userOrManagedOnly && scope.scope !== "global" && scope.scope !== "managed") {
+          unread ??= { ...entry, ignored: true };
+          continue;
+        }
+        entries.push(entry);
+        unread = null;
       } else {
         if (!Array.isArray(raw)) continue;
         const honoured = !spec.managedOnly || scope.scope === "managed";
@@ -475,6 +410,7 @@ function resolvePolicy(
       }
       break;
     }
+    if (unread) entries.push(unread);
   }
   return { entries, lists };
 }
@@ -633,7 +569,8 @@ export function buildPluginsData(sources: PluginSources): PluginsData {
   for (const name of Object.keys(sources.known)) marketplaceNames.add(name);
   for (const name of extra.keys()) marketplaceNames.add(name);
   for (const plugin of sources.active) {
-    if (plugin.marketplace !== "") marketplaceNames.add(plugin.marketplace);
+    // `synced` is Claude Code's sentinel for claude.ai sync, not a marketplace.
+    if (plugin.marketplace !== "" && !plugin.synced) marketplaceNames.add(plugin.marketplace);
   }
   for (const id of enablement.keys()) {
     const { marketplace } = splitPluginId(id);
@@ -699,19 +636,24 @@ export function buildPluginsData(sources: PluginSources): PluginsData {
     const decision = enablement.get(id);
     const { name, marketplace } = splitPluginId(id);
     const installed = install !== undefined;
-    const enabled = decision?.enabled ?? false;
-    const trust = trustByName.get(marketplace) ?? "unknown";
+    const synced = install?.synced === true;
+    // A synced plugin is on because the account syncs it — no settings file
+    // has to enable it, so "nothing enables it" would be the wrong finding.
+    const enabled = decision?.enabled ?? synced;
+    // Sync is not a marketplace, so no marketplace policy grades it.
+    const trust = synced ? "known" : (trustByName.get(marketplace) ?? "unknown");
 
     let status: PluginStatus;
     if (blockedIds.has(id)) status = "blocked";
     else if (!installed) status = "orphaned";
-    else if (!decision) status = "not-enabled";
+    else if (!decision) status = synced ? "enabled" : "not-enabled";
     else status = enabled ? "enabled" : "disabled";
 
     plugins.push({
       id,
       name,
-      marketplace,
+      marketplace: synced ? "claude.ai" : marketplace,
+      synced,
       description:
         typeof install?.manifest.description === "string" ? install.manifest.description : "",
       version: install ? versionFromInstall(install) : "",
@@ -731,6 +673,7 @@ export function buildPluginsData(sources: PluginSources): PluginsData {
 
   const countByMarketplace = new Map<string, number>();
   for (const plugin of plugins) {
+    if (plugin.synced) continue;
     countByMarketplace.set(
       plugin.marketplace,
       (countByMarketplace.get(plugin.marketplace) ?? 0) + 1,
@@ -759,7 +702,7 @@ export function buildPluginsData(sources: PluginSources): PluginsData {
  */
 export function readPluginSources(workspacePath?: string): PluginSources {
   const scopes = settingsScopePaths(workspacePath).map((s) =>
-    readSettingsScope(s.scope, s.filePath),
+    s.scope === "managed" ? readManagedScope() : readSettingsScope(s.scope, s.filePath),
   );
   const known = readKnownMarketplaces();
   return {

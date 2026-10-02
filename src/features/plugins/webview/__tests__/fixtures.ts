@@ -17,6 +17,7 @@ export function plugin(overrides: Partial<PluginEntry> = {}): PluginEntry {
     id: "caveman@caveman",
     name: "caveman",
     marketplace: "caveman",
+    synced: false,
     description: "Talk like caveman. Cut 65% output tokens.",
     version: "0d95a81d35a9",
     installPath: "/home/dev/.claude/plugins/cache/caveman/caveman/0d95a81d35a9",
@@ -32,6 +33,23 @@ export function plugin(overrides: Partial<PluginEntry> = {}): PluginEntry {
     ...overrides,
   };
 }
+
+/**
+ * Synced from the signed-in claude.ai account — the shape `buildPluginsData`
+ * gives a `plugins/synced/<bucket>/design` install with no settings entry.
+ */
+export const syncedPlugin: PluginEntry = plugin({
+  id: "design@synced",
+  name: "design",
+  marketplace: "claude.ai",
+  synced: true,
+  description: "Accelerate design workflows — critique, design system management, UX writing.",
+  version: "1.2.0",
+  installPath:
+    "/home/dev/.claude/plugins/synced/9fed4216-cef8-4112-a5f1-f6d81fd0cc9b_37a1ad5d-577a-4eda-999e-63a49f2c7ef8/design",
+  decidedBy: null,
+  declaredIn: [],
+});
 
 /** Installed, but no settings file mentions it. */
 export const notEnabled: PluginEntry = plugin({

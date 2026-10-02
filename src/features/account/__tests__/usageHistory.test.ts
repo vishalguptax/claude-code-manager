@@ -17,6 +17,7 @@ vi.mock("fs", () => {
     throw e;
   };
   return {
+    existsSync: (p: string): boolean => p in vfs.files,
     readFileSync: (p: string): string => vfs.files[p] ?? enoent(),
     writeFileSync: (p: string, data: string): void => {
       vfs.files[p] = data;

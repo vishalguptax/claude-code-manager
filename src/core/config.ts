@@ -5,17 +5,41 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-
-/** Root directory for Claude CLI data (~/.claude) */
-export const CLAUDE_DIR: string = path.join(os.homedir(), ".claude");
+import {
+  claudeConfigDir,
+  claudeGlobalConfigFile,
+  claudeSecureStorageDir,
+  type ClaudeEnv,
+  publishedClaudeEnv,
+} from "./claudeHome";
 
 /**
- * Claude Code's main config file (~/.claude.json): account identity,
- * per-project trust and MCP approvals, user-scope MCP servers. A sibling of
- * CLAUDE_DIR, derived from it so a test that redirects the directory
- * redirects this too.
+ * The environment Claude Code resolves its paths from, fixed for the life of
+ * this process. Every path below is a module-level constant evaluated on
+ * load, so the extension's entry bundle resolves and publishes this before
+ * the main bundle loads; a later change asks for a window reload
+ * (src/extension/claudeConfigDir.ts).
  */
-export const CLAUDE_JSON_FILE: string = `${CLAUDE_DIR}.json`;
+export const CLAUDE_ENV: ClaudeEnv = publishedClaudeEnv();
+
+/** Root directory for Claude CLI data: `CLAUDE_CONFIG_DIR`, else ~/.claude. */
+export const CLAUDE_DIR: string = claudeConfigDir(CLAUDE_ENV, os.homedir());
+
+/**
+ * Claude Code's main config file: account identity, per-project trust and
+ * MCP approvals, user-scope MCP servers. `~/.claude.json` by default — a
+ * sibling of ~/.claude — but `<CLAUDE_CONFIG_DIR>/.claude.json` when the
+ * directory is moved, so it is not derivable from CLAUDE_DIR alone. A
+ * legacy `<config dir>/.config.json` or a custom OAuth server changes it
+ * too; see claudeGlobalConfigFile.
+ */
+export const CLAUDE_JSON_FILE: string = claudeGlobalConfigFile(CLAUDE_ENV, os.homedir());
+
+/**
+ * Directory holding `.credentials.json`. The config dir unless
+ * `CLAUDE_SECURESTORAGE_CONFIG_DIR` moves the credential store on its own.
+ */
+export const SECURE_STORAGE_DIR: string = claudeSecureStorageDir(CLAUDE_ENV, os.homedir());
 
 /** Path to the global history.jsonl file */
 export const HISTORY_FILE: string = path.join(CLAUDE_DIR, "history.jsonl");
@@ -31,7 +55,8 @@ export const SESSIONS_DIR: string = path.join(CLAUDE_DIR, "sessions");
  * (`~/.claude/file-history/<sessionId>/<pathHash>@v<N>`). Each blob is the
  * full contents of one file at one point in a session; there is no index
  * file — the path↔blob mapping only exists in the session transcript's
- * `file-history-snapshot` lines. Claude Code prunes this tree on its own
+ * `file-history-snapshot` lines and its `file-history-delta` records (the
+ * first backups of files no snapshot listed). Claude Code prunes this tree on its own
  * `cleanupPeriodDays` schedule, so a blob the transcript still cites can
  * legitimately be gone.
  */
@@ -93,11 +118,15 @@ export function canonicalPath(p: string): string {
  * The workspace is compared with the home folder, not only `<ws>/.claude` with
  * CLAUDE_DIR: before Claude Code's first run ~/.claude does not exist, so
  * neither side canonicalises and a symlinked home slipped through as a
- * project — while the workspace and home always exist on disk.
+ * project — while the workspace and home always exist on disk. The home check
+ * applies only to the default config dir: with `CLAUDE_CONFIG_DIR` set,
+ * ~/.claude is no longer user-level, and Claude Code run in ~ reads it as
+ * that folder's project settings.
  */
 export function projectClaudeDir(workspacePath: string): string | null {
   const dir = path.join(workspacePath, ".claude");
-  if (canonicalPath(workspacePath) === canonicalPath(os.homedir())) return null;
+  const isHome = canonicalPath(workspacePath) === canonicalPath(os.homedir());
+  if (isHome && !CLAUDE_ENV.CLAUDE_CONFIG_DIR) return null;
   if (canonicalPath(dir) === canonicalPath(CLAUDE_DIR)) return null;
   return dir;
 }

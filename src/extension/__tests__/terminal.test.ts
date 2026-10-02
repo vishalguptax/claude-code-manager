@@ -114,6 +114,32 @@ describe("createTerminal — reuse", () => {
   });
 });
 
+/**
+ * The `claude` we launch must write where we read. The config dir can come
+ * from the official extension's setting, which no terminal inherits, so it
+ * is passed explicitly — and only then, so the default launch is unchanged.
+ */
+describe("createTerminal — Claude config dir", () => {
+  it("passes no env for the default ~/.claude", () => {
+    const term = createTerminal("Claude");
+    expect((term.createOptions as Record<string, unknown>).env).toBeUndefined();
+  });
+
+  it("passes the custom CLAUDE_CONFIG_DIR this window resolved", async () => {
+    process.env.CLAUDE_CONFIG_DIR = "/work/claude";
+    try {
+      vi.resetModules();
+      const fresh = await import("../terminal");
+      const term = fresh.createTerminal("Claude");
+      expect((term as unknown as MockTerminal).createOptions).toMatchObject({
+        env: { CLAUDE_CONFIG_DIR: "/work/claude" },
+      });
+    } finally {
+      delete process.env.CLAUDE_CONFIG_DIR;
+    }
+  });
+});
+
 describe("createTerminal — reuse guard (running sessions)", () => {
   it("does not reuse a terminal that was alive at activation (reload-restored session)", () => {
     // Simulate a window reload: VS Code restores a terminal whose `claude`

@@ -20,12 +20,13 @@ export interface ScopeBucket {
 function scopeLabel(skill: Skill): string {
   if (skill.scope === "project") return "Project";
   if (skill.scope === "plugin") return `Plugin: ${skill.pluginName ?? "unknown"}`;
+  if (skill.scope === "claude.ai") return "claude.ai";
   return "Global";
 }
 
 /**
  * Group skills by scope, then by folder. Insertion order of scope buckets
- * follows the input order (callers pass project→global→plugin sorted lists),
+ * follows the input order (callers pass project→global→claude.ai→plugin sorted lists),
  * so the buckets render in a stable, predictable sequence.
  */
 export function groupSkills(list: Skill[]): ScopeBucket[] {

@@ -13,7 +13,7 @@ import { handlePong } from "../diagnostics/healthCheck";
 import { reportIssueCommand } from "../diagnostics/commands";
 import type { PanelSink } from "../../extension/panelSink";
 import * as path from "path";
-import * as fs from "fs";
+import { deleteSkillFolder, findDeletableSkill, findSkill } from "../skills/access";
 import { parseSkills } from "../skills/parser";
 import { parseHooks } from "../hooks/parser";
 import {
@@ -89,8 +89,15 @@ export async function handleFeatureMessage(
     }
 
     case "openSkillFile": {
+      // Open only a skill the host itself parsed: the path is the webview's,
+      // and opening it must not become a way to open any SKILL.md on disk.
       const skillPath = (msg as { type: string; skillPath: string }).skillPath;
-      const skillFile = path.join(skillPath, "SKILL.md");
+      const found = findSkill(skillPath, getWorkspace() || undefined);
+      if (!found.ok) {
+        vscode.window.showErrorMessage(found.error);
+        break;
+      }
+      const skillFile = path.join(found.skill.path, "SKILL.md");
       try {
         const doc = await vscode.workspace.openTextDocument(skillFile);
         await vscode.window.showTextDocument(doc);
@@ -101,20 +108,28 @@ export async function handleFeatureMessage(
     }
 
     case "deleteSkill": {
+      // The webview's path is never handed to rm: it is resolved to a skill
+      // the host parsed, in an editable scope, strictly inside that scope's
+      // root (see skills/access.ts).
       const skillPath = (msg as { type: string; skillPath: string }).skillPath;
+      const workspace = getWorkspace() || undefined;
+      const found = findDeletableSkill(skillPath, workspace);
+      if (!found.ok) {
+        vscode.window.showErrorMessage(found.error);
+        break;
+      }
       const choice = await vscode.window.showWarningMessage(
         `Delete this skill folder?`,
         {
           modal: true,
-          detail: `This will permanently delete:\n${skillPath}`,
+          detail: `This will permanently delete:\n${found.skill.path}`,
         },
         "Delete",
       );
       if (choice === "Delete") {
         try {
-          fs.rmSync(skillPath, { recursive: true, force: true });
-          const workspace = getWorkspace();
-          const skills = parseSkills(workspace || undefined);
+          deleteSkillFolder(found.skill);
+          const skills = parseSkills(workspace);
           ctx.setSkills(skills);
           wv.postMessage({ type: "skills", data: skills });
         } catch (err) {

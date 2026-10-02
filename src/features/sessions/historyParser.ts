@@ -34,6 +34,7 @@ import {
   invalidatePendingCacheEntry,
   type LiveSessionInfo,
 } from "./liveSessions";
+import { isHumanPrompt } from "./turnOrigin";
 import type { HistoryEntry, Session, SessionEntry } from "./types";
 
 /**
@@ -308,6 +309,17 @@ function readOrphanSessionData(filePath: string): OrphanData | null {
   }
 }
 
+/** The prose of a user record: its string body, or its text blocks joined. */
+function userText(entry: SessionEntry): string {
+  const content = entry.message?.content;
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .map((b) => (typeof b.text === "string" ? b.text : ""))
+    .filter(Boolean)
+    .join(" ");
+}
+
 function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
   // Symlink-safe: a planted link under ~/.claude/projects/ must not
   // make us read (and display) a file outside the transcript tree.
@@ -318,6 +330,7 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
 
   let cwd = "";
   let firstPrompt = "";
+  let firstInjectedText = "";
   let messageCount = 0;
   let firstTimestamp = 0;
   let lastTimestamp = 0;
@@ -397,20 +410,19 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
           customTitle = (e.customTitle as string).trim();
         }
         captureRename(line, entry.message);
-        if (entry.message?.role === "user" && !entry.isSidechain) {
+        // Only the person's own prompts count and title the session, the
+        // same unit history.jsonl gives history-backed sessions. Tool
+        // results and injected records (task notifications, peer messages,
+        // meta context) share `role: "user"` but are not prompts.
+        if (isHumanPrompt(entry)) {
           messageCount++;
-          if (!firstPrompt) {
-            const content = entry.message.content;
-            if (typeof content === "string") {
-              firstPrompt = content;
-            } else if (Array.isArray(content)) {
-              const text = content
-                .map((b) => (typeof b.text === "string" ? b.text : ""))
-                .filter(Boolean)
-                .join(" ");
-              if (text) firstPrompt = text;
-            }
-          }
+          if (!firstPrompt) firstPrompt = userText(entry);
+        } else if (
+          !firstInjectedText &&
+          entry.message?.role === "user" &&
+          !entry.isSidechain
+        ) {
+          firstInjectedText = userText(entry);
         }
       }
     }
@@ -432,13 +444,16 @@ function readOrphanSessionDataUncached(filePath: string): OrphanData | null {
     fs.closeSync(fd);
   }
 
-  // A file with no user messages isn't a real session — skip it so
-  // empty shells (queue-operation-only files) don't clutter the list.
-  if (!firstPrompt || messageCount === 0) return null;
+  // A session the person never typed into (one opened by a scheduled or
+  // dispatched task) is still real work; describe it by the first thing
+  // it was given rather than dropping it. A file with no user text at all
+  // is an empty shell (queue-operation-only) and stays out of the list.
+  const description = firstPrompt || firstInjectedText;
+  if (!description) return null;
 
   return {
     cwd,
-    firstPrompt,
+    firstPrompt: description,
     messageCount,
     firstTimestamp,
     lastTimestamp,

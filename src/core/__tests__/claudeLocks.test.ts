@@ -34,6 +34,14 @@ afterEach(() => {
 // These cases contend for a live lock, so withLocks waits out its real 3 s
 // acquire timeout before giving up — more than Vitest's 5 s default once the
 // machine is busy. The budget matches the behaviour under test.
+// A live holder keeps renewing its mtime; dating it ahead models that, so a
+// stall on a loaded machine cannot age the simulated holder into "abandoned".
+function holdLive(dir: string): void {
+  fs.mkdirSync(dir);
+  const renewed = new Date(Date.now() + 60 * 60_000);
+  fs.utimesSync(dir, renewed, renewed);
+}
+
 const WAITS_OUT_ACQUIRE = 15_000;
 
 describe("withLocks", () => {
@@ -76,7 +84,7 @@ describe("withLocks", () => {
 
   it("does not run the work when a lock is held by someone alive", () => {
     const a = lock("a.lock");
-    fs.mkdirSync(a.dir); // a live holder, mtime = now
+    holdLive(a.dir);
 
     const work = vi.fn();
     const result = withLocks([a], work);
@@ -116,7 +124,7 @@ describe("withLocks", () => {
   it("releases locks it already holds when a later one cannot be taken", () => {
     const a = lock("a.lock");
     const b = lock("b.lock");
-    fs.mkdirSync(b.dir); // second lock is held by someone else
+    holdLive(b.dir); // second lock is held by someone else
 
     const result = withLocks([a, b], () => "nope");
 

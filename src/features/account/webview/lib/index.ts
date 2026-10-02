@@ -24,6 +24,7 @@ export {
   formatPrRef,
   formatRepo,
   formatResetsIn,
+  formatSpend,
   formatReviewState,
   quotaFreshness,
   quotaTone,

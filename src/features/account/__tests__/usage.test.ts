@@ -34,6 +34,7 @@ const fsState = vi.hoisted(() => ({
 }));
 
 vi.mock("fs", () => ({
+  existsSync: (): boolean => false,
   readFileSync: (): string => {
     if (fsState.throwError || fsState.content === null) {
       const err = new Error("ENOENT") as NodeJS.ErrnoException;

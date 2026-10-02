@@ -15,6 +15,7 @@ function srv(p: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServ
 describe("groupLabel", () => {
   it("labels by scope, naming the plugin for plugin servers", () => {
     expect(groupLabel(srv({ name: "a", scope: "project" }))).toBe("Project Servers");
+    expect(groupLabel(srv({ name: "a", scope: "local" }))).toBe("Local Servers");
     expect(groupLabel(srv({ name: "a", scope: "global" }))).toBe("Global Servers");
     expect(groupLabel(srv({ name: "a", scope: "plugin", pluginName: "p@m" }))).toBe(
       "Plugin: p@m",

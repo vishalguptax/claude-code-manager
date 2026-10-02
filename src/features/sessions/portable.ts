@@ -17,7 +17,8 @@
  * This file owns rules 1 and 2. It is pure (no fs, no vscode) so it can be
  * unit tested in isolation and reused across both export and import flows.
  */
-import type { Session } from "./types";
+import { isHumanPrompt } from "./turnOrigin";
+import type { Session, SessionEntry } from "./types";
 
 /**
  * Longest slug Claude CLI writes verbatim. Beyond this it truncates and
@@ -146,6 +147,7 @@ export function validatePortableSession(content: string): PortableValidation {
   const lines = content.split("\n");
   let parsedLines = 0;
   let userMessageCount = 0;
+  let hasUserRecord = false;
   let canonicalId: string | null = null;
 
   for (const raw of lines) {
@@ -176,10 +178,12 @@ export function validatePortableSession(content: string): PortableValidation {
       }
     }
 
+    // The reported count is the person's prompts, the same unit the
+    // session list uses (see ./turnOrigin): tool results and injected
+    // records share `role: "user"` but are not prompts.
     const message = obj.message as { role?: unknown } | undefined;
-    if (message && message.role === "user") {
-      userMessageCount++;
-    }
+    if (message && message.role === "user") hasUserRecord = true;
+    if (isHumanPrompt(obj as SessionEntry)) userMessageCount++;
   }
 
   if (parsedLines === 0) {
@@ -191,7 +195,10 @@ export function validatePortableSession(content: string): PortableValidation {
       reason: "File has no session ID. It does not look like a Claude session export.",
     };
   }
-  if (userMessageCount === 0) {
+  // Gated on any user record, not on human prompts: a session opened by a
+  // scheduled or dispatched task has none of the person's prompts yet is
+  // still a conversation that can be resumed, and the list shows it too.
+  if (!hasUserRecord) {
     return {
       ok: false,
       reason: "Session has no user messages, nothing to resume.",

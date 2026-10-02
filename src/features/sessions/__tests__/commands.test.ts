@@ -72,6 +72,7 @@ vi.mock("../../../extension/worktrees", () => ({
 }));
 
 import {
+  copyMarkdown,
   exportSessionFile,
   importSessionFile,
   importMultipleSessionFiles,
@@ -142,6 +143,39 @@ beforeEach(() => {
   // Each test gets a fresh memento by default. Tests that want to assert on
   // the storage state install their own via setSessionStorage().
   setSessionStorage(makeMemento().memento as unknown as import("vscode").Memento);
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// copyMarkdown
+// ─────────────────────────────────────────────────────────────────────
+
+describe("copyMarkdown", () => {
+  it("heads injected records by their source, never as You", () => {
+    const sess = makeSession();
+    // Origin keys as Claude Code 2.1.287 writes them; text is placeholder.
+    writeSessionFile(
+      sess,
+      [
+        { sessionId: sess.id, type: "user", origin: { kind: "human" }, message: { role: "user", content: "typed prompt" } },
+        { sessionId: sess.id, type: "assistant", message: { role: "assistant", content: [{ type: "text", text: "reply" }] } },
+        { sessionId: sess.id, type: "user", origin: { kind: "task-notification" }, turnOrigin: "task_notification", message: { role: "user", content: "notif" } },
+        { sessionId: sess.id, type: "user", isMeta: true, origin: { kind: "peer" }, turnOrigin: "peer", message: { role: "user", content: "peer msg" } },
+        { sessionId: sess.id, type: "user", isMeta: true, message: { role: "user", content: "skill body" } },
+      ]
+        .map((l) => JSON.stringify(l))
+        .join("\n") + "\n",
+    );
+    const write = vi.spyOn(vscode.env.clipboard, "writeText");
+    expect(copyMarkdown(sess.id, [sess])).toBe(true);
+    const md = write.mock.calls[0][0];
+    expect(md.match(/^## .+$/gm)).toEqual([
+      "## You",
+      "## Claude",
+      "## Task notification",
+      "## Message from another session",
+      "## Added by Claude Code",
+    ]);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────

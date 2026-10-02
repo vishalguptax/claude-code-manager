@@ -9,6 +9,7 @@
  * view provider supplies the concrete, vscode-backed implementation.
  */
 import { type Message, parseMessage } from "../../shared/protocol/schemas";
+import { samePath } from "../../core/pathGuard";
 import { parseCommands } from "./parser";
 import type { Command } from "./types";
 
@@ -69,7 +70,16 @@ export async function dispatchCommandsMessage(raw: unknown, host: CommandsHost):
     }
 
     case "openCommandFile": {
-      await host.openFile(msg.path);
+      // The path is the webview's: open it only if it is a command file the
+      // host itself parsed, so the message cannot open arbitrary files.
+      const command = parseCommands(host.workspacePath).find(
+        (c) => c.path !== "" && samePath(c.path, msg.path),
+      );
+      if (!command) {
+        console.warn("[claude-manager] refused to open a path that is not a parsed command:", msg.path);
+        return true;
+      }
+      await host.openFile(command.path);
       return true;
     }
 

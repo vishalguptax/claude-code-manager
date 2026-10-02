@@ -33,9 +33,15 @@ export interface QuotaBarProps {
    * one cannot support a projection.
    */
   pace?: Pace | null;
+  /**
+   * Head figure shown in place of the percentage. The gateway spend cap
+   * passes its dollars ("$12.40 of $50.00 this month"): a budget is read
+   * in money, and its percentage can pass 100 where the bar cannot.
+   */
+  figure?: string;
 }
 
-export function QuotaBar({ label, window, pace }: QuotaBarProps) {
+export function QuotaBar({ label, window, pace, figure }: QuotaBarProps) {
   const pct = Math.max(0, Math.min(100, Math.round(window.utilization)));
   const tone = quotaTone(window.utilization);
   // Read the shared clock so both timers tick down live (and the reset
@@ -46,7 +52,7 @@ export function QuotaBar({ label, window, pace }: QuotaBarProps) {
     <div class="acct-quota-row">
       <div class="acct-quota-row-head">
         <span class="acct-quota-label">{label}</span>
-        <span class="acct-quota-pct">{pct}%</span>
+        <span class="acct-quota-pct">{figure ?? `${pct}%`}</span>
       </div>
       <div
         class="acct-quota-bar"

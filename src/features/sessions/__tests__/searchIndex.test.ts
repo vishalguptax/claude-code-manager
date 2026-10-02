@@ -48,6 +48,39 @@ describe("searchIndex", () => {
     expect(await searchContent("tokenizer")).toEqual(["s1"]);
   });
 
+  it("leaves injected user records out of the index", async () => {
+    // Origin keys as Claude Code 2.1.287 writes them; text is placeholder.
+    const file = writeJsonl("inj.jsonl", [
+      {
+        type: "user",
+        origin: { kind: "human" },
+        promptSource: "typed",
+        message: { role: "user", content: "typed-by-person" },
+      },
+      {
+        type: "user",
+        origin: { kind: "task-notification" },
+        promptSource: "system",
+        turnOrigin: "task_notification",
+        message: { role: "user", content: "<task-notification>notif-text</task-notification>" },
+      },
+      {
+        type: "user",
+        isMeta: true,
+        origin: { kind: "peer" },
+        promptSource: "system",
+        turnOrigin: "peer",
+        message: { role: "user", content: "peer-text" },
+      },
+      { type: "user", isMeta: true, message: { role: "user", content: [{ type: "text", text: "skill-body" }] } },
+    ]);
+    indexSession("sinj", file);
+    expect(await searchContent("typed-by-person")).toEqual(["sinj"]);
+    expect(await searchContent("notif-text")).toEqual([]);
+    expect(await searchContent("peer-text")).toEqual([]);
+    expect(await searchContent("skill-body")).toEqual([]);
+  });
+
   it("indexes content past the old 50 KB and 150 KB caps", async () => {
     // ~400 KB of filler precedes the keyword. The 50 KB cap stopped before it;
     // so did 150 KB, which is what made search look broken on long sessions.

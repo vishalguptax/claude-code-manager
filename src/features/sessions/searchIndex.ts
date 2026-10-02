@@ -21,6 +21,7 @@ import * as fs from "fs";
 import { LRU } from "../../core/lru";
 import { createLineDecoder } from "../../core/lineDecoder";
 import { openFileNoFollow } from "../../core/safeOpen";
+import { injectedTurnKind } from "./turnOrigin";
 import type { SessionEntry } from "./types";
 
 /**
@@ -237,6 +238,11 @@ function extractLineText(line: string): string {
   if (role !== "user" && role !== "assistant") return "";
   if (entry.isSidechain) return "";
   if (entry.type === "file-history-snapshot") return "";
+  // Injected user records (task notifications, peer messages, skill
+  // bodies) are Claude Code's words, not the session's: indexing them made
+  // a session match a search for text it only received, and a skill body
+  // repeated in every session that loaded it matched them all.
+  if (role === "user" && injectedTurnKind(entry) !== null) return "";
 
   const content = entry.message?.content;
   if (typeof content === "string") return content;

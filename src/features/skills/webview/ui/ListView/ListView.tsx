@@ -57,13 +57,15 @@ function buildRows(list: Skill[]): Row[] {
   return rows;
 }
 
-/** Build the scope-filter options, hiding the Plugin segment when empty. */
+/** Build the scope-filter options, hiding the claude.ai and Plugin segments when empty. */
 function scopeOptions(total: number): ScopeOption<ScopeFilter>[] {
   const opts: ScopeOption<ScopeFilter>[] = [
     { value: "all", label: "All", count: total },
     { value: "project", label: "Project", count: countByScope("project") },
     { value: "global", label: "Global", count: countByScope("global") },
   ];
+  const syncedCount = countByScope("claude.ai");
+  if (syncedCount > 0) opts.push({ value: "claude.ai", label: "claude.ai", count: syncedCount });
   const pluginCount = countByScope("plugin");
   if (pluginCount > 0) opts.push({ value: "plugin", label: "Plugin", count: pluginCount });
   return opts;

@@ -4,7 +4,8 @@
  * Claude Code keeps a versioned backup of every file it edits under
  * `~/.claude/file-history/<sessionId>/<pathHash>@v<N>`. The blobs are plain
  * file contents with no index; the `path -> blob` mapping lives only in the
- * session transcript, as JSONL lines of `type: "file-history-snapshot"`.
+ * session transcript, as JSONL lines of `type: "file-history-snapshot"` and,
+ * since Claude Code 2.1.287, `type: "file-history-delta"`.
  *
  * Everything here crosses the postMessage boundary, so every field is plain
  * JSON — no Date, no Map, no class instance.
@@ -27,6 +28,20 @@ export interface FileHistorySnapshotEntry {
 }
 
 /**
+ * One `file-history-delta` entry: a single tracked file's backup, added to the
+ * snapshot whose `messageId` is `snapshotMessageId`. `trackingPath` is the
+ * same kind of key as in `trackedFileBackups`, and `backup` the same value.
+ */
+export interface FileHistoryDeltaEntry {
+  type: "file-history-delta";
+  messageId?: string;
+  snapshotMessageId?: string;
+  timestamp?: string;
+  trackingPath?: string;
+  backup?: TrackedFileBackup;
+}
+
+/**
  * One backup record for one file at one version, as written by Claude Code.
  *
  * The map key this hangs off is usually workspace-relative; `realParentDir` is
@@ -36,7 +51,8 @@ export interface TrackedFileBackup {
   /**
    * `<pathHash>@v<N>` — the blob's filename inside the session directory, or
    * `null` when the file is tracked but has not been backed up yet (29% of
-   * real records). A null here means there is nothing to offer, not an error.
+   * real records) or, on a delta, did not exist before Claude Code created it.
+   * A null here means there is nothing to offer, not an error.
    */
   backupFileName?: string | null;
   version?: number;

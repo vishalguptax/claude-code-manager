@@ -335,7 +335,12 @@ const mcpServers = v.object({
   data: v.unknown(),
   errors: parseErrors,
 });
-const agents = v.object({ type: v.literal("agents"), data: v.unknown(), errors: parseErrors });
+const agents = v.object({
+  type: v.literal("agents"),
+  data: v.unknown(),
+  errors: parseErrors,
+  noProjectScope: v.optional(v.string()),
+});
 const quotaData = v.object({ type: v.literal("quotaData"), result: v.unknown() });
 
 // === SESSIONS MESSAGES ===

@@ -13,10 +13,30 @@ const opts = {
   platform: "node",
   target: "node20",
   format: "cjs",
-  outfile: "dist/extension.js",
+  outfile: "dist/extension-main.js",
   external: ["vscode"],
   minify: true,
   sourcemap: "external",
+  logLevel: "info",
+};
+
+/**
+ * The entry VS Code loads (`main` in package.json). It resolves Claude
+ * Code's config dir from the `claudeCode.environmentVariables` setting
+ * before requiring the main bundle above, whose Claude paths are fixed
+ * when it loads — see src/extension/entry.ts. The main bundle is external
+ * so it is required at activation, not inlined and evaluated up front.
+ */
+const entryOpts = {
+  entryPoints: ["src/extension/entry.ts"],
+  bundle: true,
+  platform: "node",
+  target: "node20",
+  format: "cjs",
+  outfile: "dist/extension.js",
+  external: ["vscode", "./extension-main.js"],
+  minify: true,
+  sourcemap: false,
   logLevel: "info",
 };
 
@@ -60,10 +80,11 @@ const sessionTapOpts = {
 
 if (watch) {
   const ctx = await context(opts);
+  const entryCtx = await context(entryOpts);
   const tapCtx = await context(tapOpts);
   const sessionCtx = await context(sessionTapOpts);
-  await Promise.all([ctx.watch(), tapCtx.watch(), sessionCtx.watch()]);
+  await Promise.all([ctx.watch(), entryCtx.watch(), tapCtx.watch(), sessionCtx.watch()]);
   console.log("build-extension: watching for changes…");
 } else {
-  await Promise.all([build(opts), build(tapOpts), build(sessionTapOpts)]);
+  await Promise.all([build(opts), build(entryOpts), build(tapOpts), build(sessionTapOpts)]);
 }

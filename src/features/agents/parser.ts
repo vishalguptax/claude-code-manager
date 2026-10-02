@@ -6,7 +6,7 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
+import { CLAUDE_DIR, projectClaudeDir } from "../../core/config";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { parseFrontmatter, fmString, fmList } from "../../core/frontmatter";
 import { loadActivePlugins, resolvePluginContentDirs, type ActivePlugin } from "../../core/plugins";
@@ -22,7 +22,7 @@ export interface AgentsParseResult {
 const agentCache = createMtimeCache<Agent>();
 
 /** Global agents directory (~/.claude/agents/). */
-const GLOBAL_AGENTS_DIR: string = path.join(os.homedir(), ".claude", "agents");
+const GLOBAL_AGENTS_DIR: string = path.join(CLAUDE_DIR, "agents");
 
 /**
  * Read a frontmatter field as a list, also accepting a comma-separated
@@ -124,7 +124,9 @@ function readPluginAgents(plugin: ActivePlugin): Agent[] {
 /**
  * Parse all agents available in the current context:
  *  - global agents from `~/.claude/agents/`
- *  - project agents from `<workspace>/.claude/agents/`
+ *  - project agents from `<workspace>/.claude/agents/`, when the workspace
+ *    has a `.claude` of its own (not the home folder — there it IS the
+ *    global dir, and reading it twice listed every agent as both)
  *  - plugin agents declared by every active plugin
  *
  * A directory or file that fails to read contributes an error string
@@ -145,9 +147,9 @@ export function parseAgents(workspacePath?: string): AgentsParseResult {
   collect(readAgentsFromDir(GLOBAL_AGENTS_DIR, { scope: "global" }));
 
   // Project
-  if (workspacePath) {
-    const projectAgentsDir = path.join(workspacePath, ".claude", "agents");
-    collect(readAgentsFromDir(projectAgentsDir, { scope: "project" }));
+  const projectDir = workspacePath ? projectClaudeDir(workspacePath) : null;
+  if (projectDir) {
+    collect(readAgentsFromDir(path.join(projectDir, "agents"), { scope: "project" }));
   }
 
   // Plugin-provided

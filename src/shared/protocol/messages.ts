@@ -5,7 +5,7 @@ export type DetailMode = "first" | "last";
 /** Payload for creating/editing an MCP server from the webview form. */
 export interface McpServerInput {
   name: string;
-  /** "global" | "project" — the two writable scopes. */
+  /** "project" | "local" | "global" — the writable scopes. */
   scope: string;
   /** "stdio" | "http" | "sse" | "ws" */
   transport: string;
@@ -208,7 +208,9 @@ export type Message =
   | { type: "promptHistory"; data: unknown }
   | { type: "memoryStore"; data: unknown }
   | { type: "pluginsData"; data: unknown }
-  | { type: "agents"; data: unknown; errors?: string[] }
+  // `noProjectScope`: why the workspace has no project agents dir (no folder
+  // open, or it is the home folder); absent when project scope is available.
+  | { type: "agents"; data: unknown; errors?: string[]; noProjectScope?: string }
   | { type: "quotaData"; result: unknown }
   | { type: "terminalSessions"; ids: string[] }
   | { type: "tempSessions"; ids: string[] }

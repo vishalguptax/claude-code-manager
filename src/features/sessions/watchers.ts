@@ -2,7 +2,7 @@
  * File-watcher dispatch for the sessions view provider.
  *
  * Owns the VS Code FileSystemWatcher fleet that keeps the panel in sync
- * with ~/.claude without polling:
+ * with Claude Code's config dir (~/.claude or CLAUDE_CONFIG_DIR) without polling:
  *   - account files (.claude.json, settings.json, credentials) → account reparse
  *   - history.jsonl + projects/**.jsonl → session list refresh (targeted or full)
  *   - sessions/*.json (PID files) → live-state refresh
@@ -15,7 +15,6 @@ import * as vscode from "vscode";
 import type { PanelSink } from "../../extension/panelSink";
 import { postAccountData } from "./accountPush";
 import * as path from "path";
-import * as os from "os";
 import * as fs from "fs";
 import {
   parseSessions,
@@ -28,8 +27,14 @@ import {
 } from "./parser";
 import { loadState } from "./state";
 import { getTempSessionIds } from "./ephemeralSession";
-import { CLAUDE_MANAGER_DIR, STATUSLINE_CACHE_FILE } from "../../core/config";
+import {
+  CLAUDE_DIR,
+  CLAUDE_JSON_FILE,
+  CLAUDE_MANAGER_DIR,
+  STATUSLINE_CACHE_FILE,
+} from "../../core/config";
 import { getWorkspace } from "../../extension/workspace";
+import { CREDENTIALS_FILE } from "../account/credentials";
 import { parseAccountData } from "../account/parser";
 import { revalidateModelCache } from "../account/models";
 import { warmUsageAggregate } from "../account/projectStats";
@@ -118,27 +123,35 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   const USAGE_PUSH_THROTTLE_MS = 10_000;
   let lastUsagePushAt = 0;
 
-  // Account-relevant files live in ~/.claude/ and ~/.claude.json.
+  // Account-relevant files: settings and stats in the config dir, plus the
+  // main config file and the credentials file, which CLAUDE_CONFIG_DIR and
+  // CLAUDE_SECURESTORAGE_CONFIG_DIR can each put elsewhere (by default
+  // ~/.claude.json and ~/.claude/.credentials.json).
   //
   // Resolve symlinks: on Windows (and some Linux configs) FileSystemWatcher
   // does not bubble events from the symlink target through the link. Users
   // with dotfile setups often have ~/.claude as a symlink — without this
   // resolve, sessions never refresh until they manually click reload.
-  const home = os.homedir();
-  let claudeDir = path.join(home, ".claude");
-  try {
-    claudeDir = fs.realpathSync(claudeDir);
-  } catch {
-    // Directory doesn't exist yet (brand-new machine) — fall through with
-    // the unresolved path so the watcher attaches when Claude creates it.
-  }
+  const realDir = (dir: string): string => {
+    try {
+      return fs.realpathSync(dir);
+    } catch {
+      // Directory doesn't exist yet (brand-new machine) — fall through with
+      // the unresolved path so the watcher attaches when Claude creates it.
+      return dir;
+    }
+  };
+  const claudeDir = realDir(CLAUDE_DIR);
+  const fileIn = (file: string): vscode.RelativePattern =>
+    new vscode.RelativePattern(
+      vscode.Uri.file(realDir(path.dirname(file))),
+      path.basename(file),
+    );
 
   const watchPatterns = [
-    new vscode.RelativePattern(vscode.Uri.file(home), ".claude.json"),
-    new vscode.RelativePattern(
-      vscode.Uri.file(claudeDir),
-      "{settings.json,stats-cache.json,.credentials.json}",
-    ),
+    fileIn(CLAUDE_JSON_FILE),
+    new vscode.RelativePattern(vscode.Uri.file(claudeDir), "{settings.json,stats-cache.json}"),
+    fileIn(CREDENTIALS_FILE),
   ];
 
   // Also watch workspace-scoped settings if a workspace is open

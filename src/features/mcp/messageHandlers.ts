@@ -11,13 +11,17 @@
 import * as vscode from "vscode";
 import type { PanelSink } from "../../extension/panelSink";
 import * as path from "path";
+import { CLAUDE_JSON_FILE } from "../../core/config";
 import {
   addMcpServer,
+  cliServerKey,
   deleteMcpServer,
   globalMcpFileFor,
   globalMcpConfigFile,
+  projectMcpFileFor,
   parseMcpServers,
   readMcpAuthNeeds,
+  setMcpServerDisabled,
   setProjectMcpServerDisabled,
   updateMcpServer,
 } from "./parser";
@@ -40,7 +44,9 @@ export interface McpHostContext {
 
 /** Coerce an arbitrary string scope to a known MCP scope, else null. */
 function asScope(value: string): McpServerScope | null {
-  return value === "global" || value === "project" || value === "plugin" ? value : null;
+  return value === "global" || value === "project" || value === "local" || value === "plugin"
+    ? value
+    : null;
 }
 
 /**
@@ -129,7 +135,11 @@ export async function handleMcpMessage(
           vscode.window.showErrorMessage("No workspace folder open");
           return true;
         }
-        configPath = path.join(workspace, ".mcp.json");
+        // The nearest .mcp.json declaring the server — it may be an ancestor's.
+        configPath = msg.name ? projectMcpFileFor(msg.name, workspace) : path.join(workspace, ".mcp.json");
+      } else if (scope === "local") {
+        // Local servers sit in this workspace's `projects` entry.
+        configPath = CLAUDE_JSON_FILE;
       } else {
         // Global servers live in ~/.claude.json, not the legacy
         // ~/.claude/mcp.json. Route by the specific server's owning
@@ -148,22 +158,26 @@ export async function handleMcpMessage(
 
     case "toggleMcpServer": {
       const scope = asScope(msg.scope);
-      // Only project-scope servers can be toggled: Claude Code's
-      // enable/disable mechanism (the disabledMcpjsonServers arrays)
-      // governs project .mcp.json servers only. Global and plugin
-      // servers have no such switch.
-      if (scope !== "project") {
-        vscode.window.showErrorMessage(
-          `"${msg.name}" can't be disabled from here — only project (.mcp.json) servers support enable/disable. Edit the config to remove a global or plugin server.`,
-        );
+      if (scope === null || (scope === "plugin" && !msg.pluginName)) {
+        console.error("[claude-manager] rejected toggle for an unknown MCP server", msg);
         return true;
       }
+      // Every toggle is per project, so it needs one open.
       const workspace = ctx.getWorkspace();
       if (!workspace) {
         vscode.window.showErrorMessage("No workspace folder open");
         return true;
       }
-      const result = setProjectMcpServerDisabled(msg.name, msg.disabled, workspace);
+      // Project servers keep their approval arrays in settings.local.json;
+      // every other scope uses the /mcp list in ~/.claude.json.
+      const result =
+        scope === "project"
+          ? setProjectMcpServerDisabled(msg.name, msg.disabled, workspace)
+          : setMcpServerDisabled(
+              cliServerKey({ name: msg.name, scope, pluginName: msg.pluginName }),
+              msg.disabled,
+              workspace,
+            );
       if (result.ok && wv) {
         pushServers(ctx, wv);
       } else if (!result.ok) {
@@ -182,8 +196,15 @@ export async function handleMcpMessage(
         );
         return true;
       }
+      const workspace = ctx.getWorkspace();
       const target =
-        scope === "project" ? "the project's .mcp.json" : globalMcpFileFor(msg.name);
+        scope === "project"
+          ? workspace
+            ? projectMcpFileFor(msg.name, workspace)
+            : "the project's .mcp.json"
+          : scope === "local"
+            ? `this project's entry in ${CLAUDE_JSON_FILE}`
+            : globalMcpFileFor(msg.name);
       const choice = await vscode.window.showWarningMessage(
         `Delete MCP server "${msg.name}"?`,
         {
@@ -193,7 +214,7 @@ export async function handleMcpMessage(
         "Delete",
       );
       if (choice !== "Delete") return true;
-      const result = deleteMcpServer(msg.name, scope, ctx.getWorkspace());
+      const result = deleteMcpServer(msg.name, scope, workspace);
       if (!result.ok) {
         vscode.window.showErrorMessage(result.error ?? `Failed to delete ${msg.name}`);
       } else if (wv) {

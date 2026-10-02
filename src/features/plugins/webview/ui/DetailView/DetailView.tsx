@@ -58,6 +58,7 @@ export function DetailView({
       <div class="d-head d-head--row">
         <div class="d-title">{plugin.name}</div>
         <Badge text={STATUS_LABEL[plugin.status]} variant={statusVariant(plugin.status)} />
+        {plugin.synced ? <Badge text="claude.ai" scope="builtin" /> : null}
         {scope ? <Badge text={SCOPE_LABEL[scope]} scope={scopeTone(scope)} /> : null}
       </div>
 

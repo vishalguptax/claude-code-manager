@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "fs";
+import * as path from "path";
 
 const { HOME } = vi.hoisted(() => {
   const _path = require("path") as typeof import("path");
@@ -93,10 +94,31 @@ describe("dispatchCommandsMessage", () => {
     }
   });
 
-  it("opens a command file", async () => {
+  it("opens a command file the host parsed", async () => {
+    const dir = path.join(HOME, ".claude", "commands");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "review.md"), "Review the diff.");
     const { host, calls } = makeHost();
-    await dispatchCommandsMessage({ type: "openCommandFile", path: "/x/review.md" }, host);
-    expect(calls.openedFiles).toEqual(["/x/review.md"]);
+    await dispatchCommandsMessage(
+      { type: "openCommandFile", path: path.join(dir, "review.md") },
+      host,
+    );
+    expect(calls.openedFiles).toEqual([path.join(dir, "review.md")]);
+  });
+
+  it("refuses to open a path that is not a parsed command, including traversal", async () => {
+    const dir = path.join(HOME, ".claude", "commands");
+    fs.mkdirSync(dir, { recursive: true });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { host, calls } = makeHost();
+    await dispatchCommandsMessage({ type: "openCommandFile", path: "/etc/passwd" }, host);
+    await dispatchCommandsMessage(
+      { type: "openCommandFile", path: path.join(dir, "..", "..", ".ssh", "id_rsa") },
+      host,
+    );
+    expect(calls.openedFiles).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
   });
 
   it("opens a URL", async () => {

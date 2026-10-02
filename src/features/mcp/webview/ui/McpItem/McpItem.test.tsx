@@ -75,6 +75,16 @@ describe("McpItem", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("offers the switch for a local server and reports its off state", () => {
+    const onToggle = vi.fn();
+    const server = srv({ name: "loc", scope: "local", disabled: true });
+    render(h(McpItem, { server, active: false, onSelect: vi.fn(), onCopyName: vi.fn(), onToggle }));
+    const sw = screen.getByRole("switch");
+    expect(sw.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(sw);
+    expect(onToggle).toHaveBeenCalledWith(server);
+  });
+
   it("shows disabled + read-only markers for a disabled plugin server", () => {
     render(
       h(McpItem, {

@@ -106,4 +106,19 @@ describe("AgentForm", () => {
     fireEvent.click(screen.getByText("Cancel"));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("offers Project scope only when the workspace has its own .claude", () => {
+    const { rerender } = render(
+      h(AgentForm, { agent: null, onClose: () => {}, onSubmit: () => {} }),
+    );
+    fireEvent.click(screen.getByLabelText("Agent scope"));
+    expect(screen.getByText("Project (.claude/agents)")).toBeTruthy();
+
+    const reason = "This workspace is your home folder.";
+    rerender(
+      h(AgentForm, { agent: null, noProjectScope: reason, onClose: () => {}, onSubmit: () => {} }),
+    );
+    expect(screen.queryByText("Project (.claude/agents)")).toBeNull();
+    expect(screen.getByText(`Project scope unavailable: ${reason}`)).toBeTruthy();
+  });
 });

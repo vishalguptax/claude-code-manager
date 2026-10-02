@@ -6,7 +6,9 @@ import * as vscode from "vscode";
 const { HOME } = vi.hoisted(() => {
   const _path = require("path") as typeof import("path");
   const _os = require("os") as typeof import("os");
-  return { HOME: _path.join(_os.tmpdir(), ".claude-test-mcp-handlers") };
+  // Per-process: two checkouts running this suite at once would otherwise
+  // share (and wipe) one fake home, and one run's lock dir would block the other.
+  return { HOME: _path.join(_os.tmpdir(), `.claude-test-mcp-handlers-${process.pid}`) };
 });
 
 vi.mock("os", async () => {
@@ -15,6 +17,7 @@ vi.mock("os", async () => {
 });
 
 import { handleMcpMessage, type McpHostContext } from "../messageHandlers";
+import { claudeProjectKey } from "../projectKey";
 import type { McpServer } from "../types";
 
 function writeJson(filePath: string, value: unknown): void {
@@ -123,6 +126,28 @@ describe("openMcpConfig", () => {
     expect(open).toHaveBeenCalledWith(path.join(HOME, ".claude.json"));
   });
 
+  it("opens ~/.claude.json for a local server, where its project entry lives", async () => {
+    const open = vi.fn().mockResolvedValue({});
+    (vscode.workspace as unknown as { openTextDocument: unknown }).openTextDocument = open;
+    (vscode.window as unknown as { showTextDocument: unknown }).showTextDocument = vi.fn();
+    const { ctx } = harness(path.join(HOME, "ws"));
+    await handleMcpMessage({ type: "openMcpConfig", scope: "local", name: "srv" }, ctx);
+    expect(open).toHaveBeenCalledWith(path.join(HOME, ".claude.json"));
+  });
+
+  it("opens the ancestor .mcp.json that declares a project server", async () => {
+    const ws = path.join(HOME, "repo", "sub");
+    const holder = path.join(HOME, "repo", ".mcp.json");
+    fs.mkdirSync(ws, { recursive: true });
+    writeJson(holder, { mcpServers: { up: { command: "u" } } });
+    const open = vi.fn().mockResolvedValue({});
+    (vscode.workspace as unknown as { openTextDocument: unknown }).openTextDocument = open;
+    (vscode.window as unknown as { showTextDocument: unknown }).showTextDocument = vi.fn();
+    const { ctx } = harness(ws);
+    await handleMcpMessage({ type: "openMcpConfig", scope: "project", name: "up" }, ctx);
+    expect(open).toHaveBeenCalledWith(fs.realpathSync(holder));
+  });
+
   it("errors when project scope has no workspace", async () => {
     const err = vi.spyOn(vscode.window, "showErrorMessage");
     const { ctx } = harness(undefined);
@@ -161,24 +186,45 @@ describe("toggleMcpServer", () => {
     expect(posted.at(-1)).toMatchObject({ type: "mcpServers" });
   });
 
-  it("rejects global scope — Claude Code can't disable user-scope servers", async () => {
-    const err = vi.spyOn(vscode.window, "showErrorMessage");
-    const { ctx } = harness(path.join(HOME, "ws"));
+  it("disables a user server for this project the way /mcp does, then re-pushes", async () => {
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(ws, { recursive: true });
+    writeJson(path.join(HOME, ".claude.json"), { mcpServers: { g: { command: "node" } } });
+    const { ctx, posted } = harness(ws);
     await handleMcpMessage(
       { type: "toggleMcpServer", name: "g", scope: "global", disabled: true },
       ctx,
     );
-    expect(err).toHaveBeenCalled();
+    const config = JSON.parse(fs.readFileSync(path.join(HOME, ".claude.json"), "utf-8"));
+    expect(config.projects[claudeProjectKey(ws)].disabledMcpServers).toEqual(["g"]);
+    // The server itself is untouched — the switch is per project.
+    expect(config.mcpServers.g).toEqual({ command: "node" });
+    const pushed = posted.at(-1) as { data: { servers: McpServer[] } };
+    expect(pushed.data.servers.find((s) => s.name === "g")?.disabled).toBe(true);
   });
 
-  it("rejects plugin scope", async () => {
-    const err = vi.spyOn(vscode.window, "showErrorMessage");
-    const { ctx } = harness(path.join(HOME, "ws"));
+  it("records a plugin server under the CLI's plugin:<plugin>:<server> key", async () => {
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(ws, { recursive: true });
+    const { ctx } = harness(ws);
+    await handleMcpMessage(
+      { type: "toggleMcpServer", name: "figma", scope: "plugin", disabled: true, pluginName: "design@mkt" },
+      ctx,
+    );
+    const config = JSON.parse(fs.readFileSync(path.join(HOME, ".claude.json"), "utf-8"));
+    expect(config.projects[claudeProjectKey(ws)].disabledMcpServers).toEqual(["plugin:design:figma"]);
+  });
+
+  it("rejects a plugin toggle that does not name its plugin", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { ctx, posted } = harness(path.join(HOME, "ws"));
     await handleMcpMessage(
       { type: "toggleMcpServer", name: "p", scope: "plugin", disabled: true },
       ctx,
     );
     expect(err).toHaveBeenCalled();
+    expect(fs.existsSync(path.join(HOME, ".claude.json"))).toBe(false);
+    expect(posted).toHaveLength(0);
   });
 
   it("errors when there is no workspace open", async () => {
@@ -247,6 +293,27 @@ describe("deleteMcpServer", () => {
     await handleMcpMessage({ type: "deleteMcpServer", name: "local", scope: "project" }, ctx);
     expect(err).toHaveBeenCalledWith(expect.stringContaining("isn't valid JSON"));
     expect(posted).toHaveLength(0);
+  });
+
+  it("deletes a local server from this project's ~/.claude.json entry", async () => {
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(ws, { recursive: true });
+    const key = claudeProjectKey(ws);
+    writeJson(path.join(HOME, ".claude.json"), {
+      projects: { [key]: { mcpServers: { loc: { command: "node" }, keep: { command: "x" } } } },
+    });
+    const confirm = vi
+      .spyOn(vscode.window, "showWarningMessage")
+      .mockResolvedValue("Delete" as never);
+    const { ctx } = harness(ws);
+    await handleMcpMessage({ type: "deleteMcpServer", name: "loc", scope: "local" }, ctx);
+    expect(confirm).toHaveBeenCalledWith(
+      `Delete MCP server "loc"?`,
+      expect.objectContaining({ detail: expect.stringContaining("this project's entry in") }),
+      "Delete",
+    );
+    const config = JSON.parse(fs.readFileSync(path.join(HOME, ".claude.json"), "utf-8"));
+    expect(config.projects[key].mcpServers).toEqual({ keep: { command: "x" } });
   });
 
   it("refuses plugin scope", async () => {

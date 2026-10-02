@@ -8,6 +8,7 @@
 import type { AccountData, UsageStats } from "../../types";
 import type {
   PromptCacheMissCause,
+  SpendUsd,
   StatuslinePullRequest,
   StatuslineRepo,
 } from "../../statuslineCore";
@@ -412,6 +413,31 @@ export function accountKey(data: AccountData): string {
   const slug = data.activeProfileSlug ?? "";
   const email = data.profile.email ?? "";
   return `${slug}|${email}`;
+}
+
+/** How each gateway budget period reads after the amount. */
+const SPEND_PERIOD_PHRASES: Record<string, string> = {
+  daily: "today",
+  weekly: "this week",
+  monthly: "this month",
+};
+
+/**
+ * The gateway spend cap in words: "$12.40 of $50.00 this month". A zero
+ * limit means the gateway set no ceiling, so "of $0.00" would read as
+ * already over budget; it says "$12.40 spent" instead. A period this
+ * build has no phrase for still renders, in parentheses, rather than
+ * being dropped.
+ */
+export function formatSpend(usd: SpendUsd): string {
+  const used = formatMoney(Math.round(usd.usedUsd * 100), "USD");
+  const amount =
+    usd.limitUsd > 0
+      ? `${used} of ${formatMoney(Math.round(usd.limitUsd * 100), "USD")}`
+      : `${used} spent`;
+  if (!usd.period) return amount;
+  const phrase = SPEND_PERIOD_PHRASES[usd.period] ?? `(${usd.period})`;
+  return `${amount} ${phrase}`;
 }
 
 /**

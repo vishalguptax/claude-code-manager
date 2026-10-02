@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("fs", () => ({
+  existsSync: (): boolean => false,
   readFileSync: (p: string): string => {
     if (typeof p === "string" && p.endsWith("statusline.json")) {
       if (state.cache === null) {
@@ -91,6 +92,35 @@ describe("readQuota", () => {
     expect(result.data.live.sessionCostUsd).toBe(0.97);
     expect(result.data.live.linesAdded).toBe(214);
     expect(result.data.live.version).toBe("2.1.86");
+  });
+
+  it("maps the gateway spend cap with its dollars and an ISO reset", () => {
+    state.cache = JSON.stringify({
+      capturedAt: 1_700_000_000_000,
+      rateLimits: {
+        fiveHour: null,
+        sevenDay: null,
+        spendLimit: {
+          usedPercent: 24.8,
+          resetsAt: 1_777_593_600,
+          usd: { usedUsd: 12.4, limitUsd: 50, period: "monthly" },
+        },
+      },
+    });
+    const result = readQuota();
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.quota.spendLimit).toEqual({
+      utilization: 24.8,
+      resetsAt: new Date(1_777_593_600 * 1000).toISOString(),
+      usd: { usedUsd: 12.4, limitUsd: 50, period: "monthly" },
+    });
+  });
+
+  it("leaves spendLimit null for a cache without one (no gateway)", () => {
+    state.cache = CACHE;
+    const result = readQuota();
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.quota.spendLimit).toBeNull();
   });
 
   it("threads the pr / worktree / repo blocks into the live session", () => {

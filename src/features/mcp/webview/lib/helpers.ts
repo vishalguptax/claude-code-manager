@@ -8,6 +8,7 @@ import type { McpServer } from "../../types";
 /** Group label for a server in the list view. */
 export function groupLabel(server: McpServer): string {
   if (server.scope === "project") return "Project Servers";
+  if (server.scope === "local") return "Local Servers";
   if (server.scope === "plugin") return `Plugin: ${server.pluginName ?? "unknown"}`;
   return "Global Servers";
 }

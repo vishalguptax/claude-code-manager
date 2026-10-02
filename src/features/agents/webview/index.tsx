@@ -18,6 +18,7 @@ import {
   agents,
   error,
   loading,
+  noProjectScope,
   resetAgentsState,
   selectAgent,
   selectedAgent,
@@ -38,7 +39,7 @@ export default function AgentsTab() {
     // and validates payloads with valibot before invoking this handler.
     const off = registerFeatureHandler("agents", (msg) => {
       if (msg.type === "agents") {
-        setAgents((msg.data as Agent[]) ?? [], msg.errors ?? []);
+        setAgents((msg.data as Agent[]) ?? [], msg.errors ?? [], msg.noProjectScope ?? null);
       }
     });
     const offError = registerFeatureHandler("error", (msg) => {
@@ -98,6 +99,7 @@ export default function AgentsTab() {
       <AgentForm
         agent={form.agent}
         existing={agents.value.map((a) => ({ name: a.name, scope: a.scope }))}
+        noProjectScope={noProjectScope.value}
         onClose={() => setForm({ open: false })}
         onSubmit={submitForm}
       />

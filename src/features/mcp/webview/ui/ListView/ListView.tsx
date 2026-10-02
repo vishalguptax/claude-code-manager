@@ -78,6 +78,7 @@ export function ListView({
   const scopeOptions: { value: McpScopeFilter; label: string; count: number }[] = [
     { value: "all", label: "All", count: all.length },
     { value: "project", label: "Project", count: counts.project },
+    { value: "local", label: "Local", count: counts.local },
     { value: "global", label: "Global", count: counts.global },
   ];
   if (counts.plugin > 0) {

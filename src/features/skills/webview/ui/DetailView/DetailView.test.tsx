@@ -69,6 +69,13 @@ describe("DetailView", () => {
     expect(screen.getByText(/Owned by plugin acme/)).toBeTruthy();
   });
 
+  it("hides Delete and says edits are not saved for claude.ai skills", () => {
+    render(h(DetailView, { skill: makeSkill({ scope: "claude.ai", name: "docs" }) }));
+    expect(screen.queryByText("Delete")).toBeNull();
+    expect(screen.getByText(/Synced from your claude\.ai account/)).toBeTruthy();
+    expect(screen.getAllByText("claude.ai").length).toBeGreaterThan(0);
+  });
+
   it("hides Open in Chat unless the Claude Code extension is installed", () => {
     render(h(DetailView, { skill: makeSkill() }));
     expect(screen.queryByText(/Open in Chat/)).toBeNull();

@@ -336,3 +336,73 @@ describe("createWatchers — account watcher keeps the active profile in sync", 
     expect(__syncCalls).toBe(1);
   });
 });
+
+/**
+ * The account watchers follow Claude Code's paths rather than ~/.claude:
+ * with CLAUDE_CONFIG_DIR set, the main config file is `<dir>/.claude.json`
+ * and the credentials live in `<dir>`, so watching ~ would never refresh.
+ */
+describe("createWatchers — account files follow the config dir", () => {
+  const accountGlobs = (list: Captured[]): Array<[string, string]> =>
+    list
+      .filter((c) =>
+        [".claude.json", "{settings.json,stats-cache.json}", ".credentials.json"].includes(c.glob),
+      )
+      .map((c) => [c.base, c.glob]);
+
+  it("watches ~/.claude.json and ~/.claude by default", async () => {
+    const os = await import("os");
+    const fs = await import("fs");
+    const home = fs.realpathSync(os.homedir());
+    const claudeDir = (() => {
+      try {
+        return fs.realpathSync(path.join(os.homedir(), ".claude"));
+      } catch {
+        return path.join(os.homedir(), ".claude");
+      }
+    })();
+    createWatchers(makeCtx()).dispose();
+    expect(accountGlobs(captured)).toEqual([
+      [home, ".claude.json"],
+      [claudeDir, "{settings.json,stats-cache.json}"],
+      [claudeDir, ".credentials.json"],
+    ]);
+  });
+
+  it("watches <CLAUDE_CONFIG_DIR>/.claude.json and its settings and credentials", async () => {
+    const fs = await import("fs");
+    const os = await import("os");
+    const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "csm-watch-")));
+    process.env.CLAUDE_CONFIG_DIR = dir;
+    try {
+      // Paths are fixed on load: take fresh modules, and spy on the fresh
+      // vscode mock they bind to.
+      vi.resetModules();
+      const freshVscode = await import("vscode");
+      const fresh: Captured[] = [];
+      vi.spyOn(freshVscode.workspace, "createFileSystemWatcher").mockImplementation(
+        (pattern: unknown) => {
+          const pat = pattern as { base?: { fsPath?: string }; pattern?: string };
+          fresh.push({ base: pat.base?.fsPath ?? "", glob: pat.pattern ?? "", handlers: [] });
+          const add = () => ({ dispose: () => {} });
+          return {
+            onDidChange: add,
+            onDidCreate: add,
+            onDidDelete: add,
+            dispose: () => {},
+          } as unknown as vscode.FileSystemWatcher;
+        },
+      );
+      const { createWatchers: freshCreate } = await import("../watchers");
+      freshCreate(makeCtx()).dispose();
+      expect(accountGlobs(fresh)).toEqual([
+        [dir, ".claude.json"],
+        [dir, "{settings.json,stats-cache.json}"],
+        [dir, ".credentials.json"],
+      ]);
+    } finally {
+      delete process.env.CLAUDE_CONFIG_DIR;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

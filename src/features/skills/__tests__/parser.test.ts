@@ -162,3 +162,111 @@ describe("parseSkills — nested discovery", () => {
     expect(lookup["global-quick"]).toEqual({ scope: "global", group: "" });
   });
 });
+
+describe("parseSkills — home folder as workspace", () => {
+  it("lists each user skill once, as global, when the workspace is ~", () => {
+    writeSkill(path.join(GLOBAL_SKILLS_DIR, "lint"), sampleFm("lint"));
+    const skills = parseSkills(HOME);
+    expect(skills.map((s) => `${s.scope}:${s.name}`)).toEqual(["global:lint"]);
+  });
+});
+
+// ── claude.ai synced skills ────────────────────────────────────────────────
+// Mirrors a real `~/.claude/skills/synced/` tree: one bucket per account that
+// ever signed in, each with a manifest.json listing the skills Claude Code
+// loads, a `.staging` dir, and a `.last-complete-round` marker.
+
+const ORG = "9fed4216-cef8-4112-a5f1-f6d81fd0cc9b";
+const ACTIVE = `${ORG}_37a1ad5d-577a-4eda-999e-63a49f2c7ef8`;
+const OTHER = `${ORG}_29bb35ee-48ea-4e45-afe8-5ef8aa841252`;
+const SYNCED_DIR = path.join(GLOBAL_SKILLS_DIR, "synced");
+
+function signIn(bucket: string): void {
+  const [organizationUuid, accountUuid] = bucket.split("_");
+  fs.mkdirSync(HOME, { recursive: true });
+  fs.writeFileSync(
+    path.join(HOME, ".claude.json"),
+    JSON.stringify({ oauthAccount: { organizationUuid, accountUuid } }),
+  );
+}
+
+function syncBucket(bucket: string, names: string[]): void {
+  const dir = path.join(SYNCED_DIR, bucket);
+  fs.mkdirSync(path.join(dir, ".staging"), { recursive: true });
+  fs.writeFileSync(path.join(SYNCED_DIR, `.bucket-${bucket}`), "");
+  fs.writeFileSync(path.join(dir, ".last-complete-round"), "6615b40a");
+  fs.writeFileSync(
+    path.join(dir, "manifest.json"),
+    JSON.stringify({
+      lastUpdated: 1790904900279,
+      skills: names.map((name) => ({
+        skillId: name,
+        name,
+        description: `${name} skill`,
+        source: "anthropic-example",
+        updatedAt: "2026-09-14T19:41:02.007169Z",
+        creatorType: "anthropic",
+      })),
+    }),
+  );
+  for (const name of names) writeSkill(path.join(dir, name), sampleFm(name, `${name} skill`));
+}
+
+describe("parseSkills — claude.ai synced skills", () => {
+  it("lists only the signed-in account's bucket, once, as read-only claude.ai skills", () => {
+    signIn(ACTIVE);
+    syncBucket(ACTIVE, ["docs", "pdf"]);
+    syncBucket(OTHER, ["docs", "pdf", "xlsx"]);
+    writeSkill(path.join(GLOBAL_SKILLS_DIR, "lint"), sampleFm("lint"));
+
+    const skills = parseSkills();
+    expect(skills.map((s) => `${s.scope}:${s.name}`).sort()).toEqual([
+      "claude.ai:docs",
+      "claude.ai:pdf",
+      "global:lint",
+    ]);
+    expect(skills.find((s) => s.name === "docs")).toMatchObject({
+      id: "claude.ai:docs",
+      path: path.join(SYNCED_DIR, ACTIVE, "docs"),
+      group: "",
+    });
+  });
+
+  it("never lists synced/ or .trash/ as user skills, even when nobody is signed in", () => {
+    syncBucket(ACTIVE, ["docs"]);
+    writeSkill(path.join(GLOBAL_SKILLS_DIR, ".trash", "pdf"), sampleFm("pdf"));
+    expect(parseSkills()).toEqual([]);
+  });
+
+  it("respects syncClaudeAiSkills: false", () => {
+    signIn(ACTIVE);
+    syncBucket(ACTIVE, ["docs"]);
+    fs.writeFileSync(
+      path.join(HOME, ".claude", "settings.json"),
+      JSON.stringify({ syncClaudeAiSkills: false }),
+    );
+    expect(parseSkills()).toEqual([]);
+  });
+
+  it("loads what the manifest lists, not every folder in the bucket", () => {
+    signIn(ACTIVE);
+    syncBucket(ACTIVE, ["docs"]);
+    writeSkill(path.join(SYNCED_DIR, ACTIVE, "unlisted"), sampleFm("unlisted"));
+    expect(parseSkills().map((s) => s.name)).toEqual(["docs"]);
+  });
+
+  it("attributes a synced plugin's skills to <name>@synced", () => {
+    signIn(ACTIVE);
+    const pluginDir = path.join(HOME, ".claude", "plugins", "synced", ACTIVE, "design");
+    fs.mkdirSync(path.join(pluginDir, ".claude-plugin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(HOME, ".claude", "plugins", "synced", ACTIVE, "manifest.json"),
+      JSON.stringify({ plugins: [{ name: "design", marketplaceName: "knowledge-work-plugins" }] }),
+    );
+    writeSkill(path.join(pluginDir, "skills", "ux-copy"), sampleFm("ux-copy"));
+
+    expect(parseSkills()).toEqual([
+      expect.objectContaining({ name: "ux-copy", scope: "plugin", pluginName: "design@synced" }),
+    ]);
+  });
+});

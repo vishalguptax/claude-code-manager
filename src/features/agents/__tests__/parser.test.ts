@@ -171,3 +171,11 @@ describe("parseAgents — error surfacing", () => {
     expect(parseAgents().errors).toEqual([]);
   });
 });
+
+describe("parseAgents — home folder as workspace", () => {
+  it("lists each user agent once, as global, when the workspace is ~", () => {
+    writeAgent(path.join(HOME, ".claude", "agents"), "reviewer.md", fm("reviewer"));
+    const { agents } = parseAgents(HOME);
+    expect(agents.map((a) => `${a.scope}:${a.name}`)).toEqual(["global:reviewer"]);
+  });
+});

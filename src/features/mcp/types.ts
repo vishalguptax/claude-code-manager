@@ -12,10 +12,13 @@ export type McpServerType = "stdio" | "http" | "sse" | "ws";
 
 /**
  * Scope of an MCP server configuration.
- *  - `global` / `project`: editable, loaded from settings/.mcp.json
+ *  - `project`: the workspace's `.mcp.json` (shared with the team)
+ *  - `local`: `projects[<workspace>].mcpServers` in ~/.claude.json — private
+ *    to this user and this project, and where `claude mcp add` writes by default
+ *  - `global`: top-level `mcpServers` in ~/.claude.json (the CLI's "user" scope)
  *  - `plugin`: declared by an installed plugin (read-only)
  */
-export type McpServerScope = "global" | "project" | "plugin";
+export type McpServerScope = "global" | "project" | "local" | "plugin";
 
 /** A parsed MCP server entry from .mcp.json or ~/.claude/mcp.json. */
 export interface McpServer {
@@ -33,9 +36,13 @@ export interface McpServer {
   env?: Record<string, string>;
   /** HTTP headers sent with each request (http/sse/ws servers only). */
   headers?: Record<string, string>;
-  /** Source scope — global, project, or plugin. */
+  /** Source scope — project, local, global, or plugin. */
   scope: McpServerScope;
-  /** Whether the server is explicitly disabled in the config. */
+  /**
+   * Claude Code will not start this server in the workspace: it is named in
+   * the project entry's `disabledMcpServers` (what `/mcp` toggles, for any
+   * scope), or — for a project server — rejected by `disabledMcpjsonServers`.
+   */
   disabled?: boolean;
   /**
    * Project-scope only: named in neither `enabledMcpjsonServers` nor

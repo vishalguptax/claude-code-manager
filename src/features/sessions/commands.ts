@@ -6,8 +6,9 @@ import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
 import { execFileSync } from "child_process";
-import type { Session, SessionDetail } from "./types";
+import type { Message, Session, SessionDetail } from "./types";
 import { parseSessionDetail, getSessionFile } from "./parser";
+import { INJECTED_TURN_LABELS } from "./turnOrigin";
 import { deleteSession as deleteSessionState, loadState } from "./state";
 import { getCurrentBranch } from "../../extension/git";
 import { createTerminal, runInTerminal, validateGitRef } from "../../extension/terminal";
@@ -161,8 +162,13 @@ export function copyMarkdown(sessionId: string, sessions: Session[]): boolean {
   if (!detail) {
     return false;
   }
+  // Injected user-role records (task notifications, peer messages, meta
+  // context) are headed by their source, as in the detail view, so the
+  // export never attributes Claude Code's words to "You".
+  const heading = (m: Message): string =>
+    m.injected ? INJECTED_TURN_LABELS[m.injected] : m.role === "user" ? "You" : "Claude";
   const markdown = detail.messages
-    .map((m) => `## ${m.role === "user" ? "You" : "Claude"}\n\n${m.content}`)
+    .map((m) => `## ${heading(m)}\n\n${m.content}`)
     .join("\n\n---\n\n");
   vscode.env.clipboard.writeText(markdown);
   vscode.window.showInformationMessage("Copied as Markdown");

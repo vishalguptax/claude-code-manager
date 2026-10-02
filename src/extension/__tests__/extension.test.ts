@@ -77,6 +77,22 @@ describe("activate", () => {
     expect(refreshSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("asks for a reload when claudeCode.environmentVariables moves the config dir", async () => {
+    vi.spyOn(ClaudeSessionViewProvider.prototype, "refreshSettings").mockImplementation(() => {});
+    const ask = vi.spyOn(vscode.window, "showInformationMessage").mockResolvedValue(undefined as never);
+
+    activate(makeContext() as unknown as vscode.ExtensionContext);
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: (key: string, defaultValue?: unknown) =>
+        key === "environmentVariables" ? [{ name: "CLAUDE_CONFIG_DIR", value: "/moved" }] : defaultValue,
+      inspect: () => undefined,
+    } as unknown as ReturnType<typeof vscode.workspace.getConfiguration>);
+    _fireConfigChange("claudeCode.environmentVariables");
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(ask).toHaveBeenCalledWith(expect.stringContaining("config folder changed"), "Reload Window");
+  });
+
   it("does not call refreshSettings for unrelated configuration changes", () => {
     const refreshSpy = vi
       .spyOn(ClaudeSessionViewProvider.prototype, "refreshSettings")

@@ -103,6 +103,20 @@ describe("ListView", () => {
     expect(screen.queryByText("alpha")).toBeNull();
   });
 
+  it("groups and filters local servers apart from project and global ones", () => {
+    applyServers([
+      srv({ name: "alpha", scope: "project" }),
+      srv({ name: "gamma", scope: "local" }),
+      srv({ name: "beta", scope: "global" }),
+    ]);
+    render(h(ListView, props()));
+    expect(screen.getByText("Local Servers")).toBeTruthy();
+    fireEvent.click(screen.getByText("Local"));
+    expect(screen.getByText("gamma")).toBeTruthy();
+    expect(screen.queryByText("alpha")).toBeNull();
+    expect(screen.queryByText("beta")).toBeNull();
+  });
+
   it("omits the plugin scope segment when no plugin servers exist", () => {
     applyServers([srv({ name: "alpha", scope: "project" })]);
     render(h(ListView, props()));

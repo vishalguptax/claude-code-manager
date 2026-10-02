@@ -5,7 +5,7 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
+import { CLAUDE_DIR, projectClaudeDir } from "../../core/config";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { loadActivePlugins, resolvePluginContentDirs, type ActivePlugin } from "../../core/plugins";
 import type { Command, CommandScope } from "./types";
@@ -14,7 +14,7 @@ import type { Command, CommandScope } from "./types";
 const commandCache = createMtimeCache<Command>();
 
 /** Global commands directory: ~/.claude/commands/ */
-const GLOBAL_COMMANDS_DIR: string = path.join(os.homedir(), ".claude", "commands");
+const GLOBAL_COMMANDS_DIR: string = path.join(CLAUDE_DIR, "commands");
 
 /**
  * Catalog of built-in slash commands shipped with the Claude Code CLI.
@@ -219,10 +219,12 @@ export function parseCommands(workspacePath?: string): Command[] {
   // Global commands
   commands.push(...readCommandsFromDir(GLOBAL_COMMANDS_DIR, { scope: "global" }));
 
-  // Project commands
-  if (workspacePath) {
-    const projectCommandsDir = path.join(workspacePath, ".claude", "commands");
-    commands.push(...readCommandsFromDir(projectCommandsDir, { scope: "project" }));
+  // Project commands. None when the workspace is the home folder: its
+  // .claude/commands IS the global dir, and reading it twice listed every
+  // user command again as "project".
+  const projectDir = workspacePath ? projectClaudeDir(workspacePath) : null;
+  if (projectDir) {
+    commands.push(...readCommandsFromDir(path.join(projectDir, "commands"), { scope: "project" }));
   }
 
   // Plugin-provided commands

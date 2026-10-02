@@ -534,3 +534,85 @@ describe("reviveCache — pr / worktree / repo", () => {
     expect(cache.repo).toBeNull();
   });
 });
+
+describe("extractCache — gateway spend limit", () => {
+  /**
+   * Shapes mirror Claude Code 2.1.287's statusline builder: the CLI sends
+   * `spend_limit` only behind a Claude gateway, always with the overage
+   * `used_percentage` + `resets_at`, and adds `used_usd` / `limit_usd`
+   * (cents / 100) plus `period` only when the gateway bills in USD.
+   */
+  const withSpend = (spend: unknown): string =>
+    JSON.stringify({
+      rate_limits: {
+        five_hour: { used_percentage: 6, resets_at: 1_774_731_600 },
+        spend_limit: spend,
+      },
+    });
+
+  it("parses the dollar figures and period beside the percentage", () => {
+    const cache = extractCache(
+      withSpend({
+        used_percentage: 24.8,
+        resets_at: 1_777_593_600,
+        used_usd: 12.4,
+        limit_usd: 50,
+        period: "monthly",
+      }),
+      0,
+    )!;
+    expect(cache.rateLimits.spendLimit).toEqual({
+      usedPercent: 24.8,
+      resetsAt: 1_777_593_600,
+      usd: { usedUsd: 12.4, limitUsd: 50, period: "monthly" },
+    });
+    // The subscription windows are untouched by the spend block.
+    expect(cache.rateLimits.fiveHour).toEqual({ usedPercent: 6, resetsAt: 1_774_731_600 });
+  });
+
+  it("keeps the percentage window when an older gateway sends no dollars", () => {
+    const cache = extractCache(withSpend({ used_percentage: 110, resets_at: 0 }), 0)!;
+    // Overspend is reported, not clamped.
+    expect(cache.rateLimits.spendLimit).toEqual({ usedPercent: 110, resetsAt: 0, usd: null });
+  });
+
+  it("keeps a zero limit and an absent period as reported", () => {
+    const cache = extractCache(
+      withSpend({ used_percentage: 0, resets_at: 0, used_usd: 3.5, limit_usd: 0 }),
+      0,
+    )!;
+    expect(cache.rateLimits.spendLimit?.usd).toEqual({ usedUsd: 3.5, limitUsd: 0, period: "" });
+  });
+
+  it("drops a half dollar block rather than inventing the other figure", () => {
+    const cache = extractCache(withSpend({ used_percentage: 10, used_usd: 5 }), 0)!;
+    expect(cache.rateLimits.spendLimit?.usd).toBeNull();
+  });
+
+  it("is null when the payload has no spend_limit", () => {
+    expect(extractCache(withSpend(undefined), 0)!.rateLimits.spendLimit).toBeNull();
+  });
+});
+
+describe("reviveCache — spend limit", () => {
+  it("back-fills usd on a spend window written before it existed", () => {
+    const cache = reviveCache({
+      rateLimits: { spendLimit: { usedPercent: 40, resetsAt: 9 } },
+    })!;
+    expect(cache.rateLimits.spendLimit).toEqual({ usedPercent: 40, resetsAt: 9, usd: null });
+  });
+
+  it("round-trips a captured spend window", () => {
+    const fresh = extractCache(
+      JSON.stringify({
+        rate_limits: {
+          spend_limit: { used_percentage: 5, resets_at: 1, used_usd: 1, limit_usd: 20, period: "weekly" },
+        },
+      }),
+      0,
+    )!;
+    expect(reviveCache(JSON.parse(JSON.stringify(fresh)))!.rateLimits.spendLimit).toEqual(
+      fresh.rateLimits.spendLimit,
+    );
+  });
+});

@@ -5,16 +5,25 @@ import * as path from "path";
 
 // All filesystem layouts used by these tests are built under a single
 // temp dir so we never touch the user's real ~/.claude or npm global.
-const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "cm-models-"));
-
-// Mutable references the mocks below close over. beforeEach() resets
-// them so each test fully controls homedir, npm root, and PATH lookup.
-const ctx = {
-  home: tmpRoot,
-  execImpl: ((_cmd: string) => {
-    throw new Error("not configured");
-  }) as (cmd: string) => string,
-};
+// Hoisted with the mutable references the mocks below close over: the
+// config module models.ts imports calls os.homedir() as it loads, before
+// the rest of this file runs. beforeEach() resets them so each test fully
+// controls homedir, npm root, and PATH lookup.
+const { tmpRoot, ctx } = vi.hoisted(() => {
+  const _fs = require("fs") as typeof import("fs");
+  const _os = require("os") as typeof import("os");
+  const _path = require("path") as typeof import("path");
+  const root = _fs.mkdtempSync(_path.join(_os.tmpdir(), "cm-models-"));
+  return {
+    tmpRoot: root,
+    ctx: {
+      home: root,
+      execImpl: ((_cmd: string) => {
+        throw new Error("not configured");
+      }) as (cmd: string) => string,
+    },
+  };
+});
 
 vi.mock("os", async () => {
   const actual = await vi.importActual<typeof import("os")>("os");
@@ -115,6 +124,28 @@ describe("discoverModelsFromCli", () => {
     expect(ids).toContain("claude-opus-4-7");
     expect(ids).toContain("claude-sonnet-4-6");
     expect(ids).toContain("claude-haiku-4-5");
+  });
+
+  it("follows CLAUDE_CONFIG_DIR to the native-installer layout under it", async () => {
+    const configDir = fs.mkdtempSync(path.join(tmpRoot, "custom-config-"));
+    process.env.CLAUDE_CONFIG_DIR = configDir;
+    try {
+      // The config dir is fixed when the modules load, so load them afresh.
+      vi.resetModules();
+      const fresh = await import("../models");
+      writeFakeBinary(pkgRootBinary(nodeModulesLayout(path.join(configDir, "local")), "linux-x64"), [
+        "claude-opus-4-7",
+      ]);
+      writeFakeBinary(
+        pkgRootBinary(nodeModulesLayout(path.join(ctx.home, ".claude", "local")), "linux-x64"),
+        ["claude-sonnet-4-6"],
+      );
+      const ids = (await fresh.warmModelCache()).map((m) => m.id);
+      expect(ids).toContain("claude-opus-4-7");
+      expect(ids).not.toContain("claude-sonnet-4-6");
+    } finally {
+      delete process.env.CLAUDE_CONFIG_DIR;
+    }
   });
 
   it("discovers new model families (fable) without a hardcoded list", async () => {

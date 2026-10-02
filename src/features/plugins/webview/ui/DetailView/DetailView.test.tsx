@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
-import { blocked, orphaned, overridden, plugin } from "../../__tests__/fixtures";
+import { blocked, orphaned, overridden, plugin, syncedPlugin } from "../../__tests__/fixtures";
 import { DetailView } from "./DetailView";
 
 function renderDetail(entry = plugin()) {
@@ -121,5 +121,15 @@ describe("DetailView", () => {
   it("omits the configuration section when no scope configures the plugin", () => {
     const { container } = renderDetail();
     expect(container.querySelector("pre.d-pre")).toBeNull();
+  });
+});
+
+describe("DetailView — synced from claude.ai", () => {
+  it("badges it, explains where to manage it, and offers no Enable/Disable", () => {
+    renderDetail(syncedPlugin);
+    expect(screen.getAllByText("claude.ai").length).toBeGreaterThan(0);
+    expect(screen.getByRole("note").textContent).toMatch(/Manage it on claude\.ai/);
+    expect(screen.queryByText("Disable")).toBeNull();
+    expect(screen.queryByText("Enable")).toBeNull();
   });
 });

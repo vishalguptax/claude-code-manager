@@ -17,6 +17,11 @@ export interface AgentFormProps {
   agent: Agent | null;
   /** Existing agents (name + scope) for duplicate-name validation. */
   existing?: Array<{ name: string; scope: string }>;
+  /**
+   * Why there is no project scope here (no folder open, or the workspace is
+   * the home folder), or null when there is. Creating then offers Global only.
+   */
+  noProjectScope?: string | null;
   onClose: () => void;
   onSubmit: (input: AgentInput) => void;
 }
@@ -32,7 +37,13 @@ function splitList(text: string): string[] {
     .filter(Boolean);
 }
 
-export function AgentForm({ agent, existing = [], onClose, onSubmit }: AgentFormProps) {
+export function AgentForm({
+  agent,
+  existing = [],
+  noProjectScope = null,
+  onClose,
+  onSubmit,
+}: AgentFormProps) {
   const isEdit = agent !== null;
   const initialModel = agent?.model ?? "inherit";
   // A full model id (not one of the known short names) edits as "custom".
@@ -106,9 +117,16 @@ export function AgentForm({ agent, existing = [], onClose, onSubmit }: AgentForm
               ariaLabel="Agent scope"
               options={[
                 { value: "global", label: "Global (~/.claude/agents)" },
-                { value: "project", label: "Project (.claude/agents)" },
+                // Offered only when the workspace has a .claude of its own;
+                // otherwise "project" would write into the global folder.
+                ...(noProjectScope === null
+                  ? [{ value: "project", label: "Project (.claude/agents)" }]
+                  : []),
               ]}
             />
+            {noProjectScope === null ? null : (
+              <span class="agent-form-hint">Project scope unavailable: {noProjectScope}</span>
+            )}
           </label>
         ) : null}
 

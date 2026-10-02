@@ -73,21 +73,24 @@ describe("scopeCounts", () => {
       srv({ name: "b", scope: "global" }),
       srv({ name: "c", scope: "global" }),
       srv({ name: "d", scope: "plugin", pluginName: "p@m" }),
+      srv({ name: "e", scope: "local" }),
     ]);
-    expect(scopeCounts.value).toEqual({ project: 1, global: 2, plugin: 1 });
+    expect(scopeCounts.value).toEqual({ project: 1, local: 1, global: 2, plugin: 1 });
   });
 });
 
 describe("filteredServers", () => {
-  it("sorts project → global → plugin then by name", () => {
+  it("sorts project → local → global → plugin then by name", () => {
     applyServers([
       srv({ name: "zeta", scope: "global" }),
       srv({ name: "beta", scope: "plugin", pluginName: "p@m" }),
       srv({ name: "alpha", scope: "project" }),
       srv({ name: "alpha", scope: "global" }),
+      srv({ name: "alpha", scope: "local" }),
     ]);
     expect(filteredServers.value.map((s) => `${s.scope}:${s.name}`)).toEqual([
       "project:alpha",
+      "local:alpha",
       "global:alpha",
       "global:zeta",
       "plugin:beta",

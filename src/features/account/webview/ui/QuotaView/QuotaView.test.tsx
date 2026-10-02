@@ -108,6 +108,54 @@ describe("QuotaView", () => {
     expect(container.querySelector(".acct-quota-countdown")).toBeNull();
   });
 
+  it("shows the gateway spend cap in dollars beside the subscription windows", () => {
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: {
+        ...SUCCESS.quota,
+        spendLimit: {
+          utilization: 24.8,
+          resetsAt: "",
+          usd: { usedUsd: 12.4, limitUsd: 50, period: "monthly" },
+        },
+      },
+    });
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("Spend limit")).toBeTruthy();
+    expect(screen.getByText(/12\.40 of \S*50\.00 this month/)).toBeTruthy();
+    expect(screen.getByText("42%")).toBeTruthy();
+    expect(screen.getByText("75%")).toBeTruthy();
+  });
+
+  it("falls back to the percentage when the gateway sends no dollars", () => {
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: { ...SUCCESS.quota, spendLimit: { utilization: 60, resetsAt: "", usd: null } },
+    });
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("Spend limit")).toBeTruthy();
+    expect(screen.getByText("60%")).toBeTruthy();
+  });
+
+  it("renders the bars when the spend cap is the only window reported", () => {
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: {
+        ...SUCCESS.quota,
+        fiveHour: null,
+        sevenDay: null,
+        spendLimit: {
+          utilization: 10,
+          resetsAt: "",
+          usd: { usedUsd: 5, limitUsd: 50, period: "weekly" },
+        },
+      },
+    });
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.queryByText(/No rate-limit data/)).toBeNull();
+    expect(screen.getByText(/5\.00 of \S*50\.00 this week/)).toBeTruthy();
+  });
+
   it("not-installed state shows the enable CTA and installs on click", () => {
     setQuotaError({ kind: "not-installed", message: "enable it" });
     const api = stubApi();

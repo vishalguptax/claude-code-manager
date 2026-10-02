@@ -10,6 +10,7 @@
  */
 import { parseJsonlFile, getSessionFile } from "./metaParser";
 import { parseSessions } from "./historyParser";
+import { injectedTurnKind } from "./turnOrigin";
 import type {
   Session,
   SessionDetail,
@@ -165,6 +166,13 @@ export function parseSessionDetail(
       content,
       timestamp: entry.timestamp ?? "",
     };
+    // A task notification, peer message or meta record is filed under
+    // `role: "user"` but was never typed by the person; tag it so the view
+    // can label and collapse it instead of presenting it as "You".
+    if (role === "user") {
+      const injected = injectedTurnKind(entry);
+      if (injected) msg.injected = injected;
+    }
     if (toolUses.length > 0) msg.toolUses = toolUses;
     if (thinkingText) msg.thinking = thinkingText;
     if (role === "assistant") {

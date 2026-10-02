@@ -5,6 +5,7 @@ import {
   orphaned,
   overridden,
   plugin,
+  syncedPlugin,
 } from "../__tests__/fixtures";
 import {
   canToggle,
@@ -170,5 +171,17 @@ describe("sourceSummary", () => {
   it("degrades when the source is unrecorded", () => {
     expect(sourceSummary("", "")).toBe("source unknown");
     expect(sourceSummary("command", "")).toBe("command");
+  });
+});
+
+describe("a plugin synced from claude.ai", () => {
+  it("explains that sync turns it on, and offers no toggle", () => {
+    expect(stateSummary(syncedPlugin)).toBe("Synced from your claude.ai account, which turns it on.");
+    expect(toggleScope(syncedPlugin)).toBeNull();
+    expect(canToggle(syncedPlugin)).toBe(false);
+  });
+
+  it("says where to manage it instead", () => {
+    expect(readOnlyReason(syncedPlugin)).toMatch(/Manage it on claude\.ai.*syncClaudeAiPlugins/);
   });
 });

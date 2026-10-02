@@ -1,17 +1,25 @@
 /**
- * MCP server parsing — reads MCP server configurations from project-level
- * .mcp.json and global ~/.claude/mcp.json files.
+ * MCP server parsing — reads MCP server configurations from the project's
+ * .mcp.json, ~/.claude.json (user servers at the top level, local servers and
+ * the `/mcp` toggles under the workspace's `projects` entry), the legacy
+ * ~/.claude/mcp.json, and installed plugins.
  * Pure Node.js file I/O, no VS Code dependency.
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
-import { CLAUDE_JSON_FILE, MCP_AUTH_CACHE_FILE, claudeSettingsPath } from "../../core/config";
+import {
+  CLAUDE_DIR,
+  CLAUDE_JSON_FILE,
+  MCP_AUTH_CACHE_FILE,
+  canonicalPath,
+  claudeSettingsPath,
+} from "../../core/config";
 import { describeReadRefusal, readJsonObjectForWrite, writeFileAtomic } from "../../core/atomicWrite";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { withLocks, CONFIG_LOCK, type LockFailure } from "../../core/claudeLocks";
 import { loadActivePlugins, findPluginMcpFile, type ActivePlugin } from "../../core/plugins";
 import type { McpServerInput } from "../../shared/protocol/messages";
+import { claudeCwd, claudeProjectKey } from "./projectKey";
 import type { McpServer, McpServerScope, McpServerType } from "./types";
 
 /** Servers parsed from every scope, plus any per-file parse failures. */
@@ -39,8 +47,36 @@ const mcpCache = createMtimeCache<FileParseResult>();
  * real global servers actually live. (It does NOT use ~/.claude/mcp.json.)
  */
 
+/**
+ * The `.mcp.json` files Claude Code merges into project scope, farthest
+ * first: one in the session's cwd and in every ancestor of it, up to but not
+ * including the filesystem root — past the repo root and home alike. Merged
+ * in this order, the file nearest the workspace wins a name clash. (Checked
+ * against `claude mcp list` 2.1.287 run in a repo subfolder.)
+ */
+function projectMcpFiles(workspacePath: string): string[] {
+  const dirs: string[] = [];
+  for (let dir = claudeCwd(workspacePath); dir !== path.parse(dir).root; dir = path.dirname(dir)) {
+    dirs.push(dir);
+  }
+  return dirs.reverse().map((dir) => path.join(dir, ".mcp.json"));
+}
+
+/**
+ * The `.mcp.json` that holds the project server `name` Claude Code loads —
+ * the nearest file declaring it — so an edit or delete changes the entry
+ * that is actually in effect. A name no file declares resolves to the
+ * workspace's own `.mcp.json`, where new project servers go.
+ */
+export function projectMcpFileFor(name: string, workspacePath: string): string {
+  const holder = projectMcpFiles(workspacePath)
+    .reverse()
+    .find((file) => readMcpServersFromFile(file, { scope: "project" }).servers.some((s) => s.name === name));
+  return holder ?? path.join(workspacePath, ".mcp.json");
+}
+
 /** Legacy global MCP config (~/.claude/mcp.json) — read for older setups. */
-const GLOBAL_MCP_FILE: string = path.join(os.homedir(), ".claude", "mcp.json");
+const GLOBAL_MCP_FILE: string = path.join(CLAUDE_DIR, "mcp.json");
 
 /**
  * Write an MCP config back atomically (temp + rename) so a crash can't leave
@@ -109,14 +145,7 @@ function describeConfigLockFailure(failure: LockFailure): string {
     : `Could not coordinate with Claude Code to write ${CLAUDE_JSON_FILE} (${failure.detail}).`;
 }
 
-/**
- * Read and parse MCP servers from a single JSON config file.
- * Returns an empty array if the file does not exist or cannot be parsed.
- *
- * @param filePath - Absolute path to the .mcp.json or mcp.json file
- * @param scope - Whether these are "global" or "project" servers
- * @returns Array of parsed McpServer objects
- */
+/** The scope (and, for plugin servers, the owning plugin) stamped on a parsed block. */
 interface McpReadOpts {
   scope: McpServerScope;
   pluginName?: string;
@@ -184,8 +213,9 @@ function buildServersFromBlock(
 
     // `disabled` is intentionally NOT read from this per-entry field —
     // Claude Code never honors it (see setProjectMcpServerDisabled);
-    // effective disabled state for project-scope servers is stamped
-    // afterwards from the `disabledMcpjsonServers` settings arrays.
+    // effective disabled state is stamped afterwards from the project
+    // entry's `disabledMcpServers` and, for project-scope servers, the
+    // `disabledMcpjsonServers` settings arrays.
     servers.push({
       name,
       type: resolveServerType(explicitType, command, url),
@@ -201,29 +231,98 @@ function buildServersFromBlock(
   return servers;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Read a config file for listing: its parsed object, `{}` when absent, or a
+ * user-readable failure naming the file.
+ */
+function readConfigForList(p: string): { config: Record<string, unknown>; error?: string } {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(p, "utf-8");
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return { config: {} };
+    const message = (err as Error).message;
+    console.warn(`[claude-manager] Failed to read MCP config ${p}:`, message);
+    return { config: {}, error: `Failed to read ${p}: ${message}` };
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return { config: isRecord(parsed) ? parsed : {} };
+  } catch (err: unknown) {
+    const message = (err as Error).message;
+    console.warn(`[claude-manager] Failed to parse MCP config ${p}:`, message);
+    return { config: {}, error: `Failed to parse ${p}: ${message}` };
+  }
+}
+
 function readMcpServersFromFile(filePath: string, opts: McpReadOpts): FileParseResult {
   return mcpCache.get(filePath, (p) => {
-    let raw: string;
-    try {
-      raw = fs.readFileSync(p, "utf-8");
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === "ENOENT") return { servers: [] };
-      const message = (err as Error).message;
-      console.warn(`[claude-manager] Failed to read MCP config ${p}:`, message);
-      return { servers: [], error: `Failed to read ${p}: ${message}` };
-    }
-
-    let config: Record<string, unknown>;
-    try {
-      config = JSON.parse(raw) as Record<string, unknown>;
-    } catch (err: unknown) {
-      const message = (err as Error).message;
-      console.warn(`[claude-manager] Failed to parse MCP config ${p}:`, message);
-      return { servers: [], error: `Failed to parse ${p}: ${message}` };
-    }
-
-    return { servers: buildServersFromBlock(config.mcpServers, opts) };
+    const { config, error } = readConfigForList(p);
+    return { servers: buildServersFromBlock(config.mcpServers, opts), error };
   });
+}
+
+/**
+ * What the MCP tab needs from ~/.claude.json: the user-scope servers and the
+ * raw `projects` map, whose entry for the open workspace carries its local
+ * servers and `/mcp` toggles. Cached on the file's mtime — it is large, and
+ * every parse needs both halves.
+ */
+interface ClaudeJsonMcp {
+  user: McpServer[];
+  projects: Record<string, unknown>;
+  error?: string;
+}
+
+const claudeJsonCache = createMtimeCache<ClaudeJsonMcp>();
+
+function readClaudeJsonMcp(): ClaudeJsonMcp {
+  return claudeJsonCache.get(CLAUDE_JSON_FILE, (p) => {
+    const { config, error } = readConfigForList(p);
+    return {
+      user: buildServersFromBlock(config.mcpServers, { scope: "global" }),
+      projects: isRecord(config.projects) ? config.projects : {},
+      error,
+    };
+  });
+}
+
+function toStringSet(value: unknown): Set<string> {
+  return new Set(Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
+}
+
+/** The workspace's `projects` entry in ~/.claude.json, as far as MCP goes. */
+interface ProjectEntryMcp {
+  /** `mcpServers` — what `claude mcp add` writes with its default `--scope local`. */
+  servers: McpServer[];
+  /** `disabledMcpServers` — the names `/mcp` turned off for this project. */
+  disabled: Set<string>;
+}
+
+function readProjectEntryMcp(workspacePath: string): ProjectEntryMcp {
+  const entry = readClaudeJsonMcp().projects[claudeProjectKey(workspacePath)];
+  if (!isRecord(entry)) return { servers: [], disabled: new Set() };
+  return {
+    servers: buildServersFromBlock(entry.mcpServers, { scope: "local" }),
+    disabled: toStringSet(entry.disabledMcpServers),
+  };
+}
+
+/**
+ * The name `disabledMcpServers` records a server under. Plugin servers are
+ * namespaced `plugin:<plugin>:<server>` with the plugin's bare name (no
+ * `@marketplace`) — the key the CLI loads them under; every other scope uses
+ * the plain server name, so one entry covers a name configured in several.
+ */
+export function cliServerKey(server: Pick<McpServer, "name" | "scope" | "pluginName">): string {
+  if (server.scope !== "plugin") return server.name;
+  const pluginName = server.pluginName ?? "";
+  const at = pluginName.indexOf("@");
+  return `plugin:${at === -1 ? pluginName : pluginName.slice(0, at)}:${server.name}`;
 }
 
 /**
@@ -276,11 +375,9 @@ function readToggleArrays(filePath: string): McpToggleFileState {
       enabledMcpjsonServers?: unknown;
       enableAllProjectMcpServers?: unknown;
     };
-    const toSet = (value: unknown): Set<string> =>
-      new Set(Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
     return {
-      disabled: toSet(data.disabledMcpjsonServers),
-      enabled: toSet(data.enabledMcpjsonServers),
+      disabled: toStringSet(data.disabledMcpjsonServers),
+      enabled: toStringSet(data.enabledMcpjsonServers),
       enableAll: data.enableAllProjectMcpServers === true,
     };
   } catch {
@@ -290,10 +387,9 @@ function readToggleArrays(filePath: string): McpToggleFileState {
 
 /**
  * Read the `disabledMcpjsonServers` / `enabledMcpjsonServers` arrays
- * Claude Code itself uses to toggle project `.mcp.json` servers,
- * across local → project → global settings files (in that precedence
- * order). This is the real mechanism — NOT any field on the server's
- * `.mcp.json` entry.
+ * Claude Code itself uses to approve or reject project `.mcp.json` servers,
+ * from the local, project and global settings files. This is the real
+ * mechanism — NOT any field on the server's `.mcp.json` entry.
  */
 function readMcpToggleStates(workspacePath: string): McpToggleFileState[] {
   return [
@@ -308,23 +404,23 @@ function readMcpToggleStates(workspacePath: string): McpToggleFileState[] {
 type ProjectServerApproval = "approved" | "disabled" | "pending";
 
 /**
- * Effective approval of a project-scope server. An explicit name wins, from
- * the first file (local → project → global) that mentions it; failing that,
- * `enableAllProjectMcpServers` in any scope approves it. A server named
- * nowhere is NOT enabled: Claude Code asks the user to approve it before
- * starting it, so it reads as "pending" rather than silently running.
+ * Effective approval of a project-scope server, as the CLI decides it. Claude
+ * Code merges these arrays across every settings file before looking, so a
+ * rejection in ANY file wins — a local `enabledMcpjsonServers` entry does not
+ * override a team `disabledMcpjsonServers` one. Failing a rejection, a name in
+ * any approval list or `enableAllProjectMcpServers` anywhere approves it. A
+ * server named nowhere is NOT enabled: Claude Code asks the user to approve it
+ * before starting it, so it reads as "pending" rather than silently running.
  */
 function projectServerApproval(name: string, states: McpToggleFileState[]): ProjectServerApproval {
-  for (const state of states) {
-    if (state.disabled.has(name)) return "disabled";
-    if (state.enabled.has(name)) return "approved";
-  }
-  return states.some((s) => s.enableAll) ? "approved" : "pending";
+  if (states.some((s) => s.disabled.has(name))) return "disabled";
+  return states.some((s) => s.enabled.has(name) || s.enableAll) ? "approved" : "pending";
 }
 
 /**
- * Parse all MCP servers from both project-level (.mcp.json in workspace root)
- * and global (~/.claude.json) configuration files.
+ * Parse all MCP servers: project (.mcp.json in the workspace root), local
+ * (the workspace's ~/.claude.json project entry), global (~/.claude.json
+ * top level, plus the legacy file) and plugins.
  *
  * A malformed config file contributes an error string (naming the
  * file) instead of aborting the whole parse — the other scopes still
@@ -337,20 +433,29 @@ export function parseMcpServers(workspacePath?: string): McpParseResult {
   const servers: McpServer[] = [];
   const errors: string[] = [];
 
-  // Project-level MCP servers (.mcp.json in project root)
+  // Project-level MCP servers: every .mcp.json from the filesystem root
+  // down to the workspace, the nearest declaration of a name winning.
   if (workspacePath) {
-    const projectMcpFile = path.join(workspacePath, ".mcp.json");
-    const result = readMcpServersFromFile(projectMcpFile, { scope: "project" });
-    servers.push(...result.servers);
-    if (result.error) errors.push(result.error);
+    const effective = new Map<string, McpServer>();
+    for (const file of projectMcpFiles(workspacePath)) {
+      const result = readMcpServersFromFile(file, { scope: "project" });
+      if (result.error) errors.push(result.error);
+      for (const server of result.servers) effective.set(server.name, server);
+    }
+    servers.push(...effective.values());
   }
+
+  const claudeJson = readClaudeJsonMcp();
+  if (claudeJson.error) errors.push(claudeJson.error);
+  const projectEntry: ProjectEntryMcp = workspacePath
+    ? readProjectEntryMcp(workspacePath)
+    : { servers: [], disabled: new Set() };
+  servers.push(...projectEntry.servers);
 
   // Global / user MCP servers. Canonical location is ~/.claude.json's
   // top-level mcpServers (where `claude mcp add -s user` writes); merge the
   // legacy ~/.claude/mcp.json for older setups, deduping by name.
-  const globalResult = readMcpServersFromFile(CLAUDE_JSON_FILE, { scope: "global" });
-  if (globalResult.error) errors.push(globalResult.error);
-  const globalServers = globalResult.servers;
+  const globalServers = [...claudeJson.user];
   const seen = new Set(globalServers.map((s) => s.name));
   const legacyResult = readMcpServersFromFile(GLOBAL_MCP_FILE, { scope: "global" });
   if (legacyResult.error) errors.push(legacyResult.error);
@@ -371,8 +476,11 @@ export function parseMcpServers(workspacePath?: string): McpParseResult {
   const toggleStates = workspacePath ? readMcpToggleStates(workspacePath) : [];
   const stamped = servers.map((server) => {
     const copy: McpServer = { ...server };
-    // Effective disabled state for project-scope servers lives in the
-    // settings files' toggle arrays, which have their own mtimes.
+    // `/mcp` turns a server off for this project by name, whatever its
+    // scope — the CLI filters every server through disabledMcpServers.
+    if (projectEntry.disabled.has(cliServerKey(server))) copy.disabled = true;
+    // Project servers are additionally gated by the settings files'
+    // approval arrays, which have their own mtimes.
     if (server.scope === "project") {
       const approval = projectServerApproval(server.name, toggleStates);
       if (approval === "disabled") copy.disabled = true;
@@ -469,7 +577,7 @@ function writeSettingsJson(filePath: string, data: unknown): boolean {
 
 /** Strip the extension's old (non-standard, never-honored) per-entry `disabled` key. */
 function stripLegacyDisabledKey(name: string, workspacePath: string): void {
-  const mcpFile = path.join(workspacePath, ".mcp.json");
+  const mcpFile = projectMcpFileFor(name, workspacePath);
   const read = readJsonObjectForWrite(mcpFile);
   if (!read.ok || read.raw === null) return;
   const config = read.data;
@@ -481,13 +589,93 @@ function stripLegacyDisabledKey(name: string, workspacePath: string): void {
 }
 
 /**
+ * The shape Claude Code gives a project entry it has never written: it
+ * applies its change to `projects[key] ?? <this>` and stores the result. A
+ * first local server or toggle seeds the same object, so the entry reads
+ * exactly as if the CLI had created it. A fresh copy per call — callers
+ * mutate it.
+ */
+function newProjectEntry(): Record<string, unknown> {
+  return {
+    allowedTools: [],
+    mcpContextUris: [],
+    mcpServers: {},
+    enabledMcpjsonServers: [],
+    disabledMcpjsonServers: [],
+    hasTrustDialogAccepted: false,
+    hasClaudeMdExternalIncludesApproved: false,
+    hasClaudeMdExternalIncludesWarningShown: false,
+  };
+}
+
+/**
+ * `parent[key]` as an object, seeding it with `seed()` when absent and
+ * `create` is set. A present value of the wrong type is never replaced —
+ * that would discard whatever the user or the CLI put there.
+ */
+function childRecord(
+  parent: Record<string, unknown>,
+  key: string,
+  create: boolean,
+  seed: () => Record<string, unknown> = () => ({}),
+): Record<string, unknown> | undefined {
+  const value = parent[key];
+  if (isRecord(value)) return value;
+  if (value !== undefined || !create) return undefined;
+  const fresh = seed();
+  parent[key] = fresh;
+  return fresh;
+}
+
+/** The workspace's entry in a parsed ~/.claude.json, under the CLI's own key. */
+function projectEntryIn(
+  config: Record<string, unknown>,
+  workspacePath: string,
+  create: boolean,
+): Record<string, unknown> | undefined {
+  const projects = childRecord(config, "projects", create);
+  return projects && childRecord(projects, claudeProjectKey(workspacePath), create, newProjectEntry);
+}
+
+/**
+ * Turn a server off (or back on) for this project the way `/mcp` does: by
+ * name in the project entry's `disabledMcpServers` in ~/.claude.json. The CLI
+ * honors that list for every scope — local, user, plugin and `.mcp.json` —
+ * and applies it to this project only, even for a user-scope server.
+ *
+ * Mirrors the CLI's write: an emptied list stays as `[]`, and nothing is
+ * written when the name is already where it should be.
+ */
+export function setMcpServerDisabled(
+  serverKey: string,
+  disabled: boolean,
+  workspacePath: string,
+): McpWriteResult {
+  return withConfigFileLock(CLAUDE_JSON_FILE, () => {
+    const read = readConfig(CLAUDE_JSON_FILE);
+    if (!read.ok) return { ok: false, error: read.error };
+    const current = projectEntryIn(read.config, workspacePath, false)?.disabledMcpServers;
+    const list = Array.isArray(current) ? current : [];
+    if (list.includes(serverKey) === disabled && (current === undefined || Array.isArray(current))) {
+      return { ok: true };
+    }
+    const entry = projectEntryIn(read.config, workspacePath, true);
+    if (!entry) return { ok: false, error: `${CLAUDE_JSON_FILE} has a malformed "projects" entry.` };
+    entry.disabledMcpServers = disabled
+      ? [...list, serverKey]
+      : list.filter((name) => name !== serverKey);
+    return writeMcpConfig(CLAUDE_JSON_FILE, read.config, read.raw)
+      ? { ok: true }
+      : { ok: false, error: `Failed to write ${CLAUDE_JSON_FILE}.` };
+  });
+}
+
+/**
  * Enable/disable a **project-scope** MCP server the way Claude Code
  * actually does: through the `disabledMcpjsonServers` /
  * `enabledMcpjsonServers` arrays of `<workspace>/.claude/settings.local.json`
  * (a personal, gitignored file — this is a per-developer preference, not a
- * team-wide config change). There is no equivalent mechanism for
- * global-scope servers, so this function only handles `project`; callers
- * must reject other scopes before calling.
+ * team-wide config change). Other scopes go through setMcpServerDisabled.
  *
  * settings.local.json is read through the shared refusal rule
  * (readJsonObjectForWrite): writing into a file we could not read would
@@ -497,6 +685,9 @@ function stripLegacyDisabledKey(name: string, workspacePath: string): void {
  * when the user accepts its "New MCP servers found in .mcp.json" prompt — so
  * enabling always records the name there. Dropping it instead would leave
  * the server in neither list, and the CLI would ask for approval again.
+ *
+ * Enabling also clears the name from `disabledMcpServers`: `/mcp` records a
+ * project server's switch there too, and the CLI honors either list.
  */
 export function setProjectMcpServerDisabled(
   name: string,
@@ -505,6 +696,19 @@ export function setProjectMcpServerDisabled(
 ): McpWriteResult {
   const filePath = claudeSettingsPath("local", workspacePath);
   if (!filePath) return { ok: false, error: "Open a folder to toggle its MCP servers." };
+  if (!disabled) {
+    // The CLI unions the rejection lists of every settings file, so a local
+    // approval cannot outvote a shared one; say where the rejection lives.
+    const rejecting = [claudeSettingsPath("project", workspacePath), claudeSettingsPath("global")]
+      .filter((p): p is string => p !== null)
+      .find((p) => readToggleArrays(p).disabled.has(name));
+    if (rejecting) {
+      return {
+        ok: false,
+        error: `${rejecting} lists "${name}" in disabledMcpjsonServers, which Claude Code honors over any local approval. Remove it there.`,
+      };
+    }
+  }
   const read = readJsonObjectForWrite(filePath);
   if (!read.ok) return { ok: false, error: `${describeReadRefusal(filePath, read)}.` };
   const data = read.data as McpToggleSettingsShape;
@@ -538,9 +742,65 @@ export function setProjectMcpServerDisabled(
   // written; failure here doesn't affect the toggle's own success.
   stripLegacyDisabledKey(name, workspacePath);
 
-  return writeSettingsJson(filePath, data)
-    ? { ok: true }
-    : { ok: false, error: `Failed to write ${filePath}.` };
+  if (!writeSettingsJson(filePath, data)) return { ok: false, error: `Failed to write ${filePath}.` };
+  return disabled ? { ok: true } : setMcpServerDisabled(name, false, workspacePath);
+}
+
+/**
+ * Where an editable scope keeps its servers: the file, and the `mcpServers`
+ * map inside its parsed config (`create` builds the path to it when absent).
+ */
+interface McpServersTarget {
+  file: string;
+  servers(config: Record<string, unknown>, create: boolean): Record<string, unknown> | undefined;
+}
+
+function topLevelServers(file: string): McpServersTarget {
+  return { file, servers: (config, create) => childRecord(config, "mcpServers", create) };
+}
+
+/**
+ * Local scope: `projects[<CLI key>].mcpServers` in ~/.claude.json, the entry
+ * `claude mcp add` writes by default. Keyed exactly as the CLI keys it, so a
+ * subfolder or worktree of a repo lands on the repo's existing entry instead
+ * of a second one the CLI would never read.
+ */
+function localServers(workspacePath: string): McpServersTarget {
+  return {
+    file: CLAUDE_JSON_FILE,
+    servers: (config, create) => {
+      const entry = projectEntryIn(config, workspacePath, create);
+      return entry && childRecord(entry, "mcpServers", create);
+    },
+  };
+}
+
+/**
+ * Resolve the write target for an editable-scope server.
+ *
+ * A new global server always goes to ~/.claude.json — the only global file
+ * Claude Code reads (`claude mcp add -s user` writes there too). Resolving
+ * it by name, as edits do, sent every new server to the legacy
+ * ~/.claude/mcp.json, where Claude Code never sees it. An existing server
+ * keeps targeting whichever file holds it.
+ */
+function serverTarget(
+  scope: string,
+  name: string,
+  purpose: "add" | "edit",
+  workspacePath?: string,
+): McpServersTarget | null {
+  if (scope === "global") {
+    return topLevelServers(purpose === "add" ? CLAUDE_JSON_FILE : globalMcpFileFor(name));
+  }
+  if (!workspacePath) return null;
+  if (scope === "project") {
+    return topLevelServers(
+      purpose === "add" ? path.join(workspacePath, ".mcp.json") : projectMcpFileFor(name, workspacePath),
+    );
+  }
+  if (scope === "local") return localServers(workspacePath);
+  return null;
 }
 
 /**
@@ -548,7 +808,7 @@ export function setProjectMcpServerDisabled(
  *
  * @param name - The server name (key in mcpServers)
  * @param scope - Which config file to modify
- * @param workspacePath - Workspace path (needed for project scope)
+ * @param workspacePath - Workspace path (needed for project and local scope)
  */
 export function deleteMcpServer(
   name: string,
@@ -558,19 +818,18 @@ export function deleteMcpServer(
   if (scope === "plugin") {
     return { ok: false, error: `"${name}" is provided by a plugin — manage it via /plugin.` };
   }
-  const filePath = scope === "project" && workspacePath
-    ? path.join(workspacePath, ".mcp.json")
-    : globalMcpFileFor(name);
+  const target = serverTarget(scope, name, "edit", workspacePath);
+  if (!target) return { ok: false, error: `Cannot write to ${scope} scope without a workspace.` };
 
-  return withConfigFileLock(filePath, () => {
-    const read = readConfig(filePath);
+  return withConfigFileLock(target.file, () => {
+    const read = readConfig(target.file);
     if (!read.ok) return { ok: false, error: read.error };
-    const servers = read.config.mcpServers as Record<string, unknown> | undefined;
+    const servers = target.servers(read.config, false);
     if (!servers || !(name in servers)) {
       return { ok: false, error: `Server "${name}" was not found — it may have been edited on disk.` };
     }
     delete servers[name];
-    return writeMcpConfig(filePath, read.config, read.raw)
+    return writeMcpConfig(target.file, read.config, read.raw)
       ? { ok: true }
       : { ok: false, error: "Failed to write MCP config." };
   });
@@ -590,28 +849,6 @@ function buildServerEntry(input: McpServerInput): Record<string, unknown> {
   if (input.env && Object.keys(input.env).length > 0) entry.env = input.env;
   if (input.headers && Object.keys(input.headers).length > 0) entry.headers = input.headers;
   return entry;
-}
-
-/**
- * Resolve the write target file for an editable-scope server.
- *
- * A new global server always goes to ~/.claude.json — the only global file
- * Claude Code reads (`claude mcp add -s user` writes there too). Resolving
- * it by name, as edits do, sent every new server to the legacy
- * ~/.claude/mcp.json, where Claude Code never sees it. An existing server
- * keeps targeting whichever file holds it.
- */
-function serverConfigFile(
-  scope: string,
-  name: string,
-  purpose: "add" | "edit",
-  workspacePath?: string,
-): string | null {
-  if (scope === "project") {
-    return workspacePath ? path.join(workspacePath, ".mcp.json") : null;
-  }
-  if (scope === "global") return purpose === "add" ? CLAUDE_JSON_FILE : globalMcpFileFor(name);
-  return null;
 }
 
 /**
@@ -641,12 +878,12 @@ export interface McpWriteResult {
 
 /**
  * Add a new MCP server to the target scope's config file (creating the
- * file if needed). Rejects a duplicate name in that file.
+ * file if needed). Rejects a duplicate name in that scope.
  */
 export function addMcpServer(input: McpServerInput, workspacePath?: string): McpWriteResult {
   if (!input.name.trim()) return { ok: false, error: "Server name is required." };
-  const filePath = serverConfigFile(input.scope, input.name, "add", workspacePath);
-  if (!filePath) {
+  const target = serverTarget(input.scope, input.name, "add", workspacePath);
+  if (!target) {
     return { ok: false, error: `Cannot write to ${input.scope} scope without a workspace.` };
   }
   const duplicate = `An MCP server named "${input.name}" already exists in ${input.scope} scope.`;
@@ -658,18 +895,26 @@ export function addMcpServer(input: McpServerInput, workspacePath?: string): Mcp
   ) {
     return { ok: false, error: duplicate };
   }
-  return withConfigFileLock(filePath, () => {
-    const read = readConfig(filePath);
+  // Likewise a project server an ancestor .mcp.json already declares: the
+  // workspace's own file would silently override it.
+  if (input.scope === "project" && workspacePath) {
+    const holder = projectMcpFileFor(input.name, workspacePath);
+    if (canonicalPath(holder) !== canonicalPath(target.file)) {
+      return { ok: false, error: `An MCP server named "${input.name}" is already declared in ${holder}.` };
+    }
+  }
+  return withConfigFileLock(target.file, () => {
+    const read = readConfig(target.file);
     if (!read.ok) return { ok: false, error: read.error };
     const { raw, config } = read;
-    const servers = (config.mcpServers as Record<string, unknown>) ?? {};
+    const servers = target.servers(config, true);
+    if (!servers) return { ok: false, error: `${target.file} has a malformed "mcpServers" entry.` };
     if (input.name in servers) return { ok: false, error: duplicate };
     servers[input.name] = buildServerEntry(input);
-    config.mcpServers = servers;
     // A brand-new file (no prior newline-indented content) should still be
     // pretty-printed; seed the indent hint so writeMcpConfig formats it.
     const indentHint = raw || '{\n  "mcpServers": {}\n}';
-    return writeMcpConfig(filePath, config, indentHint)
+    return writeMcpConfig(target.file, config, indentHint)
       ? { ok: true }
       : { ok: false, error: "Failed to write MCP config." };
   });
@@ -686,15 +931,15 @@ export function updateMcpServer(
   workspacePath?: string,
 ): McpWriteResult {
   if (!input.name.trim()) return { ok: false, error: "Server name is required." };
-  const filePath = serverConfigFile(input.scope, originalName, "edit", workspacePath);
-  if (!filePath) {
+  const target = serverTarget(input.scope, originalName, "edit", workspacePath);
+  if (!target) {
     return { ok: false, error: `Cannot write to ${input.scope} scope without a workspace.` };
   }
-  return withConfigFileLock(filePath, () => {
-    const read = readConfig(filePath);
+  return withConfigFileLock(target.file, () => {
+    const read = readConfig(target.file);
     if (!read.ok) return { ok: false, error: read.error };
     const { raw, config } = read;
-    const servers = config.mcpServers as Record<string, unknown> | undefined;
+    const servers = target.servers(config, false);
     if (!servers || !(originalName in servers)) {
       return { ok: false, error: `Server "${originalName}" was not found — it may have been edited on disk.` };
     }
@@ -703,7 +948,7 @@ export function updateMcpServer(
     }
     delete servers[originalName];
     servers[input.name] = buildServerEntry(input);
-    return writeMcpConfig(filePath, config, raw)
+    return writeMcpConfig(target.file, config, raw)
       ? { ok: true }
       : { ok: false, error: "Failed to write MCP config." };
   });

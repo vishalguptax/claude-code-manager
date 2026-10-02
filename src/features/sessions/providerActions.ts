@@ -31,6 +31,7 @@ import { postWorktrees } from "./worktreeEnrichment";
 import { clearWorktreeCache } from "../../extension/worktrees";
 import { slugifyProjectPath } from "./portable";
 import { PROJECTS_DIR } from "../../core/config";
+import { clearOsPolicyCache } from "../../core/managedSettings";
 import { loadState } from "./state";
 import { getWorkspace } from "../../extension/workspace";
 import { getCurrentBranch } from "../../extension/git";
@@ -338,6 +339,10 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   // explicit "give me fresh data" gesture must force a cold re-scan.
   clearModelCache();
   resetUsageAggregateCache();
+  // The OS policy sources (macOS plist, Windows registry) are read once per
+  // host lifetime because each read spawns plutil / reg.exe; Refresh is the
+  // moment to pick up a policy an admin pushed since.
+  clearOsPolicyCache();
 
   const workspace = getWorkspace();
   const ws = workspace || undefined;

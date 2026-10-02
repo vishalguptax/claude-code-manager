@@ -16,6 +16,8 @@ import * as os from "os";
 import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { claudeConfigDir } from "../../core/claudeHome";
+import { CLAUDE_ENV } from "../../core/config";
 
 const execP = promisify(exec);
 
@@ -109,10 +111,10 @@ function collectFromNodeModulesRoot(root: string): string[] {
  */
 async function collectCliCandidates(): Promise<string[]> {
   const candidates: string[] = [];
-  const home = os.homedir();
-
   // Native installer layout — most common case for the affected users.
-  const localRoot = path.join(home, ".claude", "local");
+  // Claude Code installs it under its config dir, so it follows
+  // `CLAUDE_CONFIG_DIR` rather than always being ~/.claude/local.
+  const localRoot = path.join(claudeConfigDir(CLAUDE_ENV, os.homedir()), "local");
   candidates.push(...collectFromNodeModulesRoot(path.join(localRoot, "node_modules")));
   for (const name of ["claude", "claude.exe"]) {
     const full = path.join(localRoot, name);

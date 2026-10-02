@@ -1,5 +1,6 @@
 /**
- * Quota section — rolling 5-hour / 7-day subscription utilization, read
+ * Quota section — rolling 5-hour / 7-day subscription utilization (plus a
+ * Claude gateway's spend cap, in dollars, when one is set), read
  * from the local statusline cache (NO network call, NO OAuth token; see
  * ../../../quota). The data originates from Claude Code itself, the
  * authorized client, so this stays inside Anthropic's terms.
@@ -50,6 +51,7 @@ import {
   formatPrRef,
   formatRepo,
   formatReviewState,
+  formatSpend,
   quotaFreshness,
   weeklyPace,
 } from "../../lib";
@@ -310,8 +312,10 @@ function QuotaSuccessBody({
   onCheckUsage: (e: Event) => void;
   onOpenUrl: (url: string) => void;
 }) {
-  const { fiveHour, sevenDay } = data.quota;
-  if (!fiveHour && !sevenDay) {
+  const { fiveHour, sevenDay, spendLimit } = data.quota;
+  // Behind a Claude gateway the spend cap can be the only window reported,
+  // so it alone is enough to show the bars.
+  if (!fiveHour && !sevenDay && !spendLimit) {
     return (
       <div class="acct-quota-intro">
         <p class="acct-quota-intro-text">
@@ -336,6 +340,15 @@ function QuotaSuccessBody({
           pace={weeklyPace(sevenDay, data.quota.capturedAt)}
         />
       ) : null}
+      {spendLimit ? (
+        <QuotaBar
+          label="Spend limit"
+          window={spendLimit}
+          figure={spendLimit.usd ? formatSpend(spendLimit.usd) : undefined}
+        />
+      ) : null}
+      {/* The spend cap is left out on purpose: claude.ai's free reset
+          applies to the subscription windows, not to a gateway budget. */}
       <LimitResetRow
         nearLimit={[fiveHour, sevenDay].some(
           (w) => !!w && w.utilization >= RESET_HINT_UTILIZATION,

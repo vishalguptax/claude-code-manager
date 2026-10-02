@@ -3,6 +3,7 @@
  * Reads user settings for terminal location and position.
  */
 import * as vscode from "vscode";
+import { CLAUDE_ENV } from "../core/config";
 
 /**
  * Validate a git ref name against git's own ref-format rules.
@@ -275,10 +276,15 @@ export function createTerminal(name: string, cwd?: string, sessionId?: string): 
   // replaces the stock one users already read, including the activity it shows
   // while a command runs. The default icon behaves the same here as in a
   // terminal opened by hand, which is the point.
+  // CLAUDE_ENV holds only the variables that move Claude Code's files
+  // (empty for the default ~/.claude). Passing them makes the `claude` we
+  // launch write where we read even when they came from the official
+  // extension's setting, which the integrated terminal never sees.
   const term = vscode.window.createTerminal({
     name,
     cwd: cwd || undefined,
     ...(location ? { location } : {}),
+    ...(Object.keys(CLAUDE_ENV).length > 0 ? { env: CLAUDE_ENV } : {}),
   });
   sentTo.add(term);
   if (sessionId) terminalRegistry?.register(sessionId, term);

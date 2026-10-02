@@ -159,7 +159,24 @@ export interface Message {
   usage?: MessageUsage;
   /** Model id for assistant messages ("claude-opus-4-7", etc.). */
   model?: string;
+  /**
+   * Set on a `user`-role record Claude Code injected rather than the
+   * person typed (see ./turnOrigin). Absent on human prompts, tool
+   * results and assistant turns.
+   */
+  injected?: InjectedTurnKind;
 }
+
+/**
+ * Who, other than the person, put a `user`-role record into the
+ * transcript:
+ *  - `task-notification` — a background task or subagent reporting back
+ *  - `peer` — a message sent from another Claude session
+ *  - `channel` — a message pushed in by an MCP channel server
+ *  - `system` — anything else Claude Code adds as context (`isMeta`
+ *    records such as skill bodies and command caveats, auto-continuations)
+ */
+export type InjectedTurnKind = "task-notification" | "peer" | "channel" | "system";
 
 // ── Grouping & Statistics ──
 
@@ -255,6 +272,18 @@ export interface SessionEntry {
   gitBranch?: string;
   /** Claude CLI version */
   version?: string;
+  /** True on records Claude Code adds as context, never typed by the person. */
+  isMeta?: boolean;
+  /**
+   * Who produced a `user`-role record (Claude Code 2.1.25x+). `kind` is
+   * "human" for anything the person typed, queued or accepted; other
+   * kinds ("task-notification", "peer", "channel", "auto-continuation", …)
+   * mark injected turns. Absent on older transcripts and on tool results.
+   */
+  origin?: { kind?: string };
+  /** Older spelling of the same classification ("human",
+   *  "task_notification", "peer"), written alongside or instead of `origin`. */
+  turnOrigin?: string;
 }
 
 // ── Extension <-> Webview Messages ──

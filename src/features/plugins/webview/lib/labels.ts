@@ -76,6 +76,9 @@ export function trustVariant(trust: MarketplaceTrust): "status" | "danger" | "de
  * and which file to open to change it.
  */
 export function stateSummary(plugin: PluginEntry): string {
+  if (plugin.synced && plugin.status === "enabled" && plugin.decidedBy === null) {
+    return "Synced from your claude.ai account, which turns it on.";
+  }
   switch (plugin.status) {
     case "blocked":
       return "On your plugin blocklist, so Claude Code will not load it.";
@@ -121,11 +124,11 @@ export function overrideSteps(plugin: PluginEntry): OverrideStep[] {
  * The scope that currently decides the plugin, so flipping the switch
  * actually changes the outcome — writing `false` into user settings while
  * the project file says `true` would leave the plugin on and look broken.
- * `managed` is not writable, and a plugin nobody has an opinion about starts
- * at the user scope.
+ * `managed` is not writable, a synced plugin is the account's to switch, and
+ * a plugin nobody has an opinion about starts at the user scope.
  */
 export function toggleScope(plugin: PluginEntry): PluginSettingsScope | null {
-  if (plugin.decidedBy === "managed") return null;
+  if (plugin.synced || plugin.decidedBy === "managed") return null;
   return plugin.decidedBy ?? "global";
 }
 
@@ -141,6 +144,9 @@ export function canToggle(plugin: PluginEntry): boolean {
 export function readOnlyReason(plugin: PluginEntry): string {
   if (plugin.status === "blocked") {
     return "On your plugin blocklist, so it cannot be turned on from here.";
+  }
+  if (plugin.synced) {
+    return "Synced from your claude.ai account. Manage it on claude.ai, or set syncClaudeAiPlugins to false to stop syncing plugins. Edits to its files are replaced on the next sync.";
   }
   if (plugin.decidedBy === "managed") {
     return "Set by managed settings, which the sidebar cannot write to.";

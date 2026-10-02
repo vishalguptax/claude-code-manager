@@ -94,6 +94,9 @@ export function PluginItem({
           />
         ) : null}
         <Badge text={STATUS_LABEL[plugin.status]} variant={statusVariant(plugin.status)} />
+        {plugin.synced ? (
+          <Badge text="claude.ai" scope="builtin" title="Synced from your claude.ai account" />
+        ) : null}
         {scope ? (
           <Badge
             text={SCOPE_LABEL[scope]}

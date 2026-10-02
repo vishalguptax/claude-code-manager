@@ -123,15 +123,25 @@ describe("DetailView", () => {
     expect(screen.getByText("Enable")).toBeTruthy();
   });
 
-  it("hides the toggle and shows a note for global servers (no Claude Code disable)", () => {
-    render(
-      h(DetailView, { server: srv({ name: "g", scope: "global" }), ...handlers() }),
-    );
-    expect(screen.queryByText("Disable")).toBeNull();
-    expect(screen.queryByText("Enable")).toBeNull();
-    // Delete stays primary for global servers.
-    expect(screen.getByText("Delete")).toBeTruthy();
-    expect(screen.getByText(/User-scope servers can't be enabled\/disabled/)).toBeTruthy();
+  it("offers the per-project toggle for global and local servers", () => {
+    // `/mcp` switches a user or local server off for one project via
+    // disabledMcpServers, so the button is a real Claude Code action.
+    for (const scope of ["global", "local"] as const) {
+      const hnd = handlers();
+      const { unmount } = render(
+        h(DetailView, { server: srv({ name: "g", scope, disabled: true }), ...hnd }),
+      );
+      fireEvent.click(screen.getByText("Enable"));
+      expect(hnd.onToggle).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("Delete")).toBeTruthy();
+      unmount();
+    }
+  });
+
+  it("labels a local server with the local scope badge", () => {
+    render(h(DetailView, { server: srv({ name: "l", scope: "local" }), ...handlers() }));
+    const badge = screen.getByText("local");
+    expect(badge.classList.contains("vsc-badge--scope-local")).toBe(true);
   });
 
   it("shows the toggle for project servers", () => {
@@ -147,7 +157,8 @@ describe("DetailView", () => {
       }),
     );
     expect(screen.queryByText("Edit")).toBeNull();
-    expect(screen.queryByText("Disable")).toBeNull();
+    // The per-project switch stays: it lives in the project's config.
+    expect(screen.getByText("Disable")).toBeTruthy();
     expect(screen.queryByText("Delete")).toBeNull();
     expect(screen.getByText(/Owned by plugin/)).toBeTruthy();
   });

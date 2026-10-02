@@ -8,6 +8,7 @@ import {
   groupedAgents,
   loading,
   modelCounts,
+  noProjectScope,
   parseErrors,
   resetAgentsState,
   scopeLabel,
@@ -161,5 +162,17 @@ describe("agents signals", () => {
     expect(filterModel.value).toBe("all");
     expect(loading.value).toBe(true);
     expect(parseErrors.value).toEqual([]);
+  });
+});
+
+describe("noProjectScope", () => {
+  it("is set by setAgents and cleared on reset", () => {
+    setAgents([], [], "This workspace is your home folder.");
+    expect(noProjectScope.value).toBe("This workspace is your home folder.");
+    setAgents([]);
+    expect(noProjectScope.value).toBeNull();
+    setAgents([], [], "x");
+    resetAgentsState();
+    expect(noProjectScope.value).toBeNull();
   });
 });

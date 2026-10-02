@@ -13,7 +13,7 @@ function srv(p: Partial<McpServer> & Pick<McpServer, "name" | "scope">): McpServ
 describe("McpForm", () => {
   it("shows the scope picker in add mode, omits it in edit mode", () => {
     const { rerender } = render(h(McpForm, { server: null, onClose: () => {}, onSubmit: () => {} }));
-    expect(screen.getByLabelText("Server scope")).toBeTruthy();
+    expect(screen.getByLabelText("Server scope").textContent).toBe("Local (this project, just you)");
     expect(screen.getByText("Add MCP server")).toBeTruthy();
 
     rerender(h(McpForm, { server: srv({ name: "x", scope: "project" }), onClose: () => {}, onSubmit: () => {} }));
@@ -41,9 +41,10 @@ describe("McpForm", () => {
       target: { value: "KEY=v\n\nX=1" },
     });
     fireEvent.click(screen.getByText("Add"));
+    // Local is the default, as it is for `claude mcp add`.
     expect(onSubmit).toHaveBeenCalledWith(null, {
       name: "local",
-      scope: "project",
+      scope: "local",
       transport: "stdio",
       command: "npx",
       args: ["-y", "server"],
@@ -100,14 +101,14 @@ describe("McpForm", () => {
     render(
       h(McpForm, {
         server: null,
-        existing: [{ name: "github", scope: "project" }],
+        existing: [{ name: "github", scope: "local" }],
         onClose: () => {},
         onSubmit: vi.fn(),
       }),
     );
     fireEvent.input(screen.getByLabelText("Server name"), { target: { value: "github" } });
     fireEvent.input(screen.getByLabelText("Command"), { target: { value: "node" } });
-    expect(screen.getByText(/already exists in project scope/)).toBeTruthy();
+    expect(screen.getByText(/already exists in local scope/)).toBeTruthy();
     expect((screen.getByText("Add").closest("button") as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -177,6 +178,8 @@ describe("McpForm — catalog preset", () => {
   it("submits the preset at the picked scope", () => {
     const onSubmit = vi.fn();
     render(h(McpForm, { server: null, preset: preset("sentry"), onClose: () => {}, onSubmit }));
+    fireEvent.click(screen.getByLabelText("Server scope"));
+    fireEvent.click(screen.getByText("Project (.mcp.json, shared)"));
     fireEvent.click(screen.getByText("Add"));
     expect(onSubmit).toHaveBeenCalledWith(null, {
       name: "sentry",
@@ -190,18 +193,17 @@ describe("McpForm — catalog preset", () => {
     });
   });
 
-  it("fixes a token server to project scope and says why", () => {
+  it("offers every scope for a token server, keeping its ${VAR} reference", () => {
+    // Claude Code expands ${VAR} in local and user servers too, so the
+    // reference works wherever the user puts it.
     const onSubmit = vi.fn();
     render(h(McpForm, { server: null, preset: preset("github"), onClose: () => {}, onSubmit }));
-    // No picker to choose global with — the scope is shown, not offered.
-    expect(screen.queryByLabelText("Server scope")).toBeNull();
-    expect(screen.getByText("Project (.mcp.json)")).toBeTruthy();
-    expect(screen.getByText(/expands \$\{VAR\} references only in a project/)).toBeTruthy();
+    expect(screen.getByLabelText("Server scope")).toBeTruthy();
     fireEvent.click(screen.getByText("Add"));
     expect(onSubmit).toHaveBeenCalledWith(
       null,
       expect.objectContaining({
-        scope: "project",
+        scope: "local",
         headers: { Authorization: "Bearer ${GITHUB_PERSONAL_ACCESS_TOKEN}" },
       }),
     );

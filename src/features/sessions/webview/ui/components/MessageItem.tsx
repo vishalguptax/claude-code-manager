@@ -3,6 +3,12 @@
  * rows, the (optionally search-highlighted) text body, a usage stamp, and the
  * hover-revealed copy / ask-again actions.
  *
+ * A `user`-role record Claude Code injected (task notification, message
+ * from another session, channel push, meta context) is not the person
+ * speaking: it gets its own label instead of "You", no "ask again", and
+ * its body collapsed, since these run long and are rarely what the reader
+ * came for. A search hit inside one opens it.
+ *
  * Search highlighting splits the text into plain + matched segments and lets
  * Preact render each as a text node or <mark> — no innerHTML, so it stays
  * XSS-safe by construction.
@@ -10,6 +16,7 @@
 import { Icon } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import { fmtTime } from "../../../../../webview/utils";
+import { INJECTED_TURN_LABELS } from "../../../turnOrigin";
 import type { Message } from "../../../types";
 
 /** Compact token formatter — 980, 1.2k, 10.6k, 1.5M, 2.76B. */
@@ -85,6 +92,8 @@ export function MessageItem({
   const thinkingOpen = Boolean(query && m.thinking?.toLowerCase().includes(query));
   const displayed =
     !query && m.content.length > 500 ? `${m.content.slice(0, 500)}…` : m.content;
+  const injected = m.injected;
+  const injectedOpen = Boolean(query && m.content.toLowerCase().includes(query));
 
   // Transcripts store an ISO timestamp; a malformed or absent one parses to
   // NaN and simply hides the time rather than printing "Invalid Date".
@@ -100,9 +109,11 @@ export function MessageItem({
   }
 
   return (
-    <div class={cx("d-msg", `d-msg-${m.role}`)}>
+    <div class={cx("d-msg", injected ? "d-msg-injected" : `d-msg-${m.role}`)}>
       <div class="d-msg-head">
-        <span class="d-msg-role">{m.role === "user" ? "You" : "Claude"}</span>
+        <span class="d-msg-role">
+          {injected ? INJECTED_TURN_LABELS[injected] : m.role === "user" ? "You" : "Claude"}
+        </span>
         {/* When a turn happened is the second thing you want from a transcript
             after who said it, and the timestamp was already in the payload —
             it just was not rendered. Right-aligned so the role labels stay a
@@ -125,7 +136,7 @@ export function MessageItem({
           >
             <Icon name="copy" size={12} />
           </button>
-          {m.role === "user" ? (
+          {m.role === "user" && !injected ? (
             <button
               type="button"
               class="d-msg-action"
@@ -169,7 +180,14 @@ export function MessageItem({
         </ul>
       ) : null}
 
-      {m.content ? (
+      {m.content && injected ? (
+        <details class="d-msg-injected-body" open={injectedOpen}>
+          <summary>Show content</summary>
+          <div class="d-msg-content">
+            <Highlighted text={displayed} query={query} />
+          </div>
+        </details>
+      ) : m.content ? (
         <div class="d-msg-content">
           <Highlighted text={displayed} query={query} />
         </div>

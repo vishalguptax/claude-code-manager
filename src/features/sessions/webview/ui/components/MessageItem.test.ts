@@ -110,6 +110,33 @@ describe("MessageItem", () => {
     expect(onCopy).toHaveBeenCalledWith(0);
   });
 
+  it("labels an injected record by its source and collapses its body", () => {
+    const { container, queryByText, getByText } = renderMsg(
+      message({ content: "<task-notification>done</task-notification>", injected: "task-notification" }),
+    );
+    expect(getByText("Task notification")).toBeTruthy();
+    expect(queryByText("You")).toBeNull();
+    const body = container.querySelector("details.d-msg-injected-body") as HTMLDetailsElement;
+    expect(body.open).toBe(false);
+    expect(container.querySelector(".d-msg")?.className).toContain("d-msg-injected");
+    expect(container.querySelector(".d-msg")?.className).not.toContain("d-msg-user");
+    // Asking a notification "again" would replay Claude Code's words as yours.
+    expect(container.querySelector('[aria-label="Ask again"]')).toBeNull();
+  });
+
+  it("names peer, channel and system records", () => {
+    expect(renderMsg(message({ injected: "peer" })).getByText("Message from another session")).toBeTruthy();
+    expect(renderMsg(message({ injected: "channel" })).getByText("Channel message")).toBeTruthy();
+    expect(renderMsg(message({ injected: "system" })).getByText("Added by Claude Code")).toBeTruthy();
+  });
+
+  it("opens an injected body when the search matches inside it", () => {
+    const { container } = renderMsg(message({ content: "agent finished the build", injected: "peer" }), {
+      query: "build",
+    });
+    expect((container.querySelector("details.d-msg-injected-body") as HTMLDetailsElement).open).toBe(true);
+  });
+
   it("shows ask-again only for user messages", () => {
     const { container: user } = renderMsg(message({ role: "user" }));
     expect(user.querySelector('[aria-label="Ask again"]')).toBeTruthy();

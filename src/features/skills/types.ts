@@ -5,6 +5,9 @@
 
 // ── Skill Data ──
 
+/** Every source a skill can be loaded from. */
+export type SkillScope = "global" | "project" | "claude.ai" | "plugin";
+
 /** A parsed Claude Code skill with metadata from SKILL.md frontmatter. */
 export interface Skill {
   /** Unique identifier derived from scope + folder name */
@@ -13,8 +16,13 @@ export interface Skill {
   name: string;
   /** Short description from frontmatter */
   description: string;
-  /** Where the skill comes from. `plugin` items are read-only. */
-  scope: "global" | "project" | "plugin";
+  /**
+   * Where the skill comes from. `plugin` and `claude.ai` items are
+   * read-only: a plugin's files belong to Claude Code's `/plugin`, and a
+   * claude.ai skill is synced from the signed-in account — edits to its
+   * files are never sent back and are replaced on the next sync.
+   */
+  scope: SkillScope;
   /** Absolute path to the skill folder */
   path: string;
   /** Full raw content of SKILL.md (frontmatter + body) */
@@ -30,7 +38,8 @@ export interface Skill {
   group: string;
   /**
    * For plugin-sourced skills, the qualified name of the providing
-   * plugin (e.g. "caveman@caveman"). Undefined for global/project.
+   * plugin (e.g. "caveman@caveman", or "design@synced" for a plugin
+   * synced from claude.ai). Undefined for every other scope.
    * Used by the webview to label and group plugin items.
    */
   pluginName?: string;

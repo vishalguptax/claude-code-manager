@@ -7,6 +7,7 @@
 import { Badge, Button, Tag } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import type { Skill } from "../../../types";
+import { scopeTone } from "../../lib";
 
 export interface SkillItemProps {
   skill: Skill;
@@ -68,7 +69,7 @@ export function SkillItem(props: SkillItemProps) {
             onCopy(skill.name);
           }}
         />
-        <Badge text={skill.scope} scope={skill.scope} class="skill-scope-badge" />
+        <Badge text={skill.scope} scope={scopeTone(skill.scope)} class="skill-scope-badge" />
       </div>
       {desc ? <div class="item-prompt" title={desc}>{desc}</div> : null}
       {skill.tags.length ? (

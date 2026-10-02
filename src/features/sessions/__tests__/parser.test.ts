@@ -1403,6 +1403,86 @@ describe("parseSessionDetail", () => {
   });
 });
 
+describe("injected user records (origin / isMeta)", () => {
+  beforeEach(setup);
+
+  /** Origin keys mirror Claude Code 2.1.287 transcripts; text is placeholder. */
+  const human = (content: string, ts: string) => ({
+    type: "user",
+    origin: { kind: "human" },
+    promptSource: "typed",
+    turnOrigin: "human",
+    userType: "external",
+    message: { role: "user", content },
+    timestamp: ts,
+    cwd: "/home/user/inj",
+  });
+  const notification = (ts: string) => ({
+    type: "user",
+    origin: { kind: "task-notification", producer: "session-task" },
+    promptSource: "system",
+    turnOrigin: "task_notification",
+    userType: "external",
+    message: { role: "user", content: "<task-notification>agent done</task-notification>" },
+    timestamp: ts,
+    cwd: "/home/user/inj",
+  });
+  const peer = (ts: string) => ({
+    type: "user",
+    isMeta: true,
+    origin: { kind: "peer" },
+    promptSource: "system",
+    turnOrigin: "peer",
+    message: { role: "user", content: "A message from another session" },
+    timestamp: ts,
+    cwd: "/home/user/inj",
+  });
+  const toolResult = (ts: string) => ({
+    type: "user",
+    message: { role: "user", content: [{ type: "tool_result", content: "ok" }] },
+    timestamp: ts,
+  });
+
+  it("tags injected records in session detail and leaves human prompts untagged", () => {
+    writeSessionFile("-home-user-inj", "inj-detail", [
+      human("real prompt", "2026-09-30T10:00:00.000Z"),
+      notification("2026-09-30T10:01:00.000Z"),
+      peer("2026-09-30T10:02:00.000Z"),
+      { type: "user", isMeta: true, message: { role: "user", content: "Caveat: meta" }, timestamp: "2026-09-30T10:03:00.000Z" },
+    ]);
+    const detail = parseSessionDetail("inj-detail")!;
+    expect(detail.messages.map((m) => m.injected)).toEqual([
+      undefined,
+      "task-notification",
+      "peer",
+      "system",
+    ]);
+  });
+
+  it("titles and counts an orphan session by human prompts only", () => {
+    writeSessionFile("-home-user-inj", "inj-orphan", [
+      { type: "user", isMeta: true, message: { role: "user", content: "Caveat: meta" }, timestamp: "2026-09-30T09:59:00.000Z" },
+      notification("2026-09-30T10:00:00.000Z"),
+      human("the real first prompt", "2026-09-30T10:01:00.000Z"),
+      toolResult("2026-09-30T10:02:00.000Z"),
+      peer("2026-09-30T10:03:00.000Z"),
+      human("second prompt", "2026-09-30T10:04:00.000Z"),
+    ]);
+    const sess = parseSessions().find((s) => s.id === "inj-orphan")!;
+    expect(sess.summary).toBe("the real first prompt");
+    expect(sess.name).toBe("the real first prompt");
+    expect(sess.messageCount).toBe(2);
+    expect(sess.searchHaystack).not.toContain("agent done");
+  });
+
+  it("keeps a session nobody typed into, described by what it was given", () => {
+    writeSessionFile("-home-user-inj", "inj-only", [notification("2026-09-30T10:00:00.000Z")]);
+    const sess = parseSessions().find((s) => s.id === "inj-only")!;
+    expect(sess).toBeDefined();
+    expect(sess.messageCount).toBe(0);
+  });
+});
+
 describe("groupSessions", () => {
   it("groups sessions by date labels in the correct order", () => {
     const now = Date.now();

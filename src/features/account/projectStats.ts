@@ -2,7 +2,8 @@
  * Single-pass JSONL aggregator for the Account / Usage tab.
  *
  * Walks every session transcript under `~/.claude/projects/` (plus any
- * directories listed in `CLAUDE_CONFIG_DIRS`) once and emits the full
+ * directories listed in `CLAUDE_CONFIG_DIRS`), including each session's
+ * `subagents/*.jsonl`, once and emits the full
  * payload the UI needs:
  *
  *   - Headline totals (tokens, sessions, messages, cost, longest session,
@@ -359,14 +360,39 @@ export async function warmUsageAggregate(): Promise<UsageAggregate> {
             continue;
           }
           for (const f of files) {
-            if (!f.endsWith(".jsonl")) continue;
-            const filePath = path.join(projDir, f);
-            try {
-              const st = await fs.promises.stat(filePath);
+            if (f.endsWith(".jsonl")) {
+              const filePath = path.join(projDir, f);
+              const st = await statOrNull(filePath);
+              if (!st) continue;
               fp += st.mtimeMs + st.size;
               allFiles.push({ slug, filePath, mtimeMs: st.mtimeMs, size: st.size });
+              continue;
+            }
+            // Subagent (Task tool) runs are written to their own transcripts at
+            // `<slug>/<sessionId>/subagents/agent-<id>.jsonl`, never into the
+            // parent session's file, so a top-level-only walk under-reported
+            // every token a subagent spent. Their lines carry the PARENT's
+            // sessionId and API message ids disjoint from the parent's, so
+            // ingesting them under the same slug attributes them to the right
+            // session and project, and the shared dedup sets keep a replayed
+            // line from counting twice. Non-session entries (`memory/`, plain
+            // files) simply fail the readdir.
+            const subDir = path.join(projDir, f, "subagents");
+            let subFiles: string[];
+            try {
+              subFiles = await fs.promises.readdir(subDir);
             } catch {
               continue;
+            }
+            for (const sf of subFiles) {
+              // `agent-<id>.meta.json` sits beside each transcript; only the
+              // .jsonl carries usage.
+              if (!sf.endsWith(".jsonl")) continue;
+              const filePath = path.join(subDir, sf);
+              const st = await statOrNull(filePath);
+              if (!st) continue;
+              fp += st.mtimeMs + st.size;
+              allFiles.push({ slug, filePath, mtimeMs: st.mtimeMs, size: st.size });
             }
           }
         }
@@ -926,6 +952,16 @@ function costOf(model: string, acc: ModelAcc): number {
     cacheWrite1h: acc.cacheCreation1h,
     webSearchRequests: acc.webSearches,
   });
+}
+
+async function statOrNull(
+  filePath: string,
+): Promise<{ mtimeMs: number; size: number } | null> {
+  try {
+    return await fs.promises.stat(filePath);
+  } catch {
+    return null;
+  }
 }
 
 function numOr0(v: unknown): number {

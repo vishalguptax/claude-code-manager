@@ -9,20 +9,38 @@
  * results before display.
  */
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { CLAUDE_DIR, CLAUDE_JSON_FILE, STATS_CACHE_FILE } from "../../core/config";
 import {
+  CLAUDE_DIR,
+  CLAUDE_JSON_FILE,
+  SETTINGS_FILE,
+  STATS_CACHE_FILE,
+} from "../../core/config";
+import {
+  CREDENTIALS_FILE,
+  KEYCHAIN_SERVICE,
   readCredentials,
   probeKeychainStatus,
   isLoggedOut,
 } from "../account/credentials";
 import type { DiagnosticCheck, DiagnosticStatus } from "./types";
 
-const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
-
 const execP = promisify(exec);
+
+/**
+ * A path as the user would type it: `~/…` when under the home folder. The
+ * labels name the files actually checked, which differ from ~/.claude and
+ * ~/.claude.json when `CLAUDE_CONFIG_DIR` moves them.
+ */
+function homeRelative(p: string, home: string = os.homedir()): string {
+  return p === home || p.startsWith(home + path.sep) ? `~${p.slice(home.length)}` : p;
+}
+
+const CLAUDE_DIR_LABEL = homeRelative(CLAUDE_DIR);
+const CLAUDE_JSON_LABEL = homeRelative(CLAUDE_JSON_FILE);
 
 /** A short-circuit constructor so each check stays a single expression. */
 function check(
@@ -85,14 +103,14 @@ async function checkClaudeCli(): Promise<DiagnosticCheck> {
 function checkClaudeDir(): DiagnosticCheck {
   try {
     fs.accessSync(CLAUDE_DIR, fs.constants.R_OK);
-    return check("claudeDir", "~/.claude readable", "pass", CLAUDE_DIR);
+    return check("claudeDir", `${CLAUDE_DIR_LABEL} readable`, "pass", CLAUDE_DIR);
   } catch {
     return check(
       "claudeDir",
-      "~/.claude readable",
+      `${CLAUDE_DIR_LABEL} readable`,
       "fail",
       `Cannot read ${CLAUDE_DIR}.`,
-      "Run `claude` once so the CLI creates ~/.claude.",
+      `Run \`claude\` once so the CLI creates ${CLAUDE_DIR_LABEL}.`,
     );
   }
 }
@@ -102,7 +120,7 @@ function checkClaudeJson(): DiagnosticCheck {
   if (!data || typeof data !== "object") {
     return check(
       "claudeJson",
-      "~/.claude.json valid",
+      `${CLAUDE_JSON_LABEL} valid`,
       "fail",
       "File missing or malformed JSON.",
       "Run `Claude Code Manager: Restore Claude config` or `claude` once.",
@@ -111,13 +129,13 @@ function checkClaudeJson(): DiagnosticCheck {
   if (!("oauthAccount" in (data as Record<string, unknown>))) {
     return check(
       "claudeJson",
-      "~/.claude.json has oauthAccount",
+      `${CLAUDE_JSON_LABEL} has oauthAccount`,
       "warn",
       "Parsed JSON but no oauthAccount block — sign-in flow likely incomplete.",
       "Run `claude` and complete `/login`.",
     );
   }
-  return check("claudeJson", "~/.claude.json valid", "pass", "oauthAccount present");
+  return check("claudeJson", `${CLAUDE_JSON_LABEL} valid`, "pass", "oauthAccount present");
 }
 
 function checkCredentials(): DiagnosticCheck {
@@ -135,7 +153,7 @@ function checkCredentials(): DiagnosticCheck {
             "Keychain access",
             "fail",
             "Keychain refused to disclose the Claude Code credentials item (exit 51).",
-            "Open Keychain Access → search for `Claude Code-credentials` → Access Control tab → add your IDE binary, then click Allow.",
+            `Open Keychain Access → search for \`${KEYCHAIN_SERVICE}\` → Access Control tab → add your IDE binary, then click Allow.`,
           );
         case "locked":
           return check(
@@ -151,7 +169,7 @@ function checkCredentials(): DiagnosticCheck {
             "Keychain access",
             "fail",
             "Keychain is unreachable from this session (likely SSH or a headless context).",
-            "Sign in directly on the machine, or set up a file-based fallback at ~/.claude/.credentials.json.",
+            `Sign in directly on the machine, or set up a file-based fallback at ${homeRelative(CREDENTIALS_FILE)}.`,
           );
         case "error":
           return check(
@@ -159,7 +177,7 @@ function checkCredentials(): DiagnosticCheck {
             "Keychain access",
             "fail",
             "`security` returned an unexpected error.",
-            "Run `security find-generic-password -s 'Claude Code-credentials' -w` in Terminal to see the exact error.",
+            `Run \`security find-generic-password -s '${KEYCHAIN_SERVICE}' -w\` in Terminal to see the exact error.`,
           );
         default:
           break;
@@ -389,4 +407,5 @@ export const __internals = {
   isAbsolutePath,
   extractCmdHead,
   findExpiresAt,
+  homeRelative,
 };

@@ -42,6 +42,7 @@ vi.mock("fs", () => {
   };
   const readFile = (p: string): string => vfs.files[p] ?? enoent();
   return {
+    existsSync: (p: string): boolean => p in vfs.files || p in vfs.dirs,
     readdirSync: readdir,
     statSync: stat,
     readFileSync: readFile,
@@ -682,5 +683,112 @@ describe("aggregateUsage — CLAUDE_CONFIG_DIRS", () => {
     expect(out.totalTokens).toBe(400);
     expect(out.byProject.map((p) => p.slug).sort()).toEqual(["a", "z"]);
 
+  });
+});
+
+describe("aggregateUsage — subagent transcripts", () => {
+  /**
+   * Mirrors the CLI's on-disk layout (verified on 2.1.287):
+   *   <slug>/<sessionId>.jsonl                          parent transcript
+   *   <slug>/<sessionId>/subagents/agent-<id>.jsonl     subagent transcript
+   *   <slug>/<sessionId>/subagents/agent-<id>.meta.json sidecar, no usage
+   *   <slug>/<sessionId>/tool-results/                  no transcripts
+   * Subagent lines carry the PARENT's sessionId plus `isSidechain: true`
+   * and an `agentId`.
+   */
+  const SID = "1298a80a-f90a-4643-8eac-3e34fa69541d";
+  function setupSubagent(slug: string, agentId: string, lines: string[], mtime = 1000): string {
+    const projDir = path.join(PROJECTS_DIR, slug);
+    const sessionDir = path.join(projDir, SID);
+    const subDir = path.join(sessionDir, "subagents");
+    const filePath = path.join(subDir, `agent-${agentId}.jsonl`);
+    if (!vfs.dirs[projDir]?.includes(SID)) {
+      vfs.dirs[projDir] = [...(vfs.dirs[projDir] ?? []), SID];
+    }
+    vfs.dirs[sessionDir] = ["subagents", "tool-results"];
+    vfs.dirs[path.join(sessionDir, "tool-results")] = [];
+    vfs.dirs[subDir] = [
+      ...(vfs.dirs[subDir] ?? []),
+      `agent-${agentId}.jsonl`,
+      `agent-${agentId}.meta.json`,
+    ];
+    vfs.mtimes[filePath] = mtime;
+    vfs.files[filePath] = lines.join("\n");
+    vfs.files[path.join(subDir, `agent-${agentId}.meta.json`)] = '{"agentType":"Explore"}';
+    return filePath;
+  }
+  function subagentLine(agentId: string, opts: Parameters<typeof assistantLine>[0]): string {
+    return JSON.stringify({
+      ...JSON.parse(assistantLine(opts)),
+      isSidechain: true,
+      agentId,
+    });
+  }
+
+  it("counts subagent tokens and cost under the parent session and project", async () => {
+    setupProject("proj-a", `${SID}.jsonl`, [
+      userLine(SID, "2026-04-26T09:00:00Z", "/a"),
+      assistantLine({ sessionId: SID, cwd: "/a", input: 100, output: 100 }),
+    ]);
+    setupSubagent("proj-a", "a8bc52cc1f5176245", [
+      subagentLine("a8bc52cc1f5176245", {
+        sessionId: SID,
+        cwd: "/a",
+        model: "claude-haiku-4-5-20251001",
+        input: 40,
+        output: 60,
+      }),
+    ]);
+
+    const out = await warmUsageAggregate();
+    expect(out.totalTokens).toBe(300);
+    expect(out.totalSessions).toBe(1);
+    expect(out.byProject).toHaveLength(1);
+    expect(out.byProject[0].tokens).toBe(300);
+    expect(out.byProject[0].sessions).toBe(1);
+    expect(out.byModel.map((m) => m.model).sort()).toEqual([
+      "claude-haiku-4-5-20251001",
+      "claude-opus-4-7",
+    ]);
+    // The meta.json sidecar is never read as a transcript.
+    expect(vfs.reads.some((p) => p.endsWith(".meta.json"))).toBe(false);
+  });
+
+  it("counts a subagent API message once when its lines share message.id", async () => {
+    setupProject("proj-a", `${SID}.jsonl`, [userLine(SID)]);
+    setupSubagent("proj-a", "ab7d", [
+      subagentLine("ab7d", { sessionId: SID, messageId: "msg_sub", input: 10, output: 5 }),
+      subagentLine("ab7d", { sessionId: SID, messageId: "msg_sub", input: 10, output: 5 }),
+    ]);
+    const out = await warmUsageAggregate();
+    expect(out.totalTokens).toBe(15);
+  });
+
+  it("re-reads only the subagent transcript that changed", async () => {
+    setupProject("proj-a", `${SID}.jsonl`, [
+      assistantLine({ sessionId: SID, input: 10, output: 0 }),
+    ]);
+    const subPath = setupSubagent("proj-a", "a1", [
+      subagentLine("a1", { sessionId: SID, input: 20, output: 0 }),
+    ]);
+    await warmUsageAggregate();
+
+    vfs.reads = [];
+    vfs.files[subPath] += "\n" + subagentLine("a1", { sessionId: SID, input: 5, output: 0 });
+    vfs.mtimes[subPath] = 2000;
+    const out = await warmUsageAggregate();
+    expect(vfs.reads).toEqual([subPath]);
+    expect(out.totalInputTokens).toBe(35);
+  });
+
+  it("picks up a subagent transcript that appears mid-session", async () => {
+    setupProject("proj-a", `${SID}.jsonl`, [
+      assistantLine({ sessionId: SID, input: 10, output: 0 }),
+    ]);
+    const first = await warmUsageAggregate();
+    expect(first.totalInputTokens).toBe(10);
+    setupSubagent("proj-a", "a2", [subagentLine("a2", { sessionId: SID, input: 7, output: 0 })]);
+    const second = await warmUsageAggregate();
+    expect(second.totalInputTokens).toBe(17);
   });
 });

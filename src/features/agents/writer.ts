@@ -12,13 +12,13 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
+import { CLAUDE_DIR, projectClaudeDir } from "../../core/config";
 import { writeFileAtomic } from "../../core/atomicWrite";
 import { serializeFrontmatter, updateFrontmatterFields } from "../../core/frontmatter";
 import type { AgentInput } from "../../shared/protocol/messages";
 
 /** Global agents directory (~/.claude/agents/). */
-const GLOBAL_AGENTS_DIR: string = path.join(os.homedir(), ".claude", "agents");
+const GLOBAL_AGENTS_DIR: string = path.join(CLAUDE_DIR, "agents");
 
 /** Result of a writer call: ok, or a user-readable reason it was refused. */
 export interface WriteResult {
@@ -29,11 +29,25 @@ export interface WriteResult {
 /** Valid Claude agent name: lowercase letters, digits, hyphens. */
 const NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/** Resolve the agents directory for an editable scope, or null. */
-function agentsDir(scope: string, workspacePath?: string): string | null {
-  if (scope === "global") return GLOBAL_AGENTS_DIR;
-  if (scope === "project" && workspacePath) return path.join(workspacePath, ".claude", "agents");
+/**
+ * Why the workspace offers no project scope for agents, or null when it does.
+ * Shared with the webview (via the `agents` message) so the create form can
+ * say why "Project" is unavailable instead of failing on save.
+ */
+export function noProjectScopeReason(workspacePath?: string): string | null {
+  if (!workspacePath) return "No workspace folder is open, so there is no project .claude/agents.";
+  if (projectClaudeDir(workspacePath) === null) {
+    return "This workspace is your home folder: its .claude/agents is the global agents folder, so there is no separate project scope.";
+  }
   return null;
+}
+
+/** Resolve the agents directory for an editable scope, or null. */
+export function agentsDir(scope: string, workspacePath?: string): string | null {
+  if (scope === "global") return GLOBAL_AGENTS_DIR;
+  if (scope !== "project" || !workspacePath) return null;
+  const projectDir = projectClaudeDir(workspacePath);
+  return projectDir === null ? null : path.join(projectDir, "agents");
 }
 
 /** The frontmatter fields the UI manages, in canonical order. Empty → omitted. */
@@ -71,7 +85,14 @@ export function createAgent(input: AgentInput, workspacePath?: string): WriteRes
     return { ok: false, error: "Agent name must be lowercase letters, digits, and hyphens." };
   }
   const dir = agentsDir(input.scope, workspacePath);
-  if (!dir) return { ok: false, error: `Cannot write to ${input.scope} scope without a workspace.` };
+  if (!dir) {
+    return {
+      ok: false,
+      error:
+        (input.scope === "project" ? noProjectScopeReason(workspacePath) : null) ??
+        `Agents cannot be written to ${input.scope} scope.`,
+    };
+  }
 
   const filePath = path.join(dir, `${input.name}.md`);
   if (fs.existsSync(filePath)) {

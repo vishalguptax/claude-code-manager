@@ -117,6 +117,17 @@ vi.mock("../../account/projectStats", async (importActual) => {
     },
   };
 });
+let __clearOsPolicyCalls = 0;
+vi.mock("../../../core/managedSettings", async (importActual) => {
+  const actual = await importActual<typeof import("../../../core/managedSettings")>();
+  return {
+    ...actual,
+    clearOsPolicyCache: () => {
+      __clearOsPolicyCalls++;
+      actual.clearOsPolicyCache();
+    },
+  };
+});
 vi.mock("../searchIndex", () => ({
   indexSession: () => {},
   pruneIndex: () => {},
@@ -145,6 +156,7 @@ beforeEach(() => {
   __mockedSearchContent = () => [];
   __clearIndexCalls = 0;
   __clearModelCalls = 0;
+  __clearOsPolicyCalls = 0;
   __resetUsageCalls = 0;
   __htmlGen = 0;
 });
@@ -591,6 +603,9 @@ describe("ClaudeSessionViewProvider", () => {
     expect(__clearIndexCalls).toBeGreaterThanOrEqual(1);
     expect(__clearModelCalls).toBeGreaterThanOrEqual(1);
     expect(__resetUsageCalls).toBeGreaterThanOrEqual(1);
+    // …and forgets the cached OS policy sources so a newly pushed plist /
+    // registry policy is seen.
+    expect(__clearOsPolicyCalls).toBeGreaterThanOrEqual(1);
     // (c) WEBVIEW — the document was regenerated from the html builder, so
     // the post-reload html differs from the one set at resolve time.
     expect(view.webview.html).not.toBe(htmlAtResolve);

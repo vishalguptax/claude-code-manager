@@ -10,7 +10,7 @@
 import { computed, signal } from "@preact/signals";
 import type { McpServer, McpServerScope } from "../../types";
 
-/** Scope filter value — "all" plus the three real scopes. */
+/** Scope filter value — "all" plus the real scopes. */
 export type McpScopeFilter = "all" | McpServerScope;
 
 /** All servers as last received from the host. */
@@ -40,15 +40,15 @@ export const scopeFilter = signal<McpScopeFilter>("all");
 
 /** Count of servers in a given scope (unfiltered by search). */
 export const scopeCounts = computed(() => {
-  const counts = { project: 0, global: 0, plugin: 0 };
+  const counts: Record<McpServerScope, number> = { project: 0, local: 0, global: 0, plugin: 0 };
   for (const s of servers.value) counts[s.scope]++;
   return counts;
 });
 
 /**
  * Servers after applying the scope filter and search query, sorted with a
- * stable scope priority (project → global → plugin) so editable rows sit
- * above read-only plugin rows. Mirrors the vanilla `getFilteredServers`.
+ * stable scope priority (project → local → global → plugin) so the
+ * workspace's own servers lead and read-only plugin rows trail.
  */
 export const filteredServers = computed<McpServer[]>(() => {
   const query = searchQuery.value;
@@ -67,7 +67,7 @@ export const filteredServers = computed<McpServer[]>(() => {
     );
   }
 
-  const scopeOrder: Record<McpServerScope, number> = { project: 0, global: 1, plugin: 2 };
+  const scopeOrder: Record<McpServerScope, number> = { project: 0, local: 1, global: 2, plugin: 3 };
   return [...list].sort((a, b) => {
     if (a.scope !== b.scope) return scopeOrder[a.scope] - scopeOrder[b.scope];
     if (a.scope === "plugin" && a.pluginName !== b.pluginName) {

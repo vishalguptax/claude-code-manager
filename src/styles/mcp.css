@@ -361,12 +361,6 @@ button.mcp-auth-banner {
 .mcp-form-hint-error {
   color: var(--vscode-editorError-foreground, #f14c4c);
 }
-/* A fixed field value (a catalog preset's locked scope), set at the input's
-   text size so it lines up with the editable fields around it. */
-.mcp-form-value {
-  font-size: var(--fs-sm);
-  color: var(--fg);
-}
 /* What a catalog server needs before it works. Sits just above the actions,
    where the user's eye lands before pressing Add. */
 .mcp-form-note {

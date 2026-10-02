@@ -18,7 +18,7 @@ vi.mock("../../../core/config", () => ({ FILE_HISTORY_DIR }));
 
 import {
   blobPath,
-  foldSnapshots,
+  foldBackupRecords,
   hashFilePath,
   isValidSessionId,
   listCheckpointSessions,
@@ -28,7 +28,7 @@ import {
   readBlobIndex,
   readCheckpointBlob,
   resolveTrackedPath,
-  scanSnapshotLines,
+  scanBackupRecords,
 } from "../parser";
 import type { TrackedFileBackup } from "../types";
 
@@ -67,6 +67,26 @@ function snapshotLine(
       timestamp,
       trackedFileBackups,
     },
+  });
+}
+
+/**
+ * A `file-history-delta` JSONL line, in the key order Claude Code 2.1.287
+ * writes: one tracked file's backup added to the snapshot `snapshotMessageId`
+ * names.
+ */
+function deltaLine(
+  trackingPath: string,
+  backup: TrackedFileBackup,
+  snapshotMessageId = "1204e5f4-9883-437e-b3dd-77dadc1c10e2",
+): string {
+  return JSON.stringify({
+    type: "file-history-delta",
+    trackingPath,
+    messageId: "5b0c7e1a-3f2d-4c9e-8a61-0d4f2b7e9c13",
+    snapshotMessageId,
+    backup,
+    timestamp: "2026-09-11T19:02:14.102Z",
   });
 }
 
@@ -198,22 +218,22 @@ describe("readBlobIndex", () => {
   });
 });
 
-describe("scanSnapshotLines", () => {
+describe("scanBackupRecords", () => {
   it("returns nothing for a transcript with no snapshot lines", () => {
     const file = writeTranscript(SESSION, [
       JSON.stringify({ type: "user", message: { role: "user", content: "hi" } }),
       JSON.stringify({ type: "assistant", message: { role: "assistant", content: "ok" } }),
     ]);
-    expect(scanSnapshotLines(file)).toEqual([]);
+    expect(scanBackupRecords(file)).toEqual([]);
   });
 
   it("returns nothing for a missing transcript", () => {
-    expect(scanSnapshotLines(path.join(TRANSCRIPTS, "nope.jsonl"))).toEqual([]);
+    expect(scanBackupRecords(path.join(TRANSCRIPTS, "nope.jsonl"))).toEqual([]);
   });
 
   it("collects empty snapshots as empty records, not failures", () => {
     const file = writeTranscript(SESSION, [snapshotLine({}), snapshotLine({})]);
-    expect(scanSnapshotLines(file)).toEqual([{}, {}]);
+    expect(scanBackupRecords(file)).toEqual([{}, {}]);
   });
 
   it("skips malformed lines and keeps reading the rest of the file", () => {
@@ -223,7 +243,7 @@ describe("scanSnapshotLines", () => {
         "/a/b.ts": { backupFileName: "aaaaaaaaaaaaaaaa@v1", version: 1 },
       }),
     ]);
-    const records = scanSnapshotLines(file);
+    const records = scanBackupRecords(file);
     expect(records).toHaveLength(1);
     expect(Object.keys(records[0])).toEqual(["/a/b.ts"]);
   });
@@ -242,14 +262,50 @@ describe("scanSnapshotLines", () => {
         "/a/b.ts": { backupFileName: "aaaaaaaaaaaaaaaa@v3", version: 3 },
       }),
     ]);
-    expect(scanSnapshotLines(file)).toHaveLength(1);
+    expect(scanBackupRecords(file)).toHaveLength(1);
+  });
+
+  it("returns each delta as a one-entry record, in file order", () => {
+    const backup = { backupFileName: "aaaaaaaaaaaaaaaa@v1", version: 1, realParentDir: "/a" };
+    const file = writeTranscript(SESSION, [
+      snapshotLine({}),
+      deltaLine("b.ts", backup),
+      snapshotLine({ "c.ts": { backupFileName: null, version: 1 } }),
+    ]);
+    expect(scanBackupRecords(file)).toEqual([
+      {},
+      { "b.ts": backup },
+      { "c.ts": { backupFileName: null, version: 1 } },
+    ]);
+  });
+
+  it.each([
+    ["no trackingPath", { type: "file-history-delta", backup: { version: 1 } }],
+    ["a non-string trackingPath", { type: "file-history-delta", trackingPath: 7, backup: {} }],
+    ["no backup", { type: "file-history-delta", trackingPath: "b.ts" }],
+    ["a non-object backup", { type: "file-history-delta", trackingPath: "b.ts", backup: "x" }],
+  ])("skips a delta with %s", (_label, entry) => {
+    const file = writeTranscript(SESSION, [JSON.stringify(entry)]);
+    expect(scanBackupRecords(file)).toEqual([]);
+  });
+
+  it("ignores a line whose delta-shaped value is nested, not top-level", () => {
+    // The marker test is a pre-filter, not the decision: a tool result carrying
+    // a parsed delta line passes it, and must still not become a record.
+    const file = writeTranscript(SESSION, [
+      JSON.stringify({
+        type: "user",
+        toolUseResult: { type: "file-history-delta", trackingPath: "b.ts", backup: { version: 1 } },
+      }),
+    ]);
+    expect(scanBackupRecords(file)).toEqual([]);
   });
 
   it("refuses to follow a symlinked transcript", () => {
     const real = writeTranscript(OTHER_SESSION, [snapshotLine({})]);
     const link = path.join(TRANSCRIPTS, "link.jsonl");
     fs.symlinkSync(real, link);
-    expect(scanSnapshotLines(link)).toEqual([]);
+    expect(scanBackupRecords(link)).toEqual([]);
   });
 });
 
@@ -294,7 +350,7 @@ describe("resolveTrackedPath", () => {
   });
 });
 
-describe("foldSnapshots", () => {
+describe("foldBackupRecords", () => {
   // Blob names must be the real sha256 prefix of the resolved path — the fold
   // drops a record whose hash disagrees, because diff/restore re-derive it.
   const A = "/repo/src/a.ts";
@@ -303,7 +359,7 @@ describe("foldSnapshots", () => {
   const hashB = hashFilePath(B);
 
   it("unions records across lines and keeps one entry per version", () => {
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { [A]: { backupFileName: `${hashA}@v1`, version: 1, backupTime: "t1", realParentDir: "/repo/src" } },
       {},
       { [A]: { backupFileName: `${hashA}@v1`, version: 1, backupTime: "t1", realParentDir: "/repo/src" } },
@@ -322,7 +378,7 @@ describe("foldSnapshots", () => {
   });
 
   it("folds workspace-relative keys under their absolute path", () => {
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { "src/a.ts": { backupFileName: `${hashA}@v1`, version: 1, realParentDir: "/repo/src" } },
       { [A]: { backupFileName: `${hashA}@v2`, version: 2, realParentDir: "/repo/src" } },
     ]);
@@ -332,7 +388,7 @@ describe("foldSnapshots", () => {
   });
 
   it("keeps the highest version as latest even when lines arrive out of order", () => {
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { [A]: { backupFileName: `${hashA}@v5`, version: 5, backupTime: "t5", realParentDir: "/repo/src" } },
       { [A]: { backupFileName: `${hashA}@v2`, version: 2, backupTime: "t2", realParentDir: "/repo/src" } },
     ]);
@@ -343,20 +399,20 @@ describe("foldSnapshots", () => {
   });
 
   it("trusts the filename's version over a disagreeing version field", () => {
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { [A]: { backupFileName: `${hashA}@v7`, version: 1, realParentDir: "/repo/src" } },
     ]);
     expect(folded.get(A)?.versions[0].version).toBe(7);
   });
 
   it("returns nothing for records that are all empty", () => {
-    expect(foldSnapshots([{}, {}, {}]).size).toBe(0);
+    expect(foldBackupRecords([{}, {}, {}]).size).toBe(0);
   });
 
   it("drops the 'tracked but not yet backed up' records", () => {
     // 19,704 of 67,390 real records carry backupFileName: null. There is no
     // blob behind them, so they are not versions.
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { [A]: { backupFileName: null, version: 0, realParentDir: "/repo/src" } },
       { [A]: { backupFileName: `${hashA}@v1`, version: 1, realParentDir: "/repo/src" } },
     ]);
@@ -364,7 +420,7 @@ describe("foldSnapshots", () => {
   });
 
   it("drops a record whose backupFileName traverses", () => {
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { [A]: { backupFileName: "../../../../etc/passwd", version: 1, realParentDir: "/repo/src" } },
       { [B]: { backupFileName: "/etc/shadow", version: 1, realParentDir: "/repo/docs" } },
     ]);
@@ -375,14 +431,14 @@ describe("foldSnapshots", () => {
     // A transcript that points a plausible-looking blob at /etc/passwd must not
     // produce a restorable row: diff and restore re-derive the hash and would
     // refuse it, so the listing has to agree.
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { passwd: { backupFileName: `${hashA}@v1`, version: 1, realParentDir: "/etc" } },
     ]);
     expect(folded.size).toBe(0);
   });
 
   it("drops a later record that re-points an existing file at another blob", () => {
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { [A]: { backupFileName: `${hashA}@v1`, version: 1, realParentDir: "/repo/src" } },
       { [A]: { backupFileName: `${hashB}@v2`, version: 2, realParentDir: "/repo/src" } },
     ]);
@@ -391,18 +447,18 @@ describe("foldSnapshots", () => {
 
   it("drops a record keyed by a relative path with no absolute parent", () => {
     expect(
-      foldSnapshots([{ "b.ts": { backupFileName: `${hashA}@v1`, version: 1 } }]).size,
+      foldBackupRecords([{ "b.ts": { backupFileName: `${hashA}@v1`, version: 1 } }]).size,
     ).toBe(0);
   });
 
   it("drops a record with no backupFileName at all", () => {
     expect(
-      foldSnapshots([{ [A]: { version: 1, realParentDir: "/repo/src" } }]).size,
+      foldBackupRecords([{ [A]: { version: 1, realParentDir: "/repo/src" } }]).size,
     ).toBe(0);
   });
 
   it("leaves availability false — that is the blob index's job", () => {
-    const folded = foldSnapshots([
+    const folded = foldBackupRecords([
       { [A]: { backupFileName: `${hashA}@v1`, version: 1, realParentDir: "/repo/src" } },
     ]);
     expect(folded.get(A)?.versions[0].available).toBe(false);
@@ -572,6 +628,103 @@ describe("parseSessionCheckpoints", () => {
     expect(result.files[0].versions).toHaveLength(1);
     expect(result.files[0].versions[0].available).toBe(true);
     expect(result.orphanCount).toBe(0);
+  });
+
+  describe("transcripts written since Claude Code 2.1.287, with delta lines", () => {
+    // Contract tests. Each mirrors the real record shapes: the delta's
+    // trackingPath is workspace-relative like a snapshot key, it records v1 (all
+    // 764 real deltas did), and later snapshots carry v2+ without re-stating it.
+    const REAL = "/Users/v/repo/src/lib/format.ts";
+    const DIR = "/Users/v/repo/src/lib";
+    const realHash = hashFilePath(REAL);
+    const SNAPSHOT_ID = "1204e5f4-9883-437e-b3dd-77dadc1c10e2";
+
+    it("folds a delta's version into the file its snapshots record", () => {
+      writeBlob(SESSION, `${realHash}@v1`, "one");
+      writeBlob(SESSION, `${realHash}@v2`, "two");
+      const transcript = writeTranscript(SESSION, [
+        snapshotLine({}),
+        deltaLine(
+          "src/lib/format.ts",
+          { backupFileName: `${realHash}@v1`, version: 1, backupTime: "2026-09-11T19:02:14.100Z", realParentDir: DIR },
+          SNAPSHOT_ID,
+        ),
+        snapshotLine({
+          "src/lib/format.ts": { backupFileName: `${realHash}@v2`, version: 2, backupTime: "2026-09-11T19:09:00.000Z", realParentDir: DIR },
+        }),
+      ]);
+
+      const [file] = parseSessionCheckpoints(SESSION, transcript).files;
+      expect(file.path).toBe(REAL);
+      expect(file.versions.map((v) => [v.version, v.available])).toEqual([
+        [1, true],
+        [2, true],
+      ]);
+      // v1's recorded time exists only on the delta; without it the listing
+      // would fall back to the blob's mtime.
+      expect(file.versions[0].backupTime).toBe("2026-09-11T19:02:14.100Z");
+      expect(file.latestVersion).toBe(2);
+      expect(file.latestBackupTime).toBe("2026-09-11T19:09:00.000Z");
+    });
+
+    it("lists a file that only a delta ever recorded, instead of counting an orphan", () => {
+      writeBlob(SESSION, `${realHash}@v1`, "one");
+      const transcript = writeTranscript(SESSION, [
+        snapshotLine({}),
+        deltaLine("src/lib/format.ts", {
+          backupFileName: `${realHash}@v1`,
+          version: 1,
+          backupTime: "2026-09-11T19:02:14.100Z",
+          realParentDir: DIR,
+        }),
+      ]);
+
+      const result = parseSessionCheckpoints(SESSION, transcript);
+      expect(result.files.map((f) => f.path)).toEqual([REAL]);
+      expect(result.files[0].availableCount).toBe(1);
+      expect(result.orphanCount).toBe(0);
+    });
+
+    it("offers no version for a delta with a null backupFileName", () => {
+      // 426 of 764 real deltas: the file did not exist before Claude Code
+      // created it, so there are no earlier contents to diff or restore.
+      const transcript = writeTranscript(SESSION, [
+        snapshotLine({}),
+        deltaLine("src/lib/format.ts", {
+          backupFileName: null,
+          version: 1,
+          backupTime: "2026-09-11T19:02:14.100Z",
+          realParentDir: DIR,
+        }),
+      ]);
+      expect(parseSessionCheckpoints(SESSION, transcript).files).toEqual([]);
+    });
+
+    it("lists a pruned delta backup as unavailable instead of skipping its version", () => {
+      // 2.1.287 prunes superseded backups, so v1's blob is gone while the delta
+      // still cites it. Restore re-reads the blob and refuses a missing one.
+      writeBlob(SESSION, `${realHash}@v2`, "two");
+      const transcript = writeTranscript(SESSION, [
+        snapshotLine({}),
+        deltaLine("src/lib/format.ts", {
+          backupFileName: `${realHash}@v1`,
+          version: 1,
+          backupTime: "2026-09-11T19:02:14.100Z",
+          realParentDir: DIR,
+        }),
+        snapshotLine({
+          "src/lib/format.ts": { backupFileName: `${realHash}@v2`, version: 2, backupTime: "2026-09-11T19:09:00.000Z", realParentDir: DIR },
+        }),
+      ]);
+
+      const [file] = parseSessionCheckpoints(SESSION, transcript).files;
+      expect(file.versions.map((v) => [v.version, v.available, v.sizeBytes])).toEqual([
+        [1, false, 0],
+        [2, true, 3],
+      ]);
+      expect(file.availableCount).toBe(1);
+      expect(readCheckpointBlob(SESSION, file.versions[0].backupFileName)).toBeNull();
+    });
   });
 
   it("returns nothing for a non-UUID session directory", () => {

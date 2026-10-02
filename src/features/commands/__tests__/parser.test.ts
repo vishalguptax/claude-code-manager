@@ -143,3 +143,13 @@ describe("parseCommands — plugin discovery", () => {
     expect(bar?.description).toBe("Bar via TOML");
   });
 });
+
+describe("parseCommands — home folder as workspace", () => {
+  it("lists each user command once, as global, when the workspace is ~", () => {
+    const dir = path.join(HOME, ".claude", "commands");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "review.md"), "Review the diff.");
+    const custom = parseCommands(HOME).filter((c) => c.scope !== "builtin");
+    expect(custom.map((c) => `${c.scope}:${c.name}`)).toEqual(["global:review"]);
+  });
+});

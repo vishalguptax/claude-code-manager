@@ -158,8 +158,8 @@ export default function McpTab() {
           })
         }
         onOpenExisting={(name) => {
-          // The list's own order (project before global) decides which
-          // entry opens when the name is configured in both scopes.
+          // The list's own order (project, local, global) decides which
+          // entry opens when the name is configured in several scopes.
           selected.value = filteredServers.value.find((s) => s.name === name) ?? null;
           close();
         }}

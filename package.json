@@ -359,7 +359,8 @@
   },
   "size-limit": [
     {
-      "path": "dist/extension.js",
+      "name": "extension host (entry + main bundle)",
+      "path": ["dist/extension.js", "dist/extension-main.js"],
       "limit": "400 KB"
     },
     {

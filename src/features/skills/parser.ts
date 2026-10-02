@@ -1,11 +1,13 @@
 /**
- * Skill parsing — reads skill folders from global and project directories,
- * parses SKILL.md frontmatter and body.
+ * Skill parsing — reads skill folders from the project, global, claude.ai
+ * synced and plugin sources, parses SKILL.md frontmatter and body.
  * Pure Node.js file I/O, no VS Code dependency.
  */
 import * as fs from "fs";
 import * as path from "path";
-import * as os from "os";
+import { activeSyncedDir, SYNCED_DIR_NAME, syncedDirName } from "../../core/claudeAiSync";
+import { CLAUDE_DIR, projectClaudeDir } from "../../core/config";
+import { asObject, readJsonObject } from "../../core/jsonFile";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { parseFrontmatter, fmString, fmList } from "../../core/frontmatter";
 import { loadActivePlugins, resolvePluginContentDirs, type ActivePlugin } from "../../core/plugins";
@@ -20,7 +22,16 @@ import type { Skill } from "./types";
 const skillCache = createMtimeCache<Skill>();
 
 /** Global skills directory (~/.claude/skills/) */
-const GLOBAL_SKILLS_DIR: string = path.join(os.homedir(), ".claude", "skills");
+export const GLOBAL_SKILLS_DIR: string = path.join(CLAUDE_DIR, "skills");
+
+/**
+ * Entries of the global skills dir that Claude Code owns rather than loads
+ * as user skills: `synced/` holds every claude.ai account's synced skills
+ * (read separately, active account only — see claudeAiSync.ts), and
+ * `.trash/` is where synced skills go once sync is turned off. Walking them
+ * listed each synced skill once per account as an editable user skill.
+ */
+const RESERVED_GLOBAL_ENTRIES = new Set([SYNCED_DIR_NAME, ".trash"]);
 
 /**
  * Read `tags` from parsed frontmatter, accepting either a YAML list
@@ -57,6 +68,8 @@ const MAX_SKILLS_DEPTH = 6;
  */
 interface ReadSkillsOpts {
   scope: "global" | "project" | "plugin";
+  /** Top-level entries of `root` that are not skill folders. */
+  skip?: ReadonlySet<string>;
   /**
    * For `scope: "plugin"`, the qualified plugin name carried onto
    * each Skill and prefixed into its ID so plugin items are
@@ -85,6 +98,7 @@ function readSkillsFromDir(root: string, opts: ReadSkillsOpts): Skill[] {
     }
 
     for (const entry of entries) {
+      if (depth === 0 && opts.skip?.has(entry)) continue;
       const folderPath = path.join(dir, entry);
       try {
         if (!fs.statSync(folderPath).isDirectory()) continue;
@@ -134,8 +148,56 @@ function readSkillsFromDir(root: string, opts: ReadSkillsOpts): Skill[] {
 }
 
 /**
- * Parse all skills from both global (~/.claude/skills/) and project-level
- * (.claude/skills/) directories.
+ * Read a claude.ai bucket's skills. Claude Code loads exactly the skills its
+ * `manifest.json` lists (`{ skills: [{ name, skillId, description, … }] }`),
+ * each from `<bucket>/<dir name>/SKILL.md` (see `syncedDirName`); folders the manifest does not list
+ * (a `.staging` dir, a skill mid-download) are not loaded.
+ */
+function readSyncedSkills(bucket: string): Skill[] {
+  const res = readJsonObject(path.join(bucket, "manifest.json"));
+  const rows = res.kind === "ok" && Array.isArray(res.data.skills) ? res.data.skills : [];
+  const skills: Skill[] = [];
+  for (const row of rows) {
+    const name = asObject(row)?.name;
+    if (typeof name !== "string") continue;
+    const dirName = syncedDirName(name);
+    if (dirName === null) continue;
+    const folderPath = path.join(bucket, dirName);
+    const skillFile = path.join(folderPath, "SKILL.md");
+    try {
+      skills.push(
+        skillCache.get(skillFile, (p) => {
+          const raw = fs.readFileSync(p, "utf-8");
+          const fm = parseFrontmatter(raw);
+          return {
+            id: `claude.ai:${name}`,
+            name: fmString(fm, "name") || name,
+            description: fmString(fm, "description") ?? "",
+            scope: "claude.ai",
+            path: folderPath,
+            content: raw,
+            tags: parseTags(fm),
+            group: "",
+          };
+        }),
+      );
+    } catch {
+      // Listed but not on disk yet — the next sync round fills it in.
+    }
+  }
+  return skills;
+}
+
+/** The workspace's own `.claude/skills`, or null when it has no project dir. */
+export function projectSkillsDir(workspacePath?: string): string | null {
+  const projectDir = workspacePath ? projectClaudeDir(workspacePath) : null;
+  return projectDir === null ? null : path.join(projectDir, "skills");
+}
+
+/**
+ * Parse all skills Claude Code would load: project-level (`.claude/skills/`
+ * of the workspace, when it has its own), global (`~/.claude/skills/`),
+ * synced from the active claude.ai account, and plugin-provided.
  *
  * @param workspacePath - Absolute path to the current VS Code workspace folder (optional)
  * @returns Array of all discovered Skill objects, project skills first
@@ -143,14 +205,22 @@ function readSkillsFromDir(root: string, opts: ReadSkillsOpts): Skill[] {
 export function parseSkills(workspacePath?: string): Skill[] {
   const skills: Skill[] = [];
 
-  // Project-level skills
-  if (workspacePath) {
-    const projectSkillsDir = path.join(workspacePath, ".claude", "skills");
-    skills.push(...readSkillsFromDir(projectSkillsDir, { scope: "project" }));
+  // Project-level skills. None when the workspace is the home folder: its
+  // .claude/skills IS the global dir, and reading it twice listed every
+  // user skill again as "project".
+  const projectSkills = projectSkillsDir(workspacePath);
+  if (projectSkills) {
+    skills.push(...readSkillsFromDir(projectSkills, { scope: "project" }));
   }
 
   // Global skills
-  skills.push(...readSkillsFromDir(GLOBAL_SKILLS_DIR, { scope: "global" }));
+  skills.push(
+    ...readSkillsFromDir(GLOBAL_SKILLS_DIR, { scope: "global", skip: RESERVED_GLOBAL_ENTRIES }),
+  );
+
+  // Skills synced from the signed-in claude.ai account.
+  const bucket = activeSyncedDir(path.join(GLOBAL_SKILLS_DIR, SYNCED_DIR_NAME), "skills");
+  if (bucket) skills.push(...readSyncedSkills(bucket));
 
   // Plugin-provided skills. Each active plugin may declare a custom
   // skills path (manifest.skills) or fall back to the conventional

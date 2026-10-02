@@ -6,7 +6,7 @@
 import { computed, signal } from "@preact/signals";
 import type { Skill } from "../../types";
 
-export type ScopeFilter = "all" | "project" | "global" | "plugin";
+export type ScopeFilter = "all" | Skill["scope"];
 
 /**
  * Whether the first `skills` (or terminating `error`) message has arrived.
@@ -51,12 +51,18 @@ function matchesQuery(skill: Skill, query: string): boolean {
   );
 }
 
-/** Scope display priority: project, then global, then plugin. */
-const SCOPE_ORDER: Record<Skill["scope"], number> = { project: 0, global: 1, plugin: 2 };
+/** Scope display priority: project, global, claude.ai, then plugin. */
+const SCOPE_ORDER: Record<Skill["scope"], number> = {
+  project: 0,
+  global: 1,
+  "claude.ai": 2,
+  plugin: 3,
+};
 
 /**
  * Skills filtered by the active scope + search query and sorted with
- * project skills first, then global, then plugin (grouped by plugin name).
+ * project skills first, then global, claude.ai, then plugin (grouped by
+ * plugin name).
  */
 export const filteredSkills = computed<Skill[]>(() => {
   const query = searchQuery.value;

@@ -7,6 +7,7 @@ import {
   orphaned,
   overridden,
   plugin,
+  syncedPlugin,
   untrusted,
 } from "../../__tests__/fixtures";
 import { PluginItem } from "./PluginItem";
@@ -157,5 +158,15 @@ describe("PluginItem", () => {
   it("marks the open plugin as the active row", () => {
     const { container } = renderItem(plugin(), { active: true });
     expect(container.querySelector(".plg-item")?.classList.contains("active")).toBe(true);
+  });
+});
+
+describe("PluginItem — synced from claude.ai", () => {
+  it("badges it claude.ai, names the source, and has no toggle", () => {
+    const { container } = renderItem(syncedPlugin);
+    expect(screen.getByTitle("Synced from your claude.ai account").textContent).toBe("claude.ai");
+    expect(container.querySelector(".plg-item-source")?.textContent).toContain("claude.ai");
+    expect(container.querySelector(".plg-item-toggle")).toBeNull();
+    expect(screen.getByText("Synced from your claude.ai account, which turns it on.")).toBeTruthy();
   });
 });

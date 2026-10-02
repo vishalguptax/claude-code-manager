@@ -228,6 +228,34 @@ describe("validatePortableSession", () => {
     }
   });
 
+  it("counts the person's prompts only, not tool results or injected records", () => {
+    // Origin keys as Claude Code 2.1.287 writes them; text is placeholder.
+    const r = validatePortableSession(
+      jsonl(
+        { sessionId: "abc", type: "user", origin: { kind: "human" }, promptSource: "typed", message: { role: "user", content: "hi" } },
+        { sessionId: "abc", type: "user", message: { role: "user", content: [{ type: "tool_result", content: "ok" }] } },
+        { sessionId: "abc", type: "user", origin: { kind: "task-notification" }, turnOrigin: "task_notification", message: { role: "user", content: "<task-notification/>" } },
+        { sessionId: "abc", type: "user", isMeta: true, origin: { kind: "peer" }, message: { role: "user", content: "peer" } },
+        { sessionId: "abc", type: "user", isMeta: true, message: { role: "user", content: "Caveat" } },
+      ),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.userMessageCount).toBe(1);
+  });
+
+  it("still accepts a session nobody typed into, reporting zero prompts", () => {
+    const r = validatePortableSession(
+      jsonl({
+        sessionId: "abc",
+        type: "user",
+        origin: { kind: "task-notification" },
+        message: { role: "user", content: "<task-notification/>" },
+      }),
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.userMessageCount).toBe(0);
+  });
+
   it("ignores blank lines between entries", () => {
     const r = validatePortableSession(
       `{"sessionId":"abc","message":{"role":"user","content":"hi"}}\n\n\n{"sessionId":"abc","type":"snapshot"}\n`,

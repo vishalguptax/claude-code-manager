@@ -5,7 +5,7 @@
  */
 import { cx } from "../../../../../webview/shared/lib";
 import { Button, ListItem } from "../../../../../webview/shared/ui";
-import { canToggleMcp, connectionPreview } from "../../lib";
+import { connectionPreview } from "../../lib";
 import type { McpServer } from "../../../types";
 import { DisabledBadge, PendingApprovalBadge, ReadOnlyBadge, TypeBadge } from "../McpBadges";
 
@@ -16,7 +16,7 @@ export interface McpItemProps {
   onCopyName: (name: string) => void;
   /** Right-click the row for the server's actions. */
   onContextMenu?: (server: McpServer, x: number, y: number) => void;
-  /** Switch a project server on or off without opening it. */
+  /** Switch the server on or off for this project without opening it. */
   onToggle?: (server: McpServer) => void;
 }
 
@@ -59,7 +59,7 @@ export function McpItem({
             onCopyName(server.name);
           }}
         />
-        {onToggle && canToggleMcp(server) ? (
+        {onToggle ? (
           <button
             type="button"
             role="switch"

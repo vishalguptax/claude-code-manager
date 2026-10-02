@@ -30,6 +30,11 @@ describe("groupSkills", () => {
     expect(buckets[0]?.label).toBe("Plugin: caveman@cm");
   });
 
+  it("puts synced skills under one claude.ai bucket", () => {
+    const buckets = groupSkills([makeSkill({ id: "claude.ai:docs", scope: "claude.ai" })]);
+    expect(buckets.map((b) => b.label)).toEqual(["claude.ai"]);
+  });
+
   it("falls back to 'unknown' for a plugin skill missing its name", () => {
     const buckets = groupSkills([makeSkill({ scope: "plugin", pluginName: undefined })]);
     expect(buckets[0]?.label).toBe("Plugin: unknown");

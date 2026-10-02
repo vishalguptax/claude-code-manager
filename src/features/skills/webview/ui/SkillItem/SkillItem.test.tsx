@@ -45,6 +45,12 @@ describe("SkillItem", () => {
     expect(badge.classList.contains("vsc-badge--scope-project")).toBe(true);
   });
 
+  it("badges a claude.ai skill in the not-yours-to-edit tone", () => {
+    renderItem({ scope: "claude.ai" });
+    const badge = screen.getByText("claude.ai");
+    expect(badge.classList.contains("vsc-badge--scope-builtin")).toBe(true);
+  });
+
   // `.item-prompt` ellipsizes at the row edge; the old 60-character cut
   // clipped mid-word at a width the component cannot know.
   it("renders the full description and exposes it on hover", () => {

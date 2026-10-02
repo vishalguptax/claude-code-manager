@@ -14,6 +14,20 @@ describe("QuotaBar", () => {
     expect(bar.getAttribute("aria-valuenow")).toBe("100");
   });
 
+  it("shows a caller-supplied figure in place of the percentage", () => {
+    render(
+      h(QuotaBar, {
+        label: "Spend limit",
+        window: { utilization: 130, resetsAt: "" },
+        figure: "$65.00 of $50.00 this month",
+      }),
+    );
+    expect(screen.getByText("$65.00 of $50.00 this month")).toBeTruthy();
+    expect(screen.queryByText("100%")).toBeNull();
+    // The bar still clamps: overspend has nowhere to go on the track.
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("100");
+  });
+
   it("shows a reset timer when resetsAt is set", () => {
     const future = new Date(Date.now() + 2 * 3600000).toISOString();
     render(h(QuotaBar, { label: "7-day window", window: { utilization: 30, resetsAt: future } }));

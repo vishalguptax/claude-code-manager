@@ -4,12 +4,10 @@ import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   buildPluginsData,
-  managedSettingsPath,
   marketplacePolicyLabel,
   marketplacePolicyMatches,
-  normaliseEnabledValue,
-  readJsonObject,
   readKnownMarketplaces,
+  readManagedScope,
   readMarketplaceCatalogs,
   readPluginBlocklist,
   readPluginSources,
@@ -18,6 +16,7 @@ import {
   resolvePluginConfigs,
   settingsScopePaths,
 } from "../parser";
+import { normaliseEnabledValue } from "../../../core/plugins";
 import type { RawCatalogPlugin } from "../catalog";
 import { install, marketplace, scopes } from "./fixtures";
 
@@ -479,6 +478,46 @@ describe("buildPluginsData — policy keys", () => {
     expect(data.policy.find((p) => p.key === "syncClaudeAiSkills")?.value).toBe(true);
   });
 
+  it("ignores a sync opt-out in project or local settings, like Claude Code", () => {
+    const data = buildPluginsData({
+      scopes: scopes({
+        global: { syncClaudeAiPlugins: true },
+        project: { syncClaudeAiPlugins: false },
+        local: { syncClaudeAiSkills: false },
+      }),
+      active: [],
+      known: {},
+      blocked: [],
+      catalogs: {},
+    });
+    // The user file, which Claude Code does read, decides the plugins key…
+    expect(data.policy.find((p) => p.key === "syncClaudeAiPlugins")).toMatchObject({
+      scope: "global",
+      value: true,
+      ignored: false,
+    });
+    // …and a key only a project/local file sets is listed as ignored.
+    expect(data.policy.find((p) => p.key === "syncClaudeAiSkills")).toMatchObject({
+      scope: "local",
+      value: false,
+      ignored: true,
+    });
+  });
+
+  it("lets managed settings decide a sync opt-out over user settings", () => {
+    const data = buildPluginsData({
+      scopes: scopes({ global: { syncClaudeAiSkills: true }, managed: { syncClaudeAiSkills: false } }),
+      active: [],
+      known: {},
+      blocked: [],
+      catalogs: {},
+    });
+    expect(data.policy.find((p) => p.key === "syncClaudeAiSkills")).toMatchObject({
+      scope: "managed",
+      ignored: false,
+    });
+  });
+
   it("lets the highest scope own a policy list outright", () => {
     const data = buildPluginsData({
       scopes: scopes({
@@ -630,6 +669,63 @@ describe("buildPluginsData — what the marketplaces offer", () => {
   });
 });
 
+describe("buildPluginsData — plugins synced from claude.ai", () => {
+  // As loadActivePlugins returns a `plugins/synced/<bucket>/design` install.
+  const design = install("design@synced", {
+    installPath:
+      "/Users/dev/.claude/plugins/synced/9fed4216-cef8-4112-a5f1-f6d81fd0cc9b_37a1ad5d-577a-4eda-999e-63a49f2c7ef8/design",
+    manifest: { name: "design", version: "1.2.0", description: "Accelerate design workflows" },
+    synced: true,
+  });
+
+  it("lists it as enabled by sync, from claude.ai, with no settings entry needed", () => {
+    const data = buildPluginsData({
+      scopes: scopes(),
+      active: [design],
+      known: {},
+      blocked: [],
+      catalogs: {},
+    });
+    expect(data.plugins).toEqual([
+      expect.objectContaining({
+        id: "design@synced",
+        name: "design",
+        marketplace: "claude.ai",
+        synced: true,
+        installed: true,
+        enabled: true,
+        status: "enabled",
+        decidedBy: null,
+        version: "1.2.0",
+        untrustedSource: false,
+      }),
+    ]);
+  });
+
+  it("does not invent a `synced` marketplace", () => {
+    const data = buildPluginsData({
+      scopes: scopes({ managed: { strictKnownMarketplaces: ["corp"] } }),
+      active: [design, install(CAVEMAN)],
+      known: { caveman: marketplace("JuliusBrussee/caveman") },
+      blocked: [],
+      catalogs: {},
+    });
+    expect(data.marketplaces.map((m) => m.name)).toEqual(["caveman"]);
+    expect(data.plugins.find((p) => p.id === "design@synced")?.untrustedSource).toBe(false);
+  });
+
+  it("marks installed plugins as not synced", () => {
+    const data = buildPluginsData({
+      scopes: scopes({ global: { enabledPlugins: { [CAVEMAN]: true } } }),
+      active: [install(CAVEMAN)],
+      known: {},
+      blocked: [],
+      catalogs: {},
+    });
+    expect(data.plugins[0].synced).toBe(false);
+  });
+});
+
 // ── Filesystem-facing readers ──────────────────────────────────────────────
 
 const ROOT = path.join(os.tmpdir(), "claude-manager-plugins-test");
@@ -640,49 +736,6 @@ function write(file: string, contents: string): string {
   fs.writeFileSync(full, contents);
   return full;
 }
-
-describe("readJsonObject", () => {
-  beforeEach(() => {
-    fs.rmSync(ROOT, { recursive: true, force: true });
-    fs.mkdirSync(ROOT, { recursive: true });
-  });
-  afterEach(() => fs.rmSync(ROOT, { recursive: true, force: true }));
-
-  it("reads an object", () => {
-    const file = write("a.json", '{"model":"opus"}');
-    expect(readJsonObject(file)).toEqual({ kind: "ok", data: { model: "opus" } });
-  });
-
-  it("reports a missing file as absent, not as an error", () => {
-    expect(readJsonObject(path.join(ROOT, "nope.json"))).toEqual({ kind: "absent" });
-  });
-
-  it("treats an empty or whitespace-only file as absent", () => {
-    expect(readJsonObject(write("empty.json", ""))).toEqual({ kind: "absent" });
-    expect(readJsonObject(write("blank.json", "  \n "))).toEqual({ kind: "absent" });
-  });
-
-  it("reports malformed JSON as invalid rather than throwing", () => {
-    const res = readJsonObject(write("bad.json", '{"a":1,}'));
-    expect(res.kind).toBe("invalid");
-  });
-
-  it("reports a non-object document as invalid", () => {
-    expect(readJsonObject(write("arr.json", "[1,2]")).kind).toBe("invalid");
-  });
-
-  it("refuses a symlink even when its target is valid JSON", () => {
-    const real = write("real.json", '{"a":1}');
-    const link = path.join(ROOT, "link.json");
-    fs.symlinkSync(real, link);
-    expect(readJsonObject(link).kind).toBe("invalid");
-  });
-
-  it("refuses a directory", () => {
-    fs.mkdirSync(path.join(ROOT, "dir.json"), { recursive: true });
-    expect(readJsonObject(path.join(ROOT, "dir.json")).kind).toBe("invalid");
-  });
-});
 
 describe("readSettingsScope", () => {
   beforeEach(() => {
@@ -825,13 +878,28 @@ describe("settingsScopePaths", () => {
   });
 });
 
-describe("managedSettingsPath", () => {
-  it("resolves the platform-specific admin policy file", () => {
-    expect(managedSettingsPath("darwin")).toBe(
-      "/Library/Application Support/ClaudeCode/managed-settings.json",
-    );
-    expect(managedSettingsPath("linux")).toBe("/etc/claude-code/managed-settings.json");
-    expect(managedSettingsPath("win32")).toContain("managed-settings.json");
+describe("readManagedScope", () => {
+  it("presents the managed tier as one scope named after its winning source", () => {
+    const read = readManagedScope({
+      settings: { blockedMarketplaces: ["rogue-mkt"] },
+      source: "/Users/dev/.claude/remote-settings.json",
+      errors: [],
+    });
+    expect(read).toEqual({
+      scope: "managed",
+      filePath: "/Users/dev/.claude/remote-settings.json",
+      data: { blockedMarketplaces: ["rogue-mkt"] },
+      error: null,
+    });
+  });
+
+  it("joins the tier's unreadable-file reports into the scope error", () => {
+    const read = readManagedScope({
+      settings: null,
+      source: "/etc/claude-code/managed-settings.json",
+      errors: ["a could not be read.", "b could not be read."],
+    });
+    expect(read.error).toBe("a could not be read. b could not be read.");
   });
 });
 

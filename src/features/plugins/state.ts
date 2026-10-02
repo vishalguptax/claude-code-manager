@@ -22,7 +22,8 @@
  */
 import type { ClaudeSettingsScope } from "../../core/config";
 import { isSafePluginId } from "./ids";
-import { normaliseEnabledValue, readSettingsScope, settingsScopePaths } from "./parser";
+import { normaliseEnabledValue } from "../../core/plugins";
+import { readSettingsScope, settingsScopePaths } from "./parser";
 import type { PluginSettingsScope } from "./types";
 
 /**

@@ -248,7 +248,11 @@ describe("brain importer — mcpServers merge into ~/.claude.json", () => {
     "refuses while Claude Code holds its config lock",
     () => {
       fs.writeFileSync(claudeJson, "{}");
-      fs.mkdirSync(`${claudeJson}.lock`); // fresh mtime: a live holder
+      fs.mkdirSync(`${claudeJson}.lock`);
+      // A live holder keeps renewing; dating it ahead keeps it live through a
+      // stall on a loaded machine.
+      const renewed = new Date(Date.now() + 60 * 60_000);
+      fs.utimesSync(`${claudeJson}.lock`, renewed, renewed);
       const summary = importBrain(mcpZip({ add: { command: "a" } }), undefined, ["global"]);
       expect(summary.warnings).toEqual([expect.stringMatching(/locked/)]);
       expect(fs.readFileSync(claudeJson, "utf-8")).toBe("{}");

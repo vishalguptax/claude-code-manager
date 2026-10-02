@@ -736,6 +736,18 @@
   margin-bottom: var(--space-xs);
 }
 .d-msg-user .d-msg-role { color: var(--accent); }
+/* Injected user-role records (task notifications, peer messages, meta
+   context) keep the muted Claude-side rail, dashed, so they never borrow
+   the accent that means "you said this". */
+.d-msg-injected { border-left-style: dashed; }
+.d-msg-injected-body > summary {
+  cursor: pointer;
+  color: var(--fg-dim);
+  font-size: var(--fs-sm);
+  padding: var(--space-xs) 0;
+  user-select: none;
+}
+.d-msg-injected-body[open] > summary { margin-bottom: var(--space-xs); }
 .d-msg-content {
   font-size: var(--fs-base);
   line-height: 1.55;

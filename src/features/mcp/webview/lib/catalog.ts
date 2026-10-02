@@ -11,9 +11,9 @@
  * servers that sign in through OAuth are preferred, because they need no
  * secret in the config at all. Where a token is unavoidable, the preset
  * references an environment variable (`${VAR}`) so no secret is ever written
- * to a file that may be committed. Claude Code expands `${VAR}` only in a
- * project's `.mcp.json` — a global entry would send the literal text — so a
- * token server can only be added at project scope.
+ * to a file that may be committed. Claude Code expands `${VAR}` in the
+ * command, args, env, url and headers of project, local and user servers
+ * alike (2.1.287), so a token server can be added at any scope.
  */
 import type { McpServerInput } from "../../../../shared/protocol/messages";
 import type { McpServerType } from "../../types";
@@ -238,8 +238,6 @@ export function catalogAuthHint(entry: McpCatalogEntry): string | null {
 export interface McpFormPreset {
   /** Every field but scope, which the user picks in the form. */
   input: Omit<McpServerInput, "scope">;
-  /** Offer only project scope — the one where `${VAR}` references expand. */
-  projectOnly: boolean;
   /** What the server needs before it works, shown under the form's fields. */
   note: string | null;
 }
@@ -254,7 +252,6 @@ export function catalogPreset(entry: McpCatalogEntry): McpFormPreset {
       url: entry.url,
       headers: entry.headers ? { ...entry.headers } : undefined,
     },
-    projectOnly: entry.auth === "token",
     note: catalogAuthHint(entry),
   };
 }

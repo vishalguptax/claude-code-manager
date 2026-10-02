@@ -14,8 +14,9 @@ export default defineConfig({
     // Collect both legacy __tests__/ suites and CDD co-located *.test.* files
     // that live next to the component they cover (FSD/CDD layout).
     include: ["src/**/*.test.{ts,tsx}"],
-    // Keeps every suite away from the real macOS Keychain; see the file.
-    setupFiles: ["src/__mocks__/keychainGuard.ts"],
+    // Keep every suite away from the real macOS Keychain and from a
+    // developer's exported CLAUDE_CONFIG_DIR; see each file.
+    setupFiles: ["src/__mocks__/keychainGuard.ts", "src/__mocks__/claudeEnvGuard.ts"],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

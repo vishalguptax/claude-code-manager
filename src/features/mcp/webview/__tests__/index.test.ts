@@ -128,7 +128,7 @@ describe("McpTab — catalog", () => {
       type: "addMcpServer",
       server: {
         name: "playwright",
-        scope: "project",
+        scope: "local",
         transport: "stdio",
         command: "npx",
         args: ["@playwright/mcp@latest"],

@@ -67,7 +67,7 @@ export interface StatuslineCache {
      * gateway reports overspend rather than clamping — so nothing here
      * may assume a 0-100 range.
      */
-    spendLimit: RateWindow | null;
+    spendLimit: SpendWindow | null;
   };
   /**
    * Per-session captures keyed by Claude's session_id. The top-level
@@ -275,6 +275,28 @@ export interface RateWindow {
   resetsAt: number;
 }
 
+/**
+ * Dollar figures behind the gateway spend cap. Claude Code 2.1.x adds
+ * `used_usd`, `limit_usd` and `period` to `rate_limits.spend_limit` only
+ * when the gateway is new enough and bills in USD (the CLI converts from
+ * the gateway's cents and drops the block for any other currency), so
+ * this is absent on older gateways even when the percentage is present.
+ */
+export interface SpendUsd {
+  usedUsd: number;
+  /** The cap in USD. 0 when the gateway reports no ceiling. */
+  limitUsd: number;
+  /** Budget period as the gateway names it ("daily" | "weekly" |
+   *  "monthly" today), or "" when unreported. Kept as a string so a new
+   *  period still renders. */
+  period: string;
+}
+
+/** The spend cap: a percentage window plus, when reported, its dollars. */
+export interface SpendWindow extends RateWindow {
+  usd: SpendUsd | null;
+}
+
 // ── Payload shape (all optional — owned by Claude Code) ──
 
 interface StatuslinePayload {
@@ -303,7 +325,7 @@ interface StatuslinePayload {
   rate_limits?: {
     five_hour?: RatePayload | null;
     seven_day?: RatePayload | null;
-    spend_limit?: RatePayload | null;
+    spend_limit?: SpendPayload | null;
   } | null;
   prompt_cache?: {
     warm?: unknown;
@@ -353,6 +375,12 @@ interface RepoPayload {
 interface RatePayload {
   used_percentage?: unknown;
   resets_at?: unknown;
+}
+
+interface SpendPayload extends RatePayload {
+  used_usd?: unknown;
+  limit_usd?: unknown;
+  period?: unknown;
 }
 
 function num(v: unknown): number {
@@ -423,6 +451,30 @@ function missCauseOf(v: unknown): PromptCacheMissCause | null {
 function window(raw: RatePayload | null | undefined): RateWindow | null {
   if (!raw || typeof raw.used_percentage !== "number") return null;
   return { usedPercent: num(raw.used_percentage), resetsAt: num(raw.resets_at) };
+}
+
+/**
+ * The spend cap keeps the percentage contract of the other windows (the
+ * CLI always sends `used_percentage`) and adds the dollar block when the
+ * payload carries both figures. One figure without the other cannot say
+ * "$X of $Y", so a half block is dropped rather than rendered as $0.
+ */
+function spendWindow(raw: SpendPayload | null | undefined): SpendWindow | null {
+  const base = window(raw);
+  if (!base || !raw) return null;
+  const usd =
+    typeof raw.used_usd === "number" && typeof raw.limit_usd === "number"
+      ? { usedUsd: num(raw.used_usd), limitUsd: num(raw.limit_usd), period: str(raw.period) }
+      : null;
+  return { ...base, usd };
+}
+
+/** Back-fill a persisted spend window written before `usd` existed. */
+function reviveSpendWindow(value: unknown): SpendWindow | null {
+  if (typeof value !== "object" || value === null) return null;
+  const raw = value as Partial<SpendWindow>;
+  if (typeof raw.usedPercent !== "number") return null;
+  return { usedPercent: raw.usedPercent, resetsAt: num(raw.resetsAt), usd: raw.usd ?? null };
 }
 
 function promptCacheOf(
@@ -600,7 +652,7 @@ export function extractCache(raw: string, now: number): StatuslineCache | null {
     rateLimits: {
       fiveHour: window(rl?.five_hour),
       sevenDay: window(rl?.seven_day),
-      spendLimit: window(rl?.spend_limit),
+      spendLimit: spendWindow(rl?.spend_limit),
     },
   };
 }
@@ -639,7 +691,7 @@ export function reviveCache(value: unknown): StatuslineCache | null {
     rateLimits: {
       fiveHour: raw.rateLimits?.fiveHour ?? null,
       sevenDay: raw.rateLimits?.sevenDay ?? null,
-      spendLimit: raw.rateLimits?.spendLimit ?? null,
+      spendLimit: reviveSpendWindow(raw.rateLimits?.spendLimit),
     },
     promptCache: revivePromptCache(raw.promptCache),
     pr: revivePr(raw.pr),

@@ -47,19 +47,22 @@ import * as path from "path";
 import * as os from "os";
 import * as crypto from "crypto";
 import { execFileSync } from "child_process";
-import { CLAUDE_DIR } from "../../core/config";
+import { keychainServiceName } from "../../core/claudeHome";
+import { CLAUDE_ENV, SECURE_STORAGE_DIR } from "../../core/config";
 
 /** Filesystem path Claude CLI writes credentials to (when not using Keychain). */
-export const CREDENTIALS_FILE: string = path.join(CLAUDE_DIR, ".credentials.json");
+export const CREDENTIALS_FILE: string = path.join(SECURE_STORAGE_DIR, ".credentials.json");
 
 /**
- * macOS Keychain item name Claude Code writes to. Stable in current
- * Claude Code releases; v2.0.14 briefly used `Claude Code` (no suffix)
- * and we probe that as a legacy fallback so users who logged in during
- * that window are not stranded.
+ * macOS Keychain item name Claude Code writes to: `Claude Code-credentials`
+ * for the default config dir, with a per-directory hash suffix when
+ * `CLAUDE_CONFIG_DIR` moves it — a fixed name would read, and on account
+ * switch overwrite, the default directory's login instead. v2.0.14 briefly
+ * used `Claude Code` (no `-credentials`) and we probe that as a legacy
+ * fallback so users who logged in during that window are not stranded.
  */
-const KEYCHAIN_SERVICE = "Claude Code-credentials";
-const KEYCHAIN_LEGACY_SERVICE = "Claude Code";
+export const KEYCHAIN_SERVICE = keychainServiceName(CLAUDE_ENV, "-credentials");
+const KEYCHAIN_LEGACY_SERVICE = keychainServiceName(CLAUDE_ENV, "");
 
 /** Absolute path to the macOS `security` CLI. Stable across versions. */
 const SECURITY_BIN = "/usr/bin/security";

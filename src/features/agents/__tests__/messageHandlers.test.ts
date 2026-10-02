@@ -6,16 +6,26 @@ import type { AgentInput } from "../../../shared/protocol/messages";
 
 const mockParseAgents = vi.fn();
 const mockCreate = vi.fn();
+const mockNoProject = vi.fn((_ws?: string): string | null => null);
+/** Resolves every path to a parsed, editable agent unless a test says otherwise. */
+const resolved = (p: string) => ({ ok: true, agent: { name: "x", path: p, scope: "global" } });
+const mockFindAgent = vi.fn(resolved);
+const mockFindEditable = vi.fn(resolved);
 const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 const mockDuplicate = vi.fn();
 
+vi.mock("../access", () => ({
+  findAgent: (p: string) => mockFindAgent(p),
+  findEditableAgent: (p: string) => mockFindEditable(p),
+}));
 vi.mock("../parser", () => ({ parseAgents: (...a: unknown[]) => mockParseAgents(...a) }));
 vi.mock("../writer", () => ({
   createAgent: (...a: unknown[]) => mockCreate(...a),
   updateAgent: (...a: unknown[]) => mockUpdate(...a),
   deleteAgent: (...a: unknown[]) => mockDelete(...a),
   duplicateAgent: (...a: unknown[]) => mockDuplicate(...a),
+  noProjectScopeReason: (ws?: string) => mockNoProject(ws),
 }));
 
 import { handleAgentMessage } from "../messageHandlers";
@@ -84,6 +94,18 @@ describe("getAgents", () => {
     expect(await handleAgentMessage({ type: "getAgents" }, ctx)).toBe(true);
     expect(setAgents[0]).toEqual([{ name: "a" }]);
     expect(posted[0]).toMatchObject({ type: "agents", errors: ["oops"] });
+    expect(posted[0]).not.toHaveProperty("noProjectScope", expect.anything());
+  });
+
+  it("tells the webview why there is no project scope", async () => {
+    mockParseAgents.mockReturnValue({ agents: [], errors: [] });
+    mockNoProject.mockReturnValueOnce("This workspace is your home folder");
+    const { ctx, posted } = harness();
+    await handleAgentMessage({ type: "getAgents" }, ctx);
+    expect(posted[0]).toMatchObject({
+      type: "agents",
+      noProjectScope: "This workspace is your home folder",
+    });
   });
 });
 
@@ -131,5 +153,33 @@ describe("deleteAgent", () => {
     const { ctx } = harness();
     await handleAgentMessage({ type: "deleteAgent", path: "/a/x.md" }, ctx);
     expect(mockDelete).not.toHaveBeenCalled();
+  });
+});
+
+describe("paths from the webview", () => {
+  const REFUSED = { ok: false, error: "/etc/passwd is not an agent Claude Code loads — refresh the list." };
+
+  it("refuses to write, duplicate or delete a path the host did not resolve", async () => {
+    mockFindEditable.mockReturnValue(REFUSED as never);
+    const errSpy = vi.spyOn(vscode.window, "showErrorMessage");
+    const warn = vi.spyOn(vscode.window, "showWarningMessage");
+    const { ctx } = harness();
+    await handleAgentMessage({ type: "updateAgent", path: "/etc/passwd", agent: agentInput() }, ctx);
+    await handleAgentMessage({ type: "duplicateAgent", path: "/etc/passwd" }, ctx);
+    await handleAgentMessage({ type: "deleteAgent", path: "/etc/passwd" }, ctx);
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockDuplicate).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    expect(errSpy).toHaveBeenCalledWith(REFUSED.error);
+    mockFindEditable.mockImplementation(resolved);
+  });
+
+  it("refuses to open a path that is not a parsed agent", async () => {
+    mockFindAgent.mockReturnValueOnce(REFUSED as never);
+    const open = vi.spyOn(vscode.workspace, "openTextDocument");
+    const { ctx } = harness();
+    await handleAgentMessage({ type: "openAgentFile", path: "/etc/passwd" }, ctx);
+    expect(open).not.toHaveBeenCalled();
   });
 });

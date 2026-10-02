@@ -125,13 +125,6 @@ describe("catalogPreset", () => {
     expect(preset.note).toBe("Reads GITHUB_PERSONAL_ACCESS_TOKEN from your environment.");
   });
 
-  // ${VAR} expands only in a project's .mcp.json.
-  it("restricts a token server to project scope, and nothing else", () => {
-    expect(catalogPreset(entry("github")).projectOnly).toBe(true);
-    expect(catalogPreset(entry("sentry")).projectOnly).toBe(false);
-    expect(catalogPreset(entry("playwright")).projectOnly).toBe(false);
-  });
-
   it("copies args and headers so editing the form cannot mutate the catalog", () => {
     const source = entry("playwright");
     const preset = catalogPreset(source);

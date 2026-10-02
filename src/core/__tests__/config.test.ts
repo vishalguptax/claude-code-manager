@@ -15,8 +15,10 @@ import {
   claudeSettingsPath,
   projectClaudeDir,
   CLAUDE_DIR,
+  CLAUDE_ENV,
   CLAUDE_JSON_FILE,
   FILE_HISTORY_DIR,
+  SECURE_STORAGE_DIR,
   SETTINGS_FILE,
 } from "../config";
 
@@ -124,6 +126,61 @@ describe("FILE_HISTORY_DIR", () => {
 describe("CLAUDE_JSON_FILE", () => {
   it("is ~/.claude.json, the sibling of the config directory", () => {
     expect(CLAUDE_JSON_FILE).toBe(path.join(os.homedir(), ".claude.json"));
+  });
+});
+
+describe("default layout", () => {
+  it("is byte-for-byte what it was before CLAUDE_CONFIG_DIR support", () => {
+    expect(CLAUDE_DIR).toBe(path.join(os.homedir(), ".claude"));
+    expect(CLAUDE_JSON_FILE).toBe(`${CLAUDE_DIR}.json`);
+    expect(SECURE_STORAGE_DIR).toBe(CLAUDE_DIR);
+    expect(CLAUDE_ENV).toEqual({});
+  });
+});
+
+/**
+ * The paths are fixed when the module loads, so each case loads a fresh copy
+ * after arranging the environment (or the entry bundle's published value).
+ */
+describe("custom config dir", () => {
+  const slot = Symbol.for("claudeManager.claudeEnv");
+  const custom = path.join(os.tmpdir(), "csm-custom-claude");
+
+  afterEach(() => {
+    delete process.env.CLAUDE_CONFIG_DIR;
+    delete (globalThis as Record<symbol, unknown>)[slot];
+    vi.resetModules();
+  });
+
+  async function loadConfig(): Promise<typeof import("../config")> {
+    vi.resetModules();
+    return import("../config");
+  }
+
+  it("follows CLAUDE_CONFIG_DIR from the environment", async () => {
+    process.env.CLAUDE_CONFIG_DIR = custom;
+    const cfg = await loadConfig();
+    expect(cfg.CLAUDE_DIR).toBe(custom);
+    expect(cfg.CLAUDE_JSON_FILE).toBe(path.join(custom, ".claude.json"));
+    expect(cfg.PROJECTS_DIR).toBe(path.join(custom, "projects"));
+    expect(cfg.SETTINGS_FILE).toBe(path.join(custom, "settings.json"));
+    expect(cfg.STATUSLINE_TAP_FILE).toBe(path.join(custom, ".claude-manager", "statusline-tap.js"));
+    expect(cfg.SECURE_STORAGE_DIR).toBe(custom);
+  });
+
+  it("prefers what the entry bundle published from the official extension's setting", async () => {
+    process.env.CLAUDE_CONFIG_DIR = path.join(os.tmpdir(), "csm-from-env");
+    (globalThis as Record<symbol, unknown>)[slot] = { CLAUDE_CONFIG_DIR: custom };
+    const cfg = await loadConfig();
+    expect(cfg.CLAUDE_ENV).toEqual({ CLAUDE_CONFIG_DIR: custom });
+    expect(cfg.CLAUDE_DIR).toBe(custom);
+    expect(cfg.CLAUDE_JSON_FILE).toBe(path.join(custom, ".claude.json"));
+  });
+
+  it("treats ~/.claude as a project dir once it is not the config dir", async () => {
+    process.env.CLAUDE_CONFIG_DIR = custom;
+    const cfg = await loadConfig();
+    expect(cfg.projectClaudeDir(os.homedir())).toBe(path.join(os.homedir(), ".claude"));
   });
 });
 

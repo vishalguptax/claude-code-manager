@@ -21,16 +21,6 @@ export function canEditMcp(server: McpServer): boolean {
 }
 
 /**
- * Only project `.mcp.json` servers can be switched off. Claude Code's toggle
- * is the `disabledMcpjsonServers` / `enabledMcpjsonServers` arrays, which
- * govern project scope alone — a user-scope server is removed from
- * `~/.claude.json`, not disabled, and a plugin server is the plugin's.
- */
-export function canToggleMcp(server: McpServer): boolean {
-  return server.scope === "project";
-}
-
-/**
  * Auth is OAuth (`claude mcp login` / `logout`), which is a remote-transport
  * concept. An stdio server runs a local command and has none.
  */
@@ -59,13 +49,14 @@ export function buildMcpMenu(server: McpServer, h: McpMenuHandlers): ContextMenu
   if (canEditMcp(server)) {
     items.push({ label: "Edit…", icon: "pencil", onSelect: () => h.onEdit(server) });
   }
-  if (canToggleMcp(server)) {
-    items.push({
-      label: server.disabled ? "Enable" : "Disable",
-      icon: server.disabled ? "play" : "x",
-      onSelect: () => h.onToggle(server),
-    });
-  }
+  // Every server can be switched off for this project, as `/mcp` does —
+  // plugin servers included, since the switch lives in the project's config,
+  // not the plugin's.
+  items.push({
+    label: server.disabled ? "Enable" : "Disable",
+    icon: server.disabled ? "play" : "x",
+    onSelect: () => h.onToggle(server),
+  });
   if (canAuthMcp(server)) {
     items.push({
       label: "Authenticate",

@@ -40,8 +40,9 @@ export function PolicyList({ entries }: PolicyListProps) {
           <div class="plg-item-detail">{valueText(entry.value)}</div>
           {entry.ignored ? (
             <div class="plg-item-warning" role="note">
-              Claude Code honours this key in managed settings only, so the value set here has
-              no effect.
+              {entry.managedOnly
+                ? "Claude Code honours this key in managed settings only, so the value set here has no effect."
+                : "Claude Code reads this key from user or managed settings only, so the value set here has no effect."}
             </div>
           ) : null}
         </div>

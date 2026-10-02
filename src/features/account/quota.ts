@@ -25,6 +25,8 @@ import type {
   ContextTokens,
   PromptCacheStats,
   RateWindow,
+  SpendUsd,
+  SpendWindow,
   StatuslineCache,
   StatuslinePullRequest,
   StatuslineRepo,
@@ -37,6 +39,14 @@ export interface QuotaWindow {
   utilization: number;
   /** ISO timestamp when the window resets, or "" when unknown. */
   resetsAt: string;
+}
+
+/**
+ * The gateway spend cap as the UI renders it: the percentage window plus
+ * its dollar figures when the gateway reports them (see `SpendUsd`).
+ */
+export interface SpendQuotaWindow extends QuotaWindow {
+  usd: SpendUsd | null;
 }
 
 /** Rolling rate-limit snapshot. Any window is null when Claude omitted it. */
@@ -53,7 +63,7 @@ export interface QuotaData {
    * Its `utilization` can exceed 100: a gateway reports overspend
    * rather than clamping at the cap.
    */
-  spendLimit: QuotaWindow | null;
+  spendLimit: SpendQuotaWindow | null;
   /** ISO time Claude Code last rendered the statusline (cache write). */
   capturedAt: string;
   /** ISO time we read the cache (local). */
@@ -153,6 +163,11 @@ function toWindow(w: RateWindow | null): QuotaWindow | null {
   };
 }
 
+function toSpendWindow(w: SpendWindow | null): SpendQuotaWindow | null {
+  const base = toWindow(w);
+  return base && w ? { ...base, usd: w.usd } : null;
+}
+
 /** Safe ISO from an epoch-ms value; "" when not a finite timestamp. */
 function isoFromMs(ms: number): string {
   return Number.isFinite(ms) ? new Date(ms).toISOString() : "";
@@ -196,7 +211,7 @@ export function readQuota(workspacePath?: string): QuotaResult {
       quota: {
         fiveHour: toWindow(cache.rateLimits.fiveHour),
         sevenDay: toWindow(cache.rateLimits.sevenDay),
-        spendLimit: toWindow(cache.rateLimits.spendLimit),
+        spendLimit: toSpendWindow(cache.rateLimits.spendLimit),
         capturedAt: captured,
         fetchedAt,
       },

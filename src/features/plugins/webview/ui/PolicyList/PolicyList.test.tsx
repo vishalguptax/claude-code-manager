@@ -45,6 +45,23 @@ describe("PolicyList", () => {
     expect(note.classList.contains("plg-item-warning")).toBe(true);
   });
 
+  it("says a sync opt-out in project settings is read from user or managed settings only", () => {
+    render(
+      <PolicyList
+        entries={[
+          policyEntry({
+            key: "syncClaudeAiSkills",
+            scope: "project",
+            value: false,
+            managedOnly: false,
+            ignored: true,
+          }),
+        ]}
+      />,
+    );
+    expect(screen.getByRole("note").textContent).toMatch(/user or managed settings only/);
+  });
+
   it("stays quiet about a key that is honoured where it was set", () => {
     render(<PolicyList entries={[policyEntry()]} />);
     expect(screen.queryByRole("note")).toBeNull();

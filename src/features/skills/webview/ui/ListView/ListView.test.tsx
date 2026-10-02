@@ -61,6 +61,16 @@ describe("ListView", () => {
     expect(screen.getByTitle("Plugin: 1")).toBeTruthy();
   });
 
+  it("renders a claude.ai filter only when synced skills exist", () => {
+    skills.value = [makeSkill({ id: "g", scope: "global" })];
+    render(h(ListView, {}));
+    expect(screen.queryByTitle(/^claude\.ai:/)).toBeNull();
+    cleanup();
+    skills.value = [makeSkill({ id: "claude.ai:docs", name: "docs", scope: "claude.ai" })];
+    render(h(ListView, {}));
+    expect(screen.getByTitle("claude.ai: 1")).toBeTruthy();
+  });
+
   it("clicking a scope tab updates the filter signal", () => {
     skills.value = [
       makeSkill({ id: "p", name: "proj", scope: "project" }),

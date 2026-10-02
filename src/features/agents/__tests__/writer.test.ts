@@ -13,7 +13,13 @@ vi.mock("os", async () => {
   return { ...actual, homedir: () => HOME };
 });
 
-import { createAgent, updateAgent, deleteAgent, duplicateAgent } from "../writer";
+import {
+  createAgent,
+  deleteAgent,
+  duplicateAgent,
+  noProjectScopeReason,
+  updateAgent,
+} from "../writer";
 import { parseFrontmatter } from "../../../core/frontmatter";
 import type { AgentInput } from "../../../shared/protocol/messages";
 
@@ -130,5 +136,31 @@ describe("duplicateAgent", () => {
     duplicateAgent(p);
     expect(fs.existsSync(path.join(GLOBAL_DIR, "reviewer-copy.md"))).toBe(true);
     expect(fs.existsSync(path.join(GLOBAL_DIR, "reviewer-copy-2.md"))).toBe(true);
+  });
+});
+
+describe("project scope availability", () => {
+  it("names why there is no project scope without a workspace, or in the home folder", () => {
+    fs.mkdirSync(HOME, { recursive: true });
+    expect(noProjectScopeReason()).toMatch(/No workspace folder/);
+    expect(noProjectScopeReason(HOME)).toMatch(/home folder/);
+    const ws = path.join(HOME, "repo");
+    fs.mkdirSync(ws, { recursive: true });
+    expect(noProjectScopeReason(ws)).toBeNull();
+  });
+
+  it("refuses a project-scope create in the home folder instead of writing ~/.claude/agents", () => {
+    fs.mkdirSync(HOME, { recursive: true });
+    const res = createAgent(input({ scope: "project" }), HOME);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/home folder/);
+    expect(fs.existsSync(path.join(GLOBAL_DIR, "reviewer.md"))).toBe(false);
+  });
+
+  it("writes a project-scope create into <workspace>/.claude/agents", () => {
+    const ws = path.join(HOME, "repo");
+    fs.mkdirSync(ws, { recursive: true });
+    expect(createAgent(input({ scope: "project" }), ws)).toEqual({ ok: true });
+    expect(fs.existsSync(path.join(ws, ".claude", "agents", "reviewer.md"))).toBe(true);
   });
 });

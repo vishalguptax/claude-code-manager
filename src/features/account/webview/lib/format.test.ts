@@ -15,6 +15,7 @@ import {
   formatPct,
   formatPlan,
   formatResetsIn,
+  formatSpend,
   quotaFreshness,
   quotaTone,
   shortenProjectPath,
@@ -112,6 +113,28 @@ describe("formatMoney", () => {
     // Intl accepts well-formed 3-letter codes and renders the code as
     // the symbol (e.g. "ZZZ 10.00"); either way the major amount shows.
     expect(formatMoney(1000, "ZZZ")).toContain("10.00");
+  });
+});
+
+describe("formatSpend", () => {
+  // formatMoney is locale-aware, so these pin the amounts and the wording
+  // rather than one locale's currency symbol placement.
+  it("reads used of limit with the period phrase", () => {
+    const out = formatSpend({ usedUsd: 12.4, limitUsd: 50, period: "monthly" });
+    expect(out).toMatch(/^\S*12\.40 of \S*50\.00 this month$/);
+  });
+  it("names daily and weekly budgets", () => {
+    expect(formatSpend({ usedUsd: 1, limitUsd: 5, period: "daily" })).toMatch(/ today$/);
+    expect(formatSpend({ usedUsd: 1, limitUsd: 5, period: "weekly" })).toMatch(/ this week$/);
+  });
+  it("says spent instead of 'of $0.00' when the gateway set no ceiling", () => {
+    const out = formatSpend({ usedUsd: 3.5, limitUsd: 0, period: "" });
+    expect(out).toMatch(/^\S*3\.50 spent$/);
+  });
+  it("still shows a period it has no phrase for", () => {
+    expect(formatSpend({ usedUsd: 1, limitUsd: 2, period: "quarterly" })).toMatch(
+      / \(quarterly\)$/,
+    );
   });
 });
 

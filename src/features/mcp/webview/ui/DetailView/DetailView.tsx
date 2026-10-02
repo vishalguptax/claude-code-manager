@@ -62,10 +62,6 @@ export function DetailView(props: DetailViewProps) {
   };
 
   const isPlugin = server.scope === "plugin";
-  // Only project .mcp.json servers can be enabled/disabled — Claude
-  // Code's toggle mechanism (the disabledMcpjsonServers arrays) governs
-  // project servers only. Global/plugin servers have no such switch.
-  const canToggle = server.scope === "project";
   const isUrl = isUrlTransport(server);
   // Health dot is a LOCAL, offline check: does the stdio launch command resolve
   // on PATH? It is NOT a live connection/online status (url servers get no dot).
@@ -123,11 +119,10 @@ export function DetailView(props: DetailViewProps) {
             Edit
           </Button>
         ) : null}
-        {canToggle ? (
-          <Button iconName={server.disabled ? "play" : "x"} onClick={() => onToggle(server)}>
-            {server.disabled ? "Enable" : "Disable"}
-          </Button>
-        ) : null}
+        {/* Any server can be switched off for this project, as /mcp does. */}
+        <Button iconName={server.disabled ? "play" : "x"} onClick={() => onToggle(server)}>
+          {server.disabled ? "Enable" : "Disable"}
+        </Button>
         {!isPlugin ? (
           <Button variant="danger" iconName="trash-2" onClick={() => onDelete(server)}>
             Delete
@@ -144,13 +139,6 @@ export function DetailView(props: DetailViewProps) {
         <div class="mcp-readonly-note">
           Owned by plugin {server.pluginName ?? ""} — managed by Claude Code's{" "}
           <code>/plugin</code> command.
-        </div>
-      ) : null}
-
-      {server.scope === "global" ? (
-        <div class="mcp-readonly-note mcp-global-note">
-          User-scope servers can't be enabled/disabled by Claude Code — remove the
-          entry from <code>~/.claude.json</code> to stop using it.
         </div>
       ) : null}
 
