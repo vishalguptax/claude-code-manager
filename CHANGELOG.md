@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.17.0] - 2026-10-02
+
+Claude Code Manager no longer corrupts Claude Code's settings, MCP approvals, sessions or logins, catches up with how Claude Code 2.1.287 stores things, and adds an MCP server catalog and a plugin marketplace browser.
+
+See [docs/releases/v2.17.0.md](docs/releases/v2.17.0.md) for full details.
+
 ## [2.16.0] - 2026-09-30
 
 Your 5-hour and weekly quota now live in the status bar, the Quota card points you to claude.ai's free limit reset when you're near a cap, and Config and Account open on what matters instead of every section at once.
