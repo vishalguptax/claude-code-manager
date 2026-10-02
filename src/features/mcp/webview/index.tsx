@@ -150,7 +150,12 @@ export default function McpTab() {
         configured={configuredNames(servers.value)}
         onBack={close}
         onAdd={(entry) =>
-          setOverlay({ kind: "form", server: null, preset: catalogPreset(entry), fromCatalog: true })
+          setOverlay({
+            kind: "form",
+            server: null,
+            preset: catalogPreset(entry),
+            fromCatalog: true,
+          })
         }
         onOpenExisting={(name) => {
           // The list's own order (project before global) decides which

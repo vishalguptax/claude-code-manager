@@ -51,7 +51,8 @@ export const tabOrderPref = signal<string[]>([]);
  * handshake lands.
  */
 export const claudeCodeInstalled = signal<boolean>(false);
-export const DEFAULT_SKILLS_MARKETPLACE_URL = "https://github.com/anthropics/claude-code/wiki/Skills";
+export const DEFAULT_SKILLS_MARKETPLACE_URL =
+  "https://github.com/anthropics/claude-code/wiki/Skills";
 export const DEFAULT_MCP_MARKETPLACE_URL = "https://mcp.so";
 /** `claudeManager.marketplaceSkillsUrl` — the Skills tab's "Browse community skills". */
 export const marketplaceSkillsUrl = signal<string>(DEFAULT_SKILLS_MARKETPLACE_URL);
