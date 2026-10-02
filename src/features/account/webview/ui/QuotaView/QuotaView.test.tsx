@@ -57,12 +57,10 @@ const SUCCESS: QuotaSuccess = {
     sessionName: "",
     capturedAt: new Date().toISOString(),
     promptCache: null,
-    // An ordinary session: no worktree, no open PR, and a checkout whose
-    // origin Claude Code did not report. All three absent is the common
-    // shape, and it must render as nothing at all.
+    // An ordinary session: no worktree and no open PR.
+    // Both absent is the common shape, and it must render as nothing at all.
     pr: null,
     worktree: null,
-    repo: null,
   },
 };
 
@@ -502,7 +500,7 @@ describe("QuotaView — limit reset link", () => {
 });
 
 /**
- * The repo / worktree / PR footnote. Fixtures mirror the statusline
+ * The worktree / PR footnote. Fixtures mirror the statusline
  * payload's real shapes — a GitHub PR carries no `kind`, a GitLab MR
  * carries "mr" — because that distinction is the whole reason the field
  * is read at all.
@@ -522,7 +520,7 @@ describe("QuotaView — branch facts", () => {
     kind: "",
   };
 
-  it("renders nothing at all when there is no repo, worktree or PR", () => {
+  it("renders nothing at all when there is no worktree or PR", () => {
     setQuotaSuccess(SUCCESS);
     const { container } = render(h(QuotaView, { api: stubApi() }));
     expect(container.querySelector(".acct-quota-branch")).toBeNull();
@@ -626,18 +624,14 @@ describe("QuotaView — branch facts", () => {
     expect(screen.getByText("spike")).toBeTruthy();
     expect(screen.queryByText(/^was on/)).toBeNull();
   });
-
-  it("shows owner/name for a github.com repo and adds the host for anything else", () => {
-    setQuotaSuccess(withPlace({ repo: { host: "github.com", owner: "acme", name: "widgets" } }));
+  it("never names the repository — it is the open workspace", () => {
+    setQuotaSuccess({
+      ...SUCCESS,
+      live: { ...SUCCESS.live, repo: { host: "github.com", owner: "acme", name: "widgets" } },
+    } as unknown as QuotaSuccess);
     render(h(QuotaView, { api: stubApi() }));
-    expect(screen.getByText("acme/widgets")).toBeTruthy();
-
-    _resetAccountState();
-    setQuotaSuccess(
-      withPlace({ repo: { host: "gitlab.acme.dev", owner: "acme", name: "widgets" } }),
-    );
-    const selfHosted = render(h(QuotaView, { api: stubApi() }));
-    expect(selfHosted.getByText("gitlab.acme.dev/acme/widgets")).toBeTruthy();
+    expect(screen.queryByText("Repo")).toBeNull();
+    expect(screen.queryByText(/acme\/widgets/)).toBeNull();
   });
 });
 
@@ -672,14 +666,36 @@ describe("QuotaView — live /usage fallback", () => {
     expect(api.launchSlash).toHaveBeenCalledWith("/usage");
   });
 
-  it("keeps an idle capture's bars and notes they may lag", () => {
+  it("keeps an idle capture's bars and notes in one line that they may lag", () => {
     setQuotaSuccess({ ...SUCCESS, quota: { ...SUCCESS.quota, capturedAt: minutesAgo(60) } });
     const api = stubApi();
-    render(h(QuotaView, { api }));
+    const { container } = render(h(QuotaView, { api }));
     expect(screen.getByText("5-hour window")).toBeTruthy();
-    expect(screen.getByText(/may lag/)).toBeTruthy();
+    expect(screen.getByText("May lag behind Claude")).toBeTruthy();
+    expect(screen.queryByText("Live figures")).toBeNull();
+    const hint = container.querySelectorAll(".acct-quota-branch");
+    expect(hint[hint.length - 1].querySelectorAll(".acct-quota-branch-line")).toHaveLength(1);
     fireEvent.click(screen.getByLabelText("Check live usage with /usage"));
     expect(api.launchSlash).toHaveBeenCalledWith("/usage");
+  });
+
+  it("keeps the 5-hour row when a render reports only the 7-day window", () => {
+    // Right after the 5-hour window rolls over, Claude Code has no data
+    // for it until the next request, so the render carries 7-day alone.
+    setQuotaSuccess({ ...SUCCESS, quota: { ...SUCCESS.quota, fiveHour: null } });
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.getByText("5-hour window")).toBeTruthy();
+    expect(screen.getByText(/after your next message/)).toBeTruthy();
+    expect(screen.getByText("7-day window")).toBeTruthy();
+  });
+
+  it("shows no 5-hour row when no subscription window is reported at all", () => {
+    setQuotaSuccess({
+      ...SUCCESS,
+      quota: { ...SUCCESS.quota, fiveHour: null, sevenDay: null, spendLimit: { utilization: 10, resetsAt: null, usd: null } },
+    } as unknown as QuotaSuccess);
+    render(h(QuotaView, { api: stubApi() }));
+    expect(screen.queryByText("5-hour window")).toBeNull();
   });
 
   it("stays out of the way while the capture is live", () => {

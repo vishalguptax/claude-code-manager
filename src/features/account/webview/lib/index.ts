@@ -22,7 +22,6 @@ export {
   formatPlan,
   formatPlanName,
   formatPrRef,
-  formatRepo,
   formatResetsIn,
   formatSpend,
   formatReviewState,

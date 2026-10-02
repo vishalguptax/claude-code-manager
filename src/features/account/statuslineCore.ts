@@ -100,13 +100,6 @@ export interface StatuslineCache {
    * ordinary session. Present only inside such a session.
    */
   worktree: StatuslineWorktree | null;
-  /**
-   * Repository identity derived from the origin remote, or null when
-   * there is no origin (or the CLI predates the block). Lives under the
-   * payload's `workspace` block, flattened here because nothing else in
-   * that block is rendered.
-   */
-  repo: StatuslineRepo | null;
 }
 
 /**
@@ -153,16 +146,6 @@ export interface StatuslineWorktree {
    * session has moved.
    */
   originalBranch: string;
-}
-
-/** Repository identity from the origin remote. */
-export interface StatuslineRepo {
-  /** Forge host, e.g. "github.com". "" when unreported. */
-  host: string;
-  /** Owner / org / group. Never empty. */
-  owner: string;
-  /** Repository name. Never empty. */
-  name: string;
 }
 
 /**
@@ -356,20 +339,6 @@ interface StatuslinePayload {
     original_cwd?: unknown;
     original_branch?: unknown;
   } | null;
-  workspace?: {
-    repo?: RepoPayload | null;
-  } | null;
-}
-
-/**
- * The payload's `workspace.repo` block. Its keys are already the ones we
- * persist — no snake_case to translate — so {@link repoOf} serves both
- * the live payload and the revive path.
- */
-interface RepoPayload {
-  host?: unknown;
-  owner?: unknown;
-  name?: unknown;
 }
 
 interface RatePayload {
@@ -573,25 +542,6 @@ function worktreeOf(
 }
 
 /**
- * Parse a `workspace.repo` block.
- *
- * `owner` and `name` are required together: the rendered form is
- * "owner/name", and half of that is a dangling slash. `host` is
- * genuinely optional and stays "" when unreported.
- *
- * Also used by {@link reviveCache} — this block's persisted keys are
- * identical to its payload keys, so one function covers both.
- */
-function repoOf(raw: unknown): StatuslineRepo | null {
-  if (typeof raw !== "object" || raw === null) return null;
-  const { host, owner, name } = raw as RepoPayload;
-  const ownerStr = str(owner);
-  const nameStr = str(name);
-  if (!ownerStr || !nameStr) return null;
-  return { host: str(host), owner: ownerStr, name: nameStr };
-}
-
-/**
  * Parse a raw statusline payload string into a `StatuslineCache`.
  * Returns null only when the input isn't valid JSON — a valid payload
  * missing every field still yields a cache (with nulls) so the caller
@@ -638,7 +588,6 @@ export function extractCache(raw: string, now: number): StatuslineCache | null {
     promptCache: promptCacheOf(payload.prompt_cache),
     pr: prOf(payload.pr),
     worktree: worktreeOf(payload.worktree),
-    repo: repoOf(payload.workspace?.repo),
     context: contextOf(ctx),
     cost:
       cost && typeof cost.total_cost_usd === "number"
@@ -696,7 +645,6 @@ export function reviveCache(value: unknown): StatuslineCache | null {
     promptCache: revivePromptCache(raw.promptCache),
     pr: revivePr(raw.pr),
     worktree: reviveWorktree(raw.worktree),
-    repo: repoOf(raw.repo),
   };
 }
 

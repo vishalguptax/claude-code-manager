@@ -49,7 +49,6 @@ import {
   formatMissCause,
   formatNumber,
   formatPrRef,
-  formatRepo,
   formatReviewState,
   formatSpend,
   quotaFreshness,
@@ -332,7 +331,11 @@ function QuotaSuccessBody({
   // just the bars.
   return (
     <div class="acct-quota-bars">
-      {fiveHour ? <QuotaBar label="5-hour window" window={fiveHour} /> : null}
+      {fiveHour ? (
+        <QuotaBar label="5-hour window" window={fiveHour} />
+      ) : sevenDay ? (
+        <PendingFiveHourRow />
+      ) : null}
       {sevenDay ? (
         <QuotaBar
           label="7-day window"
@@ -363,28 +366,46 @@ function QuotaSuccessBody({
 }
 
 /**
+ * A plan that reports a 7-day window always has a 5-hour one too, so its
+ * absence from a render is not "no such limit": Claude Code only reports a
+ * window once it holds rate-limit data for it, and right after the 5-hour
+ * window rolls over it has none until the next request. Hiding the row made
+ * the limit look gone; saying why keeps the card honest.
+ */
+function PendingFiveHourRow() {
+  return (
+    <div class="acct-quota-row">
+      <div class="acct-quota-row-head">
+        <span class="acct-quota-label">5-hour window</span>
+        <span class="acct-quota-pct">—</span>
+      </div>
+      <div class="acct-quota-sub">
+        <span>Not reported yet · Claude shows it after your next message</span>
+      </div>
+    </div>
+  );
+}
+
+/**
  * An idle capture keeps its bars — they are still the best local figure —
- * but says plainly that they may lag, and offers the live check. Styled as
- * a footnote like the reset row, so it never competes with the bars.
+ * but says plainly that they may lag, and offers the live check. One
+ * footnote line: a label, a button and a sentence for a single hint read
+ * as a dense block competing with the bars it qualifies.
  */
 function StaleUsageRow({ onCheckUsage }: { onCheckUsage: (e: Event) => void }) {
   return (
     <div class="acct-quota-branch">
       <div class="acct-quota-branch-line">
-        <span class="acct-quota-branch-label">Live figures</span>
+        <span class="acct-quota-branch-note">May lag behind Claude</span>
         <Button
           variant="ghost"
           class="acct-quota-reset-link"
-          iconName="terminal"
           title="Open Claude Code and run /usage"
           ariaLabel="Check live usage with /usage"
           onClick={onCheckUsage}
         >
           Check /usage
         </Button>
-      </div>
-      <div class="acct-quota-branch-note">
-        These bars are from Claude's last render and may lag.
       </div>
     </div>
   );
@@ -511,16 +532,17 @@ function PromptCacheRow({ stats }: { stats: PromptCacheStats | null }) {
 }
 
 /**
- * Where this session is working: repository, worktree, and the open
- * PR / MR on its branch. All three come straight from Claude Code's
- * statusline payload, which resolves them against git and the forge —
- * the PR in particular is something we could not derive ourselves
- * without a network call, and there will never be one here.
+ * Where this session is working: its worktree and the open PR / MR on
+ * its branch. Both come straight from Claude Code's statusline payload,
+ * which resolves them against git and the forge — the PR in particular is
+ * something we could not derive ourselves without a network call, and
+ * there will never be one here. The repository itself is not shown: it is
+ * the open workspace, so naming it under the quota bars only repeated it.
  *
  * Set as a footnote under the bars, in the same register as the
  * prompt-cache row: these are orientation facts, not figures, and must
  * not compete with the utilization they sit beneath. The whole block
- * disappears when the payload carries none of them, which is the common
+ * disappears when the payload carries neither, which is the common
  * case — an ordinary session, no worktree, no open PR.
  */
 function BranchFacts({
@@ -530,16 +552,10 @@ function BranchFacts({
   live: LiveSession;
   onOpenUrl: (url: string) => void;
 }) {
-  const { pr, worktree, repo } = live;
-  if (!pr && !worktree && !repo) return null;
+  const { pr, worktree } = live;
+  if (!pr && !worktree) return null;
   return (
     <div class="acct-quota-branch">
-      {repo ? (
-        <div class="acct-quota-branch-line">
-          <span class="acct-quota-branch-label">Repo</span>
-          <span class="acct-quota-branch-value">{formatRepo(repo)}</span>
-        </div>
-      ) : null}
       {worktree ? <WorktreeLine worktree={worktree} /> : null}
       {pr ? <PrLine pr={pr} onOpenUrl={onOpenUrl} /> : null}
     </div>

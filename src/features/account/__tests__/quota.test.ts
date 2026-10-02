@@ -123,7 +123,7 @@ describe("readQuota", () => {
     expect(result.data.quota.spendLimit).toBeNull();
   });
 
-  it("threads the pr / worktree / repo blocks into the live session", () => {
+  it("threads the pr / worktree blocks into the live session", () => {
     state.cache = JSON.stringify({
       capturedAt: 1_700_000_000_000,
       version: "2.1.273",
@@ -156,11 +156,9 @@ describe("readQuota", () => {
     });
     expect(result.data.live.worktree?.name).toBe("my-feature");
     expect(result.data.live.worktree?.originalBranch).toBe("main");
-    expect(result.data.live.repo).toEqual({
-      host: "github.com",
-      owner: "acme",
-      name: "widgets",
-    });
+    // A repo block an older tap persisted is not carried: the card never
+    // shows it, since it is the open workspace.
+    expect(result.data.live).not.toHaveProperty("repo");
   });
 
   it("yields null windows + null live fields when the cache omits them", () => {
@@ -181,10 +179,9 @@ describe("readQuota", () => {
     expect(result.data.live.contextUsedPercent).toBeNull();
     expect(result.data.live.sessionCostUsd).toBeNull();
     // A cache from a tap that predates these blocks reads as "no PR, no
-    // worktree, no repo" rather than crashing the whole quota read.
+    // worktree" rather than crashing the whole quota read.
     expect(result.data.live.pr).toBeNull();
     expect(result.data.live.worktree).toBeNull();
-    expect(result.data.live.repo).toBeNull();
   });
 
   it("blanks a reset time of 0", () => {

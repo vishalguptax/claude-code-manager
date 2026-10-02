@@ -29,7 +29,6 @@ import type {
   SpendWindow,
   StatuslineCache,
   StatuslinePullRequest,
-  StatuslineRepo,
   StatuslineWorktree,
 } from "./statuslineCore";
 
@@ -111,8 +110,6 @@ export interface LiveSession {
   pr: StatuslinePullRequest | null;
   /** The worktree this session runs in, or null outside a worktree session. */
   worktree: StatuslineWorktree | null;
-  /** Origin remote's repository identity, or null when unreported. */
-  repo: StatuslineRepo | null;
 }
 
 /** Combined payload — quota + live session, both from one cache read. */
@@ -229,7 +226,6 @@ export function readQuota(workspacePath?: string): QuotaResult {
         promptCache: cache.promptCache ?? null,
         pr: cache.pr ?? null,
         worktree: cache.worktree ?? null,
-        repo: cache.repo ?? null,
       },
     },
   };

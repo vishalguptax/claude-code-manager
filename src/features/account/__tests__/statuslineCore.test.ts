@@ -351,8 +351,13 @@ const PLACE_PAYLOAD = {
   },
 };
 
-describe("extractCache — pr / worktree / repo", () => {
-  it("normalises all three blocks from a full payload", () => {
+describe("extractCache — pr / worktree", () => {
+  it("does not keep the workspace repo — the card never shows it", () => {
+    const cache = extractCache(JSON.stringify(PLACE_PAYLOAD), NOW)!;
+    expect(cache).not.toHaveProperty("repo");
+  });
+
+  it("normalises both blocks from a full payload", () => {
     const cache = extractCache(JSON.stringify(PLACE_PAYLOAD), NOW)!;
     expect(cache.pr).toEqual({
       number: 412,
@@ -367,14 +372,12 @@ describe("extractCache — pr / worktree / repo", () => {
       originalCwd: "/Users/dev/code/widgets",
       originalBranch: "main",
     });
-    expect(cache.repo).toEqual({ host: "github.com", owner: "acme", name: "widgets" });
   });
 
   it("yields nulls, not throws, when every block is absent", () => {
     const cache = extractCache("{}", NOW)!;
     expect(cache.pr).toBeNull();
     expect(cache.worktree).toBeNull();
-    expect(cache.repo).toBeNull();
   });
 
   it("survives the blocks being explicitly null", () => {
@@ -384,7 +387,6 @@ describe("extractCache — pr / worktree / repo", () => {
     )!;
     expect(cache.pr).toBeNull();
     expect(cache.worktree).toBeNull();
-    expect(cache.repo).toBeNull();
   });
 
   it("keeps a PR that has no review yet and no kind", () => {
@@ -436,31 +438,6 @@ describe("extractCache — pr / worktree / repo", () => {
     });
   });
 
-  it("returns a null repo when the workspace block carries none", () => {
-    // `repo` is derived from the origin remote, so a checkout with no
-    // origin has a workspace block and no repo inside it.
-    const cache = extractCache(
-      JSON.stringify({
-        workspace: { current_dir: "/repo", project_dir: "/repo", added_dirs: [] },
-      }),
-      NOW,
-    )!;
-    expect(cache.repo).toBeNull();
-  });
-
-  it("rejects a repo missing half of owner/name rather than rendering a dangling slash", () => {
-    const owner = extractCache(
-      JSON.stringify({ workspace: { repo: { host: "github.com", owner: "acme" } } }),
-      NOW,
-    )!;
-    expect(owner.repo).toBeNull();
-    const name = extractCache(
-      JSON.stringify({ workspace: { repo: { host: "github.com", name: "widgets" } } }),
-      NOW,
-    )!;
-    expect(name.repo).toBeNull();
-  });
-
   it("rejects wrong types cleanly instead of coercing them into nonsense", () => {
     // A string where the number belongs kills the whole block: the number
     // is the only label the link could carry, and "#NaN" is worse than
@@ -476,12 +453,9 @@ describe("extractCache — pr / worktree / repo", () => {
     const numUrl = extractCache(JSON.stringify({ pr: { number: 412, url: 9 } }), NOW)!;
     expect(numUrl.pr).toEqual({ number: 412, url: "", reviewState: "", kind: "" });
 
-    // Same rule for the other two blocks' identity fields.
+    // Same rule for the worktree block's identity field.
     expect(extractCache(JSON.stringify({ worktree: { name: 7, path: "/x" } }), NOW)!.worktree)
       .toBeNull();
-    expect(
-      extractCache(JSON.stringify({ workspace: { repo: { owner: 1, name: 2 } } }), NOW)!.repo,
-    ).toBeNull();
   });
 
   it("does not treat an arrayed block as an object", () => {
@@ -491,11 +465,10 @@ describe("extractCache — pr / worktree / repo", () => {
     )!;
     expect(cache.pr).toBeNull();
     expect(cache.worktree).toBeNull();
-    expect(cache.repo).toBeNull();
   });
 });
 
-describe("reviveCache — pr / worktree / repo", () => {
+describe("reviveCache — pr / worktree", () => {
   it("back-fills nulls for a cache written before these fields existed", () => {
     const legacy = {
       capturedAt: 1_700_000_000_000,
@@ -508,7 +481,6 @@ describe("reviveCache — pr / worktree / repo", () => {
     const cache = reviveCache(legacy)!;
     expect(cache.pr).toBeNull();
     expect(cache.worktree).toBeNull();
-    expect(cache.repo).toBeNull();
     // The fields that predate this revision are untouched.
     expect(cache.version).toBe("2.1.86");
     expect(cache.rateLimits.fiveHour).toEqual({ usedPercent: 6, resetsAt: 0 });
@@ -519,7 +491,6 @@ describe("reviveCache — pr / worktree / repo", () => {
     const revived = reviveCache(JSON.parse(JSON.stringify(fresh)))!;
     expect(revived.pr).toEqual(fresh.pr);
     expect(revived.worktree).toEqual(fresh.worktree);
-    expect(revived.repo).toEqual(fresh.repo);
   });
 
   it("drops persisted blocks whose identity field is unusable", () => {
@@ -527,11 +498,9 @@ describe("reviveCache — pr / worktree / repo", () => {
       capturedAt: 1,
       pr: { number: "412" },
       worktree: { name: "", path: "/x" },
-      repo: { owner: "acme" },
     })!;
     expect(cache.pr).toBeNull();
     expect(cache.worktree).toBeNull();
-    expect(cache.repo).toBeNull();
   });
 });
 

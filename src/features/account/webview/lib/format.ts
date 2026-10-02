@@ -10,7 +10,6 @@ import type {
   PromptCacheMissCause,
   SpendUsd,
   StatuslinePullRequest,
-  StatuslineRepo,
 } from "../../statuslineCore";
 import { cutoffDaysForPeriod, type Period } from "./heatmap";
 
@@ -500,23 +499,6 @@ export function formatMissCause(cause: PromptCacheMissCause | null): string {
     return `${joined} (${parts.join(" / ")} tools)`;
   }
   return joined;
-}
-
-/**
- * The forge that needs no naming. Every other host is spelled out, so a
- * self-hosted GitLab or a Bitbucket remote is distinguishable at a
- * glance, while the overwhelmingly common case stays "owner/name".
- */
-const IMPLIED_REPO_HOST = "github.com";
-
-/**
- * Repository identity as one line: "owner/name", or "host/owner/name"
- * when the remote is not on github.com. "" when there is no repo.
- */
-export function formatRepo(repo: StatuslineRepo | null): string {
-  if (!repo) return "";
-  const path = `${repo.owner}/${repo.name}`;
-  return repo.host && repo.host !== IMPLIED_REPO_HOST ? `${repo.host}/${path}` : path;
 }
 
 /**

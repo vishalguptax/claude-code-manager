@@ -32,12 +32,10 @@ const SUCCESS: QuotaSuccess = {
     sessionName: "",
     capturedAt: new Date().toISOString(),
     promptCache: null,
-    // An ordinary session: no worktree, no open PR, and a checkout whose
-    // origin Claude Code did not report. All three absent is the common
-    // shape, and it must render as nothing at all.
+    // An ordinary session: no worktree and no open PR.
+    // Both absent is the common shape, and it must render as nothing at all.
     pr: null,
     worktree: null,
-    repo: null,
   },
 };
 
