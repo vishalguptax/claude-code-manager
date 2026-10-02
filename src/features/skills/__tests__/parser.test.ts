@@ -19,6 +19,7 @@ vi.mock("os", async () => {
 });
 
 import { parseSkills } from "../parser";
+import { clearClaudeJsonCache } from "../../../core/claudeJsonCache";
 
 function writeSkill(dir: string, body: string): void {
   fs.mkdirSync(dir, { recursive: true });
@@ -30,6 +31,8 @@ function sampleFm(name: string, desc = ""): string {
 }
 
 beforeEach(() => {
+  // Tests rewrite ~/.claude.json with same-size content within one mtime tick.
+  clearClaudeJsonCache();
   fs.rmSync(HOME, { recursive: true, force: true });
 });
 afterEach(() => {

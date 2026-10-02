@@ -20,7 +20,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { activeSyncedDir, SYNCED_DIR_NAME, syncedDirName } from "./claudeAiSync";
-import { readManagedSettings } from "./managedSettings";
+import { type ManagedLookup, managedOnce } from "./managedSettings";
 import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "./config";
 import { asObject, readJsonObject } from "./jsonFile";
 import { createMtimeCache } from "./mtimeCache";
@@ -250,7 +250,10 @@ export function normaliseEnabledValue(value: unknown): boolean | null {
  * per id across user < project < local < managed settings, the highest
  * scope that mentions an id deciding it.
  */
-export function enabledPluginIds(workspacePath?: string): Set<string> {
+export function enabledPluginIds(
+  workspacePath?: string,
+  managed: ManagedLookup = managedOnce(),
+): Set<string> {
   const maps: unknown[] = [];
   for (const file of [
     SETTINGS_FILE,
@@ -261,7 +264,7 @@ export function enabledPluginIds(workspacePath?: string): Set<string> {
     const res = readJsonObject(file);
     if (res.kind === "ok") maps.push(res.data.enabledPlugins);
   }
-  maps.push(readManagedSettings().settings?.enabledPlugins);
+  maps.push(managed()?.enabledPlugins);
 
   const decided = new Map<string, boolean>();
   for (const map of maps) {
@@ -283,9 +286,18 @@ export function enabledPluginIds(workspacePath?: string): Set<string> {
  * collects local copies with `enabled !== false` for that check, so an
  * installed-but-off local plugin leaves the synced one loaded.
  */
-function loadSyncedPlugins(localNames: Set<string>): ActivePlugin[] {
-  const bucket = activeSyncedDir(SYNCED_PLUGINS_ROOT, "plugins");
+function loadSyncedPlugins(
+  local: ActivePlugin[],
+  workspacePath: string | undefined,
+  managed: ManagedLookup,
+): ActivePlugin[] {
+  const bucket = activeSyncedDir(SYNCED_PLUGINS_ROOT, "plugins", managed);
   if (bucket === null) return [];
+  // Settings are only read when there is something to shadow.
+  const enabled = local.length > 0 ? enabledPluginIds(workspacePath, managed) : new Set<string>();
+  const localNames = new Set(
+    local.filter((p) => enabled.has(p.qualifiedName)).map((p) => p.name.toLowerCase()),
+  );
   const res = readJsonObject(path.join(bucket, "manifest.json"));
   const rows = res.kind === "ok" && Array.isArray(res.data.plugins) ? res.data.plugins : [];
 
@@ -327,9 +339,13 @@ function loadSyncedPlugins(localNames: Set<string>): ActivePlugin[] {
  * Plugins listed in `blocklist.json`, missing on disk, or with
  * unparseable entries are silently skipped. Multiple entries for the
  * same plugin (same `installPath`) are deduplicated. Plugins synced from
- * the active claude.ai account follow the installed ones.
+ * the active claude.ai account follow the installed ones. `managed` lets a
+ * caller that already read the policy tier this pass share that read.
  */
-export function loadActivePlugins(workspacePath?: string): ActivePlugin[] {
+export function loadActivePlugins(
+  workspacePath?: string,
+  managed: ManagedLookup = managedOnce(),
+): ActivePlugin[] {
   const installed = readInstalledPluginsFile();
 
   const blocked = readBlocklist();
@@ -382,10 +398,7 @@ export function loadActivePlugins(workspacePath?: string): ActivePlugin[] {
   const local = [...byInstallPath.values()].sort((a, b) =>
     a.qualifiedName.localeCompare(b.qualifiedName),
   );
-  const enabled = enabledPluginIds(workspacePath);
-  const synced = loadSyncedPlugins(
-    new Set(local.filter((p) => enabled.has(p.qualifiedName)).map((p) => p.name.toLowerCase())),
-  );
+  const synced = loadSyncedPlugins(local, workspacePath, managed);
   return [...local, ...synced];
 }
 

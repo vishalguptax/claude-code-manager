@@ -27,6 +27,7 @@ import { openAccountSwitcher } from "./accountSwitcher";
 import {
   reloadAll,
   reloadFeature,
+  syncOsPolicy,
   refreshSettings,
   postWorkspacePath,
   refreshLiveState,
@@ -106,6 +107,8 @@ export class ClaudeSessionViewProvider
     readonly globalState?: vscode.Memento,
   ) {
     setTerminalRegistry(this.terminals);
+    // Resolve the OS policy sources off the activation path; see syncOsPolicy.
+    void syncOsPolicy(this);
   }
 
   // ── Context accessors (HostContext / WatcherContext / ProviderActionsContext) ──

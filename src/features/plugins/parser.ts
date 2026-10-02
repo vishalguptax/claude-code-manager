@@ -60,7 +60,7 @@
 import * as path from "path";
 import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
 import { asObject, readJsonObject } from "../../core/jsonFile";
-import { readManagedSettings } from "../../core/managedSettings";
+import { managedSettingsPath, readManagedSettings } from "../../core/managedSettings";
 import { type ActivePlugin, loadActivePlugins, normaliseEnabledValue } from "../../core/plugins";
 import { type RawCatalogPlugin, buildAvailablePlugins, catalogPath, parseCatalog } from "./catalog";
 import { isSafePluginId, splitPluginId } from "./ids";
@@ -115,7 +115,7 @@ export interface SettingsScopePath {
 export function settingsScopePaths(
   workspacePath?: string,
   globalPath: string = SETTINGS_FILE,
-  managedPath: string = readManagedSettings().source,
+  managedPath: string = managedSettingsPath(),
 ): SettingsScopePath[] {
   const out: SettingsScopePath[] = [{ scope: "global", filePath: globalPath }];
   if (workspacePath) {
@@ -701,13 +701,16 @@ export function buildPluginsData(sources: PluginSources): PluginsData {
  * entry never becomes a ghost row here.
  */
 export function readPluginSources(workspacePath?: string): PluginSources {
+  // The policy tier is read once for this pass and shared with the plugin
+  // loader (sync opt-out, shadowing) instead of being re-read by each.
+  const managed = readManagedSettings();
   const scopes = settingsScopePaths(workspacePath).map((s) =>
-    s.scope === "managed" ? readManagedScope() : readSettingsScope(s.scope, s.filePath),
+    s.scope === "managed" ? readManagedScope(managed) : readSettingsScope(s.scope, s.filePath),
   );
   const known = readKnownMarketplaces();
   return {
     scopes,
-    active: loadActivePlugins(workspacePath),
+    active: loadActivePlugins(workspacePath, () => managed.settings),
     known,
     blocked: readPluginBlocklist(),
     catalogs: readMarketplaceCatalogs(known),

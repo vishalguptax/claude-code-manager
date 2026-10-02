@@ -15,6 +15,7 @@ import {
   openPluginSettingsFile,
   revealPluginDirectory,
 } from "./commands";
+import { readManagedSettings } from "../../core/managedSettings";
 import { parsePluginsData, settingsScopePaths } from "./parser";
 import { type SettingsWriter, setPluginEnabled } from "./state";
 import type { PluginsData } from "./types";
@@ -91,9 +92,13 @@ export async function handlePluginsMessage(
     }
 
     case "openPluginSettings": {
+      // Managed opens the source whose policy is in force (it may be
+      // remote-settings.json); the file scopes resolve without reading it.
       const filePath =
-        settingsScopePaths(ctx.getWorkspace()).find((s) => s.scope === msg.scope)?.filePath ??
-        null;
+        msg.scope === "managed"
+          ? readManagedSettings().source
+          : (settingsScopePaths(ctx.getWorkspace()).find((s) => s.scope === msg.scope)?.filePath ??
+            null);
       await openPluginSettingsFile(filePath, msg.scope);
       return true;
     }

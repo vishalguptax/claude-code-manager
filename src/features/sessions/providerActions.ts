@@ -31,7 +31,7 @@ import { postWorktrees } from "./worktreeEnrichment";
 import { clearWorktreeCache } from "../../extension/worktrees";
 import { slugifyProjectPath } from "./portable";
 import { PROJECTS_DIR } from "../../core/config";
-import { clearOsPolicyCache } from "../../core/managedSettings";
+import { refreshOsPolicy } from "../../core/managedSettings";
 import { loadState } from "./state";
 import { getWorkspace } from "../../extension/workspace";
 import { getCurrentBranch } from "../../extension/git";
@@ -66,6 +66,20 @@ import type { Agent } from "../agents/types";
  * re-pushed individually by the file watchers, without a full reloadAll.
  */
 export type ConfigFeature = "skills" | "commands" | "hooks" | "mcp" | "agents" | "plugins";
+
+/**
+ * Every config feature an OS policy change can affect: the sync opt-outs
+ * decide which claude.ai skills and plugins load, and a plugin brings its
+ * commands, hooks, MCP servers and agents with it.
+ */
+const POLICY_AFFECTED_FEATURES: readonly ConfigFeature[] = [
+  "plugins",
+  "skills",
+  "commands",
+  "hooks",
+  "mcp",
+  "agents",
+];
 
 /**
  * State + small callbacks the orchestration actions need. The provider
@@ -339,10 +353,10 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   // explicit "give me fresh data" gesture must force a cold re-scan.
   clearModelCache();
   resetUsageAggregateCache();
-  // The OS policy sources (macOS plist, Windows registry) are read once per
-  // host lifetime because each read spawns plutil / reg.exe; Refresh is the
-  // moment to pick up a policy an admin pushed since.
-  clearOsPolicyCache();
+  // Re-query the OS policy sources (macOS plist, Windows registry) in the
+  // background: Refresh is the moment to pick up a policy an admin pushed
+  // since, but reg.exe can take seconds, so the reload never waits on it.
+  syncOsPolicy(ctx);
 
   const workspace = getWorkspace();
   const ws = workspace || undefined;
@@ -463,6 +477,18 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
  * of a full reloadAll. The parsers are mtime-cached, so unchanged siblings
  * are not re-read — only the file that actually changed is re-parsed.
  */
+/**
+ * Query the OS policy sources in the background (at activation and on the
+ * global Reload) and, when the answer changed, re-push the tabs it affects.
+ * Until the query resolves, readers keep the last known value.
+ */
+export function syncOsPolicy(ctx: ProviderActionsContext): Promise<void> {
+  return refreshOsPolicy().then((changed) => {
+    if (!changed || ctx.isDisposed()) return;
+    for (const feature of POLICY_AFFECTED_FEATURES) reloadFeature(ctx, feature);
+  });
+}
+
 export function reloadFeature(ctx: ProviderActionsContext, feature: ConfigFeature): void {
   const wv = ctx.getWebview();
   if (!wv) return;

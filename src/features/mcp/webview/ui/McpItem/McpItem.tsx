@@ -5,7 +5,7 @@
  */
 import { cx } from "../../../../../webview/shared/lib";
 import { Button, ListItem } from "../../../../../webview/shared/ui";
-import { connectionPreview } from "../../lib";
+import { canToggleMcp, connectionPreview } from "../../lib";
 import type { McpServer } from "../../../types";
 import { DisabledBadge, PendingApprovalBadge, ReadOnlyBadge, TypeBadge } from "../McpBadges";
 
@@ -59,7 +59,7 @@ export function McpItem({
             onCopyName(server.name);
           }}
         />
-        {onToggle ? (
+        {onToggle && canToggleMcp(server) ? (
           <button
             type="button"
             role="switch"

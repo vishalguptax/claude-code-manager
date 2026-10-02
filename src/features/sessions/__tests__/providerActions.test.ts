@@ -27,7 +27,12 @@ vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => undefined }
 // deterministic and never touch child_process.
 vi.mock("../worktreeEnrichment", () => ({ postWorktrees: vi.fn() }));
 
-import { reloadFeature, type ConfigFeature } from "../providerActions";
+const mockRefreshOsPolicy = vi.fn(() => Promise.resolve(false));
+vi.mock("../../../core/managedSettings", () => ({
+  refreshOsPolicy: () => mockRefreshOsPolicy(),
+}));
+
+import { reloadFeature, syncOsPolicy, type ConfigFeature } from "../providerActions";
 
 interface Posted {
   type: string;
@@ -38,6 +43,7 @@ function makeCtx() {
   const posted: Posted[] = [];
   const set: Record<string, unknown> = {};
   const ctx = {
+    isDisposed: () => false,
     getWebview: () =>
       ({
         postMessage: (m: Posted) => {
@@ -96,6 +102,24 @@ describe("reloadFeature", () => {
   it("no-ops when the webview is gone", () => {
     const ctx = { ...env.ctx, getWebview: () => undefined };
     expect(() => reloadFeature(ctx as never, "skills")).not.toThrow();
+    expect(env.posted).toEqual([]);
+  });
+});
+
+describe("syncOsPolicy", () => {
+  it("re-pushes every policy-affected tab when the OS policy changed", async () => {
+    const env = makeCtx();
+    mockRefreshOsPolicy.mockResolvedValueOnce(true);
+    await syncOsPolicy(env.ctx as never);
+    expect(env.posted.map((m) => m.type).sort()).toEqual(
+      ["agents", "commands", "hooks", "mcpServers", "pluginsData", "skills"].sort(),
+    );
+  });
+
+  it("pushes nothing when the OS policy is unchanged", async () => {
+    const env = makeCtx();
+    mockRefreshOsPolicy.mockResolvedValueOnce(false);
+    await syncOsPolicy(env.ctx as never);
     expect(env.posted).toEqual([]);
   });
 });

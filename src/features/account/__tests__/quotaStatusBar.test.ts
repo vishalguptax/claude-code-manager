@@ -8,7 +8,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("../quota", () => ({ readQuota: () => state.result }));
-vi.mock("../claudeJsonCache", () => ({
+vi.mock("../../../core/claudeJsonCache", () => ({
   readClaudeJsonParsed: () => ({ oauthAccount: { accountUuid: state.accountUuid } }),
 }));
 

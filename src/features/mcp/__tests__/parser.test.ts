@@ -24,10 +24,13 @@ import {
   updateMcpServer,
   commandExistsOnPath,
   setMcpServerDisabled,
+  projectMcpAncestorFile,
+  isLegacyGlobalMcpServer,
 } from "../parser";
 import { claudeProjectKey } from "../projectKey";
 import type { McpServerInput } from "../../../shared/protocol/messages";
 import type { McpServer } from "../types";
+import { holdLiveLock } from "../../../__mocks__/liveLock";
 
 beforeEach(() => {
   fs.rmSync(HOME, { recursive: true, force: true });
@@ -657,11 +660,7 @@ describe("global-scope writes", () => {
     () => {
       writeJson(claudeJson, LIVE);
       const before = fs.readFileSync(claudeJson, "utf-8");
-      fs.mkdirSync(lockDir);
-      // A live holder keeps renewing; dating it ahead keeps it live through a
-      // stall on a loaded machine.
-      const renewed = new Date(Date.now() + 60 * 60_000);
-      fs.utimesSync(lockDir, renewed, renewed);
+      holdLiveLock(lockDir);
       const r = addMcpServer(globalInput());
       expect(r.ok).toBe(false);
       expect(r.error).toMatch(/Try again/);
@@ -779,11 +778,11 @@ describe("local scope (the workspace's ~/.claude.json project entry)", () => {
 
   it("round-trips a toggle through disabledMcpServers, keeping the emptied list", () => {
     const key = writeClaudeJsonFixture({ disabledMcpServers: [] });
-    expect(setMcpServerDisabled("loc", true, ws)).toEqual({ ok: true });
+    expect(setMcpServerDisabled("loc", true, ws)).toMatchObject({ ok: true });
     expect(readClaudeJson().projects[key].disabledMcpServers).toEqual(["loc"]);
     expect(parseMcpServers(ws).servers.find((s) => s.name === "loc")?.disabled).toBe(true);
 
-    expect(setMcpServerDisabled("loc", false, ws)).toEqual({ ok: true });
+    expect(setMcpServerDisabled("loc", false, ws)).toMatchObject({ ok: true });
     // The CLI leaves `[]` behind rather than deleting the key.
     expect(readClaudeJson().projects[key].disabledMcpServers).toEqual([]);
     expect(parseMcpServers(ws).servers.find((s) => s.name === "loc")?.disabled).toBeUndefined();
@@ -797,8 +796,8 @@ describe("local scope (the workspace's ~/.claude.json project entry)", () => {
     const before = fs.readFileSync(claudeJson, "utf-8");
     fs.writeFileSync(claudeJson, before.replace("\n", "\n")); // same bytes, fresh mtime
     const mtime = fs.statSync(claudeJson).mtimeMs;
-    expect(setMcpServerDisabled("usr", true, ws)).toEqual({ ok: true });
-    expect(setMcpServerDisabled("loc", false, ws)).toEqual({ ok: true });
+    expect(setMcpServerDisabled("usr", true, ws)).toMatchObject({ ok: true });
+    expect(setMcpServerDisabled("loc", false, ws)).toMatchObject({ ok: true });
     expect(fs.statSync(claudeJson).mtimeMs).toBe(mtime);
     expect(fs.readFileSync(claudeJson, "utf-8")).toBe(before);
   });
@@ -806,7 +805,7 @@ describe("local scope (the workspace's ~/.claude.json project entry)", () => {
   it("seeds a missing project entry with the CLI's default shape on first toggle", () => {
     fs.mkdirSync(ws, { recursive: true });
     writeJson(claudeJson, { numStartups: 1, projects: {} });
-    expect(setMcpServerDisabled("usr", true, ws)).toEqual({ ok: true });
+    expect(setMcpServerDisabled("usr", true, ws)).toMatchObject({ ok: true });
     expect(readClaudeJson().projects[claudeProjectKey(ws)]).toEqual({
       allowedTools: [],
       mcpContextUris: [],
@@ -891,7 +890,7 @@ describe("local scope (the workspace's ~/.claude.json project entry)", () => {
   it("refuses while Claude Code holds its config lock", () => {
     writeClaudeJsonFixture();
     const before = fs.readFileSync(claudeJson, "utf-8");
-    fs.mkdirSync(`${claudeJson}.lock`);
+    holdLiveLock(`${claudeJson}.lock`);
     const res = setMcpServerDisabled("loc", true, ws);
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/Try again/);
@@ -909,7 +908,7 @@ describe("local scope (the workspace's ~/.claude.json project entry)", () => {
 
     expect(addMcpServer(localInput({ name: "a" }), path.join(repo, "packages", "app"))).toEqual({ ok: true });
     expect(addMcpServer(localInput({ name: "b" }), link)).toEqual({ ok: true });
-    expect(setMcpServerDisabled("loc", true, path.join(link, "packages"))).toEqual({ ok: true });
+    expect(setMcpServerDisabled("loc", true, path.join(link, "packages"))).toMatchObject({ ok: true });
 
     const projects = readClaudeJson().projects;
     expect(Object.keys(projects)).toEqual([key]);
@@ -977,12 +976,103 @@ describe("project scope across ancestor .mcp.json files", () => {
     expect(JSON.parse(fs.readFileSync(wsFile, "utf-8")).mcpServers.fresh).toEqual({ command: "f" });
   });
 
-  it("refuses to add a name an ancestor already declares, naming that file", () => {
+  it("adds a workspace override of an ancestor's server, and says what it overrides", () => {
+    // Nearest wins, so a workspace entry of the same name is a legitimate
+    // per-project override; the shared file is left untouched.
     layout();
     const input: McpServerInput = { name: "repo-only", scope: "project", transport: "stdio", command: "x", env: {}, headers: {} };
     const res = addMcpServer(input, ws);
+    expect(res.ok).toBe(true);
+    expect(res.notice).toContain(fs.realpathSync(repoFile));
+    expect(JSON.parse(fs.readFileSync(wsFile, "utf-8")).mcpServers["repo-only"]).toEqual({ command: "x" });
+    expect(JSON.parse(fs.readFileSync(repoFile, "utf-8")).mcpServers["repo-only"]).toEqual({ command: "r" });
+    const effective = projectServers().find((s) => s.name === "repo-only");
+    expect(effective?.command).toBe("x");
+    expect(effective?.ancestorFile).toBeUndefined();
+  });
+
+  it("marks servers that come from an ancestor file with that file", () => {
+    layout();
+    const byName = new Map(projectServers().map((s) => [s.name, s]));
+    expect(byName.get("repo-only")?.ancestorFile).toBe(fs.realpathSync(repoFile));
+    expect(byName.get("outer-only")?.ancestorFile).toBe(fs.realpathSync(outerFile));
+    expect(byName.get("sub-only")?.ancestorFile).toBeUndefined();
+    expect(projectMcpAncestorFile("repo-only", ws)).toBe(fs.realpathSync(repoFile));
+    expect(projectMcpAncestorFile("sub-only", ws)).toBeNull();
+    expect(projectMcpAncestorFile("brand-new", ws)).toBeNull();
+  });
+
+  it("does not rewrite an ancestor file when toggling one of its servers", () => {
+    layout();
+    writeJson(repoFile, { mcpServers: { "repo-only": { command: "r", disabled: true } } });
+    const before = fs.readFileSync(repoFile, "utf-8");
+    expect(setProjectMcpServerDisabled("repo-only", true, ws)).toEqual({ ok: true });
+    expect(fs.readFileSync(repoFile, "utf-8")).toBe(before);
+  });
+
+});
+
+describe("toggle writes across settings.local.json and ~/.claude.json", () => {
+  const claudeJson = path.join(HOME, ".claude.json");
+  const ws = path.join(HOME, "ws");
+  const localSettings = path.join(ws, ".claude", "settings.local.json");
+
+  function setup(): string {
+    fs.mkdirSync(ws, { recursive: true });
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { pj: { command: "p" } } });
+    const key = claudeProjectKey(ws);
+    writeJson(claudeJson, { projects: { [key]: { disabledMcpServers: ["pj"] } } });
+    writeJson(localSettings, { disabledMcpjsonServers: ["pj"] });
+    return key;
+  }
+
+  it("changes neither file when Claude Code holds the config lock", () => {
+    setup();
+    const local = fs.readFileSync(localSettings, "utf-8");
+    const config = fs.readFileSync(claudeJson, "utf-8");
+    holdLiveLock(`${claudeJson}.lock`);
+    const res = setProjectMcpServerDisabled("pj", false, ws);
     expect(res.ok).toBe(false);
-    expect(res.error).toContain(fs.realpathSync(repoFile));
-    expect(JSON.parse(fs.readFileSync(wsFile, "utf-8")).mcpServers["repo-only"]).toBeUndefined();
+    expect(fs.readFileSync(localSettings, "utf-8")).toBe(local);
+    expect(fs.readFileSync(claudeJson, "utf-8")).toBe(config);
+  }, 15_000);
+
+  it("puts the /mcp switch back when settings.local.json cannot be written", () => {
+    const key = setup();
+    // A read-only .claude dir lets the read succeed but fails the atomic
+    // write, after ~/.claude.json was already cleared.
+    fs.chmodSync(path.dirname(localSettings), 0o500);
+    try {
+      const res = setProjectMcpServerDisabled("pj", false, ws);
+      expect(res.ok).toBe(false);
+      expect(res.error).toContain(localSettings);
+    } finally {
+      fs.chmodSync(path.dirname(localSettings), 0o700);
+    }
+    const config = JSON.parse(fs.readFileSync(claudeJson, "utf-8"));
+    expect(config.projects[key].disabledMcpServers).toEqual(["pj"]);
+    expect(JSON.parse(fs.readFileSync(localSettings, "utf-8")).disabledMcpjsonServers).toEqual(["pj"]);
+  });
+
+  it("clears both lists when both writes succeed", () => {
+    const key = setup();
+    expect(setProjectMcpServerDisabled("pj", false, ws)).toEqual({ ok: true });
+    expect(JSON.parse(fs.readFileSync(claudeJson, "utf-8")).projects[key].disabledMcpServers).toEqual([]);
+    expect(JSON.parse(fs.readFileSync(localSettings, "utf-8")).enabledMcpjsonServers).toEqual(["pj"]);
+  });
+});
+
+describe("legacy ~/.claude/mcp.json servers", () => {
+  const legacy = path.join(HOME, ".claude", "mcp.json");
+
+  it("marks a server only the legacy file declares, and only that one", () => {
+    writeJson(legacy, { mcpServers: { old: { command: "o" }, both: { command: "legacy" } } });
+    writeJson(path.join(HOME, ".claude.json"), { mcpServers: { both: { command: "current" } } });
+    const servers = parseMcpServers().servers;
+    expect(servers.find((s) => s.name === "old")?.legacyFile).toBe(true);
+    expect(servers.find((s) => s.name === "both")?.legacyFile).toBeUndefined();
+    expect(isLegacyGlobalMcpServer("old")).toBe(true);
+    expect(isLegacyGlobalMcpServer("both")).toBe(false);
+    expect(isLegacyGlobalMcpServer("missing")).toBe(false);
   });
 });

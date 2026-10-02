@@ -6,7 +6,7 @@
  */
 import { useRef, useState } from "preact/hooks";
 import { BackButton, Button, Icon, Menu, type MenuItem } from "../../../../../webview/shared/ui";
-import { isUrlTransport, maskSensitiveValue } from "../../lib";
+import { canToggleMcp, isUrlTransport, maskSensitiveValue } from "../../lib";
 import type { McpServer } from "../../../types";
 import { ScopeBadge, TypeBadge } from "../McpBadges";
 
@@ -119,10 +119,11 @@ export function DetailView(props: DetailViewProps) {
             Edit
           </Button>
         ) : null}
-        {/* Any server can be switched off for this project, as /mcp does. */}
-        <Button iconName={server.disabled ? "play" : "x"} onClick={() => onToggle(server)}>
-          {server.disabled ? "Enable" : "Disable"}
-        </Button>
+        {canToggleMcp(server) ? (
+          <Button iconName={server.disabled ? "play" : "x"} onClick={() => onToggle(server)}>
+            {server.disabled ? "Enable" : "Disable"}
+          </Button>
+        ) : null}
         {!isPlugin ? (
           <Button variant="danger" iconName="trash-2" onClick={() => onDelete(server)}>
             Delete
@@ -134,6 +135,20 @@ export function DetailView(props: DetailViewProps) {
           </Button>
         </span>
       </div>
+
+      {server.legacyFile ? (
+        <div class="mcp-readonly-note">
+          Declared only in <code>~/.claude/mcp.json</code>, which Claude Code does not read — this
+          server never loads. Move its entry into <code>~/.claude.json</code> to use it.
+        </div>
+      ) : null}
+
+      {server.ancestorFile ? (
+        <div class="mcp-readonly-note">
+          Declared in <code>{server.ancestorFile}</code>, outside this workspace and shared by every
+          project beneath it.
+        </div>
+      ) : null}
 
       {isPlugin ? (
         <div class="mcp-readonly-note">

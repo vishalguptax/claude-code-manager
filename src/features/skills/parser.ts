@@ -8,6 +8,7 @@ import * as path from "path";
 import { activeSyncedDir, SYNCED_DIR_NAME, syncedDirName } from "../../core/claudeAiSync";
 import { CLAUDE_DIR, projectClaudeDir } from "../../core/config";
 import { asObject, readJsonObject } from "../../core/jsonFile";
+import { managedOnce } from "../../core/managedSettings";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { parseFrontmatter, fmString, fmList } from "../../core/frontmatter";
 import { loadActivePlugins, resolvePluginContentDirs, type ActivePlugin } from "../../core/plugins";
@@ -219,13 +220,16 @@ export function parseSkills(workspacePath?: string): Skill[] {
   );
 
   // Skills synced from the signed-in claude.ai account.
-  const bucket = activeSyncedDir(path.join(GLOBAL_SKILLS_DIR, SYNCED_DIR_NAME), "skills");
+  // One policy read for the whole pass (synced skills + synced plugins), and
+  // none at all when nothing synced is on disk.
+  const managed = managedOnce();
+  const bucket = activeSyncedDir(path.join(GLOBAL_SKILLS_DIR, SYNCED_DIR_NAME), "skills", managed);
   if (bucket) skills.push(...readSyncedSkills(bucket));
 
   // Plugin-provided skills. Each active plugin may declare a custom
   // skills path (manifest.skills) or fall back to the conventional
   // `skills/` directory at its root.
-  for (const plugin of loadActivePlugins(workspacePath)) {
+  for (const plugin of loadActivePlugins(workspacePath, managed)) {
     skills.push(...readPluginSkills(plugin));
   }
 

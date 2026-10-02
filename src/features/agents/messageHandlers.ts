@@ -123,7 +123,18 @@ export async function handleAgentMessage(
         "Delete",
       );
       if (choice !== "Delete") return true;
-      const result = deleteAgent(found.agent.path);
+      // Re-resolve after the modal: the file may have been moved or swapped
+      // for a symlink while the user was deciding.
+      const still = findEditableAgent(msg.path, ctx.getWorkspace());
+      const result =
+        still.ok && still.agent.path === found.agent.path
+          ? deleteAgent(still.agent.path)
+          : {
+              ok: false,
+              error: still.ok
+                ? `${found.agent.path} changed while you were confirming, so it was not deleted.`
+                : still.error,
+            };
       if (!result.ok) {
         vscode.window.showErrorMessage(result.error ?? "Failed to delete agent.");
       }

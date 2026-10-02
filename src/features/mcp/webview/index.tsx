@@ -137,7 +137,11 @@ export default function McpTab() {
       <McpForm
         server={overlay.server}
         preset={overlay.preset}
-        existing={servers.value.map((s) => ({ name: s.name, scope: s.scope }))}
+        existing={servers.value.map((s) => ({
+          name: s.name,
+          scope: s.scope,
+          ancestorFile: s.ancestorFile,
+        }))}
         onClose={() => setOverlay(overlay.fromCatalog ? { kind: "catalog" } : { kind: "none" })}
         onSubmit={submitForm}
       />

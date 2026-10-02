@@ -85,6 +85,12 @@ describe("McpItem", () => {
     expect(onToggle).toHaveBeenCalledWith(server);
   });
 
+  it("has no switch for a legacy-file server", () => {
+    const server = srv({ name: "old", scope: "global", legacyFile: true });
+    render(h(McpItem, { server, active: false, onSelect: vi.fn(), onCopyName: vi.fn(), onToggle: vi.fn() }));
+    expect(screen.queryByRole("switch")).toBeNull();
+  });
+
   it("shows disabled + read-only markers for a disabled plugin server", () => {
     render(
       h(McpItem, {

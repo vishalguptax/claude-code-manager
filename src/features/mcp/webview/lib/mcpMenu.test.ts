@@ -4,6 +4,7 @@ import {
   buildMcpMenu,
   canAuthMcp,
   canEditMcp,
+  canToggleMcp,
   type McpMenuHandlers,
 } from "./mcpMenu";
 
@@ -38,6 +39,12 @@ describe("MCP capability rules", () => {
     expect(canEditMcp(server({ scope: "plugin" }))).toBe(false);
     expect(canEditMcp(server({ scope: "project" }))).toBe(true);
     expect(canEditMcp(server({ scope: "global" }))).toBe(true);
+  });
+
+  it("offers no switch for a server Claude Code never loads", () => {
+    expect(canToggleMcp(server({ scope: "global", legacyFile: true }))).toBe(false);
+    expect(canToggleMcp(server({ scope: "global" }))).toBe(true);
+    expect(labels(server({ scope: "global", legacyFile: true }))).not.toContain("Disable");
   });
 
   it("only offers auth for remote transports", () => {

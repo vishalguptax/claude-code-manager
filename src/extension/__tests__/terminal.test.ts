@@ -138,6 +138,55 @@ describe("createTerminal — Claude config dir", () => {
       delete process.env.CLAUDE_CONFIG_DIR;
     }
   });
+
+  /** Load terminal.ts with a custom config dir, bound to a fresh vscode mock. */
+  async function withCustomDir(
+    run: (fresh: typeof import("../terminal"), freshVscode: typeof vscode) => void,
+  ): Promise<void> {
+    process.env.CLAUDE_CONFIG_DIR = "/work/claude";
+    try {
+      vi.resetModules();
+      const freshVscode = await import("vscode");
+      (freshVscode.window as { terminals: MockTerminal[] }).terminals = [];
+      run(await import("../terminal"), freshVscode);
+    } finally {
+      delete process.env.CLAUDE_CONFIG_DIR;
+    }
+  }
+
+  it("does not reuse a hand-opened terminal that lacks the custom dir", async () => {
+    await withCustomDir((fresh, freshVscode) => {
+      const handOpened = makeTerminal({ name: "Claude" });
+      freshVscode.window.terminals.push(handOpened);
+      const term = fresh.createTerminal("Claude");
+      expect(term).not.toBe(handOpened);
+      expect((term as unknown as MockTerminal).createOptions).toMatchObject({
+        env: { CLAUDE_CONFIG_DIR: "/work/claude" },
+      });
+    });
+  });
+
+  it("reuses an idle terminal created with the same custom dir", async () => {
+    await withCustomDir((fresh, freshVscode) => {
+      const ours = makeTerminal({
+        name: "Claude",
+        creationOptions: { name: "Claude", env: { CLAUDE_CONFIG_DIR: "/work/claude" } },
+      });
+      freshVscode.window.terminals.push(ours);
+      expect(fresh.createTerminal("Claude")).toBe(ours);
+    });
+  });
+
+  it("does not reuse one created with a different dir", async () => {
+    await withCustomDir((fresh, freshVscode) => {
+      const other = makeTerminal({
+        name: "Claude",
+        creationOptions: { name: "Claude", env: { CLAUDE_CONFIG_DIR: "/elsewhere" } },
+      });
+      freshVscode.window.terminals.push(other);
+      expect(fresh.createTerminal("Claude")).not.toBe(other);
+    });
+  });
 });
 
 describe("createTerminal — reuse guard (running sessions)", () => {

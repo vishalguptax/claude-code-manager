@@ -47,7 +47,7 @@ import * as path from "path";
 import { CLAUDE_DIR, CLAUDE_JSON_FILE } from "../../core/config";
 import { createMtimeCache } from "../../core/mtimeCache";
 import { describeReadRefusal, readJsonObjectForWrite, writeFileAtomic } from "../../core/atomicWrite";
-import { readClaudeJsonRaw } from "./claudeJsonCache";
+import { readClaudeJsonRaw } from "../../core/claudeJsonCache";
 import {
   readCredentials,
   writeCredentials,

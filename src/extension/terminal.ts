@@ -252,13 +252,26 @@ function getTerminalLocation(): vscode.TerminalEditorLocationOptions | undefined
  * and turning the setting off globally would strip session titles from the
  * user's own terminals too.
  */
+/**
+ * Whether `claude` run in `t` would see the CLAUDE_ENV we read from. A
+ * terminal the user opened by hand never received it, so when the config
+ * dir comes only from the official extension's setting, `claude` there
+ * would write to ~/.claude while we read the custom dir. Always true for
+ * the default layout, where CLAUDE_ENV is empty.
+ */
+function carriesClaudeEnv(t: vscode.Terminal): boolean {
+  const env = (t.creationOptions as vscode.TerminalOptions | undefined)?.env ?? {};
+  return Object.entries(CLAUDE_ENV).every(([key, value]) => env[key] === value);
+}
+
 export function createTerminal(name: string, cwd?: string, sessionId?: string): vscode.Terminal {
   const empty = vscode.window.terminals.find(
     (t) =>
       t.exitStatus === undefined &&
       !t.state.isInteractedWith &&
       !sentTo.has(t) &&
-      t.name === name,
+      t.name === name &&
+      carriesClaudeEnv(t),
   );
   if (empty) {
     // Git-bash on Windows interprets backslashes as escapes, so normalize to

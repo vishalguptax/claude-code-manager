@@ -183,3 +183,18 @@ describe("paths from the webview", () => {
     expect(open).not.toHaveBeenCalled();
   });
 });
+
+describe("deleteAgent — re-check after the confirm", () => {
+  it("does not delete when the file no longer resolves after the modal", async () => {
+    mockFindEditable
+      .mockImplementationOnce(resolved)
+      .mockReturnValueOnce({ ok: false, error: "/a/x.md is outside /home/.claude/agents, so it was left untouched." } as never);
+    vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue("Delete" as never);
+    const errSpy = vi.spyOn(vscode.window, "showErrorMessage");
+    const { ctx } = harness();
+    await handleAgentMessage({ type: "deleteAgent", path: "/a/x.md" }, ctx);
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("left untouched"));
+    mockFindEditable.mockImplementation(resolved);
+  });
+});

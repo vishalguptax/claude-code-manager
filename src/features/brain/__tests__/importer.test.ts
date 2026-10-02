@@ -17,6 +17,7 @@ vi.mock("os", async () => {
 });
 import { writeZip } from "../zip";
 import { importBrain, previewConflicts, readManifest } from "../importer";
+import { holdLiveLock } from "../../../__mocks__/liveLock";
 
 function makeZip(entries: Array<{ path: string; data: Buffer }>): Buffer {
   return writeZip(entries);
@@ -248,11 +249,7 @@ describe("brain importer — mcpServers merge into ~/.claude.json", () => {
     "refuses while Claude Code holds its config lock",
     () => {
       fs.writeFileSync(claudeJson, "{}");
-      fs.mkdirSync(`${claudeJson}.lock`);
-      // A live holder keeps renewing; dating it ahead keeps it live through a
-      // stall on a loaded machine.
-      const renewed = new Date(Date.now() + 60 * 60_000);
-      fs.utimesSync(`${claudeJson}.lock`, renewed, renewed);
+      holdLiveLock(`${claudeJson}.lock`);
       const summary = importBrain(mcpZip({ add: { command: "a" } }), undefined, ["global"]);
       expect(summary.warnings).toEqual([expect.stringMatching(/locked/)]);
       expect(fs.readFileSync(claudeJson, "utf-8")).toBe("{}");

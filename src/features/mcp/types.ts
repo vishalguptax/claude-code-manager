@@ -51,6 +51,18 @@ export interface McpServer {
    */
   pendingApproval?: boolean;
   /**
+   * Project scope only: the ancestor `.mcp.json` this server is declared in,
+   * when that is not the workspace's own file. Such a file is shared by every
+   * project beneath its folder, so editing it reaches beyond this workspace.
+   */
+  ancestorFile?: string;
+  /**
+   * Global scope only: declared in the legacy ~/.claude/mcp.json, which
+   * Claude Code does not read — the server never loads, so there is nothing
+   * for a per-project switch to turn off.
+   */
+  legacyFile?: boolean;
+  /**
    * Qualified plugin name (e.g. "caveman@caveman") when `scope` is
    * `"plugin"`. Undefined otherwise.
    */

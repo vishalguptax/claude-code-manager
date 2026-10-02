@@ -16,7 +16,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { CLAUDE_DIR, CLAUDE_MANAGER_DIR, STATUSLINE_CACHE_FILE } from "../../core/config";
 import { getWorkspace } from "../../extension/workspace";
-import { readClaudeJsonParsed } from "./claudeJsonCache";
+import { readClaudeJsonParsed } from "../../core/claudeJsonCache";
 import { readQuota, type QuotaResult, type QuotaWindow } from "./quota";
 
 /** Tint amber from here: worth knowing, not yet worth stopping for. */

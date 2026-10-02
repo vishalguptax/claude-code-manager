@@ -75,6 +75,16 @@ export function projectMcpFileFor(name: string, workspacePath: string): string {
   return holder ?? path.join(workspacePath, ".mcp.json");
 }
 
+/**
+ * The ancestor `.mcp.json` the effective project server `name` is declared
+ * in, or null when it lives in (or would go to) the workspace's own file. An
+ * ancestor file is shared by every project beneath its folder.
+ */
+export function projectMcpAncestorFile(name: string, workspacePath: string): string | null {
+  const holder = projectMcpFileFor(name, workspacePath);
+  return canonicalPath(holder) === canonicalPath(path.join(workspacePath, ".mcp.json")) ? null : holder;
+}
+
 /** Legacy global MCP config (~/.claude/mcp.json) — read for older setups. */
 const GLOBAL_MCP_FILE: string = path.join(CLAUDE_DIR, "mcp.json");
 
@@ -113,6 +123,17 @@ export function globalMcpFileFor(name: string): string {
     // unreadable/absent — fall through to legacy
   }
   return GLOBAL_MCP_FILE;
+}
+
+/**
+ * True when the global server `name` exists only in the legacy
+ * ~/.claude/mcp.json — a file Claude Code does not read.
+ */
+export function isLegacyGlobalMcpServer(name: string): boolean {
+  return (
+    globalMcpFileFor(name) === GLOBAL_MCP_FILE &&
+    readMcpServersFromFile(GLOBAL_MCP_FILE, { scope: "global" }).servers.some((s) => s.name === name)
+  );
 }
 
 /**
@@ -437,11 +458,14 @@ export function parseMcpServers(workspacePath?: string): McpParseResult {
   // down to the workspace, the nearest declaration of a name winning.
   if (workspacePath) {
     const effective = new Map<string, McpServer>();
-    for (const file of projectMcpFiles(workspacePath)) {
+    const files = projectMcpFiles(workspacePath);
+    files.forEach((file, i) => {
       const result = readMcpServersFromFile(file, { scope: "project" });
       if (result.error) errors.push(result.error);
-      for (const server of result.servers) effective.set(server.name, server);
-    }
+      // A fresh object: the cached ones must not carry this workspace's view.
+      const ancestorFile = i < files.length - 1 ? file : undefined;
+      for (const server of result.servers) effective.set(server.name, { ...server, ancestorFile });
+    });
     servers.push(...effective.values());
   }
 
@@ -460,7 +484,7 @@ export function parseMcpServers(workspacePath?: string): McpParseResult {
   const legacyResult = readMcpServersFromFile(GLOBAL_MCP_FILE, { scope: "global" });
   if (legacyResult.error) errors.push(legacyResult.error);
   for (const s of legacyResult.servers) {
-    if (!seen.has(s.name)) globalServers.push(s);
+    if (!seen.has(s.name)) globalServers.push({ ...s, legacyFile: true });
   }
   servers.push(...globalServers);
 
@@ -575,9 +599,13 @@ function writeSettingsJson(filePath: string, data: unknown): boolean {
   }
 }
 
-/** Strip the extension's old (non-standard, never-honored) per-entry `disabled` key. */
+/**
+ * Strip the extension's old (non-standard, never-honored) per-entry
+ * `disabled` key. Only the workspace's own `.mcp.json` — an ancestor file is
+ * shared with other projects, and a toggle must not rewrite it.
+ */
 function stripLegacyDisabledKey(name: string, workspacePath: string): void {
-  const mcpFile = projectMcpFileFor(name, workspacePath);
+  const mcpFile = path.join(workspacePath, ".mcp.json");
   const read = readJsonObjectForWrite(mcpFile);
   if (!read.ok || read.raw === null) return;
   const config = read.data;
@@ -657,7 +685,7 @@ export function setMcpServerDisabled(
     const current = projectEntryIn(read.config, workspacePath, false)?.disabledMcpServers;
     const list = Array.isArray(current) ? current : [];
     if (list.includes(serverKey) === disabled && (current === undefined || Array.isArray(current))) {
-      return { ok: true };
+      return { ok: true, changed: false };
     }
     const entry = projectEntryIn(read.config, workspacePath, true);
     if (!entry) return { ok: false, error: `${CLAUDE_JSON_FILE} has a malformed "projects" entry.` };
@@ -665,7 +693,7 @@ export function setMcpServerDisabled(
       ? [...list, serverKey]
       : list.filter((name) => name !== serverKey);
     return writeMcpConfig(CLAUDE_JSON_FILE, read.config, read.raw)
-      ? { ok: true }
+      ? { ok: true, changed: true }
       : { ok: false, error: `Failed to write ${CLAUDE_JSON_FILE}.` };
   });
 }
@@ -738,12 +766,34 @@ export function setProjectMcpServerDisabled(
     addToArray("enabledMcpjsonServers");
   }
 
+  // Enabling touches two files. The ~/.claude.json half goes first, under
+  // Claude Code's lock: it is the one that can be refused (lock busy, file
+  // mid-write), and refusing it before settings.local.json changes leaves
+  // nothing half-done. Should the settings write then fail, the /mcp switch
+  // is put back, so the server reads exactly as it did before.
+  let clearedSwitch = false;
+  if (!disabled) {
+    const cleared = setMcpServerDisabled(name, false, workspacePath);
+    if (!cleared.ok) return cleared;
+    clearedSwitch = cleared.changed === true;
+  }
+
+  if (!writeSettingsJson(filePath, data)) {
+    const failed = `Failed to write ${filePath}.`;
+    if (!clearedSwitch) return { ok: false, error: failed };
+    const restored = setMcpServerDisabled(name, true, workspacePath);
+    return {
+      ok: false,
+      error: restored.ok
+        ? failed
+        : `${failed} Its /mcp switch in ${CLAUDE_JSON_FILE} was already cleared and could not be restored (${restored.error}).`,
+    };
+  }
+
   // Best-effort cleanup of a stale key a previous version may have
   // written; failure here doesn't affect the toggle's own success.
   stripLegacyDisabledKey(name, workspacePath);
-
-  if (!writeSettingsJson(filePath, data)) return { ok: false, error: `Failed to write ${filePath}.` };
-  return disabled ? { ok: true } : setMcpServerDisabled(name, false, workspacePath);
+  return { ok: true };
 }
 
 /**
@@ -874,6 +924,10 @@ function readConfig(
 export interface McpWriteResult {
   ok: boolean;
   error?: string;
+  /** A successful write the user should know the consequence of. */
+  notice?: string;
+  /** setMcpServerDisabled only: whether the file was actually rewritten. */
+  changed?: boolean;
 }
 
 /**
@@ -895,14 +949,14 @@ export function addMcpServer(input: McpServerInput, workspacePath?: string): Mcp
   ) {
     return { ok: false, error: duplicate };
   }
-  // Likewise a project server an ancestor .mcp.json already declares: the
-  // workspace's own file would silently override it.
-  if (input.scope === "project" && workspacePath) {
-    const holder = projectMcpFileFor(input.name, workspacePath);
-    if (canonicalPath(holder) !== canonicalPath(target.file)) {
-      return { ok: false, error: `An MCP server named "${input.name}" is already declared in ${holder}.` };
-    }
-  }
+  // A project server an ancestor .mcp.json already declares is a legitimate
+  // override — the nearest file wins — but the user should hear that the
+  // shared definition no longer applies here.
+  const overridden =
+    input.scope === "project" && workspacePath ? projectMcpAncestorFile(input.name, workspacePath) : null;
+  const notice = overridden
+    ? `"${input.name}" in this workspace's .mcp.json now overrides the one declared in ${overridden}.`
+    : undefined;
   return withConfigFileLock(target.file, () => {
     const read = readConfig(target.file);
     if (!read.ok) return { ok: false, error: read.error };
@@ -915,7 +969,7 @@ export function addMcpServer(input: McpServerInput, workspacePath?: string): Mcp
     // pretty-printed; seed the indent hint so writeMcpConfig formats it.
     const indentHint = raw || '{\n  "mcpServers": {}\n}';
     return writeMcpConfig(target.file, config, indentHint)
-      ? { ok: true }
+      ? { ok: true, notice }
       : { ok: false, error: "Failed to write MCP config." };
   });
 }

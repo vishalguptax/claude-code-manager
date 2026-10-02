@@ -22,7 +22,7 @@ import { CLAUDE_DIR, CLAUDE_JSON_FILE, SETTINGS_FILE, claudeSettingsPath } from 
 import { listProfiles, getActiveProfileSlug } from "./profiles";
 import { readQuotaHistory } from "./quotaHistory";
 import { readCredentials } from "./credentials";
-import { readClaudeJsonParsed } from "./claudeJsonCache";
+import { readClaudeJsonParsed } from "../../core/claudeJsonCache";
 import { computeUsageStats } from "./usage";
 import { readStatuslineCache } from "./quota";
 import { resolveActiveModel } from "./statuslineCore";

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import { holdLiveLock } from "../../../__mocks__/liveLock";
 
 // Hoist temp dirs so vi.mock factories can see them.
 const { CLAUDE_DIR, PROFILES_DIR, CLAUDE_JSON_PATH, CREDENTIALS_PATH } = vi.hoisted(() => {
@@ -1047,10 +1048,7 @@ describe("switchProfile — live state safety", () => {
   // Waits out withLocks' real 3 s acquire timeout, hence the budget.
   it("refuses while Claude Code holds the config lock", () => {
     saveBothAccounts();
-    fs.mkdirSync(CONFIG_LOCK_DIR);
-    // A live holder keeps renewing; dating it ahead keeps it live through a
-    // stall on a loaded machine.
-    fs.utimesSync(CONFIG_LOCK_DIR, new Date(Date.now() + 3_600_000), new Date(Date.now() + 3_600_000));
+    holdLiveLock(CONFIG_LOCK_DIR);
     try {
       const result = P.switchProfile("a");
       expect(result.ok).toBe(false);
@@ -1128,10 +1126,7 @@ describe("interrupted switch recovery", () => {
 
   it("does not prompt while the config lock is held", () => {
     interruptSwitch(120_000);
-    fs.mkdirSync(CONFIG_LOCK_DIR);
-    // A live holder keeps renewing; dating it ahead keeps it live through a
-    // stall on a loaded machine.
-    fs.utimesSync(CONFIG_LOCK_DIR, new Date(Date.now() + 3_600_000), new Date(Date.now() + 3_600_000));
+    holdLiveLock(CONFIG_LOCK_DIR);
     try {
       expect(P.findInterruptedSwitch()).toBeNull();
     } finally {

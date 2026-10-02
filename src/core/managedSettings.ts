@@ -29,17 +29,18 @@
  *    no admin source (remote / mdm / file) holds anything, and never merges
  *    into one.
  *  - The CLI resolves the OS policy sources (plist / registry) once at
- *    startup. They are cached here for the extension host's lifetime too —
- *    spawning plutil or reg.exe on every tab refresh would cost a process
- *    each time — and dropped by the global Reload
- *    ({@link clearOsPolicyCache}). The file sources are re-read every time.
+ *    startup. Here they are queried asynchronously at activation and on the
+ *    global Reload ({@link refreshOsPolicy}) and held between queries:
+ *    spawning plutil or reg.exe on every read would cost a process each
+ *    time, and a synchronous reg.exe can block the host for seconds. Reads
+ *    use the last resolved value. The file sources are re-read every time.
  *
  * Not modelled: the CLI's per-key "most restrictive value wins" floors except
  * for the two sync opt-outs this extension reads, and policy helpers.
  *
  * Pure Node.js — no VS Code dependency.
  */
-import { execFileSync } from "child_process";
+import { execFile } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -288,23 +289,22 @@ function readFileTier(dir: string): PolicySourceRead {
 export type PolicyToolRunner = (
   file: string,
   args: string[],
-) => { ok: true; stdout: string } | { ok: false; reason: string };
+) => Promise<{ ok: true; stdout: string } | { ok: false; reason: string }>;
 
-/** Run a policy reader binary with the CLI's limits, argv only (no shell). Never throws. */
-const runPolicyTool: PolicyToolRunner = (file, args) => {
-  try {
-    const stdout = execFileSync(file, args, {
-      encoding: "utf-8",
-      timeout: POLICY_TIMEOUT_MS,
-      maxBuffer: POLICY_MAX_BYTES,
-      stdio: ["ignore", "pipe", "ignore"],
-      windowsHide: true,
-    });
-    return { ok: true, stdout };
-  } catch (err) {
-    return { ok: false, reason: (err as Error).message };
-  }
-};
+/**
+ * Run a policy reader binary asynchronously with the CLI's limits, argv only
+ * (no shell). Never rejects. Async because reg.exe can take seconds, and a
+ * synchronous spawn would freeze every panel in the extension host meanwhile.
+ */
+const runPolicyTool: PolicyToolRunner = (file, args) =>
+  new Promise((resolve) => {
+    execFile(
+      file,
+      args,
+      { encoding: "utf-8", timeout: POLICY_TIMEOUT_MS, maxBuffer: POLICY_MAX_BYTES, windowsHide: true },
+      (err, stdout) => resolve(err ? { ok: false, reason: err.message } : { ok: true, stdout }),
+    );
+  });
 
 /** The managed-preferences plists the CLI reads, highest first. */
 export function managedPlistPaths(username: string): string[] {
@@ -316,10 +316,10 @@ export function managedPlistPaths(username: string): string[] {
 }
 
 /** macOS: the first managed-preferences plist that holds settings. */
-export function readMacPlist(
+export async function readMacPlist(
   paths: string[] = managedPlistPaths(safeUsername()),
   run: PolicyToolRunner = runPolicyTool,
-): PolicySourceRead {
+): Promise<PolicySourceRead> {
   const errors: string[] = [];
   for (const plist of paths) {
     try {
@@ -329,7 +329,7 @@ export function readMacPlist(
       if (code !== "ENOENT" && code !== "ENOTDIR") errors.push(unusable(plist, (err as Error).message));
       continue;
     }
-    const res = run("/usr/bin/plutil", ["-convert", "json", "-o", "-", "--", plist]);
+    const res = await run("/usr/bin/plutil", ["-convert", "json", "-o", "-", "--", plist]);
     if (!res.ok) {
       errors.push(unusable(plist, "plutil could not convert it to JSON"));
       continue;
@@ -360,14 +360,14 @@ export function parseRegQuery(stdout: string): string | null {
  * no key, no reg.exe, a timeout — reads as absent: this view is advisory,
  * and inventing a policy from a failed read would be worse than showing none.
  */
-export function readWindowsRegistry(
+export async function readWindowsRegistry(
   key: string = HKLM_POLICY_KEY,
   run: PolicyToolRunner = runPolicyTool,
-): PolicySourceRead {
+): Promise<PolicySourceRead> {
   const source = `Registry: ${key}\\Settings`;
   // reg.exe by absolute path, so a `reg` earlier on PATH is never what runs.
   const reg = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "reg.exe");
-  const res = run(reg, ["query", key, "/v", "Settings"]);
+  const res = await run(reg, ["query", key, "/v", "Settings"]);
   const value = res.ok ? parseRegQuery(res.stdout) : null;
   if (value === null) return { settings: null, source, errors: [] };
   const parsed = parsePolicy(value);
@@ -389,25 +389,75 @@ function safeUsername(): string {
 
 const NONE: PolicySourceRead = { settings: null, source: "", errors: [] };
 
-/** OS policy sources, read once per extension-host lifetime (see the header). */
-let osPolicyCache: { mdm: PolicySourceRead; hkcu: PolicySourceRead } | null = null;
-
-function osPolicy(): { mdm: PolicySourceRead; hkcu: PolicySourceRead } {
-  osPolicyCache ??= {
-    mdm:
-      process.platform === "darwin"
-        ? readMacPlist()
-        : process.platform === "win32"
-          ? readWindowsRegistry(HKLM_POLICY_KEY)
-          : NONE,
-    hkcu: process.platform === "win32" ? readWindowsRegistry(HKCU_POLICY_KEY) : NONE,
-  };
-  return osPolicyCache;
+/** The OS policy sources: the admin mdm source and the user-writable HKCU one. */
+export interface OsPolicy {
+  mdm: PolicySourceRead;
+  hkcu: PolicySourceRead;
 }
 
-/** Forget the OS policy sources so the next read re-queries them. Called by the global Reload. */
-export function clearOsPolicyCache(): void {
-  osPolicyCache = null;
+/** Query this platform's OS policy sources. */
+async function readOsPolicy(): Promise<OsPolicy> {
+  if (process.platform === "darwin") return { mdm: await readMacPlist(), hkcu: NONE };
+  if (process.platform === "win32") {
+    const [mdm, hkcu] = await Promise.all([
+      readWindowsRegistry(HKLM_POLICY_KEY),
+      readWindowsRegistry(HKCU_POLICY_KEY),
+    ]);
+    return { mdm, hkcu };
+  }
+  return { mdm: NONE, hkcu: NONE };
+}
+
+/**
+ * The last resolved OS policy. Starts absent; readers never wait on the OS —
+ * {@link refreshOsPolicy} fills it in the background.
+ */
+let osPolicy: OsPolicy = { mdm: NONE, hkcu: NONE };
+let inFlight: Promise<boolean> | null = null;
+
+/**
+ * Re-query the OS policy sources in the background (at activation and on
+ * the global Reload — the CLI likewise resolves them once at startup).
+ * Resolves true when the value changed, so the caller can re-push the tabs
+ * it affects. Concurrent calls share one query.
+ */
+export function refreshOsPolicy(read: () => Promise<OsPolicy> = readOsPolicy): Promise<boolean> {
+  inFlight ??= read()
+    .then((next) => {
+      const changed =
+        JSON.stringify([osPolicy.mdm.settings, osPolicy.hkcu.settings]) !==
+        JSON.stringify([next.mdm.settings, next.hkcu.settings]);
+      osPolicy = next;
+      return changed;
+    })
+    .catch(() => false)
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
+}
+
+/** The managed tier's settings, read lazily and at most once per lookup. */
+export type ManagedLookup = () => Record<string, unknown> | null;
+
+/**
+ * A lookup that reads the managed tier on first use and reuses that answer.
+ * Make one per parse pass and pass it down, so a pass that needs the policy
+ * in several places reads it once — and a pass that never needs it (no
+ * synced content on disk) never reads it. Never kept across passes.
+ */
+export function managedOnce(
+  read: () => Record<string, unknown> | null = () => readManagedSettings().settings,
+): ManagedLookup {
+  let done = false;
+  let value: Record<string, unknown> | null = null;
+  return () => {
+    if (!done) {
+      value = read();
+      done = true;
+    }
+    return value;
+  };
 }
 
 /**
@@ -417,10 +467,10 @@ export function clearOsPolicyCache(): void {
 export function readManagedSettings(sources: Partial<ManagedSources> = {}): ManagedSettingsRead {
   const admin = [
     readRemote(sources.remoteFile ?? REMOTE_SETTINGS_FILE),
-    (sources.readMdm ?? (() => osPolicy().mdm))(),
+    (sources.readMdm ?? (() => osPolicy.mdm))(),
     readFileTier(sources.dir ?? managedSettingsDir()),
   ];
-  const hkcu = (sources.readHkcu ?? (() => osPolicy().hkcu))();
+  const hkcu = (sources.readHkcu ?? (() => osPolicy.hkcu))();
   const errors = [...admin, hkcu].flatMap((r) => r.errors);
   const present = admin.filter(
     (r): r is PolicySourceRead & { settings: Record<string, unknown> } => r.settings !== null,

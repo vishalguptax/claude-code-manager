@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   composeTiers,
   managedPlistPaths,
@@ -10,8 +10,10 @@ import {
   mergeManagedLayer,
   parseRegQuery,
   type PolicySourceRead,
-  clearOsPolicyCache,
   HKCU_POLICY_KEY,
+  managedOnce,
+  type OsPolicy,
+  refreshOsPolicy,
   type PolicyToolRunner,
   readMacPlist,
   readManagedSettings,
@@ -227,7 +229,7 @@ describe("composeTiers", () => {
 });
 
 describe("readMacPlist", () => {
-  const runner = (out: Record<string, string>): PolicyToolRunner => (_file, args) => {
+  const runner = (out: Record<string, string>): PolicyToolRunner => async (_file, args) => {
     const stdout = out[args[args.length - 1]];
     return stdout === undefined ? { ok: false, reason: "exit 1" } : { ok: true, stdout };
   };
@@ -242,7 +244,7 @@ describe("readMacPlist", () => {
     ]);
   });
 
-  it("takes the first readable plist that holds settings, converted by plutil", () => {
+  it("takes the first readable plist that holds settings, converted by plutil", async () => {
     const user = path.join(ROOT, "user.plist");
     const device = path.join(ROOT, "device.plist");
     write(user, "<plist/>");
@@ -252,7 +254,7 @@ describe("readMacPlist", () => {
       calls.push([file, ...args]);
       return runner({ [user]: "{}", [device]: '{"syncClaudeAiPlugins":false}' })(file, args);
     };
-    expect(readMacPlist([user, device], run)).toEqual({
+    expect(await readMacPlist([user, device], run)).toEqual({
       settings: { syncClaudeAiPlugins: false },
       source: device,
       errors: [],
@@ -260,10 +262,10 @@ describe("readMacPlist", () => {
     expect(calls[0]).toEqual(["/usr/bin/plutil", "-convert", "json", "-o", "-", "--", user]);
   });
 
-  it("skips a missing plist silently and reports one plutil cannot convert", () => {
+  it("skips a missing plist silently and reports one plutil cannot convert", async () => {
     const bad = path.join(ROOT, "bad.plist");
     write(bad, "<plist/>");
-    const res = readMacPlist([path.join(ROOT, "missing.plist"), bad], runner({}));
+    const res = await readMacPlist([path.join(ROOT, "missing.plist"), bad], runner({}));
     expect(res.settings).toBeNull();
     expect(res.errors).toHaveLength(1);
     expect(res.errors[0]).toContain("bad.plist");
@@ -283,9 +285,9 @@ describe("readWindowsRegistry", () => {
     expect(parseRegQuery("ERROR: The system was unable to find the specified registry key")).toBeNull();
   });
 
-  it("queries HKLM by argv and reads the JSON value", () => {
+  it("queries HKLM by argv and reads the JSON value", async () => {
     let argv: string[] = [];
-    const res = readWindowsRegistry(undefined, (file, args) => {
+    const res = await readWindowsRegistry(undefined, async (file, args) => {
       argv = [path.basename(file), ...args];
       return { ok: true, stdout: REG_OUTPUT };
     });
@@ -293,8 +295,8 @@ describe("readWindowsRegistry", () => {
     expect(res.settings).toEqual({ syncClaudeAiSkills: false });
   });
 
-  it("fails closed to absent when reg.exe fails or times out", () => {
-    expect(readWindowsRegistry(undefined, () => ({ ok: false, reason: "ETIMEDOUT" }))).toMatchObject({
+  it("fails closed to absent when reg.exe fails or times out", async () => {
+    expect(await readWindowsRegistry(undefined, async () => ({ ok: false, reason: "ETIMEDOUT" }))).toMatchObject({
       settings: null,
       errors: [],
     });
@@ -325,9 +327,9 @@ describe("readManagedSettings — HKCU tier", () => {
     });
   });
 
-  it("queries the HKCU key with the same argv-only reg query", () => {
+  it("queries the HKCU key with the same argv-only reg query", async () => {
     let argv: string[] = [];
-    readWindowsRegistry(HKCU_POLICY_KEY, (_file, args) => {
+    await readWindowsRegistry(HKCU_POLICY_KEY, async (_file, args) => {
       argv = args;
       return { ok: false, reason: "not found" };
     });
@@ -335,35 +337,54 @@ describe("readManagedSettings — HKCU tier", () => {
   });
 });
 
-describe("OS policy cache", () => {
-  it("reads the OS sources once and again only after clearOsPolicyCache", async () => {
-    // Re-import with a stubbed child_process to count spawns of the real readers.
-    vi.resetModules();
-    const spawned: string[] = [];
-    vi.doMock("child_process", () => ({
-      execFileSync: (file: string) => {
-        spawned.push(file);
-        throw new Error("no policy");
-      },
-    }));
-    const platform = process.platform;
-    Object.defineProperty(process, "platform", { value: "win32" });
-    try {
-      const mod = await import("../managedSettings");
-      mod.readManagedSettings({ dir: POLICY_DIR, remoteFile: REMOTE });
-      mod.readManagedSettings({ dir: POLICY_DIR, remoteFile: REMOTE });
-      expect(spawned).toHaveLength(2); // HKLM + HKCU, once
-      mod.clearOsPolicyCache();
-      mod.readManagedSettings({ dir: POLICY_DIR, remoteFile: REMOTE });
-      expect(spawned).toHaveLength(4);
-    } finally {
-      Object.defineProperty(process, "platform", { value: platform });
-      vi.doUnmock("child_process");
-      vi.resetModules();
-    }
+describe("refreshOsPolicy", () => {
+  const policy = (mdm: Record<string, unknown> | null, hkcu: Record<string, unknown> | null = null): OsPolicy => ({
+    mdm: { settings: mdm, source: "mdm", errors: [] },
+    hkcu: { settings: hkcu, source: "hkcu", errors: [] },
   });
 
-  it("clearOsPolicyCache is safe to call before any read", () => {
-    expect(() => clearOsPolicyCache()).not.toThrow();
+  it("serves the last resolved value to readers and reports whether it changed", async () => {
+    // Readers never wait on the OS: before the refresh, the tier reads absent.
+    expect(await refreshOsPolicy(async () => policy(null))).toBe(false);
+    expect(readManagedSettings({ dir: POLICY_DIR, remoteFile: REMOTE }).settings).toBeNull();
+
+    expect(await refreshOsPolicy(async () => policy({ syncClaudeAiPlugins: false }))).toBe(true);
+    expect(readManagedSettings({ dir: POLICY_DIR, remoteFile: REMOTE }).settings).toEqual({
+      syncClaudeAiPlugins: false,
+    });
+
+    expect(await refreshOsPolicy(async () => policy({ syncClaudeAiPlugins: false }))).toBe(false);
+    await refreshOsPolicy(async () => policy(null));
+  });
+
+  it("shares one query between concurrent refreshes", async () => {
+    let calls = 0;
+    const read = async (): Promise<OsPolicy> => {
+      calls++;
+      return policy(null);
+    };
+    await Promise.all([refreshOsPolicy(read), refreshOsPolicy(read)]);
+    expect(calls).toBe(1);
+  });
+
+  it("keeps the last value and reports no change when the query fails", async () => {
+    await refreshOsPolicy(async () => policy({ a: 1 }));
+    expect(await refreshOsPolicy(async () => Promise.reject(new Error("spawn failed")))).toBe(false);
+    expect(readManagedSettings({ dir: POLICY_DIR, remoteFile: REMOTE }).settings).toEqual({ a: 1 });
+    await refreshOsPolicy(async () => policy(null));
+  });
+});
+
+describe("managedOnce", () => {
+  it("reads on first use only, and not at all when never used", () => {
+    let reads = 0;
+    const lookup = managedOnce(() => {
+      reads++;
+      return { syncClaudeAiSkills: false };
+    });
+    expect(reads).toBe(0);
+    expect(lookup()).toEqual({ syncClaudeAiSkills: false });
+    expect(lookup()).toEqual({ syncClaudeAiSkills: false });
+    expect(reads).toBe(1);
   });
 });

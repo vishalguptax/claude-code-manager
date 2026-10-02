@@ -16,8 +16,8 @@
  * data.
  */
 import * as fs from "fs";
-import { CLAUDE_JSON_FILE } from "../../core/config";
-import { createMtimeCache } from "../../core/mtimeCache";
+import { CLAUDE_JSON_FILE } from "./config";
+import { createMtimeCache } from "./mtimeCache";
 
 interface ParsedClaudeJson {
   /** Raw file contents, or null when missing / unreadable. */

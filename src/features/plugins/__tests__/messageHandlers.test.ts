@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { readManagedSettings } from "../../../core/managedSettings";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 import { handlePluginsMessage } from "../messageHandlers";
@@ -92,6 +93,14 @@ describe("handlePluginsMessage", () => {
     const { ctx } = harness();
     await handlePluginsMessage({ type: "openPluginSettings", scope: "local" }, ctx);
     expect(open).toHaveBeenCalledWith(path.join(WORKSPACE, ".claude", "settings.local.json"));
+  });
+
+  it("opens the managed source whose policy is in force", async () => {
+    const open = vi.spyOn(vscode.workspace, "openTextDocument").mockResolvedValue({} as never);
+    vi.spyOn(vscode.window, "showTextDocument").mockResolvedValue(undefined);
+    const { ctx } = harness();
+    await handlePluginsMessage({ type: "openPluginSettings", scope: "managed" }, ctx);
+    expect(open).toHaveBeenCalledWith(readManagedSettings().source);
   });
 
   it("refuses to reveal a directory for an id the host does not know", async () => {

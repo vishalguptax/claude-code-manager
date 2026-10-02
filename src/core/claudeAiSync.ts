@@ -26,9 +26,10 @@
  */
 import * as fs from "fs";
 import * as path from "path";
-import { CLAUDE_JSON_FILE, SETTINGS_FILE } from "./config";
+import { readClaudeJsonParsed } from "./claudeJsonCache";
+import { SETTINGS_FILE } from "./config";
 import { asObject, readJsonObject } from "./jsonFile";
-import { readManagedSettings } from "./managedSettings";
+import { type ManagedLookup, managedOnce } from "./managedSettings";
 
 /** Directory name Claude Code reserves under skills/ and plugins/ for synced content. */
 export const SYNCED_DIR_NAME = "synced";
@@ -45,17 +46,12 @@ function uuidOrNull(value: unknown): string | null {
  * no claude.ai account is signed in.
  */
 export function activeSyncBucket(
-  claudeJsonFile: string = CLAUDE_JSON_FILE,
+  claudeJson: Record<string, unknown> | null = readClaudeJsonParsed(),
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
-  // A plain read, not the no-follow one: ~/.claude.json is the user's own
-  // config, and dotfile managers commonly symlink it.
-  let account: Record<string, unknown> | null;
-  try {
-    account = asObject(asObject(JSON.parse(fs.readFileSync(claudeJsonFile, "utf-8")))?.oauthAccount);
-  } catch {
-    return null;
-  }
+  // ~/.claude.json is routinely megabytes; the shared mtime-cached reader
+  // parses it once per change, not once per call.
+  const account = asObject(claudeJson?.oauthAccount);
   if (!account) return null;
   const org = uuidOrNull(env.CLAUDE_CODE_ORGANIZATION_UUID ?? account.organizationUuid);
   const user = uuidOrNull(account.accountUuid);
@@ -92,12 +88,20 @@ const OPT_OUT_KEY: Record<SyncedKind, string> = {
 export function claudeAiSyncEnabled(
   kind: SyncedKind,
   userSettingsFile: string = SETTINGS_FILE,
-  managed: Record<string, unknown> | null = readManagedSettings().settings,
+  managed: ManagedLookup = managedOnce(),
 ): boolean {
   const key = OPT_OUT_KEY[kind];
   const user = readJsonObject(userSettingsFile);
   if (user.kind === "ok" && user.data[key] === false) return false;
-  return managed?.[key] !== false;
+  return managed()?.[key] !== false;
+}
+
+function isDirectory(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -105,9 +109,19 @@ export function claudeAiSyncEnabled(
  * (`~/.claude/skills/synced` or `~/.claude/plugins/synced`), or null when
  * Claude Code would load nothing from it: nobody is signed in to claude.ai,
  * or the user or their organisation turned that kind of sync off.
+ *
+ * Cheapest check first: on a machine that never synced, a stat answers and
+ * neither ~/.claude.json nor any settings file is read.
  */
-export function activeSyncedDir(syncedRoot: string, kind: SyncedKind): string | null {
-  if (!claudeAiSyncEnabled(kind)) return null;
+export function activeSyncedDir(
+  syncedRoot: string,
+  kind: SyncedKind,
+  managed: ManagedLookup = managedOnce(),
+): string | null {
+  if (!isDirectory(syncedRoot)) return null;
   const bucket = activeSyncBucket();
-  return bucket === null ? null : path.join(syncedRoot, bucket);
+  if (bucket === null) return null;
+  const dir = path.join(syncedRoot, bucket);
+  if (!isDirectory(dir)) return null;
+  return claudeAiSyncEnabled(kind, SETTINGS_FILE, managed) ? dir : null;
 }

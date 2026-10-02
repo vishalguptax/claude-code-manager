@@ -97,6 +97,34 @@ describe("McpForm", () => {
     expect((screen.getByText("Add").closest("button") as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("allows a workspace override of an ancestor's project server, and says so", () => {
+    render(
+      h(McpForm, {
+        server: null,
+        existing: [{ name: "github", scope: "project", ancestorFile: "/home/me/.mcp.json" }],
+        onClose: () => {},
+        onSubmit: vi.fn(),
+      }),
+    );
+    fireEvent.click(screen.getByLabelText("Server scope"));
+    fireEvent.click(screen.getByText("Project (.mcp.json, shared)"));
+    fireEvent.input(screen.getByLabelText("Server name"), { target: { value: "github" } });
+    fireEvent.input(screen.getByLabelText("Command"), { target: { value: "node" } });
+    expect(screen.getByText(/Overrides the "github" declared in \/home\/me\/.mcp.json/)).toBeTruthy();
+    expect((screen.getByText("Add").closest("button") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("warns when an edit will rewrite a file outside the workspace", () => {
+    render(
+      h(McpForm, {
+        server: srv({ name: "up", scope: "project", ancestorFile: "/home/me/.mcp.json" }),
+        onClose: () => {},
+        onSubmit: () => {},
+      }),
+    );
+    expect(screen.getByText(/Saving rewrites \/home\/me\/.mcp.json, outside this workspace/)).toBeTruthy();
+  });
+
   it("flags a duplicate name in the same scope and blocks save", () => {
     render(
       h(McpForm, {

@@ -117,14 +117,15 @@ vi.mock("../../account/projectStats", async (importActual) => {
     },
   };
 });
-let __clearOsPolicyCalls = 0;
+let __refreshOsPolicyCalls = 0;
 vi.mock("../../../core/managedSettings", async (importActual) => {
   const actual = await importActual<typeof import("../../../core/managedSettings")>();
   return {
     ...actual,
-    clearOsPolicyCache: () => {
-      __clearOsPolicyCalls++;
-      actual.clearOsPolicyCache();
+    // Counted, and never spawning plutil / reg.exe from a test.
+    refreshOsPolicy: () => {
+      __refreshOsPolicyCalls++;
+      return Promise.resolve(false);
     },
   };
 });
@@ -156,7 +157,7 @@ beforeEach(() => {
   __mockedSearchContent = () => [];
   __clearIndexCalls = 0;
   __clearModelCalls = 0;
-  __clearOsPolicyCalls = 0;
+  __refreshOsPolicyCalls = 0;
   __resetUsageCalls = 0;
   __htmlGen = 0;
 });
@@ -603,9 +604,9 @@ describe("ClaudeSessionViewProvider", () => {
     expect(__clearIndexCalls).toBeGreaterThanOrEqual(1);
     expect(__clearModelCalls).toBeGreaterThanOrEqual(1);
     expect(__resetUsageCalls).toBeGreaterThanOrEqual(1);
-    // …and forgets the cached OS policy sources so a newly pushed plist /
-    // registry policy is seen.
-    expect(__clearOsPolicyCalls).toBeGreaterThanOrEqual(1);
+    // …and re-queries the OS policy sources so a newly pushed plist /
+    // registry policy is seen (in the background, never awaited).
+    expect(__refreshOsPolicyCalls).toBeGreaterThanOrEqual(2); // activation + Refresh
     // (c) WEBVIEW — the document was regenerated from the html builder, so
     // the post-reload html differs from the one set at resolve time.
     expect(view.webview.html).not.toBe(htmlAtResolve);

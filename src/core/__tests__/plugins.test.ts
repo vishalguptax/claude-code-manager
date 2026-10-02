@@ -25,6 +25,7 @@ import {
   findPluginMcpFile,
   type ActivePlugin,
 } from "../plugins";
+import { clearClaudeJsonCache } from "../claudeJsonCache";
 
 interface InstalledEntry {
   scope: "user" | "project";
@@ -71,6 +72,8 @@ function setBlocklist(qualifiedNames: string[]): void {
 }
 
 beforeEach(() => {
+  // Tests rewrite ~/.claude.json with same-size content within one mtime tick.
+  clearClaudeJsonCache();
   fs.rmSync(HOME, { recursive: true, force: true });
 });
 afterEach(() => {
@@ -423,5 +426,48 @@ describe("enabledPluginIds", () => {
       JSON.stringify({ enabledPlugins: { "b@m": false } }),
     );
     expect([...enabledPluginIds(ws)].sort()).toEqual(["a@m", "c@m"]);
+  });
+});
+
+describe("loadActivePlugins — policy reads", () => {
+  function countingLookup() {
+    const counter = { reads: 0 };
+    const lookup = () => {
+      counter.reads++;
+      return null;
+    };
+    return { counter, lookup };
+  }
+
+  it("never reads the policy tier when nothing synced is on disk", () => {
+    setupPlugin("design@kwp", [{ scope: "user", installPath: path.join(CACHE_DIR, "kwp", "design", "1") }]);
+    const { counter, lookup } = countingLookup();
+    loadActivePlugins(undefined, lookup);
+    expect(counter.reads).toBe(0);
+  });
+
+  it("never reads it when the signed-in account has no bucket", () => {
+    syncBucket(OTHER, [{ name: "design" }]);
+    signIn(ACTIVE);
+    const { counter, lookup } = countingLookup();
+    loadActivePlugins(undefined, lookup);
+    expect(counter.reads).toBe(0);
+  });
+
+  it("shares the caller's lookup between the sync opt-out and the shadowing check", () => {
+    signIn(ACTIVE);
+    syncBucket(ACTIVE, [{ name: "design" }]);
+    setupPlugin("design@kwp", [{ scope: "user", installPath: path.join(CACHE_DIR, "kwp", "design", "1") }]);
+    const reads = { n: 0 };
+    let value: Record<string, unknown> | null | undefined;
+    const lookup = () => {
+      if (value === undefined) {
+        reads.n++;
+        value = null;
+      }
+      return value;
+    };
+    loadActivePlugins(undefined, lookup);
+    expect(reads.n).toBe(1);
   });
 });

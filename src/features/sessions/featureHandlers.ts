@@ -127,8 +127,17 @@ export async function handleFeatureMessage(
         "Delete",
       );
       if (choice === "Delete") {
+        // Re-resolve after the modal: the folder may have been moved or
+        // swapped for a symlink while the user was deciding.
+        const still = findDeletableSkill(skillPath, workspace);
+        if (!still.ok || still.skill.path !== found.skill.path) {
+          vscode.window.showErrorMessage(
+            still.ok ? `${found.skill.path} changed while you were confirming, so it was not deleted.` : still.error,
+          );
+          break;
+        }
         try {
-          deleteSkillFolder(found.skill);
+          deleteSkillFolder(still.skill);
           const skills = parseSkills(workspace);
           ctx.setSkills(skills);
           wv.postMessage({ type: "skills", data: skills });

@@ -141,6 +141,8 @@ export interface MockTerminal {
   show: () => void;
   dispose: () => void;
   createOptions?: Record<string, unknown>;
+  /** What `vscode.Terminal.creationOptions` reports: the options it was created with. */
+  creationOptions?: Record<string, unknown>;
   /** Absent until shell integration activates, matching the real API — see
    *  runInTerminal in extension/terminal.ts, the one consumer of this. */
   shellIntegration?: unknown;
@@ -192,6 +194,7 @@ export const window = {
         this.exitStatus = { code: 0 };
       },
       createOptions: options,
+      creationOptions: options,
     };
     window.terminals.push(t);
     return t;

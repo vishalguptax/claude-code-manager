@@ -408,6 +408,29 @@ describe("skill paths from the webview", () => {
     expect(err).toHaveBeenCalledWith("/etc is not a skill Claude Code loads — refresh the list.");
   });
 
+  it("re-checks after the confirm and refuses if the folder no longer resolves", async () => {
+    mockFindDeletableSkill
+      .mockReturnValueOnce({ ok: true, skill })
+      .mockReturnValueOnce({ ok: false, error: `${skill.path} is outside /home/dev/.claude/skills, so it was not deleted.` });
+    vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue("Delete" as never);
+    const err = vi.spyOn(vscode.window, "showErrorMessage");
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "deleteSkill", skillPath: skill.path }, ctx);
+    expect(mockFindDeletableSkill).toHaveBeenCalledTimes(2);
+    expect(mockDeleteSkillFolder).not.toHaveBeenCalled();
+    expect(err).toHaveBeenCalledWith(expect.stringContaining("so it was not deleted"));
+  });
+
+  it("refuses when the re-check resolves to a different folder", async () => {
+    mockFindDeletableSkill
+      .mockReturnValueOnce({ ok: true, skill })
+      .mockReturnValueOnce({ ok: true, skill: { ...skill, path: "/home/dev/.claude/skills/other" } });
+    vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue("Delete" as never);
+    const { ctx } = harness();
+    await handleFeatureMessage({ type: "deleteSkill", skillPath: skill.path }, ctx);
+    expect(mockDeleteSkillFolder).not.toHaveBeenCalled();
+  });
+
   it("opens SKILL.md only for a resolved skill", async () => {
     mockFindSkill.mockReturnValue({ ok: false, error: "nope" });
     const open = vi.spyOn(vscode.workspace, "openTextDocument");

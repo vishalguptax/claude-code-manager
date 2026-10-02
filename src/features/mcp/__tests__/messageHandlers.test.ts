@@ -215,6 +215,20 @@ describe("toggleMcpServer", () => {
     expect(config.projects[claudeProjectKey(ws)].disabledMcpServers).toEqual(["plugin:design:figma"]);
   });
 
+  it("refuses to toggle a server only the legacy ~/.claude/mcp.json declares", async () => {
+    const ws = path.join(HOME, "ws");
+    fs.mkdirSync(ws, { recursive: true });
+    writeJson(path.join(HOME, ".claude", "mcp.json"), { mcpServers: { old: { command: "o" } } });
+    const err = vi.spyOn(vscode.window, "showErrorMessage");
+    const { ctx } = harness(ws);
+    await handleMcpMessage(
+      { type: "toggleMcpServer", name: "old", scope: "global", disabled: true },
+      ctx,
+    );
+    expect(err).toHaveBeenCalledWith(expect.stringContaining("does not read"));
+    expect(fs.existsSync(path.join(HOME, ".claude.json"))).toBe(false);
+  });
+
   it("rejects a plugin toggle that does not name its plugin", async () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const { ctx, posted } = harness(path.join(HOME, "ws"));
@@ -252,7 +266,8 @@ describe("toggleMcpServer", () => {
     expect(err).toHaveBeenCalledWith(
       `Failed to disable local: ${localSettings} isn't valid JSON, so it was left untouched. Fix or remove it, then try again.`,
     );
-    expect(posted).toHaveLength(0);
+    // The list is re-read anyway, so the switch shows what is on disk.
+    expect(posted).toEqual([expect.objectContaining({ type: "mcpServers" })]);
   });
 });
 
@@ -362,6 +377,63 @@ describe("addMcpServer / updateMcpServer", () => {
     );
     const written = JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8"));
     expect(written.mcpServers.api.command).toBe("new");
+  });
+});
+
+describe("project servers in an ancestor .mcp.json", () => {
+  const ws = path.join(HOME, "repo", "sub");
+  const shared = path.join(HOME, "repo", ".mcp.json");
+  const input = { name: "up", scope: "project", transport: "stdio", command: "new", env: {}, headers: {} };
+
+  beforeEach(() => {
+    fs.mkdirSync(ws, { recursive: true });
+    writeJson(shared, { mcpServers: { up: { command: "u" } } });
+  });
+
+  it("tells the user a workspace add overrides the shared server", async () => {
+    const info = vi.spyOn(vscode.window, "showInformationMessage");
+    const { ctx } = harness(ws);
+    await handleMcpMessage({ type: "addMcpServer", server: input }, ctx);
+    expect(info).toHaveBeenCalledWith(expect.stringContaining(fs.realpathSync(shared)));
+    expect(JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8")).mcpServers.up).toEqual({
+      command: "new",
+    });
+  });
+
+  it("asks before editing the shared file, and leaves it alone on cancel", async () => {
+    const confirm = vi
+      .spyOn(vscode.window, "showWarningMessage")
+      .mockResolvedValue(undefined as never);
+    const { ctx, posted } = harness(ws);
+    await handleMcpMessage({ type: "updateMcpServer", originalName: "up", server: input }, ctx);
+    expect(confirm).toHaveBeenCalledWith(
+      expect.stringContaining("shared .mcp.json"),
+      expect.objectContaining({ modal: true, detail: expect.stringContaining(fs.realpathSync(shared)) }),
+      "Save",
+    );
+    expect(JSON.parse(fs.readFileSync(shared, "utf-8")).mcpServers.up).toEqual({ command: "u" });
+    expect(posted).toHaveLength(0);
+  });
+
+  it("writes the shared file once the user confirms", async () => {
+    vi.spyOn(vscode.window, "showWarningMessage").mockResolvedValue("Save" as never);
+    const { ctx } = harness(ws);
+    await handleMcpMessage({ type: "updateMcpServer", originalName: "up", server: input }, ctx);
+    expect(JSON.parse(fs.readFileSync(shared, "utf-8")).mcpServers.up).toEqual({ command: "new" });
+  });
+
+  it("edits a workspace server without asking", async () => {
+    writeJson(path.join(ws, ".mcp.json"), { mcpServers: { mine: { command: "m" } } });
+    const confirm = vi.spyOn(vscode.window, "showWarningMessage");
+    const { ctx } = harness(ws);
+    await handleMcpMessage(
+      { type: "updateMcpServer", originalName: "mine", server: { ...input, name: "mine" } },
+      ctx,
+    );
+    expect(confirm).not.toHaveBeenCalled();
+    expect(JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf-8")).mcpServers.mine).toEqual({
+      command: "new",
+    });
   });
 });
 

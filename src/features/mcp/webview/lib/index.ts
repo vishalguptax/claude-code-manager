@@ -13,6 +13,7 @@ export {
   buildMcpMenu,
   canAuthMcp,
   canEditMcp,
+  canToggleMcp,
   type McpMenuHandlers,
 } from "./mcpMenu";
 export {

@@ -138,6 +138,25 @@ describe("DetailView", () => {
     }
   });
 
+  it("explains, instead of offering a switch, for a legacy-file server", () => {
+    render(
+      h(DetailView, { server: srv({ name: "old", scope: "global", legacyFile: true }), ...handlers() }),
+    );
+    expect(screen.queryByText("Disable")).toBeNull();
+    expect(screen.getByText(/which Claude Code does not read/)).toBeTruthy();
+  });
+
+  it("names the shared ancestor file a project server comes from", () => {
+    render(
+      h(DetailView, {
+        server: srv({ name: "up", scope: "project", ancestorFile: "/home/me/.mcp.json" }),
+        ...handlers(),
+      }),
+    );
+    expect(screen.getByText("/home/me/.mcp.json")).toBeTruthy();
+    expect(screen.getByText(/outside this workspace/)).toBeTruthy();
+  });
+
   it("labels a local server with the local scope badge", () => {
     render(h(DetailView, { server: srv({ name: "l", scope: "local" }), ...handlers() }));
     const badge = screen.getByText("local");

@@ -21,8 +21,12 @@ export interface McpFormProps {
   server: McpServer | null;
   /** Starting values in add mode (ignored when editing). */
   preset?: McpFormPreset;
-  /** Existing servers (name + scope) for duplicate-name validation. */
-  existing?: Array<{ name: string; scope: string }>;
+  /**
+   * Existing servers for duplicate-name validation. A project server with an
+   * `ancestorFile` is not a duplicate of a new workspace entry: the nearer
+   * file wins, so adding one overrides it here.
+   */
+  existing?: Array<{ name: string; scope: string; ancestorFile?: string }>;
   onClose: () => void;
   onSubmit: (originalName: string | null, input: McpServerInput) => void;
 }
@@ -88,12 +92,15 @@ export function McpForm({ server, preset, existing = [], onClose, onSubmit }: Mc
 
   // ── Validation ──
   const nameFormatValid = MCP_NAME_RE.test(trimmedName);
-  const nameDup = existing.some(
+  const sameName = existing.filter(
     (e) =>
       e.scope === targetScope &&
       e.name === trimmedName &&
       !(isEdit && e.name === (server as McpServer).name && e.scope === (server as McpServer).scope),
   );
+  const overrides = isEdit ? undefined : sameName.find((e) => e.ancestorFile)?.ancestorFile;
+  // A rename keeps the server in its own file, so any same-named entry clashes.
+  const nameDup = sameName.some((e) => isEdit || !e.ancestorFile);
   const urlValid = urlValidForTransport(url, transport);
   const connValid = isStdio ? command.trim().length > 0 : urlValid;
   const envParsed = parseKeyVals(env);
@@ -124,6 +131,12 @@ export function McpForm({ server, preset, existing = [], onClose, onSubmit }: Mc
     <div class="panel">
       <BackButton onClick={onClose} />
       <div class="mcp-form-title">{isEdit ? "Edit MCP server" : "Add MCP server"}</div>
+      {isEdit && server.ancestorFile ? (
+        <div class="mcp-form-hint">
+          Saving rewrites {server.ancestorFile}, outside this workspace — the change applies to every
+          project beneath it.
+        </div>
+      ) : null}
       <div class="mcp-form">
         <label class="mcp-form-field">
           <span class="mcp-form-label">Name</span>
@@ -135,6 +148,10 @@ export function McpForm({ server, preset, existing = [], onClose, onSubmit }: Mc
           ) : nameDup ? (
             <span class="mcp-form-hint mcp-form-hint-error">
               A server named "{trimmedName}" already exists in {targetScope} scope.
+            </span>
+          ) : overrides ? (
+            <span class="mcp-form-hint">
+              Overrides the "{trimmedName}" declared in {overrides} for this workspace.
             </span>
           ) : null}
         </label>

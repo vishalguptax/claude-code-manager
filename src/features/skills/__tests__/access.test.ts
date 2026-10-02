@@ -14,6 +14,7 @@ vi.mock("os", async () => {
 });
 
 import { deleteSkillFolder, findDeletableSkill, findSkill } from "../access";
+import { clearClaudeJsonCache } from "../../../core/claudeJsonCache";
 
 const SKILLS = path.join(HOME, ".claude", "skills");
 const WS = path.join(HOME, "repo");
@@ -27,6 +28,8 @@ function writeSkill(dir: string, name: string): void {
 }
 
 beforeEach(() => {
+  // Tests rewrite ~/.claude.json with same-size content within one mtime tick.
+  clearClaudeJsonCache();
   fs.rmSync(HOME, { recursive: true, force: true });
   fs.mkdirSync(WS, { recursive: true });
   fs.mkdirSync(path.join(OUTSIDE, "precious"), { recursive: true });

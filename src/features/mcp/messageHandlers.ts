@@ -18,6 +18,8 @@ import {
   deleteMcpServer,
   globalMcpFileFor,
   globalMcpConfigFile,
+  isLegacyGlobalMcpServer,
+  projectMcpAncestorFile,
   projectMcpFileFor,
   parseMcpServers,
   readMcpAuthNeeds,
@@ -168,6 +170,12 @@ export async function handleMcpMessage(
         vscode.window.showErrorMessage("No workspace folder open");
         return true;
       }
+      if (scope === "global" && isLegacyGlobalMcpServer(msg.name)) {
+        vscode.window.showErrorMessage(
+          `"${msg.name}" is declared only in the legacy ~/.claude/mcp.json, which Claude Code does not read — it never loads, so there is nothing to switch off. Move it into ~/.claude.json to use it.`,
+        );
+        return true;
+      }
       // Project servers keep their approval arrays in settings.local.json;
       // every other scope uses the /mcp list in ~/.claude.json.
       const result =
@@ -178,13 +186,14 @@ export async function handleMcpMessage(
               msg.disabled,
               workspace,
             );
-      if (result.ok && wv) {
-        pushServers(ctx, wv);
-      } else if (!result.ok) {
+      if (!result.ok) {
         vscode.window.showErrorMessage(
           `Failed to ${msg.disabled ? "disable" : "enable"} ${msg.name}: ${result.error}`,
         );
       }
+      // Re-read either way: the switch reflects what is on disk now, not
+      // what the click asked for.
+      if (wv) pushServers(ctx, wv);
       return true;
     }
 
@@ -227,14 +236,33 @@ export async function handleMcpMessage(
       const result = addMcpServer(msg.server, ctx.getWorkspace());
       if (!result.ok) {
         vscode.window.showErrorMessage(result.error ?? "Failed to add MCP server.");
-      } else if (wv) {
-        pushServers(ctx, wv);
+      } else {
+        if (result.notice) vscode.window.showInformationMessage(result.notice);
+        if (wv) pushServers(ctx, wv);
       }
       return true;
     }
 
     case "updateMcpServer": {
-      const result = updateMcpServer(msg.originalName, msg.server, ctx.getWorkspace());
+      const workspace = ctx.getWorkspace();
+      // An ancestor .mcp.json is shared by every project beneath its folder;
+      // rewriting it from here must be a deliberate choice.
+      const shared =
+        msg.server.scope === "project" && workspace
+          ? projectMcpAncestorFile(msg.originalName, workspace)
+          : null;
+      if (shared) {
+        const choice = await vscode.window.showWarningMessage(
+          `Edit "${msg.originalName}" in a shared .mcp.json?`,
+          {
+            modal: true,
+            detail: `It is declared in ${shared}, outside this workspace. The change applies to every project under ${path.dirname(shared)}.`,
+          },
+          "Save",
+        );
+        if (choice !== "Save") return true;
+      }
+      const result = updateMcpServer(msg.originalName, msg.server, workspace);
       if (!result.ok) {
         vscode.window.showErrorMessage(result.error ?? "Failed to update MCP server.");
       } else if (wv) {
