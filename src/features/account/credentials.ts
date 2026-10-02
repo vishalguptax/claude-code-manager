@@ -140,12 +140,16 @@ function looksLikeCredentialsBlob(value: unknown): value is CredentialsBlob {
 }
 
 /**
- * Detailed state for a single backend read. Distinguishes the three
+ * Detailed state for a single backend read. Distinguishes the
  * cases callers actually treat differently:
  *   - `ok`        — usable blob present
+ *   - `no-account-token` — a blob is stored but holds no account
+ *                  `accessToken` (signed out, or only `mcpOAuth` left).
+ *                  "Not signed in" for display, but the store is still
+ *                  the live one: a write must target it and merge into
+ *                  `live.raw`, or the MCP connector tokens are lost.
  *   - `missing`   — backend confirmed nothing is stored here
- *                  (file ENOENT, file with no accessToken, Keychain
- *                  exit 44, etc.) Treat as "user is not signed in".
+ *                  (file ENOENT, Keychain exit 44, etc.)
  *   - `transient` — backend exists but its contents are momentarily
  *                  unusable (mid-write truncation, locked Keychain,
  *                  ACL-denied Keychain, …). Retrying after a brief
@@ -153,6 +157,7 @@ function looksLikeCredentialsBlob(value: unknown): value is CredentialsBlob {
  */
 type ReadStatus =
   | { state: "ok"; live: LiveCredentials }
+  | { state: "no-account-token"; live: LiveCredentials }
   | { state: "missing" }
   | { state: "transient" };
 
@@ -179,17 +184,13 @@ function readFromFileStatus(): ReadStatus {
     // Mid-write truncation typically lands here.
     return { state: "transient" };
   }
-  if (!looksLikeCredentialsBlob(blob)) {
-    // Parses, but no usable accessToken — equivalent to "not signed
-    // in" from the caller's perspective. Surfaces the right UI nudge
-    // ("log in") instead of "retry later".
-    return { state: "missing" };
-  }
   return {
-    state: "ok",
+    // Parses, but no usable accessToken: "not signed in", which surfaces
+    // the right UI nudge ("log in") instead of "retry later".
+    state: looksLikeCredentialsBlob(blob) ? "ok" : "no-account-token",
     live: {
       raw,
-      blob,
+      blob: blob as CredentialsBlob,
       source: { kind: "file", locator: CREDENTIALS_FILE },
       hash: hashCredentials(raw),
     },
@@ -327,15 +328,13 @@ function readFromKeychainDarwinStatusUncached(): ReadStatus {
       sawTransient = true;
       continue;
     }
-    if (!looksLikeCredentialsBlob(blob)) {
-      // Item exists but has no usable token — treat as not signed in.
-      return { state: "missing" };
-    }
     return {
-      state: "ok",
+      // An item without a usable token is "not signed in" for display,
+      // but it is still the store the CLI reads (see `ReadStatus`).
+      state: looksLikeCredentialsBlob(blob) ? "ok" : "no-account-token",
       live: {
         raw,
-        blob,
+        blob: blob as CredentialsBlob,
         source: { kind: "keychain-darwin", locator: service },
         hash: hashCredentials(raw),
       },
@@ -425,7 +424,11 @@ export function readCredentialsStatus():
   | { state: "transient" } {
   const keychainStatus = readFromKeychainDarwinStatus();
   if (keychainStatus.state === "ok") return keychainStatus;
+  // An item without an account token is what the CLI reads: signed out,
+  // with no fallback to a leftover file.
+  if (keychainStatus.state === "no-account-token") return { state: "missing" };
   const fileStatus = readFromFileStatus();
+  if (fileStatus.state === "no-account-token") return { state: "missing" };
   return fileStatus.state === "missing" ? keychainStatus : fileStatus;
 }
 
@@ -476,15 +479,15 @@ export const KEYCHAIN_UNAVAILABLE_MESSAGE =
  * a slot snapshot. Reads past the Keychain cache, whose value can predate a
  * refresh by up to KEYCHAIN_CACHE_TTL_MS, and reports a momentarily
  * unreadable Keychain as `keychain-unavailable` instead of falling back to
- * the file (see the module header). Callers refuse on that state.
+ * the file (see the module header). Callers refuse on that state. Unlike
+ * the display reads it also reports `no-account-token`, so a write lands
+ * in the store that holds the blob and merges into it.
  */
-export function readCredentialsForWrite():
-  | ReturnType<typeof readCredentialsStatus>
-  | { state: "keychain-unavailable" } {
+export function readCredentialsForWrite(): ReadStatus | { state: "keychain-unavailable" } {
   invalidateKeychainCache();
   const keychainStatus = readFromKeychainDarwinStatus();
   if (keychainStatus.state === "transient") return { state: "keychain-unavailable" };
-  if (keychainStatus.state === "ok") return keychainStatus;
+  if (keychainStatus.state !== "missing") return keychainStatus;
   return readFromFileStatus();
 }
 

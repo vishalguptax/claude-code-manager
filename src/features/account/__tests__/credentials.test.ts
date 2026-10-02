@@ -665,3 +665,36 @@ describe("credentialsChangedAt", () => {
     expect(C.credentialsChangedAt(unseen)).toBeGreaterThanOrEqual(before);
   });
 });
+
+describe("a blob without an account token", () => {
+  const originalPlatform = process.platform;
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+  });
+  const MCP_ONLY = JSON.stringify({ mcpOAuth: { linear: { accessToken: "l" } } });
+
+  it("reads as signed out for display, without falling back to a leftover file", () => {
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    fs.writeFileSync(CREDENTIALS_PATH, SAMPLE_RAW);
+    execFileMock.mockImplementation(() => MCP_ONLY);
+    expect(C.readCredentials()).toBeNull();
+    expect(C.readCredentialsStatus().state).toBe("missing");
+  });
+
+  it("is reported to writers with its store and bytes", () => {
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    execFileMock.mockImplementation(() => MCP_ONLY);
+    const status = C.readCredentialsForWrite();
+    expect(status.state).toBe("no-account-token");
+    if (status.state === "no-account-token") {
+      expect(status.live.source.kind).toBe("keychain-darwin");
+      expect(status.live.raw).toBe(MCP_ONLY);
+    }
+  });
+
+  it("is reported for the file backend too", () => {
+    fs.writeFileSync(CREDENTIALS_PATH, MCP_ONLY);
+    expect(C.readCredentialsStatus().state).toBe("missing");
+    expect(C.readCredentialsForWrite().state).toBe("no-account-token");
+  });
+});
