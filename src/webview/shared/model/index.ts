@@ -4,9 +4,14 @@
 export {
   activeTab,
   applyShellSettings,
+  claudeCodeInstalled,
+  DEFAULT_MCP_MARKETPLACE_URL,
+  DEFAULT_SKILLS_MARKETPLACE_URL,
   type Density,
   density,
   hiddenTabsPref,
+  marketplaceMcpUrl,
+  marketplaceSkillsUrl,
   ready,
   tabOrderPref,
   theme,
@@ -19,7 +24,7 @@ export {
   recordError,
   setErrorSink,
 } from "./errorLog";
-export { _resetIntro, closeIntro, introVisible, maybeShowIntro } from "./intro";
+export { _resetIntro, closeIntro, introVisible, maybeShowIntro, showIntro } from "./intro";
 export {
   _resetMessageBus,
   dispatch,

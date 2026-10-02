@@ -4,6 +4,7 @@
  * sources, real `name@marketplace` ids.
  */
 import type {
+  AvailablePlugin,
   MarketplaceEntry,
   PluginEntry,
   PluginPolicyEntry,
@@ -120,6 +121,21 @@ export function policyEntry(overrides: Partial<PluginPolicyEntry> = {}): PluginP
   };
 }
 
+/** A plugin a marketplace offers, shaped as the host's catalog join emits it. */
+export function availablePlugin(overrides: Partial<AvailablePlugin> = {}): AvailablePlugin {
+  return {
+    id: "swift-lsp@claude-plugins-official",
+    name: "swift-lsp",
+    marketplace: "claude-plugins-official",
+    description: "Swift language server for code intelligence.",
+    category: "development",
+    author: "Anthropic",
+    homepage: "https://github.com/anthropics/claude-plugins-official",
+    installed: false,
+    ...overrides,
+  };
+}
+
 /** A whole snapshot with one of everything worth showing. */
 export function snapshot(overrides: Partial<PluginsData> = {}): PluginsData {
   return {
@@ -136,6 +152,19 @@ export function snapshot(overrides: Partial<PluginsData> = {}): PluginsData {
       }),
     ],
     policy: [policyEntry()],
+    available: [
+      availablePlugin(),
+      availablePlugin({
+        id: "caveman@caveman",
+        name: "caveman",
+        marketplace: "caveman",
+        description: "Talk like caveman. Cut 65% output tokens.",
+        category: "",
+        author: "",
+        homepage: "",
+        installed: true,
+      }),
+    ],
     errors: [],
     ...overrides,
   };

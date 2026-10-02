@@ -241,6 +241,35 @@ describe("createWatchers — config artifacts update live", () => {
     disposable.dispose();
   });
 
+  // A `claude plugin install` finishes by rewriting the install registry; the
+  // plugin's skills, commands, agents and servers arrive with it.
+  it("refreshes every tab a plugin install feeds when the install registry changes", () => {
+    const ctx = makeCtx();
+    const disposable = createWatchers(ctx);
+
+    const registry = captured.filter(
+      (c) => /plugins$/.test(c.base) && c.glob === "installed_plugins.json",
+    );
+    for (const w of registry) for (const h of w.handlers) h({ fsPath: "x" } as vscode.Uri);
+    vi.advanceTimersByTime(250);
+
+    expect([...reloadedFeatures].sort()).toEqual(["agents", "commands", "mcp", "plugins", "skills"]);
+    disposable.dispose();
+  });
+
+  it("refreshes the Plugins tab when a marketplace refreshes", () => {
+    const ctx = makeCtx();
+    const disposable = createWatchers(ctx);
+
+    const w = captured.find((c) => /plugins$/.test(c.base) && c.glob === "known_marketplaces.json");
+    if (!w) throw new Error("marketplace registry watcher not registered");
+    for (const h of w.handlers) h({ fsPath: "x" } as vscode.Uri);
+    vi.advanceTimersByTime(250);
+
+    expect(reloadedFeatures).toEqual(["plugins"]);
+    disposable.dispose();
+  });
+
   it("coalesces a burst of edits into a single reparse", () => {
     const ctx = makeCtx();
     const disposable = createWatchers(ctx);

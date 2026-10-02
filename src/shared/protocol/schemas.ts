@@ -61,6 +61,11 @@ const setPluginEnabled = v.object({
   enabled: v.boolean(),
   scope: pluginScope,
 });
+const installPlugin = v.object({
+  type: v.literal("installPlugin"),
+  id: v.string(),
+  scope: v.picklist(["user", "project", "local"]),
+});
 const getMemories = v.object({ type: v.literal("getMemories") });
 const openMemory = v.object({
   type: v.literal("openMemory"),
@@ -258,6 +263,7 @@ const webviewError = v.object({
 });
 const reportIssue = v.object({ type: v.literal("reportIssue") });
 const ping = v.object({ type: v.literal("ping"), id: v.number() });
+const showIntro = v.object({ type: v.literal("showIntro") });
 const pong = v.object({
   type: v.literal("pong"),
   id: v.number(),
@@ -446,6 +452,7 @@ export const messageSchema = v.variant("type", [
   openPluginSettings,
   copyPluginId,
   setPluginEnabled,
+  installPlugin,
   getMemories,
   openMemory,
   revealMemory,
@@ -522,6 +529,7 @@ export const messageSchema = v.variant("type", [
   webviewError,
   reportIssue,
   ping,
+  showIntro,
   pong,
   promptRemovePermission,
   resetSettings,

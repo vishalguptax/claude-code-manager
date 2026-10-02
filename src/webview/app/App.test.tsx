@@ -10,7 +10,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { cleanup, fireEvent, render } from "@testing-library/preact";
-import { activeTab, density, hiddenTabsPref, tabOrderPref } from "../shared/model";
+import {
+  _resetIntro,
+  activeTab,
+  density,
+  hiddenTabsPref,
+  introVisible,
+  tabOrderPref,
+} from "../shared/model";
 import { _resetPaletteSources } from "../shared/model/palette";
 import { TABS } from "../shared/model";
 import { _resetHostBusy, hostBusy } from "../shared/model/hostBusy";
@@ -135,6 +142,21 @@ describe("App", () => {
     fireEvent.mouseDown(row as HTMLElement);
     expect(activeTab.value).toBe("config");
     expect(container.querySelector(".palette")).toBeNull();
+  });
+
+  it("offers the welcome tour under Help, and opens it", () => {
+    _resetIntro();
+    const { container } = render(h(App, {}));
+    fireEvent.keyDown(document, { key: "k", metaKey: true });
+    const input = container.querySelector(".palette input") as HTMLInputElement;
+    fireEvent.input(input, { target: { value: "tour" } });
+    const row = Array.from(container.querySelectorAll<HTMLElement>(".palette-item")).find(
+      (r) => r.textContent?.includes("Show welcome tour"),
+    );
+    expect(row).toBeTruthy();
+    fireEvent.mouseDown(row as HTMLElement);
+    expect(introVisible.value).toBe(true);
+    _resetIntro();
   });
 
   // A tab hidden via claudeManager.hiddenTabs is not just off the strip — it

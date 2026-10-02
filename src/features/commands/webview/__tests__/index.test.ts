@@ -8,7 +8,6 @@ import type { Message } from "../../../../shared/protocol/messages";
 import type { Command } from "../../types";
 import CommandsTab, { handleCommandsMessage } from "../index";
 import {
-  claudeCodeInstalled,
   commands,
   errorMessage,
   loading,
@@ -49,14 +48,6 @@ describe("handleCommandsMessage", () => {
     handleCommandsMessage({ type: "error", message: "boom" } as Message);
     expect(errorMessage.value).toBe("boom");
     expect(loading.value).toBe(false);
-  });
-
-  it("reads the extension-installed flag from settings", () => {
-    handleCommandsMessage({
-      type: "settings",
-      claudeCodeExtensionInstalled: true,
-    } as unknown as Message);
-    expect(claudeCodeInstalled.value).toBe(true);
   });
 });
 

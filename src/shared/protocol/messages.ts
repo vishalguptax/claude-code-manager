@@ -56,6 +56,8 @@ export type Message =
       enabled: boolean;
       scope: "global" | "project" | "local" | "managed";
     }
+  /** Install scopes are `claude plugin install --scope`'s own names. */
+  | { type: "installPlugin"; id: string; scope: "user" | "project" | "local" }
   | { type: "getMemories" }
   | { type: "openMemory"; project: string; fileName: string }
   | { type: "revealMemory"; project: string; fileName: string }
@@ -174,6 +176,8 @@ export type Message =
   | { type: "restoreSettingsSnapshot"; scope: SettingsScope; snapshotId: string }
   | { type: "deleteSettingsSnapshot"; scope: SettingsScope; snapshotId: string }
   | { type: "ping"; id: number }
+  /** Open the welcome tour — the Show Welcome Tour command, relayed. */
+  | { type: "showIntro" }
   | { type: "workspacePath"; data: string }
   | { type: "workspaceBranch"; data: string }
   | { type: "settings"; [extra: string]: unknown }
@@ -270,6 +274,7 @@ type WebviewMessageType =
   | "openPluginSettings"
   | "copyPluginId"
   | "setPluginEnabled"
+  | "installPlugin"
   | "getMemories"
   | "openMemory"
   | "revealMemory"

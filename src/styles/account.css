@@ -601,8 +601,9 @@
 /* The PR/MR link. A ghost <Button> so the affordance, hover and focus ring
    come from the shared control rather than from a private link rule; this
    only sheds the control-height geometry, which would tower over an
-   --fs-xs footnote line. The claude.ai limit-reset link is the same
-   footnote link, so it shares the rule. */
+   --fs-xs footnote line. The claude.ai limit-reset link and the idle
+   capture's "Check /usage" link are the same footnote link, so they share
+   the rule. */
 .acct-quota-pr,
 .acct-quota-reset-link {
   height: auto;
@@ -757,6 +758,14 @@
   line-height: 1.5;
 }
 .acct-quota-error .btn {
+  flex-shrink: 0;
+}
+/* "Check /usage" stacks above Refresh rather than beside it: two buttons
+   in a row would squeeze the message body to a sliver at sidebar width. */
+.acct-quota-error-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
   flex-shrink: 0;
 }
 

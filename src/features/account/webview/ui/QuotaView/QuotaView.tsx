@@ -18,6 +18,13 @@
  * capture age plainly, and the button briefly spins on click, so the
  * card never reads as broken even when a re-read returns identical
  * numbers.
+ *
+ * Whenever the card cannot show current figures — no capture yet, an
+ * unreadable cache, a capture from before an account switch, or one that
+ * has gone idle — it offers "Check /usage": a Claude Code terminal running
+ * `/usage`, where the authorized client fetches the live numbers itself.
+ * That keeps the extension free of network calls and credentials while
+ * still giving the user a current answer on demand.
  */
 
 import { useState } from "preact/hooks";
@@ -92,6 +99,11 @@ export function QuotaView({ api }: QuotaViewProps) {
   // navigation — the CSP forbids the latter outright.
   const openUrl = (url: string): void => api.openUrl(url);
 
+  const checkUsage = (e: Event): void => {
+    e.stopPropagation();
+    api.launchSlash("/usage");
+  };
+
   const install = (e: Event): void => {
     e.stopPropagation();
     setQuotaLoading();
@@ -154,7 +166,12 @@ export function QuotaView({ api }: QuotaViewProps) {
       </SectionHeader>
       {collapsed ? null : (
         <div class="section-body">
-          <QuotaBody onInstall={install} onRefresh={refresh} onOpenUrl={openUrl} />
+          <QuotaBody
+            onInstall={install}
+            onRefresh={refresh}
+            onCheckUsage={checkUsage}
+            onOpenUrl={openUrl}
+          />
         </div>
       )}
     </section>
@@ -164,10 +181,12 @@ export function QuotaView({ api }: QuotaViewProps) {
 function QuotaBody({
   onInstall,
   onRefresh,
+  onCheckUsage,
   onOpenUrl,
 }: {
   onInstall: (e: Event) => void;
   onRefresh: (e: Event) => void;
+  onCheckUsage: (e: Event) => void;
   onOpenUrl: (url: string) => void;
 }) {
   const status = quotaStatus.value;
@@ -185,7 +204,7 @@ function QuotaBody({
     return status.error.kind === "not-installed" ? (
       <NotInstalled onInstall={onInstall} message={status.error.message} />
     ) : (
-      <QuotaNotice error={status.error} onRetry={onRefresh} />
+      <QuotaNotice error={status.error} onRetry={onRefresh} onCheckUsage={onCheckUsage} />
     );
   }
 
@@ -195,10 +214,12 @@ function QuotaBody({
   // numbers as this one's — a fresh render for the new account clears it.
   const since = quotaAccountSince.value;
   if (since > 0 && Date.parse(status.data.quota.capturedAt) < since) {
-    return <QuotaSwitched onRetry={onRefresh} />;
+    return <QuotaSwitched onRetry={onRefresh} onCheckUsage={onCheckUsage} />;
   }
 
-  return <QuotaSuccessBody data={status.data} onOpenUrl={onOpenUrl} />;
+  return (
+    <QuotaSuccessBody data={status.data} onCheckUsage={onCheckUsage} onOpenUrl={onOpenUrl} />
+  );
 }
 
 /**
@@ -209,7 +230,13 @@ function QuotaBody({
  * Without it the card is blank for exactly as long as the user is most
  * likely to be asking how much room they just switched into.
  */
-function QuotaSwitched({ onRetry }: { onRetry: (e: Event) => void }) {
+function QuotaSwitched({
+  onRetry,
+  onCheckUsage,
+}: {
+  onRetry: (e: Event) => void;
+  onCheckUsage: (e: Event) => void;
+}) {
   const data = accountData.value;
   const active = data?.savedProfiles.find((p) => p.slug === data.activeProfileSlug);
   const remembered = describeProfileQuota(active?.lastQuota ?? null, now.value);
@@ -226,10 +253,30 @@ function QuotaSwitched({ onRetry }: { onRetry: (e: Event) => void }) {
           Open Claude Code with this account to load its quota.
         </div>
       </div>
-      <Button iconName="refresh-cw" onClick={onRetry}>
-        Refresh
-      </Button>
+      <div class="acct-quota-error-actions">
+        <CheckUsageButton onClick={onCheckUsage} />
+        <Button iconName="refresh-cw" onClick={onRetry}>
+          Refresh
+        </Button>
+      </div>
     </div>
+  );
+}
+
+/**
+ * Opens a Claude Code terminal running `/usage`. Secondary on purpose: it
+ * leaves the panel for a terminal, so it sits beside Refresh rather than
+ * replacing it.
+ */
+function CheckUsageButton({ onClick }: { onClick: (e: Event) => void }) {
+  return (
+    <Button
+      iconName="terminal"
+      title="Open Claude Code and run /usage for live figures"
+      onClick={onClick}
+    >
+      Check /usage
+    </Button>
   );
 }
 
@@ -256,19 +303,26 @@ function NotInstalled({
 
 function QuotaSuccessBody({
   data,
+  onCheckUsage,
   onOpenUrl,
 }: {
   data: QuotaSuccess;
+  onCheckUsage: (e: Event) => void;
   onOpenUrl: (url: string) => void;
 }) {
   const { fiveHour, sevenDay } = data.quota;
   if (!fiveHour && !sevenDay) {
     return (
-      <p class="acct-quota-intro-text">
-        No rate-limit data in the last statusline render. Open a Claude Code session, then refresh.
-      </p>
+      <div class="acct-quota-intro">
+        <p class="acct-quota-intro-text">
+          No rate-limit data in the last statusline render. Open a Claude Code session, then
+          refresh.
+        </p>
+        <CheckUsageButton onClick={onCheckUsage} />
+      </div>
     );
   }
+  const stale = quotaFreshness(data.quota.capturedAt, now.value).stale;
   // The capture-age stamp now lives in the section header (left of the
   // status dot) — see QuotaView's freshnessLabel — so the bars body carries
   // just the bars.
@@ -288,8 +342,37 @@ function QuotaSuccessBody({
         )}
         onOpenUrl={onOpenUrl}
       />
+      {stale ? <StaleUsageRow onCheckUsage={onCheckUsage} /> : null}
       <PromptCacheRow stats={data.live.promptCache} />
       <BranchFacts live={data.live} onOpenUrl={onOpenUrl} />
+    </div>
+  );
+}
+
+/**
+ * An idle capture keeps its bars — they are still the best local figure —
+ * but says plainly that they may lag, and offers the live check. Styled as
+ * a footnote like the reset row, so it never competes with the bars.
+ */
+function StaleUsageRow({ onCheckUsage }: { onCheckUsage: (e: Event) => void }) {
+  return (
+    <div class="acct-quota-branch">
+      <div class="acct-quota-branch-line">
+        <span class="acct-quota-branch-label">Live figures</span>
+        <Button
+          variant="ghost"
+          class="acct-quota-reset-link"
+          iconName="terminal"
+          title="Open Claude Code and run /usage"
+          ariaLabel="Check live usage with /usage"
+          onClick={onCheckUsage}
+        >
+          Check /usage
+        </Button>
+      </div>
+      <div class="acct-quota-branch-note">
+        These bars are from Claude's last render and may lag.
+      </div>
     </div>
   );
 }
@@ -524,7 +607,15 @@ function PrLine({
   );
 }
 
-function QuotaNotice({ error, onRetry }: { error: QuotaError; onRetry: (e: Event) => void }) {
+function QuotaNotice({
+  error,
+  onRetry,
+  onCheckUsage,
+}: {
+  error: QuotaError;
+  onRetry: (e: Event) => void;
+  onCheckUsage: (e: Event) => void;
+}) {
   return (
     <div class="acct-quota-error" role="status">
       <span class="acct-quota-error-icon">
@@ -534,9 +625,12 @@ function QuotaNotice({ error, onRetry }: { error: QuotaError; onRetry: (e: Event
         <div class="acct-quota-error-title">Waiting for Claude Code</div>
         <div class="acct-quota-error-msg">{error.message}</div>
       </div>
-      <Button iconName="refresh-cw" onClick={onRetry}>
-        Refresh
-      </Button>
+      <div class="acct-quota-error-actions">
+        <CheckUsageButton onClick={onCheckUsage} />
+        <Button iconName="refresh-cw" onClick={onRetry}>
+          Refresh
+        </Button>
+      </div>
     </div>
   );
 }

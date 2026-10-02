@@ -2,27 +2,22 @@
  * Host-side message dispatch for the Plugins feature, modelled on
  * `src/features/mcp/messageHandlers.ts`: the feature owns its handler and
  * depends only on a narrow host context, so the sessions panel can delegate
- * to it without either side knowing the other's internals.
- *
- * One deliberate difference from MCP. MCP validates every inbound message
- * with `parseMessage` from the shared valibot schema; these message types
- * are not in that schema yet, so `parseMessage` would reject them all. The
- * guards below are this feature's own boundary check, written to the same
- * standard (every field type-checked, unknown shapes rejected without side
- * effects). Once the variants land in `src/shared/protocol/messages.ts` and
- * `schemas.ts`, `asPluginsMessage` collapses into a `parseMessage` call and
- * nothing else here changes.
+ * to it without either side knowing the other's internals. Every claimed
+ * message is validated against the shared valibot schema before it is acted
+ * on; a malformed one is logged and dropped without side effects.
  */
 import * as vscode from "vscode";
 import type { PanelSink } from "../../extension/panelSink";
-import { copyPluginId, openPluginSettingsFile, revealPluginDirectory } from "./commands";
+import { parseMessage } from "../../shared/protocol/schemas";
+import {
+  copyPluginId,
+  installPluginCommand,
+  openPluginSettingsFile,
+  revealPluginDirectory,
+} from "./commands";
 import { parsePluginsData, settingsScopePaths } from "./parser";
 import { type SettingsWriter, setPluginEnabled } from "./state";
-import type {
-  PluginSettingsScope,
-  PluginsData,
-  PluginsWebviewMessage,
-} from "./types";
+import type { PluginsData } from "./types";
 
 /** Narrow host surface the Plugins handler needs. Implemented by the provider. */
 export interface PluginsHostContext {
@@ -38,6 +33,8 @@ export interface PluginsHostContext {
    * the toggle explains itself instead of failing silently.
    */
   writeSettingsValue?: SettingsWriter;
+  /** Run a shell command in a new terminal, started in `cwd` when given. */
+  runShellCommand(label: string, command: string, cwd?: string): void;
 }
 
 /** Message types this feature claims. */
@@ -47,44 +44,8 @@ const PLUGIN_MESSAGE_TYPES = new Set([
   "openPluginSettings",
   "copyPluginId",
   "setPluginEnabled",
+  "installPlugin",
 ]);
-
-function isScope(value: unknown): value is PluginSettingsScope {
-  return value === "global" || value === "project" || value === "local" || value === "managed";
-}
-
-/**
- * Validate a raw webview message.
- *
- * Returns the typed message, `null` for a claimed-but-malformed message
- * (caller rejects it), or `undefined` when the message is not ours at all
- * (caller defers to the next handler).
- */
-export function asPluginsMessage(raw: unknown): PluginsWebviewMessage | null | undefined {
-  if (raw === null || typeof raw !== "object") return undefined;
-  const type = (raw as { type?: unknown }).type;
-  if (typeof type !== "string" || !PLUGIN_MESSAGE_TYPES.has(type)) return undefined;
-
-  const msg = raw as Record<string, unknown>;
-  switch (type) {
-    case "getPlugins":
-      return { type };
-    case "openPluginDirectory":
-      return typeof msg.id === "string" ? { type, id: msg.id } : null;
-    case "copyPluginId":
-      return typeof msg.id === "string" ? { type, id: msg.id } : null;
-    case "openPluginSettings":
-      return isScope(msg.scope) ? { type, scope: msg.scope } : null;
-    case "setPluginEnabled":
-      return typeof msg.id === "string" &&
-        typeof msg.enabled === "boolean" &&
-        isScope(msg.scope)
-        ? { type, id: msg.id, enabled: msg.enabled, scope: msg.scope }
-        : null;
-    default:
-      return undefined;
-  }
-}
 
 /** Re-parse and push the whole snapshot. */
 function pushPlugins(ctx: PluginsHostContext, wv: PanelSink): PluginsData {
@@ -103,10 +64,13 @@ export async function handlePluginsMessage(
   raw: unknown,
   ctx: PluginsHostContext,
 ): Promise<boolean> {
-  const msg = asPluginsMessage(raw);
-  if (msg === undefined) return false;
-  if (msg === null) {
-    console.error("[claude-manager] rejected malformed Plugins message", raw);
+  const type = (raw as { type?: unknown } | null)?.type;
+  if (typeof type !== "string" || !PLUGIN_MESSAGE_TYPES.has(type)) return false;
+  let msg: ReturnType<typeof parseMessage>;
+  try {
+    msg = parseMessage(raw);
+  } catch (err) {
+    console.error("[claude-manager] rejected malformed Plugins message", err);
     return true;
   }
 
@@ -157,5 +121,41 @@ export async function handlePluginsMessage(
       if (wv) pushPlugins(ctx, wv);
       return true;
     }
+
+    case "installPlugin": {
+      // Resolve the id against the host's own parse, never trust the
+      // webview's: only a plugin a registered, policy-allowed marketplace
+      // offers ever reaches the command line.
+      const workspace = ctx.getWorkspace();
+      const entry = parsePluginsData(workspace).available.find((p) => p.id === msg.id);
+      if (!entry) {
+        vscode.window.showErrorMessage(
+          `"${msg.id}" is not offered by any marketplace Claude Code has added — refresh the tab.`,
+        );
+        return true;
+      }
+      if (entry.installed) {
+        vscode.window.showInformationMessage(`${entry.id} is already installed.`);
+        return true;
+      }
+      // Project and local installs are recorded against the folder
+      // `claude` runs in, so they need one — and the terminal must start
+      // there rather than wherever the shell profile lands.
+      if (msg.scope !== "user" && !workspace) {
+        vscode.window.showErrorMessage(
+          "Open a folder to install a plugin for a project. A user install needs no folder.",
+        );
+        return true;
+      }
+      ctx.runShellCommand(
+        `plugin install ${entry.name}`,
+        installPluginCommand(entry.id, msg.scope),
+        msg.scope === "user" ? undefined : workspace,
+      );
+      return true;
+    }
+
+    default:
+      return false;
   }
 }

@@ -1,6 +1,7 @@
 /**
  * Extension-host actions for the Plugins tab: reveal a plugin's directory,
- * open the settings file that decided its state, copy its id.
+ * open the settings file that decided its state, copy its id, and build the
+ * install command line.
  *
  * Each takes data the caller has already resolved rather than a raw message
  * payload. That is the security boundary: the webview sends a plugin *id*,
@@ -9,7 +10,8 @@
  * filesystem.
  */
 import * as vscode from "vscode";
-import type { PluginEntry, PluginSettingsScope } from "./types";
+import { isInstallablePluginId } from "./ids";
+import type { PluginEntry, PluginInstallScope, PluginSettingsScope } from "./types";
 
 /** How a scope reads in an error message. */
 const SCOPE_LABEL: Record<PluginSettingsScope, string> = {
@@ -79,4 +81,23 @@ export async function openPluginSettingsFile(
 /** Copy a plugin id (`name@marketplace`) to the clipboard. */
 export async function copyPluginId(id: string): Promise<void> {
   await vscode.env.clipboard.writeText(id);
+}
+
+/**
+ * The `claude plugin install` command line for an id.
+ *
+ * Installing goes through Claude Code's own CLI, in a terminal the user can
+ * see, rather than by writing its plugin files from here: the CLI clones,
+ * verifies, records and enables the plugin, and shows any confirmation a
+ * marketplace-declared command needs. Re-implementing any of that would
+ * drift from Claude Code on its next release.
+ *
+ * The id goes onto the command line unquoted, so it is checked here, at the
+ * one place that builds the string, rather than trusted from the caller.
+ */
+export function installPluginCommand(id: string, scope: PluginInstallScope): string {
+  if (!isInstallablePluginId(id)) {
+    throw new Error(`Refusing to build an install command for "${id}"`);
+  }
+  return `claude plugin install ${id} --scope ${scope}`;
 }

@@ -9,26 +9,40 @@ import type { McpServerInput } from "../../../shared/protocol/messages";
 import { useApi } from "../../../webview/shared/hooks";
 import {
   activeTab,
+  marketplaceMcpUrl,
   registerFeatureHandler,
   registerPaletteSource,
 } from "../../../webview/shared/model";
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { McpServer } from "../types";
 import { createMcpApi } from "./api";
-import { MCP_BROWSE_URL } from "./lib";
+import { catalogPreset, configuredNames, type McpFormPreset } from "./lib";
 import {
   applyAuthNeeds,
   applyError,
   applyServers,
   errorMessage,
+  filteredServers,
   loading,
   selected,
   servers,
 } from "./model";
-import { DetailView, ListView, McpForm } from "./ui";
+import { DetailView, ListView, McpCatalog, McpForm } from "./ui";
 
-/** Form state: closed, or open in add (null) / edit (a server) mode. */
-type FormState = { open: false } | { open: true; server: McpServer | null };
+/**
+ * Which full-panel view replaces the list. The form remembers where it was
+ * opened from, so Back from a catalog preset returns to the catalog.
+ */
+type Overlay =
+  | { kind: "none" }
+  | { kind: "catalog" }
+  | {
+      kind: "form";
+      /** The server being edited, or null to add one. */
+      server: McpServer | null;
+      preset?: McpFormPreset;
+      fromCatalog: boolean;
+    };
 
 /** Copy text to the clipboard, ignoring environments without the API. */
 function copyToClipboard(text: string): void {
@@ -38,7 +52,10 @@ function copyToClipboard(text: string): void {
 export default function McpTab() {
   const { post } = useApi();
   const api = useMemo(() => createMcpApi(post), [post]);
-  const [form, setForm] = useState<FormState>({ open: false });
+  const [overlay, setOverlay] = useState<Overlay>({ kind: "none" });
+  const close = (): void => setOverlay({ kind: "none" });
+  const openForm = (server: McpServer | null): void =>
+    setOverlay({ kind: "form", server, fromCatalog: false });
 
   useEffect(() => {
     const unsubscribe = registerFeatureHandler("mcp", (msg) => {
@@ -109,18 +126,45 @@ export default function McpTab() {
   const submitForm = (originalName: string | null, input: McpServerInput): void => {
     if (originalName !== null) api.update(originalName, input);
     else api.add(input);
-    setForm({ open: false });
+    close();
   };
 
-  // The add/edit form is a full-panel view (not an overlay) — it replaces the
-  // list/detail while open, matching the sidebar's single-column flow.
-  if (form.open) {
+  // The form and the catalog are full-panel views (not overlays) — each
+  // replaces the list/detail while open, matching the sidebar's
+  // single-column flow.
+  if (overlay.kind === "form") {
     return (
       <McpForm
-        server={form.server}
+        server={overlay.server}
+        preset={overlay.preset}
         existing={servers.value.map((s) => ({ name: s.name, scope: s.scope }))}
-        onClose={() => setForm({ open: false })}
+        onClose={() => setOverlay(overlay.fromCatalog ? { kind: "catalog" } : { kind: "none" })}
         onSubmit={submitForm}
+      />
+    );
+  }
+
+  if (overlay.kind === "catalog") {
+    return (
+      <McpCatalog
+        configured={configuredNames(servers.value)}
+        onBack={close}
+        onAdd={(entry) =>
+          setOverlay({
+            kind: "form",
+            server: null,
+            preset: catalogPreset(entry),
+            fromCatalog: true,
+          })
+        }
+        onOpenExisting={(name) => {
+          // The list's own order (project before global) decides which
+          // entry opens when the name is configured in both scopes.
+          selected.value = filteredServers.value.find((s) => s.name === name) ?? null;
+          close();
+        }}
+        onOpenUrl={(url) => api.openUrl(url)}
+        onBrowseMore={() => api.openUrl(marketplaceMcpUrl.value)}
       />
     );
   }
@@ -132,7 +176,7 @@ export default function McpTab() {
         onBack={() => {
           selected.value = null;
         }}
-        onEdit={(s) => setForm({ open: true, server: s })}
+        onEdit={(s) => openForm(s)}
         onOpenConfig={(s) => api.openConfig(s.scope, s.name)}
         onToggle={(s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName)}
         onDelete={(s) => api.remove(s.name, s.scope)}
@@ -150,14 +194,14 @@ export default function McpTab() {
     <ListView
       onSelect={onSelect}
       onCopyName={copyToClipboard}
-      onBrowse={() => api.openUrl(MCP_BROWSE_URL)}
+      onOpenCatalog={() => setOverlay({ kind: "catalog" })}
       onRefresh={() => api.getServers()}
-      onNew={() => setForm({ open: true, server: null })}
+      onNew={() => openForm(null)}
       onReauth={() => api.reconnect()}
       // Same actions the detail view offers, one right-click away, so a
       // server can be switched off without opening it first.
       menu={{
-        onEdit: (s) => setForm({ open: true, server: s }),
+        onEdit: (s) => openForm(s),
         onToggle: (s) => api.toggle(s.name, s.scope, !s.disabled, s.pluginName),
         onDelete: (s) => api.remove(s.name, s.scope),
         onCopyName: copyToClipboard,

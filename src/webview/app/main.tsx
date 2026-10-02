@@ -12,6 +12,7 @@ import {
   getErrorLog,
   registerFeatureHandler,
   setErrorSink,
+  showIntro,
   startNowTicker,
 } from "../shared/model";
 import { noteAck } from "../shared/model/hostBusy";
@@ -58,6 +59,8 @@ setErrorSink((entry) => {
     stack: entry.stack,
   });
 });
+// The host's Show Welcome Tour command. Shell state, like the intro itself.
+registerFeatureHandler("showIntro", () => showIntro());
 // Answer the host's liveness ping with what this document actually holds.
 // A blank panel that still answers is a rendering bug; a blank panel that
 // answers nothing is a dead webview. The host logs whichever it gets, so the

@@ -1,8 +1,8 @@
 /**
  * Commands feature entry. Mounts the list or detail view based on the
  * `selected` signal, requests the command catalog from the host on mount, and
- * routes inbound `commands` / `error` / `settings` messages into feature
- * signals via the shared message bus.
+ * routes inbound `commands` / `error` messages into feature signals via the
+ * shared message bus.
  */
 import { useEffect } from "preact/hooks";
 import type { Message } from "../../../shared/protocol/messages";
@@ -15,7 +15,7 @@ import {
 import { EmptyState, ListSkeleton } from "../../../webview/shared/ui";
 import type { Command } from "../types";
 import { getCommandsMsg, type Post } from "./api";
-import { claudeCodeInstalled, commands, errorMessage, loading, selected } from "./model";
+import { commands, errorMessage, loading, selected } from "./model";
 import { CommandDetailView, CommandsListView } from "./ui";
 
 /** Apply an inbound, already-validated host message to feature signals. */
@@ -27,8 +27,6 @@ export function handleCommandsMessage(msg: Message): void {
   } else if (msg.type === "error") {
     loading.value = false;
     errorMessage.value = msg.message;
-  } else if (msg.type === "settings") {
-    claudeCodeInstalled.value = Boolean(msg.claudeCodeExtensionInstalled);
   }
 }
 
@@ -39,7 +37,6 @@ export default function CommandsTab() {
     const unsubscribers = [
       registerFeatureHandler("commands", handleCommandsMessage),
       registerFeatureHandler("error", handleCommandsMessage),
-      registerFeatureHandler("settings", handleCommandsMessage),
     ];
     loading.value = true;
     (post as Post)(getCommandsMsg());

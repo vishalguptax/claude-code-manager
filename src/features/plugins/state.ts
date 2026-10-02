@@ -21,12 +21,8 @@
  * correct degraded state rather than a silent no-op.
  */
 import type { ClaudeSettingsScope } from "../../core/config";
-import {
-  isSafePluginId,
-  normaliseEnabledValue,
-  readSettingsScope,
-  settingsScopePaths,
-} from "./parser";
+import { isSafePluginId } from "./ids";
+import { normaliseEnabledValue, readSettingsScope, settingsScopePaths } from "./parser";
 import type { PluginSettingsScope } from "./types";
 
 /**

@@ -464,6 +464,23 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
     // also refresh the MCP tab's enabled/disabled state.
     { feature: "mcp", pattern: new vscode.RelativePattern(claudeUri, "settings.json") },
   ];
+  // Plugin installs and marketplace refreshes. Claude Code rewrites the
+  // install registry when `claude plugin install` (or /plugin) finishes, and
+  // the marketplace registry when a catalog refreshes — the moments the
+  // Plugins tab's installed and available lists change. An install also
+  // brings its skills, commands, agents and MCP servers with it, which those
+  // tabs read from the plugin cache, so the registry drives them too.
+  const pluginsUri = vscode.Uri.file(path.join(claudeDir, "plugins"));
+  for (const feature of ["plugins", "skills", "commands", "agents", "mcp"] as const) {
+    configPatterns.push({
+      feature,
+      pattern: new vscode.RelativePattern(pluginsUri, "installed_plugins.json"),
+    });
+  }
+  configPatterns.push({
+    feature: "plugins",
+    pattern: new vscode.RelativePattern(pluginsUri, "known_marketplaces.json"),
+  });
   if (workspace) {
     configPatterns.push(
       { feature: "skills", pattern: new vscode.RelativePattern(workspace, ".claude/skills/**/SKILL.md") },

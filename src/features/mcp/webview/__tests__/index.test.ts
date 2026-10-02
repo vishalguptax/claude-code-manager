@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { h } from "preact";
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { setVscodeApi } from "../../../../webview/shared/hooks";
-import { _resetMessageBus, dispatch } from "../../../../webview/shared/model";
+import {
+  DEFAULT_MCP_MARKETPLACE_URL,
+  _resetMessageBus,
+  dispatch,
+  marketplaceMcpUrl,
+} from "../../../../webview/shared/model";
 import type { McpServer } from "../../types";
 import { resetMcpSignals } from "../model";
 import McpTab from "../index";
@@ -19,6 +24,7 @@ beforeEach(() => {
   setVscodeApi({ postMessage: (m) => posted.push(m) });
   _resetMessageBus();
   resetMcpSignals();
+  marketplaceMcpUrl.value = DEFAULT_MCP_MARKETPLACE_URL;
 });
 
 afterEach(() => {
@@ -94,11 +100,65 @@ describe("McpTab", () => {
     await waitFor(() => expect(screen.getByText("Failed to load MCP servers")).toBeTruthy());
   });
 
-  it("opens the community directory from the empty state", async () => {
+  it("opens the catalog from the empty state", async () => {
     render(h(McpTab, {}));
     dispatch({ type: "mcpServers", data: [] });
-    await waitFor(() => screen.getByText("Browse MCP servers"));
-    fireEvent.click(screen.getByText("Browse MCP servers"));
-    expect(posted).toContainEqual({ type: "openUrl", url: "https://mcp.so" });
+    await waitFor(() => screen.getByText("Add from catalog"));
+    fireEvent.click(screen.getByText("Add from catalog"));
+    await waitFor(() => expect(screen.getByLabelText("Search MCP catalog")).toBeTruthy());
+  });
+});
+
+describe("McpTab — catalog", () => {
+  async function openCatalog(servers: McpServer[] = []): Promise<void> {
+    render(h(McpTab, {}));
+    dispatch({ type: "mcpServers", data: servers });
+    // The list's side action — present whether or not servers exist.
+    await waitFor(() => screen.getByLabelText("Add MCP server from catalog"));
+    fireEvent.click(screen.getByLabelText("Add MCP server from catalog"));
+    await waitFor(() => screen.getByLabelText("Search MCP catalog"));
+  }
+
+  it("adds a catalog server through the pre-filled form, at the chosen scope", async () => {
+    await openCatalog();
+    fireEvent.click(screen.getByText("Playwright"));
+    await waitFor(() => screen.getByText("Add MCP server"));
+    fireEvent.click(screen.getByText("Add"));
+    expect(posted).toContainEqual({
+      type: "addMcpServer",
+      server: {
+        name: "playwright",
+        scope: "project",
+        transport: "stdio",
+        command: "npx",
+        args: ["@playwright/mcp@latest"],
+        url: undefined,
+        env: {},
+        headers: {},
+      },
+    });
+  });
+
+  it("returns to the catalog when the pre-filled form is cancelled", async () => {
+    await openCatalog();
+    fireEvent.click(screen.getByText("Sentry"));
+    await waitFor(() => screen.getByText("Add MCP server"));
+    fireEvent.click(screen.getByText("Cancel"));
+    await waitFor(() => expect(screen.getByLabelText("Search MCP catalog")).toBeTruthy());
+  });
+
+  it("opens the existing entry for a server that is already configured", async () => {
+    await openCatalog([srv({ name: "playwright", scope: "global" })]);
+    fireEvent.click(screen.getByText("Playwright"));
+    // The detail view of the configured server, not a second Add form.
+    await waitFor(() => expect(screen.getByText("Connection")).toBeTruthy());
+    expect(screen.queryByText("Add MCP server")).toBeNull();
+  });
+
+  it("opens the configured directory URL for servers beyond the catalog", async () => {
+    marketplaceMcpUrl.value = "https://registry.example";
+    await openCatalog();
+    fireEvent.click(screen.getByText("Find more servers"));
+    expect(posted).toContainEqual({ type: "openUrl", url: "https://registry.example" });
   });
 });

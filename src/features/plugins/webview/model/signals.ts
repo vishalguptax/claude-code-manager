@@ -7,7 +7,9 @@
  * the segment can never disagree with the list it opens.
  */
 import { computed, signal } from "@preact/signals";
+import { filterAvailable } from "../lib";
 import type {
+  AvailablePlugin,
   MarketplaceEntry,
   PluginEntry,
   PluginPolicyEntry,
@@ -23,6 +25,9 @@ export const plugins = signal<PluginEntry[]>([]);
 /** All marketplaces, as last received from the host. */
 export const marketplaces = signal<MarketplaceEntry[]>([]);
 
+/** Everything the registered marketplaces offer, as last received from the host. */
+export const available = signal<AvailablePlugin[]>([]);
+
 /** Resolved plugin-related settings keys. */
 export const policy = signal<PluginPolicyEntry[]>([]);
 
@@ -34,6 +39,18 @@ export const loading = signal<boolean>(true);
 
 /** Lowercased free-text query. */
 export const searchQuery = signal<string>("");
+
+/**
+ * The Browse view's own query. Separate from the list's, and kept here
+ * rather than in the component, so opening a plugin from the results and
+ * coming back finds the search as it was left.
+ */
+export const catalogQuery = signal<string>("");
+
+/** Available plugins matching the Browse query, in the host's grouped order. */
+export const visibleAvailable = computed<AvailablePlugin[]>(() =>
+  filterAvailable(available.value, catalogQuery.value),
+);
 
 /** Active view. */
 export const view = signal<PluginsView>("all");
@@ -96,6 +113,7 @@ export function applyPluginsData(data: PluginsData): void {
   plugins.value = data.plugins;
   marketplaces.value = data.marketplaces;
   policy.value = data.policy;
+  available.value = data.available;
   parseErrors.value = data.errors;
   loading.value = false;
   // Re-resolve the open detail against the fresh list, so a plugin that was
@@ -109,9 +127,11 @@ export function _resetPluginsState(): void {
   plugins.value = [];
   marketplaces.value = [];
   policy.value = [];
+  available.value = [];
   parseErrors.value = [];
   loading.value = true;
   searchQuery.value = "";
+  catalogQuery.value = "";
   view.value = "all";
   selectedPlugin.value = null;
 }

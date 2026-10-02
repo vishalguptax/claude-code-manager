@@ -2,6 +2,8 @@
 export {
   _resetPluginsState,
   applyPluginsData,
+  available,
+  catalogQuery,
   isIssue,
   issues,
   loading,
@@ -14,6 +16,7 @@ export {
   view,
   type PluginsView,
   viewCounts,
+  visibleAvailable,
   visibleMarketplaces,
   visiblePlugins,
 } from "./signals";

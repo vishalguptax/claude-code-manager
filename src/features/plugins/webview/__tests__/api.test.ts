@@ -48,6 +48,33 @@ describe("createPluginsApi", () => {
     });
   });
 
+  it("asks for an install by id at an explicit CLI scope", () => {
+    const { post, api } = setup();
+    api.install("swift-lsp@claude-plugins-official", "project");
+    expect(post).toHaveBeenCalledWith({
+      type: "installPlugin",
+      id: "swift-lsp@claude-plugins-official",
+      scope: "project",
+    });
+  });
+
+  it("opens a homepage through the host", () => {
+    const { post, api } = setup();
+    api.openUrl("https://github.com/anthropics/claude-plugins-official");
+    expect(post).toHaveBeenCalledWith({
+      type: "openUrl",
+      url: "https://github.com/anthropics/claude-plugins-official",
+    });
+  });
+
+  // Every send runs through the shared schema, so shape drift fails here
+  // instead of being silently dropped by the host.
+  it("refuses to send a message the protocol does not accept", () => {
+    const { post, api } = setup();
+    expect(() => api.install("caveman@caveman", "managed" as never)).toThrow();
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it("returns a fresh bridge each call without sending anything", () => {
     const { post } = setup();
     expect(post).not.toHaveBeenCalled();

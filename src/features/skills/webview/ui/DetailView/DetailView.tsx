@@ -7,7 +7,8 @@ import { BackButton, Badge, Button, Tag } from "../../../../../webview/shared/ui
 import { useApi, useCopyFeedback } from "../../../../../webview/shared/hooks";
 import type { Skill } from "../../../types";
 import { deleteSkill, launchSkillInChat, newSession, openSkillFile } from "../../api";
-import { claudeCodeInstalled, selectedSkill } from "../../model";
+import { claudeCodeInstalled } from "../../../../../webview/shared/model";
+import { selectedSkill } from "../../model";
 
 /** Strip leading YAML frontmatter from raw SKILL.md content. */
 export function stripFrontmatter(content: string): string {

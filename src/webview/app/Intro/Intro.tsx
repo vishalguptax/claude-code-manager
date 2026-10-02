@@ -8,7 +8,9 @@
  * so word-of-mouth undersells the extension as "a session browser". This
  * names every surface up front. Dismissing it any way (button, Escape,
  * backdrop, or webview blur — all routed through Modal's onClose) marks it
- * seen so it never reappears.
+ * seen so it never auto-plays again. It can always be reopened on request:
+ * the footer's tour button, "Show welcome tour" in the panel palette, or the
+ * "Claude Code Manager: Show Welcome Tour" command.
  */
 
 import { useApi } from "../../shared/hooks";
@@ -25,11 +27,11 @@ const BLURBS: Record<string, string> = {
   checkpoints: "Diff & restore file versions Claude kept",
   prompts: "Search everything you've ever asked",
   skills: "Global, project & plugin skills",
-  mcp: "Toggle MCP servers, no JSON",
+  mcp: "Add & toggle MCP servers, no JSON",
   agents: "Subagents with model badges",
   commands: "Built-in & custom slash commands",
   hooks: "Automation hooks, every scope",
-  plugins: "What's installed, enabled & why",
+  plugins: "Browse, install & see what's enabled",
   memory: "Browse and prune auto-memory",
   config: "Models, permissions, tabs & backups",
 };

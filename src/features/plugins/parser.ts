@@ -17,6 +17,9 @@
  *     data/<plugin>-<mkt>/                 -- plugin runtime data
  *     plugin-catalog-cache.json            -- a ~460 KB catalogue of every
  *                                             plugin in every known marketplace
+ *                                             (Claude Code's private cache; the
+ *                                             catalog is read from each clone's
+ *                                             documented marketplace.json instead)
  *
  * `cache/` and `marketplaces/` are the bulk (87 MB on the machine this was
  * written against). Nothing here walks them: the plugin list comes from the
@@ -51,6 +54,8 @@ import * as path from "path";
 import { CLAUDE_DIR, SETTINGS_FILE, claudeSettingsPath } from "../../core/config";
 import { type ActivePlugin, loadActivePlugins } from "../../core/plugins";
 import { openFileNoFollow } from "../../core/safeOpen";
+import { type RawCatalogPlugin, buildAvailablePlugins, catalogPath, parseCatalog } from "./catalog";
+import { isSafePluginId, splitPluginId } from "./ids";
 import {
   type MarketplaceEntry,
   type MarketplaceTrust,
@@ -264,6 +269,24 @@ export function readKnownMarketplaces(
   return out;
 }
 
+/**
+ * Read each registered marketplace's catalog from its clone. A missing or
+ * malformed catalog yields no entries rather than an error: the marketplace
+ * still lists under Sources, and `/plugin` is where Claude Code reports and
+ * repairs a broken clone.
+ */
+export function readMarketplaceCatalogs(
+  known: Record<string, RawKnownMarketplace>,
+): Record<string, RawCatalogPlugin[]> {
+  const out: Record<string, RawCatalogPlugin[]> = {};
+  for (const [name, mkt] of Object.entries(known)) {
+    if (!mkt.installLocation) continue;
+    const res = readJsonObject(catalogPath(mkt.installLocation));
+    out[name] = res.kind === "ok" ? parseCatalog(res.data) : [];
+  }
+  return out;
+}
+
 /** Read the blocked plugin ids from `blocklist.json`. */
 export function readPluginBlocklist(filePath: string = BLOCKLIST_FILE): string[] {
   const res = readJsonObject(filePath);
@@ -277,43 +300,6 @@ export function readPluginBlocklist(filePath: string = BLOCKLIST_FILE): string[]
     if (typeof id === "string" && id !== "") out.push(id);
   }
   return out;
-}
-
-// ── Plugin ids ─────────────────────────────────────────────────────────────
-
-/**
- * Whether a plugin id is safe to carry through the UI.
- *
- * Nothing here builds a path from an id — install paths come from the
- * install record, never from concatenation — so a traversal attempt cannot
- * reach the filesystem. It is rejected anyway: an id is a settings key any
- * process can write, and `../../etc/passwd@x` rendered as a plugin name in
- * the sidebar is a phishing surface even when it is inert. Rejecting at the
- * parse boundary also means no downstream code has to re-ask.
- *
- * Plugin names legitimately contain dots (`wordpress.com` ships in the
- * official marketplace), so dots are allowed; separators, `..` segments,
- * control characters and whitespace are not.
- */
-export function isSafePluginId(id: string): boolean {
-  if (id === "" || id.length > 200) return false;
-  if (/[\\/\u0000-\u001f\u007f]/.test(id)) return false;
-  if (/\s/.test(id)) return false;
-  const at = id.lastIndexOf("@");
-  if (at <= 0 || at === id.length - 1) return false;
-  const name = id.slice(0, at);
-  const marketplace = id.slice(at + 1);
-  if (name === "." || name === ".." || marketplace === "." || marketplace === "..") {
-    return false;
-  }
-  return !marketplace.includes("@");
-}
-
-/** Split `<name>@<marketplace>` on the LAST `@`, as Claude Code does. */
-export function splitPluginId(id: string): { name: string; marketplace: string } {
-  const at = id.lastIndexOf("@");
-  if (at <= 0) return { name: id, marketplace: "" };
-  return { name: id.slice(0, at), marketplace: id.slice(at + 1) };
 }
 
 /**
@@ -592,6 +578,8 @@ export interface PluginSources {
   active: ActivePlugin[];
   known: Record<string, RawKnownMarketplace>;
   blocked: string[];
+  /** Each registered marketplace's catalog, keyed by marketplace name. */
+  catalogs: Record<string, RawCatalogPlugin[]>;
 }
 
 /** Describe a marketplace source object for display. */
@@ -750,7 +738,15 @@ export function buildPluginsData(sources: PluginSources): PluginsData {
   }
   for (const mkt of marketplaces) mkt.pluginCount = countByMarketplace.get(mkt.name) ?? 0;
 
-  return { plugins, marketplaces, policy, errors };
+  const available = buildAvailablePlugins(
+    sources.catalogs,
+    trustByName,
+    new Set(installsById.keys()),
+    blockedIds,
+    OFFICIAL_MARKETPLACE,
+  );
+
+  return { plugins, marketplaces, policy, available, errors };
 }
 
 /**
@@ -765,11 +761,13 @@ export function readPluginSources(workspacePath?: string): PluginSources {
   const scopes = settingsScopePaths(workspacePath).map((s) =>
     readSettingsScope(s.scope, s.filePath),
   );
+  const known = readKnownMarketplaces();
   return {
     scopes,
     active: loadActivePlugins(workspacePath),
-    known: readKnownMarketplaces(),
+    known,
     blocked: readPluginBlocklist(),
+    catalogs: readMarketplaceCatalogs(known),
   };
 }
 

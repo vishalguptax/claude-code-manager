@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, waitFor } from "@testing-library/preact";
 import { h } from "preact";
 import { setVscodeApi } from "../../../../../webview/shared/hooks";
+import { claudeCodeInstalled } from "../../../../../webview/shared/model";
 import type { Command } from "../../../types";
 import { CommandsListView } from "./CommandsListView";
 import {
-  claudeCodeInstalled,
   commands,
   resetCommandSignals,
   scopeFilter,
@@ -35,6 +35,7 @@ beforeEach(() => {
   posted = [];
   setVscodeApi({ postMessage: (m) => posted.push(m) });
   resetCommandSignals();
+  claudeCodeInstalled.value = false;
 });
 
 afterEach(() => {

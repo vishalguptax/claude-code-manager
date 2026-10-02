@@ -246,6 +246,81 @@ describe("ClaudeSessionViewProvider", () => {
     ).toContain("/home/user/proj");
   });
 
+  // A panel the command had to open drops the first post (its script is not
+  // loaded yet), so the request must survive until a ready can deliver it,
+  // and stop once the tour is dismissed.
+  it("delivers a Show Welcome Tour request now, again on ready, and not after dismissal", async () => {
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const memento = { get: () => undefined, update: async () => {} } as unknown as vscode.Memento;
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri, memento);
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    const tours = () => view.webview.posted.filter((m) => m.type === "showIntro").length;
+
+    provider.showWelcomeTour();
+    expect(tours()).toBe(1);
+
+    await view.webview._msgHandler!({ type: "ready" });
+    expect(tours()).toBe(2);
+
+    await view.webview._msgHandler!({ type: "markDemoSeen" });
+    await view.webview._msgHandler!({ type: "ready" });
+    expect(tours()).toBe(2);
+  });
+
+  it("does not show the tour on ready when nobody asked for it", async () => {
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
+    }));
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
+    const view = makeFakeView();
+    provider.resolveWebviewView(view as unknown as vscode.WebviewView);
+    await view.webview._msgHandler!({ type: "ready" });
+    expect(view.webview.posted.some((m) => m.type === "showIntro")).toBe(false);
+  });
+
   it("refreshSettings posts the current settings message to the webview", async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],

@@ -23,12 +23,18 @@
  * only once it echoes back what was last sent — otherwise a drop would
  * visually snap back to the pre-drop order for the length of the round
  * trip and then jump again.
+ *
+ * The welcome tour is replayed from here: it is the tour of these same
+ * tabs, and it plays once on its own, so the section that arranges them is
+ * where a user looking for "what does each tab do" already is. Not in the
+ * footer, where a control on every tab would be hit by accident.
  */
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   type Feature,
   hiddenTabsPref,
   resolveVisibleTabs,
+  showIntro,
   tabOrderPref,
   TABS,
 } from "../../../../../webview/shared/model";
@@ -154,6 +160,11 @@ export function TabsView({ api }: TabsViewProps) {
             </div>
           );
         })}
+      </div>
+      <div class="actions-row">
+        <Button iconName="sparkles" onClick={showIntro}>
+          Show welcome tour
+        </Button>
       </div>
     </Section>
   );

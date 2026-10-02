@@ -13,6 +13,8 @@ function api(): PluginsApi {
     openSettings: vi.fn(),
     copyId: vi.fn(),
     setEnabled: vi.fn(),
+    install: vi.fn(),
+    openUrl: vi.fn(),
   };
 }
 
@@ -27,7 +29,7 @@ describe("ListView", () => {
   it("roots the tab in the shared scrolling panel", () => {
     // `.tab-content .panel` (tabs.css) is what gives a tab its own scroll
     // region. Without the class the list cannot scroll inside the pane.
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     const root = container.firstElementChild as HTMLElement;
     expect(root.classList.contains("panel")).toBe(true);
   });
@@ -35,7 +37,7 @@ describe("ListView", () => {
   it("puts the search field in the shared search row", () => {
     // `.search-row` carries the --space-2xl inset that lines the field up
     // with the row text beneath it; a bare field floats out of alignment.
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     const row = container.querySelector(".search-row") as HTMLElement;
     expect(row).toBeTruthy();
     expect(row.contains(screen.getByLabelText("Search plugins"))).toBe(true);
@@ -43,7 +45,7 @@ describe("ListView", () => {
 
   it("offers the view segments as a radio group with counts", () => {
     applyPluginsData(snapshot());
-    render(<ListView api={api()} />);
+    render(<ListView api={api()} onBrowse={vi.fn()} />);
     const group = screen.getByRole("radiogroup", { name: "Plugins view" });
     expect([...group.querySelectorAll('[role="radio"]')].map((r) => r.textContent)).toEqual([
       "All (5)",
@@ -54,19 +56,19 @@ describe("ListView", () => {
 
   it("captions the list with its count", () => {
     applyPluginsData(snapshot());
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     expect(container.querySelector(".list-count")?.textContent).toBe("5 plugins");
   });
 
   it("says one plugin, not 1 plugins", () => {
     applyPluginsData(snapshot({ plugins: [snapshot().plugins[0]] }));
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     expect(container.querySelector(".list-count")?.textContent).toBe("1 plugin");
   });
 
   it("narrows to the findings when Issues is selected", async () => {
     applyPluginsData(snapshot());
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     fireEvent.click(screen.getByText("Issues (4)"));
     await waitFor(() =>
       expect(container.querySelectorAll(".plg-item")).toHaveLength(4),
@@ -75,7 +77,7 @@ describe("ListView", () => {
 
   it("shows the marketplaces and the policy keys under Sources", async () => {
     applyPluginsData(snapshot());
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     fireEvent.click(screen.getByText("Sources (2)"));
     await waitFor(() => screen.getByText("JuliusBrussee/caveman"));
     expect([...container.querySelectorAll(".group-label")].map((l) => l.textContent)).toEqual([
@@ -87,7 +89,7 @@ describe("ListView", () => {
 
   it("opens a plugin's detail view when its row is clicked", async () => {
     applyPluginsData(snapshot());
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     fireEvent.click(container.querySelector(".plg-item") as HTMLElement);
     await waitFor(() => expect(selectedPlugin.value?.id).toBe("caveman@caveman"));
   });
@@ -95,14 +97,14 @@ describe("ListView", () => {
   it("sends the deciding scope when a row's toggle is flipped", () => {
     applyPluginsData(snapshot());
     const a = api();
-    render(<ListView api={a} />);
+    render(<ListView api={a} onBrowse={vi.fn()} />);
     fireEvent.click(screen.getByLabelText("Disable caveman@caveman"));
     expect(a.setEnabled).toHaveBeenCalledWith("caveman@caveman", false, "global");
   });
 
   it("refreshes on demand", () => {
     const a = api();
-    render(<ListView api={a} />);
+    render(<ListView api={a} onBrowse={vi.fn()} />);
     fireEvent.click(screen.getByLabelText("Refresh plugins"));
     expect(a.getPlugins).toHaveBeenCalled();
   });
@@ -110,7 +112,7 @@ describe("ListView", () => {
   it("opens the row's actions on right-click and routes the choice", async () => {
     applyPluginsData(snapshot());
     const a = api();
-    const { container } = render(<ListView api={a} />);
+    const { container } = render(<ListView api={a} onBrowse={vi.fn()} />);
     fireEvent.contextMenu(container.querySelector(".plg-item") as HTMLElement, {
       clientX: 10,
       clientY: 10,
@@ -121,8 +123,8 @@ describe("ListView", () => {
   });
 
   it("shows a shared empty state when nothing is installed", () => {
-    applyPluginsData({ plugins: [], marketplaces: [], policy: [], errors: [] });
-    const { container } = render(<ListView api={api()} />);
+    applyPluginsData({ plugins: [], marketplaces: [], policy: [], available: [], errors: [] });
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     expect(container.querySelector(".empty-state")).toBeTruthy();
     expect(screen.getByText("No plugins")).toBeTruthy();
   });
@@ -130,7 +132,7 @@ describe("ListView", () => {
   it("congratulates an installation with no findings", async () => {
     applyPluginsData(snapshot({ plugins: [snapshot().plugins[0]] }));
     view.value = "issues";
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     await waitFor(() => expect(screen.getByText("Nothing needs attention")).toBeTruthy());
     expect(container.querySelector(".empty-state")).toBeTruthy();
   });
@@ -138,26 +140,42 @@ describe("ListView", () => {
   it("shows a shared empty state when no marketplace is known", () => {
     applyPluginsData(snapshot({ marketplaces: [], policy: [] }));
     view.value = "sources";
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     expect(container.querySelector(".empty-state")).toBeTruthy();
     expect(screen.getByText("No marketplaces")).toBeTruthy();
   });
 
   it("surfaces a malformed settings file without hiding the list", () => {
     applyPluginsData(snapshot({ errors: ["/repo/.claude/settings.json could not be read"] }));
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     expect(screen.getByRole("alert")).toBeTruthy();
     expect(container.querySelectorAll(".plg-item")).toHaveLength(5);
   });
 
   it("filters the list as the user searches", async () => {
     applyPluginsData(snapshot());
-    const { container } = render(<ListView api={api()} />);
+    const { container } = render(<ListView api={api()} onBrowse={vi.fn()} />);
     fireEvent.input(screen.getByLabelText("Search plugins"), { target: { value: "rogue" } });
     await waitFor(
       () => expect(container.querySelectorAll(".plg-item")).toHaveLength(1),
       { timeout: 1000 },
     );
     expect(screen.getByText("rogue")).toBeTruthy();
+  });
+
+  it("opens Browse from the search row", () => {
+    applyPluginsData(snapshot());
+    const onBrowse = vi.fn();
+    render(<ListView api={api()} onBrowse={onBrowse} />);
+    fireEvent.click(screen.getByLabelText("Browse plugins to install"));
+    expect(onBrowse).toHaveBeenCalledOnce();
+  });
+
+  it("offers Browse from the empty state when nothing is installed", () => {
+    applyPluginsData({ plugins: [], marketplaces: [], policy: [], available: [], errors: [] });
+    const onBrowse = vi.fn();
+    render(<ListView api={api()} onBrowse={onBrowse} />);
+    fireEvent.click(screen.getByText("Browse plugins"));
+    expect(onBrowse).toHaveBeenCalledOnce();
   });
 });

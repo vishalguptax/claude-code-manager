@@ -2,8 +2,10 @@
 import { fireEvent, render } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  _resetIntro,
   _resetSections,
   hiddenTabsPref,
+  introVisible,
   TABS,
   tabOrderPref,
   toggleSection,
@@ -181,5 +183,14 @@ describe("TabsView", () => {
 
     fireEvent.click(header);
     expect(container.querySelector(".cfg-tabs-list")).toBeTruthy();
+  });
+
+  it("replays the welcome tour from the section that arranges the tabs it explains", () => {
+    _resetIntro();
+    const { api } = setup();
+    const { getByText } = render(<TabsView api={api} />);
+    fireEvent.click(getByText("Show welcome tour"));
+    expect(introVisible.value).toBe(true);
+    _resetIntro();
   });
 });

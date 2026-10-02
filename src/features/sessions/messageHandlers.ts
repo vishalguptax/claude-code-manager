@@ -283,6 +283,11 @@ function makePluginsHost(ctx: HostContext): PluginsHostContext {
     // "managed" — the admin policy file is never ours to write, and the
     // feature's own `writableScope()` already resolves it to null.
     writeSettingsValue,
+    runShellCommand: (label, command, cwd) => {
+      const term = createTerminal(label, cwd);
+      term.show();
+      runInTerminal(term, command);
+    },
   };
 }
 
@@ -346,6 +351,7 @@ async function handleSessionMessage(
 
   switch (msg.type) {
     case "markDemoSeen": {
+      ctx.clearIntroRequest();
       await ctx.globalState?.update(DEMO_SEEN_KEY, true);
       break;
     }
@@ -359,6 +365,7 @@ async function handleSessionMessage(
       // otherwise "This Project" stays unscoped and lists every project.
       ctx.postWorkspacePath(true);
       ctx.refreshSettings();
+      if (ctx.isIntroRequested()) wv.postMessage({ type: "showIntro" });
       wv.postMessage({ type: "sessions", data: groupSessions(ctx.getSessions()), stats: getStats(ctx.getSessions()) });
       postWorktrees(wv, ctx.getSessions());
           wv.postMessage({ type: "userState", ...loadState() });

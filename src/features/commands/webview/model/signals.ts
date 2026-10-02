@@ -21,12 +21,6 @@ export const errorMessage = signal<string | null>(null);
 export const searchQuery = signal<string>("");
 /** Active scope filter. */
 export const scopeFilter = signal<ScopeFilter>("all");
-/**
- * Whether the official Claude Code extension is installed. Drives the
- * launch-in-chat affordance. Pushed from the host via the `settings`
- * message; defaults to false so the button stays hidden until confirmed.
- */
-export const claudeCodeInstalled = signal<boolean>(false);
 
 /** Sort priority for command scopes: built-ins → project → global → plugin. */
 const SCOPE_ORDER: Record<CommandScope, number> = {
@@ -82,5 +76,4 @@ export function resetCommandSignals(): void {
   errorMessage.value = null;
   searchQuery.value = "";
   scopeFilter.value = "all";
-  claudeCodeInstalled.value = false;
 }

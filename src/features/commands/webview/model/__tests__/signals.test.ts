@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Command } from "../../../types";
 import {
-  claudeCodeInstalled,
   commands,
   countByScope,
   errorMessage,
@@ -37,7 +36,6 @@ describe("commands signals", () => {
     errorMessage.value = "boom";
     searchQuery.value = "x";
     scopeFilter.value = "global";
-    claudeCodeInstalled.value = true;
 
     resetCommandSignals();
 
@@ -47,7 +45,6 @@ describe("commands signals", () => {
     expect(errorMessage.value).toBeNull();
     expect(searchQuery.value).toBe("");
     expect(scopeFilter.value).toBe("all");
-    expect(claudeCodeInstalled.value).toBe(false);
   });
 
   it("counts commands per scope", () => {

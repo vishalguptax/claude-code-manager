@@ -5,10 +5,10 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { McpEmpty } from "./McpEmpty";
 
 describe("McpEmpty", () => {
-  it("renders the browse link and fires onBrowse", () => {
-    const onBrowse = vi.fn();
-    render(h(McpEmpty, { onBrowse }));
-    fireEvent.click(screen.getByText("Browse MCP servers"));
-    expect(onBrowse).toHaveBeenCalledOnce();
+  it("offers the catalog as the way to add a first server", () => {
+    const onOpenCatalog = vi.fn();
+    render(h(McpEmpty, { onOpenCatalog }));
+    fireEvent.click(screen.getByText("Add from catalog"));
+    expect(onOpenCatalog).toHaveBeenCalledOnce();
   });
 });

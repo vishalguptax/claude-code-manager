@@ -4,7 +4,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setVscodeApi } from "../../../../../webview/shared/hooks";
 import { makeSkill } from "../../__tests__/fixtures";
-import { claudeCodeInstalled, selectedSkill } from "../../model";
+import { claudeCodeInstalled } from "../../../../../webview/shared/model";
+import { selectedSkill } from "../../model";
 import { DetailView, stripFrontmatter } from "./DetailView";
 
 afterEach(cleanup);
