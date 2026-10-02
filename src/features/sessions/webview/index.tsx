@@ -20,7 +20,6 @@ import { fmtRelativeTime } from "../../../webview/utils";
 import { sendGetSessionDetail, sendReady } from "./api";
 import {
   detailLoadingSignal,
-  handleDelta,
   handleMessage,
   initFilterPersistence,
   loadedSignal,
@@ -43,7 +42,7 @@ import { ListView } from "./ui/views/ListView";
 
 // Re-export the host-message handlers from the model so existing tests that
 // import them from the slice entry keep resolving.
-export { handleDelta, handleMessage } from "./model";
+export { handleMessage } from "./model";
 
 export default function SessionsTab() {
   useEffect(() => {
@@ -54,15 +53,9 @@ export default function SessionsTab() {
     initFilterPersistence();
 
     // The bus matches by type prefix; an empty prefix sees every message and
-    // we narrow to the ones the sessions feature owns. The bus has already
-    // validated each message against the shared valibot schema.
-    const unsub = registerFeatureHandler("", (msg) => {
-      if (msg.type === "sessions.delta") {
-        handleDelta(msg.payload);
-        return;
-      }
-      handleMessage(msg);
-    });
+    // handleMessage ignores the ones the sessions feature does not own. The
+    // bus has already validated each message against the shared valibot schema.
+    const unsub = registerFeatureHandler("", handleMessage);
     sendReady();
 
     // Sessions in the command palette. The source reads the signal when the

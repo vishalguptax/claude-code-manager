@@ -19,7 +19,6 @@ vi.mock("../parser", () => ({
   parseSessions: () => [],
   groupSessions: () => [],
   getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
-  getUniqueProjects: () => [],
   getLastParseWarning: () => null,
   // "missing" ids resolve to null (deleted/unreadable) so the no-mutation
   // early-return branch is exercised; everything else reparses cleanly.

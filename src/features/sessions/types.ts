@@ -35,8 +35,12 @@ export interface Session {
   /** All user prompts in chronological order */
   prompts: string[];
   /**
-   * Lowercased project name. Pre-computed at parse time so case-insensitive
-   * project filter matching does not allocate strings on every keystroke.
+   * The project's identity: its path normalised by `normPath` (forward
+   * slashes, no trailing slash, lowercased). The full path, not the folder
+   * name — `~/work/api` and `~/personal/api` are different projects, and
+   * keying on the name merged them in "This Project" and rewrote one's
+   * Resume path to the other's. Lowercasing keeps path-casing variants
+   * (Windows drive letters, macOS case-insensitive volumes) as one project.
    */
   projectKey: string;
   /**
@@ -259,7 +263,6 @@ export interface SessionEntry {
 export type ExtensionMessage =
   | { type: "sessions"; data: SessionGroup[]; stats: Stats }
   | { type: "sessionDetail"; data: SessionDetail }
-  | { type: "projects"; data: string[] }
   | { type: "workspacePath"; data: string }
   /**
    * Current git branch of the workspace, resolved via the VS Code Git
@@ -323,8 +326,6 @@ export type WebviewMessage =
   | { type: "markDemoSeen" }
   | { type: "continueLastSession" }
   | { type: "getSessionDetail"; sessionId: string; mode?: "first" | "last"; query?: string }
-  | { type: "search"; query: string }
-  | { type: "filter"; project?: string; branch?: string; dateRange?: [number, number] }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
   /**
    * Recreate a Claude-created worktree that has since been removed from disk,

@@ -17,7 +17,6 @@ vi.mock("../parser", () => ({
   parseSessions: (...a: unknown[]) => parseSessions(...a),
   groupSessions: (list: unknown[]) => list,
   getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
-  getUniqueProjects: (list: { project: string }[]) => list.map((s) => s.project),
   getLastParseWarning: () => null,
   getSessionFile: () => null,
   clearMetaCaches: () => {},
@@ -83,7 +82,6 @@ describe("refreshLiveState self-heal", () => {
 
     expect(env.sessions.map((s) => s.id)).toContain("new-id");
     expect(env.posted.some((p) => p.type === "sessions")).toBe(true);
-    expect(env.posted.some((p) => p.type === "projects")).toBe(true);
     expect(env.ctx.buildSearchIndex).toHaveBeenCalled();
   });
 
@@ -115,6 +113,5 @@ describe("refreshLiveState self-heal", () => {
 
     expect(parseSessions).not.toHaveBeenCalled();
     expect(env.posted.filter((p) => p.type === "sessions")).toHaveLength(1);
-    expect(env.posted.some((p) => p.type === "projects")).toBe(false);
   });
 });

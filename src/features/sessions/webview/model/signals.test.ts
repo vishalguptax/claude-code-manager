@@ -4,7 +4,6 @@ import { initPersistence } from "../../../../webview/persistence";
 import type { VSCodeAPI } from "../../../../webview/types";
 import {
   applyDefaultFilters,
-  applyDelta,
   clearSelection,
   currentBranchSignal,
   currentProjectSignal,
@@ -21,7 +20,6 @@ import {
   getBranchOptions,
   getFiltered,
   getLastSessionGroup,
-  getProjects,
   getProjectOptions,
   getWorktree,
   getWorktreeOptions,
@@ -285,16 +283,7 @@ describe("sessions signals", () => {
     });
   });
 
-  describe("getProjects / getBranches", () => {
-    it("orders projects with current first then by activity", () => {
-      sessionsSignal.value = [
-        session({ id: "a", project: "alpha", projectKey: "alpha", endTime: 10 }),
-        session({ id: "b", project: "beta", projectKey: "beta", endTime: 99 }),
-      ];
-      currentProjectSignal.value = "alpha";
-      expect(getProjects()).toEqual(["alpha", "beta"]);
-    });
-
+  describe("getBranches", () => {
     it("lists distinct branches with (no branch) last", () => {
       sessionsSignal.value = [
         session({ id: "a", branch: "main" }),
@@ -400,37 +389,6 @@ describe("sessions signals", () => {
     });
   });
 
-  describe("applyDelta", () => {
-    const base = [session({ id: "a" }), session({ id: "b" })];
-
-    it("adds new sessions", () => {
-      const out = applyDelta(base, { added: [session({ id: "c" })] });
-      expect(out.map((s) => s.id).sort()).toEqual(["a", "b", "c"]);
-    });
-
-    it("replaces updated sessions by id", () => {
-      const out = applyDelta(base, { updated: [session({ id: "a", name: "renamed" })] });
-      expect(out.find((s) => s.id === "a")?.name).toBe("renamed");
-      expect(out).toHaveLength(2);
-    });
-
-    it("removes sessions by id", () => {
-      const out = applyDelta(base, { removed: ["a"] });
-      expect(out.map((s) => s.id)).toEqual(["b"]);
-    });
-
-    it("does not mutate the input array", () => {
-      const input = [...base];
-      applyDelta(input, { added: [session({ id: "z" })], removed: ["a"] });
-      expect(input.map((s) => s.id)).toEqual(["a", "b"]);
-    });
-
-    it("treats an unknown update as an addition", () => {
-      const out = applyDelta(base, { updated: [session({ id: "new" })] });
-      expect(out.map((s) => s.id).sort()).toEqual(["a", "b", "new"]);
-    });
-  });
-
   describe("selection helpers", () => {
     it("toggles selection membership", () => {
       toggleSelected("x");
@@ -460,9 +418,9 @@ describe("sessions signals", () => {
   });
 
   describe("setWorkspacePath", () => {
-    it("derives a lowercased project name from the tail segment", () => {
-      setWorkspacePath("C:/Users/me/Projects/MyApp");
-      expect(currentProjectSignal.value).toBe("myapp");
+    it("derives the projectKey from the full workspace path", () => {
+      setWorkspacePath("C:\\Users\\me\\Projects\\MyApp\\");
+      expect(currentProjectSignal.value).toBe("c:/users/me/projects/myapp");
     });
 
     it("leaves the project filter untouched when no workspace", () => {

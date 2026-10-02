@@ -31,8 +31,7 @@ function getDateGroup(timestamp: number): string {
  * pre-lowered `searchHaystack`; the full `prompts` array (each entry can be
  * 50 KB+) is never read webview-side and only bloats the serialized payload
  * and the webview's retained copy. The host keeps the full array in its own
- * cache (`ctx.getSessions()`), so the `search` message's `searchSessions`
- * capability is unaffected. Sessions with a single prompt pass through
+ * cache (`ctx.getSessions()`) for the transcript search. Sessions with a single prompt pass through
  * unchanged (no needless clone).
  */
 function trimForList(s: Session): Session {
@@ -73,7 +72,7 @@ export function getStats(sessions: Session[]): Stats {
   let totalMessages = 0;
 
   for (const s of sessions) {
-    projects.add(s.project);
+    projects.add(s.projectKey);
     if (s.endTime >= weekAgo) thisWeek++;
     totalMessages += s.messageCount;
   }
@@ -84,55 +83,4 @@ export function getStats(sessions: Session[]): Stats {
     thisWeek,
     totalMessages,
   };
-}
-
-/**
- * Get a sorted list of unique project names across all sessions.
- */
-export function getUniqueProjects(sessions: Session[]): string[] {
-  return [...new Set(sessions.map((s) => s.project))].sort();
-}
-
-/**
- * Filter sessions by a text query. Case-insensitive.
- *
- * Fast path uses the pre-computed `searchHaystack` field — one `includes()`
- * per session instead of four `.toLowerCase().includes()` calls. Falls back
- * to scanning individual prompts only if the haystack misses, keeping the
- * common case allocation-free while still finding deep matches.
- */
-export function searchSessions(sessions: Session[], query: string): Session[] {
-  const lower = query.toLowerCase();
-  return sessions.filter((s) => {
-    if (s.searchHaystack.includes(lower)) return true;
-    // Slow path — scan prompts. Prompts are not in the haystack because
-    // they can be huge (50KB+) and would bloat every session payload.
-    return s.prompts.some((p) => p.toLowerCase().includes(lower));
-  });
-}
-
-/**
- * Filter sessions by project name, branch, and/or date range.
- * All filters are optional; only provided filters are applied.
- */
-export function filterSessions(
-  sessions: Session[],
-  filters: {
-    project?: string;
-    branch?: string;
-    dateRange?: [number, number];
-  },
-): Session[] {
-  let result = sessions;
-  if (filters.project) {
-    result = result.filter((s) => s.project === filters.project);
-  }
-  if (filters.branch) {
-    result = result.filter((s) => s.branch === filters.branch);
-  }
-  if (filters.dateRange) {
-    const [from, to] = filters.dateRange;
-    result = result.filter((s) => s.endTime >= from && s.endTime <= to);
-  }
-  return result;
 }

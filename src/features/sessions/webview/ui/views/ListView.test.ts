@@ -5,7 +5,6 @@ import { fireEvent, render } from "@testing-library/preact";
 import type { Session } from "../../../types";
 import { ListView } from "./ListView";
 import {
-  applyDelta,
   bulkModeSignal,
   filterDateSignal,
   filterProjectSignal,
@@ -84,10 +83,8 @@ describe("ListView", () => {
     const { container, rerender } = render(h(ListView, {}));
     expect(container.querySelector(".virtual-list")).toBeTruthy();
 
-    // Apply a delta that removes all but two sessions.
-    const keep = sessionsSignal.value.slice(0, 2).map((s) => s.id);
-    const removed = sessionsSignal.value.filter((s) => !keep.includes(s.id)).map((s) => s.id);
-    sessionsSignal.value = applyDelta(sessionsSignal.value, { removed });
+    // Shrink the list to two sessions.
+    sessionsSignal.value = sessionsSignal.value.slice(0, 2);
     rerender(h(ListView, {}));
 
     expect(sessionsSignal.value).toHaveLength(2);

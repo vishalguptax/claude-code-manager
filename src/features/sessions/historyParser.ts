@@ -17,6 +17,7 @@ import * as path from "path";
 import { HISTORY_FILE, PROJECTS_DIR } from "../../core/config";
 import { LRU } from "../../core/lru";
 import { openFileNoFollow } from "../../core/safeOpen";
+import { normPath } from "../../core/utils";
 import { createLineDecoder } from "../../core/lineDecoder";
 import { deslugifyProjectPath } from "./portable";
 import {
@@ -114,8 +115,8 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
   // Build session objects.
   //
   // `projectPathByKey` remembers the first-seen absolute path for each
-  // lowercased project name so Windows casing variants collapse into a
-  // single dropdown entry. History-derived sessions populate it here;
+  // projectKey (normalised full path) so casing variants of one path
+  // collapse into a single dropdown entry. History-derived sessions populate it here;
   // orphan discovery (below) both reads from and extends it.
   const sessions: Session[] = [];
   const projectPathByKey = new Map<string, string>();
@@ -172,7 +173,7 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
     // Pre-compute lowercased lookup keys so the webview filter does not
     // allocate strings on every keystroke. searchHaystack joins fields with
     // "\n" so that user input cannot accidentally match across boundaries.
-    const projectKey = data.project.toLowerCase();
+    const projectKey = normPath(data.projectPath);
     // Include every user prompt so a keyword the user typed matches instantly
     // client-side, without waiting on the async host transcript scan. Prompts
     // are already held in memory on the Session, so this adds no new reads.
@@ -504,14 +505,13 @@ function discoverOrphanSessions(
       // cwd would have empty projectPath and Resume couldn't launch.
       const rawProjectPath = data.cwd || deslugifyProjectPath(slug) || slug;
       const project = extractProjectName(rawProjectPath);
-      const projectKey = project.toLowerCase();
+      const projectKey = normPath(rawProjectPath);
 
-      // Windows path-casing dedupe: if history already saw this
-      // project under a different casing (e.g. `C:\Users\foo` vs
-      // `c:\Users\foo`), reuse the established path so both casings
-      // collapse into one dropdown entry. Only applies when the
-      // project name lowercases identically — real distinct projects
-      // with different names aren't touched.
+      // Path-casing dedupe: if history already saw this path under a
+      // different casing (e.g. `C:\Users\foo` vs `c:\Users\foo`), reuse
+      // the established spelling so both collapse into one dropdown entry.
+      // Keyed on the whole path, so two repos that merely share a folder
+      // name stay distinct.
       const canonicalPath = projectPathByKey.get(projectKey) ?? rawProjectPath;
       if (!projectPathByKey.has(projectKey)) {
         projectPathByKey.set(projectKey, rawProjectPath);

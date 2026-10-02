@@ -66,8 +66,6 @@ import {
   parseSessionDetail,
   groupSessions,
   getStats,
-  searchSessions,
-  filterSessions,
   getLastParseWarning,
   reparseOneSession,
   reparseSessionsBatch,
@@ -954,7 +952,7 @@ describe("pending-question detection (idle → awaiting_question)", () => {
 describe("Session pre-computed search keys", () => {
   beforeEach(setup);
 
-  it("populates projectKey as the lowercased project name", () => {
+  it("populates projectKey as the normalised full project path", () => {
     writeHistoryEntry({
       display: "hi",
       timestamp: Date.now(),
@@ -963,7 +961,29 @@ describe("Session pre-computed search keys", () => {
     });
     const sessions = parseSessions();
     expect(sessions[0].project).toBe("My-Project");
-    expect(sessions[0].projectKey).toBe("my-project");
+    expect(sessions[0].projectKey).toBe("/home/user/my-project");
+  });
+
+  it("keeps two repos that share a folder name apart", () => {
+    // Regression: keying on the folder name merged ~/work/api and
+    // ~/personal/api, and the casing dedupe then rewrote the second repo's
+    // projectPath to the first's — so Resume opened in the wrong folder.
+    const ts = Date.now();
+    writeHistoryEntry({ display: "a", timestamp: ts, project: "/home/user/work/api", sessionId: "sess-work" });
+    writeHistoryEntry({ display: "b", timestamp: ts + 1, project: "/home/user/personal/api", sessionId: "sess-personal" });
+    const byId = new Map(parseSessions().map((s) => [s.id, s]));
+    expect(byId.get("sess-work")?.projectPath).toBe("/home/user/work/api");
+    expect(byId.get("sess-personal")?.projectPath).toBe("/home/user/personal/api");
+    expect(byId.get("sess-work")?.projectKey).not.toBe(byId.get("sess-personal")?.projectKey);
+  });
+
+  it("still collapses casing variants of one path", () => {
+    const ts = Date.now();
+    writeHistoryEntry({ display: "a", timestamp: ts, project: "C:\\Users\\me\\App", sessionId: "sess-upper" });
+    writeHistoryEntry({ display: "b", timestamp: ts + 1, project: "c:\\users\\me\\app", sessionId: "sess-lower" });
+    const sessions = parseSessions();
+    expect(new Set(sessions.map((s) => s.projectKey)).size).toBe(1);
+    expect(new Set(sessions.map((s) => s.projectPath)).size).toBe(1);
   });
 
   it("populates searchHaystack with all searchable fields lowercased", () => {
@@ -1421,7 +1441,7 @@ describe("groupSessions", () => {
     const shipped = groups[0].sessions[0];
     // Payload carries only prompts[0] (the sole field the list renders).
     expect(shipped.prompts).toEqual(["first prompt"]);
-    // The host's own session object is untouched — searchSessions still works.
+    // The host's own session object is untouched — transcript search still sees every prompt.
     expect(input.prompts).toEqual(["first prompt", "second (huge)", "third"]);
   });
 });
@@ -1448,95 +1468,6 @@ describe("getStats", () => {
     expect(stats.totalProjects).toBe(0);
     expect(stats.thisWeek).toBe(0);
     expect(stats.totalMessages).toBe(0);
-  });
-});
-
-describe("searchSessions", () => {
-  const now = Date.now();
-  const sessions = [
-    makeSession("a", now, "my-app", 1, "main", "Fix bug in login"),
-    makeSession("b", now, "backend", 1, "feature/api", "Add REST endpoints"),
-    makeSession("c", now, "frontend", 1, "", "Style the dashboard"),
-  ];
-
-  it("matches on project name (case-insensitive)", () => {
-    const result = searchSessions(sessions, "MY-APP");
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("a");
-  });
-
-  it("matches on branch name", () => {
-    const result = searchSessions(sessions, "feature/api");
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("b");
-  });
-
-  it("matches on summary text", () => {
-    const result = searchSessions(sessions, "dashboard");
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("c");
-  });
-
-  it("returns empty for no matches", () => {
-    expect(searchSessions(sessions, "nonexistent")).toEqual([]);
-  });
-
-  it("matches on session name", () => {
-    // searchHaystack is built at construction, so renames need a fresh
-    // build to be searchable. makeSession with summary="caching-refactor"
-    // is the simplest way to get that into the haystack via the existing
-    // factory.
-    const s = [makeSession("x", now, "proj", 1, "", "caching-refactor")];
-    expect(searchSessions(s, "caching")).toHaveLength(1);
-  });
-
-  it("matches across prompts array (slow path)", () => {
-    // prompts are not in the haystack — they're scanned on the slow path
-    // when the haystack misses. Override prompts after construction so
-    // the haystack does NOT contain "caching" but prompts do.
-    const base = makeSession("x", now, "proj", 1, "", "first prompt");
-    const s = [{ ...base, prompts: ["first prompt", "second prompt about caching"] }];
-    expect(searchSessions(s, "caching")).toHaveLength(1);
-  });
-});
-
-describe("filterSessions", () => {
-  const now = Date.now();
-  const sessions = [
-    makeSession("a", now, "alpha", 1, "main"),
-    makeSession("b", now, "beta", 1, "dev"),
-    makeSession("c", now - 15 * 86400000, "alpha", 1, "main"),
-  ];
-
-  it("filters by project", () => {
-    const result = filterSessions(sessions, { project: "alpha" });
-    expect(result).toHaveLength(2);
-  });
-
-  it("filters by branch", () => {
-    const result = filterSessions(sessions, { branch: "dev" });
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("b");
-  });
-
-  it("filters by date range", () => {
-    const weekAgo = now - 7 * 86400000;
-    const result = filterSessions(sessions, { dateRange: [weekAgo, now] });
-    expect(result).toHaveLength(2); // "c" is 15 days old, excluded
-  });
-
-  it("applies multiple filters together", () => {
-    const weekAgo = now - 7 * 86400000;
-    const result = filterSessions(sessions, {
-      project: "alpha",
-      dateRange: [weekAgo, now],
-    });
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("a");
-  });
-
-  it("returns all sessions when no filters are provided", () => {
-    expect(filterSessions(sessions, {})).toHaveLength(3);
   });
 });
 

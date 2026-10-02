@@ -11,31 +11,6 @@ import { pathTail, type WorktreeMap } from "./worktrees";
 import { matchesScope, type FilterScope } from "./scope";
 
 /**
- * All project names, current project first, then by most recent activity.
- * Used to populate the project filter dropdown.
- */
-export function orderProjects(
-  sessions: Session[],
-  deleted: Set<string>,
-  currentProject: string,
-): string[] {
-  const latestActivity = new Map<string, number>();
-  const keyByProject = new Map<string, string>();
-  for (const s of sessions) {
-    if (!keyByProject.has(s.project)) keyByProject.set(s.project, s.projectKey);
-    if (deleted.has(s.id)) continue;
-    const prev = latestActivity.get(s.project) || 0;
-    if (s.endTime > prev) latestActivity.set(s.project, s.endTime);
-  }
-
-  return [...latestActivity.keys()].sort((a, b) => {
-    if (keyByProject.get(a) === currentProject) return -1;
-    if (keyByProject.get(b) === currentProject) return 1;
-    return (latestActivity.get(b) || 0) - (latestActivity.get(a) || 0);
-  });
-}
-
-/**
  * Distinct branch names present in the (deletion-filtered) session list,
  * sorted alphabetically with the "(no branch)" sentinel last.
  */
@@ -70,9 +45,9 @@ export interface ProjectOption {
  * Worktree-aware: a session that ran in a worktree groups under its shared
  * `repoRoot` (option value = repoRoot, label = repo basename) so every worktree
  * of one repo collapses into a single entry instead of fragmenting into N
- * look-alike checkout-dir "projects". Sessions with no ref keep grouping by
- * their project name — with an empty `worktrees` map this is byte-for-byte the
- * pre-worktree behaviour. When the workspace itself is a worktree, pass its
+ * look-alike checkout-dir "projects". Sessions with no ref group by their
+ * projectKey (full path), so two repos that share a folder name stay apart;
+ * when their labels would collide, both gain the parent folder. When the workspace itself is a worktree, pass its
  * `repoRoot` so "This Project" counts the whole repo (matches getFiltered).
  */
 export function buildProjectOptions(
@@ -82,7 +57,7 @@ export function buildProjectOptions(
   const { currentProject, worktrees, repoRoot } = scope;
   const counts = new Map<string, number>();
   const labelByValue = new Map<string, string>();
-  const keyByValue = new Map<string, string>();
+  const pathByValue = new Map<string, string>();
   const latest = new Map<string, number>();
   const isRepoValue = new Set<string>();
   let currentCount = 0;
@@ -93,12 +68,12 @@ export function buildProjectOptions(
     if (!matchesScope(s, scope, "project")) continue;
     totalCount++;
     const ref = worktrees[s.id];
-    // Worktree sessions collapse under repoRoot; others keep their project name.
-    const value = ref ? ref.repoRoot : s.project;
+    // Worktree sessions collapse under repoRoot; others group by projectKey.
+    const value = ref ? ref.repoRoot : s.projectKey;
     if (ref) isRepoValue.add(value);
     counts.set(value, (counts.get(value) ?? 0) + 1);
     if (!labelByValue.has(value)) labelByValue.set(value, ref ? pathTail(ref.repoRoot) : s.project);
-    if (!keyByValue.has(value)) keyByValue.set(value, ref ? "" : s.projectKey);
+    if (!pathByValue.has(value)) pathByValue.set(value, ref ? ref.repoRoot : s.projectPath);
     if (s.endTime > (latest.get(value) ?? 0)) latest.set(value, s.endTime);
     // "This Project" counts the current scope: the whole repo when the
     // workspace is a worktree, else the workspace project (verbatim old rule).
@@ -111,10 +86,20 @@ export function buildProjectOptions(
   const isCurrentValue = (value: string): boolean =>
     isRepoValue.has(value)
       ? repoRoot !== null && value === repoRoot
-      : Boolean(currentProject) && keyByValue.get(value) === currentProject;
+      : Boolean(currentProject) && value === currentProject;
 
-  // Current group first, then by most recent activity — the orderProjects
-  // comparator, applied over the (possibly repo-collapsed) group values.
+  // Two options reading "api" are indistinguishable; name the parent too.
+  const labelUses = new Map<string, number>();
+  for (const label of labelByValue.values()) labelUses.set(label, (labelUses.get(label) ?? 0) + 1);
+  const labelFor = (value: string): string => {
+    const label = labelByValue.get(value) ?? value;
+    if ((labelUses.get(label) ?? 0) < 2) return label;
+    const parts = (pathByValue.get(value) ?? "").replace(/\\/g, "/").split("/").filter(Boolean);
+    return parts.slice(-2).join("/") || label;
+  };
+
+  // Current group first, then by most recent activity, over the (possibly
+  // repo-collapsed) group values.
   const values = [...counts.keys()].sort((a, b) => {
     if (isCurrentValue(a)) return -1;
     if (isCurrentValue(b)) return 1;
@@ -128,7 +113,7 @@ export function buildProjectOptions(
   for (const value of values) {
     opts.push({
       value,
-      label: labelByValue.get(value) ?? value,
+      label: labelFor(value),
       count: counts.get(value) ?? 0,
       isCurrent: isCurrentValue(value),
     });

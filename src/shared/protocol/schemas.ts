@@ -320,7 +320,6 @@ const errorMsg = v.object({ type: v.literal("error"), message: v.string() });
 // Drives the shared busy indicator: every request gets exactly one ack.
 const ack = v.object({ type: v.literal("ack") });
 const reloadComplete = v.object({ type: v.literal("reloadComplete") });
-const projects = v.object({ type: v.literal("projects"), data: v.array(v.string()) });
 const accountData = v.object({ type: v.literal("accountData"), data: v.unknown() });
 const commands = v.object({ type: v.literal("commands"), data: v.unknown() });
 const parseErrors = v.optional(v.array(v.string()));
@@ -336,24 +335,9 @@ const quotaData = v.object({ type: v.literal("quotaData"), result: v.unknown() }
 // === SESSIONS MESSAGES ===
 // Inbound session messages, paired 1:1 with the SESSIONS MESSAGES block in
 // messages.ts.
-const search = v.object({ type: v.literal("search"), query: v.string() });
-const filter = v.object({
-  type: v.literal("filter"),
-  project: v.optional(v.string()),
-  branch: v.optional(v.string()),
-  dateRange: v.optional(v.tuple([v.number(), v.number()])),
-});
 const deleteSession = v.object({ type: v.literal("deleteSession"), sessionId: v.string() });
 const copyMarkdown = v.object({ type: v.literal("copyMarkdown"), sessionId: v.string() });
 const openFile = v.object({ type: v.literal("openFile"), path: v.string() });
-const sessionsDelta = v.object({
-  type: v.literal("sessions.delta"),
-  payload: v.object({
-    added: v.optional(v.array(v.unknown())),
-    updated: v.optional(v.array(v.unknown())),
-    removed: v.optional(v.array(v.string())),
-  }),
-});
 const terminalSessions = v.object({
   type: v.literal("terminalSessions"),
   ids: v.array(v.string()),
@@ -557,7 +541,6 @@ export const messageSchema = v.variant("type", [
   searchIndexReady,
   errorMsg,
   reloadComplete,
-  projects,
   accountData,
   commands,
   hooks,
@@ -565,12 +548,9 @@ export const messageSchema = v.variant("type", [
   agents,
   quotaData,
   // === SESSIONS MESSAGES ===
-  search,
-  filter,
   deleteSession,
   copyMarkdown,
   openFile,
-  sessionsDelta,
   terminalSessions,
   tempSessions,
   worktrees,
