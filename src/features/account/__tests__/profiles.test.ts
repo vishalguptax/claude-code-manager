@@ -1410,3 +1410,150 @@ describe("locked Keychain beside a leftover credentials file", () => {
     expect(fs.existsSync(SWITCH_JOURNAL_PATH)).toBe(true);
   });
 });
+
+describe("half-switched state (journal on disk)", () => {
+  /** Identity B, tokens A: the state a switch A → B leaves dying between its writes. */
+  function halfSwitched(): void {
+    saveBothAccounts();
+    fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(ACCOUNT_A.creds));
+    writeJournal({ previous: ACCOUNT_A.config, target: ACCOUNT_B.config });
+    backdate(SWITCH_JOURNAL_PATH, 120_000);
+    // Our own config write is the newest file — rule 2 would vouch for it.
+    fs.writeFileSync(CLAUDE_JSON_PATH, JSON.stringify(ACCOUNT_B.config));
+  }
+
+  it("never syncs the outgoing tokens into the slot the identity names", () => {
+    halfSwitched();
+    const refreshed = { claudeAiOauth: { ...ACCOUNT_A.creds.claudeAiOauth, accessToken: "sk-ant-oat01-a2", expiresAt: 1_900_000_100_000 } };
+    fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(refreshed));
+    backdate(CREDENTIALS_PATH, 60_000); // settled past rule 3 as well
+    expect(P.syncActiveProfile()).toEqual({ kind: "none" });
+    expect(slotCreds("b").claudeAiOauth.accessToken).toBe("sk-ant-oat01-b1");
+  });
+
+  it("refuses to save or update a profile until the switch is resolved", () => {
+    halfSwitched();
+    for (const result of [P.updateProfile("b"), P.saveProfile("New")]) {
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toBe("switch-interrupted");
+    }
+    // So the sweep still sees the interrupted switch it must offer.
+    expect(P.findInterruptedSwitch()).toMatchObject({ email: "a@x.com" });
+  });
+
+  it("a later switch that fails puts the earlier journal back", () => {
+    halfSwitched();
+    const earlier = fs.readFileSync(SWITCH_JOURNAL_PATH, "utf-8");
+    fs.mkdirSync(`${CREDENTIALS_PATH}.tmp`); // credentials write fails
+    expect(P.switchProfile("a").ok).toBe(false);
+    expect(fs.readFileSync(SWITCH_JOURNAL_PATH, "utf-8")).toBe(earlier);
+    expect(readJson(CLAUDE_JSON_PATH)).toEqual(ACCOUNT_B.config);
+  });
+
+  it("a later switch that succeeds resolves the mismatch and clears the journal", () => {
+    halfSwitched();
+    expect(P.switchProfile("a").ok).toBe(true);
+    expect(fs.existsSync(SWITCH_JOURNAL_PATH)).toBe(false);
+    expect(readJson(CLAUDE_JSON_PATH)).toEqual(ACCOUNT_A.config);
+    expect(readJson(CREDENTIALS_PATH).claudeAiOauth).toEqual(ACCOUNT_A.creds.claudeAiOauth);
+    // The outgoing "B" slot was not overwritten with A's tokens on the way.
+    expect(slotCreds("b").claudeAiOauth.accessToken).toBe("sk-ant-oat01-b1");
+  });
+});
+
+describe("interrupted switch recovery — unreadable credentials", () => {
+  const originalPlatform = process.platform;
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+  });
+
+  function interrupted(): void {
+    saveBothAccounts();
+    writeJournal();
+    backdate(SWITCH_JOURNAL_PATH, 120_000);
+    fs.writeFileSync(CLAUDE_JSON_PATH, JSON.stringify(ACCOUNT_A.config));
+  }
+
+  it("keeps the journal when the Keychain is locked", async () => {
+    interrupted();
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    fs.rmSync(CREDENTIALS_PATH);
+    keychain.failWith = 25;
+    await freshHost();
+    expect(P.findInterruptedSwitch()).toBeNull();
+    expect(fs.existsSync(SWITCH_JOURNAL_PATH)).toBe(true);
+  });
+
+  it("keeps the journal when the credentials file is mid-write", () => {
+    interrupted();
+    fs.writeFileSync(CREDENTIALS_PATH, '{"claudeAiOauth": {');
+    expect(P.findInterruptedSwitch()).toBeNull();
+    expect(fs.existsSync(SWITCH_JOURNAL_PATH)).toBe(true);
+  });
+
+  it("clears it when nobody is signed in at all", () => {
+    interrupted();
+    fs.rmSync(CREDENTIALS_PATH);
+    expect(P.findInterruptedSwitch()).toBeNull();
+    expect(fs.existsSync(SWITCH_JOURNAL_PATH)).toBe(false);
+  });
+});
+
+describe("syncActiveProfile — judges the bytes it writes", () => {
+  const originalPlatform = process.platform;
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+  });
+
+  it("does not save a /login's new Keychain item into the old slot through a stale cache", async () => {
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    fs.rmSync(CREDENTIALS_PATH, { force: true });
+    keychain.value = JSON.stringify(ACCOUNT_A.creds);
+    fs.writeFileSync(CLAUDE_JSON_PATH, JSON.stringify(ACCOUNT_A.config));
+    P.saveProfile("A");
+    backdate(CLAUDE_JSON_PATH, 120_000);
+    // A long-settled refresh of A is what the cache holds…
+    const refreshed = { claudeAiOauth: { ...ACCOUNT_A.creds.claudeAiOauth, accessToken: "sk-ant-oat01-a2", expiresAt: 1_900_000_100_000 } };
+    keychain.value = JSON.stringify(refreshed);
+    await freshHost(); // first sighting of A2: long settled
+    expect(P.getActiveProfileSlug()).toBe("a"); // caches A2
+    // …when /login replaces the item; ~/.claude.json still names A.
+    keychain.value = JSON.stringify({ claudeAiOauth: { accessToken: "sk-ant-oat01-new", expiresAt: 1_900_000_200_000 } });
+    expect(P.syncActiveProfile().kind).toBe("deferred");
+    expect(slotCreds("a").claudeAiOauth.accessToken).toBe("sk-ant-oat01-a1");
+  });
+});
+
+describe("credentials without an account token", () => {
+  const originalPlatform = process.platform;
+  afterEach(() => {
+    Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+  });
+
+  it("switching into the Keychain keeps its MCP tokens and ignores a leftover file", async () => {
+    writeLiveAccount(ACCOUNT_A.config, ACCOUNT_A.creds);
+    P.saveProfile("A");
+    Object.defineProperty(process, "platform", { value: "darwin", configurable: true });
+    const mcpOAuth = { linear: { accessToken: "l" } };
+    keychain.value = JSON.stringify({ mcpOAuth });
+    fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify(ACCOUNT_B.creds)); // leftover
+    await freshHost();
+    // Signed out as far as display goes — no fallback to the leftover file.
+    expect(P.getActiveProfileSlug()).toBeNull();
+
+    expect(P.switchProfile("a").ok).toBe(true);
+    const item = JSON.parse(keychain.value!) as Record<string, unknown>;
+    expect(item.claudeAiOauth).toEqual(ACCOUNT_A.creds.claudeAiOauth);
+    expect(item.mcpOAuth).toEqual(mcpOAuth);
+    expect(readJson(CREDENTIALS_PATH)).toEqual(ACCOUNT_B.creds);
+  });
+
+  it("merges into a credentials file that holds only MCP tokens", () => {
+    writeLiveAccount(ACCOUNT_A.config, ACCOUNT_A.creds);
+    P.saveProfile("A");
+    const mcpOAuth = { sentry: { accessToken: "s" } };
+    fs.writeFileSync(CREDENTIALS_PATH, JSON.stringify({ mcpOAuth }));
+    expect(P.switchProfile("a").ok).toBe(true);
+    expect(readJson(CREDENTIALS_PATH)).toEqual({ mcpOAuth, claudeAiOauth: ACCOUNT_A.creds.claudeAiOauth });
+  });
+});

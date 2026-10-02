@@ -310,6 +310,17 @@ function readLivePairRaceSafe():
   | { ok: true; claudeJsonRaw: string; credsRaw: string; source: CredentialsSource }
   | { ok: false; error: ProfileError; detail?: string } {
   const noAccount = { ok: false as const, error: "no-active-account" as const };
+  // Mid-switch the identity and the tokens belong to different accounts,
+  // so any snapshot taken now would pair them wrongly — and a slot holding
+  // the outgoing tokens under the target's name would make the recovery
+  // sweep judge the switch finished and drop its journal.
+  if (switchInProgress()) {
+    return {
+      ok: false,
+      error: "switch-interrupted",
+      detail: "An account switch is in progress or was interrupted. Try again in a moment, or reopen the panel to recover it",
+    };
+  }
   // Fresh reads: through the Keychain cache, pre and post would be the
   // same cached value and the race check would compare it with itself.
   const read = (): LiveCredentials | { ok: false; error: ProfileError; detail?: string } => {
@@ -668,7 +679,9 @@ export type ProfileError =
   /** Live tokens just changed and their owner is not yet certain (see syncActiveProfile). */
   | "identity-settling"
   /** macOS Keychain locked or unreachable: a write would act on a stale fallback file. */
-  | "keychain-unavailable";
+  | "keychain-unavailable"
+  /** A switch journal exists: identity and tokens may belong to different accounts. */
+  | "switch-interrupted";
 
 export type ProfileResult<T> = { ok: true; data: T } | { ok: false; error: ProfileError; detail?: string };
 
@@ -797,6 +810,16 @@ export function saveProfile(label: string): ProfileResult<SavedProfile> {
  * the saved snapshot. Fails if the slot doesn't exist.
  */
 export function updateProfile(slug: string): ProfileResult<SavedProfile> {
+  return snapshotIntoSlot(slug, null);
+}
+
+/**
+ * `updateProfile`, optionally pinned to credentials already judged: with
+ * `judgedHash`, the write is abandoned if the live pair read here is not
+ * those exact bytes, so a change between judging and writing can never
+ * slip a different account's tokens into the slot.
+ */
+function snapshotIntoSlot(slug: string, judgedHash: string | null): ProfileResult<SavedProfile> {
   const slotDir = path.join(PROFILES_DIR, slug);
   if (!fs.existsSync(slotDir)) {
     return { ok: false, error: "slot-missing", detail: slug };
@@ -805,6 +828,13 @@ export function updateProfile(slug: string): ProfileResult<SavedProfile> {
   const pair = readLivePairRaceSafe();
   if (!pair.ok) return pair;
   const { claudeJsonRaw, credsRaw } = pair;
+  if (judgedHash !== null && hashCredentials(credsRaw) !== judgedHash) {
+    return {
+      ok: false,
+      error: "identity-settling",
+      detail: "The credentials changed while the profile was being updated",
+    };
+  }
 
   // Never trade a slot's tokens for an older generation of the same login.
   // Each refresh issues an access token expiring later than the last, so
@@ -942,20 +972,31 @@ function identityVouchesFor(live: LiveCredentials): true | { retryInMs: number }
  * Failures are swallowed — this is best-effort housekeeping.
  */
 export function syncActiveProfile(): SyncOutcome {
-  const live = readCredentials();
-  if (!live) return { kind: "none" };
+  // A journal means the identity may not belong to the tokens; the slot the
+  // identity names is exactly the wrong place for them (see switchInProgress).
+  if (switchInProgress()) return { kind: "none" };
   const profiles = listProfiles();
-  // Checked before trust: tokens already in a slot need no identity at all,
-  // and this is what keeps our own just-finished switch from looking like a
-  // credentials change of unknown ownership.
-  const liveHash = tokenHash(live.raw);
-  const exact = profiles.find((p) => p.credentialsHash === liveHash);
+  // Checked before trust, on the cheap cached read: tokens already in a slot
+  // need no identity at all, and this is what keeps our own just-finished
+  // switch from looking like a credentials change of unknown ownership.
+  const cached = readCredentials();
+  if (!cached) return { kind: "none" };
+  const exact = profiles.find((p) => p.credentialsHash === tokenHash(cached.raw));
   if (exact) return { kind: "current", slug: exact.slug };
+
+  // About to judge and write: read fresh, and judge the very bytes that get
+  // written. A cached read could predate a /login that has since put the
+  // next account's tokens in the Keychain.
+  const fresh = readCredentialsForWrite();
+  if (fresh.state !== "ok") return { kind: "none" };
+  const live = fresh.live;
+  const freshExact = profiles.find((p) => p.credentialsHash === tokenHash(live.raw));
+  if (freshExact) return { kind: "current", slug: freshExact.slug };
   const slug = getActiveProfileSlug(profiles);
   if (!slug) return { kind: "none" };
   const trust = identityVouchesFor(live);
   if (trust !== true) return { kind: "deferred", retryInMs: trust.retryInMs };
-  return updateProfile(slug).ok ? { kind: "synced", slug } : { kind: "none" };
+  return snapshotIntoSlot(slug, live.hash).ok ? { kind: "synced", slug } : { kind: "none" };
 }
 
 /**
@@ -1038,6 +1079,16 @@ function restoreIdentity(previous: IdentityKeys): ProfileResult<null> {
   }
 }
 
+/**
+ * Whether a switch journal is on disk: a switch is mid-flight (another
+ * window, under the locks) or died, possibly with a failed rollback. Either
+ * way `~/.claude.json` and the live tokens may name different accounts
+ * until it is resolved.
+ */
+function switchInProgress(): boolean {
+  return fs.existsSync(SWITCH_JOURNAL);
+}
+
 function removeQuietly(filePath: string): void {
   try {
     fs.rmSync(filePath, { force: true });
@@ -1096,7 +1147,9 @@ function swapUnderLocks(snap: Record<string, unknown>, slotOauth: unknown): Prof
       detail: "Claude Code's credentials are momentarily unreadable. Try again in a moment",
     };
   }
-  const liveCreds = credsBefore.state === "ok" ? credsBefore.live : null;
+  // A blob without an account token still lives somewhere (often holding
+  // only `mcpOAuth`): write into that store and merge into its bytes.
+  const liveCreds = credsBefore.state === "missing" ? null : credsBefore.live;
   const newCredsRaw = mergeAccountTokens(liveCreds?.raw ?? null, slotOauth);
   if (newCredsRaw === null) {
     return {
@@ -1119,25 +1172,53 @@ function swapUnderLocks(snap: Record<string, unknown>, slotOauth: unknown): Prof
   // Journal first: if we die between the two writes below, the startup
   // sweep can put the outgoing identity back to match the tokens that never
   // got replaced.
+  //
+  // A journal already on disk (we hold the locks, so not another window's)
+  // is an earlier switch that died: the live identity is its target, not
+  // the owner of the live tokens. Its `previous` pair is still the truth
+  // about those tokens, so carry it forward — recording the mismatched
+  // live identity as "previous" would make a recovery restore the wrong
+  // account.
+  const earlier = readBackup(SWITCH_JOURNAL, false);
+  const ownIdentity = pickIdentity(config.config ?? {});
   const journal: SwitchJournal = {
     claudeManagerSwitch: 1,
-    previous: pickIdentity(config.config ?? {}),
+    previous: earlier ? earlier.previous : ownIdentity,
     target: pickIdentity(mergedConfig),
-    previousTokenHash: liveCreds ? tokenHash(liveCreds.raw) : "",
+    previousTokenHash: earlier
+      ? earlier.previousTokenHash
+      : credsBefore.state === "ok"
+        ? tokenHash(credsBefore.live.raw)
+        : "",
     targetTokenHash: tokenHash(newCredsRaw),
+  };
+  const earlierRaw = earlier ? fs.readFileSync(SWITCH_JOURNAL, "utf-8") : null;
+  /** Leave the journal as this switch found it: the earlier one, or none. */
+  const resetJournal = (): void => {
+    if (earlierRaw === null) {
+      removeQuietly(SWITCH_JOURNAL);
+      return;
+    }
+    try {
+      writeFileAtomic(SWITCH_JOURNAL, earlierRaw);
+    } catch {
+      // Ours carries the same `previous` pair; recovery is still offered.
+    }
   };
   try {
     writeFileAtomic(SWITCH_JOURNAL, JSON.stringify(journal, null, 2));
     writeFileAtomic(CLAUDE_JSON_FILE, serializeConfig(mergedConfig));
   } catch (err) {
-    removeQuietly(SWITCH_JOURNAL);
+    resetJournal();
     return { ok: false, error: "copy-failed", detail: (err as Error).message };
   }
 
   /**
-   * Undo the identity write. The journal goes only once the undo has
-   * landed: if it fails, the journal is what lets the next start offer the
-   * recovery, and the returned detail says so.
+   * Undo the identity write, back to what this switch found (which, after
+   * an earlier interrupted switch, is that switch's state — so its journal
+   * is put back too). The journal goes only once the undo has landed: if it
+   * fails, the journal is what lets the next start offer the recovery, and
+   * the returned detail says so.
    */
   const rollBack = (detail: string): string => {
     let undone: boolean;
@@ -1149,10 +1230,10 @@ function swapUnderLocks(snap: Record<string, unknown>, slotOauth: unknown): Prof
         undone = false;
       }
     } else {
-      undone = restoreIdentity(journal.previous).ok;
+      undone = restoreIdentity(ownIdentity).ok;
     }
     if (undone) {
-      removeQuietly(SWITCH_JOURNAL);
+      resetJournal();
       return detail;
     }
     return `${detail.replace(/\.$/, "")}. ~/.claude.json could not be put back, so it may name a different account than the one signed in; Claude Code Manager will offer to recover it the next time it starts.`;
@@ -1162,7 +1243,8 @@ function swapUnderLocks(snap: Record<string, unknown>, slotOauth: unknown): Prof
   // locks may have rotated them since we read; overwriting would discard a
   // refresh token the server has already rotated away from ours.
   const credsNow = readCredentialsForWrite();
-  const nowHash = credsNow.state === "ok" ? credsNow.live.hash : null;
+  const nowHash =
+    credsNow.state === "ok" || credsNow.state === "no-account-token" ? credsNow.live.hash : null;
   if (nowHash !== (liveCreds?.hash ?? null)) {
     return {
       ok: false,
@@ -1328,8 +1410,15 @@ function emailOf(identity: IdentityKeys): string {
  * later.
  */
 function judgeBackup(backup: SwitchBackup): "interrupted" | "settled" | { unknown: string } {
-  const live = readCredentials();
-  if (!live) return "settled";
+  // Fresh, and no fallback behind a locked Keychain: a cached or fallback
+  // read is not grounds for deleting a journal that may still be needed.
+  const status = readCredentialsForWrite();
+  if (status.state === "missing" || status.state === "no-account-token") return "settled";
+  if (status.state === "keychain-unavailable") return { unknown: KEYCHAIN_UNAVAILABLE_MESSAGE };
+  if (status.state === "transient") {
+    return { unknown: "Claude Code's credentials are momentarily unreadable. Try again in a moment" };
+  }
+  const live = status.live;
   const liveHash = tokenHash(live.raw);
   const liveSlot = listProfiles().find((p) => p.credentialsHash === liveHash);
   const tokensArePrevious =
