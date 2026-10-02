@@ -355,6 +355,7 @@ async function handleSessionMessage(
 
   switch (msg.type) {
     case "markDemoSeen": {
+      ctx.clearIntroRequest();
       await ctx.globalState?.update(DEMO_SEEN_KEY, true);
       break;
     }
@@ -363,6 +364,7 @@ async function handleSessionMessage(
       ctx.setSessions(parseSessions(loadState().renames));
       ctx.postWorkspacePath();
       ctx.refreshSettings();
+      if (ctx.isIntroRequested()) wv.postMessage({ type: "showIntro" });
       wv.postMessage({ type: "sessions", data: groupSessions(ctx.getSessions()), stats: getStats(ctx.getSessions()) });
       postWorktrees(wv, ctx.getSessions());
       wv.postMessage({ type: "projects", data: getUniqueProjects(ctx.getSessions()) });

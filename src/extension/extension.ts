@@ -193,6 +193,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  // Replay the welcome tour, which otherwise plays once per install. Also
+  // reachable inside the panel (Config → Sidebar tabs, and the palette).
+  // Focuses the sidebar first so there is a panel to show it in.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("claudeManager.showWelcomeTour", async () => {
+      await vscode.commands.executeCommand(`${focusViewId()}.focus`);
+      provider.showWelcomeTour();
+    }),
+  );
+
   // Force a full re-parse of every tab without recreating the webview.
   // Surfaces in the command palette and through the toolbar button;
   // both routes funnel into the provider's `reloadAll`. Focuses the

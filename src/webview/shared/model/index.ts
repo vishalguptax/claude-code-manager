@@ -24,7 +24,7 @@ export {
   recordError,
   setErrorSink,
 } from "./errorLog";
-export { _resetIntro, closeIntro, introVisible, maybeShowIntro } from "./intro";
+export { _resetIntro, closeIntro, introVisible, maybeShowIntro, showIntro } from "./intro";
 export {
   _resetMessageBus,
   dispatch,

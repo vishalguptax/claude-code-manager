@@ -8,7 +8,9 @@
  * so word-of-mouth undersells the extension as "a session browser". This
  * names every surface up front. Dismissing it any way (button, Escape,
  * backdrop, or webview blur — all routed through Modal's onClose) marks it
- * seen so it never reappears.
+ * seen so it never auto-plays again. It can always be reopened on request:
+ * the footer's tour button, "Show welcome tour" in the panel palette, or the
+ * "Claude Code Manager: Show Welcome Tour" command.
  */
 
 import { useApi } from "../../shared/hooks";

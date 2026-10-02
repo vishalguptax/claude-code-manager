@@ -176,6 +176,8 @@ export type Message =
   | { type: "restoreSettingsSnapshot"; scope: SettingsScope; snapshotId: string }
   | { type: "deleteSettingsSnapshot"; scope: SettingsScope; snapshotId: string }
   | { type: "ping"; id: number }
+  /** Open the welcome tour — the Show Welcome Tour command, relayed. */
+  | { type: "showIntro" }
   | { type: "workspacePath"; data: string }
   | { type: "workspaceBranch"; data: string }
   | { type: "settings"; [extra: string]: unknown }

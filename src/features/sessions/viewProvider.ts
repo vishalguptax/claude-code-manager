@@ -60,6 +60,8 @@ export class ClaudeSessionViewProvider
   private views = new Set<vscode.WebviewView>();
   /** Stable broadcast handle over {@link views}; see {@link getWebview}. */
   private sink?: PanelSink;
+  /** A Show Welcome Tour request awaiting dismissal; see HostContext. */
+  private introRequested = false;
   private sessions: Session[] = [];
   private skills: Skill[] = [];
   private commands: Command[] = [];
@@ -249,6 +251,22 @@ export class ClaudeSessionViewProvider
    */
   openAccountSwitcher(): Promise<void> {
     return openAccountSwitcher(this);
+  }
+
+  /**
+   * Show the welcome tour on request (`claudeManager.showWelcomeTour`). Posts
+   * now for a panel that is already loaded, and leaves the request standing
+   * for `ready` to re-deliver to one the command had to open.
+   */
+  showWelcomeTour(): void {
+    this.introRequested = true;
+    this.getWebview()?.postMessage({ type: "showIntro" });
+  }
+  isIntroRequested(): boolean {
+    return this.introRequested;
+  }
+  clearIntroRequest(): void {
+    this.introRequested = false;
   }
 
   /** Called by VS Code when the webview view becomes visible. */

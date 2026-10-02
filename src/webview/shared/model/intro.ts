@@ -7,7 +7,8 @@
  * `settings` (install/uninstall of the Claude Code extension re-sends it)
  * with `demoSeen` still false in the window before `markDemoSeen` is
  * persisted, and we must not re-open the intro after the user dismissed
- * it this session. Once shown-or-closed, it stays closed until reload.
+ * it this session. Once shown-or-closed, it stays closed until reload —
+ * unless the user asks for it again, which {@link showIntro} always honours.
  */
 import { signal } from "@preact/signals";
 
@@ -25,6 +26,18 @@ export function maybeShowIntro(demoSeen: boolean): void {
     resolved = true;
     introVisible.value = true;
   }
+}
+
+/**
+ * Open the intro because the user asked to see it again (the footer's tour
+ * button, the panel palette, or the host's Show Welcome Tour command).
+ * Unlike {@link maybeShowIntro} this ignores `demoSeen` and the latch: a
+ * request is always answered. It latches too, so a settings push arriving
+ * while the replay is open cannot open a second copy.
+ */
+export function showIntro(): void {
+  resolved = true;
+  introVisible.value = true;
 }
 
 /** Close the intro for good this session (dismiss latches `resolved`). */

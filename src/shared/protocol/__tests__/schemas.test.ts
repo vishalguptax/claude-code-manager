@@ -146,6 +146,10 @@ describe("parseMessage — webview to host", () => {
     expect(() => parseMessage({ type: "installPlugin", scope: "user" })).toThrow();
   });
 
+  it("accepts the host's welcome-tour request", () => {
+    expect(() => parseMessage({ type: "showIntro" })).not.toThrow();
+  });
+
   it("accepts mcp messages", () => {
     roundTrip({ type: "getMcpServers" });
     roundTrip({ type: "openMcpConfig", scope: "global" });

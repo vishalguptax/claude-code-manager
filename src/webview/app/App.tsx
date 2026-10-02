@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from "preact/hooks";
-import { activeTab, density } from "../shared/model";
+import { activeTab, density, showIntro } from "../shared/model";
 import { hostBusy } from "../shared/model/hostBusy";
 import { registerPaletteSource } from "../shared/model/palette";
 import { CommandPalette } from "./CommandPalette";
@@ -48,10 +48,13 @@ export function App() {
   // appearing on the very next keystroke, not just after a reload. Hiding a
   // tab from the strip and still offering it here would leave the exact
   // clutter the setting exists to remove, just one layer deeper.
+  //
+  // The welcome tour rides along as a Help entry: it plays once on its own,
+  // and the palette is where someone who wants it back will type "tour".
   useEffect(
     () =>
-      registerPaletteSource("shell", () =>
-        visibleTabs.value.map((tab) => ({
+      registerPaletteSource("shell", () => [
+        ...visibleTabs.value.map((tab) => ({
           id: `tab:${tab.id}`,
           title: tab.label,
           group: "Go to",
@@ -60,7 +63,14 @@ export function App() {
             activeTab.value = tab.id;
           },
         })),
-      ),
+        {
+          id: "help:welcome-tour",
+          title: "Show welcome tour",
+          group: "Help",
+          icon: "sparkles",
+          run: showIntro,
+        },
+      ]),
     [],
   );
 

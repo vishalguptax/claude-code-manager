@@ -87,6 +87,14 @@ export interface HostContext {
   buildSearchIndex(): void;
   reloadAll(): Promise<void>;
   openAccountSwitcher(): Promise<void>;
+  /**
+   * A Show Welcome Tour request not yet acknowledged. The command posts it
+   * straight away, but a panel the command just opened has not loaded its
+   * script yet and drops that post — so `ready` re-delivers it while this is
+   * true, and the tour's dismissal (`markDemoSeen`) clears it.
+   */
+  isIntroRequested(): boolean;
+  clearIntroRequest(): void;
   /** Re-entrant dispatch for host-initiated messages (e.g. promptSaveProfile). */
   dispatch(msg: WebviewMessage): Promise<void>;
 }

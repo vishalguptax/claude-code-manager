@@ -263,6 +263,7 @@ const webviewError = v.object({
 });
 const reportIssue = v.object({ type: v.literal("reportIssue") });
 const ping = v.object({ type: v.literal("ping"), id: v.number() });
+const showIntro = v.object({ type: v.literal("showIntro") });
 const pong = v.object({
   type: v.literal("pong"),
   id: v.number(),
@@ -544,6 +545,7 @@ export const messageSchema = v.variant("type", [
   webviewError,
   reportIssue,
   ping,
+  showIntro,
   pong,
   promptRemovePermission,
   resetSettings,

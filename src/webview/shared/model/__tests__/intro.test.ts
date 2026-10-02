@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { _resetIntro, closeIntro, introVisible, maybeShowIntro } from "../intro";
+import { _resetIntro, closeIntro, introVisible, maybeShowIntro, showIntro } from "../intro";
 
 describe("intro model", () => {
   beforeEach(() => {
@@ -39,5 +39,27 @@ describe("intro model", () => {
     _resetIntro();
     maybeShowIntro(false);
     expect(introVisible.value).toBe(true);
+  });
+
+  // A replay is a request, not a first run: it must open whatever the
+  // stored flag and the session latch say.
+  it("reopens on request after the intro was seen and dismissed", () => {
+    maybeShowIntro(false);
+    closeIntro();
+    showIntro();
+    expect(introVisible.value).toBe(true);
+  });
+
+  it("opens on request even when the host says it was seen on a past run", () => {
+    maybeShowIntro(true);
+    showIntro();
+    expect(introVisible.value).toBe(true);
+  });
+
+  it("does not let a later settings push stack a second open on a replay", () => {
+    showIntro();
+    closeIntro();
+    maybeShowIntro(false);
+    expect(introVisible.value).toBe(false);
   });
 });

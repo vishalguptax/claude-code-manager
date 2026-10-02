@@ -194,6 +194,19 @@ describe("panel placement", () => {
     }
   });
 
+  it("Show Welcome Tour focuses the panel, then asks the provider for the tour", async () => {
+    const tour = vi
+      .spyOn(ClaudeSessionViewProvider.prototype, "showWelcomeTour")
+      .mockImplementation(() => {});
+    const { executeCommandSpy, registerCommandSpy } = activateWithSpies();
+    const entry = registerCommandSpy.mock.calls.find((c) => c[0] === "claudeManager.showWelcomeTour");
+    await (entry?.[1] as () => Promise<void>)();
+    expect(executeCommandSpy).toHaveBeenCalledWith("claudeCodeManager.view.focus");
+    expect(tour).toHaveBeenCalledOnce();
+    // Focus first: the tour needs a panel to open in.
+    expect(executeCommandSpy.mock.invocationCallOrder[0]).toBeLessThan(tour.mock.invocationCallOrder[0]);
+  });
+
   it("falls back to the activity-bar view when no panel is open yet", () => {
     _setVersion("1.137.0");
     const { executeCommandSpy, registerCommandSpy } = activateWithSpies();
