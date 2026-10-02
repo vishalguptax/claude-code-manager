@@ -27,11 +27,11 @@ const BLURBS: Record<string, string> = {
   checkpoints: "Diff & restore file versions Claude kept",
   prompts: "Search everything you've ever asked",
   skills: "Global, project & plugin skills",
-  mcp: "Toggle MCP servers, no JSON",
+  mcp: "Add & toggle MCP servers, no JSON",
   agents: "Subagents with model badges",
   commands: "Built-in & custom slash commands",
   hooks: "Automation hooks, every scope",
-  plugins: "What's installed, enabled & why",
+  plugins: "Browse, install & see what's enabled",
   memory: "Browse and prune auto-memory",
   config: "Models, permissions, tabs & backups",
 };
