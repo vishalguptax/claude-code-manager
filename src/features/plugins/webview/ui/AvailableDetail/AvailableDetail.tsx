@@ -49,21 +49,24 @@ export function AvailableDetail({
       <BackButton onClick={onBack} label="Browse plugins" />
 
       {/* Title, description, then chips — the Memory detail's head, which is
-          the one shared head that carries a description. */}
+          the one shared head that carries a description. The marketplace is
+          not a chip: names run long enough to be clipped there, and the
+          Plugin section below already states it in full. */}
       <div class="d-head">
         <div class="d-title">{plugin.name}</div>
         {plugin.description === "" ? null : (
           <div class="d-subtitle">{plugin.description}</div>
         )}
-        <div class="d-tags">
-          <Badge text={plugin.marketplace} title={`Marketplace: ${plugin.marketplace}`} />
-          {plugin.installed ? <Badge text="installed" variant="status" /> : null}
-        </div>
+        {plugin.installed ? (
+          <div class="d-tags">
+            <Badge text="installed" variant="status" />
+          </div>
+        ) : null}
       </div>
 
       <div class="d-actions">
         {plugin.installed ? (
-          <Button variant="primary" iconName="arrow-left" onClick={() => onShowInstalled(plugin.id)}>
+          <Button variant="primary" iconName="package" onClick={() => onShowInstalled(plugin.id)}>
             Show installed
           </Button>
         ) : (

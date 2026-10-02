@@ -20,7 +20,7 @@ export function McpEmpty({ onOpenCatalog }: McpEmptyProps) {
       description={
         <>
           Servers are declared in JSON: <code>.mcp.json</code> in the project root, or{" "}
-          <code>~/.claude/mcp.json</code> for every project. Each one needs a{" "}
+          <code>~/.claude.json</code> for every project. Each one needs a{" "}
           <code>command</code> to run (stdio) or a <code>url</code> to reach (http).
         </>
       }
