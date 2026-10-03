@@ -363,7 +363,10 @@ export async function handleSettingsMessage(
       if (pick.label.startsWith("$(edit)")) {
         tool = await vscode.window.showInputBox({
           title: "Custom tool pattern",
-          prompt: "Examples: Bash(docker:*), Bash(curl:*), mcp__github__*",
+          // The Config tab used to carry this as a standing paragraph under
+          // the rule lists; it is only needed while typing a pattern.
+          prompt:
+            "Examples: Bash(docker:*), Read(src/**), mcp__github__*. A bare name such as Bash matches every call.",
           placeHolder: "Bash(command:*)",
           validateInput: (v: string) => (v.trim() ? null : "Tool pattern cannot be empty"),
         });

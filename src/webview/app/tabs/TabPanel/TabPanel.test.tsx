@@ -30,7 +30,8 @@ describe("TabPanel lazy fallback", () => {
 
   it("renders the ConfigSkeleton while the config chunk is loading", () => {
     const { container } = render(h(TabPanel, { feature: "config" }));
-    expect(container.querySelectorAll(".skeleton-field").length).toBe(5);
+    // ConfigSkeleton's own shape: its field placeholders are unique to it.
+    expect(container.querySelectorAll(".skeleton-field").length).toBe(3);
   });
 
   it("renders the shared ListSkeleton for the five list-shaped tabs", () => {

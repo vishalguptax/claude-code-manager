@@ -127,3 +127,29 @@ describe("openSettingsFile", () => {
     expect(error).toHaveBeenCalledWith("No workspace folder open");
   });
 });
+
+describe("promptAddPermission", () => {
+  const withMcp = {
+    getWebview: () => ({}),
+    getMcpServers: () => [{ name: "github" }],
+  } as unknown as HostContext;
+
+  // The Config tab used to keep the pattern rules as a standing paragraph;
+  // they now appear in the one place they are used: while typing a pattern.
+  it("explains the pattern format, including the bare-name trap, while typing one", async () => {
+    vi.spyOn(vscode.window, "showQuickPick").mockResolvedValue({
+      label: "$(edit) Custom pattern…",
+    } as never);
+    const input = vi
+      .spyOn(vscode.window, "showInputBox")
+      .mockResolvedValue("Bash(docker:*)");
+    await handleSettingsMessage(
+      { type: "promptAddPermission", scope: "global", list: "allow" } as unknown as WebviewMessage,
+      withMcp,
+    );
+    const prompt = (input.mock.calls[0]?.[0] as { prompt?: string } | undefined)?.prompt ?? "";
+    expect(prompt).toContain("Bash(docker:*)");
+    expect(prompt).toContain("A bare name such as Bash matches every call");
+    expect(parser.addPermissionEntry).toHaveBeenCalledWith("global", "Bash(docker:*)", "allow", "/ws");
+  });
+});

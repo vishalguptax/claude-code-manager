@@ -2,7 +2,8 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createConfigApi } from "../../api";
-import { _resetConfigState, toggleSection } from "../../model";
+import { _resetConfigState } from "../../model";
+import { infoFor, toggle } from "../../__tests__/dom";
 import { makeConfigData } from "../../__tests__/fixtures";
 import { PermissionsView } from "./PermissionsView";
 
@@ -11,11 +12,8 @@ function setup(post = vi.fn()) {
 }
 
 describe("PermissionsView", () => {
-  beforeEach(() => {
-    _resetConfigState();
-    // The section starts folded; open it so its body is there to test.
-    toggleSection("permissions");
-  });
+  // Open by default: it is one of the two sections people come for.
+  beforeEach(() => _resetConfigState());
 
   it("shows project/local scope segments and fires onScopeChange", () => {
     const onScopeChange = vi.fn();
@@ -62,19 +60,19 @@ describe("PermissionsView", () => {
     expect(screen.queryByText("Write")).toBeNull();
   });
 
-  it("the search box is the shared SearchInput (native input), labelled for tools", () => {
-    const { api } = setup();
-    const { container } = render(
-      <PermissionsView
-        data={makeConfigData()}
-        api={api}
-        scope="global"
-        search=""
-        onScopeChange={vi.fn()}
-        onSearchChange={vi.fn()}
-      />,
-    );
-    expect(container.querySelector('input[aria-label="Search tools"]')).toBeTruthy();
+  // A search box over two rules is a control with nothing to do.
+  it("offers search only once there are more rules than fit at a glance", () => {
+    const few = renderWithAllow(["Read", "Write"]);
+    expect(few.container.querySelector('input[aria-label="Search permission rules"]')).toBeNull();
+    few.unmount();
+
+    const many = renderWithAllow(Array.from({ length: 8 }, (_, i) => `Bash(c${i}:*)`));
+    expect(many.container.querySelector('input[aria-label="Search permission rules"]')).toBeTruthy();
+  });
+
+  it("keeps the search box while a query is active, so it can be cleared", () => {
+    const { container } = renderWithAllow(["Read"], "zzz");
+    expect(container.querySelector('input[aria-label="Search permission rules"]')).toBeTruthy();
   });
 
   it("renders the empty state (no crash) when the payload omits permissions", () => {
@@ -100,10 +98,9 @@ describe("PermissionsView", () => {
     expect(screen.getByText("Permissions")).toBeTruthy();
     expect(screen.getByText("No allowed tools")).toBeTruthy();
     expect(screen.getByText("No denied tools")).toBeTruthy();
-    // The scope segmented still renders (Global only — no project scope present).
-    // The scope segments sit directly in the section body, which is what zeroes
-    // their panel-edge inset (see components.css). No wrapper class needed.
-    expect(container.querySelector(".section-body > .vsc-segmented")).toBeTruthy();
+    // The scope segmented still renders (Global only, no project scope), inside
+    // the section body, where components.css zeroes its panel-edge inset.
+    expect(container.querySelector(".section-body .cfg-rules .vsc-segmented")).toBeTruthy();
   });
 
   it("removing a tool posts promptRemovePermission", () => {
@@ -171,9 +168,7 @@ describe("PermissionsView", () => {
     expect(container.querySelectorAll(".cfg-perm-row").length).toBe(11);
     expect(container.querySelector(".show-more")).toBeNull();
   });
-  it("starts folded and opens and closes from its header", () => {
-    // Folded by default so the tab opens on Settings; the header is then the
-    // only way in, so a broken toggle would hide the permission lists entirely.
+  it("starts open and folds and unfolds from its header", () => {
     _resetConfigState();
     const data = makeConfigData({
       permissions: [{ scope: "global", allow: ["Read"], deny: [] }],
@@ -189,12 +184,83 @@ describe("PermissionsView", () => {
         onSearchChange={vi.fn()}
       />,
     );
-    expect(screen.queryByText("Read")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /permissions/i }));
     expect(screen.getByText("Read")).toBeTruthy();
-    // The header itself survives, so the section can be folded again.
-    fireEvent.click(screen.getByRole("button", { name: /permissions/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^permissions/i }));
     expect(screen.queryByText("Read")).toBeNull();
+    // The header itself survives, so the section can be opened again.
+    fireEvent.click(screen.getByRole("button", { name: /^permissions/i }));
+    expect(screen.getByText("Read")).toBeTruthy();
     _resetConfigState();
+  });
+
+  // ── The global mode and switches, merged in from Settings ───────────
+
+  function renderDefault(post = vi.fn()) {
+    const { api } = setup(post);
+    const view = render(
+      <PermissionsView
+        data={makeConfigData()}
+        api={api}
+        scope="project"
+        search=""
+        onScopeChange={vi.fn()}
+        onSearchChange={vi.fn()}
+      />,
+    );
+    return { ...view, post };
+  }
+
+  it("leads with the tool-use mode, its meaning behind an InfoTip", () => {
+    const { container } = renderDefault();
+    expect(container.querySelector('.vsc-dropdown-trigger[aria-label="Tool-use confirmation"]')).toBeTruthy();
+    expect(infoFor(container, "Tool-use confirmation")).toBeTruthy();
+  });
+
+  it("writes the nested sandbox and permission keys by dotted path", () => {
+    const { container, post } = renderDefault();
+    fireEvent.click(toggle(container, "Sandbox Bash commands"));
+    expect(post).toHaveBeenCalledWith({
+      type: "setSetting",
+      key: "sandbox.enabled",
+      value: true,
+      scope: "global",
+    });
+    fireEvent.click(toggle(container, "Block bypass-permissions mode"));
+    expect(post).toHaveBeenCalledWith({
+      type: "setSetting",
+      key: "permissions.disableBypassPermissionsMode",
+      value: true,
+      scope: "global",
+    });
+  });
+
+  // ── Adding sits with the list it adds to ────────────────────────────
+
+  it("adds an allowed or denied tool from that list's own heading, at the shown scope", () => {
+    const { post } = renderDefault();
+    fireEvent.click(screen.getByLabelText("Add allowed tool"));
+    expect(post).toHaveBeenCalledWith({ type: "promptAddPermission", scope: "project", list: "allow" });
+    fireEvent.click(screen.getByLabelText("Add denied tool"));
+    expect(post).toHaveBeenCalledWith({ type: "promptAddPermission", scope: "project", list: "deny" });
+  });
+
+  it("adds a directory from its heading", () => {
+    const { post } = renderDefault();
+    fireEvent.click(screen.getByLabelText("Add directory"));
+    expect(post).toHaveBeenCalledWith({ type: "promptAddDirectory" });
+  });
+
+  it("opens the shown scope's settings.json from the header without folding the section", () => {
+    const { post } = renderDefault();
+    fireEvent.click(screen.getByLabelText("Open the project settings.json"));
+    expect(post).toHaveBeenCalledWith({ type: "openSettingsFile", scope: "project" });
+    // Still open: the click did not fall through to the header toggle.
+    expect(screen.getByText("Allowed")).toBeTruthy();
+  });
+
+  // The pattern format now lives in the add prompt, where it is used.
+  it("no longer carries the pattern-format paragraph", () => {
+    renderDefault();
+    expect(screen.queryByText(/Pattern format/)).toBeNull();
   });
 });

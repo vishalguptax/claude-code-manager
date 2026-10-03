@@ -15,23 +15,38 @@
    Permissions
    ────────────────────────────────────────────────────────────────────────────── */
 
-/* Each labelled group (ALLOWED / DENIED / ADDITIONAL DIRECTORIES) reads as its
-   own block — the larger inter-group gap separates them clearly from the dense
-   rows packed inside each one. */
-.cfg-perm-group {
-  margin-bottom: var(--space-xl);
+/* The rules block: scope filter and lists, set off by a hairline from the
+   global mode and switches above it, which do not change with the scope. */
+.cfg-rules {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
 }
 
+/* Each list (Allowed / Denied / Additional directories) reads as its own
+   block: the inter-group gap is larger than the gap between its rows. */
+.cfg-perm-group {
+  margin-bottom: var(--space-lg);
+}
+.cfg-perm-group:last-child {
+  margin-bottom: 0;
+}
+
+/* A list heading: name, count, and its add button pinned right. Sentence case
+   and the body's own colour: the section header above is already the
+   uppercase heading, and a second tier of capitals under it is what made the
+   tab read as shouting. */
 .cfg-perm-group-label {
-  /* Sub-section heading. Carries the section-header treatment so these read as
-     structure, not as muted captions. */
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--fg-section);
-  /* Heading → first row breathing room so the label isn't glued to its list. */
-  margin-bottom: var(--space-md);
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: var(--space-sm);
+}
+.cfg-perm-add {
+  margin-left: auto;
 }
 
 .cfg-perm-row {
@@ -40,7 +55,10 @@
   justify-content: space-between;
   /* Wide name→× gap so the remove button never crowds the ellipsized command. */
   gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
+  /* Vertical padding kept small: the remove button (24px) and the 1.6
+     line-height name already give the row its height, and a list of
+     sixty patterns at the old padding was a tall stack of heavy blocks. */
+  padding: 2px var(--space-xs) 2px var(--space-md);
   background: var(--bg-hover);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-xs);
@@ -79,12 +97,13 @@
   padding: var(--space-xs) 0;
 }
 
-/* Subtle closing note at the bottom of a section. */
-.cfg-footnote {
-  margin-top: var(--space-md);
+/* The tab's one standing note, above the first section, inset to the
+   section headers' own left edge. */
+.cfg-lead {
+  margin: 0;
+  padding: var(--space-md) var(--space-2xl) 0;
   font-size: var(--fs-xs);
   color: var(--fg-dim);
-  font-style: italic;
 }
 
 
@@ -172,30 +191,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The size is short and never worth breaking: "2.4 KB" split across two lines
+   at sidebar width. The diff beside it is the part that ellipsizes. */
+.cfg-snap-size {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .cfg-snap-actions {
   display: flex;
   gap: var(--space-xs);
   flex-shrink: 0;
 }
 
-/* ── Config settings groups ─────────────────────────────────────────
- * The settings section runs to ~20 controls. Ungrouped they read as one
- * undifferentiated column and there is no way to scan for the one you
- * came for, so each group gets a quiet heading and a hairline above it.
- * The heading is deliberately lighter than the section title: these are
- * subdivisions of one section, not sections of their own. */
-.cfg-group + .cfg-group {
-  margin-top: var(--space-lg);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--border);
-}
-.cfg-group-title {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-dim);
+/* ── Setting fields ─────────────────────────────────────────────────
+ * A toggle is one line: the checkbox and, when it has background worth
+ * reading, an InfoTip right after its label. The explanation used to be a
+ * permanent second line under every toggle. */
+.cfg-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 /* A superseded key that still takes effect: shown as a notice with a
