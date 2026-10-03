@@ -1,8 +1,13 @@
 /**
- * Config feature tab — Preact entry point. Owns the Settings + Permissions
- * + Settings-history + Brain-backup surfaces (the Account tab is
- * identity / quota / usage only). Mounted lazily by the TabPanel the
- * first time the Config tab is activated.
+ * Config feature tab — Preact entry point. Owns Claude Code's settings,
+ * permissions, history and backup (the Account tab is identity / quota /
+ * usage only). Mounted lazily by the TabPanel the first time the Config tab
+ * is activated.
+ *
+ * Sections run in order of how often people come for them: model and
+ * permissions open, everything else folded. One section per question,
+ * rather than one long Settings section with sub-headings, is what keeps
+ * the tab scannable at sidebar width.
  *
  * The tab consumes the same `accountData` payload the host already produces
  * for Account — it requests it on mount and re-renders whenever the host
@@ -19,7 +24,16 @@ import { EmptyState, SlowLoadNotice, useLoadPhase } from "../../../webview/share
 import type { AccountData, PermissionScope } from "../types";
 import { createConfigApi } from "./api";
 import { configData, configError, loading, permissionScope, permissionSearch } from "./model";
-import { BrainView, PermissionsView, SettingsView, SnapshotsView, TabsView } from "./ui";
+import {
+  BackupView,
+  ContextSection,
+  GitSection,
+  HistoryView,
+  InterfaceSection,
+  ModelSection,
+  PermissionsView,
+  TabsView,
+} from "./ui";
 
 /**
  * Apply an inbound host message to the config signals. Exported for unit
@@ -79,8 +93,9 @@ export default function ConfigTab() {
 
   return (
     <div class="panel">
-      <SettingsView data={data} api={api} />
-      <TabsView api={api} />
+      {/* Said once for the whole tab, instead of under one section. */}
+      <p class="cfg-lead">Changes apply to new Claude sessions.</p>
+      <ModelSection data={data} api={api} />
       <PermissionsView
         data={data}
         api={api}
@@ -93,8 +108,12 @@ export default function ConfigTab() {
           permissionSearch.value = q;
         }}
       />
-      <SnapshotsView snapshots={data.settingsSnapshots ?? []} api={api} />
-      <BrainView api={api} />
+      <ContextSection data={data} api={api} />
+      <GitSection data={data} api={api} />
+      <InterfaceSection data={data} api={api} />
+      <TabsView api={api} />
+      <HistoryView snapshots={data.settingsSnapshots ?? []} api={api} />
+      <BackupView api={api} />
     </div>
   );
 }

@@ -3,23 +3,23 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { _resetSections, toggleSection } from "../../../../../webview/shared/model";
 import { createConfigApi } from "../../api";
-import { SnapshotsView } from "./SnapshotsView";
+import { HistoryView } from "./HistoryView";
 
 function setup(post = vi.fn()) {
   return { api: createConfigApi(post), post };
 }
 
-describe("SnapshotsView", () => {
+describe("HistoryView", () => {
   beforeEach(() => {
     _resetSections();
     // The section starts folded; open it so its body is there to test.
-    toggleSection("config:snapshots");
+    toggleSection("config:history");
   });
 
   it("renders snapshot rows and fires restore/delete", () => {
     const { api, post } = setup();
     render(
-      <SnapshotsView
+      <HistoryView
         api={api}
         snapshots={[
           {
@@ -48,8 +48,8 @@ describe("SnapshotsView", () => {
 
   it("renders the empty state with no snapshots", () => {
     const { api } = setup();
-    render(<SnapshotsView api={api} snapshots={[]} />);
-    expect(screen.getByText(/No snapshots yet/)).toBeTruthy();
+    render(<HistoryView api={api} snapshots={[]} />);
+    expect(screen.getByText(/saved here each time you change one/)).toBeTruthy();
   });
 
   it("wraps the rows in the .cfg-snap-list scroll container (inner scroll target)", () => {
@@ -59,7 +59,7 @@ describe("SnapshotsView", () => {
     // refactor that drops the class doesn't silently remove the scroll cap.
     const { api } = setup();
     const { container } = render(
-      <SnapshotsView
+      <HistoryView
         api={api}
         snapshots={Array.from({ length: 5 }, (_, i) => ({
           id: `snap-${i}`,
@@ -73,5 +73,16 @@ describe("SnapshotsView", () => {
     const list = container.querySelector(".cfg-snap-list");
     expect(list).toBeTruthy();
     expect(list?.querySelectorAll(".cfg-snap-row").length).toBe(5);
+  });
+
+  // The last-resort recovery sits with the other ways back, not among the
+  // everyday shortcuts.
+  it("offers Reset with the history, as a danger action", () => {
+    const { api, post } = setup();
+    render(<HistoryView api={api} snapshots={[]} />);
+    const reset = screen.getByText("Reset settings.json").closest("button") as HTMLButtonElement;
+    expect(reset.classList.contains("btn-danger")).toBe(true);
+    fireEvent.click(reset);
+    expect(post).toHaveBeenCalledWith({ type: "resetSettings", scope: "global" });
   });
 });

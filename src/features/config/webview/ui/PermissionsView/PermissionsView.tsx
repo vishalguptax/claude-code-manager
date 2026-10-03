@@ -1,22 +1,25 @@
 /**
- * Permissions section of the Config tab — the scope filter (global /
- * project / local), a live search box, the allow/deny tool lists, and the
- * additional-directories list. Scope + search are config-local signals;
- * the actual allow/deny/dir mutations round-trip through the host (which
- * confirms removals natively) and come back as a fresh `accountData`.
+ * Permissions section of the Config tab: everything that decides what Claude
+ * may do, in one place.
  *
- * Shared components: the scope segments use <ScopeFilter>, the live filter
- * uses <SearchInput>, group counts render as <Badge>, the action row uses
- * <Button>, and per-row removals use an icon <Button>.
+ * Two layers, top to bottom. First the global mode and the two safety
+ * switches (they used to sit in a separate Settings group, far from the rules
+ * they interact with). Then the rules themselves, per scope: the scope filter,
+ * the allow / deny / additional-directory lists, each with its own add button
+ * in its heading. The search box appears only once there are enough rules to
+ * need it.
+ *
+ * Scope + search are config-local signals; every mutation round-trips through
+ * the host (which confirms removals natively) and comes back as a fresh
+ * `accountData`.
  */
 import { useState } from "preact/hooks";
-import { isSectionCollapsed, toggleSection } from "../../model";
 import {
   Badge,
   Button,
   ScopeFilter,
   SearchInput,
-  SectionHeader,
+  Section,
   ShowMore,
 } from "../../../../../webview/shared/ui";
 import type {
@@ -26,6 +29,9 @@ import type {
   PermissionSet,
 } from "../../../types";
 import type { ConfigApi } from "../../api";
+import { DEFAULT_MODE_OPTIONS } from "../../lib";
+import { isSectionCollapsed, toggleSection } from "../../model";
+import { SelectField, ToggleField } from "../SettingFields";
 
 export interface PermissionsViewProps {
   data: AccountData;
@@ -36,6 +42,9 @@ export interface PermissionsViewProps {
   onSearchChange: (q: string) => void;
 }
 
+/** Patterns shown per list before the rest is disclosed. See PermissionList. */
+const PERMISSIONS_TOP_DEFAULT = 6;
+
 export function PermissionsView({
   data,
   api,
@@ -44,6 +53,7 @@ export function PermissionsView({
   onScopeChange,
   onSearchChange,
 }: PermissionsViewProps) {
+  const s = data.settings;
   // Defensive defaults: `accountData` crosses the host boundary as `unknown`
   // and is cast to AccountData, so a partial/legacy payload (or an early render
   // before the full parse) could omit `permissions`. Reading `.find` straight
@@ -55,6 +65,13 @@ export function PermissionsView({
   const set = permissions.find((p) => p.scope === scope);
   const hasProjectScope = permissions.some((p) => p.scope === "project");
   const query = search.trim().toLowerCase();
+  const ruleCount = (set?.allow.length ?? 0) + (set?.deny.length ?? 0);
+  // A search box over a handful of rules is a control with nothing to do.
+  // Kept while a query is active so it can be cleared.
+  const showSearch = ruleCount > PERMISSIONS_TOP_DEFAULT || query !== "";
+  const modeDesc = (
+    DEFAULT_MODE_OPTIONS.find((o) => o.value === s.defaultMode) ?? DEFAULT_MODE_OPTIONS[0]
+  ).desc;
 
   const scopeOptions: Array<{ value: PermissionScope; label: string }> = [
     { value: "global", label: "Global" },
@@ -65,56 +82,99 @@ export function PermissionsView({
   }
 
   return (
-    <section class="section">
-      <SectionHeader
-        id="permissions"
-        title="Permissions"
-        icon="shield"
-        collapsed={isSectionCollapsed("permissions")}
-        onToggle={toggleSection}
+    <Section
+      id="permissions"
+      title="Permissions"
+      collapsed={isSectionCollapsed("permissions")}
+      onToggle={toggleSection}
+      headerActions={
+        <Button
+          variant="icon"
+          iconName="external-link"
+          title={`Open the ${scope} settings.json`}
+          ariaLabel={`Open the ${scope} settings.json`}
+          onClick={(e) => {
+            // The header itself collapses the section.
+            e.stopPropagation();
+            api.openSettingsFile(scope);
+          }}
+        />
+      }
+    >
+      <SelectField
+        label="Tool-use confirmation"
+        info={modeDesc}
+        value={s.defaultMode}
+        options={DEFAULT_MODE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        onChange={(v) => api.setSetting("permissions.defaultMode", v)}
       />
-      {isSectionCollapsed("permissions") ? null : (
-        <div class="section-body">
-          <ScopeFilter<PermissionScope>
-            value={scope}
-            options={scopeOptions}
-            onChange={onScopeChange}
-          />
+      <ToggleField
+        label="Sandbox Bash commands"
+        info="Runs shell commands isolated from your files and network. macOS, Linux and WSL2."
+        checked={s.sandboxEnabled}
+        onChange={(c) => api.setSetting("sandbox.enabled", c ? true : "")}
+      />
+      <ToggleField
+        label="Block bypass-permissions mode"
+        info="Stops any session from switching to the mode that skips every prompt."
+        checked={s.disableBypassPermissionsMode}
+        onChange={(c) => api.setSetting("permissions.disableBypassPermissionsMode", c ? true : "")}
+      />
 
+      <div class="cfg-rules">
+        <ScopeFilter<PermissionScope>
+          value={scope}
+          options={scopeOptions}
+          onChange={onScopeChange}
+        />
+        {showSearch ? (
           <div class="field">
             <SearchInput
               value={search}
-              placeholder="Search"
-              ariaLabel="Search tools"
+              placeholder="Search rules"
+              ariaLabel="Search permission rules"
               onInput={onSearchChange}
             />
           </div>
+        ) : null}
 
-          <PermissionList set={set} scope={scope} list="allow" label="Allowed" query={query} api={api} />
-          <PermissionList set={set} scope={scope} list="deny" label="Denied" query={query} api={api} />
+        <PermissionList set={set} scope={scope} list="allow" label="Allowed" query={query} api={api} />
+        <PermissionList set={set} scope={scope} list="deny" label="Denied" query={query} api={api} />
+        <AdditionalDirectories dirs={s.additionalDirectories ?? []} api={api} />
+      </div>
+    </Section>
+  );
+}
 
-          <AdditionalDirectories dirs={data.settings?.additionalDirectories ?? []} api={api} />
-
-          <div class="field-hint">
-            Pattern format: <code>Bash(command:*)</code>, <code>Read(path/**)</code>,{" "}
-            <code>mcp__server__*</code>. Wildcards only inside the parens; a bare tool name (e.g.{" "}
-            <code>Bash</code>) matches ALL invocations.
-          </div>
-
-          <div class="actions-row">
-            <Button iconName="plus" onClick={() => api.promptAddPermission(scope, "allow")}>
-              Add allowed
-            </Button>
-            <Button iconName="x" onClick={() => api.promptAddPermission(scope, "deny")}>
-              Add denied
-            </Button>
-            <Button iconName="external-link" onClick={() => api.openSettingsFile(scope)}>
-              Edit in file
-            </Button>
-          </div>
-        </div>
-      )}
-    </section>
+/**
+ * A list heading: its name, its count, and the button that adds to it. The add
+ * button sits with the list it adds to, not in a row of actions below every
+ * list where "Add denied" was a scroll away from the denied rules.
+ */
+function GroupHead({
+  label,
+  count,
+  addLabel,
+  onAdd,
+}: {
+  label: string;
+  count: string | null;
+  addLabel: string;
+  onAdd: () => void;
+}) {
+  return (
+    <div class="cfg-perm-group-label">
+      <span>{label}</span>
+      {count === null ? null : <Badge text={count} variant="count" />}
+      <Button
+        variant="icon"
+        iconName="plus"
+        class="cfg-perm-add"
+        title={addLabel}
+        ariaLabel={addLabel}
+        onClick={onAdd}
+      />
+    </div>
   );
 }
 
@@ -128,13 +188,11 @@ interface PermissionListProps {
 }
 
 /**
- * Patterns shown before the list discloses the rest. A real global allow-list
- * runs to sixty-odd entries, one per row, which pushed Settings history and
- * Backup past three screenfuls of scrolling — the sections below became
- * effectively undiscoverable.
+ * One allow or deny list. Shows the first {@link PERMISSIONS_TOP_DEFAULT}
+ * patterns and discloses the rest: a real global allow-list runs to sixty-odd
+ * entries, one per row, which pushed every section below past three
+ * screenfuls of scrolling.
  */
-const PERMISSIONS_TOP_DEFAULT = 6;
-
 function PermissionList({ set, scope, list, label, query, api }: PermissionListProps) {
   const [expanded, setExpanded] = useState(false);
   const all = set?.[list] ?? [];
@@ -145,28 +203,29 @@ function PermissionList({ set, scope, list, label, query, api }: PermissionListP
   const collapsed = !expanded && !query;
   const visible = collapsed ? items.slice(0, PERMISSIONS_TOP_DEFAULT) : items;
 
+  const noun = list === "allow" ? "allowed" : "denied";
+  const head = (count: string | null) => (
+    <GroupHead
+      label={label}
+      count={count}
+      addLabel={`Add ${noun} tool`}
+      onAdd={() => api.promptAddPermission(scope, list)}
+    />
+  );
+
   if (items.length === 0) {
-    const empty =
-      total > 0
-        ? `No ${list === "allow" ? "allowed" : "denied"} tools match "${query}"`
-        : `No ${list === "allow" ? "allowed" : "denied"} tools`;
+    const empty = total > 0 ? `No ${noun} tools match "${query}"` : `No ${noun} tools`;
     return (
       <div class="cfg-perm-group">
-        <div class="cfg-perm-group-label">
-          {label}
-          {total > 0 ? <Badge text={`0 / ${total}`} variant="count" /> : null}
-        </div>
+        {head(total > 0 ? `0 / ${total}` : null)}
         <div class="cfg-note">{empty}</div>
       </div>
     );
   }
 
-  const countLabel = query ? `${items.length} / ${total}` : `${items.length}`;
   return (
     <div class="cfg-perm-group">
-      <div class="cfg-perm-group-label">
-        {label} <Badge text={countLabel} variant="count" />
-      </div>
+      {head(query ? `${items.length} / ${total}` : `${items.length}`)}
       {visible.map((t) => (
         <div class="cfg-perm-row" key={t}>
           <span class="cfg-perm-name">{t}</span>
@@ -201,11 +260,14 @@ interface AdditionalDirectoriesProps {
 function AdditionalDirectories({ dirs, api }: AdditionalDirectoriesProps) {
   return (
     <div class="cfg-perm-group">
-      <div class="cfg-perm-group-label">
-        Additional directories{dirs.length > 0 ? <Badge text={String(dirs.length)} variant="count" /> : null}
-      </div>
+      <GroupHead
+        label="Additional directories"
+        count={dirs.length > 0 ? String(dirs.length) : null}
+        addLabel="Add directory"
+        onAdd={() => api.promptAddDirectory()}
+      />
       {dirs.length === 0 ? (
-        <div class="cfg-note">None — Claude can only read the workspace.</div>
+        <div class="cfg-note">None. Claude can only read the workspace.</div>
       ) : (
         dirs.map((d) => (
           <div class="cfg-perm-row" key={d}>
@@ -226,11 +288,6 @@ function AdditionalDirectories({ dirs, api }: AdditionalDirectoriesProps) {
           </div>
         ))
       )}
-      <div class="actions-row">
-        <Button iconName="plus" onClick={() => api.promptAddDirectory()}>
-          Add directory
-        </Button>
-      </div>
     </div>
   );
 }

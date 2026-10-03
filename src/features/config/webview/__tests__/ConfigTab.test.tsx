@@ -34,9 +34,9 @@ describe("ConfigTab", () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
-    await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Model & reasoning")).toBeTruthy());
     configData.value = makeConfigData();
-    await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Model & reasoning")).toBeTruthy());
 
     const requests = post.mock.calls.filter(
       ([m]) => (m as { type: string }).type === "getAccountData",
@@ -44,14 +44,32 @@ describe("ConfigTab", () => {
     expect(requests).toHaveLength(1);
   });
 
-  it("renders all four sections once data arrives", async () => {
+  // One section per question, in order of how often people come for them.
+  it("renders every section, in order, once data arrives", async () => {
+    const { container } = render(<ConfigTab />);
+    configData.value = makeConfigData();
+    loading.value = false;
+    await waitFor(() => expect(screen.getByText("Model & reasoning")).toBeTruthy());
+    const titles = Array.from(container.querySelectorAll(".section-title")).map((t) => t.textContent);
+    expect(titles).toEqual([
+      "Model & reasoning",
+      "Permissions",
+      "Sessions & context",
+      "Git & attribution",
+      "Interface",
+      "Sidebar tabs",
+      "History & recovery",
+      "Backup & tools",
+    ]);
+  });
+
+  it("says once, at the top, when changes take effect", async () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
-    await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
-    expect(screen.getByText("Permissions")).toBeTruthy();
-    expect(screen.getByText("Settings history")).toBeTruthy();
-    expect(screen.getByText("Brain backup")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getAllByText("Changes apply to new Claude sessions.")).toHaveLength(1),
+    );
   });
 
   it("shows the empty state when not loading and no data", async () => {
@@ -67,17 +85,16 @@ describe("ConfigTab", () => {
     await waitFor(() => expect(screen.getByText("host blew up")).toBeTruthy());
   });
 
-  it("wires the Settings section to the api (reset posts resetSettings)", async () => {
-    // Integration check that SettingsView receives a live api. The dropdown →
-    // onChange → setModel bridge is covered by the Dropdown component spec and
-    // the SettingsView CDD test (web-component change events don't replay
-    // reliably through the tab's signal-driven re-renders, so we assert a
-    // plain Button action here instead).
+  it("wires the folded History section to the api (reset posts resetSettings)", async () => {
+    // Integration check that the sections receive a live api. Per-control
+    // wiring is covered by each section's own test; here a plain Button
+    // action proves the tab hands the api down.
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
-    await waitFor(() => expect(screen.getByText("Settings")).toBeTruthy());
-    fireEvent.click(screen.getByText("Reset settings"));
+    await waitFor(() => expect(screen.getByText("History & recovery")).toBeTruthy());
+    fireEvent.click(screen.getByText("History & recovery"));
+    fireEvent.click(screen.getByText("Reset settings.json"));
     expect(post).toHaveBeenCalledWith({ type: "resetSettings", scope: "global" });
   });
 
@@ -85,9 +102,7 @@ describe("ConfigTab", () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
-    // Permissions opens folded; unfold it from its header.
-    await waitFor(() => expect(screen.getByText("Permissions")).toBeTruthy());
-    fireEvent.click(screen.getByText("Permissions"));
+    // Permissions opens expanded.
     await waitFor(() => expect(screen.getByText("Bash(git:*)")).toBeTruthy());
     const removeBtn = document.querySelector(".cfg-perm-remove") as HTMLButtonElement;
     fireEvent.click(removeBtn);
@@ -96,15 +111,15 @@ describe("ConfigTab", () => {
     ).toBe(true);
   });
 
-  it("posts a brain export command from the Brain section", async () => {
+  it("posts a brain export command from the Backup section", async () => {
     render(<ConfigTab />);
     configData.value = makeConfigData();
     loading.value = false;
-    await waitFor(() => expect(screen.getByText("Brain backup")).toBeTruthy());
-    // Folded by default — the Export button appears once the section opens.
-    expect(screen.queryByText("Export Brain…")).toBeNull();
-    fireEvent.click(screen.getByText("Brain backup"));
-    fireEvent.click(screen.getByText("Export Brain…"));
+    await waitFor(() => expect(screen.getByText("Backup & tools")).toBeTruthy());
+    // Folded by default: the Export button appears once the section opens.
+    expect(screen.queryByText("Export brain…")).toBeNull();
+    fireEvent.click(screen.getByText("Backup & tools"));
+    fireEvent.click(screen.getByText("Export brain…"));
     expect(post).toHaveBeenCalledWith({ type: "runCommand", command: "claudeManager.exportBrain" });
   });
 

@@ -44,15 +44,17 @@ export function _resetConfigState(): void {
  * both have a section called "permissions" from folding each other's.
  */
 /**
- * Sections that open folded, so the tab opens on Settings — the reason
- * people come here — instead of a 340px column of every list at once.
- * Permissions, tab layout, history and backup are each a click away.
+ * Sections that open folded. The tab opens on the two people come for most,
+ * model and permissions; the rest are each one click away instead of a long
+ * column of every control at once.
  */
 const COLLAPSED_BY_DEFAULT: ReadonlySet<string> = new Set([
-  "permissions",
+  "context",
+  "git",
+  "interface",
   "tabs",
-  "snapshots",
-  "brain",
+  "history",
+  "backup",
 ]);
 
 export function isSectionCollapsed(id: string): boolean {

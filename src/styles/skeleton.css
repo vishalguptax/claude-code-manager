@@ -114,6 +114,13 @@
   gap: var(--space-sm);
   margin-bottom: var(--space-xl);
 }
+/* A checkbox row: one line at the height of the live row's label. */
+.skeleton-toggle {
+  display: flex;
+  align-items: center;
+  min-height: var(--h-control-sm);
+  margin-bottom: var(--space-md);
+}
 
 /* Flex-grow filler ---------------------------------------------------------- */
 

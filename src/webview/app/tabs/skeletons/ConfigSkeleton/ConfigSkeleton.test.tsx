@@ -4,11 +4,14 @@ import { describe, expect, it } from "vitest";
 import { ConfigSkeleton } from "./ConfigSkeleton";
 
 describe("ConfigSkeleton", () => {
-  it("renders a section of form-field placeholders (label line + control block)", () => {
+  // The tab's own shape, so nothing jumps when the data lands: two open
+  // sections of fields and toggles, then six folded section headers.
+  it("draws the two open sections, then the folded section headers", () => {
     const { container } = render(<ConfigSkeleton />);
-    expect(container.querySelector(".section .section-body")).toBeTruthy();
-    // Five field placeholders, each a label line above a control-height block.
-    expect(container.querySelectorAll(".skeleton-field").length).toBe(5);
+    expect(container.querySelectorAll(".section").length).toBe(8);
+    expect(container.querySelectorAll(".section .section-body").length).toBe(2);
+    expect(container.querySelectorAll(".skeleton-field").length).toBe(3);
+    expect(container.querySelectorAll(".skeleton-toggle").length).toBe(3);
     expect(container.querySelector(".skeleton-field .skeleton-block")).toBeTruthy();
     expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
   });
