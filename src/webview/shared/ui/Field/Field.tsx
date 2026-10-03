@@ -11,9 +11,15 @@
  * label is a setting people change once and then cannot explain, so the hint
  * carries what actually happens — and it is tied to the control by `id`, so a
  * screen reader reads it with the control rather than after it.
+ *
+ * Not every explanation earns a permanent line, though: a column of fields
+ * each carrying a sentence reads as prose and buries the controls. `hint` is
+ * for what the user needs while choosing (a valid range, a default, a
+ * warning); `info` is for background, kept behind an InfoTip beside the label.
  */
 import type { ComponentChildren } from "preact";
 import { cx } from "../../lib";
+import { InfoTip } from "../InfoTip";
 
 export interface FieldProps {
   /** Visible label. Omit for a field whose control labels itself (a checkbox). */
@@ -23,20 +29,25 @@ export interface FieldProps {
    * `id` / `aria-describedby`; without it the hint is just text nearby.
    */
   htmlFor?: string;
-  /** One sentence on what the control does, shown under it. */
+  /** What the user needs while choosing, shown under the control. */
   hint?: ComponentChildren;
+  /** Background on what the control does, behind an info icon by the label. */
+  info?: string;
   class?: string;
   children?: ComponentChildren;
 }
 
-export function Field({ label, htmlFor, hint, class: cls, children }: FieldProps) {
+export function Field({ label, htmlFor, hint, info, class: cls, children }: FieldProps) {
   const hintId = htmlFor ? `${htmlFor}-hint` : undefined;
   return (
     <div class={cx("field", cls)}>
       {label ? (
-        <label class="field-label" for={htmlFor}>
-          {label}
-        </label>
+        <div class="field-head">
+          <label class="field-label" for={htmlFor}>
+            {label}
+          </label>
+          {info ? <InfoTip text={info} /> : null}
+        </div>
       ) : null}
       {children}
       {hint ? (

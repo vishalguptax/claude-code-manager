@@ -140,4 +140,46 @@ describe("TooltipLayer", () => {
     await flush();
     expect(tooltip()).toBeNull();
   });
+
+  // An explanation behind an InfoTip must not be pointer-only.
+  describe("keyboard focus", () => {
+    /** Make `:focus-visible` report as the browser would for this focus. */
+    function focusVisible(el: HTMLElement, visible: boolean): void {
+      const real = el.matches.bind(el);
+      vi.spyOn(el, "matches").mockImplementation(((selector: string) =>
+        selector === ":focus-visible" ? visible : real(selector)) as typeof el.matches);
+    }
+    const focusIn = (el: Element): void => {
+      el.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    };
+
+    it("shows the tooltip for a control reached by keyboard", async () => {
+      const btn = iconButton("Show what this setting does");
+      focusVisible(btn, true);
+      focusIn(btn);
+      await advance(600);
+      expect(tooltip()?.textContent).toBe("Show what this setting does");
+    });
+
+    // A click also focuses a button; that must not pop a tooltip over the
+    // control just pressed.
+    it("stays quiet for focus that came from a click", async () => {
+      const btn = iconButton("Show what this setting does");
+      focusVisible(btn, false);
+      focusIn(btn);
+      await advance(600);
+      expect(tooltip()).toBeNull();
+    });
+
+    it("hides when focus leaves, and gives the title back", async () => {
+      const btn = iconButton("Show what this setting does");
+      focusVisible(btn, true);
+      focusIn(btn);
+      await advance(600);
+      btn.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      await flush();
+      expect(tooltip()).toBeNull();
+      expect(btn.getAttribute("title")).toBe("Show what this setting does");
+    });
+  });
 });

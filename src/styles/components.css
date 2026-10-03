@@ -312,6 +312,34 @@
   color: var(--fg-dim);
   margin-bottom: var(--space-xs);
 }
+/* Label plus its optional InfoTip, on one line. The head owns the gap to the
+   control, so the label inside it drops its own. */
+.field-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+}
+.field-head .field-label {
+  margin-bottom: 0;
+}
+/* The info glyph: as quiet as the label it explains until pointed at or
+   focused. The ring comes from the shared focus token, like every control. */
+.info-tip {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--fg-dim);
+  border-radius: var(--radius-sm);
+  cursor: help;
+}
+.info-tip:hover,
+.info-tip:focus-visible {
+  color: var(--fg);
+}
+.info-tip:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
 .field-hint {
   margin-top: var(--space-xs);
   font-size: var(--fs-xs);
@@ -342,9 +370,10 @@
 /* A <Segmented> used INSIDE a section body. The control's own rule insets it
    from the panel edge, but a section body already applies that same --space-2xl
    padding, so the inherited margin double-insets it and leaves it narrower than
-   the search box and rows beside it. */
-.section-body > .scope-filter,
-.section-body > .vsc-segmented {
+   the search box and rows beside it. Any depth, not only a direct child: a
+   section may wrap its controls in a block of its own (Config's rules). */
+.section-body .scope-filter,
+.section-body .vsc-segmented {
   margin-left: 0;
   margin-right: 0;
   margin-top: 0;

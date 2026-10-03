@@ -18,6 +18,7 @@ export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { ErrorBanner, type ErrorBannerProps } from "./ErrorBanner";
 export { Field, type FieldProps } from "./Field";
 export { Icon, type IconProps } from "./Icon";
+export { InfoTip, type InfoTipProps } from "./InfoTip";
 export { ListItem, type ListItemProps } from "./ListItem";
 export { type LoadPhase, SlowLoadNotice, useLoadPhase } from "./LoadDeadline";
 export { Loading } from "./Loading";

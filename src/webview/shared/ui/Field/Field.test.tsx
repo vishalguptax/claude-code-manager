@@ -70,4 +70,25 @@ describe("Field", () => {
     const { container } = render(<Field class="test-extra-class" label="x" />);
     expect(container.querySelector(".field.test-extra-class")).toBeTruthy();
   });
+
+  // Background goes behind an InfoTip beside the label, not into the hint.
+  it("puts info behind an InfoTip next to the label, not under the control", () => {
+    const { container } = render(
+      <Field label="Reasoning effort" info="More thinking for harder problems.">
+        <select />
+      </Field>,
+    );
+    const tip = container.querySelector(".field-head .info-tip");
+    expect(tip?.getAttribute("aria-label")).toBe("More thinking for harder problems.");
+    expect(container.querySelector(".field-hint")).toBeNull();
+  });
+
+  it("renders no InfoTip without info", () => {
+    const { container } = render(
+      <Field label="Model">
+        <select />
+      </Field>,
+    );
+    expect(container.querySelector(".info-tip")).toBeNull();
+  });
 });

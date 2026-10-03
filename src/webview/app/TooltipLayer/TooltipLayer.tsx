@@ -84,14 +84,11 @@ export function TooltipLayer() {
       });
     };
 
-    const onOver = (e: PointerEvent): void => {
-      const target = e.target as HTMLElement | null;
-      const el = target?.closest?.("[title]") as HTMLElement | null;
-      if (!el) {
-        // Left the titled element (or moved to something without one).
-        if (held.current) hide();
-        return;
-      }
+    /**
+     * Schedule the tooltip for a titled element: the shared path behind both
+     * a pointer dwelling on it and keyboard focus landing on it.
+     */
+    const present = (el: HTMLElement): void => {
       if (el === held.current) return;
 
       hide();
@@ -125,8 +122,35 @@ export function TooltipLayer() {
       else timer.current = setTimeout(show, DELAY_MS);
     };
 
+    const onOver = (e: PointerEvent): void => {
+      const target = e.target as HTMLElement | null;
+      const el = target?.closest?.("[title]") as HTMLElement | null;
+      if (!el) {
+        // Left the titled element (or moved to something without one).
+        if (held.current) hide();
+        return;
+      }
+      present(el);
+    };
+
+    /**
+     * Keyboard focus shows a tooltip the way hover does, so an explanation
+     * kept behind an info icon is not hover-only. Only for focus the browser
+     * would draw a ring for (`:focus-visible`): a click also focuses a
+     * button, and that must not pop a tooltip over the control just pressed.
+     * The Tab that moved focus fired `keydown` first, which hid the previous
+     * one, so this simply shows the next.
+     */
+    const onFocusIn = (e: FocusEvent): void => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.matches?.(":focus-visible") || !el.hasAttribute("title")) return;
+      present(el);
+    };
+
     // Any of these mean the pointer is no longer dwelling on the control.
     document.addEventListener("pointerover", onOver, true);
+    document.addEventListener("focusin", onFocusIn, true);
+    document.addEventListener("focusout", hide, true);
     document.addEventListener("pointerdown", hide, true);
     document.addEventListener("keydown", hide, true);
     // Scrolling moves the element out from under a tooltip anchored in
@@ -136,6 +160,8 @@ export function TooltipLayer() {
 
     return () => {
       document.removeEventListener("pointerover", onOver, true);
+      document.removeEventListener("focusin", onFocusIn, true);
+      document.removeEventListener("focusout", hide, true);
       document.removeEventListener("pointerdown", hide, true);
       document.removeEventListener("keydown", hide, true);
       document.removeEventListener("scroll", hide, true);
