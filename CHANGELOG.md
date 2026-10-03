@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.18.0] - 2026-10-03
+
+The Config tab is regrouped into focused sections with less text, info tips now work from the keyboard, and the Quota card keeps your 5-hour window visible between resets.
+
+See [docs/releases/v2.18.0.md](docs/releases/v2.18.0.md) for full details.
+
 ## [2.17.0] - 2026-10-02
 
 Claude Code Manager no longer corrupts Claude Code's settings, MCP approvals, sessions or logins, catches up with how Claude Code 2.1.287 stores things, and adds an MCP server catalog and a plugin marketplace browser.
