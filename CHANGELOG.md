@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.19.0] - 2026-10-11
+
+A clearer Marketplace listing — a name, description and keywords that say what the extension does — and a rebuilt website with a page for every tab, guides, editor notes and honest comparisons.
+
+See [docs/releases/v2.19.0.md](docs/releases/v2.19.0.md) for full details.
+
 ## [2.18.0] - 2026-10-03
 
 The Config tab is regrouped into focused sections with less text, info tips now work from the keyboard, and the Quota card keeps your 5-hour window visible between resets.
