@@ -41,3 +41,49 @@ Dated lines: what was done, what was found, what was decided.
 
 New pages (all new): /plugins/ (39/154), /checkpoints/ (54/133), /prompts/ (48/149), /memory/ (49/127), /config/ (52/134), /guides/ (52/152), /guides/claude-code-session-history/ (55/148), /guides/claude-code-usage-limits/ (54/151), /guides/claude-code-folder/ (54/148), /guides/disable-mcp-server-claude-code/ (43/151), /editors/ (54/141), /editors/cursor/ (50/137), /editors/windsurf/ (50/146), /editors/kiro/ (52/147), /editors/vscodium/ (43/153), /compare/ (46/154), /compare/claude-code-extension/ (57/153), /compare/ccusage/ (53/150), /compare/claude-swap/ (58/155), /compare/claude-code-gui/ (54/145), /changelog/ (45/95)
 - Removed unreferenced site assets: assets/icon.svg (old nav mark), assets/og.png (one shared card, replaced by per-page cards in assets/og/), assets/marketplace-icon.png (icons in assets/icons/ were derived from media/marketplace-icon.png with sips).
+- GitHub repo (gh repo edit, 2026-10-11): homepage claudemanager.vishalg.in → https://claudecodemanager.vishalg.in/; description aligned with the site; topics `claude-manager` → `vscode` (22k repos), `claude-session` → `claude-code-plugin` (9.3k repos); still 20/20. Verified with `gh api`. Social preview NOT set (account-settings form; owner step).
+- Listing branch `growth/listing` (local only, commit 40a0d58, worktree .claude/worktrees/growth-listing): displayName, description, keywords (6 swapped, still 30), categories (Machine Learning → Other), galleryBanner, plus biome fixes for the 3 pre-existing lint errors. `pnpm run check` clean, 321 files / 4472 tests pass on that branch. Ships with the owner's next release.
+
+### Verification (pre-push, local server, 2026-10-11)
+
+Lighthouse 13.4.1 mobile, columns Perf A11y BP SEO, all 31 pages:
+```
+/                                          96 100 100 100 LCP 2.7 s CLS 0.008 
+sessions/                                  99 100 100 100 LCP 2.1 s CLS 0 
+usage/                                     99 100 100 100 LCP 2.1 s CLS 0 
+accounts/                                  99 100 100 100 LCP 2.1 s CLS 0 
+mcp/                                       99 100 100 100 LCP 2.1 s CLS 0.001 
+skills/                                    99 100 100 100 LCP 2.1 s CLS 0 
+commands/                                  99 100 100 100 LCP 2.1 s CLS 0.001 
+hooks/                                     99 100 100 100 LCP 2.1 s CLS 0 
+agents/                                    99 100 100 100 LCP 2.1 s CLS 0 
+plugins/                                   99 100 100 100 LCP 1.9 s CLS 0 
+checkpoints/                               99 100 100 100 LCP 1.9 s CLS 0.001 
+prompts/                                   100 100 100 100 LCP 1.7 s CLS 0.001 
+memory/                                    99 100 100 100 LCP 2.0 s CLS 0 
+config/                                    99 100 100 100 LCP 2.1 s CLS 0 
+guides/                                    100 100 100 100 LCP 1.7 s CLS 0 
+guides/claude-code-session-history/        99 100 100 100 LCP 2.0 s CLS 0 
+guides/claude-code-usage-limits/           99 100 100 100 LCP 1.9 s CLS 0 
+guides/claude-code-folder/                 99 100 100 100 LCP 1.9 s CLS 0 
+guides/disable-mcp-server-claude-code/     99 100 100 100 LCP 1.9 s CLS 0 
+editors/                                   99 100 100 100 LCP 1.9 s CLS 0 
+editors/cursor/                            99 100 100 100 LCP 2.0 s CLS 0 
+editors/windsurf/                          99 100 100 100 LCP 1.9 s CLS 0 
+editors/kiro/                              100 100 100 100 LCP 1.7 s CLS 0 
+editors/vscodium/                          100 100 100 100 LCP 1.7 s CLS 0 
+compare/                                   100 100 100 100 LCP 1.7 s CLS 0 
+compare/claude-code-extension/             99 100 100 100 LCP 1.9 s CLS 0 
+compare/ccusage/                           99 100 100 100 LCP 1.9 s CLS 0 
+compare/claude-swap/                       99 100 100 100 LCP 1.9 s CLS 0 
+compare/claude-code-gui/                   99 100 100 100 LCP 2.0 s CLS 0 
+changelog/                                 99 100 100 100 LCP 1.9 s CLS 0 
+404.html                                   100 100 100 100 LCP 1.7 s CLS 0 
+```
+Remaining audits under 0.9 are unminified-css, unused-css-rules and the cache/document-latency insights, which come from python http.server (no gzip, no cache headers). Home LCP 2.7s on the throttled mobile profile.
+- Overflow matrix: 31 pages × 320/375/1440/1920 = 124 checks, 0 overflow (requested-width comparison).
+- Build twice: second run changes nothing (36 generated files, shasum identical). xmllint sitemap OK. Workflows parse (Ruby YAML).
+- site-studio check-site.mjs: 31 pages, 0 errors, 1 warning (404 without noindex: deliberate per brief §12).
+- Tests: full suite 323 files / 4657 tests pass (185 new for the site generator). typecheck exit 0. Biome on the new scripts clean; repo-wide 'pnpm run check' still has the 3 pre-existing src errors on main (fixed on growth/listing).
+- Interaction (headless CDP): theme toggle switches and persists across reload; copy/replay buttons appear with JS; first Tab focuses the skip link; no console errors on 9 pages checked; reduced-motion renders final state.
+- All 122 changed paths are covered by release.yml paths-ignore (checked with Ruby against the workflow file) → this push cannot publish an extension version.
