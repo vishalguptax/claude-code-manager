@@ -2,7 +2,7 @@
   "name": "claude-manager",
   "displayName": "Claude Code Manager — Sessions, History, Usage, MCP & Accounts",
   "description": "Browse and resume Claude Code sessions, track usage and 5-hour/weekly limits, switch accounts, and manage MCP servers, skills, hooks, agents, plugins, file checkpoints and prompt history from your VS Code sidebar. 100% local, zero telemetry.",
-  "version": "2.18.0",
+  "version": "2.19.0",
   "publisher": "vishalguptax",
   "author": {
     "name": "Vishal Gupta",
