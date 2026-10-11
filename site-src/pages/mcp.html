@@ -1,0 +1,22 @@
+<section class="block ledger-sec" aria-labelledby="m1">
+  <p class="callno">Where MCP servers come from</p>
+  <h2 id="m1">Every MCP server Claude Code loads, <em class="serif">and where it's defined</em></h2>
+  <p class="sec-lede">A server can be defined in more places than most people check. The MCP tab reads all of them and labels each server with its source.</p>
+  <ol class="ledger">
+    <li><div><span class="callno">.mcp.json</span><strong>Project servers</strong><span>In the project's <code>.mcp.json</code> — and in any <code>.mcp.json</code> in a parent folder, which is easy to forget.</span></div></li>
+    <li><div><span class="callno">~/.claude.json</span><strong>User and local servers</strong><span>Servers added for every project, or only for one, live in <code>~/.claude.json</code>.</span></div></li>
+    <li><div><span class="callno">plugins/*/.mcp.json</span><strong>Plugin servers</strong><span>Plugins can bring their own servers.</span></div></li>
+    <li><div><span class="callno">~/.claude/mcp.json</span><strong>The legacy file, flagged</strong><span>Servers left in the old <code>~/.claude/mcp.json</code> are shown with a note: Claude Code no longer reads that file, so they never load until you move them.</span></div></li>
+  </ol>
+</section>
+
+<section class="block ledger-sec" aria-labelledby="m2">
+  <h2 id="m2">Enable, disable, add and fix servers</h2>
+  <ol class="ledger">
+    <li><div><span class="callno">on / off</span><strong>Switch a server off without losing it</strong><span>Flip a switch; the configuration stays. Project servers are toggled in <code>.claude/settings.local.json</code>, others in <code>~/.claude.json</code>.</span></div></li>
+    <li><div><span class="callno">form</span><strong>Add or edit without JSON</strong><span>Fill in a form, or pick from a catalog of 16 common servers that ships inside the extension.</span></div></li>
+    <li><div><span class="callno">needs auth</span><strong>See which servers need you to sign in</strong><span>A banner lists servers Claude Code has marked as needing re-authentication; sign in runs <code>claude mcp login</code> in a terminal.</span></div></li>
+    <li><div><span class="callno">****</span><strong>Secrets stay hidden</strong><span>API keys and tokens in a server's settings are masked in the list.</span></div></li>
+    <li><div><span class="callno">claude mcp list</span><strong>Check with Claude Code itself</strong><span>One click runs <code>claude mcp list</code> in a terminal, so you can see what the CLI sees.</span></div></li>
+  </ol>
+</section>

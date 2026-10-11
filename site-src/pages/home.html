@@ -1,0 +1,142 @@
+<section class="hero" aria-labelledby="hero-h">
+  <div class="hero-copy">
+    <p class="callno"><span class="led" aria-hidden="true"></span>Free · open source · 100% local · no telemetry</p>
+    <h1 id="hero-h"><span class="h1-brand">Claude Code Manager</span> Everything Claude Code keeps on your machine, <em class="serif">in one sidebar.</em></h1>
+    <p class="lede">A VS Code extension that reads <code>~/.claude/</code> and turns it into 12 tabs: search and resume every session, see your usage and 5-hour and weekly limits, switch accounts, and manage MCP servers, skills, commands, hooks, agents and plugins — without editing JSON.</p>
+    {{installButtons}}
+    {{installCommand}}
+    <p class="proof"><span><strong>{{downloads}}</strong> downloads</span><span><strong>{{stars}}</strong> GitHub stars</span><span><a href="https://marketplace.visualstudio.com/items?itemName=vishalguptax.claude-manager&amp;ssr=false#review-details"><strong>{{rating}}★</strong> from {{ratingCount}} ratings</a></span><span>v{{version}}</span></p>
+  </div>
+
+  <figure class="indexer" data-indexer>
+    <div class="ls" aria-label="What Claude Code Manager reads, and the tab that shows it">
+      <div class="panel-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><code>ls ~/.claude</code><button class="replay" type="button" hidden>Replay</button></div>
+      <ol class="ls-lines">
+        <li><code>projects/*.jsonl</code><span class="to">Sessions</span></li>
+        <li><code>history.jsonl</code><span class="to">Prompts</span></li>
+        <li><code>file-history/</code><span class="to">Checkpoints</span></li>
+        <li><code>stats-cache.json</code><span class="to">Usage</span></li>
+        <li><code>.claude-manager/statusline.json</code><span class="to">Quota</span></li>
+        <li><code>manager-accounts/</code><span class="to">Accounts</span></li>
+        <li><code>../.claude.json · .mcp.json</code><span class="to">MCP</span></li>
+        <li><code>settings.json</code><span class="to">Config · Hooks</span></li>
+        <li><code>skills/</code><span class="to">Skills</span></li>
+        <li><code>commands/</code><span class="to">Commands</span></li>
+        <li><code>agents/</code><span class="to">Agents</span></li>
+        <li><code>plugins/</code><span class="to">Plugins</span></li>
+        <li><code>projects/*/memory/</code><span class="to">Memory</span></li>
+      </ol>
+    </div>
+    <div class="shot-frame">
+      <img src="/assets/screenshots/01-sessions-560.webp" srcset="/assets/screenshots/01-sessions-560.webp 560w, /assets/screenshots/01-sessions.webp 1520w" sizes="(max-width: 560px) 300px, 340px" width="760" height="1128" alt="The Claude Code Manager sidebar in VS Code, showing the Sessions tab with searchable sessions grouped by date" fetchpriority="high">
+    </div>
+    <figcaption class="sr-only">Each file or folder Claude Code keeps in ~/.claude is shown in a sidebar tab: transcripts in Sessions, prompt history in Prompts, file backups in Checkpoints, usage stats in Usage, and so on.</figcaption>
+  </figure>
+</section>
+
+<div class="editors-strip" aria-label="Works in">
+  <span class="callno">Works in</span>
+  <a href="/editors/">VS Code</a><a href="/editors/cursor/">Cursor</a><a href="/editors/windsurf/">Windsurf / Devin Desktop</a><a href="/editors/kiro/">Kiro</a><a href="/editors/vscodium/">VSCodium</a><a href="/editors/">and other Open VSX editors</a>
+</div>
+
+<section id="tour" class="block tour" aria-labelledby="tour-h">
+  <p class="callno">The tour · 0:59</p>
+  <h2 id="tour-h">One minute, <em class="serif">every tab.</em></h2>
+  <!-- Self-hosted on purpose: a YouTube embed would set tracking cookies on a
+       page that promises no telemetry. preload="none" keeps 5 MB off the first
+       load; the poster holds the frame until someone presses play. -->
+  <figure class="tour-video">
+    <video controls playsinline preload="none" poster="/assets/video/poster.jpg" width="1600" height="900" aria-label="Claude Code Manager tour: sessions, checkpoints, prompts, MCP servers, skills, commands, hooks, agents and account in the VS Code sidebar">
+      <source src="/assets/video/claude-code-manager.webm" type="video/webm">
+      <source src="/assets/video/claude-code-manager.mp4" type="video/mp4">
+      <a href="/assets/video/claude-code-manager.mp4">Download the tour (MP4)</a>
+    </video>
+  </figure>
+</section>
+
+<section id="features" class="block" aria-labelledby="feat-h">
+  <p class="callno">The index</p>
+  <h2 id="feat-h">Twelve tabs. <em class="serif">One for each thing Claude Code keeps.</em></h2>
+  <p class="sec-lede">Claude Code stores transcripts, prompts, file backups, settings, skills and logins as files. Each tab reads one of them and lets you act on it.</p>
+
+  <article class="spot" aria-labelledby="f-sessions">
+    <div class="spot-copy">
+      <p class="callno">projects/*.jsonl</p>
+      <h3 id="f-sessions"><a href="/sessions/">Sessions</a></h3>
+      <p>Every session from the CLI and the official extension in one list, by project and git branch. Search the full transcripts, then resume in a terminal or in Claude Code's chat. Fork, pin, archive, rename, export or import.</p>
+      <ul class="ticks"><li>Full-text transcript search</li><li>Warns before resuming on the wrong branch</li><li>Move sessions between machines</li></ul>
+      <a class="more" href="/sessions/">Session manager</a>
+    </div>
+    <div class="spot-shot"><img src="/assets/screenshots/01-sessions-560.webp" srcset="/assets/screenshots/01-sessions-560.webp 560w, /assets/screenshots/01-sessions.webp 1520w" sizes="(max-width: 560px) 300px, 340px" width="760" height="1128" loading="lazy" alt="Sessions tab with sessions grouped by date and filters for project and branch"></div>
+  </article>
+
+  <article class="spot" aria-labelledby="f-usage">
+    <div class="spot-copy">
+      <p class="callno">stats-cache.json · statusline.json</p>
+      <h3 id="f-usage"><a href="/usage/">Usage and limits</a></h3>
+      <p>Tokens by model, project, tool and MCP server, and — if you switch it on — your 5-hour and weekly limits in the status bar, read from Claude Code's own statusline data on disk.</p>
+      <div class="quota" data-quota aria-label="Example of the Quota card's two limit bars">
+        <div class="q-row"><span>5-hour window</span><span class="q-bar"><i style="--q:.72"></i></span><span class="q-val">72%</span></div>
+        <div class="q-row"><span>7-day window</span><span class="q-bar"><i style="--q:.40"></i></span><span class="q-val">40%</span></div>
+        <p class="q-note">Example values. Status bar: <code>5h 72% · 7d 40%</code></p>
+      </div>
+      <a class="more" href="/usage/">Usage tracker</a>
+    </div>
+    <div class="spot-shot"><img src="/assets/screenshots/09-usage-560.webp" srcset="/assets/screenshots/09-usage-560.webp 560w, /assets/screenshots/09-usage.webp 1520w" sizes="(max-width: 560px) 300px, 340px" width="760" height="1128" loading="lazy" alt="Usage view with token totals, per-model breakdown and an activity heatmap"></div>
+  </article>
+
+  <article class="spot" aria-labelledby="f-mcp">
+    <div class="spot-copy">
+      <p class="callno">.mcp.json · ~/.claude.json</p>
+      <h3 id="f-mcp"><a href="/mcp/">MCP servers</a></h3>
+      <p>Every MCP server from every config file, with where it comes from. Switch servers on and off, add or edit one from a form, and see which ones need you to sign in again. Secrets stay masked.</p>
+      <a class="more" href="/mcp/">MCP manager</a>
+    </div>
+    <div class="spot-shot"><img src="/assets/screenshots/05-mcp-560.webp" srcset="/assets/screenshots/05-mcp-560.webp 560w, /assets/screenshots/05-mcp.webp 1520w" sizes="(max-width: 560px) 300px, 340px" width="760" height="1128" loading="lazy" alt="MCP Servers tab with servers grouped by source and enable switches"></div>
+  </article>
+
+  <article class="spot" aria-labelledby="f-accounts">
+    <div class="spot-copy">
+      <p class="callno">manager-accounts/</p>
+      <h3 id="f-accounts"><a href="/accounts/">Account switching</a></h3>
+      <p>Save each Claude login as a profile and switch between them without <code>/logout</code> and <code>/login</code>. Only the login changes; your projects, MCP servers and settings stay put.</p>
+      <a class="more" href="/accounts/">Switch accounts</a>
+    </div>
+    <div class="spot-shot"><img src="/assets/screenshots/07-account-560.webp" srcset="/assets/screenshots/07-account-560.webp 560w, /assets/screenshots/07-account.webp 1520w" sizes="(max-width: 560px) 300px, 340px" width="760" height="1128" loading="lazy" alt="Account tab with the profile switcher and quota bars"></div>
+  </article>
+
+  <ol class="ledger" aria-label="More tabs">
+    <li><a href="/checkpoints/"><span class="callno">file-history/</span><strong>Checkpoints</strong><span>Diff and restore any version of a file Claude edited.</span></a></li>
+    <li><a href="/prompts/"><span class="callno">history.jsonl</span><strong>Prompts</strong><span>Search every prompt you've typed, across projects.</span></a></li>
+    <li><a href="/skills/"><span class="callno">skills/</span><strong>Skills</strong><span>Personal, project, plugin and synced skills in one list.</span></a></li>
+    <li><a href="/commands/"><span class="callno">commands/</span><strong>Commands</strong><span>All {{commandsCount}} built-in slash commands, plus yours.</span></a></li>
+    <li><a href="/hooks/"><span class="callno">settings.json → hooks</span><strong>Hooks</strong><span>Every hook, with the command and an off switch.</span></a></li>
+    <li><a href="/agents/"><span class="callno">agents/</span><strong>Agents</strong><span>Subagents with their model, ready to edit.</span></a></li>
+    <li><a href="/plugins/"><span class="callno">plugins/</span><strong>Plugins</strong><span>Installed, enabled, and the ones that disagree.</span></a></li>
+    <li><a href="/memory/"><span class="callno">projects/*/memory/</span><strong>Memory</strong><span>Read and prune what Claude remembers per project.</span></a></li>
+    <li><a href="/config/"><span class="callno">settings.json</span><strong>Settings</strong><span>Model, permissions and more, with snapshots.</span></a></li>
+  </ol>
+</section>
+
+<section id="privacy" class="block privacy" aria-labelledby="priv-h">
+  <p class="callno">Local-first</p>
+  <h2 id="priv-h">It reads your machine. <em class="serif">It tells no one.</em></h2>
+  <div class="facts">
+    <div><h3>No telemetry, no network client</h3><p>No analytics and no background traffic. The extension reads and writes files under <code>~/.claude/</code>. When you ask it to log in or install a plugin, it starts Claude Code's own CLI in a terminal.</p></div>
+    <div><h3>Limits without your token</h3><p>The Quota card reads the 5-hour and weekly figures Claude Code already hands its statusline, cached to a local file. It never calls Anthropic.</p></div>
+    <div><h3>Honest about logins</h3><p>Account profiles keep a local copy of each saved login's tokens in <code>~/.claude/manager-accounts/</code>, in the same plaintext format Claude Code uses on Linux and Windows. You're told before the first one is saved.</p></div>
+    <div><h3>Open source</h3><p>Apache-2.0 on <a href="https://github.com/vishalguptax/claude-code-manager">GitHub</a>, so every claim on this page can be checked against the code.</p></div>
+  </div>
+</section>
+
+<section class="block pair" aria-labelledby="pair-h">
+  <p class="callno">Works with</p>
+  <h2 id="pair-h">Made to sit next to <em class="serif">the official extension.</em></h2>
+  <p class="sec-lede">Anthropic's Claude Code extension is where you talk to Claude. This is where you find, sort and fix what it leaves behind. Resume a session from the sidebar and it opens in the official chat, or in a terminal — your choice. <a href="/compare/claude-code-extension/">How they fit together</a>.</p>
+</section>
+
+<section class="block" aria-labelledby="guides-h">
+  <p class="callno">Guides</p>
+  <h2 id="guides-h">Questions people ask <em class="serif">about Claude Code.</em></h2>
+  {{hub:guides}}
+</section>

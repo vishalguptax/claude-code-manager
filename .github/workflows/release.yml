@@ -24,6 +24,19 @@ on:
       # Release notes still trigger a release; see the note below.
       - ".github/**"
       - "scripts/publish-vsix.sh"
+      # The marketing site and its generator (scripts/build-site.mjs reads
+      # site-src/ and writes site/; neither ships, both are in .vscodeignore),
+      # growth working notes, and test/lint/ignore config that never reaches
+      # the .vsix. A site deploy must not publish a new extension version.
+      - "site-src/**"
+      - "scripts/build-site.mjs"
+      - "scripts/site/**"
+      - "docs/growth/**"
+      - "vitest.config.ts"
+      - "biome.json"
+      - ".gitignore"
+      # Packaging ignore rules take effect at the next real release.
+      - ".vscodeignore"
     # Note: docs/releases/** and CHANGELOG.md are NOT ignored —
     # the release skill commits a release notes file which should
     # trigger the publish workflow.

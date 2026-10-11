@@ -32,13 +32,13 @@
 </div>
 
 <p align="center">
-<sub>Local-first &bull; Zero telemetry &bull; Zero accounts &bull; Docks to either sidebar &bull; Works in VS Code, Cursor, Windsurf, Antigravity, VSCodium, Codespaces, and Gitpod</sub>
+<sub>Local-first &bull; Zero telemetry &bull; Zero accounts &bull; Docks to either sidebar &bull; Works in VS Code, Cursor, Windsurf (Devin Desktop), Kiro, Antigravity, VSCodium, Codespaces, and Gitpod</sub>
 </p>
 
 <br>
 
 > [!NOTE]
-> **100% local. Zero network calls.** Claude Code Manager reads `~/.claude/` and renders in your sidebar under a strict CSP. No telemetry, no accounts, no token ever leaves your machine. Even the live Quota card reads Claude Code's own statusline from disk, never the network.
+> **100% local. No network client, no telemetry.** Claude Code Manager reads `~/.claude/` and renders in your sidebar under a strict CSP. No accounts, and no token ever leaves your machine. Even the live Quota card reads Claude Code's own statusline data from disk, never the network.
 
 ## Install
 
@@ -135,6 +135,8 @@ So you can **switch between Claude accounts in VS Code** without a full logout a
 </tr>
 </table>
 
+More on each tab: [Sessions](https://claudecodemanager.vishalg.in/sessions/) · [Usage & limits](https://claudecodemanager.vishalg.in/usage/) · [Account switching](https://claudecodemanager.vishalg.in/accounts/) · [MCP](https://claudecodemanager.vishalg.in/mcp/) · [Skills](https://claudecodemanager.vishalg.in/skills/) · [Commands](https://claudecodemanager.vishalg.in/commands/) · [Hooks](https://claudecodemanager.vishalg.in/hooks/) · [Agents](https://claudecodemanager.vishalg.in/agents/) · [Plugins](https://claudecodemanager.vishalg.in/plugins/) · [Checkpoints](https://claudecodemanager.vishalg.in/checkpoints/) · [Prompts](https://claudecodemanager.vishalg.in/prompts/) · [Memory](https://claudecodemanager.vishalg.in/memory/) · [Settings](https://claudecodemanager.vishalg.in/config/)
+
 <br>
 
 <table>
@@ -215,7 +217,7 @@ Full reference in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 ## FAQ
 
 **Does it send anything to the network?**
-No. **Zero network calls, ever.** The extension reads `~/.claude/` and renders in a VS Code webview under a strict CSP that blocks every outbound request. The Account tab's **Quota** card is local too: your 5-hour and 7-day numbers are computed by Claude Code and shown in its statusline, and an opt-in tap caches that render to a file the extension reads from disk. Claude Code Manager never calls Anthropic and never reads your OAuth token.
+No. The extension has no network client and no telemetry. It reads `~/.claude/` and renders in a VS Code webview whose CSP allows only its own scripts and blocks fetches and connections (`connect-src 'none'`). The Account tab's **Quota** card is local too: your 5-hour and 7-day numbers are computed by Claude Code and passed to its statusline, and an opt-in tap caches them to a file the extension reads from disk. The Quota card never calls Anthropic and never uses your OAuth token. The only time the extension handles a token is when you save an account profile (see below), and that copy stays on your machine. When you ask it to log in, install a plugin or authenticate an MCP server, it runs Claude Code's own CLI in a terminal, and the CLI does its own networking.
 
 **How does the View button know which terminal hosts which session?**
 Two passive signals, no instrumentation of Claude itself. (1) An opt-in `SessionStart` hook records each CLI boot's `{sessionId, ppid}` into `~/.claude/.claude-manager/active-sessions.json`. Turn on **Claude Manager › Sessions: Terminal Linking** and the hook is added to your global `~/.claude/settings.json`; turn it off and it is removed. The extension matches `vscode.Terminal.processId` against the recorded parent PID. (2) For VS Code terminals with shell integration, `claude --resume <id>` typed at any prompt is caught directly from the shell-execution event. cmd.exe (no shell integration) is covered by the hook path. Stale entries auto-prune after 1h or a dead PID.
@@ -252,8 +254,8 @@ Both are needed. The first is what restores session names; without the second, t
 **Where are saved account profiles stored?**
 `~/.claude/manager-accounts/<slug>/`. Each slot holds a copy of `~/.claude.json` and `~/.claude/.credentials.json` plus a small `profile.json` with the label. These files include OAuth tokens (same plaintext format Claude CLI uses), so treat the folder as sensitive. Remove a profile and its token copy is deleted immediately.
 
-**Does it work with Cursor / Windsurf / Antigravity / VSCodium?**
-Yes. It's a standard VS Code extension. Install from the Marketplace (VS Code, Cursor, Windsurf, Antigravity) or [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager) (VSCodium, Theia, Gitpod).
+**Does it work with Cursor / Windsurf / Kiro / Antigravity / VSCodium?**
+Yes. It's a standard VS Code extension, published to both the VS Code Marketplace and [Open VSX](https://open-vsx.org/extension/vishalguptax/claude-manager). Search **Claude Code Manager** in your editor's Extensions view: Cursor, Devin Desktop (formerly Windsurf), Kiro, VSCodium and Gitpod install from Open VSX. Per-editor notes: [claudecodemanager.vishalg.in/editors](https://claudecodemanager.vishalg.in/editors/).
 
 **Do I need Claude Code installed?**
 Yes. Install [Claude Code](https://claude.ai/code) first. Either the CLI, the official VS Code extension, or both works. Claude Code Manager reads from the shared `~/.claude/` directory, so sessions from either surface show up together.
@@ -278,7 +280,7 @@ Requires VS Code 1.90+ and [Claude Code](https://claude.ai/code) installed. (On 
 
 Bug reports and PRs are welcome. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local setup, build, and architecture. Browse [open issues](https://github.com/vishalguptax/claude-code-manager/issues), [open a new one](https://github.com/vishalguptax/claude-code-manager/issues/new), or check the [changelog](CHANGELOG.md).
 
-**Architecture (v2):** the webview is built with [Preact](https://preactjs.com/) + [@preact/signals](https://preactjs.com/guide/v10/signals/), feature-sliced under `src/features/*/webview/`, bundled by esbuild as a tiny shell that lazy-loads one code-split chunk per feature tab. Every message between the extension host and the webview flows through a single shared protocol validated at runtime with [valibot](https://valibot.dev/), so malformed frames are rejected rather than acted on. The webview runs under a strict CSP (`default-src 'none'`, nonce-only scripts) and makes no network calls. Lint + format is [Biome](https://biomejs.dev/); 3,600+ unit tests gate every change. Upgrading from v1? See the [v1→v2 migration guide](docs/migration/v1-to-v2.md). There's nothing you need to do.
+**Architecture (v2):** the webview is built with [Preact](https://preactjs.com/) + [@preact/signals](https://preactjs.com/guide/v10/signals/), feature-sliced under `src/features/*/webview/`, bundled by esbuild as a tiny shell that lazy-loads one code-split chunk per feature tab. Every message between the extension host and the webview flows through a single shared protocol validated at runtime with [valibot](https://valibot.dev/), so malformed frames are rejected rather than acted on. The webview runs under a strict CSP (`default-src 'none'`, nonce-only scripts) and makes no network calls. Lint + format is [Biome](https://biomejs.dev/); 4,400+ unit tests gate every change. Upgrading from v1? See the [v1→v2 migration guide](docs/migration/v1-to-v2.md). There's nothing you need to do.
 
 <br>
 

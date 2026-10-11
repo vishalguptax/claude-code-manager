@@ -1,102 +1,94 @@
 #!/usr/bin/env node
-// Bakes the live combined download count (VS Code Marketplace + Open VSX)
-// into site/index.html as static text — best for SEO (number is in the markup,
-// no client fetch, no layout shift). Run by the Pages workflow on every deploy.
-// No dependencies: uses Node 20+ global fetch. On any fetch failure it keeps the
-// last-committed number rather than zeroing it out.
+// Builds the static site in site/ from site-src/ (page table + bodies), the
+// changelog and two lists in the extension's source. No dependencies.
+//
+//   node scripts/build-site.mjs            fetch live numbers, write site/
+//   node scripts/build-site.mjs --offline  use site-src/stats.json instead of fetching
+//   node scripts/build-site.mjs --og       also regenerate the social cards (needs Chrome)
+//   node scripts/build-site.mjs --report   print title/description lengths per page
+//   node scripts/build-site.mjs --save-stats  write fetched numbers back to site-src/stats.json
+//
+// The generated pages are not committed (see .gitignore): the Pages workflow
+// builds them at deploy with live numbers. site-src/stats.json is the committed
+// fallback for a failed fetch, refreshed with --save-stats.
 
-import { readFile, writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { buildSite, gitLastmod } from "./site/build.mjs";
+import { generateCards } from "./site/og.mjs";
+import { DESCRIPTION_MAX, TITLE_MAX } from "./site/seo.mjs";
+import { resolveStats } from "./site/stats.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const HTML = join(__dirname, "..", "site", "index.html");
-const PUBLISHER = "vishalguptax";
-const NAME = "claude-manager";
-const EXT_ID = `${PUBLISHER}.${NAME}`;
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const siteDir = join(root, "site");
+const args = new Set(process.argv.slice(2));
+const inCI = Boolean(process.env.GITHUB_ACTIONS);
 
-async function marketplaceInstalls() {
-  const res = await fetch(
-    "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery",
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/json;api-version=7.2-preview.1",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        filters: [{ criteria: [{ filterType: 7, value: EXT_ID }] }],
-        flags: 914, // IncludeStatistics
-      }),
-    },
+// A fallback in CI must be visible on a green run, so it is printed as an
+// Actions warning annotation rather than a plain log line.
+const warn = (msg) => console.warn(inCI ? `::warning title=build-site::${msg}` : `warning: ${msg}`);
+
+const statsPath = join(root, "site-src/stats.json");
+const fallback = JSON.parse(readFileSync(statsPath, "utf8"));
+const stats = args.has("--offline") ? { ...fallback } : await resolveStats({ fallback, warn });
+
+// Local date, to match git's %cs (committer date in the committer's zone).
+const today = new Date().toLocaleDateString("sv-SE");
+const { files, ctx } = buildSite({
+  root,
+  stats,
+  lastmodOf: (sources) => gitLastmod(root, sources, today),
+});
+
+for (const [rel, text] of files) {
+  const dest = join(siteDir, rel);
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(dest, text);
+}
+console.log(
+  `wrote ${files.size} files (v${ctx.version}, ${stats.marketplaceInstalls} + ${stats.openVsxDownloads} downloads, ${stats.stars} stars)`,
+);
+
+if (args.has("--save-stats")) {
+  const {
+    marketplaceInstalls,
+    openVsxDownloads,
+    stars,
+    rating,
+    ratingCount,
+    marketplaceVersion,
+    openVsxVersion,
+    publishedVersion,
+  } = stats;
+  writeFileSync(
+    statsPath,
+    `${JSON.stringify({ marketplaceInstalls, openVsxDownloads, stars, rating, ratingCount, marketplaceVersion, openVsxVersion, publishedVersion, asOf: today }, null, 2)}\n`,
   );
-  if (!res.ok) throw new Error(`marketplace ${res.status}`);
-  const data = await res.json();
-  const stats = data.results?.[0]?.extensions?.[0]?.statistics ?? [];
-  const installs = stats.find((s) => s.statisticName === "install")?.value;
-  if (typeof installs !== "number") throw new Error("marketplace: no install stat");
-  return Math.round(installs);
+  console.log("saved numbers to site-src/stats.json");
 }
 
-async function openVsxDownloads() {
-  const res = await fetch(`https://open-vsx.org/api/${PUBLISHER}/${NAME}`);
-  if (!res.ok) throw new Error(`openvsx ${res.status}`);
-  const data = await res.json();
-  if (typeof data.downloadCount !== "number") throw new Error("openvsx: no downloadCount");
-  return data.downloadCount;
-}
-
-async function githubStars() {
-  const res = await fetch("https://api.github.com/repos/vishalguptax/claude-code-manager", {
-    headers: { Accept: "application/vnd.github+json" },
+if (args.has("--og") || inCI) {
+  const { made, kept, missing } = generateCards({
+    pages: ctx.pages,
+    siteDir,
+    version: ctx.version,
+    warn,
   });
-  if (!res.ok) throw new Error(`github ${res.status}`);
-  const data = await res.json();
-  if (typeof data.stargazers_count !== "number") throw new Error("github: no stargazers_count");
-  return data.stargazers_count;
-}
-
-function bakeCounter(html, className, value) {
-  const pretty = value.toLocaleString("en-US");
-  // Tag-agnostic: the counters are <strong> in the markup, not <span>.
-  // Match any single element tag and close it generically so the bake
-  // can't silently no-op again if the tag changes.
-  const re = new RegExp(
-    `(<[a-z]+ class="${className}"[^>]*data-target=")\\d+("[^>]*data-final=")[\\d,]+("[^>]*>)[\\d,]+(</[a-z]+>)`,
-    "g",
-  );
-  return html.replace(re, `$1${value}$2${pretty}$3${pretty}$4`);
-}
-
-async function main() {
-  let html = await readFile(HTML, "utf8");
-  let changed = false;
-
-  // Combined downloads (Marketplace + Open VSX).
-  try {
-    const [mp, ovsx] = await Promise.all([marketplaceInstalls(), openVsxDownloads()]);
-    const total = mp + ovsx;
-    html = bakeCounter(html, "counter", total);
-    changed = true;
-    console.log(`marketplace=${mp} openvsx=${ovsx} downloads=${total}`);
-  } catch (err) {
-    console.warn(`download fetch failed (${err.message}); keeping committed number`);
-  }
-
-  // GitHub stars (independent — a failure here must not block downloads).
-  try {
-    const stars = await githubStars();
-    html = bakeCounter(html, "gh-stars", stars);
-    changed = true;
-    console.log(`stars=${stars}`);
-  } catch (err) {
-    console.warn(`stars fetch failed (${err.message}); keeping committed number`);
-  }
-
-  if (changed) {
-    await writeFile(HTML, html);
-    console.log("baked live counts into site/index.html");
+  console.log(`social cards: ${made.length} rendered, ${kept.length} kept`);
+  if (missing.length) {
+    console.error(`no social card for: ${missing.join(", ")}`);
+    process.exit(1);
   }
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+if (args.has("--report")) {
+  for (const p of ctx.pages) {
+    const t = p.title.length;
+    const d = p.description.length;
+    const flag = t > TITLE_MAX || d > DESCRIPTION_MAX ? "  <-- over" : "";
+    console.log(
+      `${(p.slug || "/").padEnd(44)} title ${String(t).padStart(2)}  desc ${String(d).padStart(3)}${flag}`,
+    );
+  }
+}

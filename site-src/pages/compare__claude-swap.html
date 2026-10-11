@@ -1,0 +1,30 @@
+<section class="block prose" aria-labelledby="cw1">
+  <h2 id="cw1">The short version</h2>
+  <p><a href="https://github.com/realiti4/claude-swap">claude-swap</a> (<code>cswap</code>) is a command-line account switcher for Claude Code, installed with <code>uv</code> or <code>pipx</code>. Its README describes switching without logging out, switching for you before you hit a rate limit, a dashboard of each account's 5-hour and 7-day usage, and running accounts in parallel; it works with the CLI and the VS Code extension. Claude Code Manager switches saved accounts from VS Code's sidebar or command palette, next to your usage and the rest of your setup.</p>
+</section>
+
+<section class="block" aria-labelledby="cw2">
+  <h2 id="cw2">Side by side</h2>
+  <div class="table-wrap"><table class="data cmp">
+    <thead><tr><th scope="col"></th><th scope="col">claude-swap</th><th scope="col">Claude Code Manager</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Where it runs</th><td>Terminal (Python)</td><td>VS Code and VS Code-based editors</td></tr>
+      <tr><th scope="row">Switch without <code>/logout</code></th><td>Yes</td><td>Yes</td></tr>
+      <tr><th scope="row">Automatic switching near a limit</th><td>Yes</td><td>No — you choose when to switch</td></tr>
+      <tr><th scope="row">Usage per account</th><td>Live dashboard of 5-hour and 7-day usage and reset times</td><td>Each profile shows its last known weekly usage; the active account's limits are in the status bar</td></tr>
+      <tr><th scope="row">Accounts in parallel</th><td>Yes</td><td>One active login at a time (Anthropic documents <code>CLAUDE_CONFIG_DIR</code> for parallel setups)</td></tr>
+      <tr><th scope="row">Also does</th><td>Account switching, focused</td><td>Sessions, usage, MCP, skills, hooks, agents, plugins, checkpoints</td></tr>
+      <tr><th scope="row">Licence</th><td>MIT</td><td>Apache-2.0</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">claude-swap features from its README, read 2026-10-11.</p>
+</section>
+
+<section class="block prose" aria-labelledby="cw3">
+  <h2 id="cw3">Which to pick</h2>
+  <ul class="ticks">
+    <li><strong>Choose claude-swap</strong> for automatic rotation when an account nears its limit, parallel accounts, or a terminal-only workflow.</li>
+    <li><strong>Choose Claude Code Manager</strong> to switch from your editor without leaving it, with sessions, usage and settings in the same place.</li>
+  </ul>
+  <p>Both keep copies of your logins on your machine; read each project's notes on where.</p>
+</section>

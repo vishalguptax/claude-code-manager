@@ -1,0 +1,28 @@
+<section class="block" aria-labelledby="e1">
+  <h2 id="e1">Where each editor installs extensions from</h2>
+  <p class="sec-lede">Claude Code Manager is the same extension in every editor; what changes is which registry the editor's Extensions view searches. It's published to both.</p>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th scope="col">Editor</th><th scope="col">Installs extensions from</th><th scope="col">Source</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">VS Code 1.90+</th><td>VS Code Marketplace</td><td>—</td></tr>
+      <tr><th scope="row"><a href="/editors/cursor/">Cursor</a></th><td>Open VSX (through Cursor's proxy)</td><td><a href="https://cursor.com/help/customization/extensions">Cursor docs</a></td></tr>
+      <tr><th scope="row"><a href="/editors/windsurf/">Devin Desktop (formerly Windsurf)</a></th><td>An Open VSX mirror</td><td><a href="https://docs.devin.ai/desktop/advanced">Devin docs</a></td></tr>
+      <tr><th scope="row"><a href="/editors/kiro/">Kiro</a></th><td>open-vsx.org</td><td><a href="https://kiro.dev/docs/ide/editor/extension-registry/">Kiro docs</a></td></tr>
+      <tr><th scope="row"><a href="/editors/vscodium/">VSCodium</a></th><td>Open VSX</td><td><a href="https://github.com/VSCodium/vscodium/blob/master/docs/extensions.md">VSCodium docs</a></td></tr>
+      <tr><th scope="row">Gitpod (Ona), VS Code Browser</th><td>Open VSX</td><td><a href="https://ona.com/docs/classic/user/references/ides-and-editors/vscode-extensions">Ona docs</a></td></tr>
+      <tr><th scope="row">Eclipse Theia</th><td>Open VSX, where the product enables it</td><td><a href="https://theia-ide.org/docs/user_install_vscode_extensions/">Theia docs</a></td></tr>
+      <tr><th scope="row">Antigravity, Trae, Codespaces</th><td>Not confirmed in their docs. Search <em>Claude Code Manager</em> in the Extensions view; it's on both registries.</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p>Can't find it? Download the <code>.vsix</code> from <a href="https://open-vsx.org/extension/vishalguptax/claude-manager">Open VSX</a> and use <em>Extensions: Install from VSIX…</em>, which VS Code, VSCodium, Theia and Gitpod document.</p>
+</section>
+
+<section class="block prose" aria-labelledby="e2">
+  <h2 id="e2">What's the same everywhere</h2>
+  <ul class="ticks">
+    <li><strong>It reads the same <code>~/.claude/</code></strong> wherever Claude Code runs on your machine, so a session started in one editor's terminal shows up in another's sidebar.</li>
+    <li><strong>Resume returns to the editor you're in.</strong> Links into the official Claude Code extension use the running editor's own URL scheme rather than <code>vscode://</code>, so they don't launch a different app.</li>
+    <li><strong>The secondary sidebar</strong> option needs VS Code 1.106 or later; editors on an older VS Code base use the primary sidebar.</li>
+  </ul>
+  <p>Anthropic's own docs say the official Claude Code extension also installs in VS Code forks such as Devin Desktop and Kiro, from Open VSX, and suggest running the CLI in the editor's terminal where it can't. Claude Code Manager works with either.</p>
+</section>

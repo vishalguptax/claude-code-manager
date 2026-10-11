@@ -1,0 +1,25 @@
+<section class="block ledger-sec" aria-labelledby="h1x">
+  <p class="callno">"hooks": { … }</p>
+  <h2 id="h1x">Where Claude Code hooks live</h2>
+  <ol class="ledger">
+    <li><div><span class="callno">~/.claude/settings.json</span><strong>User</strong><span>Your hooks, for every project.</span></div></li>
+    <li><div><span class="callno">.claude/settings.json</span><strong>Project</strong><span>Shared with the repository.</span></div></li>
+    <li><div><span class="callno">.claude/settings.local.json</span><strong>Local</strong><span>The project, but only on your machine.</span></div></li>
+  </ol>
+</section>
+
+<section class="block ledger-sec" aria-labelledby="h2x">
+  <h2 id="h2x">What the Hooks tab does</h2>
+  <ol class="ledger">
+    <li><div><span class="callno">full command</span><strong>Read every hook</strong><span>Grouped by event, with its matcher, scope and the exact command it runs.</span></div></li>
+    <li><div><span class="callno">_disabled_hooks</span><strong>Turn one off, keep it</strong><span>A disabled hook is moved aside in the same file, so turning it back on restores it exactly.</span></div></li>
+    <li><div><span class="callno">scope → event → matcher → command</span><strong>Add one with a guided form</strong><span>Pick where it goes, which event, which tools it matches, and the command — no JSON.</span></div></li>
+    <li><div><span class="callno">edit · delete</span><strong>Change or remove</strong><span>Edit any field or remove a hook; open <code>/hooks</code> in Claude Code to check the result.</span></div></li>
+  </ol>
+</section>
+
+<section class="block" aria-labelledby="h3x">
+  <h2 id="h3x">Claude Code hook events ({{hookEventsCount}})</h2>
+  <p class="sec-lede">The events the Hooks tab's form offers, from the extension's source. Anthropic's <a href="https://code.claude.com/docs/en/hooks">hooks reference</a> has each event's input and how its output is used.</p>
+  {{hooksTable}}
+</section>

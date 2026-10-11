@@ -45,3 +45,5 @@ marketing/**
 # the published video lives in site/assets/video, which site/** already excludes.
 brag-output*/**
 site/**
+# Site sources (built into site/ by scripts/build-site.mjs); never shipped.
+site-src/**

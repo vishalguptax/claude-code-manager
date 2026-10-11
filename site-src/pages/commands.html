@@ -1,0 +1,24 @@
+<section class="block" aria-labelledby="c1">
+  <p class="callno">src/features/commands/parser.ts</p>
+  <h2 id="c1">All {{commandsCount}} built-in Claude Code slash commands</h2>
+  <p class="sec-lede">The list the Commands tab shows, taken straight from the extension's source when this page was built. Type <code>/</code> in Claude Code to run any of them. Bundled skills such as <code>/code-review</code> appear in Claude Code too; see Anthropic's <a href="https://code.claude.com/docs/en/commands">commands reference</a>.</p>
+  {{commandsTable}}
+</section>
+
+<section class="block steps" aria-labelledby="c2">
+  <h2 id="c2">Make your own slash command</h2>
+  <ol>
+    <li>Create <code>.claude/commands/</code> in a project (or <code>~/.claude/commands/</code> for every project).</li>
+    <li>Add a Markdown file. Its name is the command: <code>review.md</code> becomes <code>/review</code>. The file's text is the prompt Claude receives.</li>
+    <li>Run it by typing <code>/review</code> in Claude Code — or find it in the Commands tab and launch it from there.</li>
+  </ol>
+  <p>Anthropic's docs now describe custom commands as skills: <code>.claude/skills/review/SKILL.md</code> gives you the same <code>/review</code>, with room for extra files. Existing command files keep working.</p>
+</section>
+
+<section class="block prose" aria-labelledby="c3">
+  <h2 id="c3">The Commands tab</h2>
+  <ul class="ticks">
+    <li><strong>Built-ins, yours and your plugins'</strong> in one list, each with its description.</li>
+    <li><strong>Launch a command</strong> into Claude Code in one click, or open a custom command's file to edit it.</li>
+  </ul>
+</section>

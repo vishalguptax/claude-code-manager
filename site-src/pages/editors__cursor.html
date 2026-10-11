@@ -1,0 +1,19 @@
+<section class="block steps" aria-labelledby="ec1">
+  <h2 id="ec1">Install Claude Code Manager in Cursor</h2>
+  <ol>
+    <li>Open the Extensions view (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>, or <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> on macOS).</li>
+    <li>Search for <strong>Claude Code Manager</strong> (publisher <code>vishalguptax</code>) and click Install. Cursor serves third-party extensions from Open VSX, through its own proxy that scans them before offering them.</li>
+    <li>Open the sidebar with <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> (<kbd>Cmd</kbd>+<kbd>Alt</kbd>+<kbd>C</kbd> on macOS), or from the status bar.</li>
+  </ol>
+  <p>You also need Claude Code itself — the CLI in Cursor's terminal, the official Claude Code extension (Anthropic's docs give a Cursor install link), or both.</p>
+</section>
+
+<section class="block prose" aria-labelledby="ec2">
+  <h2 id="ec2">Using it with Claude Code in Cursor</h2>
+  <ul class="ticks">
+    <li><strong>Sessions from Cursor's terminal and from the Claude Code extension</strong> appear in one list, next to sessions you ran in other editors.</li>
+    <li><strong>Resume opens in Cursor.</strong> Links into the official extension's chat use Cursor's own <code>cursor://</code> scheme, so they land in the window you're in.</li>
+    <li><strong>WSL:</strong> when Cursor and Claude Code run against WSL, the folder name Claude Code uses for a project can differ from the path Cursor reports. Export looks the session up by its ID first, so it still finds the right file.</li>
+  </ul>
+  <p>Cursor's own AI features and Claude Code are separate: this extension manages Claude Code's data only.</p>
+</section>

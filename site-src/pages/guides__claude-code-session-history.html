@@ -1,0 +1,37 @@
+<article class="block prose article" aria-labelledby="gs1">
+  <h2 id="gs1">The short answer</h2>
+  <p>Claude Code saves each conversation as a JSONL file at <code>~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl</code>. The <code>&lt;project&gt;</code> folder is your working directory's path with every character that isn't a letter or digit replaced by <code>-</code>. So a session started in <code>/Users/me/app</code> lands in <code>~/.claude/projects/-Users-me-app/</code>. (<a href="https://code.claude.com/docs/en/sessions">Anthropic: sessions</a>)</p>
+  <p>Sessions from the CLI and from the official VS Code extension are stored the same way, in the same place.</p>
+
+  <h2 id="gs2">How long Claude Code keeps them</h2>
+  <p>Thirty days, by default. A background sweep deletes transcripts older than <code>cleanupPeriodDays</code>, without a message, so an old session simply stops appearing in <code>/resume</code>. To keep them longer, set a larger number in <code>~/.claude/settings.json</code>; <code>0</code> isn't allowed. (<a href="https://code.claude.com/docs/en/settings-reference#cleanupperioddays">Anthropic: settings reference</a>)</p>
+  <pre><code>{
+  "cleanupPeriodDays": 365
+}</code></pre>
+  <p>If a session is already gone, it can't be recovered from Claude Code — only from a backup of your home folder.</p>
+
+  <h2 id="gs3">Resume a session from the command line</h2>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>claude --continue</code></th><td>Reopens the most recent session in the current folder.</td></tr>
+      <tr><th scope="row"><code>claude --resume</code></th><td>Opens a picker of past sessions.</td></tr>
+      <tr><th scope="row"><code>/resume</code></th><td>Switches to another session from inside Claude Code.</td></tr>
+      <tr><th scope="row"><code>--fork-session</code></th><td>With <code>--resume</code> or <code>--continue</code>: starts a new session ID from the old conversation instead of reusing it.</td></tr>
+    </tbody>
+  </table></div>
+  <p>The picker shows sessions for the folder you're in. If you can't find one, you may be in the wrong directory — the session belongs to the folder it was started in.</p>
+
+  <h2 id="gs4">Find a session when you don't remember where it was</h2>
+  <ol>
+    <li>Search the files directly: <code>grep -l "the thing you remember" ~/.claude/projects/*/*.jsonl</code> prints the matching transcripts. The folder name tells you the project.</li>
+    <li>Or check your prompts: <code>~/.claude/history.jsonl</code> has one line per prompt with its project.</li>
+    <li>Or use a viewer. Claude Code Manager's <a href="/sessions/">Sessions tab</a> searches every transcript across all projects and resumes the one you pick in the right folder; its <a href="/prompts/">Prompts tab</a> searches your prompt history.</li>
+  </ol>
+
+  <h2 id="gs5">Move a session to another machine</h2>
+  <p>Copy the <code>.jsonl</code> file into the matching project folder on the other machine — the folder name has to match that machine's path to the project. Claude Code Manager's Export and Import do this for you: Import works out the right folder.</p>
+
+  <h2 id="gs6">Should you edit or parse these files?</h2>
+  <p>Read them if you like, but Anthropic notes the entry format is internal to Claude Code and changes between versions, so scripts that parse them can break on any release. For a readable copy, run <code>/export</code> inside the session.</p>
+</article>

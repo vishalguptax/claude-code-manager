@@ -1,0 +1,25 @@
+<section class="block steps" aria-labelledby="a1">
+  <p class="callno">Claude Code Manager: Switch Account</p>
+  <h2 id="a1">Switch Claude Code accounts in two clicks</h2>
+  <ol>
+    <li><strong>Save the account you're signed in to.</strong> In the Account tab, save the current login as a profile and give it a name, like <em>Work</em>.</li>
+    <li><strong>Sign in to the next one.</strong> Choose <em>Log in as a new account</em>: the extension starts <code>claude</code> and sends <code>/login</code>. Save that one too.</li>
+    <li><strong>Switch whenever you like</strong> from the Account tab, or with <em>Claude Code Manager: Switch Account</em> in the command palette.</li>
+  </ol>
+</section>
+
+<section class="block ledger-sec" aria-labelledby="a2">
+  <h2 id="a2">What a switch changes, <em class="serif">and what it doesn't</em></h2>
+  <ol class="ledger">
+    <li><div><span class="callno">~/.claude.json → oauthAccount</span><strong>The account identity</strong><span>Only the login identity is swapped. Projects, MCP servers, history and the rest of the file stay as they are.</span></div></li>
+    <li><div><span class="callno">Keychain · .credentials.json</span><strong>The Claude credential</strong><span>On macOS the Keychain entry; on Linux and Windows <code>~/.claude/.credentials.json</code>. Other credentials beside it are left alone.</span></div></li>
+    <li><div><span class="callno">.oauth_refresh.lock</span><strong>Safely, while Claude runs</strong><span>The switch takes the same lock Claude Code uses when it refreshes a token, and keeps a crash journal so an interrupted switch can be recovered.</span></div></li>
+    <li><div><span class="callno">profiles</span><strong>Each account's last quota</strong><span>The switcher shows the weekly usage each account had when you last used it, so you can pick the one with room left.</span></div></li>
+  </ol>
+</section>
+
+<section class="block prose" aria-labelledby="a3">
+  <h2 id="a3">Where your tokens are kept</h2>
+  <p>A profile is a folder in <code>~/.claude/manager-accounts/</code> holding that login's identity and a copy of its tokens, in plaintext — the same way Claude Code itself stores its login in <code>.credentials.json</code> on Linux and Windows. It never leaves your machine, and the extension tells you this before you save the first profile. Delete a profile and its copy goes with it.</p>
+  <p>If you'd rather keep accounts fully separate — their own settings and history too — Anthropic documents running each with its own <code>CLAUDE_CONFIG_DIR</code>; the extension reads that variable as well.</p>
+</section>

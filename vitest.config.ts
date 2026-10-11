@@ -13,7 +13,8 @@ export default defineConfig({
     environment: "node",
     // Collect both legacy __tests__/ suites and CDD co-located *.test.* files
     // that live next to the component they cover (FSD/CDD layout).
-    include: ["src/**/*.test.{ts,tsx}"],
+    // scripts/site/ is the zero-dependency site generator (scripts/build-site.mjs).
+    include: ["src/**/*.test.{ts,tsx}", "scripts/site/__tests__/*.test.ts"],
     // Keep every suite away from the real macOS Keychain and from a
     // developer's exported CLAUDE_CONFIG_DIR; see each file.
     setupFiles: ["src/__mocks__/keychainGuard.ts", "src/__mocks__/claudeEnvGuard.ts"],

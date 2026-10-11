@@ -1,0 +1,26 @@
+<article class="block prose article" aria-labelledby="gd1">
+  <h2 id="gd1">Switch it off, keep the configuration</h2>
+  <p>Inside Claude Code, open <code>/mcp</code>, select the server and toggle it off, or type <code>/mcp disable &lt;server&gt;</code>. Claude Code stops connecting to it but keeps it listed as disabled, so you can turn it back on later. The on/off state is stored per project in <code>~/.claude.json</code>. (<a href="https://code.claude.com/docs/en/mcp">Anthropic: MCP</a>)</p>
+
+  <h2 id="gd2">Remove it completely</h2>
+  <pre><code>claude mcp list            # see every server and its scope
+claude mcp remove &lt;name&gt;   # delete it from its config</code></pre>
+  <p>A server added at <em>local</em> or <em>user</em> scope lives in <code>~/.claude.json</code>; a <em>project</em> server lives in the project's <code>.mcp.json</code>, which you can also edit by hand.</p>
+
+  <h2 id="gd3">Project servers from .mcp.json: approval is a separate switch</h2>
+  <p>The first time Claude Code sees servers in a project's <code>.mcp.json</code>, it asks whether to approve them. Your answers are stored as <code>enabledMcpjsonServers</code> and <code>disabledMcpjsonServers</code> in your settings. Anthropic's docs are explicit that these approval lists are unrelated to the on/off toggle above — a server can be approved and still switched off.</p>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th scope="col">You want to</th><th scope="col">Do this</th><th scope="col">Where it's stored</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Pause a server</th><td><code>/mcp</code> → toggle off, or <code>/mcp disable &lt;server&gt;</code></td><td><code>~/.claude.json</code>, per project</td></tr>
+      <tr><th scope="row">Delete a server</th><td><code>claude mcp remove &lt;name&gt;</code></td><td>Its own config file</td></tr>
+      <tr><th scope="row">Refuse a project's server</th><td>Decline it when asked, or list it in <code>disabledMcpjsonServers</code></td><td>Settings file</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="gd4">Find the server you can't find</h2>
+  <p>If a server keeps appearing, it may be defined somewhere you haven't looked: a <code>.mcp.json</code> in a parent folder, your user config, or a plugin that ships one. <code>claude mcp list</code> shows the scope of each.</p>
+
+  <h2 id="gd5">From a sidebar instead</h2>
+  <p>Claude Code Manager's <a href="/mcp/">MCP tab</a> lists every server with the file it comes from and a switch beside it, so you can pause several at once without opening a settings file. It writes the same state Claude Code reads.</p>
+</article>

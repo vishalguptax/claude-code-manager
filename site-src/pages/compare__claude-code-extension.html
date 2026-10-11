@@ -1,0 +1,33 @@
+<section class="block prose" aria-labelledby="ce1">
+  <h2 id="ce1">The short version</h2>
+  <p><strong>Anthropic's Claude Code extension</strong> is Claude Code inside VS Code: you chat, review diffs, approve plans and run sessions there. <strong>Claude Code Manager</strong> doesn't talk to Claude at all. It's a sidebar for the files Claude Code leaves on your machine — every session, prompt, file backup, setting, skill and login — across the CLI and the extension. Install the official one to use Claude Code; add this one to manage what accumulates.</p>
+</section>
+
+<section class="block" aria-labelledby="ce2">
+  <h2 id="ce2">Side by side</h2>
+  <div class="table-wrap"><table class="data cmp">
+    <thead><tr><th scope="col">Job</th><th scope="col">Official Claude Code extension</th><th scope="col">Claude Code Manager</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Chat with Claude, review diffs, plan mode</th><td>Yes — this is what it's for</td><td>No. It opens sessions in the official chat or a terminal.</td></tr>
+      <tr><th scope="row">Past sessions</th><td>Session history with keyword search and resume</td><td>Every session from the CLI and the extension in one list, full-transcript search, project and git branch filters, fork, export and import</td></tr>
+      <tr><th scope="row">Usage and limits</th><td><code>/usage</code> opens an Account &amp; usage dialog with plan limit bars</td><td>Usage by model, project, tool and MCP server, a heatmap, and 5-hour and weekly limits in the status bar</td></tr>
+      <tr><th scope="row">More than one Claude account</th><td>Sign out and in (Anthropic also documents one config folder per account)</td><td>Saved profiles you switch between without <code>/logout</code></td></tr>
+      <tr><th scope="row">MCP servers, hooks, commands, plugins</th><td>A Customize section lists them; hooks can be added, edited and removed</td><td>Tabs for each, showing every config file a server or hook comes from, with on/off switches</td></tr>
+      <tr><th scope="row">File backups (checkpoints)</th><td><code>/rewind</code> inside a session</td><td>Diff and restore any saved version of a file, any time</td></tr>
+      <tr><th scope="row">Memory</th><td>The Customize section includes memory</td><td>Read, search and prune auto-memory files per project, with broken-link and orphan checks</td></tr>
+      <tr><th scope="row">Prompt history</th><td>—</td><td>Search every prompt you've typed, across projects</td></tr>
+      <tr><th scope="row">Settings safety net</th><td>—</td><td>A snapshot before every settings change, with restore</td></tr>
+      <tr><th scope="row">Made by</th><td>Anthropic</td><td>An independent developer, Apache-2.0</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Official extension features from <a href="https://code.claude.com/docs/en/vs-code">Anthropic's VS Code docs</a>, read 2026-10-11. A dash means the docs don't describe it, not that it can't be done some other way.</p>
+</section>
+
+<section class="block prose" aria-labelledby="ce3">
+  <h2 id="ce3">How they work together</h2>
+  <ul class="ticks">
+    <li><strong>Resume into the chat.</strong> With <code>sessions.resumeIn</code> on <code>auto</code>, a session started in the official extension reopens there; one from the CLI reopens in a terminal.</li>
+    <li><strong>Launch a skill or command into the chat</strong> from the Skills and Commands tabs.</li>
+    <li><strong>Sit side by side.</strong> On VS Code 1.106 or later, you can move Claude Code Manager to the secondary sidebar, next to the Claude Code panel.</li>
+  </ul>
+</section>

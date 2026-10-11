@@ -1,0 +1,14 @@
+<section class="block steps" aria-labelledby="ck1">
+  <p class="callno">~/.claude/file-history/&lt;session-id&gt;/</p>
+  <h2 id="ck1">Restore a file Claude Code changed</h2>
+  <ol>
+    <li><strong>Open the Checkpoints tab</strong> and pick the session. You'll see each file Claude edited and the versions it saved.</li>
+    <li><strong>Diff a version</strong> against the file as it is now, in VS Code's diff view.</li>
+    <li><strong>Restore it</strong> after a confirmation. A closed file is written back byte for byte; an open one goes through your editor, so you can undo.</li>
+  </ol>
+</section>
+
+<section class="block prose" aria-labelledby="ck2">
+  <h2 id="ck2">What checkpoints cover</h2>
+  <p>Claude Code saves a copy of a file before it edits it, for its own <code>/rewind</code> feature (Esc twice). Those copies are what this tab reads. According to Anthropic's docs, checkpoints don't include files changed by shell commands that Claude ran, or edits made outside Claude Code — for those, use git.</p>
+</section>

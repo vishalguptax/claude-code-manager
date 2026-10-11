@@ -10,6 +10,8 @@
       "src/features/*/webview/index.tsx",
       "scripts/build-extension.mjs",
       "scripts/build-webview.mjs",
+      "scripts/build-site.mjs",
+      "scripts/site/*.mjs",
       "!**/__tests__/**",
       "!**/*.test.ts",
       "!**/*.test.tsx"

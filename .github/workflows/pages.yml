@@ -3,44 +3,89 @@ name: Deploy site to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["site/**", ".github/workflows/pages.yml"]
+    # Every input scripts/build-site.mjs reads. package.json carries the
+    # version; the two src files are the command and hook lists the
+    # /commands/ and /hooks/ pages publish.
+    paths:
+      - "site/**"
+      - "site-src/**"
+      - "scripts/build-site.mjs"
+      - "scripts/site/**"
+      - "CHANGELOG.md"
+      - "package.json"
+      - "src/features/commands/parser.ts"
+      - "src/features/hooks/events.ts"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
-  # Re-bake the live star + download counts into the static HTML on a
-  # schedule so they stay current without a site edit. Baking server-side
-  # (vs a client fetch) keeps the numbers in the markup — best for SEO and
-  # no layout shift — while still refreshing on their own.
+  # Re-bake the live install, download and star counts every 12 hours so they
+  # stay current without a site edit. The numbers are baked server-side (not
+  # fetched in the browser): in the markup for crawlers, no layout shift, and
+  # no request from a page that promises no telemetry. This also picks up the
+  # release bot's version bump, which (pushed with GITHUB_TOKEN) doesn't
+  # trigger workflows itself.
   schedule:
     - cron: "0 */12 * * *"
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Allow one concurrent deployment; don't cancel an in-progress run.
+# One deployment at a time; don't cancel one in progress.
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: each page's sitemap lastmod is the last commit that
+          # touched its sources.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Builds every page, bakes live numbers (keeping site-src/stats.json on a
+      # failed fetch, with a ::warning), and renders the social cards with the
+      # runner's preinstalled google-chrome.
+      - name: Build site
+        run: node scripts/build-site.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
   deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+      contents: read
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Bake live download count into site
-        run: node scripts/build-site.mjs
-      - name: Upload site/ artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
+      # Content changed (a push, not the cron or a manual run): tell IndexNow.
+      - name: Check out the IndexNow script
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/site
+            site-src/pages.json
+      - name: Download the built site
+        if: github.event_name == 'push'
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/pages
+      - name: Ping IndexNow
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p "$RUNNER_TEMP/site" && tar -xf "$RUNNER_TEMP/pages/artifact.tar" -C "$RUNNER_TEMP/site"
+          origin=$(node -p "require('./site-src/pages.json').site.origin")
+          key=$(node -p "require('./site-src/pages.json').site.indexNowKey")
+          node scripts/site/indexnow.mjs "$RUNNER_TEMP/site/sitemap.xml" "$origin" "$key"

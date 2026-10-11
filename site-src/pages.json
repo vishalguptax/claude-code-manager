@@ -1,0 +1,476 @@
+{
+  "site": {
+    "origin": "https://claudecodemanager.vishalg.in",
+    "indexNowKey": "199d05bf6297e080fde32230b3207e8c",
+    "appDescription": "Free, open-source VS Code extension that turns everything Claude Code keeps on your machine — sessions, usage and quota, accounts, MCP servers, skills, commands, hooks, agents, plugins, checkpoints, prompts and memory — into one searchable sidebar. 100% local, no telemetry.",
+    "llmsIntro": "Claude Code Manager reads the files Claude Code keeps in ~/.claude/, ~/.claude.json and a project's .claude/ folder, and shows them as 12 sidebar tabs in VS Code and VS Code-based editors (Cursor, Devin Desktop/Windsurf, Kiro, VSCodium and others that install from Open VSX). It works with the Claude Code CLI and with Anthropic's official Claude Code extension: sessions from both appear in one list. It has no network client and collects no telemetry. The opt-in Quota card reads Claude Code's own statusline data from a local cache file; it never calls Anthropic. Account profiles keep a local, plaintext copy of each saved login's tokens in ~/.claude/manager-accounts/. It is an independent project, not made by Anthropic.",
+    "video": {
+      "name": "Claude Code Manager: a one-minute tour",
+      "description": "Sessions, file checkpoints, prompt history, MCP servers, skills, commands, hooks, agents and account usage in the VS Code sidebar.",
+      "poster": "/assets/video/poster.jpg",
+      "mp4": "/assets/video/claude-code-manager.mp4",
+      "uploadDate": "2026-09-30",
+      "duration": "PT59S",
+      "seconds": 59
+    }
+  },
+  "pages": [
+    {
+      "slug": "",
+      "type": "home",
+      "group": "project",
+      "title": "Claude Code Manager — A VS Code Sidebar for Claude Code",
+      "description": "Free VS Code extension for Claude Code: search and resume sessions, track usage and limits, switch accounts, and manage MCP, skills, hooks and agents.",
+      "crumb": "Home",
+      "h1": "Claude Code Manager",
+      "og": { "kicker": "~/.claude → one sidebar", "title": "Everything Claude Code keeps on your machine, in one VS Code sidebar", "alt": "Claude Code Manager: everything Claude Code keeps on your machine, in one VS Code sidebar" },
+      "faqTitle": "Questions, answered",
+      "faq": [
+        { "q": "Is Claude Code Manager made by Anthropic?", "a": "<p>No. It is an independent, open-source extension (Apache-2.0) built by Vishal Gupta. It reads the files Claude Code keeps on your machine and works alongside Anthropic's own <a href=\"/compare/claude-code-extension/\">Claude Code extension</a>.</p>" },
+        { "q": "Does it send anything over the network?", "a": "<p>No. The extension has no network client and no telemetry. It reads and writes local files, and it starts the <code>claude</code> CLI in a terminal only when you ask it to (for example to log in or install a plugin) — the CLI does its own networking.</p>" },
+        { "q": "Do I need Claude Code installed?", "a": "<p>Yes. Install Claude Code first — the CLI, the official VS Code extension, or both. Claude Code Manager reads the same <code>~/.claude/</code> folder, so sessions from either show up in one list.</p>" },
+        { "q": "Which editors does it work in?", "a": "<p>VS Code 1.90 or later, and VS Code-based editors. Cursor, Devin Desktop (formerly Windsurf), Kiro and VSCodium install it from Open VSX; see <a href=\"/editors/\">editors</a>.</p>" },
+        { "q": "Does it touch my Claude Code tokens?", "a": "<p>Only if you save account profiles. The Quota card never uses your token. Saving a profile for <a href=\"/accounts/\">account switching</a> keeps a local, plaintext copy of that login's tokens in <code>~/.claude/manager-accounts/</code>, and the extension tells you so the first time. Nothing leaves your machine.</p>" },
+        { "q": "Is it free?", "a": "<p>Yes. Free and open source under Apache-2.0, with no account or sign-up. <a href=\"https://github.com/sponsors/vishalguptax\">Sponsorship</a> is optional.</p>" }
+      ]
+    },
+
+    {
+      "slug": "sessions", "type": "feature", "group": "features",
+      "title": "Claude Code Session Manager — Search, Resume, Fork",
+      "description": "Browse every Claude Code session by project and git branch, search full transcripts, and resume, fork, export or import them from a VS Code sidebar.",
+      "crumb": "Sessions", "eyebrow": "~/.claude/projects/*.jsonl",
+      "summary": "Search every transcript, resume on the right branch, fork, export and import.",
+      "llms": "browse, full-text search and resume every Claude Code session (CLI or official extension) by project and git branch; fork, pin, archive, rename, export/import .jsonl or .zip, restore several at once.",
+      "h1": "The Claude Code <em class=\"serif\">session manager</em> for VS Code",
+      "lede": "Every conversation Claude Code has had on your machine, in one list. Search what was said, see which project and git branch it ran on, and resume it in a terminal or in the official extension's chat.",
+      "shot": { "src": "/assets/screenshots/01-sessions.webp", "alt": "Sessions tab listing Claude Code sessions grouped by date, with project and branch filters and live status dots" },
+      "og": { "title": "Search and resume every Claude Code session" },
+      "related": ["prompts", "checkpoints", "guides/claude-code-session-history", "compare/claude-code-extension"],
+      "faq": [
+        { "q": "How do I find an old Claude Code session?", "a": "<p>Open the Sessions tab, set the date filter to <em>All</em>, and type something you remember from the conversation — the search reads the full transcripts, not just titles. Filter by project or git branch to narrow it down, then click Resume.</p>" },
+        { "q": "Does it show sessions from the official Claude Code extension?", "a": "<p>Yes. The CLI and the official extension write to the same <code>~/.claude/projects/</code> folder, so sessions from both appear in one list. With <code>sessions.resumeIn</code> set to <code>auto</code> (the default), Resume opens a session where it started.</p>" },
+        { "q": "Does deleting a session delete the transcript?", "a": "<p>No. Delete hides the session from the list and leaves Claude Code's files untouched. The one exception is a <em>temporary</em> session you start on purpose: its transcript is removed when its terminal closes.</p>" },
+        { "q": "Can I move a session to another machine?", "a": "<p>Yes. Export it as a <code>.jsonl</code> file (or several as a <code>.zip</code>), copy it over, and use Import on the other machine. The import places it in the right project folder so <code>claude --resume</code> finds it.</p>" },
+        { "q": "What happens if I resume on the wrong git branch?", "a": "<p>You get a warning first. If the session ran on a different branch, the extension offers to check it out, to open the worktree where that branch is already checked out, or to resume anyway.</p>" }
+      ]
+    },
+    {
+      "slug": "usage", "type": "feature", "group": "features",
+      "title": "Claude Code Usage Tracker for VS Code — Tokens & Limits",
+      "description": "See Claude Code token usage by model, project and tool, plus your 5-hour and weekly limits in the status bar. Read from local files; no network calls.",
+      "crumb": "Usage & quota", "eyebrow": "~/.claude/.claude-manager/statusline.json",
+      "summary": "Tokens by model, project and tool; 5-hour and weekly limits in the status bar.",
+      "llms": "token usage by model, project, tool and MCP server over 7 days, 30 days and all time, an activity heatmap, and an opt-in Quota card plus status-bar item showing the 5-hour and 7-day limit percentages from Claude Code's own statusline data (cached locally). Cost is an estimate at public API rates.",
+      "h1": "Track Claude Code usage <em class=\"serif\">and your limits</em>",
+      "lede": "How many tokens went where — by model, by project, by tool — and how much of your 5-hour and weekly allowance is left, right in the VS Code status bar. Worked out from files already on your disk.",
+      "shot": { "src": "/assets/screenshots/09-usage.webp", "alt": "Usage view with token totals, per-model breakdown and an activity heatmap" },
+      "og": { "title": "Claude Code usage and 5-hour / weekly limits, locally" },
+      "related": ["guides/claude-code-usage-limits", "accounts", "compare/ccusage", "sessions"],
+      "faq": [
+        { "q": "How do I see my Claude Code usage in VS Code?", "a": "<p>Open the Account tab. Usage shows tokens, sessions and cache reads for the last 7 days, 30 days or all time, broken down by model, project, tool and MCP server. Turn on the Quota card to see your 5-hour and weekly limits too.</p>" },
+        { "q": "Where do the 5-hour and weekly numbers come from?", "a": "<p>From Claude Code itself. Claude Code passes <code>rate_limits</code> to its statusline command; the opt-in tap saves that to a local file, and the extension reads the file. It never calls Anthropic and never uses your token. The figures are as fresh as Claude Code's last update, and the card says when that was.</p>" },
+        { "q": "Why doesn't the Quota card show anything yet?", "a": "<p>It needs two things: the statusline tap switched on, and at least one Claude Code reply after that. Claude Code only includes limit data for Pro and Max subscribers (or behind a gateway with a spend limit), after the first response in a session.</p>" },
+        { "q": "Is the cost figure my bill?", "a": "<p>No. It is what those tokens would cost at public API rates, from a price table in the extension. Pro and Max subscriptions are billed at a flat price.</p>" },
+        { "q": "What changes on my machine when I turn the Quota card on?", "a": "<p>One entry: <code>statusLine.command</code> in <code>~/.claude/settings.json</code>, pointing at the tap. Your existing statusline still runs — the tap passes the data on to it. Turning the card off removes the entry.</p>" }
+      ]
+    },
+    {
+      "slug": "accounts", "type": "feature", "group": "features",
+      "title": "Switch Claude Code Accounts Without /logout — VS Code",
+      "description": "Save each Claude login as a profile and switch between work and personal accounts in two clicks, without the /logout and /login cycle. Free and local.",
+      "crumb": "Account switching", "eyebrow": "~/.claude/manager-accounts/",
+      "summary": "Save logins as profiles and switch without /logout and /login.",
+      "llms": "save the signed-in Claude account as a profile and switch between profiles without /logout and /login; swaps only the login identity and credentials (macOS Keychain or ~/.claude/.credentials.json); profiles keep a local plaintext copy of tokens in ~/.claude/manager-accounts/.",
+      "h1": "Switch Claude accounts <em class=\"serif\">without logging out</em>",
+      "lede": "Save each Claude login once — work, personal, a team seat — and switch between them from the sidebar or the command palette. No browser round-trip each time.",
+      "shot": { "src": "/assets/screenshots/07-account.webp", "alt": "Account tab with the profile switcher, quota bars and usage summary" },
+      "og": { "title": "Switch Claude Code accounts without /logout" },
+      "related": ["usage", "compare/claude-swap", "config", "guides/claude-code-folder"],
+      "faq": [
+        { "q": "How do I switch accounts in Claude Code?", "a": "<p>Without an extension, run <code>/logout</code> then <code>/login</code> and sign in again in the browser. With Claude Code Manager, save each account as a profile once, then pick it from the Account tab or run <em>Claude Code Manager: Switch Account</em> from the command palette.</p>" },
+        { "q": "Where are saved profiles stored, and is that safe?", "a": "<p>In <code>~/.claude/manager-accounts/&lt;profile&gt;/</code>, on your machine only. Each profile holds a copy of that login's tokens in plaintext — the same format Claude Code uses in <code>~/.claude/.credentials.json</code> on Linux and Windows — so treat the folder as sensitive. Deleting a profile deletes its copy immediately.</p>" },
+        { "q": "What exactly changes when I switch?", "a": "<p>Only the login: the account identity in <code>~/.claude.json</code> and the Claude credential entry (the macOS Keychain or <code>.credentials.json</code>). Your projects, MCP servers and settings stay as they are.</p>" },
+        { "q": "Is there an official way to use two accounts?", "a": "<p>Yes: Anthropic's docs suggest giving each account its own configuration directory with <code>CLAUDE_CONFIG_DIR</code>. That keeps separate settings and history per account. Profiles are for switching one setup between logins.</p>" }
+      ]
+    },
+    {
+      "slug": "mcp", "type": "feature", "group": "features",
+      "title": "Claude Code MCP Manager — Enable, Disable, Add Servers",
+      "description": "See every MCP server Claude Code loads, from every config file. Enable, disable, add or edit servers without hand-editing JSON. Secrets masked.",
+      "crumb": "MCP servers", "eyebrow": ".mcp.json · ~/.claude.json",
+      "summary": "Every MCP server from every config file; toggle, add and edit without JSON.",
+      "llms": "lists MCP servers from every .mcp.json up the folder tree, ~/.claude.json and plugins; enable, disable, add, edit and delete them without editing JSON; masks secrets; flags servers that need re-authentication; add from a bundled catalog of 16 servers.",
+      "h1": "Manage Claude Code MCP servers <em class=\"serif\">without the JSON</em>",
+      "lede": "MCP servers can come from a project's <code>.mcp.json</code>, any parent folder, your user config or a plugin. See them all in one list, switch them on and off, and add new ones from a form.",
+      "shot": { "src": "/assets/screenshots/05-mcp.webp", "alt": "MCP Servers tab listing servers by source with enable switches and masked secrets" },
+      "og": { "title": "Every Claude Code MCP server, one switch each" },
+      "related": ["guides/disable-mcp-server-claude-code", "plugins", "config", "skills"],
+      "faq": [
+        { "q": "How do I disable an MCP server in Claude Code?", "a": "<p>In Claude Code, toggle it off in the <code>/mcp</code> panel. In Claude Code Manager, flip its switch in the MCP tab. Either way the configuration is kept. The <a href=\"/guides/disable-mcp-server-claude-code/\">step-by-step guide</a> covers every option.</p>" },
+        { "q": "Why don't I see a server in Claude Code?", "a": "<p>It may come from a file you're not looking at — a <code>.mcp.json</code> in a parent folder, your user config, or a plugin. The MCP tab lists each server with its source, and a banner flags servers that need you to sign in again.</p>" },
+        { "q": "Are my API keys shown?", "a": "<p>No. Values that look like secrets are masked in the list.</p>" },
+        { "q": "Can I add a server without writing JSON?", "a": "<p>Yes. Use the form, or pick one of the 16 servers in the bundled catalog (it ships with the extension; nothing is downloaded).</p>" }
+      ]
+    },
+    {
+      "slug": "skills", "type": "feature", "group": "features",
+      "title": "Claude Code Skills Manager for VS Code — Every Scope",
+      "description": "See every Claude Code skill in one list — personal, project, plugin and claude.ai-synced — with scope badges. Open, launch or delete one in a click.",
+      "crumb": "Skills", "eyebrow": "~/.claude/skills/ · .claude/skills/",
+      "summary": "Personal, project, plugin and synced skills in one list.",
+      "llms": "lists skills from ~/.claude/skills, the project's .claude/skills, plugins and claude.ai-synced skills with scope badges; open SKILL.md, launch Claude with a skill, or delete one.",
+      "h1": "Every Claude Code <em class=\"serif\">skill</em>, in one list",
+      "lede": "Skills live in your home folder, in each project, inside plugins and — if you use claude.ai — in a synced folder. The Skills tab shows them together, each labelled with where it comes from.",
+      "shot": { "src": "/assets/screenshots/02-skills.webp", "alt": "Skills tab listing skills with global, project and plugin scope badges" },
+      "og": { "title": "Every Claude Code skill, every scope, one list" },
+      "related": ["commands", "plugins", "agents", "guides/claude-code-folder"],
+      "faq": [
+        { "q": "Where does Claude Code look for skills?", "a": "<p>In <code>~/.claude/skills/</code> (yours, for every project), <code>.claude/skills/</code> in the project, and inside installed plugins. Each skill is a folder with a <code>SKILL.md</code>.</p>" },
+        { "q": "What's the difference between skills and slash commands?", "a": "<p>Claude Code's docs say custom commands have been merged into skills: <code>.claude/commands/deploy.md</code> and <code>.claude/skills/deploy/SKILL.md</code> both create <code>/deploy</code>. Skills can bundle extra files. Both still work.</p>" },
+        { "q": "Can I create a skill from the sidebar?", "a": "<p>Not yet. You can open, launch and delete skills; create one by adding a folder with a <code>SKILL.md</code>.</p>" }
+      ]
+    },
+    {
+      "slug": "commands", "type": "feature", "group": "features",
+      "title": "Claude Code Slash Commands: Full List and Custom Commands",
+      "description": "All {{commandsCount}} built-in Claude Code slash commands with what each does, plus how custom commands work. Browse and launch them from a VS Code sidebar.",
+      "crumb": "Slash commands", "eyebrow": "~/.claude/commands/ · .claude/commands/",
+      "summary": "Every built-in slash command, plus your custom and plugin commands.",
+      "llms": "the Commands tab lists Claude Code's built-in slash commands with descriptions, plus custom commands from ~/.claude/commands and .claude/commands and plugin commands; open the file or launch the command into Claude Code. The page includes the full built-in list.",
+      "h1": "Claude Code slash commands, <em class=\"serif\">all in one place</em>",
+      "lede": "Claude Code ships with {{commandsCount}} built-in slash commands, and you can add your own. Here is the full built-in list with what each one does — the same list the Commands tab shows, next to your custom and plugin commands.",
+      "shot": { "src": "/assets/screenshots/03-commands.webp", "alt": "Commands tab listing built-in and custom slash commands with descriptions" },
+      "og": { "title": "Every Claude Code slash command, with what it does" },
+      "related": ["skills", "hooks", "plugins", "config"],
+      "faq": [
+        { "q": "How do I see all Claude Code commands?", "a": "<p>Type <code>/</code> in Claude Code to get suggestions, or see the full list on this page. The Commands tab in Claude Code Manager shows the built-ins next to your own and your plugins' commands.</p>" },
+        { "q": "How do I make a custom slash command?", "a": "<p>Add a Markdown file to <code>.claude/commands/</code> (for one project) or <code>~/.claude/commands/</code> (for all projects): <code>review.md</code> becomes <code>/review</code>. Claude Code's docs now treat these as skills, and <code>.claude/skills/review/SKILL.md</code> works the same way.</p>" },
+        { "q": "Why doesn't my custom command show up?", "a": "<p>Check the file is in a <code>commands</code> folder Claude Code reads (project or home), ends in <code>.md</code>, and that no skill has the same name — on a clash, the skill wins.</p>" }
+      ]
+    },
+    {
+      "slug": "hooks", "type": "feature", "group": "features",
+      "title": "Claude Code Hooks Manager — Every Event, No JSON Editing",
+      "description": "See every Claude Code hook across user, project and local settings. Turn hooks on and off, edit or add one with a guided form. All {{hookEventsCount}} events listed.",
+      "crumb": "Hooks", "eyebrow": "settings.json → hooks",
+      "summary": "Hooks from every settings file; toggle, edit and add with a form.",
+      "llms": "lists hooks from user, project and local settings with the full command; toggle (disabled hooks are kept), edit, delete, or add with a wizard (scope, event, matcher, command). The page lists every hook event the editor offers.",
+      "h1": "Claude Code hooks, <em class=\"serif\">readable and switchable</em>",
+      "lede": "Hooks run your own commands when Claude Code does something — starts a session, uses a tool, finishes a turn. They live inside settings files at three levels. The Hooks tab shows them all, with the full command, and lets you turn one off without deleting it.",
+      "shot": { "src": "/assets/screenshots/04-hooks.webp", "alt": "Hooks tab listing hooks by event and scope with their commands" },
+      "og": { "title": "Every Claude Code hook, with an off switch" },
+      "related": ["commands", "config", "agents", "guides/claude-code-folder"],
+      "faq": [
+        { "q": "Where are Claude Code hooks configured?", "a": "<p>Under <code>hooks</code> in a settings file: <code>~/.claude/settings.json</code> (all projects), <code>.claude/settings.json</code> (the project, shared) or <code>.claude/settings.local.json</code> (the project, just you).</p>" },
+        { "q": "How do I turn off a hook without deleting it?", "a": "<p>Flip its switch in the Hooks tab. The hook moves to a <code>_disabled_hooks</code> entry in the same file, so turning it back on restores it exactly.</p>" },
+        { "q": "Which hook events are there?", "a": "<p>The table on this page lists all {{hookEventsCount}} events the editor offers, from <code>SessionStart</code> to <code>SessionEnd</code>, with when each one fires.</p>" }
+      ]
+    },
+    {
+      "slug": "agents", "type": "feature", "group": "features",
+      "title": "Claude Code Subagents Manager for VS Code",
+      "description": "Browse, create, edit and duplicate Claude Code subagents from your home folder, the project and plugins, with each agent's model shown at a glance.",
+      "crumb": "Agents", "eyebrow": "~/.claude/agents/ · .claude/agents/",
+      "summary": "Browse, create and edit subagents with model badges.",
+      "llms": "lists subagents from ~/.claude/agents, .claude/agents and plugins with model badges and descriptions; create, edit, duplicate and delete agent files.",
+      "h1": "Your Claude Code <em class=\"serif\">subagents</em>, at a glance",
+      "lede": "Subagents are Markdown files with a name, a description and an optional model. The Agents tab lists every one you have — yours, the project's and your plugins' — with its model, and lets you create or edit one without hunting for the file.",
+      "shot": { "src": "/assets/screenshots/06-agents.webp", "alt": "Agents tab listing subagents with model badges and descriptions" },
+      "og": { "title": "Browse and edit Claude Code subagents" },
+      "related": ["skills", "commands", "hooks", "plugins"],
+      "faq": [
+        { "q": "Where are Claude Code subagents stored?", "a": "<p>In <code>~/.claude/agents/</code> (yours, for every project) and <code>.claude/agents/</code> (the project). Plugins can ship agents too.</p>" },
+        { "q": "How do I set a subagent's model?", "a": "<p>With the <code>model</code> field in its frontmatter — for example <code>sonnet</code>, <code>opus</code>, <code>haiku</code>, a full model ID, or <code>inherit</code>. The Agents tab shows the model on each row.</p>" }
+      ]
+    },
+    {
+      "slug": "plugins", "type": "feature", "group": "features",
+      "title": "Claude Code Plugins Manager for VS Code",
+      "description": "See which Claude Code plugins are installed and enabled at each scope, spot plugins that disagree with your settings, and install from added marketplaces.",
+      "crumb": "Plugins", "eyebrow": "~/.claude/plugins/",
+      "summary": "Installed vs enabled, per scope; browse marketplaces and install.",
+      "llms": "shows installed plugins and whether each is enabled per scope, flags mismatches (an enabled plugin from a marketplace your policy blocks, a settings entry with nothing installed), enables/disables per scope, and installs from added marketplaces by running claude plugin install in a terminal.",
+      "h1": "Claude Code plugins: <em class=\"serif\">installed, enabled, and why not</em>",
+      "lede": "A plugin can be installed but off, on in one scope and off in another, or listed in settings with nothing installed behind it. The Plugins tab shows each plugin's real state and points out the ones that don't add up.",
+      "og": { "title": "Claude Code plugins: what's installed and what's on" },
+      "related": ["skills", "mcp", "agents", "commands"],
+      "faq": [
+        { "q": "Where does Claude Code install plugins?", "a": "<p>In <code>~/.claude/plugins/</code>. Which plugins are switched on is stored separately, under <code>enabledPlugins</code> in your settings files.</p>" },
+        { "q": "How does it install a plugin?", "a": "<p>It runs Claude Code's own command, <code>claude plugin install &lt;plugin&gt; --scope &lt;scope&gt;</code>, in a terminal, so Claude Code does the install exactly as it would by hand.</p>" }
+      ]
+    },
+    {
+      "slug": "checkpoints", "type": "feature", "group": "features",
+      "title": "Claude Code Checkpoints: Diff and Restore Edited Files",
+      "description": "Claude Code backs up files before it edits them. Diff any backed-up version against your file and restore it, from a VS Code sidebar.",
+      "crumb": "Checkpoints", "eyebrow": "~/.claude/file-history/",
+      "summary": "Diff and restore any version of a file Claude Code edited.",
+      "llms": "lists the file versions Claude Code saved in ~/.claude/file-history/ per session; diff any version against the file on disk and restore it (with a confirmation).",
+      "h1": "See every file Claude edited, <em class=\"serif\">and put it back</em>",
+      "lede": "Before Claude Code edits a file it keeps a copy in <code>~/.claude/file-history/</code>. The Checkpoints tab lists those versions per session, opens a diff against what's on disk now, and restores the one you want.",
+      "og": { "title": "Diff and restore files Claude Code edited" },
+      "related": ["sessions", "prompts", "memory", "guides/claude-code-folder"],
+      "faq": [
+        { "q": "How is this different from /rewind?", "a": "<p><code>/rewind</code> (or Esc twice) rolls back inside a session, conversation and code together. The Checkpoints tab works from the saved file versions on disk, so you can diff or restore a single file at any time, even after the session ended.</p>" },
+        { "q": "Does it cover changes made by shell commands?", "a": "<p>No. Claude Code's checkpoints don't track files changed by Bash commands (like <code>rm</code> or <code>mv</code>) or by editing outside Claude Code, so there's no copy to restore.</p>" }
+      ]
+    },
+    {
+      "slug": "prompts", "type": "feature", "group": "features",
+      "title": "Claude Code Prompt History — Search Every Prompt",
+      "description": "Search every prompt you've typed into Claude Code, across all projects, and jump to the session it came from. Repeated prompts collapse into one row.",
+      "crumb": "Prompt history", "eyebrow": "~/.claude/history.jsonl",
+      "summary": "Full-text search over every prompt you've typed, across projects.",
+      "llms": "full-text search over every prompt in ~/.claude/history.jsonl across all projects; repeated prompts collapse into one row with a count; copy a prompt or open the session it came from.",
+      "h1": "Search every prompt <em class=\"serif\">you've ever typed</em>",
+      "lede": "Claude Code keeps a log of your prompts in <code>~/.claude/history.jsonl</code>. The Prompts tab makes it searchable across every project, so you can find the wording that worked and reuse it.",
+      "og": { "title": "Search every prompt you've typed into Claude Code" },
+      "related": ["sessions", "checkpoints", "memory", "guides/claude-code-session-history"],
+      "faq": [
+        { "q": "Where does Claude Code save my prompts?", "a": "<p>In <code>~/.claude/history.jsonl</code>, one line per prompt, with the project it was typed in.</p>" },
+        { "q": "Can I open the conversation a prompt came from?", "a": "<p>Yes. Each prompt links back to its session, which opens in the Sessions tab.</p>" }
+      ]
+    },
+    {
+      "slug": "memory", "type": "feature", "group": "features",
+      "title": "Claude Code Auto Memory Viewer — Browse and Prune",
+      "description": "Browse, search and prune the memory files Claude Code writes for each project, with checks for broken links and orphaned files.",
+      "crumb": "Memory", "eyebrow": "~/.claude/projects/*/memory/",
+      "summary": "Browse, search and prune Claude Code's auto-memory per project.",
+      "llms": "browse, search, open and delete the auto-memory Markdown files Claude Code writes per project (~/.claude/projects/<project>/memory/), with broken-link and orphan detection.",
+      "h1": "What Claude Code <em class=\"serif\">remembers</em> about each project",
+      "lede": "With auto memory on, Claude Code writes notes to itself per project, indexed by a <code>MEMORY.md</code> file. The Memory tab lets you read them, search them, and delete the ones that are wrong — and it flags links that point nowhere.",
+      "og": { "title": "Read and prune Claude Code's auto memory" },
+      "related": ["config", "prompts", "guides/claude-code-folder", "checkpoints"],
+      "faq": [
+        { "q": "Where is Claude Code's auto memory stored?", "a": "<p>In <code>~/.claude/projects/&lt;project&gt;/memory/</code>, with <code>MEMORY.md</code> as the index. It's separate from <code>CLAUDE.md</code>, which you write yourself.</p>" },
+        { "q": "What are broken links and orphans?", "a": "<p>A broken link is an index entry pointing at a file that no longer exists. An orphan is a memory file the index doesn't mention, so it may never be loaded.</p>" }
+      ]
+    },
+    {
+      "slug": "config", "type": "feature", "group": "features",
+      "title": "Claude Code Settings in VS Code — Model, Permissions",
+      "description": "Edit Claude Code settings from VS Code: model, effort, permissions and allow/deny rules per scope, with a snapshot before each change.",
+      "crumb": "Settings", "eyebrow": "~/.claude/settings.json",
+      "summary": "Model, permissions and more, per scope, with snapshots.",
+      "llms": "edits Claude Code settings at user, project or local scope (model, effort, thinking, output style, permission mode, sandbox, allow/deny rules, additional directories, attribution, cleanup period, auto-compact, checkpointing, auto memory); snapshots settings before every write; export/import a whole setup.",
+      "h1": "Claude Code settings, <em class=\"serif\">without hunting for the file</em>",
+      "lede": "Claude Code reads settings from up to three files per project, plus managed policy. The Config tab edits the common ones at the scope you choose, and saves a snapshot before each change so you can roll back.",
+      "shot": { "src": "/assets/screenshots/08-config.webp", "alt": "Config tab with model selector, permission settings and settings history" },
+      "og": { "title": "Edit Claude Code settings and permissions in VS Code" },
+      "related": ["guides/claude-code-folder", "hooks", "mcp", "accounts"],
+      "faq": [
+        { "q": "Where is Claude Code's settings.json?", "a": "<p>Yours is <code>~/.claude/settings.json</code>. A project can add <code>.claude/settings.json</code> (shared) and <code>.claude/settings.local.json</code> (just you). See the <a href=\"/guides/claude-code-folder/\">map of Claude Code's files</a>.</p>" },
+        { "q": "Can I undo a settings change?", "a": "<p>Yes. A snapshot is taken before every write the extension makes; restore any of them from the Config tab.</p>" },
+        { "q": "Can I copy my setup to another machine?", "a": "<p>Yes. <em>Export Brain</em> zips your CLAUDE.md, settings, skills, commands, agents, memory and user-level MCP servers; <em>Import Brain</em> previews conflicts before writing them on the other machine.</p>" }
+      ]
+    },
+
+    {
+      "slug": "guides", "type": "hub", "group": "guides",
+      "title": "Claude Code Guides — Sessions, Limits, Files and MCP",
+      "description": "Plain guides to how Claude Code works on your machine: where sessions live, how usage limits work, what's in ~/.claude, and how to turn off MCP servers.",
+      "crumb": "Guides", "eyebrow": "/guides",
+      "h1": "Guides to Claude Code <em class=\"serif\">on your machine</em>",
+      "lede": "Short, sourced answers to the questions people search for most. Each guide links to Anthropic's documentation for the details."
+    },
+    {
+      "slug": "guides/claude-code-session-history", "type": "guide", "group": "guides", "parent": "guides",
+      "title": "Where Claude Code Stores Session History (and Recovery)",
+      "description": "Claude Code saves sessions as JSONL in ~/.claude/projects/. Where to find them, why old ones disappear after 30 days, and how to resume or move one.",
+      "crumb": "Where sessions are stored", "eyebrow": "~/.claude/projects/<project>/<id>.jsonl",
+      "summary": "Where transcripts live, why they disappear, how to get one back.",
+      "llms": "where Claude Code stores conversation transcripts (~/.claude/projects/<project>/<session-id>.jsonl), the cleanupPeriodDays sweep (default 30 days), resuming with --continue, --resume and /resume, and moving a session between machines.",
+      "h1": "Where Claude Code <em class=\"serif\">stores your sessions</em>",
+      "lede": "Every Claude Code conversation is a file on your disk. Here is where it lives, how long Claude Code keeps it, and how to get back to an old one.",
+      "og": { "title": "Where Claude Code stores your sessions, and how to find them" },
+      "related": ["sessions", "prompts", "guides/claude-code-folder", "checkpoints"],
+      "faq": [
+        { "q": "Why did my old Claude Code sessions disappear?", "a": "<p>Most likely the cleanup sweep. Claude Code deletes transcripts older than <code>cleanupPeriodDays</code> — 30 days by default — without a message. Raise it in <code>~/.claude/settings.json</code> (it can't be 0) to keep them longer.</p>" },
+        { "q": "Can I read the JSONL files directly?", "a": "<p>You can, but Anthropic's docs warn the format is internal and changes between versions. Use <code>/export</code>, or a tool that reads them for you.</p>" }
+      ]
+    },
+    {
+      "slug": "guides/claude-code-usage-limits", "type": "guide", "group": "guides", "parent": "guides",
+      "title": "Claude Code Usage Limits: 5-Hour and Weekly, Explained",
+      "description": "What Anthropic documents about Claude Code's 5-hour and weekly limits on Pro and Max, how to check what you have left, and what to do when you hit one.",
+      "crumb": "Usage limits explained", "eyebrow": "rate_limits.five_hour · seven_day",
+      "summary": "The 5-hour and weekly limits, and how to check yours.",
+      "llms": "what Anthropic documents about the five-hour session limit and weekly limits on Pro and Max (shared between Claude and Claude Code), checking usage with /usage and /status, and the rate_limits fields Claude Code passes to the statusline.",
+      "h1": "Claude Code usage limits, <em class=\"serif\">explained</em>",
+      "lede": "Pro and Max plans have two limits that matter in Claude Code: a five-hour session limit and a weekly limit. This guide sticks to what Anthropic documents, and shows where to see your own numbers.",
+      "og": { "title": "Claude Code's 5-hour and weekly limits, explained" },
+      "related": ["usage", "accounts", "compare/ccusage", "guides/claude-code-folder"],
+      "faq": [
+        { "q": "Are Claude and Claude Code limits shared?", "a": "<p>Yes. Anthropic's help center says the limits are shared across Claude and Claude Code, so chatting on claude.ai uses the same allowance.</p>" },
+        { "q": "How do I check how much I have left?", "a": "<p>In Claude Code, run <code>/usage</code> (plan usage limits and activity) or <code>/status</code>. In VS Code, Claude Code Manager's Quota card and status bar show both windows as percentages.</p>" }
+      ]
+    },
+    {
+      "slug": "guides/claude-code-folder", "type": "guide", "group": "guides", "parent": "guides",
+      "title": "The ~/.claude Folder Explained: Every Claude Code File",
+      "description": "A map of the files Claude Code keeps: settings.json, ~/.claude.json, projects, history.jsonl, file-history, skills, agents, plugins and credentials.",
+      "crumb": "The ~/.claude folder", "eyebrow": "~/.claude/",
+      "summary": "A map of every file Claude Code keeps, and what reads it.",
+      "llms": "a map of the files Claude Code keeps on disk (~/.claude/settings.json, ~/.claude.json, projects/*.jsonl, history.jsonl, file-history/, skills/, commands/, agents/, plugins/, .credentials.json) and project files (.claude/settings.json, settings.local.json, .mcp.json), with settings precedence.",
+      "h1": "The <code>~/.claude</code> folder, <em class=\"serif\">explained</em>",
+      "lede": "Claude Code keeps everything it knows about you in a hidden folder and one file next to it. This is a map of what's in there, what each part does, and which ones are safe to edit.",
+      "og": { "title": "Every file in ~/.claude, and what it does" },
+      "related": ["config", "guides/claude-code-session-history", "mcp", "accounts"],
+      "faq": [
+        { "q": "What's the difference between ~/.claude.json and ~/.claude/settings.json?", "a": "<p><code>~/.claude/settings.json</code> is your settings file (permissions, hooks, model, statusline). <code>~/.claude.json</code> holds app state: your login identity, MCP servers at user and local scope, and per-project state.</p>" },
+        { "q": "Can I change where Claude Code keeps its files?", "a": "<p>Yes: set <code>CLAUDE_CONFIG_DIR</code> to another folder before starting <code>claude</code>. Claude Code Manager reads the same variable.</p>" }
+      ]
+    },
+    {
+      "slug": "guides/disable-mcp-server-claude-code", "type": "guide", "group": "guides", "parent": "guides",
+      "title": "How to Disable an MCP Server in Claude Code",
+      "description": "Turn off a Claude Code MCP server without deleting it: the /mcp panel, /mcp disable, the CLI, and the settings that control project .mcp.json approval.",
+      "crumb": "Disable an MCP server", "eyebrow": "/mcp disable <server>",
+      "summary": "Every way to turn an MCP server off, and which file each one writes.",
+      "llms": "how to turn off a Claude Code MCP server without removing it (the /mcp panel or /mcp disable, stored per project in ~/.claude.json), remove one with claude mcp remove, and how enabledMcpjsonServers/disabledMcpjsonServers differ (approval of project .mcp.json servers).",
+      "h1": "How to <em class=\"serif\">disable</em> an MCP server in Claude Code",
+      "lede": "Too many MCP servers slow Claude Code down and crowd its context with tools. You can switch one off and keep its configuration, or remove it entirely. Here is each option and what it changes.",
+      "og": { "title": "How to disable an MCP server in Claude Code" },
+      "related": ["mcp", "guides/claude-code-folder", "plugins", "config"],
+      "faq": [
+        { "q": "Does disabling a server delete its configuration?", "a": "<p>No. Toggling a server off in <code>/mcp</code> keeps it listed as disabled; turn it back on any time. <code>claude mcp remove</code> is the command that deletes it.</p>" },
+        { "q": "Is disabledMcpjsonServers the same as disabling?", "a": "<p>No. Anthropic's docs say <code>enabledMcpjsonServers</code> and <code>disabledMcpjsonServers</code> control <em>approval</em> of servers from a project's <code>.mcp.json</code>, and are unrelated to the on/off toggle.</p>" }
+      ]
+    },
+
+    {
+      "slug": "editors", "type": "hub", "group": "editors",
+      "title": "Claude Code Manager in Cursor, Kiro, VSCodium and More",
+      "description": "Which editors can run Claude Code Manager, where each one installs extensions from (VS Code Marketplace or Open VSX), and what works in each.",
+      "crumb": "Editors", "eyebrow": "Marketplace · Open VSX",
+      "summary": "Install sources and notes for every VS Code-based editor.",
+      "h1": "One sidebar, <em class=\"serif\">any VS Code-based editor</em>",
+      "lede": "Claude Code Manager is published to both extension registries: the VS Code Marketplace and Open VSX. Most VS Code-based editors install from Open VSX — which is where {{openVsxDownloads}} of its downloads came from."
+    },
+    {
+      "slug": "editors/cursor", "type": "editor", "group": "editors", "parent": "editors",
+      "title": "Claude Code Manager for Cursor — Install and Setup",
+      "description": "Install Claude Code Manager in Cursor from Open VSX and manage Claude Code sessions, usage, accounts and MCP servers in Cursor's sidebar.",
+      "crumb": "Cursor", "eyebrow": "cursor · Open VSX",
+      "summary": "Installs from Cursor's Extensions view (Open VSX).",
+      "llms": "Cursor installs third-party extensions from Open VSX; search Claude Code Manager in Cursor's Extensions view. Resume into the official Claude Code extension returns to Cursor via its own URI scheme.",
+      "h1": "Claude Code Manager <em class=\"serif\">in Cursor</em>",
+      "lede": "Cursor installs third-party extensions from Open VSX, where Claude Code Manager is published. Install it from Cursor's Extensions view and the same sidebar works for Claude Code sessions you run in Cursor's terminal or in the official Claude Code extension.",
+      "og": { "title": "Claude Code Manager in Cursor" },
+      "related": ["editors/windsurf", "editors/kiro", "sessions", "compare/claude-code-extension"]
+    },
+    {
+      "slug": "editors/windsurf", "type": "editor", "group": "editors", "parent": "editors",
+      "title": "Claude Code Manager for Windsurf and Devin Desktop",
+      "description": "Windsurf is now Devin Desktop. Install Claude Code Manager from its Open VSX mirror and manage Claude Code sessions, usage and MCP in the sidebar.",
+      "crumb": "Windsurf / Devin Desktop", "eyebrow": "devin · Open VSX mirror",
+      "summary": "Installs from Devin Desktop's Open VSX mirror.",
+      "llms": "Windsurf has been renamed Devin Desktop; it downloads extensions from an Open VSX mirror by default, where Claude Code Manager is published. Anthropic's docs name Devin Desktop as a fork the official Claude Code extension installs in.",
+      "h1": "Claude Code Manager in <em class=\"serif\">Windsurf (Devin Desktop)</em>",
+      "lede": "Windsurf's desktop app is now called Devin Desktop. It downloads extensions from an Open VSX mirror, so Claude Code Manager installs from its Extensions view like any other extension.",
+      "og": { "title": "Claude Code Manager in Windsurf / Devin Desktop" },
+      "related": ["editors/cursor", "editors/kiro", "usage", "mcp"]
+    },
+    {
+      "slug": "editors/kiro", "type": "editor", "group": "editors", "parent": "editors",
+      "title": "Claude Code Manager for Kiro — Install from Open VSX",
+      "description": "Kiro installs extensions from Open VSX by default. Add Claude Code Manager and manage Claude Code sessions, limits, skills and MCP servers in Kiro.",
+      "crumb": "Kiro", "eyebrow": "kiro · open-vsx.org",
+      "summary": "Kiro uses open-vsx.org by default.",
+      "llms": "Kiro uses https://open-vsx.org as its extension marketplace by default; Claude Code Manager installs from there. Anthropic's docs name Kiro as a fork the official Claude Code extension installs in.",
+      "h1": "Claude Code Manager <em class=\"serif\">in Kiro</em>",
+      "lede": "Kiro uses the Open VSX registry by default, and Anthropic's docs list Kiro as an editor the official Claude Code extension installs in. Add Claude Code Manager and both sit side by side.",
+      "og": { "title": "Claude Code Manager in Kiro" },
+      "related": ["editors/cursor", "editors/vscodium", "skills", "sessions"]
+    },
+    {
+      "slug": "editors/vscodium", "type": "editor", "group": "editors", "parent": "editors",
+      "title": "Claude Code Manager for VSCodium (Open VSX)",
+      "description": "VSCodium's built-in extension gallery is Open VSX. Install Claude Code Manager there and use it with the Claude Code CLI, fully local and telemetry-free.",
+      "crumb": "VSCodium", "eyebrow": "vscodium · Open VSX",
+      "summary": "VSCodium's default gallery is Open VSX.",
+      "llms": "VSCodium's pre-set extension gallery is Open VSX; Claude Code Manager installs from it. Suited to telemetry-free setups: the extension has no network client.",
+      "h1": "Claude Code Manager <em class=\"serif\">in VSCodium</em>",
+      "lede": "VSCodium uses Open VSX as its extension gallery. If you chose VSCodium to keep telemetry out of your editor, this extension fits: it has no network client and collects nothing.",
+      "og": { "title": "Claude Code Manager in VSCodium" },
+      "related": ["editors/kiro", "editors/cursor", "guides/claude-code-folder", "usage"]
+    },
+
+    {
+      "slug": "compare", "type": "hub", "group": "compare",
+      "title": "Claude Code Manager vs Other Claude Code Tools",
+      "description": "Fact-based comparisons with the official Claude Code extension, ccusage, claude-swap and Claude Code GUIs — including where each one is the better choice.",
+      "crumb": "Compare", "eyebrow": "vs",
+      "summary": "Honest comparisons with the tools people use alongside Claude Code.",
+      "h1": "Comparisons, <em class=\"serif\">with the trade-offs</em>",
+      "lede": "Claude Code Manager overlaps with several good tools. These pages compare facts from each project's own documentation, and say plainly where the other tool is the better pick."
+    },
+    {
+      "slug": "compare/claude-code-extension", "type": "compare", "group": "compare", "parent": "compare",
+      "title": "Claude Code Manager vs the Official Claude Code Extension",
+      "description": "What Anthropic's Claude Code extension does, what Claude Code Manager adds, and why most people run both. A fact-based comparison with links to the docs.",
+      "crumb": "vs official extension", "eyebrow": "anthropic.claude-code",
+      "summary": "Different jobs: the chat client vs a manager for what it leaves on disk.",
+      "llms": "Anthropic's official Claude Code extension is the chat client (with session history, /usage and a Customize panel); Claude Code Manager is a sidebar for the files Claude Code keeps on disk, adding account profiles, checkpoint diff/restore, prompt-history search, memory browsing, settings snapshots and usage breakdowns. They are designed to run together.",
+      "h1": "Claude Code Manager <em class=\"serif\">and</em> the official extension",
+      "lede": "They do different jobs. Anthropic's extension is where you talk to Claude. Claude Code Manager is a sidebar for everything Claude Code leaves on your disk. Most people who install one keep both.",
+      "og": { "title": "Claude Code Manager and the official extension: use both" },
+      "related": ["sessions", "usage", "accounts", "compare/claude-code-gui"]
+    },
+    {
+      "slug": "compare/ccusage", "type": "compare", "group": "compare", "parent": "compare",
+      "title": "ccusage Alternative for VS Code — Claude Code Manager",
+      "description": "ccusage reports Claude Code usage in the terminal. Claude Code Manager shows usage and your 5-hour and weekly limits in VS Code. Facts and trade-offs.",
+      "crumb": "vs ccusage", "eyebrow": "npx ccusage",
+      "summary": "CLI reports vs an in-editor view with live limits.",
+      "llms": "ccusage is a widely used CLI for Claude Code usage and cost reports (daily, monthly, per session); Claude Code Manager shows usage breakdowns and the 5-hour/weekly limit percentages inside VS Code. ccusage is better for scripted and terminal reports.",
+      "h1": "ccusage <em class=\"serif\">or</em> Claude Code Manager?",
+      "lede": "Both read the usage data Claude Code leaves on your machine. ccusage turns it into reports in your terminal; Claude Code Manager shows it in your editor next to your limits. Here's how to pick.",
+      "og": { "title": "ccusage or Claude Code Manager?" },
+      "related": ["usage", "guides/claude-code-usage-limits", "compare/claude-swap", "accounts"]
+    },
+    {
+      "slug": "compare/claude-swap", "type": "compare", "group": "compare", "parent": "compare",
+      "title": "claude-swap Alternative: Switch Claude Accounts in VS Code",
+      "description": "claude-swap switches Claude Code accounts from the CLI and can rotate on rate limits. Claude Code Manager switches them from VS Code. Facts and trade-offs.",
+      "crumb": "vs claude-swap", "eyebrow": "pip install claude-swap",
+      "summary": "A CLI switcher with auto-rotation vs one-click switching in the editor.",
+      "llms": "claude-swap is a Python CLI for switching Claude Code accounts, including automatic rotation on rate limits; Claude Code Manager switches saved profiles from VS Code alongside usage and quota. claude-swap is better for terminal-only and automated rotation.",
+      "h1": "claude-swap <em class=\"serif\">or</em> Claude Code Manager?",
+      "lede": "Both save more than one Claude login and switch between them without the browser. claude-swap does it from the terminal; Claude Code Manager does it from your editor's sidebar.",
+      "og": { "title": "claude-swap or Claude Code Manager?" },
+      "related": ["accounts", "usage", "compare/ccusage", "guides/claude-code-usage-limits"]
+    },
+    {
+      "slug": "compare/claude-code-gui", "type": "compare", "group": "compare", "parent": "compare",
+      "title": "Claude Code GUI Alternatives: Desktop, Web and VS Code",
+      "description": "The main graphical tools for Claude Code — opcode, Claude Code UI, Nimbalyst, the official extension and Claude Code Manager — compared on facts.",
+      "crumb": "Claude Code GUIs", "eyebrow": "gui · ui · app",
+      "summary": "Desktop apps, web UIs and editor extensions, side by side.",
+      "llms": "a fact-based roundup of graphical tools for Claude Code: opcode (desktop), Claude Code UI / CloudCLI (web and mobile), Nimbalyst (desktop, formerly Crystal), the official VS Code extension, and Claude Code Manager (a VS Code sidebar).",
+      "h1": "Claude Code GUIs, <em class=\"serif\">compared on facts</em>",
+      "lede": "\"A GUI for Claude Code\" can mean a desktop app, a web interface, or something inside your editor. Here are the main ones, what each is for, and where Claude Code Manager fits.",
+      "og": { "title": "Claude Code GUI alternatives, compared" },
+      "related": ["compare/claude-code-extension", "sessions", "editors", "compare/ccusage"]
+    },
+
+    {
+      "slug": "changelog", "type": "changelog", "group": "project",
+      "title": "Claude Code Manager Changelog — Every Release",
+      "description": "Every Claude Code Manager release with what changed, newest first. Current version {{version}}.",
+      "crumb": "Changelog", "eyebrow": "CHANGELOG.md",
+      "h1": "Changelog",
+      "lede": "Every release, newest first. Full notes for each version are linked from its entry."
+    },
+    {
+      "slug": "404", "type": "notfound", "group": "project",
+      "title": "Page not found — Claude Code Manager",
+      "description": "This page doesn't exist. Go to the Claude Code Manager home page, its features, or the guides.",
+      "crumb": "Not found", "eyebrow": "404",
+      "h1": "Nothing at <em class=\"serif\">this path</em>",
+      "lede": "The page may have moved. These links cover everything on the site."
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+<section class="block prose" aria-labelledby="u1">
+  <p class="callno">Account tab → Usage</p>
+  <h2 id="u1">See where your Claude Code tokens go</h2>
+  <p>Claude Code records token counts for every message in its session files. The Usage view adds them up for the last 7 days, 30 days or all time, and splits them four ways, so a busy week has an explanation.</p>
+  <ul class="ticks">
+    <li><strong>By model</strong> — how much went to each Claude model, with cache-hit rates.</li>
+    <li><strong>By project</strong> — which repositories used the most.</li>
+    <li><strong>By tool and MCP server</strong> — which tools Claude reached for, and how often.</li>
+    <li><strong>Activity heatmap</strong> — when you used Claude Code, day by day.</li>
+  </ul>
+  <p>A cost figure shows what those tokens would cost at public API rates, from a price table in the extension. It's a yardstick, not a bill: Pro and Max plans are a flat price.</p>
+</section>
+
+<section class="block split" aria-labelledby="u2">
+  <div>
+    <p class="callno">rate_limits.five_hour · rate_limits.seven_day</p>
+    <h2 id="u2">Your 5-hour and weekly limits, <em class="serif">in the status bar</em></h2>
+    <p>Claude Code already knows how much of your plan's limits you've used: it hands that to its statusline command as <code>rate_limits</code>. Switch on the Quota card and a small tap saves that data to a local file; the extension reads the file. You get both windows as bars, reset times, your weekly pace, and a status bar item that turns amber from 75% and red from 90%.</p>
+    <p>Nothing is fetched. The numbers are as fresh as Claude Code's last statusline update, and the card shows when that was. Claude Code includes limit data for Pro and Max subscribers after the first reply in a session — see <a href="/guides/claude-code-usage-limits/">how the limits work</a>.</p>
+  </div>
+  <div class="quota quota-lg" data-quota aria-label="Example of the Quota card">
+    <div class="q-row"><span>5-hour window</span><span class="q-bar"><i style="--q:.72"></i></span><span class="q-val">72%</span></div>
+    <div class="q-row"><span>7-day window</span><span class="q-bar"><i style="--q:.40"></i></span><span class="q-val">40%</span></div>
+    <p class="q-note">Example values. Status bar reads <code>5h 72% · 7d 40%</code>.</p>
+  </div>
+</section>
+
+<section class="block steps" aria-labelledby="u3">
+  <h2 id="u3">Turn on the Quota card</h2>
+  <ol>
+    <li>Open the Account tab and choose to enable the Quota card (the extension also offers this once on its own).</li>
+    <li>It adds one <code>statusLine.command</code> entry to <code>~/.claude/settings.json</code>. If you already had a statusline, it keeps running — the tap passes the data on to it.</li>
+    <li>Send one message in Claude Code. The card and the status bar fill in.</li>
+  </ol>
+  <p>Turn it off and the entry is removed.</p>
+</section>

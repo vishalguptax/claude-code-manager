@@ -1,0 +1,35 @@
+<section class="block prose" aria-labelledby="s1">
+  <p class="callno">~/.claude/projects/&lt;project&gt;/&lt;session-id&gt;.jsonl</p>
+  <h2 id="s1">Your sessions are already files. <em class="serif">This makes them findable.</em></h2>
+  <p>Claude Code saves every conversation as a JSONL file under <code>~/.claude/projects/</code>, one folder per working directory. The built-in picker (<code>claude --resume</code> or <code>/resume</code>) lists them for the current folder. The Sessions tab reads every folder at once and adds the things a long list needs: search, filters and actions.</p>
+</section>
+
+<section class="block steps" aria-labelledby="s2">
+  <h2 id="s2">Find an old Claude Code session</h2>
+  <ol>
+    <li><strong>Widen the date filter.</strong> The list opens on recent sessions; choose <em>Week</em>, <em>Month</em> or <em>All</em>.</li>
+    <li><strong>Pick the project and branch,</strong> or choose <em>All projects</em>. The current workspace and branch are marked in the filters.</li>
+    <li><strong>Search what was said.</strong> The search reads the transcripts themselves, so a function name, an error message or a file you discussed is enough.</li>
+    <li><strong>Resume.</strong> Running sessions sit at the top with a live status dot; <em>View</em> jumps to the terminal that's running one.</li>
+  </ol>
+</section>
+
+<section class="block ledger-sec" aria-labelledby="s3">
+  <h2 id="s3">Resume Claude Code sessions <em class="serif">where they belong</em></h2>
+  <ol class="ledger">
+    <li><div><span class="callno">sessions.resumeIn</span><strong>In a terminal or in the chat</strong><span>Resume opens a session where it started (<code>auto</code>), always in a terminal, always in the official extension's chat, or asks each time.</span></div></li>
+    <li><div><span class="callno">git checkout</span><strong>On the right branch</strong><span>If the session ran on another branch, you're warned first and offered a checkout, the worktree that already has that branch, or Resume Anyway.</span></div></li>
+    <li><div><span class="callno">--fork-session</span><strong>Fork instead of continuing</strong><span>Start a new session from an old one and leave the original untouched.</span></div></li>
+    <li><div><span class="callno">Restore</span><strong>Reopen a whole workday</strong><span>Restore your most recent sessions at once, each in its own terminal (4 by default, up to 12).</span></div></li>
+    <li><div><span class="callno">git worktree add</span><strong>Missing worktree? Recreate it</strong><span>If a session ran in a worktree that's gone, the extension can recreate the worktree and resume there.</span></div></li>
+  </ol>
+</section>
+
+<section class="block ledger-sec" aria-labelledby="s4">
+  <h2 id="s4">Organise, export and move sessions</h2>
+  <ol class="ledger">
+    <li><div><span class="callno">pin · archive · rename</span><strong>Keep the list tidy</strong><span>Pin the ones you return to, archive the rest, rename any. These live in the extension's own state; Claude Code's files aren't rewritten.</span></div></li>
+    <li><div><span class="callno">.jsonl · .zip · Markdown</span><strong>Export and import</strong><span>Export one session as <code>.jsonl</code>, several as a <code>.zip</code>, or copy one as Markdown. Import puts a session in the right project folder on another machine.</span></div></li>
+    <li><div><span class="callno">temporary</span><strong>Throwaway sessions</strong><span>Start a temporary session for a quick question; its transcript is deleted when the terminal closes.</span></div></li>
+  </ol>
+</section>

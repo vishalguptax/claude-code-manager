@@ -1,0 +1,45 @@
+<article class="block prose article" aria-labelledby="gf1">
+  <h2 id="gf1">Two places: a folder and a file</h2>
+  <p>Claude Code keeps your user-level data in <code>~/.claude/</code> and its app state in a single file next to it, <code>~/.claude.json</code>. Each project can also have its own <code>.claude/</code> folder and a <code>.mcp.json</code>. Set <code>CLAUDE_CONFIG_DIR</code> and Claude Code uses that folder instead of <code>~/.claude/</code>. Anthropic's <a href="https://code.claude.com/docs/en/claude-directory">.claude directory reference</a> documents each file in depth; this page is the map.</p>
+
+  <h2 id="gf2">What's in <code>~/.claude/</code></h2>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th scope="col">Path</th><th scope="col">What it holds</th><th scope="col">Safe to edit?</th><th scope="col">Shown in</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>settings.json</code></th><td>Your settings: permissions, hooks, model, environment variables, statusline.</td><td>Yes</td><td><a href="/config/">Settings</a>, <a href="/hooks/">Hooks</a></td></tr>
+      <tr><th scope="row"><code>CLAUDE.md</code></th><td>Instructions loaded in every session, in every project.</td><td>Yes</td><td>—</td></tr>
+      <tr><th scope="row"><code>projects/&lt;project&gt;/*.jsonl</code></th><td>Session transcripts, one folder per working directory. Deleted after <code>cleanupPeriodDays</code> (30 by default).</td><td>Read only</td><td><a href="/sessions/">Sessions</a>, <a href="/usage/">Usage</a></td></tr>
+      <tr><th scope="row"><code>projects/&lt;project&gt;/memory/</code></th><td>Auto memory: Claude's own notes per project, indexed by <code>MEMORY.md</code>.</td><td>Yes, carefully</td><td><a href="/memory/">Memory</a></td></tr>
+      <tr><th scope="row"><code>history.jsonl</code></th><td>Every prompt you've typed, with its project.</td><td>Read only</td><td><a href="/prompts/">Prompts</a></td></tr>
+      <tr><th scope="row"><code>file-history/&lt;session&gt;/</code></th><td>Copies of files saved before Claude edited them, used by <code>/rewind</code>.</td><td>Read only</td><td><a href="/checkpoints/">Checkpoints</a></td></tr>
+      <tr><th scope="row"><code>skills/</code>, <code>commands/</code></th><td>Your skills and custom slash commands.</td><td>Yes</td><td><a href="/skills/">Skills</a>, <a href="/commands/">Commands</a></td></tr>
+      <tr><th scope="row"><code>agents/</code></th><td>Your subagent definitions.</td><td>Yes</td><td><a href="/agents/">Agents</a></td></tr>
+      <tr><th scope="row"><code>plugins/</code></th><td>Installed plugins, cloned marketplaces and the install record.</td><td>Use <code>/plugin</code></td><td><a href="/plugins/">Plugins</a></td></tr>
+      <tr><th scope="row"><code>sessions/</code></th><td>State for sessions that are running now.</td><td>No</td><td><a href="/sessions/">Sessions</a> (live status)</td></tr>
+      <tr><th scope="row"><code>stats-cache.json</code></th><td>Cached usage statistics.</td><td>No</td><td><a href="/usage/">Usage</a></td></tr>
+      <tr><th scope="row"><code>.credentials.json</code></th><td>Your login on Linux and Windows (macOS uses the Keychain).</td><td>No — use <code>/login</code></td><td><a href="/accounts/">Accounts</a></td></tr>
+      <tr><th scope="row"><code>keybindings.json</code>, <code>themes/</code></th><td>Custom shortcuts and colour themes.</td><td>Yes</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="gf3">What's in <code>~/.claude.json</code></h2>
+  <p>App state rather than settings: your signed-in account, UI toggles, MCP servers you added at user or local scope, and per-project state such as which MCP servers you've switched off. Claude Code rewrites it often, so close Claude Code before editing it by hand.</p>
+
+  <h2 id="gf4">A project's own files</h2>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th scope="col">Path</th><th scope="col">What it holds</th><th scope="col">Commit it?</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>CLAUDE.md</code></th><td>Project instructions.</td><td>Yes</td></tr>
+      <tr><th scope="row"><code>.claude/settings.json</code></th><td>Shared project settings.</td><td>Yes</td></tr>
+      <tr><th scope="row"><code>.claude/settings.local.json</code></th><td>Your personal overrides for the project.</td><td>No</td></tr>
+      <tr><th scope="row"><code>.mcp.json</code></th><td>MCP servers shared with the team.</td><td>Yes</td></tr>
+      <tr><th scope="row"><code>.claude/skills/</code>, <code>commands/</code>, <code>agents/</code></th><td>Project skills, commands and subagents.</td><td>Yes</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="gf5">Which settings file wins</h2>
+  <p>From highest to lowest: managed settings set by your organisation, command-line <code>--settings</code>, <code>.claude/settings.local.json</code>, <code>.claude/settings.json</code>, then <code>~/.claude/settings.json</code>. A value set higher up overrides the same key lower down. (<a href="https://code.claude.com/docs/en/settings">Anthropic: settings</a>)</p>
+
+  <h2 id="gf6">Back it up or move it</h2>
+  <p>Copying <code>~/.claude/</code> and <code>~/.claude.json</code> moves your whole setup, transcripts included — but not a macOS Keychain login. Claude Code Manager's <em>Export Brain</em> packs the parts you write yourself (CLAUDE.md, settings, skills, commands, agents, memory, user-level MCP servers) into one zip, and <em>Import Brain</em> shows conflicts before writing. See <a href="/config/">settings</a>.</p>
+</article>

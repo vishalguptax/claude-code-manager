@@ -1,0 +1,32 @@
+<article class="block prose article" aria-labelledby="gl1">
+  <h2 id="gl1">The two limits</h2>
+  <p>Anthropic's help center says: "Both Pro and Max plans have a five-hour session limit and a weekly limit." Max plans also have a separate weekly limit for one model family. The limits are shared between Claude (the apps) and Claude Code, so time on claude.ai counts too. (<a href="https://support.claude.com/en/articles/11145838">Anthropic: using Claude Code with Pro or Max</a>)</p>
+  <ul>
+    <li><strong>The five-hour limit</strong> caps how much you can use within a five-hour session window.</li>
+    <li><strong>The weekly limit</strong> caps total use across the week and resets once a week.</li>
+  </ul>
+  <p>Anthropic doesn't publish fixed token numbers for these windows, and it has changed the limits several times — so treat any number you read on a forum as dated. Check your plan's page in your claude.ai settings for what applies to you.</p>
+
+  <h2 id="gl2">Check how much you have left</h2>
+  <div class="table-wrap"><table class="data">
+    <thead><tr><th scope="col">Where</th><th scope="col">What you see</th></tr></thead>
+    <tbody>
+      <tr><th scope="row"><code>/usage</code> in Claude Code</th><td>Plan usage limits and activity for your account.</td></tr>
+      <tr><th scope="row"><code>/status</code> in Claude Code</th><td>Your remaining allocation, per Anthropic's help center.</td></tr>
+      <tr><th scope="row">claude.ai → Settings → Usage</th><td>The same limits, in the browser.</td></tr>
+      <tr><th scope="row">A statusline</th><td>Claude Code passes <code>rate_limits.five_hour</code> and <code>rate_limits.seven_day</code> (percentage used and reset time) to your statusline command, for Pro and Max subscribers, after the first reply in a session. (<a href="https://code.claude.com/docs/en/statusline">Anthropic: statusline</a>)</td></tr>
+      <tr><th scope="row">VS Code</th><td>Claude Code Manager reads that statusline data from a local cache and shows both windows in the status bar — <code>5h 72% · 7d 40%</code> — with reset times. <a href="/usage/">How it works</a>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="gl3">When you hit a limit</h2>
+  <ul>
+    <li><strong>Wait for the reset.</strong> <code>/usage</code> and the statusline data both give the reset time.</li>
+    <li><strong>Use less per turn.</strong> Long sessions carry a lot of context; starting a fresh session or compacting keeps each request smaller. Switch off MCP servers you aren't using — see <a href="/guides/disable-mcp-server-claude-code/">disabling MCP servers</a>.</li>
+    <li><strong>Choose a lighter model</strong> for routine work with <code>/model</code>.</li>
+    <li><strong>Pay as you go.</strong> Anthropic's help center describes an option to continue with API credits once you hit a limit, and how to opt out of it.</li>
+  </ul>
+
+  <h2 id="gl4">Where Claude Code Manager fits</h2>
+  <p>It doesn't change your limits. It shows them without a network call, next to your token usage by model, project and tool, so you can see what used them up. <a href="/usage/">See the usage tracker</a>.</p>
+</article>
