@@ -37,20 +37,20 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Full history: each page's sitemap lastmod is the last commit that
           # touched its sources.
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
       # Builds every page, bakes live numbers (keeping site-src/stats.json on a
       # failed fetch, with a ::warning), and renders the social cards with the
       # runner's preinstalled google-chrome.
       - name: Build site
         run: node scripts/build-site.mjs
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -67,18 +67,18 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
       # Content changed (a push, not the cron or a manual run): tell IndexNow.
       - name: Check out the IndexNow script
         if: github.event_name == 'push'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             scripts/site
             site-src/pages.json
       - name: Download the built site
         if: github.event_name == 'push'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: github-pages
           path: ${{ runner.temp }}/pages
