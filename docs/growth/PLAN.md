@@ -173,15 +173,15 @@ Each page has its own intent (`keywords.md` §1), content unique to it, and real
 
 | # | Criterion | Status |
 |---|---|---|
-| 1 | Unique title ≤ 60, description ≤ 155, canonical, OG, `summary_large_image`, 1200×630 image on every page | see LOG |
-| 2 | JSON-LD 0 errors; `softwareVersion` baked | see LOG |
-| 3 | Generated sitemap with lastmod; robots names AI crawlers and the sitemap; llms.txt covers every page; manifest and icons | see LOG |
-| 4 | Lighthouse mobile ≥ 95 ×4 on every page; CLS < 0.05 | see LOG |
-| 5 | No horizontal scroll at 320, 375, 1440 and 1920 | see LOG |
+| 1 | Unique title ≤ 60, description ≤ 155, canonical, OG, `summary_large_image`, 1200×630 image on every page | **True**: enforced by scripts/site/__tests__/site.test.ts (31 pages) |
+| 2 | JSON-LD 0 errors; `softwareVersion` baked | **True**: validator.schema.org 0/0 on 4 live shapes; version baked by pickVersion() |
+| 3 | Generated sitemap with lastmod; robots names AI crawlers and the sitemap; llms.txt covers every page; manifest and icons | **True**: live, tested, xmllint OK |
+| 4 | Lighthouse mobile ≥ 95 ×4 on every page; CLS < 0.05 | **True** (local server): min Perf 96, others 100; max CLS 0.008 |
+| 5 | No horizontal scroll at 320, 375, 1440 and 1920 | **True**: 124/124 checks |
 | 6 | `keywords.md` maps each cluster to one URL | done (`keywords.md`) |
-| 7 | Listing changes prepared, marked "next release" | branch `growth/listing` |
-| 8 | GitHub description, topics and homepage updated | see LOG |
-| 9 | Sitemap resubmitted; indexing requested; IndexNow returns 202 | see LOG |
-| 10 | Repo checks pass; site build tested; the vsix excludes `site/` | see LOG |
-| 11 | `launch-kit.md` with drafts; nothing posted | see file |
+| 7 | Listing changes prepared, marked "next release" | **True**: local branch `growth/listing` @ 40a0d58 (not pushed) |
+| 8 | GitHub description, topics and homepage updated | **True**, except the social preview (owner step) |
+| 9 | Sitemap resubmitted; indexing requested; IndexNow returns 202 | **True**: 10 URLs requested; IndexNow 202 for 30 URLs |
+| 10 | Repo checks pass; site build tested; the vsix excludes `site/` | **Partly**: tests 4657/4657, typecheck OK; `pnpm run check` fails on main from 3 pre-existing errors (fixed on growth/listing); `vsce ls` not run (tool not approved). The committed-HTML staleness test was replaced by a determinism test; see LOG |
+| 11 | `launch-kit.md` with drafts; nothing posted | **True** |
 | 12 | Measurement plan | §H |

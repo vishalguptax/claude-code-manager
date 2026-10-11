@@ -87,3 +87,13 @@ Remaining audits under 0.9 are unminified-css, unused-css-rules and the cache/do
 - Tests: full suite 323 files / 4657 tests pass (185 new for the site generator). typecheck exit 0. Biome on the new scripts clean; repo-wide 'pnpm run check' still has the 3 pre-existing src errors on main (fixed on growth/listing).
 - Interaction (headless CDP): theme toggle switches and persists across reload; copy/replay buttons appear with JS; first Tab focuses the skip link; no console errors on 9 pages checked; reduced-motion renders final state.
 - All 122 changed paths are covered by release.yml paths-ignore (checked with Ruby against the workflow file) → this push cannot publish an extension version.
+
+### Ship (2026-10-11)
+
+- Pushed `growth/seo` → `main` (fast-forward 943eae0..2d0af81). Runs triggered: "Deploy site to GitHub Pages" (build ✓, deploy ✓) and CodeQL. **No Release run** (latest Release run is still 029109e from 2026-10-03), so no extension version was published.
+- Pages build log: `wrote 36 files (v2.18.0, 2351 + 64722 downloads, 32 stars)`, `social cards: 31 rendered, 0 kept`. Deploy log: `IndexNow: HTTP 202 for 30 URLs`.
+- Live check (curl): all 30 indexable URLs return 200 with the new titles; sitemap.xml, robots.txt, llms.txt, site.webmanifest, IndexNow key and OG images return 200; /nope/ returns 404.
+- validator.schema.org on the live site: home (WebPage+graph, VideoObject, FAQPage), guide (TechArticle, FAQPage), hub (/guides/), and comparison (/compare/ccusage/) → 0 errors, 0 warnings each.
+- Search Console (URL-prefix property, /u/2/): sitemap.xml resubmitted ("Sitemap submitted successfully", Submitted Oct 11, 2026). "Request indexing" confirmed ("Indexing requested") for 10 URLs: /commands/, /, /usage/, /plugins/, /guides/claude-code-session-history/, /guides/claude-code-usage-limits/, /guides/claude-code-folder/, /guides/disable-mcp-server-claude-code/, /compare/claude-code-extension/, /editors/cursor/.
+- Not run: `vsce ls` (the repo packages with `pnpm dlx @vscode/vsce`, a download not approved by the owner). Evidence instead: `.vscodeignore` has `site/**` and `site-src/**`; `scripts/**` and `docs/**` were already excluded.
+- Bing Webmaster Tools not checked (no access); IndexNow covers Bing.
