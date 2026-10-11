@@ -8,8 +8,8 @@ import { setVscodeApi } from "../shared/hooks";
 import {
   activeTab,
   applyShellSettings,
-  initMessageBus,
   getErrorLog,
+  initMessageBus,
   registerFeatureHandler,
   setErrorSink,
   showIntro,

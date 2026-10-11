@@ -34,10 +34,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.hasError) {
       return (
         this.props.fallback ?? (
-          <EmptyState
-            title="Something went wrong"
-            description={this.state.message || undefined}
-          />
+          <EmptyState title="Something went wrong" description={this.state.message || undefined} />
         )
       );
     }

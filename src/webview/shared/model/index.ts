@@ -1,6 +1,15 @@
 /**
  * Barrel for shared reactive state and the host message bus.
  */
+
+export {
+  _resetErrorLog,
+  type ErrorEntry,
+  formatErrorLog,
+  getErrorLog,
+  recordError,
+  setErrorSink,
+} from "./errorLog";
 export {
   activeTab,
   applyShellSettings,
@@ -16,14 +25,6 @@ export {
   tabOrderPref,
   theme,
 } from "./globalSignals";
-export {
-  _resetErrorLog,
-  type ErrorEntry,
-  formatErrorLog,
-  getErrorLog,
-  recordError,
-  setErrorSink,
-} from "./errorLog";
 export { _resetIntro, closeIntro, introVisible, maybeShowIntro, showIntro } from "./intro";
 export {
   _resetMessageBus,

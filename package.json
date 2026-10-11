@@ -1,7 +1,7 @@
 {
   "name": "claude-manager",
-  "displayName": "Claude Code Manager — Sessions, Usage, MCP & Agents",
-  "description": "Manage Claude Code sessions, file checkpoints, prompts, MCP servers, skills, hooks, agents, plugins, account switching & usage tracking from your VS Code sidebar. 100% local, zero telemetry.",
+  "displayName": "Claude Code Manager — Sessions, History, Usage, MCP & Accounts",
+  "description": "Browse and resume Claude Code sessions, track usage and 5-hour/weekly limits, switch accounts, and manage MCP servers, skills, hooks, agents, plugins, file checkpoints and prompt history from your VS Code sidebar. 100% local, zero telemetry.",
   "version": "2.18.0",
   "publisher": "vishalguptax",
   "author": {
@@ -11,7 +11,7 @@
   "license": "Apache-2.0",
   "icon": "media/marketplace-icon.png",
   "galleryBanner": {
-    "color": "#1a1a2e",
+    "color": "#0f0e0d",
     "theme": "dark"
   },
   "repository": {
@@ -29,8 +29,8 @@
   "packageManager": "pnpm@11.10.0",
   "categories": [
     "AI",
-    "Machine Learning",
-    "Visualization"
+    "Visualization",
+    "Other"
   ],
   "sponsor": {
     "url": "https://github.com/sponsors/vishalguptax"
@@ -40,7 +40,6 @@
   "keywords": [
     "claude",
     "claude-code",
-    "claude-manager",
     "claude-code-manager",
     "anthropic",
     "claude code extension",
@@ -60,14 +59,15 @@
     "mcp",
     "mcp manager",
     "model-context-protocol",
-    "session manager",
-    "claude config",
     "vscode",
-    "vscode extension",
     "cursor",
     "windsurf",
-    "claude code cli",
-    "developer-tools"
+    "claude code usage",
+    "claude code history",
+    "claude code sessions",
+    "claude code plugins",
+    "quota",
+    "checkpoints"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
