@@ -60,6 +60,11 @@ export interface ButtonProps {
   title?: string;
   ariaLabel?: string;
   class?: string;
+  /**
+   * Makes the button a toggle: announced as pressed / not pressed, and drawn
+   * held down while on. Absent for an ordinary action button.
+   */
+  pressed?: boolean;
 }
 
 export function Button(props: ButtonProps) {
@@ -74,6 +79,7 @@ export function Button(props: ButtonProps) {
     type = "button",
     title,
     ariaLabel,
+    pressed,
   } = props;
 
   const content = children ?? label;
@@ -88,12 +94,14 @@ export function Button(props: ButtonProps) {
         // one only adds a visible edge on top of it.
         (variant === "icon" || variant === "icon-outline") && "btn-icon",
         loading && "is-loading",
+        pressed && "is-pressed",
         props.class,
       )}
       onClick={onClick}
       disabled={disabled || loading}
       title={title}
       aria-label={ariaLabel}
+      aria-pressed={pressed}
       aria-busy={loading ? "true" : undefined}
     >
       {loading ? (

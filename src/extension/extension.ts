@@ -188,6 +188,12 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  // The explorer is an editor tab with its own document, so unlike the
+  // commands below it needs no sidebar focused first.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("claudeManager.openExplorer", () => provider.openExplorer()),
+  );
+
   // Command Palette entry for "Claude Manager: Switch Account". Opens
   // the sidebar first so the webview exists to receive the message,
   // then fires the native QuickPick switcher. Works whether or not
@@ -209,15 +215,16 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
-  // Force a full re-parse of every tab without recreating the webview.
-  // Surfaces in the command palette and through the toolbar button;
-  // both routes funnel into the provider's `reloadAll`. Focuses the
-  // sidebar first so a freshly-opened panel still receives the data
-  // push (no-op when the view is already visible).
+  // Force a full re-parse of every tab and re-render the panel. Surfaces in
+  // the command palette and as the refresh icon in the view's title bar.
+  // Focuses the sidebar first so a freshly-opened panel still receives the
+  // data push (no-op when the view is already visible), and shows VS Code's
+  // own progress bar on that view while the re-parse runs.
   context.subscriptions.push(
     vscode.commands.registerCommand("claudeManager.reload", async () => {
-      await vscode.commands.executeCommand(`${focusViewId()}.focus`);
-      await provider.reloadAll();
+      const viewId = focusViewId();
+      await vscode.commands.executeCommand(`${viewId}.focus`);
+      await vscode.window.withProgress({ location: { viewId } }, () => provider.reloadAll());
     }),
   );
 

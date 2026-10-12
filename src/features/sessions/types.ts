@@ -5,6 +5,7 @@
 
 import type { HooksWebviewMessage } from "../hooks/types";
 import type { WorktreeRef } from "../../extension/worktrees";
+import type { DetailMode } from "../../shared/protocol/messages";
 
 export type { WorktreeRef } from "../../extension/worktrees";
 
@@ -81,7 +82,7 @@ export interface SessionDetail extends Session {
   /** Total messages across the entire session (for toggle visibility) */
   totalMessages?: number;
   /** Which page is loaded: "first" (earliest) or "last" (most recent) */
-  detailMode?: "first" | "last";
+  detailMode?: DetailMode;
   /**
    * Echo of the query string used when producing this detail. When
    * non-empty, `messages` contains every match across the whole
@@ -306,6 +307,10 @@ export type ExtensionMessage =
       renames: Record<string, string>;
       /** Session IDs the user archived — hidden from the default list. */
       archived: string[];
+      /** Session ID -> folder name, for sessions the user filed. */
+      folders: Record<string, string>;
+      /** Every folder, empty ones included. */
+      folderNames: string[];
     }
   | { type: "navigateList" }
   | { type: "error"; message: string }
@@ -334,14 +339,7 @@ export type ExtensionMessage =
    * Session IDs currently backed by a temp (ephemeral) run — the webview
    * marks these rows with a "Temp" badge and offers "Make permanent".
    */
-  | { type: "tempSessions"; ids: string[] }
-  /**
-   * Sent after a `reloadAll` round-trip finishes (or after the
-   * `claudeManager.reload` command runs). The webview clears its
-   * browser-side caches (quota cache, full-text result echoes) and
-   * may flash a transient "Reloaded" acknowledgement.
-   */
-  | { type: "reloadComplete" };
+  | { type: "tempSessions"; ids: string[] };
 
 /** Messages sent from the webview to the extension host. */
 export type WebviewMessage =
@@ -354,7 +352,9 @@ export type WebviewMessage =
    */
   | { type: "markDemoSeen" }
   | { type: "continueLastSession" }
-  | { type: "getSessionDetail"; sessionId: string; mode?: "first" | "last"; query?: string }
+  | { type: "getSessionDetail"; sessionId: string; mode?: DetailMode; query?: string }
+  /** Open this session's detail in its own editor tab, full width. */
+  | { type: "openSessionPanel"; sessionId: string }
   | { type: "resumeSession"; sessionId: string; entrypoint?: string; projectPath?: string }
   /**
    * Recreate a Claude-created worktree that has since been removed from disk,
@@ -375,6 +375,18 @@ export type WebviewMessage =
   | { type: "archiveSession"; sessionId: string }
   | { type: "unarchiveSession"; sessionId: string }
   | { type: "archiveSessions"; sessionIds: string[] }
+  /** Host asks which folder (or a new one) and files every id there. */
+  | { type: "moveToFolder"; sessionIds: string[] }
+  /** File sessions straight into `folder` ("" unfiles) — drag and drop, no prompt. */
+  | { type: "fileSessions"; sessionIds: string[]; folder: string }
+  /** Host asks for a name, creates the folder, and files any ids given into it. */
+  | { type: "createFolder"; sessionIds?: string[] }
+  /** Open the sessions explorer editor tab. */
+  | { type: "openExplorer" }
+  /** Host asks for the new name, then re-files the folder's sessions. */
+  | { type: "renameFolder"; folder: string }
+  /** Drop the folder; its sessions return to the date sections. */
+  | { type: "removeFolder"; folder: string }
   | { type: "deleteSession"; sessionId: string }
   | { type: "renameSession"; sessionId: string }
   | { type: "confirmDelete"; sessionId: string; callback?: string }

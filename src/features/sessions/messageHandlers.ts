@@ -34,7 +34,12 @@ import {
   archiveSession,
   unarchiveSession,
   archiveSessions,
+  setSessionsFolder,
+  createFolder,
+  renameFolder,
+  removeFolder,
 } from "./state";
+import { pickFolder, promptFolderName } from "./folderPrompts";
 import {
   openProject,
   newSession,
@@ -359,10 +364,11 @@ async function handleSessionMessage(
     case "ready": {
       ctx.setSessions(parseSessions(loadState().renames));
       // `ready` comes from a webview that has never seen the workspace path:
-      // a fresh document (Refresh re-mounts it), or a Sessions tab whose
-      // handler was not registered when an earlier push went out. Either way
-      // the dedupe cache describes a different listener, so bypass it —
-      // otherwise "This Project" stays unscoped and lists every project.
+      // a fresh document (Refresh re-mounts it), a Sessions tab whose handler
+      // was not registered when an earlier push went out, a new editor tab, or
+      // an editor tab VS Code reloaded on being shown again. Either way the
+      // dedupe cache describes a different listener, so bypass it — otherwise
+      // "This Project" stays unscoped and lists every project.
       ctx.postWorkspacePath(true);
       ctx.refreshSettings();
       if (ctx.isIntroRequested()) wv.postMessage({ type: "showIntro" });
@@ -380,7 +386,7 @@ async function handleSessionMessage(
     }
 
     case "getSessionDetail": {
-      const mode = (msg as { mode?: "first" | "last" }).mode ?? "last";
+      const mode = msg.mode ?? "last";
       const query = (msg as { query?: string }).query ?? "";
       const detail = parseSessionDetail(
         msg.sessionId,
@@ -495,6 +501,14 @@ async function handleSessionMessage(
       await resumeSession(msg.sessionId, true, ctx.getSessions());
       break;
 
+    case "openSessionPanel":
+      ctx.openSessionPanel(msg.sessionId);
+      break;
+
+    case "openExplorer":
+      ctx.openExplorer();
+      break;
+
     case "pinSession": {
       const state = pinSession(msg.sessionId);
       wv.postMessage({ type: "userState", ...state });
@@ -522,6 +536,44 @@ async function handleSessionMessage(
     case "archiveSessions": {
       const state = archiveSessions(msg.sessionIds);
       wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "moveToFolder": {
+      if (msg.sessionIds.length === 0) break;
+      const folder = await pickFolder(msg.sessionIds, loadState());
+      if (folder === null) break;
+      wv.postMessage({ type: "userState", ...setSessionsFolder(msg.sessionIds, folder) });
+      break;
+    }
+
+    case "fileSessions": {
+      if (msg.sessionIds.length === 0) break;
+      wv.postMessage({ type: "userState", ...setSessionsFolder(msg.sessionIds, msg.folder) });
+      break;
+    }
+
+    case "createFolder": {
+      const name = await promptFolderName("New folder");
+      if (name === null) break;
+      createFolder(name);
+      const ids = msg.sessionIds ?? [];
+      // setSessionsFolder re-reads the state createFolder just wrote, so one
+      // post carries both the new folder and anything filed into it.
+      const state = ids.length > 0 ? setSessionsFolder(ids, name) : loadState();
+      wv.postMessage({ type: "userState", ...state });
+      break;
+    }
+
+    case "renameFolder": {
+      const name = await promptFolderName("Rename folder", msg.folder);
+      if (name === null) break;
+      wv.postMessage({ type: "userState", ...renameFolder(msg.folder, name) });
+      break;
+    }
+
+    case "removeFolder": {
+      wv.postMessage({ type: "userState", ...removeFolder(msg.folder) });
       break;
     }
 

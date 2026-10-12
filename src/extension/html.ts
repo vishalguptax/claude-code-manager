@@ -5,10 +5,36 @@ import * as vscode from "vscode";
 import { getNonce } from "../core/utils";
 
 /**
+ * What an editor-tab document boots into: one session's detail, or the
+ * sessions explorer. Absent: the sidebar app with its tabs.
+ */
+export type WebviewBoot = { view: "session"; sessionId: string } | { view: "explorer" };
+
+/** The #root attributes that tell the webview which boot it got. */
+function bootAttrs(boot: WebviewBoot): string {
+  return boot.view === "session"
+    ? ` data-view="session" data-session-id="${attr(boot.sessionId)}"`
+    : ' data-view="explorer"';
+}
+
+/** Escape a value for a double-quoted HTML attribute. */
+function attr(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
  * Generate the full HTML document for the webview panel.
  * Includes CSP headers, VS Code theme CSS variables, and script/style resource URIs.
  */
-export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): string {
+export function getWebviewHtml(
+  webview: vscode.Webview,
+  extUri: vscode.Uri,
+  boot?: WebviewBoot,
+): string {
   const jsUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, "dist", "webview", "main.js"));
   const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, "dist", "webview", "styles.css"));
   const nonce = getNonce();
@@ -124,10 +150,17 @@ export function getWebviewHtml(webview: vscode.Webview, extUri: vscode.Uri): str
       border-radius: 3px;
     }
     #root { height: 100vh; display: flex; flex-direction: column; }
+    /* An editor tab sits on the editor surface, not the sidebar's, so the
+       sidebar-first tokens above would paint it the wrong shade. */
+    body.editor-panel {
+      --bg: var(--vscode-editor-background);
+      --fg: var(--vscode-editor-foreground);
+      --border: var(--vscode-panel-border, var(--vscode-editorGroup-border));
+    }
   </style>
 </head>
-<body>
-  <div id="root"></div>
+<body${boot ? ' class="editor-panel"' : ""}>
+  <div id="root"${boot ? bootAttrs(boot) : ""}></div>
   <script type="module" nonce="${nonce}" src="${jsUri}"></script>
 </body>
 </html>`;

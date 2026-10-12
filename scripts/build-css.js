@@ -33,6 +33,7 @@ const FILES = [
   "tabs.css",
   "intro.css",
   "sessions.css",
+  "explorer.css",
   "skills.css",
   "commands.css",
   "hooks.css",

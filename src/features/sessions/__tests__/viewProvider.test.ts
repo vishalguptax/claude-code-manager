@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import {
   _fireWorkspaceFoldersChange,
   _resetListeners,
+  _webviewPanels,
 } from "../../../__mocks__/vscode";
 
 interface MutableWorkspace {
@@ -257,6 +258,45 @@ describe("ClaudeSessionViewProvider", () => {
     expect(
       second.webview.posted.filter((m) => m.type === "workspacePath").map((m) => m.data),
     ).toContain("/home/user/proj");
+  });
+
+  it("re-posts the workspace path when an editor tab reloads without being re-resolved", async () => {
+    // Regression: VS Code reloads a hidden editor tab's document when it is
+    // shown again, with no provider callback — the tab just sends `ready`.
+    // The explorer then never learned its project and "This Project" listed
+    // every project's sessions.
+    vi.doMock("../parser", () => ({
+      parseSessions: () => [],
+      parseSessionDetail: () => null,
+      groupSessions: () => [],
+      getStats: () => ({ totalSessions: 0, totalProjects: 0, thisWeek: 0, totalMessages: 0 }),
+      getUniqueProjects: () => [],
+      searchSessions: () => [],
+      filterSessions: () => [],
+      getLastParseWarning: () => null,
+      readLiveSessions: () => new Map(),
+      applyLiveState: () => false,
+      clearMetaCaches: () => {},
+      clearOrphanCache: () => {},
+      clearPendingCache: () => {},
+    }));
+    vi.doMock("../state", () => ({
+      loadState: () => ({ pinned: [], deleted: [], renames: {}, archived: [], folders: {}, folderNames: [] }),
+    }));
+    ws.workspaceFolders = [{ uri: { fsPath: "/home/user/proj" }, name: "proj", index: 0 }];
+
+    const { ClaudeSessionViewProvider } = await import("../viewProvider");
+    const provider = new ClaudeSessionViewProvider({ fsPath: "/ext", path: "/ext" } as vscode.Uri);
+    provider.openExplorer();
+    const tab = _webviewPanels[0];
+    const workspacePosts = () =>
+      (tab.webview.posted as PostedMsg[]).filter((m) => m.type === "workspacePath").length;
+
+    tab._receive({ type: "ready" });
+    await vi.waitFor(() => expect(workspacePosts()).toBe(1));
+    // Hidden and shown again: same workspace, a document that knows nothing.
+    tab._receive({ type: "ready" });
+    await vi.waitFor(() => expect(workspacePosts()).toBe(2));
   });
 
   // A panel the command had to open drops the first post (its script is not
@@ -526,7 +566,7 @@ describe("ClaudeSessionViewProvider", () => {
   // The reloadAll work itself is sub-second; the slack covers cold
   // import cost only. (30s not 15s: the transformed graph has grown, so
   // a fully-cold worker under full-suite parallelism needs the headroom.)
-  it("reloadAll re-posts data for every feature plus a reloadComplete marker", { timeout: 30000 }, async () => {
+  it("reloadAll re-posts data for every feature", { timeout: 30000 }, async () => {
     vi.doMock("../parser", () => ({
       parseSessions: () => [],
       parseSessionDetail: () => null,
@@ -594,9 +634,6 @@ describe("ClaudeSessionViewProvider", () => {
     // Quota rides its own message — Refresh must re-push it, since the
     // webview won't refetch quota for an unchanged identity on its own.
     expect(types).toContain("quotaData");
-    // reloadComplete must be the final wire event so the webview can
-    // safely drop the spinner once it arrives.
-    expect(types[types.length - 1]).toBe("reloadComplete");
 
     // (a) DATA — the global reload clears the full-text search index and
     // the account caches (model scan + usage aggregate) so Refresh returns
@@ -714,7 +751,7 @@ describe("ClaudeSessionViewProvider", () => {
     expect(handler).toBeDefined();
     await handler!({ type: "reloadAll" });
 
-    expect(view.webview.posted.some((m) => m.type === "reloadComplete")).toBe(true);
+    expect(view.webview.posted.some((m) => m.type === "sessions")).toBe(true);
   });
 
   it("registers a FileSystemWatcher targeting the sessions PID directory", async () => {
@@ -1026,6 +1063,65 @@ describe("ClaudeSessionViewProvider", () => {
       for (const v of views) {
         expect(v.webview.html).toContain("<html");
       }
+    });
+  });
+
+  describe("sessions in editor tabs", () => {
+    async function provider() {
+      const { ClaudeSessionViewProvider } = await import("../viewProvider");
+      return new ClaudeSessionViewProvider({ fsPath: "/ext", path: "/ext" } as vscode.Uri);
+    }
+
+    it("includes an open tab in the broadcast to the sidebar", async () => {
+      const p = await provider();
+      const view = makeFakeView();
+      p.resolveWebviewView(view as unknown as vscode.WebviewView);
+      p.openSessionPanel("s-1");
+      const tab = _webviewPanels[0];
+
+      await p.getWebview()?.postMessage({ type: "probe" });
+
+      expect(view.webview.posted.map((m) => m.type)).toContain("probe");
+      expect(tab.webview.posted).toContainEqual({ type: "probe" });
+    });
+
+    it("titles the tab from the cached session", async () => {
+      const p = await provider();
+      p.setSessions([
+        {
+          id: "s-1",
+          name: "",
+          prompts: ["fix token refresh"],
+          summary: "summary",
+        } as unknown as Parameters<typeof p.setSessions>[0][number],
+      ]);
+      p.openSessionPanel("s-1");
+      expect(_webviewPanels[0].title).toBe("fix token refresh");
+    });
+
+    it("stays live on its own once the sidebar closes, and disposes with the last tab", async () => {
+      const p = await provider();
+      const view = makeFakeView();
+      p.resolveWebviewView(view as unknown as vscode.WebviewView);
+      p.openSessionPanel("s-1");
+      const tab = _webviewPanels[0];
+
+      view._dispose();
+      expect(p.isDisposed()).toBe(false);
+      await p.getWebview()?.postMessage({ type: "probe" });
+      expect(tab.webview.posted).toContainEqual({ type: "probe" });
+
+      tab._dispose();
+      expect(p.isDisposed()).toBe(true);
+      expect(p.getWebview()).toBeUndefined();
+    });
+
+    it("routes a message from the tab through the shared dispatch", async () => {
+      const p = await provider();
+      p.openSessionPanel("s-1");
+      const spy = vi.spyOn(p, "dispatch").mockResolvedValue();
+      _webviewPanels[0]._receive({ type: "pinSession", sessionId: "s-1" });
+      expect(spy).toHaveBeenCalledWith({ type: "pinSession", sessionId: "s-1" });
     });
   });
 });

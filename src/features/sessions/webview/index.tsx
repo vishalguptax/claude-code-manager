@@ -93,7 +93,7 @@ export default function SessionsTab() {
   // message arrives, show the content-shaped <SessionsSkeleton /> (actions +
   // search + filters + session rows) rather than the empty list (which would
   // read as "No sessions yet").
-  if (viewSignal.value === "detail") return <DetailView />;
+  if (viewSignal.value === "detail") return <DetailView context="sidebar" />;
   if (!loadedSignal.value) return <SessionsSkeleton />;
   return <ListView />;
 }

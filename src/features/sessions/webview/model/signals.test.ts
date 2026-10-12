@@ -26,7 +26,8 @@ import {
   hasWorktreeSessions,
   allGroupsCollapsed,
   collapsedGroupsSignal,
-  groupLabelsSignal,
+  groupKeysSignal,
+  setFolders,
   setGroupsCollapsed,
   initFilterPersistence,
   pruneUnmatchedFilters,
@@ -670,18 +671,31 @@ describe("sessions signals", () => {
         session({ id: "a", endTime: Date.now() }),
         session({ id: "b", endTime: Date.now() - 3 * 86400000 }),
       ];
-      expect(groupLabelsSignal.value.length).toBe(2);
-      setGroupsCollapsed([groupLabelsSignal.value[0]], true);
+      expect(groupKeysSignal.value.length).toBe(2);
+      setGroupsCollapsed([groupKeysSignal.value[0]], true);
       expect(allGroupsCollapsed.value).toBe(false);
 
-      setGroupsCollapsed(groupLabelsSignal.value, true);
+      setGroupsCollapsed(groupKeysSignal.value, true);
       expect(allGroupsCollapsed.value).toBe(true);
+    });
+
+    it("tracks a folder section by its key, apart from a same-named date section", () => {
+      filterDateSignal.value = "all";
+      filterProjectSignal.value = "all";
+      sessionsSignal.value = [
+        session({ id: "a", endTime: Date.now() }),
+        session({ id: "b", endTime: Date.now() }),
+      ];
+      setFolders({ b: "Today" });
+      expect(groupKeysSignal.value).toEqual(["Today", "folder:Today"]);
+      setGroupsCollapsed(["folder:Today"], true);
+      expect(allGroupsCollapsed.value).toBe(false);
     });
 
     it("is false with no sections at all — there is nothing to unfold", () => {
       filterProjectSignal.value = "all";
       sessionsSignal.value = [];
-      expect(groupLabelsSignal.value).toEqual([]);
+      expect(groupKeysSignal.value).toEqual([]);
       expect(allGroupsCollapsed.value).toBe(false);
     });
   });

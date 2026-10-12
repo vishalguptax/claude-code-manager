@@ -250,7 +250,6 @@ describe("parseMessage — host to webview", () => {
     roundTrip({ type: "fullTextResults", query: "q", ids: ["a", "b"] });
     roundTrip({ type: "searchIndexReady" });
     roundTrip({ type: "error", message: "boom" });
-    roundTrip({ type: "reloadComplete" });
     roundTrip({ type: "accountData", data: { email: "a@b" } });
     roundTrip({ type: "commands", data: [] });
     roundTrip({ type: "hooks", data: [] });

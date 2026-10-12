@@ -15,7 +15,6 @@ import { cx } from "../../../shared/lib";
 import { activeTab } from "../../../shared/model";
 import { Icon } from "../../../shared/ui";
 import { visibleTabs } from "../lib";
-import { ReloadButton } from "./ReloadButton";
 
 export function TabBar() {
   const current = activeTab.value;
@@ -100,10 +99,8 @@ export function TabBar() {
     }
   };
 
-  // The reload button is global chrome, not a tab, so it sits OUTSIDE the
-  // `role="tablist"` (an undocumented child of a tablist breaks the ARIA
-  // pattern). `.tab-bar` is the flex wrapper; the tablist scrolls under the
-  // pinned reload affordance on the right.
+  // Reload lives in the view's title bar (package.json `view/title`), where
+  // VS Code puts a view's own actions, so the strip holds only the tabs.
   return (
     <div class="tab-bar">
       <div class="tab-list" role="tablist" ref={ref} onKeyDown={onKeyDown}>
@@ -131,7 +128,6 @@ export function TabBar() {
           );
         })}
       </div>
-      <ReloadButton />
     </div>
   );
 }

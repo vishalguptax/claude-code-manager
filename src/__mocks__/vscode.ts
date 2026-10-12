@@ -123,6 +123,93 @@ export function _resetListeners(): void {
   _configChangeListeners.length = 0;
   _extensionChangeListeners.length = 0;
   _shellIntegrationChangeListeners.length = 0;
+  _webviewPanels.length = 0;
+}
+
+/** A `vscode.WebviewPanel` stand-in, with helpers to drive its events. */
+export interface MockWebviewPanel {
+  viewType: string;
+  title: string;
+  column: unknown;
+  options: unknown;
+  iconPath: unknown;
+  visible: boolean;
+  revealed: number;
+  webview: {
+    html: string;
+    posted: unknown[];
+    postMessage: (msg: unknown) => Promise<boolean>;
+    onDidReceiveMessage: (cb: (msg: unknown) => void) => { dispose: () => void };
+    asWebviewUri: (uri: unknown) => unknown;
+    cspSource: string;
+  };
+  reveal: () => void;
+  onDidChangeViewState: (cb: () => void) => { dispose: () => void };
+  onDidDispose: (cb: () => void) => { dispose: () => void };
+  /** Deliver a message as if the panel's webview had posted it. */
+  _receive: (msg: unknown) => void;
+  _setVisible: (visible: boolean) => void;
+  _dispose: () => void;
+}
+
+/** Every panel `window.createWebviewPanel` has made since the last reset. */
+export const _webviewPanels: MockWebviewPanel[] = [];
+
+function createMockWebviewPanel(
+  viewType: string,
+  title: string,
+  column: unknown,
+  options: unknown,
+): MockWebviewPanel {
+  const onMessage: Array<(msg: unknown) => void> = [];
+  const onViewState: Array<() => void> = [];
+  const onDispose: Array<() => void> = [];
+  const panel: MockWebviewPanel = {
+    viewType,
+    title,
+    column,
+    options,
+    iconPath: undefined,
+    visible: true,
+    revealed: 0,
+    webview: {
+      html: "",
+      posted: [],
+      postMessage: async (msg: unknown) => {
+        panel.webview.posted.push(msg);
+        return true;
+      },
+      onDidReceiveMessage: (cb) => {
+        onMessage.push(cb);
+        return { dispose: () => {} };
+      },
+      asWebviewUri: (uri: unknown) => uri,
+      cspSource: "vscode-resource://panel",
+    },
+    reveal: () => {
+      panel.revealed++;
+    },
+    onDidChangeViewState: (cb) => {
+      onViewState.push(cb);
+      return { dispose: () => {} };
+    },
+    onDidDispose: (cb) => {
+      onDispose.push(cb);
+      return { dispose: () => {} };
+    },
+    _receive: (msg) => {
+      for (const cb of onMessage) cb(msg);
+    },
+    _setVisible: (visible) => {
+      panel.visible = visible;
+      for (const cb of onViewState) cb();
+    },
+    _dispose: () => {
+      for (const cb of onDispose) cb();
+    },
+  };
+  _webviewPanels.push(panel);
+  return panel;
 }
 
 export class RelativePattern {
@@ -244,6 +331,13 @@ export const window = {
   showOpenDialog: async (_options?: unknown): Promise<unknown> => undefined,
   showSaveDialog: async (_options?: unknown): Promise<unknown> => undefined,
   showQuickPick: async (_items: unknown, _options?: unknown): Promise<unknown> => undefined,
+  /** Runs the task at once; the progress UI itself has nothing to test here. */
+  withProgress: async <T>(
+    _options: unknown,
+    task: (progress: { report: (value: unknown) => void }) => Promise<T>,
+  ): Promise<T> => task({ report: () => {} }),
+  createWebviewPanel: (viewType: string, title: string, column: unknown, options?: unknown) =>
+    createMockWebviewPanel(viewType, title, column, options),
   createOutputChannel: (_name: string) => ({
     appendLine: (_value: string) => {},
     show: () => {},

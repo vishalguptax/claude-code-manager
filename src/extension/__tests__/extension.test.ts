@@ -250,6 +250,31 @@ describe("panel placement", () => {
     expect(executeCommandSpy.mock.invocationCallOrder[0]).toBeLessThan(tour.mock.invocationCallOrder[0]);
   });
 
+  it("Reload focuses the panel, then reloads under the view's progress bar", async () => {
+    const reload = vi
+      .spyOn(ClaudeSessionViewProvider.prototype, "reloadAll")
+      .mockResolvedValue();
+    const progress = vi.spyOn(vscode.window, "withProgress");
+    const { executeCommandSpy, registerCommandSpy } = activateWithSpies();
+    const entry = registerCommandSpy.mock.calls.find((c) => c[0] === "claudeManager.reload");
+    await (entry?.[1] as () => Promise<void>)();
+    expect(executeCommandSpy).toHaveBeenCalledWith("claudeCodeManager.view.focus");
+    expect(progress).toHaveBeenCalledWith({ location: { viewId: "claudeCodeManager.view" } }, expect.any(Function));
+    expect(reload).toHaveBeenCalledOnce();
+  });
+
+  it("Open Sessions Explorer opens the explorer tab without focusing the sidebar", () => {
+    const open = vi
+      .spyOn(ClaudeSessionViewProvider.prototype, "openExplorer")
+      .mockImplementation(() => {});
+    const { executeCommandSpy, registerCommandSpy } = activateWithSpies();
+    // Activation itself runs commands (context keys); only the command's own count.
+    executeCommandSpy.mockClear();
+    runCommand(registerCommandSpy, "claudeManager.openExplorer");
+    expect(open).toHaveBeenCalledOnce();
+    expect(executeCommandSpy).not.toHaveBeenCalled();
+  });
+
   it("falls back to the activity-bar view when no panel is open yet", () => {
     _setVersion("1.137.0");
     const { executeCommandSpy, registerCommandSpy } = activateWithSpies();

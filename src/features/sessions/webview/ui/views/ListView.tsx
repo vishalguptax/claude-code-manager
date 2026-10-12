@@ -51,7 +51,7 @@ import { Filters } from "../components/Filters";
 import { GroupHeader } from "../components/GroupHeader";
 import { ListHeader } from "../components/ListHeader";
 import { SessionItem } from "../components/SessionItem";
-import { buildSessionMenuItems } from "../components/sessionMenu";
+import { buildFolderMenuItems, buildSessionMenuItems } from "../components/sessionMenu";
 
 /**
  * Estimated row height for the virtualizer. VirtualList measures each rendered
@@ -60,11 +60,8 @@ import { buildSessionMenuItems } from "../components/sessionMenu";
  */
 const ITEM_HEIGHT = 64;
 
-interface MenuState {
-  sessionId: string;
-  x: number;
-  y: number;
-}
+/** The one open context menu: a session row's, or a folder header's. */
+type MenuState = { x: number; y: number } & ({ sessionId: string } | { folder: string });
 
 export function ListView() {
   const filtered = filteredSignal.value;
@@ -176,11 +173,17 @@ export function ListView() {
           renderItem={(row) =>
             row.kind === "header" ? (
               <GroupHeader
-                key={`h:${row.label}`}
+                key={`h:${row.key}`}
+                sectionKey={row.key}
                 label={row.label}
                 count={row.count}
                 collapsed={row.collapsed}
                 onToggle={toggleGroupCollapsed}
+                onFolderMenu={
+                  row.folder === undefined
+                    ? undefined
+                    : (x, y) => setMenu({ folder: row.folder!, x, y })
+                }
               />
             ) : (
               <SessionItem
@@ -209,14 +212,16 @@ export function ListView() {
         x={menu?.x ?? 0}
         y={menu?.y ?? 0}
         items={
-          menu
-            ? buildSessionMenuItems(
+          !menu
+            ? []
+            : "folder" in menu
+              ? buildFolderMenuItems(menu.folder)
+              : buildSessionMenuItems(
                 menu.sessionId,
                 pinned.has(menu.sessionId),
                 tempSessions.has(menu.sessionId),
                 archived.has(menu.sessionId),
               )
-            : []
         }
         onClose={() => setMenu(null)}
       />

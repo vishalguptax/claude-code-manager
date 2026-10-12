@@ -38,6 +38,38 @@ vi.mock("../metaParser", async () => {
   return { ...actual, getSessionFile };
 });
 
+const folderState = vi.hoisted(() => ({
+  setSessionsFolder: vi.fn(),
+  createFolder: vi.fn(),
+  renameFolder: vi.fn(),
+  removeFolder: vi.fn(),
+  pickFolder: vi.fn(),
+  promptFolderName: vi.fn(),
+}));
+// Folder handlers write ~/.claude/.csm-state.json through state.ts; stub the
+// writers so these tests never touch the real file.
+vi.mock("../state", async () => {
+  const actual = await vi.importActual<typeof import("../state")>("../state");
+  return {
+    ...actual,
+    loadState: () => ({
+      pinned: [],
+      deleted: [],
+      renames: {},
+      archived: [],
+      folders: {},
+      folderNames: [],
+    }),
+    setSessionsFolder: folderState.setSessionsFolder,
+    createFolder: folderState.createFolder,
+    renameFolder: folderState.renameFolder,
+    removeFolder: folderState.removeFolder,
+  };
+});
+vi.mock("../folderPrompts", () => ({
+  pickFolder: folderState.pickFolder,
+  promptFolderName: folderState.promptFolderName,
+}));
 import { dispatch } from "../messageHandlers";
 import type { CheckpointsHostContext } from "../../checkpoints/messageHandlers";
 
@@ -271,5 +303,122 @@ describe("dispatch — ack pairing", () => {
     );
 
     expect(posted).toEqual([{ type: "ack" }]);
+  });
+});
+
+describe("dispatch — folders", () => {
+  const filed = { pinned: [], deleted: [], renames: {}, archived: [], folders: { a: "auth" } };
+
+  beforeEach(() => {
+    for (const fn of Object.values(folderState)) fn.mockReset();
+    folderState.setSessionsFolder.mockReturnValue(filed);
+    folderState.renameFolder.mockReturnValue(filed);
+    folderState.removeFolder.mockReturnValue(filed);
+  });
+
+  it("files the sessions into the picked folder and pushes the new state", async () => {
+    folderState.pickFolder.mockResolvedValue("auth");
+    const { ctx, posted } = harness([]);
+    await dispatch({ type: "moveToFolder", sessionIds: ["a", "b"] }, ctx);
+    expect(folderState.setSessionsFolder).toHaveBeenCalledWith(["a", "b"], "auth");
+    expect(posted).toContainEqual({ type: "userState", ...filed });
+  });
+
+  it("unfiles when the picker returns an empty name", async () => {
+    folderState.pickFolder.mockResolvedValue("");
+    const { ctx } = harness([]);
+    await dispatch({ type: "moveToFolder", sessionIds: ["a"] }, ctx);
+    expect(folderState.setSessionsFolder).toHaveBeenCalledWith(["a"], "");
+  });
+
+  it("changes nothing when the picker is dismissed", async () => {
+    folderState.pickFolder.mockResolvedValue(null);
+    const { ctx, posted } = harness([]);
+    await dispatch({ type: "moveToFolder", sessionIds: ["a"] }, ctx);
+    expect(folderState.setSessionsFolder).not.toHaveBeenCalled();
+    expect(posted.some((m) => (m as { type: string }).type === "userState")).toBe(false);
+  });
+
+  it("does not open the picker for an empty selection", async () => {
+    const { ctx } = harness([]);
+    await dispatch({ type: "moveToFolder", sessionIds: [] }, ctx);
+    expect(folderState.pickFolder).not.toHaveBeenCalled();
+  });
+
+  it("renames a folder with the name the user entered", async () => {
+    folderState.promptFolderName.mockResolvedValue("login");
+    const { ctx, posted } = harness([]);
+    await dispatch({ type: "renameFolder", folder: "auth" }, ctx);
+    expect(folderState.promptFolderName).toHaveBeenCalledWith("Rename folder", "auth");
+    expect(folderState.renameFolder).toHaveBeenCalledWith("auth", "login");
+    expect(posted).toContainEqual({ type: "userState", ...filed });
+  });
+
+  it("leaves a folder alone when the rename is dismissed", async () => {
+    folderState.promptFolderName.mockResolvedValue(null);
+    const { ctx } = harness([]);
+    await dispatch({ type: "renameFolder", folder: "auth" }, ctx);
+    expect(folderState.renameFolder).not.toHaveBeenCalled();
+  });
+
+  it("files dropped sessions with no prompt", async () => {
+    const { ctx, posted } = harness([]);
+    await dispatch({ type: "fileSessions", sessionIds: ["a"], folder: "auth" }, ctx);
+    expect(folderState.pickFolder).not.toHaveBeenCalled();
+    expect(folderState.setSessionsFolder).toHaveBeenCalledWith(["a"], "auth");
+    expect(posted).toContainEqual({ type: "userState", ...filed });
+  });
+
+  it("creates a folder from a prompt and files the given sessions into it", async () => {
+    folderState.promptFolderName.mockResolvedValue("release");
+    const { ctx, posted } = harness([]);
+    await dispatch({ type: "createFolder", sessionIds: ["a", "b"] }, ctx);
+    expect(folderState.createFolder).toHaveBeenCalledWith("release");
+    expect(folderState.setSessionsFolder).toHaveBeenCalledWith(["a", "b"], "release");
+    expect(posted).toContainEqual({ type: "userState", ...filed });
+  });
+
+  it("creates an empty folder when no sessions come with it", async () => {
+    folderState.promptFolderName.mockResolvedValue("later");
+    const { ctx, posted } = harness([]);
+    await dispatch({ type: "createFolder" }, ctx);
+    expect(folderState.createFolder).toHaveBeenCalledWith("later");
+    expect(folderState.setSessionsFolder).not.toHaveBeenCalled();
+    expect(posted.some((m) => (m as { type: string }).type === "userState")).toBe(true);
+  });
+
+  it("creates nothing when the name prompt is dismissed", async () => {
+    folderState.promptFolderName.mockResolvedValue(null);
+    const { ctx } = harness([]);
+    await dispatch({ type: "createFolder" }, ctx);
+    expect(folderState.createFolder).not.toHaveBeenCalled();
+  });
+
+  it("removes a folder and pushes the new state", async () => {
+    const { ctx, posted } = harness([]);
+    await dispatch({ type: "removeFolder", folder: "auth" }, ctx);
+    expect(folderState.removeFolder).toHaveBeenCalledWith("auth");
+    expect(posted).toContainEqual({ type: "userState", ...filed });
+  });
+});
+
+describe("dispatch — openSessionPanel", () => {
+  it("asks the provider to open the session in an editor tab", async () => {
+    const { ctx } = harness([]);
+    const openSessionPanel = vi.fn();
+    (ctx as unknown as { openSessionPanel: typeof openSessionPanel }).openSessionPanel =
+      openSessionPanel;
+    await dispatch({ type: "openSessionPanel", sessionId: "s-1" }, ctx);
+    expect(openSessionPanel).toHaveBeenCalledWith("s-1");
+  });
+});
+
+describe("dispatch — openExplorer", () => {
+  it("asks the provider to open the explorer tab", async () => {
+    const { ctx } = harness([]);
+    const openExplorer = vi.fn();
+    (ctx as unknown as { openExplorer: typeof openExplorer }).openExplorer = openExplorer;
+    await dispatch({ type: "openExplorer" }, ctx);
+    expect(openExplorer).toHaveBeenCalledOnce();
   });
 });

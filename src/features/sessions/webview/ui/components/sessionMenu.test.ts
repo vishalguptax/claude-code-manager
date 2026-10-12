@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildSessionMenuItems } from "./sessionMenu";
+import { buildFolderMenuItems, buildSessionMenuItems } from "./sessionMenu";
 
 const post = vi.fn();
 vi.mock("../../../../../webview/shared/hooks", () => ({
@@ -29,8 +29,10 @@ describe("buildSessionMenuItems", () => {
   it("lists every action for an unpinned, unarchived session", () => {
     const labels = buildSessionMenuItems("sid", false).map((i) => i.label);
     expect(labels).toEqual([
+      "Open in editor",
       "Rename session",
       "Pin to top",
+      "Move to folder…",
       "Fork & Resume",
       "Copy resume command",
       "Copy session ID",
@@ -44,6 +46,14 @@ describe("buildSessionMenuItems", () => {
     const labels = buildSessionMenuItems("sid", false, false, true).map((i) => i.label);
     expect(labels).toContain("Unarchive");
     expect(labels).not.toContain("Archive");
+  });
+
+  it("Open in editor posts openSessionPanel", () => {
+    expect(fire("Open in editor")).toEqual({ type: "openSessionPanel", sessionId: "sid" });
+  });
+
+  it("Move to folder posts moveToFolder for just this session", () => {
+    expect(fire("Move to folder…")).toEqual({ type: "moveToFolder", sessionIds: ["sid"] });
   });
 
   it("Archive posts archiveSession", () => {
@@ -115,5 +125,21 @@ describe("buildSessionMenuItems", () => {
       type: "promoteTempSession",
       sessionId: "sid",
     });
+  });
+});
+
+describe("buildFolderMenuItems", () => {
+  it("offers rename and remove, neither marked dangerous", () => {
+    const items = buildFolderMenuItems("auth");
+    expect(items.map((i) => i.label)).toEqual(["Rename folder", "Remove folder"]);
+    expect(items.some((i) => i.danger)).toBe(false);
+  });
+
+  it("posts the folder name with each action", () => {
+    const [rename, remove] = buildFolderMenuItems("auth");
+    rename.onSelect();
+    expect(post.mock.calls.at(-1)?.[0]).toEqual({ type: "renameFolder", folder: "auth" });
+    remove.onSelect();
+    expect(post.mock.calls.at(-1)?.[0]).toEqual({ type: "removeFolder", folder: "auth" });
   });
 });

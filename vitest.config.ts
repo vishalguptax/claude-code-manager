@@ -16,8 +16,13 @@ export default defineConfig({
     // scripts/site/ is the zero-dependency site generator (scripts/build-site.mjs).
     include: ["src/**/*.test.{ts,tsx}", "scripts/site/__tests__/*.test.ts"],
     // Keep every suite away from the real macOS Keychain and from a
-    // developer's exported CLAUDE_CONFIG_DIR; see each file.
-    setupFiles: ["src/__mocks__/keychainGuard.ts", "src/__mocks__/claudeEnvGuard.ts"],
+    // developer's exported CLAUDE_CONFIG_DIR, and give happy-dom the drag
+    // event properties every browser has; see each file.
+    setupFiles: [
+      "src/__mocks__/keychainGuard.ts",
+      "src/__mocks__/claudeEnvGuard.ts",
+      "src/__mocks__/dragEventProps.ts",
+    ],
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

@@ -114,6 +114,92 @@ describe("buildRows", () => {
     expect(rows[2]).toMatchObject({ kind: "header" });
   });
 
+  describe("folders", () => {
+    const filed = (entries: [string, string][]): Map<string, string> => new Map(entries);
+
+    it("places folders between Today and Pinned, alphabetically, ignoring case", () => {
+      const rows = buildRows(
+        [
+          s("today", daysAgo(0)),
+          s("z1", daysAgo(3)),
+          s("a1", daysAgo(30)),
+          s("pin", daysAgo(20)),
+          s("old", daysAgo(40)),
+        ],
+        new Set(["pin"]),
+        new Set(),
+        NOW,
+        filed([
+          ["z1", "zeta"],
+          ["a1", "Alpha"],
+        ]),
+      );
+      expect(labels(rows).slice(0, 4)).toEqual(["Today", "Alpha", "zeta", "Pinned"]);
+      expect(ids(rows)).toEqual(["today", "a1", "z1", "pin", "old"]);
+    });
+
+    it("keeps a session filed today in its folder rather than in Today", () => {
+      const rows = buildRows(
+        [s("a", daysAgo(0)), s("b", daysAgo(0))],
+        new Set(),
+        new Set(),
+        NOW,
+        filed([["b", "auth"]]),
+      );
+      expect(labels(rows)).toEqual(["Today", "auth"]);
+      expect(ids(rows)).toEqual(["a", "b"]);
+    });
+
+    it("lets a folder win over Pinned, and Active win over a folder", () => {
+      const live = { ...s("live", daysAgo(0)), isLive: true };
+      const rows = buildRows(
+        [live, s("pinned", daysAgo(9))],
+        new Set(["pinned"]),
+        new Set(),
+        NOW,
+        filed([
+          ["live", "auth"],
+          ["pinned", "auth"],
+        ]),
+      );
+      expect(labels(rows)).toEqual(["Active", "auth"]);
+      expect(ids(rows)).toEqual(["live", "pinned"]);
+    });
+
+    it("keys a folder apart from a date section of the same name", () => {
+      const rows = buildRows(
+        [s("a", daysAgo(0)), s("b", daysAgo(4))],
+        new Set(),
+        new Set(["Today"]),
+        NOW,
+        filed([["b", "Today"]]),
+      );
+      const headers = rows.filter((r) => r.kind === "header");
+      expect(headers).toMatchObject([
+        { key: "Today", label: "Today", collapsed: true },
+        { key: "folder:Today", label: "Today", collapsed: false, folder: "Today" },
+      ]);
+      expect(headers[0]).not.toHaveProperty("folder");
+      expect(ids(rows)).toEqual(["b"]);
+    });
+
+    it("collapses a folder by its key, still reporting its count", () => {
+      const rows = buildRows(
+        [s("a", daysAgo(2)), s("b", daysAgo(5))],
+        new Set(),
+        new Set(["folder:auth"]),
+        NOW,
+        filed([
+          ["a", "auth"],
+          ["b", "auth"],
+        ]),
+      );
+      expect(rows).toEqual([
+        { kind: "header", key: "folder:auth", label: "auth", count: 2, collapsed: true, folder: "auth" },
+      ]);
+    });
+  });
+
   it("puts Today above Pinned so today's work is never buried", () => {
     // The reported bug: a session stops being live, drops out of Active, and
     // lands under the whole pinned stash — off-screen in a narrow sidebar.

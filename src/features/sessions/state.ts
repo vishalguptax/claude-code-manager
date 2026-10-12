@@ -1,5 +1,5 @@
 /**
- * Session state persistence — pin / delete / archive operations on
+ * Session state persistence — pin / delete / archive / folder operations on
  * disk. Pure Node.js file I/O, no VS Code dependency.
  */
 import * as fs from "fs";
@@ -17,21 +17,20 @@ export function loadState(): UserState {
     const data: unknown = JSON.parse(raw);
     if (typeof data === "object" && data !== null) {
       const obj = data as Record<string, unknown>;
-      const rawRenames = obj.renames;
-      const renames: Record<string, string> = {};
-      if (typeof rawRenames === "object" && rawRenames !== null) {
-        for (const [k, v] of Object.entries(rawRenames)) {
-          if (typeof v === "string") renames[k] = v;
-        }
-      }
-      return {
+      const state: UserState = {
         pinned: Array.isArray(obj.pinned) ? (obj.pinned as string[]) : [],
         deleted: Array.isArray(obj.deleted) ? (obj.deleted as string[]) : [],
-        renames,
+        renames: readStringMap(obj.renames),
         // Absent in state files written before archiving existed, which
         // is every file on disk today — default rather than discard.
         archived: Array.isArray(obj.archived) ? (obj.archived as string[]) : [],
+        // Absent in state files written before folders existed.
+        folders: readStringMap(obj.folders),
+        folderNames: Array.isArray(obj.folderNames)
+          ? obj.folderNames.filter((n): n is string => typeof n === "string")
+          : [],
       };
+      return withAllFolderNames(state);
     }
   } catch (err: unknown) {
     // ENOENT (file not found) is expected on first run; anything else is worth noting
@@ -39,7 +38,24 @@ export function loadState(): UserState {
       console.warn(`[claude-manager] Failed to load state from ${STATE_FILE}:`, err.message);
     }
   }
-  return { pinned: [], deleted: [], renames: {}, archived: [] };
+  return { pinned: [], deleted: [], renames: {}, archived: [], folders: {}, folderNames: [] };
+}
+
+/** Make `folderNames` list every folder a session is filed in, once each. */
+function withAllFolderNames(state: UserState): UserState {
+  state.folderNames = [...new Set([...state.folderNames, ...Object.values(state.folders)])];
+  return state;
+}
+
+/** Keep only the string-valued entries of a parsed JSON object. */
+function readStringMap(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (typeof raw === "object" && raw !== null) {
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v === "string") out[k] = v;
+    }
+  }
+  return out;
 }
 
 /**
@@ -96,6 +112,7 @@ export function deleteSession(sessionId: string): UserState {
     state.deleted.push(sessionId);
   }
   state.pinned = state.pinned.filter((id) => id !== sessionId);
+  delete state.folders[sessionId];
   saveState(state);
   return state;
 }
@@ -124,12 +141,13 @@ export function unpinSessions(sessionIds: string[]): UserState {
   return state;
 }
 
-/** Bulk variant of `deleteSession`. Strips ids from pinned too. */
+/** Bulk variant of `deleteSession`. Strips ids from pinned and folders too. */
 export function deleteSessions(sessionIds: string[]): UserState {
   const state = loadState();
   const drop = new Set(sessionIds);
   for (const id of sessionIds) {
     if (!state.deleted.includes(id)) state.deleted.push(id);
+    delete state.folders[id];
   }
   state.pinned = state.pinned.filter((id) => !drop.has(id));
   saveState(state);
@@ -186,6 +204,63 @@ export function archiveSessions(sessionIds: string[]): UserState {
   if (adding.length === 0) return state;
   state.archived.push(...adding);
   state.pinned = state.pinned.filter((id) => !adding.includes(id));
+  saveState(state);
+  return state;
+}
+
+/**
+ * File sessions into a folder, or take them out of whichever folder they
+ * are in when `folder` is blank. Filing into a name that is not a folder
+ * yet creates it. Emptying a folder keeps it; only removeFolder drops one.
+ */
+export function setSessionsFolder(sessionIds: string[], folder: string): UserState {
+  const state = loadState();
+  const name = folder.trim();
+  for (const id of sessionIds) {
+    if (name) state.folders[id] = name;
+    else delete state.folders[id];
+  }
+  if (name && !state.folderNames.includes(name)) state.folderNames.push(name);
+  saveState(state);
+  return state;
+}
+
+/** Create an empty folder. No-op for a blank name or one that exists. */
+export function createFolder(folder: string): UserState {
+  const state = loadState();
+  const name = folder.trim();
+  if (name && !state.folderNames.includes(name)) {
+    state.folderNames.push(name);
+    saveState(state);
+  }
+  return state;
+}
+
+/**
+ * Rename a folder by re-filing every session in it. Renaming onto an
+ * existing folder's name merges the two, which is what moving everything
+ * there by hand would have done.
+ */
+export function renameFolder(from: string, to: string): UserState {
+  const state = loadState();
+  const name = to.trim();
+  if (name && name !== from) {
+    for (const [id, folder] of Object.entries(state.folders)) {
+      if (folder === from) state.folders[id] = name;
+    }
+    state.folderNames = [...new Set(state.folderNames.map((n) => (n === from ? name : n)))];
+    saveState(state);
+  }
+  return state;
+}
+
+/** Remove a folder. Its sessions stay, unfiled. */
+export function removeFolder(folder: string): UserState {
+  const state = loadState();
+  for (const [id, f] of Object.entries(state.folders)) {
+    if (f === folder) delete state.folders[id];
+  }
+  state.folderNames = state.folderNames.filter((n) => n !== folder);
   saveState(state);
   return state;
 }

@@ -4,6 +4,7 @@
  */
 export {
   buildRows,
+  folderKey,
   flattenGroups,
   sessionDayLabel,
   type Row,
@@ -38,3 +39,20 @@ export {
   type WorktreeOption,
   type WorkspaceScope,
 } from "./worktrees";
+export {
+  type ExplorerInput,
+  type ExplorerItem,
+  type ExplorerLocation,
+  type ExplorerSort,
+  type SortKey,
+  HOME,
+  buildItems,
+  chunk,
+  locationCounts,
+  locationKey,
+  locationLabel,
+  rangeKeys,
+  sameLocation,
+  sessionKey,
+  sessionTitle,
+} from "./explorer";

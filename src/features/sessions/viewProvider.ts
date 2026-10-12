@@ -23,6 +23,7 @@ import { createTerminalRegistry, type TerminalRegistry } from "./terminalRegistr
 import { createTerminalLinker } from "./terminalLinker";
 import { createWatchers, type WatcherContext } from "./watchers";
 import { createLivePoll, type LivePoll } from "./liveState";
+import { createSessionPanels, type SessionPanels } from "./sessionPanels";
 import { openAccountSwitcher } from "./accountSwitcher";
 import {
   reloadAll,
@@ -59,7 +60,15 @@ export class ClaudeSessionViewProvider
    * only the webviews are per-panel.
    */
   private views = new Set<vscode.WebviewView>();
-  /** Stable broadcast handle over {@link views}; see {@link getWebview}. */
+  /**
+   * Sessions opened in editor tabs. They join the same broadcast as the
+   * sidebar panels and keep the shared lifecycle alive on their own, so a
+   * tab stays live after the sidebar that opened it is closed.
+   */
+  private readonly panels: SessionPanels;
+  /** True while the shared watchers / poller / listeners are running. */
+  private sharedStarted = false;
+  /** Stable broadcast handle over every webview; see {@link getWebview}. */
   private sink?: PanelSink;
   /** A Show Welcome Tour request awaiting dismissal; see HostContext. */
   private introRequested = false;
@@ -107,6 +116,12 @@ export class ClaudeSessionViewProvider
     readonly globalState?: vscode.Memento,
   ) {
     setTerminalRegistry(this.terminals);
+    this.panels = createSessionPanels({
+      extensionUri,
+      onMessage: (msg) => void this.dispatch(msg),
+      onChange: () => this.onWebviewSetChange(),
+      onVisibilityChange: () => this.onVisibilityChange(),
+    });
     // Resolve the OS policy sources off the activation path; see syncOsPolicy.
     void syncOsPolicy(this);
   }
@@ -114,17 +129,20 @@ export class ClaudeSessionViewProvider
   // ── Context accessors (HostContext / WatcherContext / ProviderActionsContext) ──
 
   getWebview(): PanelSink | undefined {
-    if (this.views.size === 0) return undefined;
+    if (this.isDisposed()) return undefined;
     // Memoised, and NOT merely for allocation: accountPush dedupes its
     // payload in a WeakMap keyed on this object. A fresh sink per call
     // would never hit that cache, silently turning every push into a
     // redundant one. The handle is invalidated whenever the panel set
     // changes, which is exactly when a re-push IS wanted.
-    this.sink ??= broadcastSink([...this.views].map((v) => v.webview));
+    this.sink ??= broadcastSink([
+      ...[...this.views].map((v) => v.webview),
+      ...this.panels.webviews(),
+    ]);
     return this.sink;
   }
   isDisposed(): boolean {
-    return this.views.size === 0;
+    return this.views.size === 0 && this.panels.size === 0;
   }
   /**
    * The view id a "show the panel" command should focus.
@@ -147,7 +165,52 @@ export class ClaudeSessionViewProvider
     for (const view of this.views) {
       if (view.visible) return true;
     }
-    return false;
+    return this.panels.anyVisible();
+  }
+
+  /**
+   * Drive the process-death poller off panel visibility. With every panel
+   * hidden there is no UI to update, so the poll is pure CPU waste — and with
+   * two panels it is "any of them visible", or opening the second would be
+   * undone by the first reporting itself hidden.
+   */
+  private onVisibilityChange(): void {
+    if (!this.sharedStarted) return;
+    if (this.anyVisible()) {
+      this.livePoll.start();
+      // Re-sync on re-show: while hidden, sessions may have died without
+      // the poller catching it. One immediate refresh closes the gap
+      // before the slow tick kicks back in.
+      this.refreshLiveState();
+    } else {
+      this.livePoll.stop();
+    }
+  }
+
+  /**
+   * A sidebar panel or editor tab opened or closed. Re-target the broadcast,
+   * and tear the shared state down only when the last one closes — or closing
+   * one would silently stop the others from ever updating again.
+   */
+  private onWebviewSetChange(): void {
+    this.sink = undefined;
+    if (this.isDisposed()) {
+      this.disposeLifecycle();
+      return;
+    }
+    if (!this.sharedStarted) this.startLifecycle();
+    else if (!this.anyVisible()) this.livePoll.stop();
+  }
+
+  /** Open a session's detail in an editor tab. */
+  openSessionPanel(sessionId: string): void {
+    const s = this.sessions.find((x) => x.id === sessionId);
+    this.panels.openSession(sessionId, s ? s.name || s.prompts[0] || s.summary : "Session");
+  }
+
+  /** Open the sessions explorer tab. */
+  openExplorer(): void {
+    this.panels.openExplorer();
   }
   /**
    * Regenerate the webview document so the Preact app re-mounts from
@@ -158,6 +221,7 @@ export class ClaudeSessionViewProvider
     for (const view of this.views) {
       view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
     }
+    this.panels.resetHtml();
   }
   getSessions(): Session[] {
     return this.sessions;
@@ -274,50 +338,29 @@ export class ClaudeSessionViewProvider
 
   /** Called by VS Code when the webview view becomes visible. */
   resolveWebviewView(view: vscode.WebviewView): void {
-    const isFirstPanel = this.views.size === 0;
     this.views.add(view);
-    this.sink = undefined;
     view.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist", "webview")],
     };
     view.webview.html = getWebviewHtml(view.webview, this.extensionUri);
     view.webview.onDidReceiveMessage((msg: WebviewMessage) => this.dispatch(msg));
-
-    // Drive the process-death poller off panel visibility. With the panel
-    // hidden there is no UI to update, so the poll is pure CPU waste —
-    // and with two panels it is "any of them visible", or opening the
-    // second would be undone by the first reporting itself hidden.
-    this.viewSubscriptions.push(
-      view.onDidChangeVisibility(() => {
-        if (this.anyVisible()) {
-          this.livePoll.start();
-          // Re-sync on re-show: while hidden, sessions may have died
-          // without the poller catching it. One immediate refresh closes
-          // the gap before the slow tick kicks back in.
-          this.refreshLiveState();
-        } else {
-          this.livePoll.stop();
-        }
-      }),
-    );
-
+    // Per view rather than in the shared set below: this subscription dies
+    // with its own view, which the shared teardown would not do.
+    view.onDidChangeVisibility(() => this.onVisibilityChange());
     view.onDidDispose(() => {
       this.views.delete(view);
-      this.sink = undefined;
-      // Shared state outlives one panel: tear it down only when the last
-      // one closes, or closing the left panel would silently stop the
-      // right one from ever updating again.
-      if (this.views.size === 0) {
-        this.disposeLifecycle();
-      } else if (!this.anyVisible()) {
-        this.livePoll.stop();
-      }
+      this.onWebviewSetChange();
     });
+    this.onWebviewSetChange();
+  }
 
-    // Everything below is shared across panels — one watcher fleet, one
-    // poller, one set of listeners. A second panel reuses them.
-    if (!isFirstPanel) return;
+  /**
+   * Everything shared across panels and editor tabs — one watcher fleet, one
+   * poller, one set of listeners. Started by the first webview to open.
+   */
+  private startLifecycle(): void {
+    this.sharedStarted = true;
 
     // Sweep leftover .bak files from an interrupted profile swap.
     void sweepSwitchBackups();
@@ -365,6 +408,7 @@ export class ClaudeSessionViewProvider
   }
 
   private disposeLifecycle(): void {
+    this.sharedStarted = false;
     if (this.liveStateRefreshTimer) clearTimeout(this.liveStateRefreshTimer);
     this.liveStateRefreshTimer = undefined;
     this.livePoll.stop();

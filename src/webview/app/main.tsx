@@ -16,7 +16,7 @@ import {
   startNowTicker,
 } from "../shared/model";
 import { noteAck } from "../shared/model/hostBusy";
-import { App } from "./App";
+import { Root } from "./Root";
 import { installCrashSurface } from "./crashSurface";
 import { installViewportGuard } from "./viewportGuard";
 
@@ -112,4 +112,4 @@ function describeViewport(root: HTMLElement | null): string {
 startNowTicker();
 
 const root = document.getElementById("root");
-if (root) render(<App />, root);
+if (root) render(<Root view={root.dataset.view} sessionId={root.dataset.sessionId} />, root);

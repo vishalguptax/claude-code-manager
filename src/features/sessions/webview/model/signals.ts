@@ -59,6 +59,10 @@ export const pinnedSignal = signal<Set<string>>(new Set());
 export const deletedSignal = signal<Set<string>>(new Set());
 /** Session IDs the user archived, from the host's userState message. */
 export const archivedSignal = signal<Set<string>>(new Set());
+/** Session ID -> folder name, for sessions the user filed into a folder. */
+export const foldersSignal = signal<Map<string, string>>(new Map());
+/** Every folder the user made, empty ones included, sorted for display. */
+export const folderNamesSignal = signal<string[]>([]);
 /** When on, the list shows the archive instead of the live sessions. */
 export const showArchivedSignal = signal(false);
 /** Currently open detail, or null when on the list. */
@@ -148,33 +152,33 @@ export const selectionSignal = signal<Set<string>>(new Set());
 export const restoreCountSignal = signal<number>(4);
 
 /**
- * Section labels the user has collapsed in the list. Keyed by label rather than
- * by index so the choice survives new sessions arriving, a re-filter, and the
- * day ladder re-bucketing overnight.
+ * Section keys the user has collapsed in the list (see `Row` for how a key is
+ * derived). Keyed by section rather than by index so the choice survives new
+ * sessions arriving, a re-filter, and the day ladder re-bucketing overnight.
  */
 export const collapsedGroupsSignal = signal<Set<string>>(new Set());
 
 /** Collapse or expand one list section. */
-export function toggleGroupCollapsed(label: string): void {
+export function toggleGroupCollapsed(key: string): void {
   const next = new Set(collapsedGroupsSignal.value);
-  if (!next.delete(label)) next.add(label);
+  if (!next.delete(key)) next.add(key);
   collapsedGroupsSignal.value = next;
 }
 
 /**
  * Collapse or expand every section at once.
  *
- * Takes the labels explicitly rather than reading the rows itself: only the
- * sections currently on screen should be touched, and a label the filters have
+ * Takes the keys explicitly rather than reading the rows itself: only the
+ * sections currently on screen should be touched, and a section the filters have
  * hidden must keep whatever state the user last gave it. Collapsing everything
  * while a filter is narrow would otherwise silently collapse sections the user
  * cannot even see, and they would find them folded when the filter cleared.
  */
-export function setGroupsCollapsed(labels: readonly string[], collapsed: boolean): void {
+export function setGroupsCollapsed(keys: readonly string[], collapsed: boolean): void {
   const next = new Set(collapsedGroupsSignal.value);
-  for (const label of labels) {
-    if (collapsed) next.add(label);
-    else next.delete(label);
+  for (const key of keys) {
+    if (collapsed) next.add(key);
+    else next.delete(key);
   }
   collapsedGroupsSignal.value = next;
 }
@@ -246,6 +250,18 @@ export function setDeleted(ids: string[]): void {
 /** Replace archived ids from a host userState message. */
 export function setArchived(ids: string[]): void {
   archivedSignal.value = new Set(ids);
+}
+
+/** Replace folder assignments from a host userState message. */
+export function setFolders(folders: Record<string, string>): void {
+  foldersSignal.value = new Map(Object.entries(folders));
+}
+
+/** Replace the folder list from a host userState message. */
+export function setFolderNames(names: string[]): void {
+  folderNamesSignal.value = [...names].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" }),
+  );
 }
 
 /**
@@ -489,15 +505,21 @@ export const rowsSignal = computed<Row[]>(() => {
   // `now` comes from the clock here rather than being threaded through: the
   // list re-derives on every session/filter change anyway, so the day buckets
   // refresh on the next interaction after midnight.
-  return buildRows(list, pinnedSignal.value, collapsedGroupsSignal.value, Date.now());
+  return buildRows(
+    list,
+    pinnedSignal.value,
+    collapsedGroupsSignal.value,
+    Date.now(),
+    foldersSignal.value,
+  );
 });
 
 /** Reactive count of the filtered list — handy for headers. */
 export const filteredCount = computed(() => filteredSignal.value.length);
 
-/** Labels of the sections currently on screen, in display order. */
-export const groupLabelsSignal = computed<string[]>(() =>
-  rowsSignal.value.flatMap((r) => (r.kind === "header" ? [r.label] : [])),
+/** Keys of the sections currently on screen, in display order. */
+export const groupKeysSignal = computed<string[]>(() =>
+  rowsSignal.value.flatMap((r) => (r.kind === "header" ? [r.key] : [])),
 );
 
 /**
@@ -506,10 +528,10 @@ export const groupLabelsSignal = computed<string[]>(() =>
  * to unfold, and the control hides in that case anyway.
  */
 export const allGroupsCollapsed = computed<boolean>(() => {
-  const labels = groupLabelsSignal.value;
-  if (labels.length === 0) return false;
+  const keys = groupKeysSignal.value;
+  if (keys.length === 0) return false;
   const collapsed = collapsedGroupsSignal.value;
-  return labels.every((l) => collapsed.has(l));
+  return keys.every((k) => collapsed.has(k));
 });
 
 // ── Filter persistence ──
@@ -675,6 +697,8 @@ export function _resetSessionsSignals(): void {
   pinnedSignal.value = new Set();
   deletedSignal.value = new Set();
   archivedSignal.value = new Set();
+  foldersSignal.value = new Map();
+  folderNamesSignal.value = [];
   showArchivedSignal.value = false;
   detailSignal.value = null;
   detailLoadingSignal.value = false;

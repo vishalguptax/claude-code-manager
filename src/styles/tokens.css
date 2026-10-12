@@ -244,6 +244,16 @@
     var(--vscode-contrastBorder, var(--border)));
   --role-selected-hover-bg: var(--vscode-list-hoverBackground, var(--bg-hover));
 
+  /* LIST SELECTION — the multi-select lists (the sessions explorer) draw
+     selection exactly as VS Code's own trees do: the strong fill while the
+     list has focus, the quiet one when focus is elsewhere, so it is always
+     clear which list the keyboard is driving. */
+  --role-list-selected-bg: var(--vscode-list-activeSelectionBackground, var(--bg-active));
+  --role-list-selected-fg: var(--vscode-list-activeSelectionForeground, var(--fg));
+  --role-list-inactive-bg: var(--vscode-list-inactiveSelectionBackground, var(--bg-hover));
+  --role-list-focus-outline: var(--vscode-list-focusOutline, var(--accent));
+  --role-list-drop-bg: var(--vscode-list-dropBackground, var(--bg-hover));
+
   /* GHOST / ICON — chromeless toolbar affordance. Transparent until hover,
      then VS Code's toolbar hover fill; the pressed (active) state deepens to
      the toolbar active fill, falling back to the list active-selection bg. */

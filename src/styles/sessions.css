@@ -76,6 +76,13 @@
   transform: rotate(-90deg);
 }
 
+/* Marks a section the user made (a folder) apart from the date sections the
+   list makes on its own. */
+.session-group-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
 .session-group-label {
   flex: 1;
   min-width: 0;
@@ -393,6 +400,31 @@
    ────────────────────────────────────────────────────────────────────────────── */
 
 /* .back-btn now lives in components.css (shared <BackButton> component). */
+
+/* Back on the left, open-in-editor on the right. */
+.d-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: var(--space-md);
+}
+
+/* The detail as an editor tab. It gets the editor's whole width, but a line
+   of prose much past 100 characters is hard to track back to its start, so
+   the content keeps a readable column centred in the tab. Margins rather than
+   a max-width on #detailView itself: the scroller stays full width, which
+   keeps its scrollbar at the edge of the tab instead of floating mid-screen.
+   A percentage margin resolves against the parent's width, so the calc is
+   "half of whatever is left over beyond the column". */
+body.editor-panel #detailView > :not(.d-scroll),
+body.editor-panel .d-scroll > * {
+  margin-inline: max(0px, calc((100% - 960px) / 2));
+}
+/* .d-notice is the one block whose gutter is a margin, not padding: add the
+   gutter on top, so it still lines up with the padded blocks around it. */
+body.editor-panel #detailView > .d-notice {
+  margin-inline: calc(max(0px, (100% - 960px) / 2) + var(--space-2xl));
+}
 
 /* Scrollable body below the sticky back button. Without this the detail
    page's overflow is hidden (inherited from .panel) and prompts get clipped. */

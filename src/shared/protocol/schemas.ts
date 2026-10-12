@@ -5,7 +5,7 @@ export type { Message } from "./messages";
 
 const scope = v.picklist(["global", "project", "local"]);
 const permList = v.picklist(["allow", "deny"]);
-const detailMode = v.picklist(["first", "last"]);
+const detailMode = v.picklist(["first", "last", "all"]);
 
 const ready = v.object({ type: v.literal("ready") });
 const markDemoSeen = v.object({ type: v.literal("markDemoSeen") });
@@ -32,6 +32,7 @@ const getSessionDetail = v.object({
 });
 const pinSession = v.object({ type: v.literal("pinSession"), sessionId: v.string() });
 const unpinSession = v.object({ type: v.literal("unpinSession"), sessionId: v.string() });
+const openSessionPanel = v.object({ type: v.literal("openSessionPanel"), sessionId: v.string() });
 const getPromptHistory = v.object({ type: v.literal("getPromptHistory") });
 const copyPrompt = v.object({ type: v.literal("copyPrompt"), text: v.string() });
 const openPromptSession = v.object({
@@ -91,6 +92,22 @@ const archiveSessions = v.object({
   type: v.literal("archiveSessions"),
   sessionIds: v.array(v.string()),
 });
+const moveToFolder = v.object({
+  type: v.literal("moveToFolder"),
+  sessionIds: v.array(v.string()),
+});
+const fileSessions = v.object({
+  type: v.literal("fileSessions"),
+  sessionIds: v.array(v.string()),
+  folder: v.string(),
+});
+const createFolder = v.object({
+  type: v.literal("createFolder"),
+  sessionIds: v.optional(v.array(v.string())),
+});
+const openExplorer = v.object({ type: v.literal("openExplorer") });
+const renameFolder = v.object({ type: v.literal("renameFolder"), folder: v.string() });
+const removeFolder = v.object({ type: v.literal("removeFolder"), folder: v.string() });
 const confirmDelete = v.object({
   type: v.literal("confirmDelete"),
   sessionId: v.string(),
@@ -310,6 +327,8 @@ const userState = v.object({
   deleted: v.optional(v.array(v.string())),
   renames: v.optional(v.record(v.string(), v.string())),
   archived: v.optional(v.array(v.string())),
+  folders: v.optional(v.record(v.string(), v.string())),
+  folderNames: v.optional(v.array(v.string())),
 });
 const navigateList = v.object({ type: v.literal("navigateList") });
 const skills = v.object({ type: v.literal("skills"), data: v.unknown() });
@@ -325,7 +344,6 @@ const errorMsg = v.object({ type: v.literal("error"), message: v.string() });
 // Host acknowledgement that a webview-originated message finished dispatch.
 // Drives the shared busy indicator: every request gets exactly one ack.
 const ack = v.object({ type: v.literal("ack") });
-const reloadComplete = v.object({ type: v.literal("reloadComplete") });
 const accountData = v.object({ type: v.literal("accountData"), data: v.unknown() });
 const commands = v.object({ type: v.literal("commands"), data: v.unknown() });
 const parseErrors = v.optional(v.array(v.string()));
@@ -449,6 +467,7 @@ export const messageSchema = v.variant("type", [
   getSessionDetail,
   pinSession,
   unpinSession,
+  openSessionPanel,
   getPromptHistory,
   copyPrompt,
   openPromptSession,
@@ -465,6 +484,12 @@ export const messageSchema = v.variant("type", [
   archiveSession,
   unarchiveSession,
   archiveSessions,
+  moveToFolder,
+  fileSessions,
+  createFolder,
+  openExplorer,
+  renameFolder,
+  removeFolder,
   confirmDelete,
   renameSession,
   forkSession,
@@ -553,7 +578,6 @@ export const messageSchema = v.variant("type", [
   fullTextResults,
   searchIndexReady,
   errorMsg,
-  reloadComplete,
   accountData,
   commands,
   hooks,

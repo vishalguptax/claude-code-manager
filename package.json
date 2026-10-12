@@ -116,6 +116,10 @@
         "title": "Claude Code Manager: Switch Account"
       },
       {
+        "command": "claudeManager.openExplorer",
+        "title": "Claude Code Manager: Open Sessions Explorer"
+      },
+      {
         "command": "claudeManager.exportBrain",
         "title": "Claude Code Manager: Export Brain…"
       },
@@ -125,7 +129,8 @@
       },
       {
         "command": "claudeManager.reload",
-        "title": "Claude Code Manager: Reload"
+        "title": "Claude Code Manager: Reload",
+        "icon": "$(refresh)"
       },
       {
         "command": "claudeManager.showWelcomeTour",
@@ -140,6 +145,15 @@
         "title": "Claude Code Manager: Report a Problem"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "claudeManager.reload",
+          "when": "view == claudeCodeManager.view || view == claudeCodeManager.secondaryView",
+          "group": "navigation"
+        }
+      ]
+    },
     "keybindings": [
       {
         "command": "claudeManager.open",

@@ -5,3 +5,5 @@
  */
 export * from "./signals";
 export { handleMessage } from "./messages";
+export * from "./explorer";
+export { applySearchQuery } from "./search";

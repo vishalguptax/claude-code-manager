@@ -18,6 +18,7 @@ import type {
   Message,
   ToolUseBlock,
 } from "./types";
+import type { DetailMode } from "../../shared/protocol/messages";
 
 /** Maximum messages returned per detail view page (first/last). */
 const DETAIL_PAGE_SIZE = 50;
@@ -74,6 +75,7 @@ function summariseToolInput(name: string, input: unknown): string {
  * @param mode - "last" returns the most recent N messages (default, so
  *   continued sessions show the latest conversation). "first" returns the
  *   earliest N messages (the session's opening). N = DETAIL_PAGE_SIZE (50).
+ *   "all" returns the whole transcript, in order.
  *
  * The caller gets `totalMessages` to decide whether to show a toggle, and
  * `mode` echoed back so the webview knows which view is active.
@@ -83,7 +85,7 @@ function summariseToolInput(name: string, input: unknown): string {
 export function parseSessionDetail(
   sessionId: string,
   cachedSession?: Session,
-  mode: "first" | "last" = "last",
+  mode: DetailMode = "last",
   query?: string,
 ): SessionDetail | null {
   const session =
@@ -258,10 +260,14 @@ export function parseSessionDetail(
     };
   }
 
-  // Default paged view (no query).
-  const page = mode === "first"
-    ? allMessages.slice(0, DETAIL_PAGE_SIZE)
-    : allMessages.slice(-DETAIL_PAGE_SIZE);
+  // Default paged view (no query). "all" is unbounded, like a search result:
+  // the webview windows what it renders, so the DOM stays bounded either way.
+  const page =
+    mode === "all"
+      ? allMessages
+      : mode === "first"
+        ? allMessages.slice(0, DETAIL_PAGE_SIZE)
+        : allMessages.slice(-DETAIL_PAGE_SIZE);
 
   return {
     ...session,

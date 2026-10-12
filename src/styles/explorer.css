@@ -1,0 +1,450 @@
+/* ============================================================================
+   Sessions Explorer — the editor-tab view for organizing sessions, laid out
+   like a file manager. The detail inside the preview pane is the shared
+   #detailView from sessions.css.
+   ============================================================================ */
+
+.xp {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) minmax(320px, 38%);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "top top top"
+    "commands commands commands"
+    "nav main preview"
+    "status status status";
+  /* #root is a full-height flex column (html.ts) and .app-shell is
+     display: contents, so this is a direct flex child. */
+  flex: 1;
+  min-height: 0;
+}
+.xp.no-preview {
+  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-areas:
+    "top top"
+    "commands commands"
+    "nav main"
+    "status status";
+}
+
+/* ── Top bar ── */
+
+.xp-top {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
+/* Search is how most sessions get found; it takes the row after Back / Up. */
+.xp-search { flex: 1; min-width: 0; margin-left: var(--space-xs); }
+
+/* The path, in the status bar (see ExplorerBars.tsx for why it lives there). */
+.xp-crumbs {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  overflow: hidden;
+}
+.xp-crumb {
+  background: none;
+  border: 0;
+  padding: 0 var(--space-xs);
+  font: inherit;
+  color: var(--fg-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xp-crumb:hover { color: var(--fg); text-decoration: underline; }
+.xp-crumb.current { color: var(--fg); cursor: default; text-decoration: none; }
+.xp-crumb-sep { color: var(--fg-dim); }
+
+/* ── Command bar ── */
+
+/* Wraps rather than scrolls: a scrolled toolbar hides its last controls with
+   nothing to say they exist. In a narrow group the view controls drop to a
+   second line and stay reachable. */
+.xp-commands {
+  grid-area: commands;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  border-bottom: 1px solid var(--border);
+}
+.xp-commands > .btn { flex-shrink: 0; white-space: nowrap; }
+.xp-commands-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 18px;
+  margin: 0 var(--space-xs);
+  background: var(--border);
+}
+.xp-commands-end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+/* Nothing in this group may shrink: the shared Segmented would wrap its
+   segments and a Dropdown would truncate its label — both right for the
+   sidebar, wrong in a toolbar, which wraps whole groups instead. */
+.xp-commands-end > * { flex-shrink: 0; }
+/* A Dropdown fills its container by default (a form field); here it sizes to
+   its label like the rest of the toolbar. */
+.xp-commands-end > .vsc-dropdown { width: auto; }
+
+/* ── Navigation pane ── */
+
+.xp-nav {
+  grid-area: nav;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: var(--space-sm) var(--space-xs);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  min-height: 0;
+}
+.xp-nav-row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius);
+}
+.xp-nav-row.nested { padding-left: 14px; }
+.xp-nav-row:hover { background: var(--role-selected-hover-bg); }
+.xp-nav-row.active {
+  background: var(--role-list-inactive-bg);
+}
+.xp-nav-row.is-drop {
+  background: var(--role-list-drop-bg);
+  box-shadow: inset 0 0 0 1px var(--role-list-focus-outline);
+}
+.xp-nav-twisty,
+.xp-nav-twisty-space {
+  flex-shrink: 0;
+  width: 18px;
+  height: 22px;
+}
+.xp-nav-twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--fg-dim);
+  cursor: pointer;
+}
+.xp-nav-twisty svg { transition: transform 120ms ease; }
+.xp-nav-twisty.collapsed svg { transform: rotate(-90deg); }
+.xp-nav-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm) var(--space-xs) 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.xp-nav-item:focus-visible {
+  outline: 1px solid var(--role-list-focus-outline);
+  outline-offset: -1px;
+}
+.xp-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xp-nav-count {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-dim);
+}
+.xp-nav-heading {
+  margin-top: var(--space-lg);
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--fg-dim);
+}
+
+/* ── Content pane ── */
+
+.xp-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.xp-items {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.xp-items-empty { justify-content: center; }
+.xp-list {
+  flex: 1;
+  min-height: 0;
+}
+/* The pane itself draws no focus ring: the focused item's outline (below)
+   shows where the keyboard is, as in VS Code's own trees. */
+.xp-list:focus { outline: none; }
+
+/* Shared item states. Selection follows VS Code's trees: strong while the
+   list has focus, quiet once focus has moved elsewhere. */
+.xp-row,
+.xp-tile {
+  cursor: default;
+  user-select: none;
+}
+.xp-row:hover,
+.xp-tile:hover { background: var(--role-selected-hover-bg); }
+.xp-row.selected,
+.xp-tile.selected { background: var(--role-list-inactive-bg); }
+.xp-list:focus-within .xp-row.selected,
+.xp-list:focus-within .xp-tile.selected,
+.xp-list:focus .xp-row.selected,
+.xp-list:focus .xp-tile.selected {
+  background: var(--role-list-selected-bg);
+  color: var(--role-list-selected-fg);
+}
+.xp-list:focus .xp-row.focused,
+.xp-list:focus .xp-tile.focused {
+  outline: 1px solid var(--role-list-focus-outline);
+  outline-offset: -1px;
+}
+.xp-row.is-drop,
+.xp-tile.is-drop {
+  background: var(--role-list-drop-bg);
+  outline: 1px solid var(--role-list-focus-outline);
+  outline-offset: -1px;
+}
+
+/* Details: a header row and fixed-height rows sharing one column template. */
+.xp-head,
+.xp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1.2fr) 110px 90px;
+  align-items: center;
+  column-gap: var(--space-lg);
+  padding: 0 var(--space-xl);
+}
+.xp-head.has-folder-col,
+.xp-row.has-folder-col {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1.2fr) 110px 90px;
+}
+.xp-head {
+  height: 28px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+}
+.xp-head-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+button.xp-head-cell { cursor: pointer; }
+/* Numbers right-align, so their header does too. */
+.xp-head-cell:last-child { justify-content: flex-end; }
+button.xp-head-cell:hover,
+.xp-head-cell.sorted { color: var(--fg); }
+.xp-sort-arrow { display: inline-flex; }
+.xp-sort-arrow.asc svg { transform: rotate(180deg); }
+.xp-row { height: 30px; }
+.xp-cell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xp-cell-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+.xp-cell-name > svg,
+.xp-cell-name > .live-dot { flex-shrink: 0; }
+.xp-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.xp-cell-dim { color: var(--fg-dim); font-size: var(--fs-sm); }
+.xp-cell-num {
+  color: var(--fg-dim);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.xp-list:focus .xp-row.selected .xp-cell-dim,
+.xp-list:focus .xp-row.selected .xp-cell-num { color: inherit; }
+
+/* Tiles: each virtual row holds exactly the column count the component
+   computed from the pane width, and every tile takes an equal share. The last
+   row is padded with spacers so its tiles keep the same width as the rest.
+   The 220px / 8px / 14px here are TILE_MIN_WIDTH, TILE_GAP and TILE_PAD in
+   ExplorerItems.tsx; change them together. */
+.xp-tile-row {
+  display: flex;
+  gap: 8px;
+  padding: var(--space-sm) 14px 0;
+}
+.xp-tile,
+.xp-tile-spacer {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.xp-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-lg);
+  height: 76px;
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+.xp-tile-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  background: var(--role-track-bg);
+  color: var(--fg-dim);
+}
+.xp-tile.folder .xp-tile-icon { color: var(--color-amber); }
+.xp-tile-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.xp-tile-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xp-tile-meta {
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xp-list:focus .xp-tile.selected .xp-tile-meta { color: inherit; }
+
+/* Item icons: sessions quiet, folders in the folder colour, the same in both
+   layouts so a folder reads as one at a glance. */
+.xp-cell-name > svg { color: var(--fg-dim); }
+.xp-row.folder .xp-cell-name > svg { color: var(--color-amber); }
+
+/* ── Preview pane ── */
+
+.xp-preview {
+  grid-area: preview;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+}
+.xp-preview-folder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: var(--space-2xl);
+}
+.xp-preview-actions {
+  display: flex;
+  gap: var(--space-md);
+}
+
+/* ── Status bar ── */
+
+/* Path on the left, counts on the right. */
+.xp-status {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  padding: var(--space-xs) var(--space-md);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--fg-dim);
+}
+.xp-status-counts {
+  flex-shrink: 0;
+  display: flex;
+  gap: var(--space-xl);
+}
+
+/* The drag image: a small chip naming what moves. Positioned off-screen —
+   it only has to exist while the browser snapshots it. */
+.xp-drag-label {
+  position: fixed;
+  top: -100px;
+  left: -100px;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius);
+  background: var(--badge-bg);
+  color: var(--badge-fg);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+/* A narrow editor group cannot hold three panes. The preview goes first,
+   then the navigation pane; sessions still open full size on double-click. */
+@media (max-width: 900px) {
+  .xp,
+  .xp.no-preview {
+    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-areas:
+      "top top"
+      "commands commands"
+      "nav main"
+      "status status";
+  }
+  .xp-preview { display: none; }
+}
+@media (max-width: 560px) {
+  .xp,
+  .xp.no-preview {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "top" "commands" "main" "status";
+  }
+  .xp-nav { display: none; }
+}

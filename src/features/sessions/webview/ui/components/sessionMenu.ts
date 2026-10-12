@@ -2,8 +2,10 @@
  * Builds the action-menu items for a session row. Restores the v1
  * `contextMenu.ts` action set (8 actions) and wires each to its host message:
  *
+ *   Open in editor       → openSessionPanel (detail in its own editor tab)
  *   Rename               → renameSession   (host opens a native input box)
  *   Pin / Unpin          → pinSession / unpinSession
+ *   Move to folder…      → moveToFolder    (host opens a native QuickPick)
  *   Fork & Resume        → forkSession
  *   Copy resume command  → copyCommand     (host copies `claude --resume <id>`)
  *   Copy session ID      → navigator.clipboard (webview-local, no host round-trip)
@@ -21,8 +23,12 @@ import {
   sendCopyCommand,
   sendExportSession,
   sendForkSession,
+  sendMoveToFolder,
+  sendOpenSessionPanel,
   sendPinSession,
   sendPromoteTemp,
+  sendRemoveFolder,
+  sendRenameFolder,
   sendRenameSession,
   sendUnarchiveSession,
   sendUnpinSession,
@@ -49,6 +55,11 @@ export function buildSessionMenuItems(
   }
   items.push(
     {
+      label: "Open in editor",
+      icon: "maximize-2",
+      onSelect: () => sendOpenSessionPanel(sessionId),
+    },
+    {
       label: "Rename session",
       icon: "pencil",
       onSelect: () => sendRenameSession(sessionId),
@@ -57,6 +68,11 @@ export function buildSessionMenuItems(
       label: isPinned ? "Unpin" : "Pin to top",
       icon: isPinned ? "pin-off" : "pin",
       onSelect: () => (isPinned ? sendUnpinSession(sessionId) : sendPinSession(sessionId)),
+    },
+    {
+      label: "Move to folder…",
+      icon: "folder",
+      onSelect: () => sendMoveToFolder([sessionId]),
     },
     {
       label: "Fork & Resume",
@@ -96,4 +112,15 @@ export function buildSessionMenuItems(
     },
   );
   return items;
+}
+
+/**
+ * Actions for a folder's section header. Removing a folder is not marked
+ * dangerous: it only unfiles the sessions, which return to the date sections.
+ */
+export function buildFolderMenuItems(folder: string): ContextMenuItem[] {
+  return [
+    { label: "Rename folder", icon: "pencil", onSelect: () => sendRenameFolder(folder) },
+    { label: "Remove folder", icon: "x", onSelect: () => sendRemoveFolder(folder) },
+  ];
 }

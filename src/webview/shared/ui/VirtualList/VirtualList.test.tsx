@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/preact";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render } from "@testing-library/preact";
 import { VirtualList } from "../VirtualList";
 
 describe("VirtualList", () => {
@@ -107,6 +107,62 @@ describe("VirtualList", () => {
       );
       expect(container.querySelector(".virtual-list")?.getAttribute("role")).toBe("list");
       expect(container.querySelectorAll('[role="listitem"]').length).toBe(0);
+    });
+  });
+
+  describe("scrollToIndex", () => {
+    function scroller(container: Element, clientHeight: number): HTMLElement {
+      const el = container.querySelector(".virtual-list") as HTMLElement;
+      Object.defineProperty(el, "clientHeight", { configurable: true, value: clientHeight });
+      return el;
+    }
+
+    it("scrolls down just far enough to show a row below the view", () => {
+      const items = Array.from({ length: 50 }, (_, i) => i);
+      const { container, rerender } = render(
+        <VirtualList items={items} itemHeight={20} renderItem={(i) => <div>{i}</div>} />,
+      );
+      const el = scroller(container, 100);
+      rerender(<VirtualList items={items} itemHeight={20} scrollToIndex={10} renderItem={(i) => <div>{i}</div>} />);
+      // Row 10 spans 200–220; a 100px view ending at its bottom starts at 120.
+      expect(el.scrollTop).toBe(120);
+    });
+
+    it("scrolls up to a row above the view, and leaves a visible row alone", () => {
+      const items = Array.from({ length: 50 }, (_, i) => i);
+      const { container, rerender } = render(
+        <VirtualList items={items} itemHeight={20} renderItem={(i) => <div>{i}</div>} />,
+      );
+      const el = scroller(container, 100);
+      el.scrollTop = 300;
+      rerender(<VirtualList items={items} itemHeight={20} scrollToIndex={2} renderItem={(i) => <div>{i}</div>} />);
+      expect(el.scrollTop).toBe(40);
+      rerender(<VirtualList items={items} itemHeight={20} scrollToIndex={3} renderItem={(i) => <div>{i}</div>} />);
+      expect(el.scrollTop).toBe(40);
+    });
+  });
+
+  describe("interactive", () => {
+    it("makes the container a focusable listbox and the row wrappers presentational", () => {
+      const onKeyDown = vi.fn();
+      const { container } = render(
+        <VirtualList
+          items={[1, 2]}
+          itemHeight={20}
+          label="Things"
+          interactive={{ role: "listbox", multiselectable: true, activeDescendant: "opt-1", onKeyDown }}
+          renderItem={(i) => <div role="option">{i}</div>}
+        />,
+      );
+      const list = container.querySelector(".virtual-list") as HTMLElement;
+      expect(list.getAttribute("role")).toBe("listbox");
+      expect(list.getAttribute("aria-multiselectable")).toBe("true");
+      expect(list.getAttribute("aria-activedescendant")).toBe("opt-1");
+      expect(list.tabIndex).toBe(0);
+      const wrapper = list.querySelector('[role="presentation"] > [role="presentation"]');
+      expect(wrapper?.getAttribute("aria-setsize")).toBeNull();
+      fireEvent.keyDown(list, { key: "ArrowDown" });
+      expect(onKeyDown).toHaveBeenCalled();
     });
   });
 });

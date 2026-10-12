@@ -20,4 +20,13 @@ export interface UserState {
    * removing them.
    */
   archived: string[];
+  /** Map of session ID -> the name of the folder the user filed it in. */
+  folders: Record<string, string>;
+  /**
+   * Every folder the user has made, including empty ones — the explorer
+   * creates a folder first and fills it after. Always a superset of the
+   * names in {@link UserState.folders}; `loadState` restores that invariant
+   * for state files written before this list existed.
+   */
+  folderNames: string[];
 }

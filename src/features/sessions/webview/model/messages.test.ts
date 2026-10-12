@@ -20,6 +20,7 @@ import {
   fullTextLoadingSignal,
   loadedSignal,
   pinnedSignal,
+  foldersSignal,
   searchIndexReadySignal,
   searchPendingSignal,
   searchQuerySignal,
@@ -65,6 +66,7 @@ describe("sessions message handling", () => {
   });
 
   it("stores detail and clears the loading flag", () => {
+    selectedIdSignal.value = "a";
     detailLoadingSignal.value = true;
     const detail = { ...session("a"), messages: [] } as SessionDetail;
     handleMessage({ type: "sessionDetail", data: detail } as Message);
@@ -72,10 +74,23 @@ describe("sessions message handling", () => {
     expect(detailLoadingSignal.value).toBe(false);
   });
 
+  it("ignores detail for a session this view does not have open", () => {
+    selectedIdSignal.value = "a";
+    detailLoadingSignal.value = true;
+    handleMessage({ type: "sessionDetail", data: { ...session("b"), messages: [] } } as Message);
+    expect(detailSignal.value).toBeNull();
+    expect(detailLoadingSignal.value).toBe(true);
+  });
+
   it("applies userState pinned + deleted ids", () => {
     handleMessage({ type: "userState", pinned: ["a"], deleted: ["b"], renames: {} } as Message);
     expect([...pinnedSignal.value]).toEqual(["a"]);
     expect([...deletedSignal.value]).toEqual(["b"]);
+  });
+
+  it("applies userState folder assignments", () => {
+    handleMessage({ type: "userState", folders: { a: "auth" } } as Message);
+    expect([...foldersSignal.value]).toEqual([["a", "auth"]]);
   });
 
   it("navigateList resets to the list view", () => {

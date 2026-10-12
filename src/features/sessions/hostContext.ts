@@ -82,11 +82,16 @@ export interface HostContext {
   setMcpServers(servers: McpServer[]): void;
   setAgents(agents: Agent[]): void;
 
+  /** Post the workspace path; `force` posts it even when unchanged. */
   postWorkspacePath(force?: boolean): void;
   refreshSettings(): void;
   buildSearchIndex(): void;
   reloadAll(): Promise<void>;
   openAccountSwitcher(): Promise<void>;
+  /** Show a session's detail in its own editor tab (see sessionPanels.ts). */
+  openSessionPanel(sessionId: string): void;
+  /** Show the sessions explorer in an editor tab. */
+  openExplorer(): void;
   /**
    * A Show Welcome Tour request not yet acknowledged. The command posts it
    * straight away, but a panel the command just opened has not loaded its

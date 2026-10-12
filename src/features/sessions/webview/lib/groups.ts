@@ -17,15 +17,35 @@ export function flattenGroups(data: SessionGroup[]): Session[] {
   return out;
 }
 
-/** A virtualized row is either a date-group header or a session. */
+/**
+ * A virtualized row is either a section header or a session.
+ *
+ * `key` identifies the section for collapsing and is distinct from `label`
+ * because a folder may be named anything — including "Today". Date sections
+ * key by their label, so collapse state persisted before folders existed
+ * still applies; folders key as `folder:<name>`. `folder` is set only on a
+ * folder's header, which is what makes that header offer folder actions.
+ */
 export type Row =
-  | { kind: "header"; label: string; count: number; collapsed: boolean }
+  | {
+      kind: "header";
+      key: string;
+      label: string;
+      count: number;
+      collapsed: boolean;
+      folder?: string;
+    }
   | { kind: "session"; session: Session };
 
 const ACTIVE_LABEL = "Active";
 const TODAY_LABEL = "Today";
 const PINNED_LABEL = "Pinned";
 const YESTERDAY_LABEL = "Yesterday";
+
+/** Collapse key of a folder's section. See {@link Row}. */
+export function folderKey(folder: string): string {
+  return `folder:${folder}`;
+}
 
 /** Whole days from `ts`'s local calendar date back to `now`'s. Same day = 0. */
 function dayDiff(ts: number, now: number): number {
@@ -99,8 +119,9 @@ export function sessionDayLabel(ts: number, now: number = Date.now()): string {
  * Section order:
  *
  *   Active      live sessions, any pin state
- *   Today       everything from today, pinned or not
- *   Pinned      pinned sessions older than today
+ *   Today       everything from today that is not in a folder
+ *   <folders>   one section per folder, alphabetical
+ *   Pinned      pinned sessions older than today, not in a folder
  *   Yesterday   …then the day/week/month ladder (see sessionDayLabel)
  *
  * Pinned sits BELOW Today on purpose. It used to sit above, so the moment a
@@ -113,37 +134,62 @@ export function sessionDayLabel(ts: number, now: number = Date.now()): string {
  * A collapsed section contributes its header only — the header still reports
  * the true count, so collapsing hides rows without hiding information.
  *
- * A session never appears twice: Active wins over Today, Today over Pinned,
- * Pinned over the date ladder.
+ * A session never appears twice: Active wins over a folder, a folder over
+ * Today, Today over Pinned, Pinned over the date ladder.
+ *
+ * A folder wins over Today, unlike Pinned, because filing is the user saying
+ * "keep these together": a folder that dropped whatever you touched today
+ * would under-report exactly the work in progress. Pinning only says "keep
+ * this reachable", which Today already does. A live session still shows in
+ * Active — that is the row you are about to click.
  */
 export function buildRows(
   sessions: Session[],
   pinned: Set<string>,
   collapsed: Set<string> = new Set(),
   now: number = Date.now(),
+  folders: Map<string, string> = new Map(),
 ): Row[] {
   const active: Session[] = [];
   const today: Session[] = [];
+  const filed = new Map<string, Session[]>();
   const pinnedRows: Session[] = [];
   const rest: Session[] = [];
   for (const s of sessions) {
+    const folder = folders.get(s.id);
     if (s.isLive) active.push(s);
-    else if (sessionDayLabel(s.endTime, now) === TODAY_LABEL) today.push(s);
+    else if (folder !== undefined) {
+      const group = filed.get(folder);
+      if (group) group.push(s);
+      else filed.set(folder, [s]);
+    } else if (sessionDayLabel(s.endTime, now) === TODAY_LABEL) today.push(s);
     else if (pinned.has(s.id)) pinnedRows.push(s);
     else rest.push(s);
   }
 
   const rows: Row[] = [];
-  const section = (label: string, group: Session[]): void => {
+  const section = (label: string, group: Session[], folder?: string): void => {
     if (group.length === 0) return;
-    const isCollapsed = collapsed.has(label);
-    rows.push({ kind: "header", label, count: group.length, collapsed: isCollapsed });
+    const key = folder === undefined ? label : folderKey(folder);
+    const isCollapsed = collapsed.has(key);
+    rows.push({
+      kind: "header",
+      key,
+      label,
+      count: group.length,
+      collapsed: isCollapsed,
+      ...(folder === undefined ? {} : { folder }),
+    });
     if (isCollapsed) return;
     for (const s of group) rows.push({ kind: "session", session: s });
   };
 
   section(ACTIVE_LABEL, active);
   section(TODAY_LABEL, today);
+  const folderOrder = [...filed.keys()].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" }),
+  );
+  for (const folder of folderOrder) section(folder, filed.get(folder)!, folder);
   section(PINNED_LABEL, pinnedRows);
 
   // `rest` arrives newest-first, so labels change monotonically down the

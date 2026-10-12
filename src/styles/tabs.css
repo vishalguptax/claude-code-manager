@@ -18,8 +18,7 @@
   flex: 0 0 auto;
 }
 
-/* The scrollable tab list. The global reload button is a flex sibling pinned
-   to the right, so only the tabs scroll when the strip overflows. */
+/* The scrollable tab list. */
 .tab-list {
   display: flex;
   align-items: center;
@@ -37,24 +36,6 @@
    instead, so the overflow is never a dead end. */
 .tab-list::-webkit-scrollbar { display: none; }
 .tab-list { scrollbar-width: none; }
-
-/* Global reload affordance — pinned right, never scrolls with the tabs.
-   Ghost toolbar chrome: transparent at rest (no border/fill — unlike the
-   bordered inline icon buttons in feature rows), hover-only background, like
-   VS Code's own view-title toolbar icons. */
-.tab-reload-btn.btn-icon {
-  flex: 0 0 auto;
-  margin: 0 var(--space-sm);
-  /* Smaller than the full --h-control control box so the hover fill stays a
-     tidy square contained inside the tab strip rather than looking taller than
-     the tab cells beside it. */
-  width: 26px;
-  height: 26px;
-  min-width: 0;
-  min-height: 0;
-}
-/* The chromeless fill/border this used to set privately is now what every icon
-   button does (components-native.css); only the smaller box stays local. */
 
 
 /* ──────────────────────────────────────────────────────────────────────────────

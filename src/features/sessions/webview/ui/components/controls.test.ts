@@ -255,6 +255,12 @@ describe("ListHeader", () => {
     expect(getByText("Select")).toBeTruthy();
   });
 
+  it("opens the sessions explorer from the strip", () => {
+    const { getByLabelText } = render(h(ListHeader, { totalCount: 5 }));
+    fireEvent.click(getByLabelText("Open sessions explorer"));
+    expect(post).toHaveBeenCalledWith({ type: "openExplorer" });
+  });
+
   it("enters bulk mode when Select is clicked", () => {
     const { getByText } = render(h(ListHeader, { totalCount: 5 }));
     fireEvent.click(getByText("Select"));
@@ -275,6 +281,14 @@ describe("ListHeader", () => {
     const { getByText } = render(h(ListHeader, { totalCount: 5 }));
     fireEvent.click(getByText("Delete"));
     expect(post).toHaveBeenCalledWith({ type: "bulkDeleteSessions", ids: ["a", "b"] });
+  });
+
+  it("asks the host to file the whole selection into a folder", () => {
+    setBulkMode(true);
+    selectAll(["a", "b"]);
+    const { getByText } = render(h(ListHeader, { totalCount: 5 }));
+    fireEvent.click(getByText("Folder"));
+    expect(post).toHaveBeenCalledWith({ type: "moveToFolder", sessionIds: ["a", "b"] });
   });
 
   it("offers Unpin when every selected session is already pinned", () => {

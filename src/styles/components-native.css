@@ -629,6 +629,12 @@
   background: var(--role-ghost-active-bg);
   color: var(--role-text-primary);
 }
+/* A toggle that is on (Button's `pressed`) stays drawn held down — the same
+   fill as the moment of the press — so its state reads at rest. */
+.btn.is-pressed {
+  background: var(--role-ghost-active-bg);
+  color: var(--role-text-primary);
+}
 /* Outlined TEXT button — an edge, no fill. Ghost is for icon-only affordances
    and for tertiary actions inside a strip that already carries a fill; this is
    for a labelled action that has to hold its own on a plain surface. Compact

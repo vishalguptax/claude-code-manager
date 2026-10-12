@@ -8,6 +8,7 @@ import {
   bulkModeSignal,
   filterDateSignal,
   filterProjectSignal,
+  foldersSignal,
   pinnedSignal,
   searchQuerySignal,
   selectionSignal,
@@ -168,12 +169,32 @@ describe("ListView", () => {
     });
     const menu = container.querySelector(".ctx-menu");
     expect(menu).toBeTruthy();
-    // 7 original rows (incl. the pin variant) plus Archive.
+    // 7 original rows (incl. the pin variant), Open in editor, Move to
+    // folder, and Archive.
     const labels = Array.from(menu?.querySelectorAll(".ctx-item") ?? []).map(
       (el) => el.textContent?.trim() ?? "",
     );
-    expect(labels).toHaveLength(8);
+    expect(labels).toHaveLength(10);
+    expect(labels).toContain("Move to folder…");
     expect(labels).toContain("Archive");
+  });
+
+  it("renders a folder section and opens folder actions from its header", () => {
+    const now = Date.now();
+    sessionsSignal.value = [session("a", { endTime: now }), session("b", { endTime: now - 1 })];
+    foldersSignal.value = new Map([["b", "auth"]]);
+    const { container } = render(h(ListView, {}));
+    const labels = Array.from(container.querySelectorAll(".session-group-label")).map(
+      (el) => el.textContent,
+    );
+    expect(labels).toEqual(["Today", "auth"]);
+
+    const folderHeader = container.querySelectorAll(".session-group-header")[1];
+    fireEvent.contextMenu(folderHeader, { clientX: 5, clientY: 5 });
+    const items = Array.from(container.querySelectorAll(".ctx-menu .ctx-item")).map(
+      (el) => el.textContent?.trim(),
+    );
+    expect(items).toEqual(["Rename folder", "Remove folder"]);
   });
 
   it("Ctrl+A selects every session while in bulk mode", () => {

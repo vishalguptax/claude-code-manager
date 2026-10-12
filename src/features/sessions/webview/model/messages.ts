@@ -26,6 +26,8 @@ import {
   selectedIdSignal,
   sessionsSignal,
   setArchived,
+  setFolders,
+  setFolderNames,
   setDeleted,
   setFullTextHits,
   setOpenTerminals,
@@ -65,7 +67,12 @@ export function handleMessage(msg: Message): void {
       break;
     }
     case "sessionDetail": {
-      detailSignal.value = msg.data as SessionDetail;
+      const detail = msg.data as SessionDetail;
+      // Host replies are broadcast to every sidebar panel and editor tab, so
+      // a tab showing one session sees the detail another view asked for.
+      // Keep only the session this view has open.
+      if (detail.id !== selectedIdSignal.value) break;
+      detailSignal.value = detail;
       detailLoadingSignal.value = false;
       break;
     }
@@ -73,6 +80,8 @@ export function handleMessage(msg: Message): void {
       if (msg.pinned) setPinned(msg.pinned);
       if (msg.deleted) setDeleted(msg.deleted);
       if (msg.archived) setArchived(msg.archived);
+      if (msg.folders) setFolders(msg.folders);
+      if (msg.folderNames) setFolderNames(msg.folderNames);
       break;
     }
     case "navigateList": {

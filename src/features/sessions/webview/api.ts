@@ -8,7 +8,7 @@
  * scope is safe.
  */
 import { useApi } from "../../../webview/shared/hooks";
-import type { WebviewMessage } from "../../../shared/protocol/messages";
+import type { DetailMode, WebviewMessage } from "../../../shared/protocol/messages";
 
 /** Post a protocol-typed message to the host. */
 function post(msg: WebviewMessage): void {
@@ -72,9 +72,13 @@ export const sendCreateWorktree = (sessionId: string): void =>
  */
 export const sendGetSessionDetail = (
   sessionId: string,
-  mode: "first" | "last" = "last",
+  mode: DetailMode = "last",
   query = "",
 ): void => post({ type: "getSessionDetail", sessionId, mode, query });
+
+/** Open the session's detail in its own editor tab. */
+export const sendOpenSessionPanel = (sessionId: string): void =>
+  post({ type: "openSessionPanel", sessionId });
 
 /** Pin a session to the top of the list. */
 export const sendPinSession = (sessionId: string): void =>
@@ -95,6 +99,27 @@ export const sendUnarchiveSession = (sessionId: string): void =>
 /** Archive several sessions in one host round-trip. */
 export const sendArchiveSessions = (sessionIds: string[]): void =>
   post({ type: "archiveSessions", sessionIds });
+
+/** Ask the host which folder to file these sessions in (a native QuickPick). */
+export const sendMoveToFolder = (sessionIds: string[]): void =>
+  post({ type: "moveToFolder", sessionIds });
+
+/** File sessions straight into a folder ("" unfiles) — no prompt; drag and drop. */
+export const sendFileSessions = (sessionIds: string[], folder: string): void =>
+  post({ type: "fileSessions", sessionIds, folder });
+
+/** Ask the host for a name, create the folder, and file any ids given into it. */
+export const sendCreateFolder = (sessionIds?: string[]): void =>
+  post(sessionIds ? { type: "createFolder", sessionIds } : { type: "createFolder" });
+
+/** Open the sessions explorer editor tab. */
+export const sendOpenExplorer = (): void => post({ type: "openExplorer" });
+
+/** Ask the host for a new name for a folder (a native input box). */
+export const sendRenameFolder = (folder: string): void => post({ type: "renameFolder", folder });
+
+/** Remove a folder; its sessions return to the date sections. */
+export const sendRemoveFolder = (folder: string): void => post({ type: "removeFolder", folder });
 
 /** Hide a session from the list (host confirms first via confirmDelete). */
 export const sendConfirmDelete = (sessionId: string, callback?: string): void =>

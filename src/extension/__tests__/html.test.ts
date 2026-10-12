@@ -72,3 +72,37 @@ describe("getWebviewHtml", () => {
     expect(scriptSrc).not.toContain("unsafe-inline");
   });
 });
+
+describe("getWebviewHtml — editor-tab boot", () => {
+  it("boots the sidebar app when no session is given", () => {
+    const html = getWebviewHtml(fakeWebview(), Uri.file("/ext") as vscode.Uri);
+    expect(html).toContain("<body>");
+    expect(html).toContain('<div id="root"></div>');
+  });
+
+  it("marks the body and names the session on the root", () => {
+    const html = getWebviewHtml(fakeWebview(), Uri.file("/ext") as vscode.Uri, {
+      view: "session",
+      sessionId: "abc-123",
+    });
+    expect(html).toContain('<body class="editor-panel">');
+    expect(html).toContain('<div id="root" data-view="session" data-session-id="abc-123"></div>');
+  });
+
+  it("boots the explorer", () => {
+    const html = getWebviewHtml(fakeWebview(), Uri.file("/ext") as vscode.Uri, {
+      view: "explorer",
+    });
+    expect(html).toContain('<body class="editor-panel">');
+    expect(html).toContain('<div id="root" data-view="explorer"></div>');
+  });
+
+  it("escapes the session id so it cannot break out of the attribute", () => {
+    const html = getWebviewHtml(fakeWebview(), Uri.file("/ext") as vscode.Uri, {
+      view: "session",
+      sessionId: '"><script>x</script>',
+    });
+    expect(html).toContain('data-session-id="&quot;&gt;&lt;script&gt;x&lt;/script&gt;"');
+    expect(html).not.toContain("<script>x</script>");
+  });
+});

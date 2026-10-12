@@ -36,6 +36,31 @@ describe("sessions api senders", () => {
     });
   });
 
+  it("explorer senders carry what the host needs", () => {
+    api.sendFileSessions(["a"], "auth");
+    expect(post).toHaveBeenCalledWith({ type: "fileSessions", sessionIds: ["a"], folder: "auth" });
+    api.sendCreateFolder();
+    expect(post).toHaveBeenCalledWith({ type: "createFolder" });
+    api.sendCreateFolder(["a"]);
+    expect(post).toHaveBeenCalledWith({ type: "createFolder", sessionIds: ["a"] });
+    api.sendOpenExplorer();
+    expect(post).toHaveBeenCalledWith({ type: "openExplorer" });
+  });
+
+  it("sendOpenSessionPanel names the session", () => {
+    api.sendOpenSessionPanel("id");
+    expect(post).toHaveBeenCalledWith({ type: "openSessionPanel", sessionId: "id" });
+  });
+
+  it("folder senders carry the session ids or the folder name", () => {
+    api.sendMoveToFolder(["a", "b"]);
+    expect(post).toHaveBeenCalledWith({ type: "moveToFolder", sessionIds: ["a", "b"] });
+    api.sendRenameFolder("auth");
+    expect(post).toHaveBeenCalledWith({ type: "renameFolder", folder: "auth" });
+    api.sendRemoveFolder("auth");
+    expect(post).toHaveBeenCalledWith({ type: "removeFolder", folder: "auth" });
+  });
+
   it("sendBulkPinSessions carries ids and pin flag", () => {
     api.sendBulkPinSessions(["a", "b"], true);
     expect(post).toHaveBeenCalledWith({ type: "bulkPinSessions", ids: ["a", "b"], pin: true });

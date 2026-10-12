@@ -36,10 +36,9 @@ import {
 } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
 import type { DateFilter } from "../../../../../webview/types";
-import { sendRefresh, sendSearchFullText } from "../../api";
+import { sendRefresh } from "../../api";
 import {
-  FULLTEXT_MIN_CHARS,
-  clearFullTextHits,
+  applySearchQuery,
   defaultDateSignal,
   defaultProjectSignal,
   filterBranchSignal,
@@ -51,7 +50,6 @@ import {
   getProjectOptions,
   getWorktreeOptions,
   hasWorktreeSessions,
-  markFullTextLoading,
   searchPendingSignal,
   searchQuerySignal,
 } from "../../model";
@@ -84,23 +82,12 @@ const WIDEST = {
 };
 
 function SearchBox() {
-  // SearchInput owns the responsive local mirror + debounce; this fires once
-  // per pause (or immediately on clear) with the resolved query.
-  const onQuery = (raw: string): void => {
-    const q = raw.toLowerCase();
-    searchQuerySignal.value = q;
-    if (q.length >= FULLTEXT_MIN_CHARS) {
-      markFullTextLoading();
-      sendSearchFullText(q);
-    } else {
-      clearFullTextHits();
-    }
-  };
-
+  // SearchInput owns the responsive local mirror + debounce; applySearchQuery
+  // runs once per pause (or immediately on clear) with the resolved query.
   return (
     <SearchInput
       value={searchQuerySignal.value}
-      onInput={onQuery}
+      onInput={applySearchQuery}
       debounceMs={SEARCH_DEBOUNCE_MS}
       placeholder="Search"
       ariaLabel="Search sessions"

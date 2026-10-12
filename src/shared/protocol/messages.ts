@@ -1,6 +1,7 @@
 export type SettingsScope = "global" | "project" | "local";
 export type PermissionList = "allow" | "deny";
-export type DetailMode = "first" | "last";
+/** Which slice of a transcript to load: a page from either end, or all of it. */
+export type DetailMode = "first" | "last" | "all";
 
 /** Payload for creating/editing an MCP server from the webview form. */
 export interface McpServerInput {
@@ -43,6 +44,7 @@ export type Message =
   | { type: "getSessionDetail"; sessionId: string; mode?: DetailMode; query?: string }
   | { type: "pinSession"; sessionId: string }
   | { type: "unpinSession"; sessionId: string }
+  | { type: "openSessionPanel"; sessionId: string }
   | { type: "getPromptHistory" }
   | { type: "copyPrompt"; text: string }
   | { type: "openPromptSession"; sessionId: string }
@@ -65,6 +67,12 @@ export type Message =
   | { type: "archiveSession"; sessionId: string }
   | { type: "unarchiveSession"; sessionId: string }
   | { type: "archiveSessions"; sessionIds: string[] }
+  | { type: "moveToFolder"; sessionIds: string[] }
+  | { type: "fileSessions"; sessionIds: string[]; folder: string }
+  | { type: "createFolder"; sessionIds?: string[] }
+  | { type: "openExplorer" }
+  | { type: "renameFolder"; folder: string }
+  | { type: "removeFolder"; folder: string }
   | { type: "confirmDelete"; sessionId: string; callback?: string }
   | { type: "renameSession"; sessionId: string }
   | { type: "forkSession"; sessionId: string }
@@ -188,6 +196,8 @@ export type Message =
       deleted?: string[];
       renames?: Record<string, string>;
       archived?: string[];
+      folders?: Record<string, string>;
+      folderNames?: string[];
     }
   | { type: "navigateList" }
   | { type: "skills"; data: unknown }
@@ -197,7 +207,6 @@ export type Message =
   | { type: "searchIndexReady" }
   | { type: "error"; message: string }
   | { type: "ack" }
-  | { type: "reloadComplete" }
   | { type: "accountData"; data: unknown }
   | { type: "commands"; data: unknown }
   // `errors` carries user-readable parse failures (malformed config files)
@@ -268,6 +277,7 @@ type WebviewMessageType =
   | "getSessionDetail"
   | "pinSession"
   | "unpinSession"
+  | "openSessionPanel"
   | "getPromptHistory"
   | "copyPrompt"
   | "openPromptSession"
@@ -284,6 +294,12 @@ type WebviewMessageType =
   | "archiveSession"
   | "unarchiveSession"
   | "archiveSessions"
+  | "moveToFolder"
+  | "fileSessions"
+  | "createFolder"
+  | "openExplorer"
+  | "renameFolder"
+  | "removeFolder"
   | "confirmDelete"
   | "renameSession"
   | "forkSession"
@@ -387,7 +403,6 @@ export const HOST_MESSAGE_TYPES: readonly HostMessage["type"][] = [
   "searchIndexReady",
   "error",
   "ack",
-  "reloadComplete",
   "accountData",
   "commands",
   "hooks",

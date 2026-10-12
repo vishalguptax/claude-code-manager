@@ -1388,6 +1388,30 @@ describe("parseSessionDetail", () => {
     expect(toolHit!.totalMatches).toBe(1);
   });
 
+  it("all mode returns the whole transcript in order; the paged modes cap it", () => {
+    const now = Date.now();
+    writeHistoryEntry({ display: "a", timestamp: now, project: "/home/u/p", sessionId: "sess-all" });
+    writeSessionFile(
+      "-home-u-p",
+      "sess-all",
+      Array.from({ length: 60 }, (_, i) => ({
+        timestamp: new Date(now + i).toISOString(),
+        message: { role: "user", content: `m${i}` },
+      })),
+    );
+
+    const all = parseSessionDetail("sess-all", undefined, "all");
+    expect(all!.detailMode).toBe("all");
+    expect(all!.totalMessages).toBe(60);
+    expect(all!.messages).toHaveLength(60);
+    expect(all!.messages[0].content).toBe("m0");
+    expect(all!.messages[59].content).toBe("m59");
+
+    const last = parseSessionDetail("sess-all", undefined, "last");
+    expect(last!.messages).toHaveLength(50);
+    expect(last!.messages[0].content).toBe("m10");
+  });
+
   it("empty/whitespace query reverts to paged mode", () => {
     const now = Date.now();
     writeHistoryEntry({ display: "q", timestamp: now, project: "/home/u/p", sessionId: "sess-empty-q" });

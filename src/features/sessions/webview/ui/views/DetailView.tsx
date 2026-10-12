@@ -35,6 +35,7 @@ import {
   sendLaunchChatWithPrompt,
   sendOpenProject,
   sendOpenProjectAndChat,
+  sendOpenSessionPanel,
   sendPinSession,
   sendRenameSession,
   sendResumeSession,
@@ -59,6 +60,7 @@ import { MessageItem, fmtTokens } from "../components/MessageItem";
 import { liveTitleForStatus } from "../components/SessionItem";
 import { DetailSkeleton } from "./DetailSkeleton";
 import type { SessionDetail, WorktreeRef } from "../../../types";
+import type { DetailMode } from "../../../../../shared/protocol/messages";
 
 /** Matches DETAIL_PAGE_SIZE in parser.ts — toggle only meaningful past this. */
 const PAGE_SIZE_FOR_TOGGLE = 50;
@@ -66,10 +68,14 @@ const PAGE_SIZE_FOR_TOGGLE = 50;
 const MESSAGE_WINDOW = 200;
 /** Debounce for the transcript search box. */
 const DETAIL_SEARCH_DEBOUNCE_MS = 250;
-/** Transcript order toggle — newest-first ("Latest") vs chronological ("Earliest"). */
-const MESSAGE_ORDER_OPTIONS: SegmentedOption<"last" | "first">[] = [
+/**
+ * Which slice of the transcript to load: a page newest-first ("Latest"), a
+ * page from the start ("Earliest"), or the whole of it in order ("All").
+ */
+const MESSAGE_ORDER_OPTIONS: SegmentedOption<DetailMode>[] = [
   { value: "last", label: "Latest" },
   { value: "first", label: "Earliest" },
+  { value: "all", label: "All" },
 ];
 
 /** Navigate from detail back to the list, resetting transient detail state. */
@@ -329,7 +335,38 @@ function DetailOverflow({ d }: { d: SessionDetail }) {
   );
 }
 
-export function DetailView() {
+/**
+ * Where the detail is shown, which decides its navigation row:
+ *
+ *   sidebar   back to the list, and out into an editor tab
+ *   explorer  out into an editor tab — the list sits beside it, no "back"
+ *   tab       nothing: the session is the whole document already
+ */
+export type DetailContext = "sidebar" | "explorer" | "tab";
+
+export interface DetailViewProps {
+  context: DetailContext;
+}
+
+function DetailNav({ sessionId, context }: { sessionId: string | null; context: DetailContext }) {
+  if (context === "tab") return null;
+  return (
+    <div class="d-nav">
+      {context === "sidebar" ? <BackButton label="All sessions" onClick={backToList} /> : <span />}
+      {sessionId ? (
+        <Button
+          variant="icon"
+          iconName="maximize-2"
+          title="Open in an editor tab, for more room to read"
+          ariaLabel="Open in editor"
+          onClick={() => sendOpenSessionPanel(sessionId)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+export function DetailView({ context }: DetailViewProps) {
   const d = detailSignal.value;
   const loading = detailLoadingSignal.value;
   const [rawQuery, setRawQuery] = useState("");
@@ -340,12 +377,18 @@ export function DetailView() {
   const sessionId = d?.id ?? null;
   const mode = d?.detailMode ?? "last";
 
-  // Re-request the transcript whenever the debounced query changes for the
-  // open session. Empty query reverts the host to the default paged view.
+  // Re-request the transcript when the debounced query changes for the open
+  // session; an empty query reverts the host to the default paged view. Skip
+  // the request when the detail on screen already answers that query: opening
+  // a session, switching Latest / Earliest / All and the host's reply all
+  // change `sessionId` or `mode` too, and asking again then made the host
+  // parse the whole transcript a second time for the same result.
   useEffect(() => {
     if (!sessionId) return;
-    sendGetSessionDetail(sessionId, mode, debouncedQuery.trim());
     setWindowSize(MESSAGE_WINDOW);
+    const query = debouncedQuery.trim();
+    if ((detailSignal.peek()?.detailQuery ?? "") === query.toLowerCase()) return;
+    sendGetSessionDetail(sessionId, mode, query);
   }, [debouncedQuery, sessionId, mode]);
 
   // Reset the search box + window when switching to a different session.
@@ -357,7 +400,7 @@ export function DetailView() {
   if (loading || !d) {
     return (
       <div class="panel" id="detailView">
-        <BackButton label="All sessions" onClick={backToList} />
+        <DetailNav sessionId={null} context={context} />
         <DetailSkeleton />
       </div>
     );
@@ -386,9 +429,9 @@ export function DetailView() {
   const stale = isSearching && d.detailQuery !== activeQuery;
   const matchCount = d.totalMatches ?? d.messages.length;
 
-  // "Latest" renders newest-first; "Earliest" and search keep chronological
-  // order. We carry the original index so copy / ask-again resolve the right
-  // message after any reversal.
+  // "Latest" renders newest-first; "Earliest", "All" and search keep
+  // chronological order. We carry the original index so copy / ask-again
+  // resolve the right message after any reversal.
   const indexed = d.messages.map((m, origIdx) => ({ m, origIdx }));
   const ordered = !isSearching && mode === "last" ? indexed.slice().reverse() : indexed;
   // While searching, `d.messages` already holds only the matches (the host
@@ -413,7 +456,7 @@ export function DetailView() {
 
   return (
     <div class="panel" id="detailView">
-      <BackButton label="All sessions" onClick={backToList} />
+      <DetailNav sessionId={d.id} context={context} />
 
       <div class="d-head">
         <div class="d-title" title={d.name || d.summary}>
@@ -509,7 +552,7 @@ export function DetailView() {
             <div class="d-label-row">
               <span class="d-label">Messages ({total})</span>
               {showToggle ? (
-                <Segmented<"last" | "first">
+                <Segmented<DetailMode>
                   size="sm"
                   ariaLabel="Message order"
                   value={mode}
@@ -541,9 +584,11 @@ export function DetailView() {
 
           {!isSearching && showToggle ? (
             <div class="d-msg-hint">
-              {mode === "first"
-                ? `Showing first ${d.messages.length} of ${total} messages`
-                : `Showing last ${d.messages.length} of ${total} messages · newest first`}
+              {mode === "all"
+                ? `Showing all ${total} messages`
+                : mode === "first"
+                  ? `Showing first ${d.messages.length} of ${total} messages`
+                  : `Showing last ${d.messages.length} of ${total} messages · newest first`}
             </div>
           ) : null}
           {isSearching && !stale && d.messages.length === 0 ? (

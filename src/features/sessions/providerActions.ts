@@ -330,9 +330,9 @@ export function refreshSettings(ctx: ProviderActionsContext): void {
  *
  * The immediate data push (before the html reset) keeps the live-webview
  * path instant and gives the webview its data even on hosts where the
- * post-reset handshake is delayed; the html reset then supersedes the
- * button's spinner with the fresh skeleton mount. `reloadComplete` is the
- * last wire event before the reset so the webview can settle its spinner.
+ * post-reset handshake is delayed; the html reset then supersedes it with
+ * the fresh skeleton mount. The caller shows progress for the duration
+ * (the Reload command wraps this in VS Code's view progress).
  */
 export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   const wv = ctx.getWebview();
@@ -461,7 +461,6 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
   ctx.refreshSettings();
   ctx.postWorkspacePath();
   wv.postMessage({ type: "terminalSessions", ids: ctx.terminals.ids() });
-  wv.postMessage({ type: "reloadComplete" });
 
   // (c) WEBVIEW — re-mount the Preact app from a freshly generated
   // document. This discards in-memory webview state and replays the

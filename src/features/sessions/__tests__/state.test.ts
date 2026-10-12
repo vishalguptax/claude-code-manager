@@ -31,6 +31,10 @@ import {
   archiveSession,
   unarchiveSession,
   archiveSessions,
+  setSessionsFolder,
+  createFolder,
+  renameFolder,
+  removeFolder,
 } from "../state";
 
 const empty = () => ({
@@ -38,6 +42,8 @@ const empty = () => ({
   deleted: [] as string[],
   renames: {} as Record<string, string>,
   archived: [] as string[],
+  folders: {} as Record<string, string>,
+  folderNames: [] as string[],
 });
 
 describe("loadState", () => {
@@ -352,5 +358,111 @@ describe("archive", () => {
     const state = loadState();
     expect(state.archived).toEqual([]);
     expect(state.pinned).toEqual(["a"]);
+  });
+});
+
+describe("folders", () => {
+  beforeEach(() => {
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+  });
+
+  it("defaults to no folders for state files predating the field", () => {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ pinned: ["a"] }));
+    expect(loadState().folders).toEqual({});
+  });
+
+  it("lists folders found in the map even when the list predates them", () => {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ folders: { a: "auth", b: "auth" } }));
+    expect(loadState().folderNames).toEqual(["auth"]);
+  });
+
+  it("creates an empty folder once, ignoring blanks", () => {
+    createFolder("  later ");
+    createFolder("later");
+    createFolder("   ");
+    const state = loadState();
+    expect(state.folderNames).toEqual(["later"]);
+    expect(state.folders).toEqual({});
+  });
+
+  it("keeps a folder after its last session leaves", () => {
+    setSessionsFolder(["s-1"], "auth");
+    setSessionsFolder(["s-1"], "");
+    expect(loadState().folderNames).toEqual(["auth"]);
+  });
+
+  it("renames an empty folder, and merges a rename onto an existing one", () => {
+    createFolder("later");
+    createFolder("release");
+    renameFolder("later", "soon");
+    expect(loadState().folderNames.sort()).toEqual(["release", "soon"]);
+    renameFolder("soon", "release");
+    expect(loadState().folderNames).toEqual(["release"]);
+  });
+
+  it("removes an empty folder from the list", () => {
+    createFolder("later");
+    removeFolder("later");
+    expect(loadState().folderNames).toEqual([]);
+  });
+
+  it("drops non-string entries from a hand-edited folders map", () => {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ folders: { a: "auth", b: 7, c: null } }));
+    expect(loadState().folders).toEqual({ a: "auth" });
+  });
+
+  it("files sessions under a trimmed name and persists it", () => {
+    setSessionsFolder(["s-1", "s-2"], "  auth refactor ");
+    expect(loadState().folders).toEqual({ "s-1": "auth refactor", "s-2": "auth refactor" });
+  });
+
+  it("moves a session from one folder to another", () => {
+    setSessionsFolder(["s-1"], "auth");
+    setSessionsFolder(["s-1"], "release");
+    expect(loadState().folders).toEqual({ "s-1": "release" });
+  });
+
+  it("unfiles sessions when the folder name is blank", () => {
+    setSessionsFolder(["s-1", "s-2"], "auth");
+    setSessionsFolder(["s-1"], "   ");
+    expect(loadState().folders).toEqual({ "s-2": "auth" });
+  });
+
+  it("renames a folder by re-filing every session in it, leaving others alone", () => {
+    setSessionsFolder(["s-1", "s-2"], "auth");
+    setSessionsFolder(["s-3"], "release");
+    renameFolder("auth", " login ");
+    expect(loadState().folders).toEqual({ "s-1": "login", "s-2": "login", "s-3": "release" });
+  });
+
+  it("merges folders when renamed onto an existing name", () => {
+    setSessionsFolder(["s-1"], "auth");
+    setSessionsFolder(["s-2"], "release");
+    renameFolder("auth", "release");
+    expect(loadState().folders).toEqual({ "s-1": "release", "s-2": "release" });
+  });
+
+  it("ignores a blank rename", () => {
+    setSessionsFolder(["s-1"], "auth");
+    renameFolder("auth", "  ");
+    expect(loadState().folders).toEqual({ "s-1": "auth" });
+  });
+
+  it("removes a folder without touching the sessions' other state", () => {
+    pinSession("s-1");
+    setSessionsFolder(["s-1", "s-2"], "auth");
+    setSessionsFolder(["s-3"], "release");
+    removeFolder("auth");
+    const state = loadState();
+    expect(state.folders).toEqual({ "s-3": "release" });
+    expect(state.pinned).toEqual(["s-1"]);
+  });
+
+  it("deleting a session unfiles it", () => {
+    setSessionsFolder(["s-1", "s-2", "s-3"], "auth");
+    deleteSession("s-1");
+    deleteSessions(["s-2"]);
+    expect(loadState().folders).toEqual({ "s-3": "auth" });
   });
 });

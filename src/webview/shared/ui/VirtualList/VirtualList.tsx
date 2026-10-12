@@ -36,6 +36,24 @@ export interface VirtualListProps<T> {
    * inside an already-labelled region, where a second name is noise.
    */
   label?: string;
+  /**
+   * Keep this row in view: when it changes, scroll just enough to show it.
+   * For keyboard navigation, where the focused row can be any distance away.
+   */
+  scrollToIndex?: number;
+  /**
+   * Make the scroll container itself an interactive widget — the explorer
+   * renders it as a multi-select listbox. The rows' wrappers then become
+   * presentational, since the caller's items carry the `option` role.
+   */
+  interactive?: {
+    role: "listbox";
+    multiselectable: boolean;
+    activeDescendant?: string;
+    onKeyDown: (e: KeyboardEvent) => void;
+    onClick?: (e: MouseEvent) => void;
+    onContextMenu?: (e: MouseEvent) => void;
+  };
 }
 
 /** Cumulative top offset for each index plus the grand total. */
@@ -68,7 +86,16 @@ function findStart(offsets: number[], top: number): number {
 }
 
 export function VirtualList<T>(props: VirtualListProps<T>) {
-  const { items, itemHeight, renderItem, overscan = 4, class: cls, label } = props;
+  const {
+    items,
+    itemHeight,
+    renderItem,
+    overscan = 4,
+    class: cls,
+    label,
+    scrollToIndex,
+    interactive,
+  } = props;
   const count = items.length;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -154,6 +181,19 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
     if (changed) forceRecompute((n) => n + 1);
   }, [items, start, end]);
 
+  // Scroll the requested row into view — only as far as needed, so stepping
+  // through rows with the arrow keys moves the list one row at a time rather
+  // than snapping each target to the top. Reads the offsets of THIS render,
+  // which is why it is a layout effect keyed on them.
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el || scrollToIndex === undefined || scrollToIndex < 0 || scrollToIndex >= count) return;
+    const top = offsets[scrollToIndex];
+    const bottom = top + heightAt(scrollToIndex);
+    if (top < el.scrollTop) el.scrollTop = top;
+    else if (bottom > el.scrollTop + el.clientHeight) el.scrollTop = bottom - el.clientHeight;
+  }, [scrollToIndex, offsets, count, heightAt]);
+
   // Drop stale measurements when the list shrinks so offsets don't carry
   // heights for indices that no longer exist.
   if (measured.current.length > count) measured.current.length = count;
@@ -175,9 +215,9 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
       <div
         key={i}
         ref={setRowEl(i)}
-        role="listitem"
-        aria-setsize={items.length}
-        aria-posinset={i + 1}
+        role={interactive ? "presentation" : "listitem"}
+        aria-setsize={interactive ? undefined : items.length}
+        aria-posinset={interactive ? undefined : i + 1}
         style={{ position: "absolute", top: `${offsets[i]}px`, left: 0, right: 0 }}
       >
         {renderItem(item, i)}
@@ -188,8 +228,14 @@ export function VirtualList<T>(props: VirtualListProps<T>) {
   return (
     <div
       ref={containerRef}
-      role="list"
+      role={interactive?.role ?? "list"}
       aria-label={label}
+      aria-multiselectable={interactive?.multiselectable}
+      aria-activedescendant={interactive?.activeDescendant}
+      tabIndex={interactive ? 0 : undefined}
+      onKeyDown={interactive?.onKeyDown}
+      onClick={interactive?.onClick}
+      onContextMenu={interactive?.onContextMenu}
       class={cls ? `virtual-list ${cls}` : "virtual-list"}
     >
       <div

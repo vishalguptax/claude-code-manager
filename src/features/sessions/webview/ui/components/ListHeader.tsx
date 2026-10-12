@@ -1,18 +1,25 @@
 /**
  * The strip above the session list. At rest it shows the session count, a
- * collapse/expand-all toggle, and a "Select" toggle; in bulk mode it becomes a
- * toolbar with pin/unpin, export, delete, and cancel actions scoped to the
+ * collapse/expand-all toggle, the way into the sessions explorer, and a
+ * "Select" toggle; in bulk mode it becomes a
+ * toolbar with pin/unpin, folder, export, delete, and cancel actions scoped to the
  * current selection.
  */
 import { useRef } from "preact/hooks";
 import { useEdgeAutoScroll } from "../../../../../webview/shared/hooks";
 import { Button, Icon } from "../../../../../webview/shared/ui";
 import { cx } from "../../../../../webview/shared/lib";
-import { sendBulkDeleteSessions, sendBulkExportSessions, sendBulkPinSessions } from "../../api";
+import {
+  sendBulkDeleteSessions,
+  sendBulkExportSessions,
+  sendBulkPinSessions,
+  sendMoveToFolder,
+  sendOpenExplorer,
+} from "../../api";
 import {
   allGroupsCollapsed,
   bulkModeSignal,
-  groupLabelsSignal,
+  groupKeysSignal,
   setGroupsCollapsed,
   clearSelection,
   pinnedSignal,
@@ -35,7 +42,7 @@ export function ListHeader({ totalCount }: ListHeaderProps) {
   const count = selection.size;
 
   if (!bulk) {
-    const labels = groupLabelsSignal.value;
+    const keys = groupKeysSignal.value;
     const allCollapsed = allGroupsCollapsed.value;
     return (
       <div ref={stripRef} class="list-header" role="toolbar" aria-label="Session list header">
@@ -50,15 +57,25 @@ export function ListHeader({ totalCount }: ListHeaderProps) {
             it. The glyph already carries the direction — its chevrons converge
             to fold and diverge to unfold — and this is the form VS Code gives
             the same control in its own tree toolbars. */}
-        {labels.length > 1 ? (
+        {keys.length > 1 ? (
           <Button
             variant="icon-outline"
             iconName={allCollapsed ? "chevrons-up-down" : "chevrons-down-up"}
             title={allCollapsed ? "Expand all sections" : "Collapse all sections"}
             ariaLabel={allCollapsed ? "Expand all sections" : "Collapse all sections"}
-            onClick={() => setGroupsCollapsed(labels, !allCollapsed)}
+            onClick={() => setGroupsCollapsed(keys, !allCollapsed)}
           />
         ) : null}
+        {/* Here rather than in the view's title bar: the explorer is a sessions
+            tool, so it belongs with the session list, not with the panel's
+            global actions. */}
+        <Button
+          variant="icon-outline"
+          iconName="folder-tree"
+          title="Open the sessions explorer — folders, every session, and a preview, in an editor tab"
+          ariaLabel="Open sessions explorer"
+          onClick={() => sendOpenExplorer()}
+        />
         <Button
           variant="outline"
           iconName="check"
@@ -98,6 +115,15 @@ export function ListHeader({ totalCount }: ListHeaderProps) {
         onClick={() => count > 0 && sendBulkPinSessions(ids(), !allPinned)}
       >
         {pinLabel}
+      </Button>
+      <Button
+        variant="ghost"
+        class="bulk-btn"
+        iconName="folder"
+        disabled={count === 0}
+        onClick={() => count > 0 && sendMoveToFolder(ids())}
+      >
+        Folder
       </Button>
       <Button
         variant="ghost"

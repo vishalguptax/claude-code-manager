@@ -69,4 +69,19 @@ describe("Button", () => {
     fireEvent.click(btn);
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  it("is announced as a toggle when pressed is given, and drawn held while on", () => {
+    const { container, rerender } = render(<Button pressed>Preview</Button>);
+    const btn = container.querySelector("button")!;
+    expect(btn.getAttribute("aria-pressed")).toBe("true");
+    expect(btn.classList.contains("is-pressed")).toBe(true);
+    rerender(<Button pressed={false}>Preview</Button>);
+    expect(btn.getAttribute("aria-pressed")).toBe("false");
+    expect(btn.classList.contains("is-pressed")).toBe(false);
+  });
+
+  it("is a plain action button without pressed", () => {
+    const { container } = render(<Button>Go</Button>);
+    expect(container.querySelector("button")!.hasAttribute("aria-pressed")).toBe(false);
+  });
 });

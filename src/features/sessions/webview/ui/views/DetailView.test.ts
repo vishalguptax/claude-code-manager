@@ -68,7 +68,7 @@ describe("DetailView", () => {
   it("renders a loading shell while loading", () => {
     detailLoadingSignal.value = true;
     detailSignal.value = null;
-    const { container } = render(h(DetailView, {}));
+    const { container } = render(h(DetailView, { context: "sidebar" }));
     // The bare "Loading…" text was replaced by the content-shaped detail skeleton.
     expect(container.querySelector(".skeleton-detail")).toBeTruthy();
   });
@@ -76,7 +76,7 @@ describe("DetailView", () => {
   it("renders the title, project and messages", () => {
     currentProjectSignal.value = "proj";
     detailSignal.value = detail();
-    const { container, getByText } = render(h(DetailView, {}));
+    const { container, getByText } = render(h(DetailView, { context: "sidebar" }));
     expect(container.querySelector(".d-title")?.textContent).toBe("My session");
     expect(getByText("Messages (2)")).toBeTruthy();
     expect(container.querySelectorAll(".d-msg").length).toBe(2);
@@ -85,7 +85,7 @@ describe("DetailView", () => {
   it("renders newest-first in last mode", () => {
     currentProjectSignal.value = "proj";
     detailSignal.value = detail({ detailMode: "last" });
-    const { container } = render(h(DetailView, {}));
+    const { container } = render(h(DetailView, { context: "sidebar" }));
     const contents = [...container.querySelectorAll(".d-msg-content")].map((e) => e.textContent);
     // last mode reverses → assistant "second" first.
     expect(contents[0]).toBe("second");
@@ -106,7 +106,7 @@ describe("DetailView", () => {
         detailQuery: "widget",
         totalMatches: 210,
       });
-      const { container } = render(h(DetailView, {}));
+      const { container } = render(h(DetailView, { context: "sidebar" }));
 
       const input = container.querySelector(".d-msg-search .tf-input") as HTMLInputElement;
       fireEvent.input(input, { target: { value: "widget" } });
@@ -123,10 +123,47 @@ describe("DetailView", () => {
     }
   });
 
+  it("does not re-fetch the transcript it was just given", () => {
+    currentProjectSignal.value = "proj";
+    detailSignal.value = detail();
+    post.mockClear();
+    render(h(DetailView, { context: "sidebar" }));
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it("fetches once per search change, not again when the answer arrives", () => {
+    vi.useFakeTimers();
+    try {
+      currentProjectSignal.value = "proj";
+      detailSignal.value = detail();
+      const { container } = render(h(DetailView, { context: "sidebar" }));
+      post.mockClear();
+      const input = container.querySelector(".d-msg-search .tf-input") as HTMLInputElement;
+      fireEvent.input(input, { target: { value: "Widget" } });
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(post).toHaveBeenLastCalledWith({
+        type: "getSessionDetail",
+        sessionId: "a",
+        mode: "last",
+        query: "Widget",
+      });
+      // The host answers with the lowercased query it searched for.
+      act(() => {
+        detailSignal.value = detail({ detailQuery: "widget", totalMatches: 0, messages: [] });
+      });
+      expect(post).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows the cross-project notice when the session is from another project", () => {
     currentProjectSignal.value = "other";
     detailSignal.value = detail({ project: "proj", projectKey: "proj" });
-    const { container, getByText } = render(h(DetailView, {}));
+    const { container, getByText } = render(h(DetailView, { context: "sidebar" }));
     expect(container.querySelector(".d-notice")).toBeTruthy();
     expect(getByText(/Open .* to resume/)).toBeTruthy();
   });
@@ -134,7 +171,7 @@ describe("DetailView", () => {
   it("shows the cross-project notice when the window has no folder open", () => {
     setWorkspacePath("");
     detailSignal.value = detail({ project: "proj", projectKey: "proj" });
-    const { container, queryByText } = render(h(DetailView, {}));
+    const { container, queryByText } = render(h(DetailView, { context: "sidebar" }));
     expect(container.querySelector(".d-notice")).toBeTruthy();
     expect(queryByText("Resume")).toBeNull();
   });
@@ -142,26 +179,77 @@ describe("DetailView", () => {
   it("shows the resume action for a same-project session", () => {
     currentProjectSignal.value = "proj";
     detailSignal.value = detail();
-    const { getByText } = render(h(DetailView, {}));
+    const { getByText } = render(h(DetailView, { context: "sidebar" }));
     expect(getByText("Resume")).toBeTruthy();
   });
 
   it("shows the latest/earliest toggle (shared Segmented) only for long transcripts", () => {
     currentProjectSignal.value = "proj";
     detailSignal.value = detail({ totalMessages: 200 });
-    const { container, getByText } = render(h(DetailView, {}));
+    const { container, getByText } = render(h(DetailView, { context: "sidebar" }));
     // Migrated from the legacy .vs-segmented pill to the shared <Segmented>
     // (native .vsc-segmented track look), so the selected-state matches every
     // other segmented control in the app.
     expect(container.querySelector(".vsc-segmented")).toBeTruthy();
     expect(getByText("Latest")).toBeTruthy();
     expect(getByText("Earliest")).toBeTruthy();
+    expect(getByText("All")).toBeTruthy();
+  });
+
+  it("asks the host for the whole transcript when All is picked", () => {
+    currentProjectSignal.value = "proj";
+    detailSignal.value = detail({ totalMessages: 200 });
+    const { getByText } = render(h(DetailView, { context: "sidebar" }));
+    post.mockClear();
+    fireEvent.click(getByText("All"));
+    expect(post).toHaveBeenCalledWith({
+      type: "getSessionDetail",
+      sessionId: "a",
+      mode: "all",
+      query: "",
+    });
+  });
+
+  it("renders the whole transcript oldest-first in all mode", () => {
+    currentProjectSignal.value = "proj";
+    detailSignal.value = detail({ detailMode: "all", totalMessages: 60 });
+    const { container, getByText } = render(h(DetailView, { context: "sidebar" }));
+    const contents = [...container.querySelectorAll(".d-msg-content")].map((e) => e.textContent);
+    expect(contents[0]).toBe("first");
+    expect(getByText("Showing all 60 messages")).toBeTruthy();
+  });
+
+  it("offers to open the session in an editor tab from the sidebar", () => {
+    currentProjectSignal.value = "proj";
+    detailSignal.value = detail();
+    const { container } = render(h(DetailView, { context: "sidebar" }));
+    expect(container.querySelector(".back-btn")).toBeTruthy();
+    post.mockClear();
+    fireEvent.click(container.querySelector('[aria-label="Open in editor"]') as Element);
+    expect(post).toHaveBeenCalledWith({ type: "openSessionPanel", sessionId: "a" });
+  });
+
+  it("drops the back and open-in-editor controls in its own tab", () => {
+    currentProjectSignal.value = "proj";
+    detailSignal.value = detail();
+    const { container } = render(h(DetailView, { context: "tab" }));
+    expect(container.querySelector(".d-nav")).toBeNull();
+    expect(container.querySelector(".back-btn")).toBeNull();
+    expect(container.querySelector(".d-title")?.textContent).toBe("My session");
+  });
+
+  it("keeps open-in-editor but drops back in the explorer", () => {
+    currentProjectSignal.value = "proj";
+    detailSignal.value = detail();
+    const { container } = render(h(DetailView, { context: "explorer" }));
+    expect(container.querySelector(".back-btn")).toBeNull();
+    expect(container.querySelector('[aria-label="Open in editor"]')).toBeTruthy();
   });
 
   it("hides the toggle for short transcripts", () => {
     currentProjectSignal.value = "proj";
     detailSignal.value = detail({ totalMessages: 2 });
-    const { container } = render(h(DetailView, {}));
+    const { container } = render(h(DetailView, { context: "sidebar" }));
     expect(container.querySelector(".vsc-segmented")).toBeNull();
   });
 
@@ -170,7 +258,7 @@ describe("DetailView", () => {
       currentProjectSignal.value = "proj";
       worktreesSignal.value = { a: ref() };
       detailSignal.value = detail();
-      const { container } = render(h(DetailView, {}));
+      const { container } = render(h(DetailView, { context: "sidebar" }));
       const block = container.querySelector(".d-worktree");
       expect(block).toBeTruthy();
       expect(block?.textContent).toContain("Claude-created worktree");
@@ -184,7 +272,7 @@ describe("DetailView", () => {
       currentProjectSignal.value = "proj";
       worktreesSignal.value = { a: ref({ kind: "main" }) };
       detailSignal.value = detail();
-      const { container } = render(h(DetailView, {}));
+      const { container } = render(h(DetailView, { context: "sidebar" }));
       expect(container.querySelector(".d-worktree")).toBeNull();
     });
 
@@ -192,7 +280,7 @@ describe("DetailView", () => {
       currentProjectSignal.value = "proj";
       worktreesSignal.value = { a: ref() };
       detailSignal.value = detail();
-      const { getByText } = render(h(DetailView, {}));
+      const { getByText } = render(h(DetailView, { context: "sidebar" }));
       expect(getByText("Resume in worktree")).toBeTruthy();
     });
 
@@ -200,7 +288,7 @@ describe("DetailView", () => {
       currentProjectSignal.value = "proj";
       worktreesSignal.value = { a: ref({ exists: false, kind: "claude" }) };
       detailSignal.value = detail();
-      const { getByText, queryByText } = render(h(DetailView, {}));
+      const { getByText, queryByText } = render(h(DetailView, { context: "sidebar" }));
       // Resume is gone — the checkout no longer exists.
       expect(queryByText("Resume")).toBeNull();
       expect(queryByText("Resume in worktree")).toBeNull();
@@ -213,7 +301,7 @@ describe("DetailView", () => {
       currentProjectSignal.value = "proj";
       worktreesSignal.value = { a: ref({ exists: false, kind: "user" }) };
       detailSignal.value = detail();
-      const { container, queryByText } = render(h(DetailView, {}));
+      const { container, queryByText } = render(h(DetailView, { context: "sidebar" }));
       expect(queryByText("Recreate worktree")).toBeNull();
       expect(container.querySelector(".d-notice")?.textContent).toContain("removed from disk");
     });
@@ -224,7 +312,7 @@ describe("DetailView", () => {
   // component that renders the pair.
   it("omits the summary line when it repeats the title", () => {
     detailSignal.value = detail({ name: "Fix the parser", summary: "Fix the parser" });
-    const { container } = render(h(DetailView, {}));
+    const { container } = render(h(DetailView, { context: "sidebar" }));
     expect(container.querySelector(".d-title")?.textContent).toBe("Fix the parser");
     expect(container.querySelector(".d-subtitle")).toBeNull();
   });
@@ -234,7 +322,7 @@ describe("DetailView", () => {
       name: "Fix the parser",
       summary: "trailing comma in settings.json",
     });
-    const { container } = render(h(DetailView, {}));
+    const { container } = render(h(DetailView, { context: "sidebar" }));
     expect(container.querySelector(".d-subtitle")?.textContent).toBe(
       "trailing comma in settings.json",
     );
