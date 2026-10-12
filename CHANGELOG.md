@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.20.1] - 2026-10-13
+
+Sessions you file into a folder now stay in the sidebar whatever the date filter, the same way pinned sessions do.
+
+See [docs/releases/v2.20.1.md](docs/releases/v2.20.1.md) for full details.
+
 ## [2.20.0] - 2026-10-12
 
 Organize your sessions: file them into folders, manage everything in a new Sessions Explorer laid out like a file manager, and open any session full width in its own editor tab.
