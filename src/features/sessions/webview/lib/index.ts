@@ -10,6 +10,7 @@ export {
   type Row,
 } from "./groups";
 export {
+  isKept,
   matchesScope,
   matchesProject,
   matchesDate,

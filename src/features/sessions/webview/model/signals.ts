@@ -28,6 +28,7 @@ import {
   buildWorktreeOptions,
   currentRepoRoot,
   hasWorktrees,
+  isKept,
   listBranches,
   matchesProject,
   matchesScope,
@@ -342,7 +343,8 @@ export function getFiltered(): Session[] {
   // Project / date / branch / worktree all live in `matchesScope`, which the
   // filter dropdowns read too. Keeping one definition is what stops the
   // counts in those dropdowns from describing a different list than this one.
-  let list = all.filter((s) => matchesScope(s, currentScope()));
+  const scope = currentScope();
+  let list = all.filter((s) => matchesScope(s, scope));
 
   if (query) {
     const hits = ft.query === query ? ft.ids : null;
@@ -358,13 +360,14 @@ export function getFiltered(): Session[] {
     return b.endTime - a.endTime;
   });
 
-  // The "recent" view caps to the 20 newest non-pinned rows — but only when
-  // NOT searching. A search that silently dropped the 21st+ match reads as
-  // "search can't find it"; an active query must surface every match.
+  // The "recent" view caps to the 20 newest rows the user did not keep
+  // (pinned or filed rows always stay) — but only when NOT searching. A search
+  // that silently dropped the 21st+ match reads as "search can't find it"; an
+  // active query must surface every match.
   if (date === "recent" && !query) {
-    const pin = list.filter((s) => pinned.has(s.id));
-    const rest = list.filter((s) => !pinned.has(s.id)).slice(0, 20);
-    return [...pin, ...rest];
+    const kept = list.filter((s) => isKept(s.id, scope));
+    const rest = list.filter((s) => !isKept(s.id, scope)).slice(0, 20);
+    return [...kept, ...rest];
   }
 
   return list;
@@ -378,6 +381,7 @@ export function currentScope(): FilterScope {
   return {
     deleted: deletedSignal.value,
     pinned: pinnedSignal.value,
+    folders: foldersSignal.value,
     archived: archivedSignal.value,
     showArchived: showArchivedSignal.value,
     project: filterProjectSignal.value,

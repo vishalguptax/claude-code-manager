@@ -27,6 +27,7 @@ function scope(over: Partial<FilterScope> = {}): FilterScope {
   return {
     deleted: new Set(),
     pinned: new Set(),
+    folders: new Map(),
     project: "all",
     currentProject: "",
     workspaceResolved: false,
@@ -138,6 +139,13 @@ describe("matchesScope", () => {
   it("lets a pin survive the date cutoff but never a branch filter", () => {
     const sc = scope({ date: "week", pinned: new Set(["old"]) });
     expect(matchesScope(old, sc)).toBe(true);
+    expect(matchesScope(old, { ...sc, branch: "main" })).toBe(false);
+  });
+
+  it("lets a filed session survive the date cutoff but never a branch filter", () => {
+    const sc = scope({ date: "week", folders: new Map([["old", "Work"]]) });
+    expect(matchesScope(old, sc)).toBe(true);
+    expect(matchesScope(old, { ...sc, date: "month" })).toBe(true);
     expect(matchesScope(old, { ...sc, branch: "main" })).toBe(false);
   });
 

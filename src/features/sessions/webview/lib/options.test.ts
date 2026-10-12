@@ -38,6 +38,7 @@ function scope(over: Partial<FilterScope> = {}): FilterScope {
   return {
     deleted: NONE,
     pinned: NONE,
+    folders: new Map(),
     project: "all",
     currentProject: "",
     workspaceResolved: false,

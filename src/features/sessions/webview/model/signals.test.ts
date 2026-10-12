@@ -13,6 +13,7 @@ import {
   filterProjectSignal,
   filterWorktreeSignal,
   filteredSignal,
+  foldersSignal,
   fullTextLoadingSignal,
   clearFullTextHits,
   markFullTextLoading,
@@ -152,6 +153,32 @@ describe("sessions signals", () => {
       expect(out[0]?.id).toBe("pin");
       // 20 unpinned + 1 pinned
       expect(out).toHaveLength(21);
+    });
+
+    it("recent mode keeps filed sessions past the 20 cap", () => {
+      const many = Array.from({ length: 30 }, (_, i) =>
+        session({ id: `s${i}`, endTime: i }),
+      );
+      sessionsSignal.value = [...many, session({ id: "filed", endTime: -1 })];
+      foldersSignal.value = new Map([["filed", "Work"]]);
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "recent";
+      const out = getFiltered();
+      expect(out.map((s) => s.id)).toContain("filed");
+      expect(out).toHaveLength(21);
+    });
+
+    it("week filter keeps a filed session older than the window", () => {
+      const now = Date.now();
+      sessionsSignal.value = [
+        session({ id: "fresh", endTime: now }),
+        session({ id: "filedOld", endTime: now - 14 * 86400000 }),
+        session({ id: "unfiledOld", endTime: now - 14 * 86400000 }),
+      ];
+      foldersSignal.value = new Map([["filedOld", "Work"]]);
+      filterProjectSignal.value = "all";
+      filterDateSignal.value = "week";
+      expect(getFiltered().map((s) => s.id)).toEqual(["fresh", "filedOld"]);
     });
 
     it("bypasses the recent-20 cap while a search query is active", () => {

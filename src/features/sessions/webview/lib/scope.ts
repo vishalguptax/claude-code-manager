@@ -28,6 +28,8 @@ export type FilterDimension = "project" | "date" | "branch" | "worktree";
 export interface FilterScope {
   deleted: Set<string>;
   pinned: Set<string>;
+  /** Session id → folder. Filing, like pinning, keeps a session past the date window. */
+  folders: ReadonlyMap<string, string>;
   /**
    * Session IDs the user archived. Excluded from the list unless
    * {@link FilterScope.showArchived} is on — archiving means "out of my
@@ -84,11 +86,17 @@ export function matchesProject(s: Session, scope: FilterScope): boolean {
 
 /** True when the session falls inside the scope's date window. */
 export function matchesDate(s: Session, scope: FilterScope): boolean {
-  const { date, now, pinned } = scope;
+  const { date, now, pinned, folders } = scope;
   if (date !== "week" && date !== "month") return true;
   const cutoff = date === "week" ? now - 7 * 86400000 : now - 30 * 86400000;
-  // Pins bypass the cutoff so a deliberately kept session never ages out.
-  return s.endTime >= cutoff || pinned.has(s.id);
+  // Pinned and filed sessions bypass the cutoff: both were deliberately kept,
+  // and a folder that empties out as its sessions age reads as lost work.
+  return s.endTime >= cutoff || isKept(s.id, scope);
+}
+
+/** True when the user deliberately kept the session — pinned it or filed it. */
+export function isKept(id: string, scope: Pick<FilterScope, "pinned" | "folders">): boolean {
+  return scope.pinned.has(id) || scope.folders.has(id);
 }
 
 /** True when the session matches the scope's branch selection. */
