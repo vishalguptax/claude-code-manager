@@ -37,7 +37,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Full history: each page's sitemap lastmod is the last commit that
           # touched its sources.
@@ -71,7 +71,7 @@ jobs:
       # Content changed (a push, not the cron or a manual run): tell IndexNow.
       - name: Check out the IndexNow script
         if: github.event_name == 'push'
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           sparse-checkout: |
             scripts/site
