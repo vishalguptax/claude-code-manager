@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.20.0] - 2026-10-12
+
+Organize your sessions: file them into folders, manage everything in a new Sessions Explorer laid out like a file manager, and open any session full width in its own editor tab.
+
+See [docs/releases/v2.20.0.md](docs/releases/v2.20.0.md) for full details.
+
 ## [2.19.0] - 2026-10-11
 
 A clearer Marketplace listing — a name, description and keywords that say what the extension does — and a rebuilt website with a page for every tab, guides, editor notes and honest comparisons.
