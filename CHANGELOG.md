@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.21.0] - 2026-10-30
+
+Rename a session in the sidebar and Claude Code renames it too — prompt box, /resume, terminal title — even mid-session, while terminal tabs now follow the session's name live.
+
+See [docs/releases/v2.21.0.md](docs/releases/v2.21.0.md) for full details.
+
 ## [2.20.1] - 2026-10-13
 
 Sessions you file into a folder now stay in the sidebar whatever the date filter, the same way pinned sessions do.
