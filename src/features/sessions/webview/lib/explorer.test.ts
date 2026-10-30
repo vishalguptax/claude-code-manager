@@ -41,7 +41,6 @@ function input(over: Partial<ExplorerInput> = {}): ExplorerInput {
     folders: new Map(),
     pinned: new Set(),
     archived: new Set(),
-    deleted: new Set(),
     inProject: () => true,
     query: "",
     hits: null,
@@ -105,13 +104,9 @@ describe("buildItems — locations", () => {
     expect(b).toMatchObject({ kind: "session", folder: "Work" });
   });
 
-  it("never shows a deleted session, and applies the project filter", () => {
-    const filtered = input({
-      ...base,
-      deleted: new Set(["a"]),
-      inProject: (s) => s.id !== "c",
-    });
-    expect(keys(buildItems(filtered, { kind: "all" }, NEWEST))).toEqual(["session:b"]);
+  it("applies the project filter", () => {
+    const filtered = input({ ...base, inProject: (s) => s.id !== "c" });
+    expect(keys(buildItems(filtered, { kind: "all" }, NEWEST))).toEqual(["session:a", "session:b"]);
   });
 });
 
@@ -188,14 +183,13 @@ describe("locationCounts", () => {
   it("counts each location, archived sessions only under Archived, ignoring the search", () => {
     const counts = locationCounts(
       input({
-        sessions: [session("a"), session("b"), session("c"), session("d"), session("e")],
+        sessions: [session("a"), session("b"), session("c"), session("d")],
         folders: new Map([
           ["a", "Work"],
           ["d", "Work"],
         ]),
         pinned: new Set(["a"]),
         archived: new Set(["d"]),
-        deleted: new Set(["e"]),
         query: "nothing matches this",
       }),
     );

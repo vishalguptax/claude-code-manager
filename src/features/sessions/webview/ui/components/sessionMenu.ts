@@ -11,7 +11,7 @@
  *   Copy session ID      → navigator.clipboard (webview-local, no host round-trip)
  *   Export session…      → exportSession   (host Save dialog)
  *   Archive / Unarchive  → archiveSession / unarchiveSession
- *   Delete session       → confirmDelete   (host confirm, then userState update)
+ *   Delete session       → confirmDelete   (host confirm, deletes it from disk)
  *
  * Kept separate from the row component so the action wiring is unit-testable
  * without rendering DOM, and so the ListView only deals with menu placement.

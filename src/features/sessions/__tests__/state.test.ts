@@ -23,10 +23,9 @@ import {
   saveState,
   pinSession,
   unpinSession,
-  deleteSession,
   pinSessions,
   unpinSessions,
-  deleteSessions,
+  forgetSessions,
   archiveSession,
   unarchiveSession,
   archiveSessions,
@@ -38,7 +37,6 @@ import {
 
 const empty = () => ({
   pinned: [] as string[],
-  deleted: [] as string[],
   renames: {} as Record<string, string>,
   archived: [] as string[],
   folders: {} as Record<string, string>,
@@ -56,21 +54,26 @@ describe("loadState", () => {
     expect(state).toEqual(empty());
   });
 
-  it("reads pinned and deleted arrays from file", () => {
-    fs.writeFileSync(
-      STATE_FILE,
-      JSON.stringify({ pinned: ["a", "b"], deleted: ["c"] }),
-    );
+  it("reads the pinned array from file", () => {
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ pinned: ["a", "b"] }));
     const state = loadState();
     expect(state.pinned).toEqual(["a", "b"]);
-    expect(state.deleted).toEqual(["c"]);
     expect(state.renames).toEqual({});
+  });
+
+  it("moves sessions the old hide-only delete listed into the archive", () => {
+    // They are still on disk: archived, the user can find them again and
+    // delete them for real.
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ archived: ["a", "b"], deleted: ["b", "c", 7] }));
+    const state = loadState();
+    expect(state.archived).toEqual(["a", "b", "c"]);
+    expect(state).not.toHaveProperty("deleted");
   });
 
   it("reads renames map from file", () => {
     fs.writeFileSync(
       STATE_FILE,
-      JSON.stringify({ pinned: [], deleted: [], renames: { "sess-1": "my name" } }),
+      JSON.stringify({ pinned: [], renames: { "sess-1": "my name" } }),
     );
     const state = loadState();
     expect(state.renames).toEqual({ "sess-1": "my name" });
@@ -82,11 +85,11 @@ describe("loadState", () => {
     expect(state).toEqual(empty());
   });
 
-  it("handles missing pinned/deleted keys gracefully", () => {
+  it("handles missing keys gracefully", () => {
     fs.writeFileSync(STATE_FILE, JSON.stringify({ other: "stuff" }));
     const state = loadState();
     expect(state.pinned).toEqual([]);
-    expect(state.deleted).toEqual([]);
+    expect(state.archived).toEqual([]);
     expect(state.renames).toEqual({});
   });
 
@@ -104,23 +107,23 @@ describe("saveState", () => {
   });
 
   it("writes state to disk as formatted JSON", () => {
-    saveState({ pinned: ["x"], deleted: ["y"], renames: {} });
+    saveState({ ...empty(), pinned: ["x"] });
     const raw = fs.readFileSync(STATE_FILE, "utf-8");
     const data = JSON.parse(raw);
-    expect(data).toEqual({ pinned: ["x"], deleted: ["y"], renames: {} });
+    expect(data).toEqual({ ...empty(), pinned: ["x"] });
   });
 
   it("overwrites existing state file", () => {
-    saveState({ pinned: ["old"], deleted: [], renames: {} });
-    saveState({ pinned: ["new"], deleted: ["z"], renames: {} });
+    saveState({ ...empty(), pinned: ["old"] });
+    saveState({ ...empty(), pinned: ["new"] });
     const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
     expect(data.pinned).toEqual(["new"]);
   });
 
   it("replaces the file by rename, never truncating it in place", () => {
-    saveState({ pinned: ["old"], deleted: [], renames: {} });
+    saveState({ ...empty(), pinned: ["old"] });
     const before = fs.statSync(STATE_FILE).ino;
-    saveState({ pinned: ["new"], deleted: [], renames: {} });
+    saveState({ ...empty(), pinned: ["new"] });
     // A fresh inode proves rename-over: a truncate-then-write in place is what
     // another window could read as empty JSON and then save back over every pin.
     expect(fs.statSync(STATE_FILE).ino).not.toBe(before);
@@ -132,7 +135,7 @@ describe("saveState", () => {
     fs.rmSync(TEMP_DIR, { recursive: true, force: true });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
-      saveState({ pinned: ["x"], deleted: [], renames: {} });
+      saveState({ ...empty(), pinned: ["x"] });
       expect(warn).toHaveBeenCalledOnce();
     } finally {
       warn.mockRestore();
@@ -183,7 +186,7 @@ describe("pinSession", () => {
   });
 
   it("preserves existing pinned sessions", () => {
-    saveState({ pinned: ["existing"], deleted: [], renames: {} });
+    saveState({ ...empty(), pinned: ["existing"] });
     const state = pinSession("new-sess");
     expect(state.pinned).toContain("existing");
     expect(state.pinned).toContain("new-sess");
@@ -197,76 +200,65 @@ describe("unpinSession", () => {
   });
 
   it("removes session from pinned list", () => {
-    saveState({ pinned: ["a", "b", "c"], deleted: [], renames: {} });
+    saveState({ ...empty(), pinned: ["a", "b", "c"] });
     const state = unpinSession("b");
     expect(state.pinned).toEqual(["a", "c"]);
   });
 
   it("is a no-op if session was not pinned", () => {
-    saveState({ pinned: ["a"], deleted: [], renames: {} });
+    saveState({ ...empty(), pinned: ["a"] });
     const state = unpinSession("nonexistent");
     expect(state.pinned).toEqual(["a"]);
   });
 });
 
-describe("deleteSession", () => {
+describe("forgetSessions", () => {
   beforeEach(() => {
     fs.rmSync(TEMP_DIR, { recursive: true, force: true });
     fs.mkdirSync(TEMP_DIR, { recursive: true });
   });
 
-  it("adds session to deleted list", () => {
-    const state = deleteSession("sess-del");
-    expect(state.deleted).toContain("sess-del");
+  it("drops every trace of the given sessions, and only theirs", () => {
+    saveState({
+      ...empty(),
+      pinned: ["gone", "keep"],
+      archived: ["gone", "kept-archive"],
+      folders: { gone: "auth", keep: "auth" },
+      folderNames: ["auth"],
+      renames: { gone: "Old", keep: "Mine" },
+    });
+    const state = forgetSessions(["gone"]);
+    expect(state.pinned).toEqual(["keep"]);
+    expect(state.archived).toEqual(["kept-archive"]);
+    expect(state.folders).toEqual({ keep: "auth" });
+    expect(state.renames).toEqual({ keep: "Mine" });
+    expect(loadState()).toEqual(state);
   });
 
-  it("removes session from pinned list when deleting", () => {
-    saveState({ pinned: ["sess-del", "other"], deleted: [], renames: {} });
-    const state = deleteSession("sess-del");
-    expect(state.pinned).not.toContain("sess-del");
-    expect(state.pinned).toContain("other");
-    expect(state.deleted).toContain("sess-del");
-  });
-
-  it("does not duplicate in deleted list", () => {
-    deleteSession("sess-del");
-    const state = deleteSession("sess-del");
-    expect(state.deleted.filter((id) => id === "sess-del")).toHaveLength(1);
+  it("keeps a folder whose last session was deleted", () => {
+    saveState({ ...empty(), folders: { gone: "auth" }, folderNames: ["auth"] });
+    expect(forgetSessions(["gone"]).folderNames).toEqual(["auth"]);
   });
 });
 
-describe("bulk pin/unpin/delete", () => {
+describe("bulk pin/unpin", () => {
   beforeEach(() => {
     fs.rmSync(TEMP_DIR, { recursive: true, force: true });
     fs.mkdirSync(TEMP_DIR, { recursive: true });
   });
 
   it("pinSessions adds every id once even when some are already pinned", () => {
-    saveState({ pinned: ["a"], deleted: [], renames: {} });
+    saveState({ ...empty(), pinned: ["a"] });
     const state = pinSessions(["a", "b", "c"]);
     expect(state.pinned.sort()).toEqual(["a", "b", "c"]);
   });
 
   it("unpinSessions removes every id atomically", () => {
-    saveState({ pinned: ["a", "b", "c", "d"], deleted: [], renames: {} });
+    saveState({ ...empty(), pinned: ["a", "b", "c", "d"] });
     const state = unpinSessions(["a", "c"]);
     expect(state.pinned).toEqual(["b", "d"]);
   });
-
-  it("deleteSessions adds to deleted + strips ids from pinned", () => {
-    saveState({ pinned: ["a", "b"], deleted: ["x"], renames: {} });
-    const state = deleteSessions(["a", "b"]);
-    expect(state.deleted.sort()).toEqual(["a", "b", "x"]);
-    expect(state.pinned).toEqual([]);
-  });
-
-  it("deleteSessions does not duplicate ids that were already deleted", () => {
-    saveState({ pinned: [], deleted: ["a"], renames: {} });
-    const state = deleteSessions(["a", "b"]);
-    expect(state.deleted.sort()).toEqual(["a", "b"]);
-  });
 });
-
 
 describe("archive", () => {
   beforeEach(() => {
@@ -324,7 +316,7 @@ describe("archive", () => {
   });
 
   it("defaults archived to empty for state files predating the field", () => {
-    fs.writeFileSync(STATE_FILE, JSON.stringify({ pinned: ["a"], deleted: [] }));
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ pinned: ["a"] }));
     const state = loadState();
     expect(state.archived).toEqual([]);
     expect(state.pinned).toEqual(["a"]);
@@ -431,8 +423,7 @@ describe("folders", () => {
 
   it("deleting a session unfiles it", () => {
     setSessionsFolder(["s-1", "s-2", "s-3"], "auth");
-    deleteSession("s-1");
-    deleteSessions(["s-2"]);
+    forgetSessions(["s-1", "s-2"]);
     expect(loadState().folders).toEqual({ "s-3": "auth" });
   });
 });

@@ -87,7 +87,6 @@ describe("parseMessage — webview to host", () => {
     roundTrip({
       type: "userState",
       pinned: ["a"],
-      deleted: ["b"],
       renames: { c: "name" },
       archived: ["d"],
     });
@@ -241,7 +240,6 @@ describe("parseMessage — host to webview", () => {
     roundTrip({
       type: "userState",
       pinned: ["a"],
-      deleted: [],
       renames: { a: "Foo" },
     });
     roundTrip({ type: "navigateList" });

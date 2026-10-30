@@ -22,6 +22,9 @@ const rename = vi.hoisted(() => ({
   apply: vi.fn((_id: string, _name: string, _inClaudeCode: boolean): void => {}),
   reparse: vi.fn((): Session | null => null),
 }));
+const del = vi.hoisted(() => ({
+  run: vi.fn(async (ids: readonly string[], _sessions: readonly Session[]) => [...ids]),
+}));
 vi.mock("../renames", () => ({ applyRename: rename.apply, loadRenames: () => ({}) }));
 vi.mock("../sessionRenamePolicy", () => ({ chooseRenameTarget: rename.target }));
 
@@ -32,11 +35,18 @@ vi.mock("../commands", async () => {
     resumeSession: (id: string, fork: boolean, sessions: Session[], forceTerminal?: boolean) =>
       resumeSession(id, fork, sessions, forceTerminal),
     promptRenameSession: rename.prompt,
+    deleteSessionsPermanently: del.run,
   };
 });
 vi.mock("../parser", async () => {
   const actual = await vi.importActual<typeof import("../parser")>("../parser");
-  return { ...actual, reparseOneSession: rename.reparse, parseSessionDetail: () => null };
+  return {
+    ...actual,
+    reparseOneSession: rename.reparse,
+    parseSessionDetail: () => null,
+    // Deleting re-parses the list; never read the developer's real sessions.
+    parseSessions: () => [],
+  };
 });
 
 // Checkpoints is the newest link in the dispatch chain. Its own behaviour is
@@ -68,7 +78,6 @@ vi.mock("../state", async () => {
     ...actual,
     loadState: () => ({
       pinned: [],
-      deleted: [],
       renames: {},
       archived: [],
       folders: {},
@@ -327,7 +336,7 @@ describe("dispatch — ack pairing", () => {
 });
 
 describe("dispatch — folders", () => {
-  const filed = { pinned: [], deleted: [], renames: {}, archived: [], folders: { a: "auth" } };
+  const filed = { pinned: [], renames: {}, archived: [], folders: { a: "auth" } };
 
   beforeEach(() => {
     for (const fn of Object.values(folderState)) fn.mockReset();
@@ -526,5 +535,62 @@ describe("dispatch — renameSession", () => {
 
     expect(target.name).toBe("old");
     expect(tabRenames).toEqual([]);
+  });
+});
+
+describe("dispatch — delete", () => {
+  beforeEach(() => {
+    del.run.mockClear();
+  });
+
+  /** Message types posted, without the dispatcher's closing `ack`. */
+  const typesOf = (posted: unknown[]): string[] =>
+    posted.map((m) => (m as { type: string }).type).filter((t) => t !== "ack");
+
+  it("deletes one session, re-pushes the list, and returns to it when asked", async () => {
+    const setSessions = vi.fn();
+    const { ctx, posted } = harness([session({ id: "a" })]);
+    Object.assign(ctx, {
+      setSessions,
+      postWorkspacePath: () => {},
+      buildSearchIndex: () => {},
+    });
+
+    await dispatch({ type: "confirmDelete", sessionId: "a", callback: "showList" }, ctx);
+
+    expect(del.run).toHaveBeenCalledWith(["a"], expect.any(Array));
+    expect(setSessions).toHaveBeenCalled();
+    const types = typesOf(posted);
+    expect(types).toContain("userState");
+    expect(types[types.length - 1]).toBe("navigateList");
+  });
+
+  it("does nothing more when nothing was deleted", async () => {
+    del.run.mockResolvedValueOnce([]);
+    const { ctx, posted } = harness([session({ id: "a" })]);
+
+    await dispatch({ type: "confirmDelete", sessionId: "a" }, ctx);
+
+    expect(typesOf(posted)).toEqual([]);
+  });
+
+  it("deletes a selection in one go", async () => {
+    const { ctx, posted } = harness([session({ id: "a" }), session({ id: "b" })]);
+    Object.assign(ctx, {
+      setSessions: () => {},
+      postWorkspacePath: () => {},
+      buildSearchIndex: () => {},
+    });
+
+    await dispatch({ type: "bulkDeleteSessions", ids: ["a", "b"] }, ctx);
+
+    expect(del.run).toHaveBeenCalledWith(["a", "b"], expect.any(Array));
+    expect(typesOf(posted)).toContain("navigateList");
+  });
+
+  it("ignores an empty selection", async () => {
+    const { ctx } = harness([]);
+    await dispatch({ type: "bulkDeleteSessions", ids: [] }, ctx);
+    expect(del.run).not.toHaveBeenCalled();
   });
 });

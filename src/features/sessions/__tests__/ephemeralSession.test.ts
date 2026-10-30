@@ -23,7 +23,6 @@ vi.mock("../../../core/config", () => ({
 }));
 
 import {
-  stripHistoryLines,
   cleanupEphemeral,
   setEphemeralStorage,
   sweepOrphans,
@@ -92,46 +91,6 @@ function setPending(entries: unknown[]): Map<string, unknown> {
   } as unknown as Parameters<typeof setEphemeralStorage>[0]);
   return store;
 }
-
-describe("stripHistoryLines", () => {
-  beforeEach(setup);
-
-  it("removes matching session lines and keeps the rest", () => {
-    writeHistory([
-      { sessionId: "keep-1", display: "a" },
-      { sessionId: "drop-1", display: "b" },
-      { sessionId: "keep-2", display: "c" },
-      { sessionId: "drop-2", display: "d" },
-    ]);
-    stripHistoryLines(["drop-1", "drop-2"]);
-    expect(historyIds()).toEqual(["keep-1", "keep-2"]);
-    expect(fs.existsSync(HISTORY_FILE + ".csm-tmp")).toBe(false);
-  });
-
-  it("preserves malformed lines untouched", () => {
-    fs.writeFileSync(
-      HISTORY_FILE,
-      `{"sessionId":"drop-1","display":"a"}\nnot-json\n{"sessionId":"keep","display":"b"}\n`,
-    );
-    stripHistoryLines(["drop-1"]);
-    const raw = fs.readFileSync(HISTORY_FILE, "utf-8");
-    expect(raw).toContain("not-json");
-    expect(raw).toContain("keep");
-    expect(raw).not.toContain("drop-1");
-  });
-
-  it("is a no-op when history.jsonl is missing", () => {
-    fs.rmSync(HISTORY_FILE, { force: true });
-    expect(() => stripHistoryLines(["x"])).not.toThrow();
-  });
-
-  it("is a no-op for empty id list even if history exists", () => {
-    writeHistory([{ sessionId: "x", display: "a" }]);
-    const before = fs.readFileSync(HISTORY_FILE, "utf-8");
-    stripHistoryLines([]);
-    expect(fs.readFileSync(HISTORY_FILE, "utf-8")).toBe(before);
-  });
-});
 
 describe("cleanupEphemeral", () => {
   beforeEach(setup);

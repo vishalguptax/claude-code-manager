@@ -33,7 +33,7 @@ vi.mock("../parser", () => ({
   applyLiveState: () => false,
 }));
 vi.mock("../state", () => ({
-  loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+  loadState: () => ({ pinned: [], renames: {} }),
 }));
 vi.mock("../../../extension/workspace", () => ({
   getWorkspace: () => undefined,

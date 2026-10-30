@@ -31,10 +31,10 @@ import * as vscode from "vscode";
 import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
-import { HISTORY_FILE, PROJECTS_DIR } from "../../core/config";
-import { writeFileAtomic } from "../../core/atomicWrite";
+import { PROJECTS_DIR } from "../../core/config";
 import { slugifyProjectPath } from "./portable";
 import { readLiveSessions } from "./liveSessions";
+import { stripHistoryLines } from "./sessionFiles";
 
 /** Shape persisted in globalState. */
 interface PendingTempSession {
@@ -98,37 +98,6 @@ function isPidAlive(pid: number): boolean {
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === "EPERM";
   }
-}
-
-/**
- * Strip every history.jsonl line whose `sessionId` is in `ids`.
- * Done as a single read + filter + atomic rename so a partial write
- * cannot leave history.jsonl truncated. If history.jsonl doesn't
- * exist (the user has never run Claude before, or just deleted it),
- * silently skip.
- */
-export function stripHistoryLines(ids: string[]): void {
-  if (ids.length === 0) return;
-  let raw: string;
-  try {
-    raw = fs.readFileSync(HISTORY_FILE, "utf-8");
-  } catch {
-    return;
-  }
-  const target = new Set(ids);
-  const kept: string[] = [];
-  for (const line of raw.split("\n")) {
-    if (!line) continue;
-    try {
-      const obj = JSON.parse(line) as { sessionId?: string };
-      if (obj.sessionId && target.has(obj.sessionId)) continue;
-    } catch {
-      // Malformed line — keep it. We are not in the business of
-      // silently editing user data we don't understand.
-    }
-    kept.push(line);
-  }
-  writeFileAtomic(HISTORY_FILE, kept.length > 0 ? kept.join("\n") + "\n" : "");
 }
 
 /** Ids of an entry that cleanup would delete: owned and not promoted. */

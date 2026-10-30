@@ -2,22 +2,18 @@
  * Base types shared across all features.
  */
 
-/** Persisted user state for pinned, soft-deleted, and renamed items. */
+/** Persisted user state for pinned, archived, filed and renamed sessions. */
 export interface UserState {
   /** Session IDs pinned to the top of the list */
   pinned: string[];
-  /** Session IDs hidden from the list */
-  deleted: string[];
   /** Map of session ID -> user-assigned name (takes precedence over CLI rename) */
   renames: Record<string, string>;
   /**
    * Session IDs the user has archived by hand.
    *
-   * Distinct from `deleted`: archiving hides a session from the default
-   * list but keeps it findable and restorable, where deleting is the
-   * user saying they never want to see it again. Claude Code itself
-   * draws the same line — it archives idle sessions rather than
-   * removing them.
+   * Archiving hides a session from the default list but keeps it findable
+   * and restorable. Deleting is different: it removes the session's data
+   * from disk (see sessionFiles), so a deleted session needs no entry here.
    */
   archived: string[];
   /** Map of session ID -> the name of the folder the user filed it in. */

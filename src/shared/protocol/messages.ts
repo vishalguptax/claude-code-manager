@@ -193,7 +193,6 @@ export type Message =
   | {
       type: "userState";
       pinned?: string[];
-      deleted?: string[];
       renames?: Record<string, string>;
       archived?: string[];
       folders?: Record<string, string>;
@@ -254,7 +253,6 @@ export type Message =
   // === SESSIONS MESSAGES ===
   // Inbound (webview → host) session messages handled in
   // features/sessions/messageHandlers.ts.
-  | { type: "deleteSession"; sessionId: string }
   | { type: "copyMarkdown"; sessionId: string }
   | { type: "openFile"; path: string }
   /**
@@ -379,7 +377,6 @@ type WebviewMessageType =
   | "diffCheckpoint"
   | "restoreCheckpoint"
   // === SESSIONS MESSAGES ===
-  | "deleteSession"
   | "copyMarkdown"
   | "openFile"
   | "createWorktree"

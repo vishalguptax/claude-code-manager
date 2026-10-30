@@ -313,7 +313,6 @@ export type ExtensionMessage =
   | {
       type: "userState";
       pinned: string[];
-      deleted: string[];
       renames: Record<string, string>;
       /** Session IDs the user archived — hidden from the default list. */
       archived: string[];
@@ -397,8 +396,8 @@ export type WebviewMessage =
   | { type: "renameFolder"; folder: string }
   /** Drop the folder; its sessions return to the date sections. */
   | { type: "removeFolder"; folder: string }
-  | { type: "deleteSession"; sessionId: string }
   | { type: "renameSession"; sessionId: string }
+  /** Permanently delete one session after the host's confirm modal. */
   | { type: "confirmDelete"; sessionId: string; callback?: string }
   | { type: "copyCommand"; sessionId: string }
   | { type: "copyMarkdown"; sessionId: string }
@@ -543,9 +542,8 @@ export type WebviewMessage =
    */
   | { type: "bulkPinSessions"; ids: string[]; pin: boolean }
   /**
-   * Bulk-delete with a single host-side confirm modal. The host
-   * shows the count, then loops `deleteSession` and emits one
-   * userState reply.
+   * Bulk permanent delete with a single host-side confirm modal; the
+   * host deletes every session's files, then re-pushes the list.
    */
   | { type: "bulkDeleteSessions"; ids: string[] }
   /**

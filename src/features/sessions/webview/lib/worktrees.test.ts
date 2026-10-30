@@ -43,7 +43,6 @@ function ref(over: Partial<WorktreeRef> = {}): WorktreeRef {
   };
 }
 
-const NONE = new Set<string>();
 
 describe("pathTail", () => {
   it("returns the last segment, tolerating trailing slashes and back-slashes", () => {
@@ -134,15 +133,12 @@ describe("matchesWorktreeFilter", () => {
 
 describe("hasWorktrees", () => {
   it("is true when a claude or user worktree session exists", () => {
-    expect(hasWorktrees([session({ id: "c" })], NONE, { c: ref({ kind: "claude" }) })).toBe(true);
-    expect(hasWorktrees([session({ id: "u" })], NONE, { u: ref({ kind: "user" }) })).toBe(true);
+    expect(hasWorktrees([session({ id: "c" })], { c: ref({ kind: "claude" }) })).toBe(true);
+    expect(hasWorktrees([session({ id: "u" })], { u: ref({ kind: "user" }) })).toBe(true);
   });
-  it("is false for only-main or no worktrees, and ignores deleted", () => {
-    expect(hasWorktrees([session({ id: "m" })], NONE, { m: ref({ kind: "main" }) })).toBe(false);
-    expect(hasWorktrees([session({ id: "p" })], NONE, {})).toBe(false);
-    expect(hasWorktrees([session({ id: "c" })], new Set(["c"]), { c: ref({ kind: "claude" }) })).toBe(
-      false,
-    );
+  it("is false for only-main or no worktrees", () => {
+    expect(hasWorktrees([session({ id: "m" })], { m: ref({ kind: "main" }) })).toBe(false);
+    expect(hasWorktrees([session({ id: "p" })], {})).toBe(false);
   });
 });
 
@@ -173,7 +169,7 @@ describe("buildWorktreeOptions", () => {
 
   it("counts only sessions the caller's scope admits", () => {
     // The caller passes every other active filter as a predicate, so a
-    // deleted (or date-excluded, or branch-excluded) session is never counted.
+    // date-excluded (or branch-excluded) session is never counted.
     const sessions = [session({ id: "c1" }), session({ id: "c2" })];
     const wt: WorktreeMap = { c1: ref({ kind: "claude" }), c2: ref({ kind: "claude" }) };
     const opts = buildWorktreeOptions(sessions, wt, (s) => s.id !== "c2");

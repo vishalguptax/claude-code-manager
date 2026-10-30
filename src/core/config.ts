@@ -62,6 +62,9 @@ export const SESSIONS_DIR: string = path.join(CLAUDE_DIR, "sessions");
  */
 export const FILE_HISTORY_DIR: string = path.join(CLAUDE_DIR, "file-history");
 
+/** Per-session environment Claude Code keeps for each session (`session-env/<id>`). */
+export const SESSION_ENV_DIR: string = path.join(CLAUDE_DIR, "session-env");
+
 /** Path to the extension's user state file (pins/deletes) */
 export const STATE_FILE: string = path.join(CLAUDE_DIR, ".csm-state.json");
 

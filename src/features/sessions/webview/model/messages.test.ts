@@ -14,7 +14,6 @@ import type { Session, SessionDetail, SessionGroup } from "../../types";
 import { handleMessage } from "./messages";
 import {
   currentBranchSignal,
-  deletedSignal,
   detailLoadingSignal,
   detailSignal,
   fullTextLoadingSignal,
@@ -82,10 +81,9 @@ describe("sessions message handling", () => {
     expect(detailLoadingSignal.value).toBe(true);
   });
 
-  it("applies userState pinned + deleted ids", () => {
-    handleMessage({ type: "userState", pinned: ["a"], deleted: ["b"], renames: {} } as Message);
+  it("applies userState pinned ids", () => {
+    handleMessage({ type: "userState", pinned: ["a"], renames: {} } as Message);
     expect([...pinnedSignal.value]).toEqual(["a"]);
-    expect([...deletedSignal.value]).toEqual(["b"]);
   });
 
   it("applies userState folder assignments", () => {

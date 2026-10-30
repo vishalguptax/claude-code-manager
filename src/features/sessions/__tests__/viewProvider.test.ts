@@ -180,12 +180,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
@@ -224,12 +223,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
 
     // Workspace is already open at resolve time (the common case).
@@ -279,7 +277,7 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {}, archived: [], folders: {}, folderNames: [] }),
+      loadState: () => ({ pinned: [], renames: {}, archived: [], folders: {}, folderNames: [] }),
     }));
     ws.workspaceFolders = [{ uri: { fsPath: "/home/user/proj" }, name: "proj", index: 0 }];
 
@@ -317,10 +315,9 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
     const memento = { get: () => undefined, update: async () => {} } as unknown as vscode.Memento;
@@ -357,10 +354,9 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
     const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
@@ -384,12 +380,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
 
     vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
@@ -482,12 +477,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
     __mockedBranch = "feature/test";
 
@@ -521,12 +515,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
     __mockedSearchContent = (q: string) => (q === "needle" ? ["sess-1", "sess-2"] : []);
 
@@ -573,12 +566,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
     vi.doMock("../../skills/parser", () => ({ parseSkills: () => [{ id: "sk1" }] }));
     vi.doMock("../../commands/parser", () => ({ parseCommands: () => [{ name: "cmd1" }] }));
@@ -659,10 +651,9 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
     ws.workspaceFolders = [
       { uri: { fsPath: "/home/user/proj" }, name: "proj", index: 0 },
@@ -702,12 +693,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
     vi.doMock("../../skills/parser", () => ({ parseSkills: () => [] }));
     vi.doMock("../../commands/parser", () => ({ parseCommands: () => [] }));
@@ -758,12 +748,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
 
     interface CapturedPattern {
@@ -824,12 +813,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
@@ -875,12 +863,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
     vi.doMock("../../commands/parser", () => ({
       parseCommands: () => [{ name: "review", scope: "global", path: "/x/review.md" }],
@@ -934,12 +921,11 @@ describe("ClaudeSessionViewProvider", () => {
       clearPendingCache: () => {},
     }));
     vi.doMock("../state", () => ({
-      loadState: () => ({ pinned: [], deleted: [], renames: {} }),
+      loadState: () => ({ pinned: [], renames: {} }),
       // Called once when the first panel resolves; a no-op here so the
       // provider tests never touch the real state file.
-      pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
+      pinSession: () => ({ pinned: [], renames: {} }),
+      unpinSession: () => ({ pinned: [], renames: {} }),
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");

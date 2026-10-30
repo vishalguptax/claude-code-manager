@@ -5,7 +5,7 @@ import { pickFolder, promptFolderName, sortFolders } from "../folderPrompts";
 
 function state(folders: Record<string, string>, empty: string[] = []): UserState {
   const folderNames = [...new Set([...Object.values(folders), ...empty])];
-  return { pinned: [], deleted: [], renames: {}, archived: [], folders, folderNames };
+  return { pinned: [], renames: {}, archived: [], folders, folderNames };
 }
 
 type Pick = vscode.QuickPickItem & { action: string; folder?: string };

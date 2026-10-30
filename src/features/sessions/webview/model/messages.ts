@@ -28,7 +28,6 @@ import {
   setArchived,
   setFolders,
   setFolderNames,
-  setDeleted,
   setFullTextHits,
   setOpenTerminals,
   setTempSessions,
@@ -78,7 +77,6 @@ export function handleMessage(msg: Message): void {
     }
     case "userState": {
       if (msg.pinned) setPinned(msg.pinned);
-      if (msg.deleted) setDeleted(msg.deleted);
       if (msg.archived) setArchived(msg.archived);
       if (msg.folders) setFolders(msg.folders);
       if (msg.folderNames) setFolderNames(msg.folderNames);

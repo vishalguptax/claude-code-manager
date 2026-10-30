@@ -95,17 +95,12 @@ export function matchesWorktreeFilter(
 }
 
 /**
- * Whether any non-deleted session ran in a Claude- or user-created worktree.
+ * Whether any session ran in a Claude- or user-created worktree.
  * Gates the worktree filter's visibility — with no such sessions the control
  * would offer nothing meaningful (mirrors the branch dropdown hiding rule).
  */
-export function hasWorktrees(
-  sessions: Session[],
-  deleted: Set<string>,
-  worktrees: WorktreeMap,
-): boolean {
+export function hasWorktrees(sessions: Session[], worktrees: WorktreeMap): boolean {
   return sessions.some((s) => {
-    if (deleted.has(s.id)) return false;
     const kind = worktrees[s.id]?.kind;
     return kind === "claude" || kind === "user";
   });

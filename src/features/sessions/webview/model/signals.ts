@@ -56,8 +56,6 @@ export const sessionsSignal = signal<Session[]>([]);
 export const statsSignal = signal<Stats>(EMPTY_STATS);
 /** Pinned session IDs from persisted user state. */
 export const pinnedSignal = signal<Set<string>>(new Set());
-/** Deleted (hidden) session IDs from persisted user state. */
-export const deletedSignal = signal<Set<string>>(new Set());
 /** Session IDs the user archived, from the host's userState message. */
 export const archivedSignal = signal<Set<string>>(new Set());
 /** Session ID -> folder name, for sessions the user filed into a folder. */
@@ -243,11 +241,6 @@ export function setPinned(ids: string[]): void {
   pinnedSignal.value = new Set(ids);
 }
 
-/** Replace deleted ids from a host userState message. */
-export function setDeleted(ids: string[]): void {
-  deletedSignal.value = new Set(ids);
-}
-
 /** Replace archived ids from a host userState message. */
 export function setArchived(ids: string[]): void {
   archivedSignal.value = new Set(ids);
@@ -328,7 +321,6 @@ export function clearSelection(): void {
  */
 export function getFiltered(): Session[] {
   const all = sessionsSignal.value;
-  const deleted = deletedSignal.value;
   const pinned = pinnedSignal.value;
   const project = filterProjectSignal.value;
   const currentProject = currentProjectSignal.value;
@@ -379,7 +371,6 @@ export function getFiltered(): Session[] {
  */
 export function currentScope(): FilterScope {
   return {
-    deleted: deletedSignal.value,
     pinned: pinnedSignal.value,
     folders: foldersSignal.value,
     archived: archivedSignal.value,
@@ -413,12 +404,11 @@ export function currentScope(): FilterScope {
  * excluded sibling-worktree sessions the list was showing.
  */
 export function getLastSessionGroup(): Session[] {
-  const deleted = deletedSignal.value;
   const currentProject = currentProjectSignal.value;
   const repoRoot = currentRepoRootSignal.value;
   const worktrees = worktreesSignal.value;
 
-  let candidates = sessionsSignal.value.filter((s) => !deleted.has(s.id));
+  let candidates = sessionsSignal.value;
   if (repoRoot) {
     candidates = candidates.filter((s) => worktrees[s.id]?.repoRoot === repoRoot);
   } else if (currentProject) {
@@ -437,12 +427,12 @@ export function getLastSessionGroup(): Session[] {
 }
 
 /**
- * Distinct branch names present in the (deletion-filtered) session list,
- * sorted alphabetically with the "(no branch)" sentinel last. Thin
+ * Distinct branch names present in the session list, sorted
+ * alphabetically with the "(no branch)" sentinel last. Thin
  * signal-reading wrapper over the pure `listBranches` lib helper.
  */
 export function getBranches(): string[] {
-  return listBranches(sessionsSignal.value, deletedSignal.value);
+  return listBranches(sessionsSignal.value);
 }
 
 /**
@@ -470,7 +460,7 @@ export function getWorktreeOptions(): WorktreeOption[] {
  * hide-when-nothing-to-filter rule).
  */
 export function hasWorktreeSessions(): boolean {
-  return hasWorktrees(sessionsSignal.value, deletedSignal.value, worktreesSignal.value);
+  return hasWorktrees(sessionsSignal.value, worktreesSignal.value);
 }
 
 /**
@@ -699,7 +689,6 @@ export function _resetSessionsSignals(): void {
   sessionsSignal.value = [];
   statsSignal.value = EMPTY_STATS;
   pinnedSignal.value = new Set();
-  deletedSignal.value = new Set();
   archivedSignal.value = new Set();
   foldersSignal.value = new Map();
   folderNamesSignal.value = [];

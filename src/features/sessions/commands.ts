@@ -9,7 +9,10 @@ import { execFileSync } from "child_process";
 import type { Message, Session, SessionDetail } from "./types";
 import { parseSessionDetail, getSessionFile } from "./parser";
 import { INJECTED_TURN_LABELS } from "./turnOrigin";
-import { deleteSession as deleteSessionState } from "./state";
+import { forgetSessions } from "./state";
+import { deleteSessionFiles } from "./sessionFiles";
+import { clearPendingRename } from "./pendingRenames";
+import { readLiveSessions } from "./liveSessions";
 import { loadRenames } from "./renames";
 import { getCurrentBranch } from "../../extension/git";
 import { createTerminal, runInTerminal, validateGitRef } from "../../extension/terminal";
@@ -29,7 +32,7 @@ import {
   isExtensionEntrypoint,
 } from "../../extension/claudeCodeExtension";
 import { normPath } from "../../core/utils";
-import { PROJECTS_DIR } from "../../core/config";
+import { HISTORY_FILE, PROJECTS_DIR } from "../../core/config";
 import {
   slugifyProjectPath,
   validatePortableSession,
@@ -195,35 +198,75 @@ export function copyMarkdown(sessionId: string, sessions: Session[]): boolean {
   return true;
 }
 
-/**
- * Show a confirmation dialog for deleting a session.
- * If confirmed, updates state and optionally navigates to the list view.
- *
- * Returns the updated user state if deletion was confirmed, or null if cancelled.
- */
-export async function confirmDeleteSession(
-  sessionId: string,
-  callback?: string,
-): Promise<{ pinned: string[]; deleted: string[]; navigateToList: boolean } | null> {
-  const choice = await vscode.window.showWarningMessage(
-    "Delete this session from the list?",
-    {
-      modal: true,
-      detail: "This will hide the session from your list. Claude's original data won't be modified.",
-    },
-    "Delete",
-  );
+const DELETE = "Delete Permanently";
 
-  if (choice !== "Delete") {
-    return null;
+/**
+ * Permanently delete sessions after the user confirms: their transcripts,
+ * file-edit history and prompt-history rows leave the disk (sessionFiles),
+ * then every trace of them leaves this extension's state. Returns the ids
+ * that were deleted — empty when the user cancelled or nothing could go.
+ *
+ * A running session is never deleted: Claude Code would keep appending to
+ * a transcript it believes still exists. Such sessions are left out, and
+ * named in the confirmation so the user knows why.
+ */
+export async function deleteSessionsPermanently(
+  sessionIds: readonly string[],
+  sessions: readonly Session[],
+): Promise<string[]> {
+  const live = readLiveSessions();
+  const running = sessionIds.filter((id) => live.has(id));
+  const doomed = sessionIds.filter((id) => !live.has(id));
+  const label = (id: string): string => {
+    const name = sessions.find((s) => s.id === id)?.name;
+    return name ? `"${name}"` : id.slice(0, 8);
+  };
+
+  if (doomed.length === 0) {
+    if (running.length > 0) {
+      void vscode.window.showWarningMessage(
+        `${running.length === 1 ? label(running[0]) + " is" : "These sessions are"} still ` +
+          "running. Exit Claude Code in its terminal first, then delete it.",
+      );
+    }
+    return [];
   }
 
-  const state = deleteSessionState(sessionId);
-  return {
-    pinned: state.pinned,
-    deleted: state.deleted,
-    navigateToList: callback === "showList",
-  };
+  const what = doomed.length === 1 ? `session ${label(doomed[0])}` : `${doomed.length} sessions`;
+  const skipped =
+    running.length > 0
+      ? `\n\n${running.length} still running ${running.length === 1 ? "is" : "are"} left alone.`
+      : "";
+  const choice = await vscode.window.showWarningMessage(
+    `Delete ${what} permanently?`,
+    {
+      modal: true,
+      detail:
+        "This removes the conversation from this computer: its transcript, file-edit " +
+        "history and prompt history. Claude Code can't resume it afterwards, and this " +
+        "can't be undone.\n\nTo only hide a session from the list, archive it instead." +
+        skipped,
+    },
+    DELETE,
+  );
+  if (choice !== DELETE) return [];
+
+  const result = deleteSessionFiles(doomed);
+  if (result.deleted.length > 0) {
+    forgetSessions(result.deleted);
+    for (const id of result.deleted) clearPendingRename(id);
+  }
+  if (result.failed.length > 0) {
+    const reasons = result.failed.map((f) => `${label(f.sessionId)}: ${f.error}`).join("; ");
+    void vscode.window.showErrorMessage(`Couldn't delete every session. ${reasons}`);
+  }
+  if (result.historyError) {
+    void vscode.window.showWarningMessage(
+      `The sessions were deleted, but their prompts are still in ${HISTORY_FILE} ` +
+        `(${result.historyError}).`,
+    );
+  }
+  return result.deleted;
 }
 
 /**
@@ -1007,7 +1050,7 @@ export async function importSessionFile(
  *
  * Every imported session is written with a fresh UUID (both filename and
  * internal `sessionId`), so an import can never collide with — or overwrite —
- * an existing session, and pinned/deleted state keyed by id stays intact.
+ * an existing session, and pinned/archived state keyed by id stays intact.
  * Unlike single import this does not auto-resume: one terminal per session
  * does not scale, so the user resumes individually from the refreshed list.
  */

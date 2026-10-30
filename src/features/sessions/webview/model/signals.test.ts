@@ -7,7 +7,6 @@ import {
   clearSelection,
   currentBranchSignal,
   currentProjectSignal,
-  deletedSignal,
   filterBranchSignal,
   filterDateSignal,
   filterProjectSignal,
@@ -88,14 +87,6 @@ describe("sessions signals", () => {
   beforeEach(() => _resetSessionsSignals());
 
   describe("getFiltered", () => {
-    it("hides deleted sessions", () => {
-      sessionsSignal.value = [session({ id: "a" }), session({ id: "b" })];
-      deletedSignal.value = new Set(["a"]);
-      filterProjectSignal.value = "all";
-      filterDateSignal.value = "all";
-      const ids = getFiltered().map((s) => s.id);
-      expect(ids).toEqual(["b"]);
-    });
 
     it("narrows to current project when known", () => {
       sessionsSignal.value = [
@@ -359,17 +350,6 @@ describe("sessions signals", () => {
       ]);
     });
 
-    it("excludes deleted sessions", () => {
-      sessionsSignal.value = [
-        session({ id: "a", endTime: 30 }),
-        session({ id: "b", endTime: 20 }),
-      ];
-      deletedSignal.value = new Set(["a"]);
-      currentProjectSignal.value = "";
-      restoreCountSignal.value = 4;
-      expect(getLastSessionGroup().map((s) => s.id)).toEqual(["b"]);
-    });
-
     it("narrows to the current project by projectKey outside a worktree", () => {
       sessionsSignal.value = [
         session({ id: "mine", projectKey: "alpha", endTime: 30 }),
@@ -484,16 +464,6 @@ describe("sessions signals", () => {
       expect(opts[1]).toMatchObject({ value: "all", count: 3 });
       const alpha = opts.find((o) => o.value === "alpha");
       expect(alpha?.count).toBe(2);
-    });
-
-    it("excludes deleted sessions from every count", () => {
-      sessionsSignal.value = [
-        session({ id: "a", project: "alpha", projectKey: "alpha" }),
-        session({ id: "b", project: "alpha", projectKey: "alpha" }),
-      ];
-      deletedSignal.value = new Set(["b"]);
-      const all = getProjectOptions().find((o) => o.value === "all");
-      expect(all?.count).toBe(1);
     });
   });
 

@@ -8,7 +8,7 @@ import { writeFileAtomic } from "../../core/atomicWrite";
 import type { UserState } from "../../core/types";
 
 /**
- * Load the persisted user state (pinned/deleted session IDs) from disk.
+ * Load the persisted user state (pins, archive, folders, renames) from disk.
  * Returns a default empty state if the file does not exist or is malformed.
  */
 export function loadState(): UserState {
@@ -19,11 +19,15 @@ export function loadState(): UserState {
       const obj = data as Record<string, unknown>;
       const state: UserState = {
         pinned: Array.isArray(obj.pinned) ? (obj.pinned as string[]) : [],
-        deleted: Array.isArray(obj.deleted) ? (obj.deleted as string[]) : [],
         renames: readStringMap(obj.renames),
-        // Absent in state files written before archiving existed, which
-        // is every file on disk today — default rather than discard.
-        archived: Array.isArray(obj.archived) ? (obj.archived as string[]) : [],
+        // Absent in state files written before archiving existed —
+        // default rather than discard. `deleted` is the list delete used to
+        // hide sessions in before it removed them from disk: those sessions
+        // are still on disk, so they join the archive, where the user can
+        // find them again and delete them for real.
+        archived: [
+          ...new Set([...readStringList(obj.archived), ...readStringList(obj.deleted)]),
+        ],
         // Absent in state files written before folders existed.
         folders: readStringMap(obj.folders),
         folderNames: Array.isArray(obj.folderNames)
@@ -38,13 +42,18 @@ export function loadState(): UserState {
       console.warn(`[claude-manager] Failed to load state from ${STATE_FILE}:`, err.message);
     }
   }
-  return { pinned: [], deleted: [], renames: {}, archived: [], folders: {}, folderNames: [] };
+  return { pinned: [], renames: {}, archived: [], folders: {}, folderNames: [] };
 }
 
 /** Make `folderNames` list every folder a session is filed in, once each. */
 function withAllFolderNames(state: UserState): UserState {
   state.folderNames = [...new Set([...state.folderNames, ...Object.values(state.folders)])];
   return state;
+}
+
+/** Keep only the string items of a parsed JSON array; [] for anything else. */
+function readStringList(raw: unknown): string[] {
+  return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === "string") : [];
 }
 
 /** Keep only the string-valued entries of a parsed JSON object. */
@@ -59,7 +68,7 @@ function readStringMap(raw: unknown): Record<string, string> {
 }
 
 /**
- * Persist the user state (pinned/deleted session IDs) to disk. Logs a
+ * Persist the user state (pins, archive, folders, renames) to disk. Logs a
  * warning on failure.
  *
  * Atomic because every VS Code window reads and writes this one file: a
@@ -103,21 +112,6 @@ export function unpinSession(sessionId: string): UserState {
 }
 
 /**
- * Soft-delete a session: add to deleted list and remove from pinned.
- * Returns the updated state.
- */
-export function deleteSession(sessionId: string): UserState {
-  const state = loadState();
-  if (!state.deleted.includes(sessionId)) {
-    state.deleted.push(sessionId);
-  }
-  state.pinned = state.pinned.filter((id) => id !== sessionId);
-  delete state.folders[sessionId];
-  saveState(state);
-  return state;
-}
-
-/**
  * Bulk variant of `pinSession`. Single state load + single save —
  * back-to-back single-id calls would otherwise read + write
  * `~/.claude/.csm-state.json` once per id and the UI would receive
@@ -141,15 +135,20 @@ export function unpinSessions(sessionIds: string[]): UserState {
   return state;
 }
 
-/** Bulk variant of `deleteSession`. Strips ids from pinned and folders too. */
-export function deleteSessions(sessionIds: string[]): UserState {
+/**
+ * Drop every trace of deleted sessions from the state file: pins, archive
+ * entries, folder filings and renames. Their data is gone from disk, so
+ * nothing here would ever match them again.
+ */
+export function forgetSessions(sessionIds: readonly string[]): UserState {
   const state = loadState();
   const drop = new Set(sessionIds);
-  for (const id of sessionIds) {
-    if (!state.deleted.includes(id)) state.deleted.push(id);
-    delete state.folders[id];
-  }
   state.pinned = state.pinned.filter((id) => !drop.has(id));
+  state.archived = state.archived.filter((id) => !drop.has(id));
+  for (const id of sessionIds) {
+    delete state.folders[id];
+    delete state.renames[id];
+  }
   saveState(state);
   return state;
 }

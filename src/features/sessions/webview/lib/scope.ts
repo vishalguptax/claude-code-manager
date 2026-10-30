@@ -26,15 +26,13 @@ export type FilterDimension = "project" | "date" | "branch" | "worktree";
 
 /** Every input the scope rules read. Passed explicitly — no signal access. */
 export interface FilterScope {
-  deleted: Set<string>;
   pinned: Set<string>;
   /** Session id → folder. Filing, like pinning, keeps a session past the date window. */
   folders: ReadonlyMap<string, string>;
   /**
    * Session IDs the user archived. Excluded from the list unless
    * {@link FilterScope.showArchived} is on — archiving means "out of my
-   * way", not "gone", so the rows stay reachable behind a toggle where
-   * deleted ones do not.
+   * way", not "gone", so the rows stay reachable behind a toggle.
    */
   archived: Set<string>;
   /** When true the archived rows are shown instead of hidden. */
@@ -116,14 +114,12 @@ export function matchesWorktree(s: Session, scope: FilterScope): boolean {
 
 /**
  * True when the session passes every dimension of the scope except `except`.
- * Deleted sessions never pass.
  */
 export function matchesScope(
   s: Session,
   scope: FilterScope,
   except?: FilterDimension,
 ): boolean {
-  if (scope.deleted.has(s.id)) return false;
   // Archived rows are hidden by default and shown EXCLUSIVELY when the
   // toggle is on: mixing them back into the ordinary list would make the
   // toggle read as "show more" rather than "show the archive".

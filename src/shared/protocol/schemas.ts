@@ -324,7 +324,6 @@ const sessions = v.object({
 const userState = v.object({
   type: v.literal("userState"),
   pinned: v.optional(v.array(v.string())),
-  deleted: v.optional(v.array(v.string())),
   renames: v.optional(v.record(v.string(), v.string())),
   archived: v.optional(v.array(v.string())),
   folders: v.optional(v.record(v.string(), v.string())),
@@ -364,7 +363,6 @@ const quotaData = v.object({ type: v.literal("quotaData"), result: v.unknown() }
 // === SESSIONS MESSAGES ===
 // Inbound session messages, paired 1:1 with the SESSIONS MESSAGES block in
 // messages.ts.
-const deleteSession = v.object({ type: v.literal("deleteSession"), sessionId: v.string() });
 const copyMarkdown = v.object({ type: v.literal("copyMarkdown"), sessionId: v.string() });
 const openFile = v.object({ type: v.literal("openFile"), path: v.string() });
 const terminalSessions = v.object({
@@ -585,7 +583,6 @@ export const messageSchema = v.variant("type", [
   agents,
   quotaData,
   // === SESSIONS MESSAGES ===
-  deleteSession,
   copyMarkdown,
   openFile,
   terminalSessions,

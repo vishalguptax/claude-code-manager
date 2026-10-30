@@ -35,7 +35,6 @@ export interface ExplorerInput {
   folders: ReadonlyMap<string, string>;
   pinned: ReadonlySet<string>;
   archived: ReadonlySet<string>;
-  deleted: ReadonlySet<string>;
   /** The project filter, as a predicate (see `matchesProject`). */
   inProject: (s: Session) => boolean;
   /** Lowercased search text; "" when not searching. */
@@ -76,12 +75,12 @@ export function locationLabel(loc: ExplorerLocation): string {
 }
 
 /**
- * True when a session is visible to the explorer at all: not deleted, in the
- * project filter, and matching the search. Archive membership is a location
+ * True when a session is visible to the explorer at all: in the project
+ * filter, and matching the search. Archive membership is a location
  * question, settled by {@link buildItems}.
  */
 function visible(s: Session, input: ExplorerInput): boolean {
-  if (input.deleted.has(s.id) || !input.inProject(s)) return false;
+  if (!input.inProject(s)) return false;
   if (!input.query) return true;
   // The haystack covers names, prompts, project and branch; the host's
   // full-text index covers the transcripts. Same pair the sidebar uses.

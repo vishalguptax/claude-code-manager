@@ -121,7 +121,7 @@ export const sendRenameFolder = (folder: string): void => post({ type: "renameFo
 /** Remove a folder; its sessions return to the date sections. */
 export const sendRemoveFolder = (folder: string): void => post({ type: "removeFolder", folder });
 
-/** Hide a session from the list (host confirms first via confirmDelete). */
+/** Permanently delete a session (the host confirms first). */
 export const sendConfirmDelete = (sessionId: string, callback?: string): void =>
   post({ type: "confirmDelete", sessionId, callback });
 

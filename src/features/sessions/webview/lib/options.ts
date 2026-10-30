@@ -1,7 +1,7 @@
 /**
  * Pure project / branch option builders for the sessions filter dropdowns.
  *
- * These take every input explicitly (the raw session list, the deleted-id set,
+ * These take every input explicitly (the raw session list, the filter scope,
  * the current project / branch, the active project filter) so they hold no
  * dependency on the reactive signal layer and stay trivially unit-testable. The
  * model segment wraps them in thin selectors that read the live signal values.
@@ -11,15 +11,12 @@ import { pathTail, type WorktreeMap } from "./worktrees";
 import { matchesScope, type FilterScope } from "./scope";
 
 /**
- * Distinct branch names present in the (deletion-filtered) session list,
- * sorted alphabetically with the "(no branch)" sentinel last.
+ * Distinct branch names present in the session list, sorted alphabetically
+ * with the "(no branch)" sentinel last.
  */
-export function listBranches(sessions: Session[], deleted: Set<string>): string[] {
+export function listBranches(sessions: Session[]): string[] {
   const set = new Set<string>();
-  for (const s of sessions) {
-    if (deleted.has(s.id)) continue;
-    set.add(s.branch || "(no branch)");
-  }
+  for (const s of sessions) set.add(s.branch || "(no branch)");
   return [...set].sort((a, b) => {
     if (a === "(no branch)") return 1;
     if (b === "(no branch)") return -1;
@@ -39,7 +36,7 @@ export interface ProjectOption {
 /**
  * Project-filter options with per-project session counts — restores the v1
  * count badges. Leads with "This Project" (count of current-scope sessions)
- * and "All Projects" (total non-deleted), then every project by recency.
+ * and "All Projects" (every session in scope), then every project by recency.
  * Single O(N) pass over sessions, mirroring v1 `updateDropdown`.
  *
  * Worktree-aware: a session that ran in a worktree groups under its shared

@@ -25,7 +25,6 @@ const NOW = 1_000_000_000_000;
 
 function scope(over: Partial<FilterScope> = {}): FilterScope {
   return {
-    deleted: new Set(),
     pinned: new Set(),
     folders: new Map(),
     project: "all",
@@ -149,10 +148,6 @@ describe("matchesScope", () => {
     expect(matchesScope(old, { ...sc, branch: "main" })).toBe(false);
   });
 
-  it("never admits a deleted session", () => {
-    expect(matchesScope(recent, scope({ deleted: new Set(["recent"]) }))).toBe(false);
-  });
-
   describe("archive", () => {
     it("hides an archived session from the default list", () => {
       expect(matchesScope(recent, scope({ archived: new Set(["recent"]) }))).toBe(false);
@@ -165,15 +160,6 @@ describe("matchesScope", () => {
       const sc = scope({ archived: new Set(["recent"]), showArchived: true });
       expect(matchesScope(recent, sc)).toBe(true);
       expect(matchesScope(old, sc)).toBe(false);
-    });
-
-    it("still excludes a deleted session while viewing the archive", () => {
-      const sc = scope({
-        archived: new Set(["recent"]),
-        deleted: new Set(["recent"]),
-        showArchived: true,
-      });
-      expect(matchesScope(recent, sc)).toBe(false);
     });
 
     it("keeps applying the other filters inside the archive", () => {

@@ -27,10 +27,8 @@ import {
   loadState,
   pinSession,
   unpinSession,
-  deleteSession,
   pinSessions as bulkPinState,
   unpinSessions as bulkUnpinState,
-  deleteSessions as bulkDeleteState,
   archiveSession,
   unarchiveSession,
   archiveSessions,
@@ -49,7 +47,7 @@ import {
   continueLastSession,
   copyResumeCommand,
   copyMarkdown,
-  confirmDeleteSession,
+  deleteSessionsPermanently,
   promptRenameSession,
   resumeSession,
   createWorktreeForSession,
@@ -578,23 +576,14 @@ async function handleSessionMessage(
       break;
     }
 
-    case "deleteSession": {
-      const state = deleteSession(msg.sessionId);
-      wv.postMessage({ type: "userState", ...state });
-      break;
-    }
-
     case "confirmDelete": {
-      const result = await confirmDeleteSession(msg.sessionId, msg.callback);
-      if (result) {
-        // Post the whole freshly-loaded state rather than rebuilding it
-        // from `result`: every other userState producer spreads loadState(),
-        // and a hand-built subset silently drops any field added later.
-        wv.postMessage({ type: "userState", ...loadState() });
-        if (result.navigateToList) {
-          wv.postMessage({ type: "navigateList" });
-        }
-      }
+      const deleted = await deleteSessionsPermanently([msg.sessionId], ctx.getSessions());
+      if (deleted.length === 0) break;
+      // The files are gone, so a re-parse drops the row; the state no
+      // longer mentions it either.
+      reparseAndPushSessions(ctx);
+      wv.postMessage({ type: "userState", ...loadState() });
+      if (msg.callback === "showList") wv.postMessage({ type: "navigateList" });
       break;
     }
 
@@ -742,18 +731,10 @@ async function handleSessionMessage(
 
     case "bulkDeleteSessions": {
       if (msg.ids.length === 0) break;
-      const choice = await vscode.window.showWarningMessage(
-        `Delete ${msg.ids.length} session${msg.ids.length === 1 ? "" : "s"}?`,
-        {
-          modal: true,
-          detail:
-            "Selected sessions will be hidden from the list. The .jsonl files on disk are not removed; running `claude --resume` against them in a terminal still works.",
-        },
-        "Delete",
-      );
-      if (choice !== "Delete") break;
-      const state = bulkDeleteState(msg.ids);
-      wv.postMessage({ type: "userState", ...state });
+      const deleted = await deleteSessionsPermanently(msg.ids, ctx.getSessions());
+      if (deleted.length === 0) break;
+      reparseAndPushSessions(ctx);
+      wv.postMessage({ type: "userState", ...loadState() });
       wv.postMessage({ type: "navigateList" });
       break;
     }

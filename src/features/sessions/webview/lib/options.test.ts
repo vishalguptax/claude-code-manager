@@ -36,7 +36,6 @@ const NONE = new Set<string>();
  */
 function scope(over: Partial<FilterScope> = {}): FilterScope {
   return {
-    deleted: NONE,
     pinned: NONE,
     folders: new Map(),
     project: "all",
@@ -61,12 +60,7 @@ describe("listBranches", () => {
       session({ id: "b", branch: "" }),
       session({ id: "c", branch: "dev" }),
     ];
-    expect(listBranches(sessions, NONE)).toEqual(["dev", "main", "(no branch)"]);
-  });
-
-  it("excludes deleted sessions", () => {
-    const sessions = [session({ id: "a", branch: "main" }), session({ id: "b", branch: "dev" })];
-    expect(listBranches(sessions, new Set(["b"]))).toEqual(["main"]);
+    expect(listBranches(sessions)).toEqual(["dev", "main", "(no branch)"]);
   });
 });
 
@@ -96,15 +90,6 @@ describe("buildProjectOptions", () => {
       ["/home/me/web", "web", 1, false],
     ]);
     expect(opts[0]).toMatchObject({ value: "current", count: 1 });
-  });
-
-  it("excludes deleted sessions from every count", () => {
-    const sessions = [
-      session({ id: "a", project: "alpha", projectKey: "alpha" }),
-      session({ id: "b", project: "alpha", projectKey: "alpha" }),
-    ];
-    const all = buildProjectOptions(sessions, scope({ deleted: new Set(["b"]) })).find((o) => o.value === "all");
-    expect(all?.count).toBe(1);
   });
 
   it("marks the workspace project with isCurrent and pins it after the two pseudos", () => {

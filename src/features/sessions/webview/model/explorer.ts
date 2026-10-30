@@ -41,7 +41,6 @@ import { applySearchQuery } from "./search";
 import {
   archivedSignal,
   currentScope,
-  deletedSignal,
   folderNamesSignal,
   foldersSignal,
   fullTextSignal,
@@ -168,7 +167,6 @@ const inputSignal = computed<ExplorerInput>(() => {
     folders: foldersSignal.value,
     pinned: pinnedSignal.value,
     archived: archivedSignal.value,
-    deleted: deletedSignal.value,
     inProject: (s) => matchesProject(s, scope),
     query,
     hits: ft.query === query ? ft.ids : null,
