@@ -2,7 +2,7 @@
 
 ## [2.21.0] - 2026-10-30
 
-Rename a session in the sidebar and Claude Code renames it too — prompt box, /resume, terminal title — even mid-session, while terminal tabs now follow the session's name live.
+Rename a session in the sidebar and Claude Code renames it too — prompt box, /resume, terminal title — even mid-session; terminal tabs follow the session's name live; and Delete now really deletes a session from disk.
 
 See [docs/releases/v2.21.0.md](docs/releases/v2.21.0.md) for full details.
 
