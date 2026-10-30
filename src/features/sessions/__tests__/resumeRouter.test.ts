@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as vscode from "vscode";
 
 // Stub config paths so importing commands doesn't reach into real dirs.
+// The CLI's title settings live in the user's real ~/.claude; pin the default.
+const cliTitlePolicy = vi.hoisted(() => ({ writesTitle: true, fromRename: true }));
+vi.mock("../cliTitle", () => ({ readCliTitlePolicy: () => cliTitlePolicy }));
+
 vi.mock("../../../core/config", () => ({
   CLAUDE_DIR: "/tmp/irrelevant",
   HISTORY_FILE: "/tmp/irrelevant/history.jsonl",
@@ -18,9 +22,9 @@ vi.mock("../../../core/config", () => ({
  */
 let sentText: string[] = [];
 /** Terminal tab names passed to createTerminal, in call order. */
-let termNames: string[] = [];
+let termNames: Array<string | undefined> = [];
 vi.mock("../../../extension/terminal", () => ({
-  createTerminal: (name: string) => {
+  createTerminal: (name?: string) => {
     termNames.push(name);
     return {
       show: () => {},
@@ -371,5 +375,34 @@ describe("terminal tab name", () => {
   it("truncates a long name to fit the tab", async () => {
     await resumeInTerminal(makeSession({ name: "a".repeat(40) }));
     expect(termNames[0]).toBe(`${"a".repeat(23)}…`);
+  });
+
+  describe("following the CLI's title", () => {
+    beforeEach(() => {
+      cliTitlePolicy.writesTitle = true;
+      cliTitlePolicy.fromRename = true;
+    });
+
+    it("leaves the tab unnamed when the name is the CLI's ai-title", async () => {
+      await resumeInTerminal(makeSession({ name: "Parser rewrite", nameSource: "ai-title" }));
+      expect(termNames).toEqual([undefined]);
+    });
+
+    it("leaves the tab unnamed when the name is the CLI's custom title", async () => {
+      await resumeInTerminal(makeSession({ name: "Parser rewrite", nameSource: "custom-title" }));
+      expect(termNames).toEqual([undefined]);
+    });
+
+    it("names the tab when the CLI shows its ai-title over the custom title", async () => {
+      cliTitlePolicy.fromRename = false;
+      await resumeInTerminal(makeSession({ name: "Parser rewrite", nameSource: "custom-title" }));
+      expect(termNames).toEqual(["Parser rewrite"]);
+    });
+
+    it("names the tab when the CLI writes no title at all", async () => {
+      cliTitlePolicy.writesTitle = false;
+      await resumeInTerminal(makeSession({ name: "Parser rewrite", nameSource: "ai-title" }));
+      expect(termNames).toEqual(["Parser rewrite"]);
+    });
   });
 });

@@ -25,7 +25,7 @@ import {
   readLiveSessions,
   applyLiveState,
 } from "./parser";
-import { loadState } from "./state";
+import { loadRenames } from "./renames";
 import { getTempSessionIds } from "./ephemeralSession";
 import {
   CLAUDE_DIR,
@@ -316,7 +316,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
   const fullSessionsReparse = (): void => {
     const wv = ctx.getWebview();
     if (!wv) return;
-    ctx.setSessions(parseSessions(loadState().renames));
+    ctx.setSessions(parseSessions(loadRenames()));
     ctx.postWorkspacePath();
     wv.postMessage({
       type: "sessions",
@@ -354,7 +354,7 @@ export function createWatchers(ctx: WatcherContext): vscode.Disposable {
         // changed file — and merge into the cached list. Sibling
         // sessions keep their cached meta — the whole point of the
         // smart watcher.
-        const renames = loadState().renames;
+        const renames = loadRenames();
         const sessions = ctx.getSessions();
         const changedIds = transcriptPaths
           .map(sessionIdFromTranscriptPath)

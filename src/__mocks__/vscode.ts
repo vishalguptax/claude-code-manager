@@ -453,6 +453,8 @@ export const env = {
   // "windsurf", "vscode-insiders"). Tests spy/override to assert deep
   // links follow the host scheme rather than hardcoding "vscode://".
   uriScheme: "vscode",
+  /** The default terminal shell; tests override it per platform. */
+  shell: "/bin/zsh",
   openExternal: async (_uri: unknown) => true,
   clipboard: {
     writeText: async (_value: string) => {},

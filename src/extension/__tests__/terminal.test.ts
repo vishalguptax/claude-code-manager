@@ -57,6 +57,26 @@ describe("createTerminal — reuse", () => {
     expect(vscode.window.terminals).toHaveLength(1);
   });
 
+  it("passes no name for an unnamed terminal, so the tab follows the CLI's title", () => {
+    // With keepSessionNames on, any API name is a static title: a new chat
+    // labelled "Claude" never picked up its session title.
+    const spy = vi.spyOn(vscode.window, "createTerminal");
+
+    createTerminal(undefined, "/repo");
+
+    expect(spy.mock.calls[0][0]).not.toHaveProperty("name");
+  });
+
+  it("never reuses a terminal when no name is requested", () => {
+    const idle = makeTerminal({ name: "zsh" });
+    vscode.window.terminals.push(idle);
+
+    const term = createTerminal();
+
+    expect(term).not.toBe(idle);
+    expect(vscode.window.terminals).toHaveLength(2);
+  });
+
   it("does not adopt an idle terminal belonging to something else", () => {
     // The regression: VS Code cannot rename a terminal after creation, so
     // adopting the Claude Code extension's idle tab left the session

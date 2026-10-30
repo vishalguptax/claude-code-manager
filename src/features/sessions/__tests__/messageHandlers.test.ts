@@ -16,13 +16,27 @@ const resumeSession = vi.fn<
   (id: string, fork: boolean, sessions: Session[], forceTerminal?: boolean) => Promise<void>
 >();
 
+const rename = vi.hoisted(() => ({
+  prompt: vi.fn(async (): Promise<string | null> => null),
+  target: vi.fn(async (): Promise<boolean | undefined> => true),
+  apply: vi.fn((_id: string, _name: string, _inClaudeCode: boolean): void => {}),
+  reparse: vi.fn((): Session | null => null),
+}));
+vi.mock("../renames", () => ({ applyRename: rename.apply, loadRenames: () => ({}) }));
+vi.mock("../sessionRenamePolicy", () => ({ chooseRenameTarget: rename.target }));
+
 vi.mock("../commands", async () => {
   const actual = await vi.importActual<typeof import("../commands")>("../commands");
   return {
     ...actual,
     resumeSession: (id: string, fork: boolean, sessions: Session[], forceTerminal?: boolean) =>
       resumeSession(id, fork, sessions, forceTerminal),
+    promptRenameSession: rename.prompt,
   };
+});
+vi.mock("../parser", async () => {
+  const actual = await vi.importActual<typeof import("../parser")>("../parser");
+  return { ...actual, reparseOneSession: rename.reparse, parseSessionDetail: () => null };
 });
 
 // Checkpoints is the newest link in the dispatch chain. Its own behaviour is
@@ -96,11 +110,13 @@ interface Harness {
   ctx: HostContext;
   viewed: string[];
   posted: unknown[];
+  tabRenames: Array<[string, string]>;
 }
 
 function harness(sessions: Session[], tracked: string[] = []): Harness {
   const viewed: string[] = [];
   const posted: unknown[] = [];
+  const tabRenames: Array<[string, string]> = [];
   const trackedSet = new Set(tracked);
   const ctx = {
     terminals: {
@@ -111,13 +127,17 @@ function harness(sessions: Session[], tracked: string[] = []): Harness {
         return trackedSet.has(id);
       },
       ids: () => [...trackedSet],
+      rename: async (id: string, name: string) => {
+        tabRenames.push([id, name]);
+        return trackedSet.has(id);
+      },
       dispose: () => {},
     },
     getWebview: () =>
       ({ postMessage: (m: unknown) => posted.push(m) }) as unknown as vscode.Webview,
     getSessions: () => sessions,
   } as unknown as HostContext;
-  return { ctx, viewed, posted };
+  return { ctx, viewed, posted, tabRenames };
 }
 
 beforeEach(() => {
@@ -420,5 +440,91 @@ describe("dispatch — openExplorer", () => {
     (ctx as unknown as { openExplorer: typeof openExplorer }).openExplorer = openExplorer;
     await dispatch({ type: "openExplorer" }, ctx);
     expect(openExplorer).toHaveBeenCalledOnce();
+  });
+});
+
+describe("dispatch — renameSession", () => {
+  beforeEach(() => {
+    rename.apply.mockReset();
+    rename.target.mockReset();
+    rename.target.mockResolvedValue(true);
+  });
+
+  it("renames in Claude Code or the sidebar, as the user chose", async () => {
+    rename.prompt.mockResolvedValueOnce("Parser rewrite");
+    rename.target.mockResolvedValueOnce(false);
+    const { ctx } = harness([session({ id: "a" })]);
+
+    await dispatch({ type: "renameSession", sessionId: "a" }, ctx);
+
+    expect(rename.apply).toHaveBeenCalledWith("a", "Parser rewrite", false);
+  });
+
+  it("cancels the rename when the user dismisses the choice", async () => {
+    rename.prompt.mockResolvedValueOnce("Parser rewrite");
+    rename.target.mockResolvedValueOnce(undefined);
+    const target = session({ id: "a", name: "old" });
+    const { ctx, tabRenames } = harness([target], ["a"]);
+
+    await dispatch({ type: "renameSession", sessionId: "a" }, ctx);
+
+    expect(rename.apply).not.toHaveBeenCalled();
+    expect(target.name).toBe("old");
+    expect(tabRenames).toEqual([]);
+  });
+
+  it("says why, and changes nothing, when the rename cannot be saved", async () => {
+    rename.prompt.mockResolvedValueOnce("Parser rewrite");
+    rename.apply.mockImplementationOnce(() => {
+      throw new Error("disk full");
+    });
+    const error = vi.spyOn(vscode.window, "showErrorMessage");
+    const target = session({ id: "a", name: "old" });
+    const { ctx, tabRenames } = harness([target], ["a"]);
+
+    await dispatch({ type: "renameSession", sessionId: "a" }, ctx);
+
+    expect(error).toHaveBeenCalledWith("Couldn't rename the session: disk full");
+    expect(target.name).toBe("old");
+    expect(tabRenames).toEqual([]);
+  });
+
+  it("renames the session's open terminal tab to the new name", async () => {
+    rename.prompt.mockResolvedValueOnce("  Parser rewrite  ");
+    const target = session({ id: "a", name: "old", nameSource: "ai-title" });
+    const { ctx, tabRenames } = harness([target], ["a"]);
+
+    await dispatch({ type: "renameSession", sessionId: "a" }, ctx);
+
+    expect(target.name).toBe("Parser rewrite");
+    // An extension rename is not one of the CLI's titles.
+    expect(target.nameSource).toBeUndefined();
+    expect(tabRenames).toEqual([["a", "Parser rewrite"]]);
+  });
+
+  it("falls back to the CLI's title when the rename is cleared", async () => {
+    rename.prompt.mockResolvedValueOnce("");
+    rename.reparse.mockReturnValueOnce(
+      session({ id: "a", name: "Generated title", nameSource: "ai-title" }),
+    );
+    const target = session({ id: "a", name: "My name" });
+    const { ctx, tabRenames } = harness([target], ["a"]);
+
+    await dispatch({ type: "renameSession", sessionId: "a" }, ctx);
+
+    expect(target.name).toBe("Generated title");
+    expect(target.nameSource).toBe("ai-title");
+    expect(tabRenames).toEqual([["a", "Generated title"]]);
+  });
+
+  it("leaves everything alone when the prompt is dismissed", async () => {
+    rename.prompt.mockResolvedValueOnce(null);
+    const target = session({ id: "a", name: "old" });
+    const { ctx, tabRenames } = harness([target], ["a"]);
+
+    await dispatch({ type: "renameSession", sessionId: "a" }, ctx);
+
+    expect(target.name).toBe("old");
+    expect(tabRenames).toEqual([]);
   });
 });

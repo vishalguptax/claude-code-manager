@@ -186,7 +186,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
@@ -231,7 +230,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
 
     // Workspace is already open at resolve time (the common case).
@@ -323,7 +321,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
     const memento = { get: () => undefined, update: async () => {} } as unknown as vscode.Memento;
@@ -364,7 +361,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
     const provider = new ClaudeSessionViewProvider({ fsPath: "/ext" } as vscode.Uri);
@@ -394,7 +390,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
 
     vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
@@ -493,7 +488,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
     __mockedBranch = "feature/test";
 
@@ -533,7 +527,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
     __mockedSearchContent = (q: string) => (q === "needle" ? ["sess-1", "sess-2"] : []);
 
@@ -586,7 +579,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
     vi.doMock("../../skills/parser", () => ({ parseSkills: () => [{ id: "sk1" }] }));
     vi.doMock("../../commands/parser", () => ({ parseCommands: () => [{ name: "cmd1" }] }));
@@ -671,7 +663,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
     ws.workspaceFolders = [
       { uri: { fsPath: "/home/user/proj" }, name: "proj", index: 0 },
@@ -717,7 +708,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
     vi.doMock("../../skills/parser", () => ({ parseSkills: () => [] }));
     vi.doMock("../../commands/parser", () => ({ parseCommands: () => [] }));
@@ -774,7 +764,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
 
     interface CapturedPattern {
@@ -841,7 +830,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");
@@ -893,7 +881,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
     vi.doMock("../../commands/parser", () => ({
       parseCommands: () => [{ name: "review", scope: "global", path: "/x/review.md" }],
@@ -953,7 +940,6 @@ describe("ClaudeSessionViewProvider", () => {
       pinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       unpinSession: () => ({ pinned: [], deleted: [], renames: {} }),
       deleteSession: () => ({ pinned: [], deleted: [], renames: {} }),
-      renameSession: () => ({ pinned: [], deleted: [], renames: {} }),
     }));
 
     const { ClaudeSessionViewProvider } = await import("../viewProvider");

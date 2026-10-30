@@ -78,13 +78,38 @@ const sessionTapOpts = {
   logLevel: "info",
 };
 
+/**
+ * Rename hook tap — a tiny Node script Claude CLI runs on SessionStart and
+ * UserPromptSubmit. Hands a rename made in the sidebar to Claude Code as the
+ * hook's `sessionTitle`, so the CLI renames the session itself. Same
+ * bundling rationale as the statusline tap above.
+ */
+const renameTapOpts = {
+  ...sessionTapOpts,
+  entryPoints: ["src/features/sessions/sessionRenameTap.ts"],
+  outfile: "dist/session-rename-tap.js",
+};
+
 if (watch) {
   const ctx = await context(opts);
   const entryCtx = await context(entryOpts);
   const tapCtx = await context(tapOpts);
   const sessionCtx = await context(sessionTapOpts);
-  await Promise.all([ctx.watch(), entryCtx.watch(), tapCtx.watch(), sessionCtx.watch()]);
+  const renameCtx = await context(renameTapOpts);
+  await Promise.all([
+    ctx.watch(),
+    entryCtx.watch(),
+    tapCtx.watch(),
+    sessionCtx.watch(),
+    renameCtx.watch(),
+  ]);
   console.log("build-extension: watching for changes…");
 } else {
-  await Promise.all([build(opts), build(entryOpts), build(tapOpts), build(sessionTapOpts)]);
+  await Promise.all([
+    build(opts),
+    build(entryOpts),
+    build(tapOpts),
+    build(sessionTapOpts),
+    build(renameTapOpts),
+  ]);
 }

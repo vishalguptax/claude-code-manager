@@ -24,7 +24,6 @@ import {
   pinSession,
   unpinSession,
   deleteSession,
-  renameSession,
   pinSessions,
   unpinSessions,
   deleteSessions,
@@ -233,35 +232,6 @@ describe("deleteSession", () => {
     deleteSession("sess-del");
     const state = deleteSession("sess-del");
     expect(state.deleted.filter((id) => id === "sess-del")).toHaveLength(1);
-  });
-});
-
-describe("renameSession", () => {
-  beforeEach(() => {
-    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
-    fs.mkdirSync(TEMP_DIR, { recursive: true });
-  });
-
-  it("stores the new name in renames map", () => {
-    const state = renameSession("sess-1", "My Custom Name");
-    expect(state.renames["sess-1"]).toBe("My Custom Name");
-  });
-
-  it("trims whitespace from the new name", () => {
-    const state = renameSession("sess-1", "  spaced  ");
-    expect(state.renames["sess-1"]).toBe("spaced");
-  });
-
-  it("clears the rename when given an empty string", () => {
-    renameSession("sess-1", "temp");
-    const state = renameSession("sess-1", "");
-    expect(state.renames["sess-1"]).toBeUndefined();
-  });
-
-  it("persists across loadState calls", () => {
-    renameSession("sess-1", "Persistent");
-    const state = loadState();
-    expect(state.renames["sess-1"]).toBe("Persistent");
   });
 });
 

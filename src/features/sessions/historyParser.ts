@@ -35,7 +35,7 @@ import {
   type LiveSessionInfo,
 } from "./liveSessions";
 import { isHumanPrompt } from "./turnOrigin";
-import type { HistoryEntry, Session, SessionEntry } from "./types";
+import type { CliNameSource, HistoryEntry, Session, SessionEntry } from "./types";
 
 /**
  * Upper bound on the orphan-reconstruction cache so it cannot grow
@@ -208,6 +208,7 @@ export function parseSessions(userRenames: Record<string, string> = {}): Session
         ? refineStatus(sessionId, liveMap.get(sessionId)?.status)
         : undefined,
       liveUpdatedAt: liveMap.get(sessionId)?.updatedAt,
+      ...cliNameSourceField(userRenames[sessionId], fileCustomTitle, fileRename, fileAiTitle),
     });
   }
 
@@ -574,11 +575,30 @@ function discoverOrphanSessions(
           ? refineStatus(sessionId, liveMap.get(sessionId)?.status)
           : undefined,
         liveUpdatedAt: liveMap.get(sessionId)?.updatedAt,
+        ...cliNameSourceField(userRenames[sessionId], data.customTitle, data.rename, data.aiTitle),
       });
     }
   }
 
   return out;
+}
+
+/**
+ * The `nameSource` of a resolved name: set only when the name resolution
+ * above landed on a title the CLI itself writes. Spread into the Session so
+ * other sources leave the field absent.
+ */
+export function cliNameSourceField(
+  userRename: string | undefined,
+  customTitle: string | undefined,
+  rename: string | undefined,
+  aiTitle: string | undefined,
+): { nameSource?: CliNameSource } {
+  if (userRename) return {};
+  if (customTitle) return { nameSource: "custom-title" };
+  if (rename) return {};
+  if (aiTitle) return { nameSource: "ai-title" };
+  return {};
 }
 
 /**

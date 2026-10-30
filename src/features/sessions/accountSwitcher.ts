@@ -18,6 +18,7 @@ import type { SavedProfile } from "../account/profiles";
 import { describeProfileQuota } from "../account/profileQuota";
 import { getWorkspace } from "../../extension/workspace";
 import { createTerminal, runInTerminal } from "../../extension/terminal";
+import { claudeCli } from "../../extension/claudeCli";
 import { buildSwitchConfirmDetail } from "./hostContext";
 import type { WebviewMessage } from "./types";
 
@@ -340,7 +341,7 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
       }
       const term = createTerminal("login");
       term.show();
-      runInTerminal(term, "claude");
+      runInTerminal(term, claudeCli());
       setTimeout(() => term.sendText("/login"), 1800);
     }
   });

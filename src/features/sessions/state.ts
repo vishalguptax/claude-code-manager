@@ -155,22 +155,6 @@ export function deleteSessions(sessionIds: string[]): UserState {
 }
 
 /**
- * Set a custom name for a session. An empty name removes the existing rename.
- * Returns the updated state.
- */
-export function renameSession(sessionId: string, name: string): UserState {
-  const state = loadState();
-  const trimmed = name.trim();
-  if (trimmed) {
-    state.renames[sessionId] = trimmed;
-  } else {
-    delete state.renames[sessionId];
-  }
-  saveState(state);
-  return state;
-}
-
-/**
  * Archive a session — hide it from the default list without discarding
  * it. No-op when already archived. A pinned session is unpinned on the
  * way in: pinning means "keep this at the top", archiving means "get

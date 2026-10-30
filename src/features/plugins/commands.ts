@@ -12,6 +12,7 @@
 import * as vscode from "vscode";
 import { isInstallablePluginId } from "./ids";
 import type { PluginEntry, PluginInstallScope, PluginSettingsScope } from "./types";
+import { claudeCli } from "../../extension/claudeCli";
 
 /** How a scope reads in an error message. */
 const SCOPE_LABEL: Record<PluginSettingsScope, string> = {
@@ -99,5 +100,5 @@ export function installPluginCommand(id: string, scope: PluginInstallScope): str
   if (!isInstallablePluginId(id)) {
     throw new Error(`Refusing to build an install command for "${id}"`);
   }
-  return `claude plugin install ${id} --scope ${scope}`;
+  return `${claudeCli()} plugin install ${id} --scope ${scope}`;
 }

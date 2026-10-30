@@ -35,6 +35,7 @@ import {
   syncSessionTap,
   watchTerminalLinkingSetting,
 } from "../features/sessions/sessionTapPolicy";
+import { syncRenameHook, watchRenameSetting } from "../features/sessions/sessionRenamePolicy";
 import { startActiveSessionWatcher } from "../features/sessions/activeSessionWatcher";
 import { exportBrain } from "../features/brain/exporter";
 import { importBrain, previewConflicts, readManifest } from "../features/brain/importer";
@@ -129,6 +130,10 @@ export function activate(context: vscode.ExtensionContext): void {
   // sessionTapPolicy. Failures must not block activation.
   timedStep("syncSessionTap", () => syncSessionTap(path.join(__dirname), "activation"));
   context.subscriptions.push(watchTerminalLinkingSetting(path.join(__dirname)));
+  // The rename hook hands sidebar renames to Claude Code. Same consent and
+  // failure rules as the tap above; see sessionRenamePolicy.
+  timedStep("syncRenameHook", () => syncRenameHook(path.join(__dirname), "activation"));
+  context.subscriptions.push(watchRenameSetting(path.join(__dirname)));
 
   const provider = new ClaudeSessionViewProvider(
     context.extensionUri,

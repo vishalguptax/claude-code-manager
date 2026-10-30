@@ -19,6 +19,7 @@ import {
   groupSessions,
   getStats,
   getLastParseWarning,
+  reparseOneSession,
 } from "./parser";
 import { searchContent } from "./searchIndex";
 import { getSessionFile } from "./metaParser";
@@ -27,7 +28,6 @@ import {
   pinSession,
   unpinSession,
   deleteSession,
-  renameSession,
   pinSessions as bulkPinState,
   unpinSessions as bulkUnpinState,
   deleteSessions as bulkDeleteState,
@@ -40,6 +40,8 @@ import {
   removeFolder,
 } from "./state";
 import { pickFolder, promptFolderName } from "./folderPrompts";
+import { applyRename, loadRenames } from "./renames";
+import { chooseRenameTarget } from "./sessionRenamePolicy";
 import {
   openProject,
   newSession,
@@ -56,6 +58,8 @@ import {
   importSessionFile,
   importMultipleSessionFiles,
   resolveClaudeTarget,
+  launchNewChatTerminal,
+  buildTerminalName,
 } from "./commands";
 import { postWorktrees } from "./worktreeEnrichment";
 import {
@@ -63,6 +67,7 @@ import {
   openPromptInExtension,
 } from "../../extension/claudeCodeExtension";
 import { createTerminal, runInTerminal } from "../../extension/terminal";
+import { claudeCli } from "../../extension/claudeCli";
 import { getTempSessionIds, promoteTempSession } from "./ephemeralSession";
 import { handlePromptsMessage, type PromptsHostContext } from "../prompts";
 import { handleMemoryMessage, type MemoryHostContext } from "../memory";
@@ -210,9 +215,7 @@ function makeCommandsHost(ctx: HostContext): CommandsHost {
       void vscode.env.openExternal(vscode.Uri.parse(url));
     },
     launchChat: async (prompt) => {
-      const term = createTerminal("ask");
-      term.show();
-      runInTerminal(term, "claude");
+      const term = launchNewChatTerminal("ask");
       setTimeout(() => term.sendText(prompt), 1800);
     },
     workspacePath: getWorkspace() || undefined,
@@ -239,7 +242,7 @@ function makeMcpHost(ctx: HostContext): McpHostContext {
       // enter raw mode, then type the slash command.
       const term = createTerminal(label);
       term.show();
-      runInTerminal(term, "claude");
+      runInTerminal(term, claudeCli());
       setTimeout(() => term.sendText(slash), 1800);
     },
   };
@@ -329,7 +332,7 @@ function makeAgentHost(ctx: HostContext): AgentHostContext {
  * / promotion — so the row set never depends on a watcher event landing.
  */
 function reparseAndPushSessions(ctx: HostContext): void {
-  ctx.setSessions(parseSessions(loadState().renames));
+  ctx.setSessions(parseSessions(loadRenames()));
   const wv = ctx.getWebview();
   if (!wv) return;
   ctx.postWorkspacePath();
@@ -362,7 +365,7 @@ async function handleSessionMessage(
     }
 
     case "ready": {
-      ctx.setSessions(parseSessions(loadState().renames));
+      ctx.setSessions(parseSessions(loadRenames()));
       // `ready` comes from a webview that has never seen the workspace path:
       // a fresh document (Refresh re-mounts it), a Sessions tab whose handler
       // was not registered when an earlier push went out, a new editor tab, or
@@ -401,7 +404,7 @@ async function handleSessionMessage(
     }
 
     case "refresh":
-      ctx.setSessions(parseSessions(loadState().renames));
+      ctx.setSessions(parseSessions(loadRenames()));
       wv.postMessage({ type: "sessions", data: groupSessions(ctx.getSessions()), stats: getStats(ctx.getSessions()) });
       postWorktrees(wv, ctx.getSessions());
       ctx.buildSearchIndex();
@@ -448,9 +451,7 @@ async function handleSessionMessage(
         // Terminal path: launch claude, then send the prompt after a
         // short delay so Claude has switched to raw-input mode. Same
         // pattern launchSlash uses for /login + /config.
-        const term = createTerminal("ask");
-        term.show();
-        runInTerminal(term, "claude");
+        const term = launchNewChatTerminal("ask");
         setTimeout(() => term.sendText(prompt), 1800);
       }
       break;
@@ -600,19 +601,34 @@ async function handleSessionMessage(
     case "renameSession": {
       const sessions = ctx.getSessions();
       const newName = await promptRenameSession(msg.sessionId, sessions);
-      if (newName !== null) {
-        const state = renameSession(msg.sessionId, newName);
-        // Update cached session in-place instead of re-parsing all from disk
-        const target = sessions.find((s) => s.id === msg.sessionId);
-        if (target) target.name = newName.trim();
-        wv.postMessage({ type: "sessions", data: groupSessions(sessions), stats: getStats(sessions) });
-        postWorktrees(wv, sessions);
-        wv.postMessage({ type: "userState", ...state });
-        // Refresh detail view if showing this session
-        if (target) {
-          const updated = parseSessionDetail(msg.sessionId, target);
-          if (updated) wv.postMessage({ type: "sessionDetail", data: updated });
-        }
+      if (newName === null) break;
+      const inClaudeCode = await chooseRenameTarget();
+      if (inClaudeCode === undefined) break;
+      try {
+        applyRename(msg.sessionId, newName, inClaudeCode);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        void vscode.window.showErrorMessage(`Couldn't rename the session: ${reason}`);
+        break;
+      }
+      // Update the cached session in place instead of re-parsing all from
+      // disk. A cleared rename re-resolves this one session, so the name
+      // falls back to Claude Code's own rather than going blank.
+      const target = sessions.find((s) => s.id === msg.sessionId);
+      if (target) {
+        const fresh = newName.trim() ? null : reparseOneSession(msg.sessionId, loadRenames());
+        target.name = fresh?.name ?? newName.trim();
+        if (fresh?.nameSource) target.nameSource = fresh.nameSource;
+        else delete target.nameSource;
+        void ctx.terminals.rename(msg.sessionId, buildTerminalName(target, msg.sessionId));
+      }
+      wv.postMessage({ type: "sessions", data: groupSessions(sessions), stats: getStats(sessions) });
+      postWorktrees(wv, sessions);
+      wv.postMessage({ type: "userState", ...loadState() });
+      // Refresh detail view if showing this session
+      if (target) {
+        const updated = parseSessionDetail(msg.sessionId, target);
+        if (updated) wv.postMessage({ type: "sessionDetail", data: updated });
       }
       break;
     }

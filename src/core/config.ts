@@ -272,3 +272,22 @@ export const SESSION_ACTIVE_FILE: string = path.join(
   CLAUDE_MANAGER_DIR,
   "active-sessions.json",
 );
+
+/**
+ * Rename hook script: a tiny Node program Claude CLI runs on SessionStart
+ * and UserPromptSubmit. When a rename made in the sidebar is pending for the
+ * session, it hands Claude Code the new name as the hook's `sessionTitle`,
+ * which the CLI saves as a real rename. Stable path so settings.json hook
+ * entries survive extension updates.
+ */
+export const SESSION_RENAME_TAP_FILE: string = path.join(
+  CLAUDE_MANAGER_DIR,
+  "session-rename-tap.js",
+);
+
+/**
+ * Renames made in the sidebar that Claude Code has not applied yet, one
+ * `<sessionId>.json` file each. One file per session, so the hook claiming
+ * one session's rename never races the extension writing another's.
+ */
+export const PENDING_RENAMES_DIR: string = path.join(CLAUDE_MANAGER_DIR, "pending-renames");

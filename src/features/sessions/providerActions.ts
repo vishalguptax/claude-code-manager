@@ -33,6 +33,7 @@ import { slugifyProjectPath } from "./portable";
 import { PROJECTS_DIR } from "../../core/config";
 import { refreshOsPolicy } from "../../core/managedSettings";
 import { loadState } from "./state";
+import { loadRenames } from "./renames";
 import { getWorkspace } from "../../extension/workspace";
 import { getCurrentBranch } from "../../extension/git";
 import { isClaudeCodeExtensionInstalled } from "../../extension/claudeCodeExtension";
@@ -189,7 +190,7 @@ export function refreshLiveState(ctx: ProviderActionsContext): void {
         const missing = [...live.keys()].filter((id) => !known.has(id));
         let added = false;
         if (missing.length > 0) {
-          const byId = new Map(parseSessions(loadState().renames).map((s) => [s.id, s]));
+          const byId = new Map(parseSessions(loadRenames()).map((s) => [s.id, s]));
           for (const id of missing) {
             const fresh = byId.get(id);
             if (fresh) {
@@ -384,7 +385,7 @@ export async function reloadAll(ctx: ProviderActionsContext): Promise<void> {
     }
   };
 
-  const renames = loadState().renames;
+  const renames = loadRenames();
   const [
     sessionsResult,
     accountResult,

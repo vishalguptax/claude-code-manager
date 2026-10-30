@@ -10,6 +10,7 @@
  */
 import * as vscode from "vscode";
 import type { PanelSink } from "../../extension/panelSink";
+import { claudeCli } from "../../extension/claudeCli";
 import * as path from "path";
 import { CLAUDE_JSON_FILE } from "../../core/config";
 import {
@@ -273,12 +274,18 @@ export async function handleMcpMessage(
 
     case "authenticateMcp": {
       // `claude mcp login <name>` runs the OAuth flow from the terminal.
-      ctx.runShellCommand(`mcp login ${msg.name}`, `claude mcp login ${shellArg(msg.name)}`);
+      ctx.runShellCommand(
+        `mcp login ${msg.name}`,
+        `${claudeCli()} mcp login ${shellArg(msg.name)}`,
+      );
       return true;
     }
 
     case "logoutMcp": {
-      ctx.runShellCommand(`mcp logout ${msg.name}`, `claude mcp logout ${shellArg(msg.name)}`);
+      ctx.runShellCommand(
+        `mcp logout ${msg.name}`,
+        `${claudeCli()} mcp logout ${shellArg(msg.name)}`,
+      );
       return true;
     }
 
@@ -292,7 +299,7 @@ export async function handleMcpMessage(
     case "mcpListStatus": {
       // Connection status for url-transport servers: Claude Code probes,
       // the extension only launches the command.
-      ctx.runShellCommand("mcp list", "claude mcp list");
+      ctx.runShellCommand("mcp list", `${claudeCli()} mcp list`);
       return true;
     }
 

@@ -26,6 +26,7 @@ import {
 import { resolveSettingsPath } from "../account/parser";
 import { getWorkspace } from "../../extension/workspace";
 import { createTerminal, runInTerminal } from "../../extension/terminal";
+import { claudeCli } from "../../extension/claudeCli";
 import { KNOWN_HOOK_EVENTS, matcherInfo, matcherPlaceholder } from "../hooks/events";
 import type { HookScope } from "../hooks/types";
 import type { WebviewMessage } from "./types";
@@ -220,7 +221,7 @@ export async function handleFeatureMessage(
       // Code actually loaded (same launch pattern as launchSlash).
       const term = createTerminal("hooks");
       term.show();
-      runInTerminal(term, "claude");
+      runInTerminal(term, claudeCli());
       setTimeout(() => term.sendText("/hooks"), 1800);
       break;
     }

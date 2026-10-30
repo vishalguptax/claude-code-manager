@@ -35,6 +35,34 @@ describe("terminalRegistry", () => {
     expect(reg.view("missing")).toBe(false);
   });
 
+  it("rename() renames the session's terminal through VS Code's active-terminal command", async () => {
+    const exec = vi.spyOn(vscode.commands, "executeCommand");
+    const reg = createTerminalRegistry();
+    const t = fakeTerminal();
+    reg.register("s1", t);
+
+    expect(await reg.rename("s1", "Parser rewrite")).toBe(true);
+
+    // Made active first — the command only acts on the active terminal —
+    // without pulling the keyboard away from where the rename was typed.
+    expect(t.show as ReturnType<typeof vi.fn>).toHaveBeenCalledWith(true);
+    expect(exec).toHaveBeenCalledWith("workbench.action.terminal.renameWithArg", {
+      name: "Parser rewrite",
+    });
+  });
+
+  it("rename() does nothing for an unknown id or an empty name", async () => {
+    const exec = vi.spyOn(vscode.commands, "executeCommand");
+    const reg = createTerminalRegistry();
+    const t = fakeTerminal();
+    reg.register("s1", t);
+
+    expect(await reg.rename("missing", "x")).toBe(false);
+    expect(await reg.rename("s1", "")).toBe(false);
+    expect(t.show as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    expect(exec).not.toHaveBeenCalled();
+  });
+
   it("emits onChange when an id is added or replaced", () => {
     const reg = createTerminalRegistry();
     const cb = vi.fn();

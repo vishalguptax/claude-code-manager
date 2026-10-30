@@ -4,6 +4,7 @@ export interface TerminalRegistry {
   register(sessionId: string, terminal: vscode.Terminal): void;
   has(sessionId: string): boolean;
   view(sessionId: string): boolean;
+  rename(sessionId: string, name: string): Promise<boolean>;
   ids(): string[];
   onChange(cb: (ids: string[]) => void): vscode.Disposable;
   dispose(): void;
@@ -42,6 +43,18 @@ export function createTerminalRegistry(): TerminalRegistry {
       const t = byId.get(sessionId);
       if (!t) return false;
       t.show(false);
+      return true;
+    },
+    // VS Code can rename only the active terminal, so the session's tab is
+    // made active first. `preserveFocus` keeps the keyboard where the user
+    // typed the rename. The new name is a fixed title, which VS Code shows
+    // ahead of anything the CLI writes — the sidebar rename outranks the
+    // CLI's titles too.
+    async rename(sessionId, name) {
+      const t = byId.get(sessionId);
+      if (!t || !name) return false;
+      t.show(true);
+      await vscode.commands.executeCommand("workbench.action.terminal.renameWithArg", { name });
       return true;
     },
     ids() {

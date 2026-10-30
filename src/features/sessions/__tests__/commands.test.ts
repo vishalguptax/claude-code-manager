@@ -16,6 +16,10 @@ const { CLAUDE_DIR, PROJECTS_DIR, EXPORT_DIR } = vi.hoisted(() => {
   };
 });
 
+// The CLI's title settings live in the user's real ~/.claude; pin the default.
+const cliTitlePolicy = vi.hoisted(() => ({ writesTitle: true, fromRename: true }));
+vi.mock("../cliTitle", () => ({ readCliTitlePolicy: () => cliTitlePolicy }));
+
 vi.mock("../../../core/config", () => ({
   CLAUDE_DIR,
   HISTORY_FILE: path.join(CLAUDE_DIR, "history.jsonl"),
@@ -51,7 +55,9 @@ vi.mock("../../../extension/terminal", async () => {
     "../../../extension/terminal",
   );
   return {
-    createTerminal: () => ({
+    createTerminal: (name?: string, _cwd?: string, sessionId?: string) => ({
+      name,
+      sessionId,
       show: () => {},
       sendText: (t: string) => {
         sentTextCalls.push(t);
@@ -79,6 +85,9 @@ import {
   resumeSession,
   setSessionStorage,
   newTempSession,
+  newSession,
+  sessionTabName,
+  newSessionTabName,
 } from "../commands";
 import { getTempSessionIds, setEphemeralStorage } from "../ephemeralSession";
 import { writeZip, type ZipEntry } from "../../brain/zip";
@@ -850,5 +859,46 @@ describe("newTempSession", () => {
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("Open a folder first"));
     expect(sentTextCalls).toHaveLength(0);
+  });
+});
+
+describe("newSession", () => {
+  it("launches claude pinned to a fresh session id", async () => {
+    sentTextCalls.length = 0;
+    await newSession();
+    expect(sentTextCalls).toHaveLength(1);
+    expect(sentTextCalls[0]).toMatch(/^claude --session-id [0-9a-f-]{36}$/);
+  });
+});
+
+describe("terminal tab names", () => {
+  const writes = { writesTitle: true, fromRename: true };
+  const sess = (over: Partial<Session>): Session =>
+    ({ id: "abcdef12-0000", name: "Parser rewrite", ...over }) as Session;
+
+  it("follows the CLI's title when the name is one of its titles", () => {
+    expect(sessionTabName(sess({ nameSource: "ai-title" }), "abcdef12-0000", writes)).toBeUndefined();
+    expect(sessionTabName(sess({ nameSource: "custom-title" }), "abcdef12-0000", writes)).toBeUndefined();
+  });
+
+  it("keeps a fixed name the CLI does not know", () => {
+    expect(sessionTabName(sess({}), "abcdef12-0000", writes)).toBe("Parser rewrite");
+    expect(sessionTabName(undefined, "abcdef12-0000", writes)).toBe("abcdef12");
+  });
+
+  it("keeps a fixed name when the CLI would show a different title", () => {
+    const aiFirst = { writesTitle: true, fromRename: false };
+    expect(sessionTabName(sess({ nameSource: "custom-title" }), "abcdef12-0000", aiFirst)).toBe(
+      "Parser rewrite",
+    );
+    const silent = { writesTitle: false, fromRename: true };
+    expect(sessionTabName(sess({ nameSource: "ai-title" }), "abcdef12-0000", silent)).toBe(
+      "Parser rewrite",
+    );
+  });
+
+  it("leaves a new session unnamed unless the CLI writes no title", () => {
+    expect(newSessionTabName("Claude", writes)).toBeUndefined();
+    expect(newSessionTabName("Claude", { writesTitle: false, fromRename: true })).toBe("Claude");
   });
 });

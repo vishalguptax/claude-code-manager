@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as vscode from "vscode";
 
+// The CLI's title settings live in the user's real ~/.claude; pin the default.
+const cliTitlePolicy = vi.hoisted(() => ({ writesTitle: true, fromRename: true }));
+vi.mock("../cliTitle", () => ({ readCliTitlePolicy: () => cliTitlePolicy }));
+
 vi.mock("../../../core/config", () => ({
   CLAUDE_DIR: "/tmp/irrelevant",
   HISTORY_FILE: "/tmp/irrelevant/history.jsonl",

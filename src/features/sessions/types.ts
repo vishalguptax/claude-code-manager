@@ -73,7 +73,17 @@ export interface Session {
    * host to drive incremental UI updates without a full reparse.
    */
   liveUpdatedAt?: number;
+  /**
+   * Which of the CLI's own titles `name` came from, when it came from one.
+   * Absent for every other source (an extension rename, a transcript
+   * `/rename`, a summary, a slug). Lets a resumed session's terminal tab
+   * follow the title `claude` writes, which then shows this same name.
+   */
+  nameSource?: CliNameSource;
 }
+
+/** The CLI-written titles a session name can come from. */
+export type CliNameSource = "custom-title" | "ai-title";
 
 /** A session with a page of its message transcript loaded. */
 export interface SessionDetail extends Session {

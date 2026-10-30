@@ -18,6 +18,12 @@ describe("extractResumeId", () => {
     expect(extractResumeId("claude")).toBeNull();
   });
 
+  it("matches the official extension's bundled CLI, quoted", () => {
+    const bundled = "'/home/u/.vscode/extensions/anthropic.claude-code-2.1.312/resources/native-binary/claude'";
+    expect(extractResumeId(`${bundled} --resume ${UUID}`)).toBe(UUID);
+    expect(extractResumeId(`& 'C:\\ext\\resources\\native-binary\\claude.exe' --resume ${UUID}`)).toBe(UUID);
+  });
+
   it("matches after a path prefix or env var", () => {
     expect(extractResumeId(`/usr/local/bin/claude --resume ${UUID}`)).toBe(UUID);
     expect(extractResumeId(`ANTHROPIC_API_KEY=x claude --resume ${UUID}`)).toBe(UUID);

@@ -241,16 +241,19 @@ function getTerminalLocation(): vscode.TerminalEditorLocationOptions | undefined
  * terminal another extension owned. Reuse now only ever recycles a tab of
  * ours that is already correctly labelled; anything else gets a fresh one.
  *
- * The name is what the tab shows until `claude` takes over. VS Code 1.106+
- * ships `terminal.integrated.tabs.allowAgentCliTitle` on by default: once the
- * detected shell type is an agent CLI, `TerminalLabelComputer.refreshLabel`
- * swaps the title template for `${sequence}` and ignores the API name, so the
- * tab tracks the CLI's own OSC 0 session title from then on. That is the same
- * behaviour a hand-opened `claude` gets, and it is better than a static label,
- * so we do not fight it — there is no per-terminal opt-out anyway
- * (`titleTemplate` is profile-only and absent from `vscode.TerminalOptions`),
- * and turning the setting off globally would strip session titles from the
- * user's own terminals too.
+ * A name is a fixed title. VS Code (checked in 1.143) stores it as the
+ * terminal's `staticTitle`, never listens for the shell's OSC title on that
+ * terminal, and `TerminalLabelComputer.computeLabel` returns the static title
+ * before consulting any template — `allowAgentCliTitle` included. So a name
+ * stays on the tab for the terminal's whole life, whatever `claude` writes.
+ *
+ * Pass no name to let the tab follow the title `claude` writes, the way a
+ * hand-opened `claude` does: VS Code then applies the `${sequence}` template
+ * (forced for agent CLIs by `allowAgentCliTitle`, or the user's own
+ * `tabs.title`). Callers do this whenever the CLI's title will be the
+ * session's name — see sessionTabName. An unnamed terminal is never reused:
+ * its label is whatever the shell last wrote, so nothing identifies it as
+ * ours.
  */
 /**
  * Whether `claude` run in `t` would see the CLAUDE_ENV we read from. A
@@ -264,8 +267,8 @@ function carriesClaudeEnv(t: vscode.Terminal): boolean {
   return Object.entries(CLAUDE_ENV).every(([key, value]) => env[key] === value);
 }
 
-export function createTerminal(name: string, cwd?: string, sessionId?: string): vscode.Terminal {
-  const empty = vscode.window.terminals.find(
+export function createTerminal(name?: string, cwd?: string, sessionId?: string): vscode.Terminal {
+  const empty = name === undefined ? undefined : vscode.window.terminals.find(
     (t) =>
       t.exitStatus === undefined &&
       !t.state.isInteractedWith &&
@@ -294,7 +297,7 @@ export function createTerminal(name: string, cwd?: string, sessionId?: string): 
   // launch write where we read even when they came from the official
   // extension's setting, which the integrated terminal never sees.
   const term = vscode.window.createTerminal({
-    name,
+    ...(name !== undefined ? { name } : {}),
     cwd: cwd || undefined,
     ...(location ? { location } : {}),
     ...(Object.keys(CLAUDE_ENV).length > 0 ? { env: CLAUDE_ENV } : {}),

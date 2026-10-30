@@ -326,6 +326,12 @@
           "description": "Show View instead of Resume for a session that is already running in a terminal, including sessions started outside VS Code. This needs a SessionStart hook in ~/.claude/settings.json that records each session's id and process id locally — Claude Code Manager adds that entry while this is on and removes it when you turn it off. Sessions started from the sidebar are linked to their terminal either way.",
           "scope": "machine"
         },
+        "claudeManager.sessions.renameInClaudeCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hand renames made in the sidebar to Claude Code, so the name shows in its prompt box, /resume and terminal title, and other sessions can message the session by it. A running session takes the name on its next prompt; any other session when it next starts. This needs a SessionStart and a UserPromptSubmit hook in ~/.claude/settings.json — Claude Code Manager adds them while this is on and removes them when you turn it off. Off, renames stay in the sidebar only. Your first rename asks which you want.",
+          "scope": "machine"
+        },
         "claudeManager.sessions.resumeIn": {
           "type": "string",
           "default": "auto",

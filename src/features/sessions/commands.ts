@@ -9,15 +9,18 @@ import { execFileSync } from "child_process";
 import type { Message, Session, SessionDetail } from "./types";
 import { parseSessionDetail, getSessionFile } from "./parser";
 import { INJECTED_TURN_LABELS } from "./turnOrigin";
-import { deleteSession as deleteSessionState, loadState } from "./state";
+import { deleteSession as deleteSessionState } from "./state";
+import { loadRenames } from "./renames";
 import { getCurrentBranch } from "../../extension/git";
 import { createTerminal, runInTerminal, validateGitRef } from "../../extension/terminal";
+import { claudeCli } from "../../extension/claudeCli";
 import {
   resolveWorktree,
   findWorktreeForBranch,
   clearWorktreeCache,
 } from "../../extension/worktrees";
 import { registerEphemeralTerminal } from "./ephemeralSession";
+import { readCliTitlePolicy, type CliTitlePolicy } from "./cliTitle";
 import { getWorkspace } from "../../extension/workspace";
 import {
   isClaudeCodeExtensionInstalled,
@@ -61,9 +64,23 @@ export async function newSession(): Promise<void> {
     await openPromptInExtension("");
     return;
   }
-  const term = createTerminal("Claude");
+  launchNewChatTerminal("Claude");
+}
+
+/**
+ * Open a terminal running a brand-new `claude` session and show it.
+ *
+ * The session id is pinned up front so the tab is linked to the session from
+ * its first moment — View and a sidebar rename reach it before the
+ * transcript exists. `label` names the tab only when the CLI writes no title.
+ */
+export function launchNewChatTerminal(label: string): vscode.Terminal {
+  const sessionId = crypto.randomUUID();
+  const name = newSessionTabName(label, readCliTitlePolicy(getWorkspace() || undefined));
+  const term = createTerminal(name, undefined, sessionId);
   term.show();
-  runInTerminal(term, "claude");
+  runInTerminal(term, `${claudeCli()} --session-id ${sessionId}`);
+  return term;
 }
 
 /**
@@ -90,7 +107,7 @@ export async function newTempSession(onCleaned?: () => void): Promise<void> {
   term.show();
   // Pin the id up front so close-time cleanup deletes exactly this transcript
   // and never another session that started in the same project meanwhile.
-  runInTerminal(term, `claude --session-id ${sessionId}`);
+  runInTerminal(term, `${claudeCli()} --session-id ${sessionId}`);
 }
 
 /**
@@ -137,10 +154,13 @@ export async function continueLastSession(sessions: Session[]): Promise<void> {
   // id8 chain handled by buildTerminalName) so the tab reads like a
   // resume tab. If not, fall back to a neutral "continue" label.
   const cwd = ws;
-  const termName = latest ? buildTerminalName(latest, latest.id) : "continue";
+  const policy = readCliTitlePolicy(cwd || undefined);
+  const termName = latest
+    ? sessionTabName(latest, latest.id, policy)
+    : newSessionTabName("continue", policy);
   const term = createTerminal(termName, cwd || undefined, latest?.id);
   term.show();
-  runInTerminal(term, "claude --continue");
+  runInTerminal(term, `${claudeCli()} --continue`);
 }
 
 /**
@@ -209,22 +229,23 @@ export async function confirmDeleteSession(
 /**
  * Prompt the user for a new session name via an input box.
  * Pre-fills with the current name (if any) so editing is fast. Empty submission
- * clears the rename. Returns `null` if the user cancelled, or the trimmed value
- * (possibly empty string) if they confirmed.
+ * drops this extension's rename, so the session shows the name Claude Code has
+ * for it. Returns `null` if the user cancelled, or the value (possibly empty)
+ * if they confirmed.
  */
 export async function promptRenameSession(
   sessionId: string,
   sessions: Session[],
 ): Promise<string | null> {
   const sess = sessions.find((s) => s.id === sessionId);
-  const currentName = loadState().renames[sessionId] ?? sess?.name ?? "";
+  const currentName = loadRenames()[sessionId] ?? sess?.name ?? "";
   const placeholder = sess?.summary
     ? sess.summary.slice(0, 60)
     : `session ${sessionId.slice(0, 8)}`;
 
   const result = await vscode.window.showInputBox({
     title: "Rename session",
-    prompt: "Enter a new name (leave blank to clear the custom name)",
+    prompt: "Enter a new name (leave blank to use Claude Code's own name)",
     value: currentName,
     placeHolder: placeholder,
     validateInput: (value: string) => {
@@ -341,10 +362,10 @@ export async function resumeSession(
   const sess = sessions.find((s) => s.id === sessionId);
   const cwd = sess?.projectPath ?? "";
   const sessBranch = sess?.branch ?? "";
-  const termName = buildTerminalName(sess, sessionId);
+  const termName = sessionTabName(sess, sessionId, readCliTitlePolicy(cwd || undefined));
   const cmd = fork
-    ? `claude --resume ${sessionId} --fork-session`
-    : `claude --resume ${sessionId}`;
+    ? `${claudeCli()} --resume ${sessionId} --fork-session`
+    : `${claudeCli()} --resume ${sessionId}`;
   const ws = getWorkspace();
   // A window with no folder open is no session's project: resuming in place
   // would leave the user in an empty window, so it opens the project instead.
@@ -488,8 +509,8 @@ export async function createWorktreeForSession(
   }
 
   const wtPath = sess.projectPath;
-  const termName = buildTerminalName(sess, sessionId);
-  const cmd = `claude --resume ${sessionId}`;
+  const termName = sessionTabName(sess, sessionId, readCliTitlePolicy(wtPath || undefined));
+  const cmd = `${claudeCli()} --resume ${sessionId}`;
 
   // Worktree still on disk → nothing to recreate, just resume in it.
   if (wtPath && fs.existsSync(wtPath)) {
@@ -572,13 +593,44 @@ export async function createWorktreeForSession(
 const MAX_TERMINAL_NAME_LENGTH = 24;
 
 /**
+ * The name to open a session's terminal with, or undefined to leave the tab
+ * unnamed so it follows the title `claude` writes — see createTerminal.
+ *
+ * Unnamed only when that title will be the name the sidebar shows: the CLI
+ * writes a title, and the session's name is the custom title or `ai-title`
+ * the CLI itself puts there. An extension rename or a transcript `/rename` is
+ * not known to the CLI, and a summary or slug is not in its title, so those
+ * keep a fixed name.
+ */
+export function sessionTabName(
+  sess: Session | undefined,
+  sessionId: string,
+  policy: CliTitlePolicy,
+): string | undefined {
+  const followsCli =
+    policy.writesTitle &&
+    (sess?.nameSource === "ai-title" ||
+      (sess?.nameSource === "custom-title" && policy.fromRename));
+  return followsCli ? undefined : buildTerminalName(sess, sessionId);
+}
+
+/**
+ * The name for a session that has none yet: unnamed, so the tab picks up the
+ * title the CLI generates — unless the CLI writes no title, where an unnamed
+ * tab would show the process name instead.
+ */
+export function newSessionTabName(label: string, policy: CliTitlePolicy): string | undefined {
+  return policy.writesTitle ? undefined : label;
+}
+
+/**
  * Build a human-friendly terminal name for a session.
  * Uses the user's rename if set, otherwise a short session-id label.
  * Truncated to MAX_TERMINAL_NAME_LENGTH with an ellipsis. We deliberately
  * avoid the first prompt — it's almost always too long for a terminal tab
  * and unhelpful when truncated.
  */
-function buildTerminalName(sess: Session | undefined, sessionId: string): string {
+export function buildTerminalName(sess: Session | undefined, sessionId: string): string {
   // `||`, not `??`: Session.name is `string` and is the empty string for a
   // session nobody (and no parser fallback) ever named. `??` let that empty
   // string through, and `createTerminal({ name: "" })` is treated by VS Code
@@ -929,7 +981,7 @@ export async function importSessionFile(
   // 7. Launch
   const term = createTerminal(`imported ${newId.slice(0, 8)}`, target.path, newId);
   term.show();
-  runInTerminal(term, `claude --resume ${newId}`);
+  runInTerminal(term, `${claudeCli()} --resume ${newId}`);
 
   // Tell the view provider to re-scan so the imported session shows up
   // in the list (it lives under target.path's slug, not necessarily the
