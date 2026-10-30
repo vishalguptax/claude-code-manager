@@ -48,6 +48,9 @@ vi.mock("../../../extension/workspace", () => ({
 // Force terminal routing so resolveClaudeTarget never reaches the extension URI
 // path — this suite is about the worktree/branch decisions, not the surface.
 vi.mock("../../../extension/claudeCodeExtension", () => ({
+  // claudeCli looks the official extension up by id when `claude` is not on
+  // PATH — always the case on CI.
+  CLAUDE_CODE_EXTENSION_ID: "anthropic.claude-code",
   isClaudeCodeExtensionInstalled: () => false,
   openSessionInExtension: vi.fn(),
   openPromptInExtension: vi.fn(),
