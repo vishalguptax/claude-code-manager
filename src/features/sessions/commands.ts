@@ -15,7 +15,12 @@ import { clearPendingRename } from "./pendingRenames";
 import { readLiveSessions } from "./liveSessions";
 import { loadRenames } from "./renames";
 import { getCurrentBranch } from "../../extension/git";
-import { createTerminal, runInTerminal, validateGitRef } from "../../extension/terminal";
+import {
+  chainCommands,
+  createTerminal,
+  runInTerminal,
+  validateGitRef,
+} from "../../extension/terminal";
 import { claudeCli } from "../../extension/claudeCli";
 import {
   resolveWorktree,
@@ -76,13 +81,14 @@ export async function newSession(): Promise<void> {
  * The session id is pinned up front so the tab is linked to the session from
  * its first moment — View and a sidebar rename reach it before the
  * transcript exists. `label` names the tab only when the CLI writes no title.
+ * `prompt`, when given, is typed into the REPL once it is up.
  */
-export function launchNewChatTerminal(label: string): vscode.Terminal {
+export function launchNewChatTerminal(label: string, prompt?: string): vscode.Terminal {
   const sessionId = crypto.randomUUID();
   const name = newSessionTabName(label, readCliTitlePolicy(getWorkspace() || undefined));
   const term = createTerminal(name, undefined, sessionId);
   term.show();
-  runInTerminal(term, `${claudeCli()} --session-id ${sessionId}`);
+  runInTerminal(term, `${claudeCli()} --session-id ${sessionId}`, prompt);
   return term;
 }
 
@@ -504,7 +510,9 @@ export async function resumeSession(
           }
           const term = createTerminal(termName, cwd, sessionId);
           term.show();
-          runInTerminal(term, `git checkout '${safe}' && ${cmd}`);
+          // validateGitRef admits no quote, space or shell metacharacter, so
+          // the ref goes unquoted — cmd would keep single quotes literally.
+          runInTerminal(term, chainCommands(`git checkout ${safe}`, cmd));
           return;
         }
         // "Resume Anyway" falls through to the router below.

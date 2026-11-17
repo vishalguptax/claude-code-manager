@@ -32,6 +32,7 @@ vi.mock("../../../extension/terminal", () => ({
     return { show: () => {}, sendText: (t: string) => rec.sent.push(t) };
   },
   runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
+  chainCommands: (first: string, second: string) => `${first} && ${second}`,
   validateGitRef: (n: string) => (/^[A-Za-z0-9._/-]+$/.test(n) ? n : null),
 }));
 
@@ -171,7 +172,7 @@ describe("resumeSession — worktree aware", () => {
 
     expect(warn.mock.calls[0][0]).toContain('but you\'re on "main"');
     expect(terminalCalls).toHaveLength(1);
-    expect(terminalCalls[0].sent).toEqual([`git checkout 'feature' && claude --resume ${sess.id}`]);
+    expect(terminalCalls[0].sent).toEqual([`git checkout feature && claude --resume ${sess.id}`]);
   });
 
   it("Open worktree is not offered when the found worktree is the current dir", async () => {

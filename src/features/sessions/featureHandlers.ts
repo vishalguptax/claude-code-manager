@@ -221,8 +221,7 @@ export async function handleFeatureMessage(
       // Code actually loaded (same launch pattern as launchSlash).
       const term = createTerminal("hooks");
       term.show();
-      runInTerminal(term, claudeCli());
-      setTimeout(() => term.sendText("/hooks"), 1800);
+      runInTerminal(term, claudeCli(), "/hooks");
       break;
     }
 

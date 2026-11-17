@@ -123,6 +123,8 @@ export function _resetListeners(): void {
   _configChangeListeners.length = 0;
   _extensionChangeListeners.length = 0;
   _shellIntegrationChangeListeners.length = 0;
+  _shellExecStartListeners.length = 0;
+  _shellExecEndListeners.length = 0;
   _webviewPanels.length = 0;
 }
 
@@ -252,6 +254,12 @@ export function _fireShellExecutionStart(terminal: unknown): void {
   for (const l of _shellExecStartListeners) l({ terminal });
 }
 
+const _shellExecEndListeners: Array<(e: { terminal: unknown }) => void> = [];
+
+export function _fireShellExecutionEnd(terminal: unknown): void {
+  for (const l of _shellExecEndListeners) l({ terminal });
+}
+
 const _shellIntegrationChangeListeners: Array<(e: { terminal: unknown }) => void> = [];
 
 /** Test helper: fire onDidChangeTerminalShellIntegration for `terminal`. */
@@ -300,6 +308,17 @@ export const window = {
       dispose: () => {
         const idx = _shellExecStartListeners.indexOf(listener);
         if (idx >= 0) _shellExecStartListeners.splice(idx, 1);
+      },
+    };
+  },
+  onDidEndTerminalShellExecution: (
+    listener: (e: { terminal: unknown }) => void,
+  ): MockDisposable => {
+    _shellExecEndListeners.push(listener);
+    return {
+      dispose: () => {
+        const idx = _shellExecEndListeners.indexOf(listener);
+        if (idx >= 0) _shellExecEndListeners.splice(idx, 1);
       },
     };
   },
@@ -455,6 +474,8 @@ export const env = {
   uriScheme: "vscode",
   /** The default terminal shell; tests override it per platform. */
   shell: "/bin/zsh",
+  /** Set when VS Code runs against a remote (SSH, WSL, container). */
+  remoteName: undefined as string | undefined,
   openExternal: async (_uri: unknown) => true,
   clipboard: {
     writeText: async (_value: string) => {},

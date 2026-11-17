@@ -13,6 +13,11 @@ vi.mock("../../account/profiles", () => ({
 vi.mock("../../account/parser", () => ({ parseAccountData: () => accountData }));
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => undefined }));
 vi.mock("../accountPush", () => ({ postAccountData: vi.fn() }));
+const runInTerminalMock = vi.fn();
+vi.mock("../../../extension/terminal", () => ({
+  createTerminal: () => ({ show: () => {} }),
+  runInTerminal: (...args: unknown[]) => runInTerminalMock(...args),
+}));
 
 import { openAccountSwitcher, profileRowText } from "../accountSwitcher";
 
@@ -173,12 +178,21 @@ describe("openAccountSwitcher — switching into an expired login", () => {
     switchProfileMock.mockReset();
   });
 
-  async function pick(slug: string): Promise<void> {
+  async function pick(slug: string, action = "switch"): Promise<void> {
     stubQuickPick();
     await openAccountSwitcher({ getWebview: () => undefined, dispatch: async () => {} });
-    picker.selectedItems = [{ action: "switch", slug }];
+    picker.selectedItems = [{ action, slug }];
     await accept!();
   }
+
+  it("logs in by launching claude with /login as its follow-up", async () => {
+    // A saved active profile skips the save-first prompt.
+    withProfiles(profile({ slug: "work" }));
+    accountData.activeProfileSlug = "work";
+    runInTerminalMock.mockReset();
+    await pick("", "login");
+    expect(runInTerminalMock).toHaveBeenCalledWith(expect.anything(), "claude", "/login");
+  });
 
   it("warns before switching and does nothing when the user backs out", async () => {
     withProfiles(profile({ slug: "old", refreshTokenExpiresAt: Date.now() - DAY }));

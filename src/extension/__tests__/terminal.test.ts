@@ -1,13 +1,30 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as vscode from "vscode";
 import type { MockTerminal } from "../../__mocks__/vscode";
-import { _fireShellExecutionStart, _fireShellIntegrationChange } from "../../__mocks__/vscode";
 import {
+  _fireShellExecutionEnd,
+  _fireShellExecutionStart,
+  _fireShellIntegrationChange,
+} from "../../__mocks__/vscode";
+import {
+  chainCommands,
   createTerminal,
   initTerminalReuseGuard,
   runInTerminal,
+  shellFamily,
   validateGitRef,
 } from "../terminal";
+
+/** Run `fn` with `vscode.env.shell` set to `shell`, restoring it after. */
+function withShell(shell: string, fn: () => void): void {
+  const original = vscode.env.shell;
+  (vscode.env as { shell: string }).shell = shell;
+  try {
+    fn();
+  } finally {
+    (vscode.env as { shell: string }).shell = original;
+  }
+}
 
 function makeTerminal(overrides: Partial<MockTerminal> = {}): MockTerminal {
   const t: MockTerminal = {
@@ -279,6 +296,17 @@ describe("createTerminal — cwd handling", () => {
     expect(empty.sentText).toEqual([`cd "C:/Users/Me/project"`]);
   });
 
+  it("uses `cd /d` on cmd so a reused terminal also switches drive", () => {
+    const empty = makeTerminal({ name: "Claude" });
+    vscode.window.terminals.push(empty);
+
+    withShell("C:\\Windows\\System32\\cmd.exe", () => {
+      createTerminal("Claude", "D:\\work\\project");
+    });
+
+    expect(empty.sentText).toEqual([`cd /d "D:/work/project"`]);
+  });
+
   it("does not send `cd` when no cwd is provided", () => {
     const empty = makeTerminal();
     vscode.window.terminals.push(empty);
@@ -469,18 +497,27 @@ describe("terminal tab icon", () => {
 });
 
 describe("runInTerminal", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    return () => vi.useRealTimers();
+  });
+
   it("sends immediately when shellIntegration is already active", () => {
     const term = makeTerminal({ shellIntegration: {} });
     runInTerminal(term as unknown as vscode.Terminal, "claude");
     expect(term.sentText).toEqual(["claude"]);
   });
 
-  it("waits for shell integration to activate before sending", () => {
+  it("waits for shell integration, then a quiet settle window, before sending", () => {
     const term = makeTerminal();
     runInTerminal(term as unknown as vscode.Terminal, "claude");
     expect(term.sentText).toEqual([]);
 
     _fireShellIntegrationChange(term);
+    vi.advanceTimersByTime(499);
+    expect(term.sentText).toEqual([]);
+
+    vi.advanceTimersByTime(1);
     expect(term.sentText).toEqual(["claude"]);
   });
 
@@ -490,68 +527,199 @@ describe("runInTerminal", () => {
     runInTerminal(term as unknown as vscode.Terminal, "claude");
 
     _fireShellIntegrationChange(other);
+    vi.advanceTimersByTime(500);
     expect(term.sentText).toEqual([]);
 
     _fireShellIntegrationChange(term);
+    vi.advanceTimersByTime(500);
     expect(term.sentText).toEqual(["claude"]);
   });
 
-  it("sends anyway once the timeout elapses, if integration never activates", () => {
-    vi.useFakeTimers();
+  it("holds the command until a venv activation running at terminal open finishes", () => {
+    // The Python Environments extension waits for the same integration event,
+    // then runs `source .venv/bin/activate` via executeCommand. Sending while
+    // that runs types one command into the other.
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+    _fireShellIntegrationChange(term);
+
+    vi.advanceTimersByTime(200);
+    _fireShellExecutionStart(term);
+    vi.advanceTimersByTime(3000);
+    expect(term.sentText).toEqual([]);
+
+    _fireShellExecutionEnd(term);
+    vi.advanceTimersByTime(499);
+    expect(term.sentText).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("restarts the settle window when an activator chains a second command", () => {
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+    _fireShellIntegrationChange(term);
+
+    _fireShellExecutionStart(term);
+    _fireShellExecutionEnd(term);
+    vi.advanceTimersByTime(300);
+    _fireShellExecutionStart(term);
+    vi.advanceTimersByTime(300);
+    expect(term.sentText).toEqual([]);
+
+    _fireShellExecutionEnd(term);
+    vi.advanceTimersByTime(500);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("ignores shell executions in other terminals while settling", () => {
+    const term = makeTerminal();
+    const other = makeTerminal({ name: "other" });
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+    _fireShellIntegrationChange(term);
+
+    _fireShellExecutionStart(other);
+    vi.advanceTimersByTime(500);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("sends anyway once the idle cap elapses, if an execution never ends", () => {
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+    _fireShellIntegrationChange(term);
+    _fireShellExecutionStart(term);
+
+    vi.advanceTimersByTime(9999);
+    expect(term.sentText).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(term.sentText).toEqual(["claude"]);
+
+    // Late end event after the cap must not re-send.
+    _fireShellExecutionEnd(term);
+    vi.advanceTimersByTime(500);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("sends anyway just after VS Code's 5 s integration timeout, if integration never activates", () => {
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+
+    // Python Envs falls back to sendText at 5000 ms; we must come after it.
+    vi.advanceTimersByTime(5499);
+    expect(term.sentText).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("falls back after the user's own shellIntegration.timeout", () => {
+    setConfig({ "shellIntegration.timeout": 8000 });
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+
+    vi.advanceTimersByTime(8499);
+    expect(term.sentText).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("floors a tiny configured timeout at 500 ms, as VS Code does", () => {
+    setConfig({ "shellIntegration.timeout": 0 });
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+
+    vi.advanceTimersByTime(999);
+    expect(term.sentText).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("falls back after 2 s (+ margin) when shell integration is turned off", () => {
+    setConfig({ "shellIntegration.enabled": false });
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+
+    vi.advanceTimersByTime(2499);
+    expect(term.sentText).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("falls back after 3 s (+ margin) with integration off over a remote", () => {
+    setConfig({ "shellIntegration.enabled": false });
+    (vscode.env as { remoteName?: string }).remoteName = "ssh-remote";
     try {
       const term = makeTerminal();
       runInTerminal(term as unknown as vscode.Terminal, "claude");
-      expect(term.sentText).toEqual([]);
 
-      vi.advanceTimersByTime(2500);
+      vi.advanceTimersByTime(3499);
+      expect(term.sentText).toEqual([]);
+      vi.advanceTimersByTime(1);
       expect(term.sentText).toEqual(["claude"]);
     } finally {
-      vi.useRealTimers();
+      (vscode.env as { remoteName?: string }).remoteName = undefined;
     }
   });
 
-  it("does not send twice if the event fires just before the timeout", () => {
-    vi.useFakeTimers();
-    try {
+  it("waits only briefly on a shell VS Code cannot integrate with", () => {
+    withShell("C:\\Windows\\System32\\cmd.exe", () => {
       const term = makeTerminal();
       runInTerminal(term as unknown as vscode.Terminal, "claude");
 
-      _fireShellIntegrationChange(term);
       vi.advanceTimersByTime(2500);
-
       expect(term.sentText).toEqual(["claude"]);
-    } finally {
-      vi.useRealTimers();
-    }
+    });
+  });
+
+  it("does not send twice if the integration event fires before the timeout", () => {
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
+
+    _fireShellIntegrationChange(term);
+    vi.advanceTimersByTime(5500);
+
+    expect(term.sentText).toEqual(["claude"]);
   });
 
   it("does not send twice if the event fires again after the timeout already sent", () => {
-    vi.useFakeTimers();
-    try {
-      const term = makeTerminal();
-      runInTerminal(term as unknown as vscode.Terminal, "claude");
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude");
 
-      vi.advanceTimersByTime(2500);
-      expect(term.sentText).toEqual(["claude"]);
+    vi.advanceTimersByTime(5500);
+    expect(term.sentText).toEqual(["claude"]);
 
-      _fireShellIntegrationChange(term);
-      expect(term.sentText).toEqual(["claude"]);
-    } finally {
-      vi.useRealTimers();
-    }
+    _fireShellIntegrationChange(term);
+    vi.advanceTimersByTime(500);
+    expect(term.sentText).toEqual(["claude"]);
   });
 
-  it("stops listening once settled, so a later terminal reusing the same name is unaffected", () => {
-    // The subscription must be disposed on settle — otherwise a second,
+  it("stops listening once settled, so later events for the terminal are ignored", () => {
+    // Both subscriptions must be disposed on settle — otherwise a later,
     // unrelated runInTerminal call sharing a listener array would leak.
     const term = makeTerminal();
     runInTerminal(term as unknown as vscode.Terminal, "claude");
     _fireShellIntegrationChange(term);
+    vi.advanceTimersByTime(500);
     expect(term.sentText).toEqual(["claude"]);
 
-    // Firing again must not re-send — the listener was removed on settle.
     _fireShellIntegrationChange(term);
+    _fireShellExecutionStart(term);
+    _fireShellExecutionEnd(term);
+    vi.advanceTimersByTime(10_000);
     expect(term.sentText).toEqual(["claude"]);
+  });
+
+  it("sends right after integration on a host without shell execution events", () => {
+    const w = vscode.window as unknown as { onDidEndTerminalShellExecution?: unknown };
+    const original = w.onDidEndTerminalShellExecution;
+    w.onDidEndTerminalShellExecution = undefined;
+    try {
+      const term = makeTerminal();
+      runInTerminal(term as unknown as vscode.Terminal, "claude");
+      _fireShellIntegrationChange(term);
+      expect(term.sentText).toEqual(["claude"]);
+    } finally {
+      w.onDidEndTerminalShellExecution = original;
+    }
   });
 
   it("sends immediately on a host that predates onDidChangeTerminalShellIntegration", () => {
@@ -571,5 +739,87 @@ describe("runInTerminal", () => {
         vscode.window as unknown as { onDidChangeTerminalShellIntegration?: unknown }
       ).onDidChangeTerminalShellIntegration = original;
     }
+  });
+});
+
+describe("runInTerminal — follow-up typed into the REPL", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    return () => vi.useRealTimers();
+  });
+
+  it("types the follow-up 1800 ms after the command itself goes out", () => {
+    const term = makeTerminal({ shellIntegration: {} });
+    runInTerminal(term as unknown as vscode.Terminal, "claude", "/login");
+    expect(term.sentText).toEqual(["claude"]);
+
+    vi.advanceTimersByTime(1799);
+    expect(term.sentText).toEqual(["claude"]);
+    vi.advanceTimersByTime(1);
+    expect(term.sentText).toEqual(["claude", "/login"]);
+  });
+
+  it("counts the delay from the send, not the call, when startup waits", () => {
+    // Slow shell + a venv activation: the follow-up must still land after
+    // `claude`, never in the shell ahead of it.
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude", "/hooks");
+    vi.advanceTimersByTime(4000);
+    _fireShellIntegrationChange(term);
+    _fireShellExecutionStart(term);
+    vi.advanceTimersByTime(1000);
+    expect(term.sentText).toEqual([]);
+
+    _fireShellExecutionEnd(term);
+    vi.advanceTimersByTime(500);
+    expect(term.sentText).toEqual(["claude"]);
+    vi.advanceTimersByTime(1800);
+    expect(term.sentText).toEqual(["claude", "/hooks"]);
+  });
+
+  it("types the follow-up after the integration timeout path too", () => {
+    const term = makeTerminal();
+    runInTerminal(term as unknown as vscode.Terminal, "claude", "/config");
+    vi.advanceTimersByTime(5500);
+    expect(term.sentText).toEqual(["claude"]);
+    vi.advanceTimersByTime(1800);
+    expect(term.sentText).toEqual(["claude", "/config"]);
+  });
+});
+
+describe("shellFamily", () => {
+  it.each([
+    ["/bin/zsh", "posix"],
+    ["/usr/bin/fish", "posix"],
+    ["C:\\Program Files\\Git\\bin\\bash.exe", "posix"],
+    ["C:\\Program Files\\PowerShell\\7\\pwsh.exe", "powershell"],
+    ["C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", "powershell"],
+    ["/usr/local/bin/pwsh", "powershell"],
+    ["C:\\Windows\\System32\\cmd.exe", "cmd"],
+    ["", "posix"],
+  ])("%s → %s", (shell, family) => {
+    expect(shellFamily(shell)).toBe(family);
+  });
+});
+
+describe("chainCommands", () => {
+  it("joins with && on posix shells", () => {
+    withShell("/bin/zsh", () => {
+      expect(chainCommands("git checkout main", "claude")).toBe("git checkout main && claude");
+    });
+  });
+
+  it("joins with && on cmd", () => {
+    withShell("C:\\Windows\\System32\\cmd.exe", () => {
+      expect(chainCommands("git checkout main", "claude")).toBe("git checkout main && claude");
+    });
+  });
+
+  it("uses the $? form on PowerShell, since Windows PowerShell 5.1 has no &&", () => {
+    withShell("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", () => {
+      expect(chainCommands("git checkout main", "claude")).toBe(
+        "git checkout main; if ($?) { claude }",
+      );
+    });
   });
 });

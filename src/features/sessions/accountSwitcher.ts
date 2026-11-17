@@ -341,8 +341,7 @@ export async function openAccountSwitcher(ctx: AccountSwitcherContext): Promise<
       }
       const term = createTerminal("login");
       term.show();
-      runInTerminal(term, claudeCli());
-      setTimeout(() => term.sendText("/login"), 1800);
+      runInTerminal(term, claudeCli(), "/login");
     }
   });
 

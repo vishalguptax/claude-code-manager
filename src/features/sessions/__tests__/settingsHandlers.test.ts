@@ -15,7 +15,11 @@ vi.mock("../../account/parser", () => parser);
 vi.mock("../accountPush", () => ({ postAccountData }));
 const workspace = vi.hoisted(() => ({ path: "/ws" }));
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => workspace.path }));
-vi.mock("../../../extension/terminal", () => ({ createTerminal: vi.fn(), runInTerminal: vi.fn() }));
+const terminal = vi.hoisted(() => ({
+  createTerminal: vi.fn(() => ({ show: () => {} })),
+  runInTerminal: vi.fn(),
+}));
+vi.mock("../../../extension/terminal", () => terminal);
 
 import * as vscode from "vscode";
 import { handleSettingsMessage } from "../settingsHandlers";
@@ -151,5 +155,13 @@ describe("promptAddPermission", () => {
     expect(prompt).toContain("Bash(docker:*)");
     expect(prompt).toContain("A bare name such as Bash matches every call");
     expect(parser.addPermissionEntry).toHaveBeenCalledWith("global", "Bash(docker:*)", "allow", "/ws");
+  });
+});
+
+describe("launchSlash", () => {
+  it("launches claude with the slash command as its follow-up", async () => {
+    await send({ type: "launchSlash", command: "/config" });
+    expect(terminal.createTerminal).toHaveBeenCalledWith("/config");
+    expect(terminal.runInTerminal).toHaveBeenCalledWith(expect.anything(), "claude", "/config");
   });
 });

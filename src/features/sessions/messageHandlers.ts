@@ -213,8 +213,7 @@ function makeCommandsHost(ctx: HostContext): CommandsHost {
       void vscode.env.openExternal(vscode.Uri.parse(url));
     },
     launchChat: async (prompt) => {
-      const term = launchNewChatTerminal("ask");
-      setTimeout(() => term.sendText(prompt), 1800);
+      launchNewChatTerminal("ask", prompt);
     },
     workspacePath: getWorkspace() || undefined,
   };
@@ -236,12 +235,11 @@ function makeMcpHost(ctx: HostContext): McpHostContext {
       runInTerminal(term, command);
     },
     runSlashCommand: (label, slash) => {
-      // Same timing as launchSlash: open claude, wait for the REPL to
-      // enter raw mode, then type the slash command.
+      // Same as launchSlash: open claude, then type the slash command
+      // once the REPL is up.
       const term = createTerminal(label);
       term.show();
-      runInTerminal(term, claudeCli());
-      setTimeout(() => term.sendText(slash), 1800);
+      runInTerminal(term, claudeCli(), slash);
     },
   };
 }
@@ -426,8 +424,8 @@ async function handleSessionMessage(
     case "launchChatWithPrompt": {
       // Route via the shared resumeIn setting so Ask Again / Launch
       // in Chat respect the user's chosen surface. Extension → URI
-      // handler. Terminal → spawn `claude` and inject prompt after
-      // activation (~1800 ms — same timing launchSlash uses).
+      // handler. Terminal → spawn `claude` and type the prompt once
+      // its REPL is up (runInTerminal's follow-up).
       // Cap prompt length once up-front regardless of target: URIs
       // cap at ~2 MB in Chromium but shells (cmd/PowerShell) reject
       // far smaller; terminal sendText fine with 4 KB.
@@ -446,11 +444,7 @@ async function handleSessionMessage(
       if (target === "extension") {
         await openPromptInExtension(prompt);
       } else {
-        // Terminal path: launch claude, then send the prompt after a
-        // short delay so Claude has switched to raw-input mode. Same
-        // pattern launchSlash uses for /login + /config.
-        const term = launchNewChatTerminal("ask");
-        setTimeout(() => term.sendText(prompt), 1800);
+        launchNewChatTerminal("ask", prompt);
       }
       break;
     }

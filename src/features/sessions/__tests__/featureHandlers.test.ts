@@ -22,6 +22,7 @@ const mockParseSkills = vi.fn(() => []);
 const mockParseAgents = vi.fn(() => ({ agents: [], errors: [] }));
 const mockSendText = vi.fn();
 const mockCreateTerminal = vi.fn(() => ({ show: vi.fn(), sendText: mockSendText }));
+const mockRunInTerminal = vi.fn();
 
 vi.mock("../../hooks/parser", () => ({ parseHooks: (...args: unknown[]) => mockParseHooks(...args) }));
 vi.mock("../../hooks/writer", () => ({
@@ -37,7 +38,7 @@ vi.mock("../../account/parser", () => ({
 vi.mock("../../../extension/workspace", () => ({ getWorkspace: () => mockGetWorkspace() }));
 vi.mock("../../../extension/terminal", () => ({
   createTerminal: (...args: unknown[]) => mockCreateTerminal(...args),
-  runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
+  runInTerminal: (...args: unknown[]) => mockRunInTerminal(...args),
 }));
 vi.mock("../../skills/parser", () => ({ parseSkills: () => mockParseSkills() }));
 const mockFindSkill = vi.fn();
@@ -233,15 +234,11 @@ describe("updateHook", () => {
 });
 
 describe("openHooksPanel", () => {
-  it("launches claude and types /hooks after the REPL starts", async () => {
-    vi.useFakeTimers();
+  it("launches claude with /hooks as the follow-up typed once the REPL is up", async () => {
     const { ctx } = harness();
     await handleFeatureMessage({ type: "openHooksPanel" }, ctx);
     expect(mockCreateTerminal).toHaveBeenCalled();
-    expect(mockSendText).toHaveBeenCalledWith("claude");
-    vi.advanceTimersByTime(1800);
-    expect(mockSendText).toHaveBeenCalledWith("/hooks");
-    vi.useRealTimers();
+    expect(mockRunInTerminal).toHaveBeenCalledWith(expect.anything(), "claude", "/hooks");
   });
 });
 

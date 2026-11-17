@@ -15,6 +15,7 @@ import * as path from "path";
 import * as vscode from "vscode";
 import { CLAUDE_DIR } from "../core/config";
 import { CLAUDE_CODE_EXTENSION_ID } from "./claudeCodeExtension";
+import { shellFamily } from "./terminal";
 
 const EXE = process.platform === "win32" ? "claude.exe" : "claude";
 
@@ -69,12 +70,9 @@ function bundledClaude(): string | undefined {
  * quotes; POSIX shells take single quotes, which nothing inside expands.
  */
 export function quoteProgram(program: string, shell: string): string {
-  // Either separator: `path.basename` splits only on the host's own.
-  const name = (shell.split(/[\\/]/).pop() ?? "").toLowerCase();
-  if (name.startsWith("pwsh") || name.startsWith("powershell")) {
-    return `& '${program.replace(/'/g, "''")}'`;
-  }
-  if (name === "cmd.exe" || name === "cmd") return `"${program}"`;
+  const family = shellFamily(shell);
+  if (family === "powershell") return `& '${program.replace(/'/g, "''")}'`;
+  if (family === "cmd") return `"${program}"`;
   return `'${program.replace(/'/g, `'\\''`)}'`;
 }
 

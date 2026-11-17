@@ -63,7 +63,11 @@ vi.mock("../../../extension/terminal", async () => {
         sentTextCalls.push(t);
       },
     }),
-    runInTerminal: (term: { sendText: (t: string) => void }, cmd: string) => term.sendText(cmd),
+    runInTerminal: (term: { sendText: (t: string) => void }, cmd: string, followUp?: string) => {
+      term.sendText(cmd);
+      if (followUp !== undefined) term.sendText(followUp);
+    },
+    chainCommands: actual.chainCommands,
     validateGitRef: actual.validateGitRef,
   };
 });
@@ -88,6 +92,7 @@ import {
   newSession,
   sessionTabName,
   newSessionTabName,
+  launchNewChatTerminal,
 } from "../commands";
 import { getTempSessionIds, setEphemeralStorage } from "../ephemeralSession";
 import { writeZip, type ZipEntry } from "../../brain/zip";
@@ -868,6 +873,16 @@ describe("newSession", () => {
     await newSession();
     expect(sentTextCalls).toHaveLength(1);
     expect(sentTextCalls[0]).toMatch(/^claude --session-id [0-9a-f-]{36}$/);
+  });
+});
+
+describe("launchNewChatTerminal", () => {
+  it("hands the prompt to runInTerminal as the follow-up after claude", () => {
+    sentTextCalls.length = 0;
+    launchNewChatTerminal("ask", "explain this repo");
+    expect(sentTextCalls).toHaveLength(2);
+    expect(sentTextCalls[0]).toMatch(/^claude --session-id [0-9a-f-]{36}$/);
+    expect(sentTextCalls[1]).toBe("explain this repo");
   });
 });
 

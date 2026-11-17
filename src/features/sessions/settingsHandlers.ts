@@ -72,15 +72,13 @@ export async function handleSettingsMessage(
       // them directly either gets swallowed by the shell (Git Bash path
       // mangling) or treated as an initial prompt by Claude.
       //
-      // Strategy: open a terminal, run `claude`, wait for Claude to switch
-      // to raw terminal mode (~1800ms — long enough for most machines),
-      // then send the slash command. Shows a notification as a safety net
+      // Strategy: open a terminal, run `claude`, and let runInTerminal type
+      // the slash command once the REPL has switched to raw input. Shows a notification as a safety net
       // in case the auto-type misses due to slow startup.
       const command = msg.command;
       const term = createTerminal(command);
       term.show();
-      runInTerminal(term, claudeCli());
-      setTimeout(() => term.sendText(command), 1800);
+      runInTerminal(term, claudeCli(), command);
       vscode.window.showInformationMessage(
         `Opening ${command}. If it doesn't auto-enter, type ${command} manually in the Claude terminal.`,
       );

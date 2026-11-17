@@ -48,12 +48,15 @@ const VIEW_COLUMN_MAP: Record<string, vscode.ViewColumn> = {
 // terminals. Seeded + extended by initTerminalReuseGuard (see below).
 const sentTo = new WeakSet<vscode.Terminal>();
 
-interface ShellExecutionStartEvent {
+interface ShellExecutionEvent {
   terminal: vscode.Terminal;
 }
 interface ShellExecutionApi {
   onDidStartTerminalShellExecution?: (
-    listener: (e: ShellExecutionStartEvent) => void,
+    listener: (e: ShellExecutionEvent) => void,
+  ) => vscode.Disposable;
+  onDidEndTerminalShellExecution?: (
+    listener: (e: ShellExecutionEvent) => void,
   ) => vscode.Disposable;
 }
 
@@ -78,14 +81,99 @@ interface ShellIntegrationApi {
 }
 
 /**
- * Upper bound on how long {@link runInTerminal} waits for shell integration
- * before giving up and sending anyway. Generous for a slow shell profile
- * (oh-my-zsh and similar easily take over a second to source), but short
- * enough that a shell without integration support at all — the common
- * case this bounds — does not leave the user staring at an unresponsive
- * terminal for long.
+ * How long past VS Code's own shell-integration timeout {@link runInTerminal}
+ * holds out before sending without integration. Other extensions that type
+ * into a new terminal fall back to `sendText` once that timeout passes —
+ * the Python Environments extension sends its venv activation then — so we
+ * must fall back strictly later, or `claude` starts first and the
+ * activation is typed into it.
  */
-const SHELL_INTEGRATION_TIMEOUT_MS = 2500;
+const SHELL_INTEGRATION_FALLBACK_MARGIN_MS = 500;
+
+/**
+ * Wait used for a shell VS Code has no integration script for (cmd, sh,
+ * nu, …). Nothing will ever arrive, and activators skip their own wait for
+ * such shells, so this only needs to let a slow profile reach its prompt.
+ */
+const UNINTEGRATED_SHELL_WAIT_MS = 2500;
+
+/** Shells VS Code injects shell integration into (git-bash runs bash). */
+const INTEGRATED_SHELLS = new Set(["bash", "zsh", "fish", "pwsh", "powershell"]);
+
+function supportsShellIntegration(shell: string): boolean {
+  const name = (shell.split(/[\\/]/).pop() ?? "").toLowerCase().replace(/\.exe$/, "");
+  return INTEGRATED_SHELLS.has(name);
+}
+
+/**
+ * How long {@link runInTerminal} waits for shell integration before sending
+ * anyway: VS Code's `terminal.integrated.shellIntegration.timeout`, resolved
+ * the way VS Code and the Python Environments extension resolve it (unset →
+ * 5 s with integration on, 2 s off, 3 s off over remote; set → at least
+ * 500 ms), plus a margin so we are the last to fall back.
+ */
+function shellIntegrationWaitMs(): number {
+  if (!supportsShellIntegration(vscode.env.shell)) return UNINTEGRATED_SHELL_WAIT_MS;
+  const cfg = vscode.workspace.getConfiguration("terminal.integrated");
+  const configured = cfg.get<number>("shellIntegration.timeout");
+  let base: number;
+  if (typeof configured === "number" && configured >= 0) base = Math.max(configured, 500);
+  else if (cfg.get<boolean>("shellIntegration.enabled", true)) base = 5000;
+  else base = vscode.env.remoteName !== undefined ? 3000 : 2000;
+  return base + SHELL_INTEGRATION_FALLBACK_MARGIN_MS;
+}
+
+/**
+ * How long a freshly integrated terminal must stay free of shell executions
+ * before {@link runInTerminal} sends. Auto-activators — the Python
+ * Environments extension's venv activation is the reported case — wait for
+ * the very same integration event we do and then run their own command
+ * through `shellIntegration.executeCommand`. That execution reaches us as a
+ * start event a few hundred milliseconds later at most; the window has to
+ * cover that round trip or the two commands race, and whichever loses ends
+ * up typed into the other (`source .venv/bin/activate` landing in Claude's
+ * prompt).
+ */
+const SHELL_SETTLE_MS = 500;
+
+/**
+ * Upper bound on waiting for the terminal to go idle. An activation whose
+ * end event never arrives must not swallow the command.
+ */
+const SHELL_IDLE_CAP_MS = 10_000;
+
+/**
+ * How long after `claude` is sent before a follow-up (a slash command or a
+ * prompt) is typed into it: long enough, on most machines, for the REPL to
+ * start and switch the TTY to raw input. Counted from the moment the command
+ * actually goes out — the shell-integration and idle waits ahead of it can
+ * run longer than this on their own, so a timer started by the caller would
+ * type the follow-up into the shell (or into a venv activation) instead.
+ */
+const CLAUDE_INPUT_READY_MS = 1800;
+
+/** Command-syntax family of a shell, from its executable path. */
+export type ShellFamily = "powershell" | "cmd" | "posix";
+
+export function shellFamily(shell: string): ShellFamily {
+  // Either separator: `path.basename` splits only on the host's own.
+  const name = (shell.split(/[\\/]/).pop() ?? "").toLowerCase();
+  if (name.startsWith("pwsh") || name.startsWith("powershell")) return "powershell";
+  if (name === "cmd.exe" || name === "cmd") return "cmd";
+  return "posix";
+}
+
+/**
+ * `first`, then `second` only if `first` succeeded, in the syntax of the
+ * default shell — the one our terminals open with. Windows PowerShell 5.1
+ * has no `&&` (only pwsh 7 does), so PowerShell gets the `$?` form, which
+ * every version accepts. bash, zsh, fish 3+ and cmd all take `&&`.
+ */
+export function chainCommands(first: string, second: string): string {
+  return shellFamily(vscode.env.shell) === "powershell"
+    ? `${first}; if ($?) { ${second} }`
+    : `${first} && ${second}`;
+}
 
 /**
  * Send `command` to a terminal, waiting for shell integration to finish
@@ -110,9 +198,15 @@ const SHELL_INTEGRATION_TIMEOUT_MS = 2500;
  * anyway: the command must not be silently lost waiting for an event that
  * will never fire.
  */
-export function runInTerminal(term: vscode.Terminal, command: string): void {
-  if ((term as ShellIntegrationTerminal).shellIntegration) {
+export function runInTerminal(term: vscode.Terminal, command: string, followUp?: string): void {
+  const deliver = (): void => {
     term.sendText(command);
+    if (followUp !== undefined) {
+      setTimeout(() => term.sendText(followUp), CLAUDE_INPUT_READY_MS);
+    }
+  };
+  if ((term as ShellIntegrationTerminal).shellIntegration) {
+    deliver();
     return;
   }
 
@@ -120,24 +214,76 @@ export function runInTerminal(term: vscode.Terminal, command: string): void {
   const subscribe = api.onDidChangeTerminalShellIntegration;
   if (typeof subscribe !== "function") {
     // Host predates the event entirely — nothing to wait on.
-    term.sendText(command);
+    deliver();
     return;
   }
 
   let settled = false;
   let sub: vscode.Disposable | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const finish = (): void => {
+  const finish = (integrated: boolean): void => {
     if (settled) return;
     settled = true;
     sub?.dispose();
     if (timer !== undefined) clearTimeout(timer);
-    term.sendText(command);
+    // Without integration no execution events will ever arrive, so there
+    // is no idleness to wait for.
+    if (integrated) deliverWhenIdle(term, deliver);
+    else deliver();
   };
   sub = subscribe((e) => {
-    if (e.terminal === term) finish();
+    if (e.terminal === term) finish(true);
   });
-  timer = setTimeout(finish, SHELL_INTEGRATION_TIMEOUT_MS);
+  timer = setTimeout(() => finish(false), shellIntegrationWaitMs());
+}
+
+/**
+ * Call `deliver` once `term` has gone {@link SHELL_SETTLE_MS} without a shell
+ * execution in flight, so a command another extension runs at terminal open
+ * (venv activation) finishes before ours starts instead of racing it. Each
+ * execution that starts holds the send until it ends; the settle window then
+ * restarts, since activators can chain more than one command.
+ */
+function deliverWhenIdle(term: vscode.Terminal, deliver: () => void): void {
+  const api = vscode.window as unknown as ShellExecutionApi;
+  const onStart = api.onDidStartTerminalShellExecution;
+  const onEnd = api.onDidEndTerminalShellExecution;
+  if (typeof onStart !== "function" || typeof onEnd !== "function") {
+    deliver();
+    return;
+  }
+
+  let sent = false;
+  let running = 0;
+  let quiet: ReturnType<typeof setTimeout> | undefined;
+  let cap: ReturnType<typeof setTimeout> | undefined;
+  const subs: vscode.Disposable[] = [];
+  const send = (): void => {
+    if (sent) return;
+    sent = true;
+    for (const s of subs) s.dispose();
+    clearTimeout(quiet);
+    clearTimeout(cap);
+    deliver();
+  };
+  const armQuiet = (): void => {
+    clearTimeout(quiet);
+    quiet = setTimeout(send, SHELL_SETTLE_MS);
+  };
+  subs.push(
+    onStart((e) => {
+      if (e.terminal !== term) return;
+      running++;
+      clearTimeout(quiet);
+    }),
+    onEnd((e) => {
+      if (e.terminal !== term) return;
+      running = Math.max(0, running - 1);
+      if (running === 0) armQuiet();
+    }),
+  );
+  cap = setTimeout(send, SHELL_IDLE_CAP_MS);
+  armQuiet();
 }
 
 /**
@@ -278,8 +424,12 @@ export function createTerminal(name?: string, cwd?: string, sessionId?: string):
   );
   if (empty) {
     // Git-bash on Windows interprets backslashes as escapes, so normalize to
-    // forward slashes — safe on every shell the cwd flows into.
-    if (cwd) empty.sendText(`cd "${cwd.replace(/\\/g, "/")}"`);
+    // forward slashes — safe on every shell the cwd flows into. cmd's `cd`
+    // stays on the current drive unless given /d.
+    if (cwd) {
+      const cd = shellFamily(vscode.env.shell) === "cmd" ? "cd /d" : "cd";
+      empty.sendText(`${cd} "${cwd.replace(/\\/g, "/")}"`);
+    }
     sentTo.add(empty);
     if (sessionId) terminalRegistry?.register(sessionId, empty);
     return empty;
