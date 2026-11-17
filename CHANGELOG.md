@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.21.1] - 2026-11-18
+
+New sessions in Python projects open Claude reliably: launches now wait for the venv activation (or any other startup command) to finish instead of racing it, and slash commands and prompts typed into Claude are timed from its actual launch.
+
+See [docs/releases/v2.21.1.md](docs/releases/v2.21.1.md) for full details.
+
 ## [2.21.0] - 2026-10-30
 
 Rename a session in the sidebar and Claude Code renames it too — prompt box, /resume, terminal title — even mid-session; terminal tabs follow the session's name live; and Delete now really deletes a session from disk.
